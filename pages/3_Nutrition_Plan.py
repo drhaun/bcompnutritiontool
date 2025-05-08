@@ -126,10 +126,9 @@ fig, ax = plt.subplots(figsize=(6, 6))
 labels = [f'Protein ({protein_pct:.0f}%)', f'Carbs ({carb_pct:.0f}%)', f'Fat ({fat_pct:.0f}%)']
 sizes = [protein_pct, carb_pct, fat_pct]
 colors = ['#ff9999', '#66b3ff', '#99ff99']
-explode = (0.1, 0, 0)  # explode the protein slice
 
-ax.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%',
-       shadow=True, startangle=90)
+# Simplified pie chart without shadow and explode to avoid errors
+ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
 ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle
 plt.title("Macronutrient Ratio")
 

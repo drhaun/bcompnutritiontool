@@ -57,36 +57,37 @@ with st.form("daily_tracking_form"):
         weight_kg = weight_lbs / 2.20462
     
     with col2:
+        # Make sure all numeric values are of same type (float)
         calories = st.number_input(
             "Calories Consumed",
-            min_value=0,
-            max_value=10000,
-            value=st.session_state.nutrition_plan.get('target_calories', 2000),
-            step=50
+            min_value=0.0,
+            max_value=10000.0,
+            value=float(st.session_state.nutrition_plan.get('target_calories', 2000)),
+            step=50.0
         )
         
         protein = st.number_input(
             "Protein (g)",
-            min_value=0,
-            max_value=500,
-            value=st.session_state.nutrition_plan.get('target_protein', 100),
-            step=5
+            min_value=0.0,
+            max_value=500.0,
+            value=float(st.session_state.nutrition_plan.get('target_protein', 100)),
+            step=5.0
         )
         
         carbs = st.number_input(
             "Carbohydrates (g)",
-            min_value=0,
-            max_value=1000,
-            value=st.session_state.nutrition_plan.get('target_carbs', 200),
-            step=5
+            min_value=0.0,
+            max_value=1000.0,
+            value=float(st.session_state.nutrition_plan.get('target_carbs', 200)),
+            step=5.0
         )
         
         fat = st.number_input(
             "Fat (g)",
-            min_value=0,
-            max_value=500,
-            value=st.session_state.nutrition_plan.get('target_fat', 70),
-            step=5
+            min_value=0.0,
+            max_value=500.0,
+            value=float(st.session_state.nutrition_plan.get('target_fat', 70)),
+            step=5.0
         )
     
     # Check if macros add up to calories
@@ -143,7 +144,8 @@ if not st.session_state.daily_records.empty:
     st.subheader("Recent Entries")
     
     # Sort by date (newest first) and take most recent 10 entries
-    recent_data = st.session_state.daily_records.sort_values(by='date', ascending=False).head(10).copy()
+    recent_data = st.session_state.daily_records.copy()
+    recent_data = recent_data.sort_values(by=['date'], ascending=False).head(10)
     
     # Ensure weight_lbs exists (for backward compatibility)
     if 'weight_lbs' not in recent_data.columns:
@@ -202,7 +204,7 @@ if not st.session_state.daily_records.empty:
     # Get dates for selection
     dates = recent_data[['date', 'date_display']].copy()
     # Sort by date in descending order
-    dates = dates.sort_values('date', ascending=False)
+    dates = dates.sort_values(by=['date'], ascending=False)
     date_options = dates['date_display'].tolist()
     date_values = dates['date'].tolist()
     
@@ -308,17 +310,19 @@ if len(st.session_state.daily_records) >= 7:
     st.subheader("Weekly Analysis")
     
     # Get recent week of data
-    recent_data = st.session_state.daily_records.sort_values(by='date', ascending=False).head(7)
+    recent_week_data = st.session_state.daily_records.copy()
+    recent_week_data = recent_week_data.sort_values(by=['date'], ascending=False).head(7)
     
     # Calculate average adherence
-    avg_cal_adherence = 100 - min(abs(recent_data['calories'].mean() - st.session_state.nutrition_plan['target_calories']) / 
+    avg_cal_adherence = 100 - min(abs(recent_week_data['calories'].mean() - st.session_state.nutrition_plan['target_calories']) / 
                                  st.session_state.nutrition_plan['target_calories'] * 100, 100)
     
-    avg_protein_adherence = 100 - min(abs(recent_data['protein'].mean() - st.session_state.nutrition_plan['target_protein']) / 
+    avg_protein_adherence = 100 - min(abs(recent_week_data['protein'].mean() - st.session_state.nutrition_plan['target_protein']) / 
                                      st.session_state.nutrition_plan['target_protein'] * 100, 100)
     
     # Calculate weight change
-    sorted_weekly_data = recent_data.sort_values(by='date', ascending=True)
+    sorted_weekly_data = recent_week_data.copy()
+    sorted_weekly_data = sorted_weekly_data.sort_values(by=['date'], ascending=True)
     first_weight = sorted_weekly_data['weight_lbs'].iloc[0]
     last_weight = sorted_weekly_data['weight_lbs'].iloc[-1]
     weekly_weight_change = last_weight - first_weight
