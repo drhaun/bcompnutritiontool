@@ -202,14 +202,19 @@ with st.form("goal_setting_form"):
 if st.session_state.goal_info.get('target_weight_kg'):
     st.subheader("Current Body Composition Analysis")
     
-    # Calculate values
+    # Calculate values with safety checks
     current_weight_kg = st.session_state.user_info['weight_kg']
     target_weight_kg = st.session_state.goal_info['target_weight_kg']
     current_weight_lbs = current_weight_kg * 2.20462
     target_weight_lbs = target_weight_kg * 2.20462
     current_bf = st.session_state.user_info['body_fat_percentage']
     target_bf = st.session_state.goal_info['target_body_fat']
-    timeline_weeks = st.session_state.goal_info['timeline_weeks']
+    
+    # Add a default value for timeline_weeks if it's missing or NaN
+    timeline_weeks = st.session_state.goal_info.get('timeline_weeks', 12)
+    if pd.isna(timeline_weeks):
+        timeline_weeks = 12.0
+    
     height_cm = st.session_state.user_info['height_cm']
     height_m = height_cm / 100
     
@@ -296,9 +301,16 @@ if st.session_state.goal_info.get('target_weight_kg'):
     
     st.subheader("Expected Progress")
     
-    # Create a progress table
-    weeks = list(range(0, timeline_weeks + 1, 4))  # Show every 4 weeks
-    if weeks[-1] != timeline_weeks:  # Make sure the final week is included
+    # Create a progress table - use a simpler approach with step-based weeks
+    # Create weeks at 0, 4, 8, etc. and include the final week
+    weeks = []
+    week = 0
+    while week <= timeline_weeks:
+        weeks.append(week)
+        week += 4
+    
+    # Make sure the final week is included if it's not already
+    if timeline_weeks not in weeks:
         weeks.append(timeline_weeks)
     
     progress_data = []

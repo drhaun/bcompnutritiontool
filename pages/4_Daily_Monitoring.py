@@ -202,7 +202,7 @@ if not st.session_state.daily_records.empty:
     # Get dates for selection
     dates = recent_data[['date', 'date_display']].copy()
     # Sort by date in descending order
-    dates = dates.sort_values(by='date', ascending=False)
+    dates = dates.sort_values('date', ascending=False)
     date_options = dates['date_display'].tolist()
     date_values = dates['date'].tolist()
     
