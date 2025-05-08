@@ -118,9 +118,28 @@ with st.form("goal_setting_form"):
             step=1.0
         )
         
+        # Handle the start date, ensuring type safety
+        default_start_date = datetime.now().date()
+        
+        # Get the stored start date if available
+        stored_start_date = st.session_state.goal_info.get('start_date')
+        
+        if stored_start_date:
+            try:
+                # Try to convert it to a date if it's a string
+                if isinstance(stored_start_date, str):
+                    parsed_date = datetime.strptime(stored_start_date, '%Y-%m-%d').date()
+                else:
+                    # If it's not a string (maybe a float from a previous error), use default
+                    parsed_date = default_start_date
+            except (ValueError, TypeError):
+                parsed_date = default_start_date
+        else:
+            parsed_date = default_start_date
+            
         start_date = st.date_input(
             "Start Date",
-            value=datetime.strptime(st.session_state.goal_info.get('start_date', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d').date() if st.session_state.goal_info.get('start_date') else datetime.now().date()
+            value=parsed_date
         )
     
     submit_button = st.form_submit_button("Save and Continue")

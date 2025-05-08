@@ -143,7 +143,7 @@ if not st.session_state.daily_records.empty:
     st.subheader("Recent Entries")
     
     # Sort by date (newest first) and take most recent 10 entries
-    recent_data = st.session_state.daily_records.sort_values('date', ascending=False).head(10).copy()
+    recent_data = st.session_state.daily_records.sort_values(by='date', ascending=False).head(10).copy()
     
     # Ensure weight_lbs exists (for backward compatibility)
     if 'weight_lbs' not in recent_data.columns:
@@ -201,7 +201,8 @@ if not st.session_state.daily_records.empty:
     
     # Get dates for selection
     dates = recent_data[['date', 'date_display']].copy()
-    dates = dates.sort_values('date', ascending=False)
+    # Sort by date in descending order
+    dates = dates.sort_values(by='date', ascending=False)
     date_options = dates['date_display'].tolist()
     date_values = dates['date'].tolist()
     
@@ -307,7 +308,7 @@ if len(st.session_state.daily_records) >= 7:
     st.subheader("Weekly Analysis")
     
     # Get recent week of data
-    recent_data = st.session_state.daily_records.sort_values('date', ascending=False).head(7)
+    recent_data = st.session_state.daily_records.sort_values(by='date', ascending=False).head(7)
     
     # Calculate average adherence
     avg_cal_adherence = 100 - min(abs(recent_data['calories'].mean() - st.session_state.nutrition_plan['target_calories']) / 
@@ -317,8 +318,9 @@ if len(st.session_state.daily_records) >= 7:
                                      st.session_state.nutrition_plan['target_protein'] * 100, 100)
     
     # Calculate weight change
-    first_weight = recent_data.sort_values('date')['weight_lbs'].iloc[0]
-    last_weight = recent_data.sort_values('date')['weight_lbs'].iloc[-1]
+    sorted_weekly_data = recent_data.sort_values(by='date', ascending=True)
+    first_weight = sorted_weekly_data['weight_lbs'].iloc[0]
+    last_weight = sorted_weekly_data['weight_lbs'].iloc[-1]
     weekly_weight_change = last_weight - first_weight
     
     col1, col2, col3 = st.columns(3)
