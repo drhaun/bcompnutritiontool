@@ -16,19 +16,49 @@ def calculate_bmr(gender, weight_kg, height_cm, age):
 def get_activity_multiplier(activity_level):
     """Return activity multiplier based on activity level"""
     multipliers = {
+        # Original activity levels
         "Sedentary (office job, <2 hours exercise per week)": 1.2,
         "Lightly Active (light exercise 2-3 times per week)": 1.375,
         "Moderately Active (moderate exercise 3-5 times per week)": 1.55,
         "Very Active (hard exercise 6-7 times per week)": 1.725,
-        "Extremely Active (very hard exercise, physical job or training twice a day)": 1.9
+        "Extremely Active (very hard exercise, physical job or training twice a day)": 1.9,
+        
+        # New activity levels
+        "Sedentary (0-5k steps/day)": 1.2,
+        "Light Active (5-10k steps/day)": 1.375,
+        "Active (10-15k steps/day)": 1.55,
+        "Labor Intensive (>15k steps/day)": 1.725
     }
     return multipliers.get(activity_level, 1.2)
 
-def calculate_tdee(gender, weight_kg, height_cm, age, activity_level):
-    """Calculate Total Daily Energy Expenditure"""
+def calculate_tdee(gender, weight_kg, height_cm, age, activity_level, workouts_per_week=0, workout_calories=0):
+    """
+    Calculate Total Daily Energy Expenditure
+    
+    Parameters:
+    gender (str): "Male" or "Female"
+    weight_kg (float): Weight in kilograms
+    height_cm (float): Height in centimeters
+    age (int): Age in years
+    activity_level (str): Activity level descriptor
+    workouts_per_week (int, optional): Number of workouts per week
+    workout_calories (int, optional): Average calories burned per workout
+    
+    Returns:
+    float: TDEE in calories
+    """
     bmr = calculate_bmr(gender, weight_kg, height_cm, age)
     activity_multiplier = get_activity_multiplier(activity_level)
-    return bmr * activity_multiplier
+    
+    # Calculate base TDEE from BMR and activity level
+    base_tdee = bmr * activity_multiplier
+    
+    # Add workout calories if provided
+    if workouts_per_week and workout_calories:
+        daily_workout_calories = (workouts_per_week * workout_calories) / 7
+        return base_tdee + daily_workout_calories
+    
+    return base_tdee
 
 def calculate_target_calories(tdee, goal_type, weekly_change_kg=0.5):
     """Calculate target calories based on goal"""
@@ -188,45 +218,84 @@ def calculate_weekly_adjustment(actual_data, goal_info, nutrition_plan):
         'fat_adjustment': round(fat_adjustment)
     }
 
-def plot_weight_trend(data, goal_info):
-    """Create a plot showing weight trend against target"""
+def plot_weight_trend(data, goal_info, use_pounds=True):
+    """
+    Create a plot showing weight trend against target
+    
+    Parameters:
+    data (DataFrame): Daily tracking data
+    goal_info (dict): User's goals
+    use_pounds (bool): If True, display weight in pounds, otherwise kg
+    
+    Returns:
+    matplotlib.figure.Figure: Weight trend plot
+    """
     if data.empty or 'date' not in data.columns:
         return None
     
     fig, ax = plt.subplots(figsize=(10, 6))
     
     # Convert date column to datetime if it's not already
+    data = data.copy()  # Make a copy to avoid modifying original
     data['date'] = pd.to_datetime(data['date'])
+    
+    # Ensure weight_lbs exists if needed (for backward compatibility)
+    if use_pounds and 'weight_lbs' not in data.columns:
+        data['weight_lbs'] = data['weight_kg'] * 2.20462
     
     # Sort by date
     plot_data = data.sort_values('date')
     
+    # Determine which weight column to use
+    weight_col = 'weight_lbs' if use_pounds else 'weight_kg'
+    weight_unit = 'lbs' if use_pounds else 'kg'
+    
     # Plot actual weight data
-    ax.plot(plot_data['date'], plot_data['weight_kg'], 'o-', label='Actual Weight')
+    ax.plot(plot_data['date'], plot_data[weight_col], 'o-', label='Actual Weight')
     
     # If goal info is available, plot projected weight line
-    if (goal_info['start_date'] and goal_info['target_weight_kg'] and 
-        goal_info['timeline_weeks']):
+    start_date_str = goal_info.get('start_date')
+    target_weight_kg = goal_info.get('target_weight_kg')
+    target_weight_lbs = goal_info.get('target_weight_lbs')
+    timeline_weeks = goal_info.get('timeline_weeks')
+    
+    if start_date_str and timeline_weeks:
+        # Get target weight in the correct unit
+        if use_pounds:
+            target_weight = target_weight_lbs if target_weight_lbs else (target_weight_kg * 2.20462 if target_weight_kg else None)
+        else:
+            target_weight = target_weight_kg if target_weight_kg else (target_weight_lbs / 2.20462 if target_weight_lbs else None)
         
-        start_date = pd.to_datetime(goal_info['start_date'])
-        start_weight = plot_data.loc[plot_data['date'] >= start_date, 'weight_kg'].iloc[0] if not plot_data.empty else goal_info.get('weight_kg', 0)
-        target_weight = goal_info['target_weight_kg']
-        end_date = start_date + timedelta(days=goal_info['timeline_weeks'] * 7)
-        
-        # Create projected weight line
-        date_range = pd.date_range(start=start_date, end=end_date, freq='D')
-        weight_diff = target_weight - start_weight
-        daily_change = weight_diff / len(date_range)
-        projected_weights = [start_weight + (i * daily_change) for i in range(len(date_range))]
-        
-        # Plot projected weight
-        ax.plot(date_range, projected_weights, '--', label='Target Trajectory', color='green')
-        
-        # Plot target point
-        ax.plot(end_date, target_weight, 'D', label='Goal', color='green', markersize=8)
+        if target_weight:
+            start_date = pd.to_datetime(start_date_str)
+            
+            # Get starting weight from data that is after start date
+            plot_data_after_start = plot_data[plot_data['date'] >= start_date]
+            if not plot_data_after_start.empty:
+                start_weight = plot_data_after_start[weight_col].iloc[0]
+            else:
+                # Fall back to current weight in user_info
+                if use_pounds:
+                    start_weight = goal_info.get('weight_lbs', plot_data[weight_col].iloc[0] if not plot_data.empty else 0)
+                else:
+                    start_weight = goal_info.get('weight_kg', plot_data[weight_col].iloc[0] if not plot_data.empty else 0)
+            
+            end_date = start_date + timedelta(days=timeline_weeks * 7)
+            
+            # Create projected weight line
+            date_range = pd.date_range(start=start_date, end=end_date, freq='D')
+            weight_diff = target_weight - start_weight
+            daily_change = weight_diff / len(date_range)
+            projected_weights = [start_weight + (i * daily_change) for i in range(len(date_range))]
+            
+            # Plot projected weight
+            ax.plot(date_range, projected_weights, '--', label='Target Trajectory', color='green')
+            
+            # Plot target point
+            ax.plot(end_date, target_weight, 'D', label='Goal', color='green', markersize=8)
     
     ax.set_xlabel('Date')
-    ax.set_ylabel('Weight (kg)')
+    ax.set_ylabel(f'Weight ({weight_unit})')
     ax.set_title('Weight Trend vs. Target')
     ax.grid(True, linestyle='--', alpha=0.7)
     ax.legend()

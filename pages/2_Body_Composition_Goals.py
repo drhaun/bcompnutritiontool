@@ -32,10 +32,35 @@ with st.form("goal_setting_form"):
     st.subheader("Set Your Goals")
     
     # Current weight and body fat from user info
-    current_weight = st.session_state.user_info['weight_kg']
+    current_weight_kg = st.session_state.user_info['weight_kg']
+    current_weight_lbs = st.session_state.user_info.get('weight_lbs', current_weight_kg * 2.20462)
     current_bf = st.session_state.user_info['body_fat_percentage']
     
-    st.info(f"Current Weight: {current_weight} kg | Current Body Fat: {current_bf}%")
+    st.info(f"Current Weight: {current_weight_lbs:.1f} lbs ({current_weight_kg:.1f} kg) | Current Body Fat: {current_bf}%")
+    
+    # Get goal type from Initial Setup if available, otherwise offer selection
+    initial_goal_focus = st.session_state.user_info.get('goal_focus')
+    
+    # If goal_type exists in goal_info, use that, otherwise use goal_focus from user_info
+    stored_goal_type = st.session_state.goal_info.get('goal_type')
+    
+    if stored_goal_type:
+        # Map internal code to display name
+        if stored_goal_type == "lose_fat":
+            initial_goal_index = 0  # "Lose fat"
+        elif stored_goal_type == "gain_muscle":
+            initial_goal_index = 1  # "Build muscle" / "Gain muscle"
+        else:
+            initial_goal_index = 2  # "Maintain current composition"
+    elif initial_goal_focus:
+        if initial_goal_focus == "Lose fat":
+            initial_goal_index = 0
+        elif initial_goal_focus == "Build muscle":
+            initial_goal_index = 1
+        else:
+            initial_goal_index = 2
+    else:
+        initial_goal_index = 0  # Default to "Lose fat"
     
     col1, col2 = st.columns(2)
     
@@ -43,22 +68,36 @@ with st.form("goal_setting_form"):
         goal_type = st.radio(
             "What is your primary goal?",
             options=["Lose fat", "Gain muscle", "Maintain current composition"],
-            index=0 if st.session_state.goal_info.get('goal_type') == "lose_fat" else 
-                  1 if st.session_state.goal_info.get('goal_type') == "gain_muscle" else
-                  2 if st.session_state.goal_info.get('goal_type') == "maintain" else 0
+            index=initial_goal_index
         )
         
         # Convert the display name to the internal code
         goal_type_code = "lose_fat" if goal_type == "Lose fat" else "gain_muscle" if goal_type == "Gain muscle" else "maintain"
         
-        target_weight = st.number_input(
-            "Target Weight (kg)",
-            min_value=30.0,
-            max_value=300.0,
-            value=st.session_state.goal_info.get('target_weight_kg', current_weight * 0.9 if goal_type == "Lose fat" else current_weight * 1.1 if goal_type == "Gain muscle" else current_weight),
-            step=0.1,
+        # Default target weight based on goal type (in pounds)
+        default_target_weight_lbs = 0
+        if goal_type == "Lose fat":
+            default_target_weight_lbs = current_weight_lbs * 0.9
+        elif goal_type == "Gain muscle":
+            default_target_weight_lbs = current_weight_lbs * 1.05
+        else:  # maintain
+            default_target_weight_lbs = current_weight_lbs
+        
+        # Convert stored target weight to pounds if it exists
+        stored_target_weight_kg = st.session_state.goal_info.get('target_weight_kg')
+        stored_target_weight_lbs = stored_target_weight_kg * 2.20462 if stored_target_weight_kg else default_target_weight_lbs
+        
+        target_weight_lbs = st.number_input(
+            "Target Weight (lbs)",
+            min_value=66.0,
+            max_value=660.0,
+            value=stored_target_weight_lbs,
+            step=0.5,
             format="%.1f"
         )
+        
+        # Convert to kg for backend calculations
+        target_weight_kg = target_weight_lbs / 2.20462
     
     with col2:
         target_bf = st.number_input(
@@ -87,25 +126,27 @@ with st.form("goal_setting_form"):
     
     if submit_button:
         # Calculate expected weekly change
-        weight_change = target_weight - current_weight
-        weekly_change = weight_change / timeline_weeks
+        weight_change_kg = target_weight_kg - current_weight_kg
+        weight_change_lbs = target_weight_lbs - current_weight_lbs
+        weekly_change_kg = weight_change_kg / timeline_weeks
+        weekly_change_lbs = weight_change_lbs / timeline_weeks
         weekly_bf_change = (target_bf - current_bf) / timeline_weeks
         
         # Validate goal feasibility
         is_goal_feasible = True
         warning_message = ""
         
-        if goal_type == "Lose fat" and weekly_change > -0.1:
-            warning_message = "For fat loss, aim to lose at least 0.1 kg per week."
+        if goal_type == "Lose fat" and weekly_change_kg > -0.1:
+            warning_message = "For fat loss, aim to lose at least 0.2 lbs (0.1 kg) per week."
             is_goal_feasible = False
-        elif goal_type == "Lose fat" and weekly_change < -1.0:
-            warning_message = "Weight loss faster than 1 kg per week is not recommended for most people."
+        elif goal_type == "Lose fat" and weekly_change_kg < -1.0:
+            warning_message = "Weight loss faster than 2.2 lbs (1 kg) per week is not recommended for most people."
             is_goal_feasible = False
-        elif goal_type == "Gain muscle" and weekly_change < 0.1:
-            warning_message = "For muscle gain, aim to gain at least 0.1 kg per week."
+        elif goal_type == "Gain muscle" and weekly_change_kg < 0.1:
+            warning_message = "For muscle gain, aim to gain at least 0.2 lbs (0.1 kg) per week."
             is_goal_feasible = False
-        elif goal_type == "Gain muscle" and weekly_change > 0.5:
-            warning_message = "Weight gain faster than 0.5 kg per week may lead to excessive fat gain."
+        elif goal_type == "Gain muscle" and weekly_change_kg > 0.5:
+            warning_message = "Weight gain faster than 1.1 lbs (0.5 kg) per week may lead to excessive fat gain."
             is_goal_feasible = False
         
         if not is_goal_feasible:
@@ -114,7 +155,8 @@ with st.form("goal_setting_form"):
             # Update session state
             st.session_state.goal_info = {
                 'goal_type': goal_type_code,
-                'target_weight_kg': target_weight,
+                'target_weight_kg': target_weight_kg,
+                'target_weight_lbs': target_weight_lbs,
                 'target_body_fat': target_bf,
                 'timeline_weeks': timeline_weeks,
                 'start_date': start_date.strftime('%Y-%m-%d')
@@ -131,7 +173,7 @@ with st.form("goal_setting_form"):
             st.info(f"""
             Goal Summary:
             - Goal Type: {goal_type}
-            - Weight Change: {weight_change:.1f} kg ({weekly_change:.2f} kg/week)
+            - Weight Change: {weight_change_lbs:.1f} lbs ({weight_change_kg:.1f} kg) ({weekly_change_lbs:.1f} lbs/week)
             - Body Fat Change: {target_bf - current_bf:.1f}% ({weekly_bf_change:.2f}%/week)
             - Timeline: {timeline_weeks} weeks (from {start_date} to {end_date})
             """)
@@ -141,20 +183,23 @@ if st.session_state.goal_info.get('target_weight_kg'):
     st.subheader("Expected Progress")
     
     # Calculate values
-    current_weight = st.session_state.user_info['weight_kg']
-    target_weight = st.session_state.goal_info['target_weight_kg']
+    current_weight_kg = st.session_state.user_info['weight_kg']
+    target_weight_kg = st.session_state.goal_info['target_weight_kg']
+    current_weight_lbs = current_weight_kg * 2.20462
+    target_weight_lbs = target_weight_kg * 2.20462
     current_bf = st.session_state.user_info['body_fat_percentage']
     target_bf = st.session_state.goal_info['target_body_fat']
     timeline_weeks = st.session_state.goal_info['timeline_weeks']
     
     # Calculate weekly changes
-    weekly_weight_change = (target_weight - current_weight) / timeline_weeks
+    weekly_weight_change_kg = (target_weight_kg - current_weight_kg) / timeline_weeks
+    weekly_weight_change_lbs = (target_weight_lbs - current_weight_lbs) / timeline_weeks
     weekly_bf_change = (target_bf - current_bf) / timeline_weeks
     
     # Calculate lean body mass changes
-    current_lbm = current_weight * (1 - current_bf/100)
-    target_lbm = target_weight * (1 - target_bf/100)
-    lbm_change = target_lbm - current_lbm
+    current_lbm_kg = current_weight_kg * (1 - current_bf/100)
+    target_lbm_kg = target_weight_kg * (1 - target_bf/100)
+    lbm_change_kg = target_lbm_kg - current_lbm_kg
     
     # Create a progress table
     weeks = list(range(0, timeline_weeks + 1, 4))  # Show every 4 weeks
@@ -164,17 +209,20 @@ if st.session_state.goal_info.get('target_weight_kg'):
     progress_data = []
     
     for week in weeks:
-        expected_weight = current_weight + (weekly_weight_change * week)
+        expected_weight_kg = current_weight_kg + (weekly_weight_change_kg * week)
+        expected_weight_lbs = expected_weight_kg * 2.20462
         expected_bf = current_bf + (weekly_bf_change * week)
-        expected_lbm = expected_weight * (1 - expected_bf/100)
-        expected_fat_mass = expected_weight * (expected_bf/100)
+        expected_lbm_kg = expected_weight_kg * (1 - expected_bf/100)
+        expected_lbm_lbs = expected_lbm_kg * 2.20462
+        expected_fat_mass_kg = expected_weight_kg * (expected_bf/100)
+        expected_fat_mass_lbs = expected_fat_mass_kg * 2.20462
         
         progress_data.append({
             'Week': week,
-            'Weight (kg)': f"{expected_weight:.1f}",
+            'Weight (lbs)': f"{expected_weight_lbs:.1f}",
             'Body Fat (%)': f"{expected_bf:.1f}",
-            'Lean Mass (kg)': f"{expected_lbm:.1f}",
-            'Fat Mass (kg)': f"{expected_fat_mass:.1f}"
+            'Lean Mass (lbs)': f"{expected_lbm_lbs:.1f}",
+            'Fat Mass (lbs)': f"{expected_fat_mass_lbs:.1f}"
         })
     
     progress_df = pd.DataFrame(progress_data)
@@ -183,16 +231,71 @@ if st.session_state.goal_info.get('target_weight_kg'):
     # Display some insights about the goal
     st.subheader("Goal Insights")
     
-    if lbm_change > 0:
-        st.success(f"Your plan aims to build approximately {lbm_change:.1f} kg of lean body mass.")
-    elif lbm_change < 0:
-        st.warning(f"Your plan will result in approximately {abs(lbm_change):.1f} kg loss of lean body mass. Consider increasing protein intake and resistance training to minimize muscle loss.")
+    lbm_change_lbs = lbm_change_kg * 2.20462
     
-    fat_mass_change = (target_weight * target_bf/100) - (current_weight * current_bf/100)
-    if fat_mass_change < 0:
-        st.success(f"Your plan aims to lose approximately {abs(fat_mass_change):.1f} kg of fat mass.")
-    elif fat_mass_change > 0:
-        st.warning(f"Your plan will result in approximately {fat_mass_change:.1f} kg gain of fat mass. If this is not intended, consider adjusting your goals.")
+    if lbm_change_kg > 0:
+        st.success(f"Your plan aims to build approximately {lbm_change_lbs:.1f} lbs ({lbm_change_kg:.1f} kg) of lean body mass.")
+    elif lbm_change_kg < 0:
+        st.warning(f"Your plan will result in approximately {abs(lbm_change_lbs):.1f} lbs ({abs(lbm_change_kg):.1f} kg) loss of lean body mass. Consider increasing protein intake and resistance training to minimize muscle loss.")
+    
+    fat_mass_change_kg = (target_weight_kg * target_bf/100) - (current_weight_kg * current_bf/100)
+    fat_mass_change_lbs = fat_mass_change_kg * 2.20462
+    
+    if fat_mass_change_kg < 0:
+        st.success(f"Your plan aims to lose approximately {abs(fat_mass_change_lbs):.1f} lbs ({abs(fat_mass_change_kg):.1f} kg) of fat mass.")
+    elif fat_mass_change_kg > 0:
+        st.warning(f"Your plan will result in approximately {fat_mass_change_lbs:.1f} lbs ({fat_mass_change_kg:.1f} kg) gain of fat mass. If this is not intended, consider adjusting your goals.")
+
+    # Display user preferences from Initial Setup
+    body_comp_preference = st.session_state.user_info.get('body_comp_preference')
+    performance_preference = st.session_state.user_info.get('performance_preference')
+    commitment_level = st.session_state.user_info.get('commitment_level')
+    
+    if body_comp_preference and performance_preference and commitment_level:
+        st.subheader("Your Goal Preferences")
+        
+        st.write(f"**Body Composition Preference:** {body_comp_preference}")
+        st.write(f"**Performance & Recovery Priority:** {performance_preference}")
+        
+        commitment_level_map = {
+            "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently.": "High",
+            "I can commit to at least a few workouts per week and will try to ensure I prioritize sufficient sleep. I will also try to eat mindfully according to my goals, but I'm not certain I'll be able to do all that's required to maximize my progress during this phase.": "Medium",
+            "I can't commit to consistently perform 3 or more workouts per week or achieve adequate sleep levels. I'm also not willing to regularly track my nutrition and bodyweight.": "Low"
+        }
+        
+        commitment_level_display = commitment_level_map.get(commitment_level, "Medium")
+        st.write(f"**Commitment Level:** {commitment_level_display}")
+        
+        # Add some personalized recommendations based on commitment level
+        st.subheader("Personalized Recommendations")
+        
+        if commitment_level_display == "High":
+            st.write("""
+            Based on your high commitment level:
+            - Track daily calorie and macronutrient intake using the Daily Monitoring page
+            - Weigh yourself consistently (same time, same conditions) 3-7 times per week
+            - Adjust your nutrition plan weekly based on the recommendations in the Progress Dashboard
+            - Maintain a regular resistance training program at least 4 days per week
+            - Prioritize 7-9 hours of quality sleep each night
+            """)
+        elif commitment_level_display == "Medium":
+            st.write("""
+            Based on your medium commitment level:
+            - Track your nutrition at least 4 days per week, including weekends
+            - Weigh yourself at least twice weekly (same conditions) to monitor trends
+            - Try to maintain 2-3 resistance training sessions weekly
+            - Focus on protein intake and overall calorie targets as your main priorities
+            - Aim for 7+ hours of sleep when possible
+            """)
+        else:  # Low
+            st.write("""
+            Based on your lower commitment level:
+            - Focus on simple habits that don't require constant tracking
+            - Weigh yourself once a week to keep awareness of trends
+            - Prioritize protein intake at each meal (aim for a portion the size of your palm)
+            - Try to include some form of resistance exercise when possible
+            - Set realistic expectations for progress given your current constraints
+            """)
 
 # Show navigation hint
 st.markdown("---")
