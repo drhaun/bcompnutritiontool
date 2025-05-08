@@ -192,7 +192,7 @@ if not st.session_state.daily_records.empty:
     ]
     
     # Format weight to one decimal place
-    display_data['Weight (lbs)'] = display_data['Weight (lbs)'].map('{:.1f}'.format)
+    display_data['Weight (lbs)'] = [f"{x:.1f}" for x in display_data['Weight (lbs)']]
     
     st.dataframe(display_data, use_container_width=True)
     
@@ -201,7 +201,7 @@ if not st.session_state.daily_records.empty:
     
     # Get dates for selection
     dates = recent_data[['date', 'date_display']].copy()
-    dates = dates.sort_values(by='date', ascending=False)
+    dates = dates.sort_values(by=['date'], ascending=[False])
     date_options = dates['date_display'].tolist()
     date_values = dates['date'].tolist()
     
