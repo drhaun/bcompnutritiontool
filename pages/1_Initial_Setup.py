@@ -82,19 +82,35 @@ with st.form("user_info_form"):
             format="%.1f"
         )
         
+        # Define activity level options
+        activity_options = [
+            "Sedentary (0-5k steps/day)",
+            "Light Active (5-10k steps/day)",
+            "Active (10-15k steps/day)",
+            "Labor Intensive (>15k steps/day)"
+        ]
+        
+        # Determine the selected index, handling legacy activity level values
+        current_activity = st.session_state.user_info.get('activity_level')
+        if current_activity is None:
+            selected_index = 0
+        elif current_activity in activity_options:
+            selected_index = activity_options.index(current_activity)
+        else:
+            # Handle legacy activity levels by mapping them to new options
+            legacy_mapping = {
+                "Sedentary (office job, <2 hours exercise per week)": 0,
+                "Lightly Active (light exercise 2-3 times per week)": 1, 
+                "Moderately Active (moderate exercise 3-5 times per week)": 2,
+                "Very Active (hard exercise 6-7 times per week)": 3,
+                "Extremely Active (very hard exercise, physical job or training twice a day)": 3
+            }
+            selected_index = legacy_mapping.get(current_activity, 0)
+        
         activity_level = st.selectbox(
             "Select Physical Activity Level Outside of Workouts",
-            options=[
-                "Sedentary (0-5k steps/day)",
-                "Light Active (5-10k steps/day)",
-                "Active (10-15k steps/day)",
-                "Labor Intensive (>15k steps/day)"
-            ],
-            index=0 if st.session_state.user_info.get('activity_level') is None else 
-                  min(["Sedentary (0-5k steps/day)",
-                       "Light Active (5-10k steps/day)",
-                       "Active (10-15k steps/day)",
-                       "Labor Intensive (>15k steps/day)"].index(st.session_state.user_info.get('activity_level')), 3)
+            options=activity_options,
+            index=selected_index
         )
         
         workouts_per_week = st.number_input(

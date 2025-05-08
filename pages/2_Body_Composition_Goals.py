@@ -109,12 +109,13 @@ with st.form("goal_setting_form"):
             format="%.1f"
         )
         
+        # Make sure all values are of the same type (float)
         timeline_weeks = st.number_input(
             "Timeline (weeks)",
-            min_value=4,
-            max_value=52,
-            value=st.session_state.goal_info.get('timeline_weeks', 12),
-            step=1
+            min_value=4.0,
+            max_value=52.0,
+            value=float(st.session_state.goal_info.get('timeline_weeks', 12)),
+            step=1.0
         )
         
         start_date = st.date_input(
@@ -180,7 +181,7 @@ with st.form("goal_setting_form"):
 
 # Display expected progress if goals have been set
 if st.session_state.goal_info.get('target_weight_kg'):
-    st.subheader("Expected Progress")
+    st.subheader("Current Body Composition Analysis")
     
     # Calculate values
     current_weight_kg = st.session_state.user_info['weight_kg']
@@ -190,6 +191,8 @@ if st.session_state.goal_info.get('target_weight_kg'):
     current_bf = st.session_state.user_info['body_fat_percentage']
     target_bf = st.session_state.goal_info['target_body_fat']
     timeline_weeks = st.session_state.goal_info['timeline_weeks']
+    height_cm = st.session_state.user_info['height_cm']
+    height_m = height_cm / 100
     
     # Calculate weekly changes
     weekly_weight_change_kg = (target_weight_kg - current_weight_kg) / timeline_weeks
@@ -200,6 +203,79 @@ if st.session_state.goal_info.get('target_weight_kg'):
     current_lbm_kg = current_weight_kg * (1 - current_bf/100)
     target_lbm_kg = target_weight_kg * (1 - target_bf/100)
     lbm_change_kg = target_lbm_kg - current_lbm_kg
+    
+    # Calculate Fat Mass and Fat-Free Mass Indices
+    current_fat_mass_kg = current_weight_kg * (current_bf/100)
+    current_fat_free_mass_kg = current_weight_kg - current_fat_mass_kg
+    
+    fat_mass_index = current_fat_mass_kg / (height_m * height_m)
+    fat_free_mass_index = current_fat_free_mass_kg / (height_m * height_m)
+    
+    # Display the indices
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Fat Mass Index (FMI)")
+        st.metric("Your FMI", f"{fat_mass_index:.1f} kg/m²")
+        
+        # FMI categories
+        fmi_categories = [
+            {"name": "Extremely Lean", "lower": 2, "upper": 3},
+            {"name": "Lean", "lower": 3.1, "upper": 5.2},
+            {"name": "Considered Healthy", "lower": 5.3, "upper": 7.2},
+            {"name": "Slightly Overfat", "lower": 7.3, "upper": 9.1},
+            {"name": "Overfat", "lower": 9.2, "upper": 12.9},
+            {"name": "Significantly Overfat", "lower": 13, "upper": 35}
+        ]
+        
+        # Find user's category
+        user_fmi_category = "Unknown"
+        for category in fmi_categories:
+            if category["lower"] <= fat_mass_index <= category["upper"]:
+                user_fmi_category = category["name"]
+                break
+        
+        st.success(f"Category: **{user_fmi_category}**")
+        
+        # Display all categories
+        st.write("**Fat Mass Index Categories:**")
+        for category in fmi_categories:
+            if user_fmi_category == category["name"]:
+                st.markdown(f"- **{category['name']}**: {category['lower']} - {category['upper']} kg/m² ← **You are here**")
+            else:
+                st.markdown(f"- {category['name']}: {category['lower']} - {category['upper']} kg/m²")
+    
+    with col2:
+        st.subheader("Fat-Free Mass Index (FFMI)")
+        st.metric("Your FFMI", f"{fat_free_mass_index:.1f} kg/m²")
+        
+        # FFMI categories
+        ffmi_categories = [
+            {"name": "Undermuscled", "lower": 8, "upper": 16},
+            {"name": "Moderately Undermuscled", "lower": 16.1, "upper": 17.8},
+            {"name": "Considered Healthy", "lower": 17.9, "upper": 22},
+            {"name": "Muscular", "lower": 22.1, "upper": 25},
+            {"name": "High", "lower": 25.1, "upper": 35}
+        ]
+        
+        # Find user's category
+        user_ffmi_category = "Unknown"
+        for category in ffmi_categories:
+            if category["lower"] <= fat_free_mass_index <= category["upper"]:
+                user_ffmi_category = category["name"]
+                break
+        
+        st.success(f"Category: **{user_ffmi_category}**")
+        
+        # Display all categories
+        st.write("**Fat-Free Mass Index Categories:**")
+        for category in ffmi_categories:
+            if user_ffmi_category == category["name"]:
+                st.markdown(f"- **{category['name']}**: {category['lower']} - {category['upper']} kg/m² ← **You are here**")
+            else:
+                st.markdown(f"- {category['name']}: {category['lower']} - {category['upper']} kg/m²")
+    
+    st.subheader("Expected Progress")
     
     # Create a progress table
     weeks = list(range(0, timeline_weeks + 1, 4))  # Show every 4 weeks
@@ -245,6 +321,56 @@ if st.session_state.goal_info.get('target_weight_kg'):
         st.success(f"Your plan aims to lose approximately {abs(fat_mass_change_lbs):.1f} lbs ({abs(fat_mass_change_kg):.1f} kg) of fat mass.")
     elif fat_mass_change_kg > 0:
         st.warning(f"Your plan will result in approximately {fat_mass_change_lbs:.1f} lbs ({fat_mass_change_kg:.1f} kg) gain of fat mass. If this is not intended, consider adjusting your goals.")
+    
+    # Calculate target indices
+    target_fat_mass_kg = target_weight_kg * (target_bf/100)
+    target_fat_free_mass_kg = target_weight_kg - target_fat_mass_kg
+    
+    target_fmi = target_fat_mass_kg / (height_m * height_m)
+    target_ffmi = target_fat_free_mass_kg / (height_m * height_m)
+    
+    # Display body composition index changes
+    st.subheader("Body Composition Index Changes")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**Fat Mass Index (FMI)**")
+        fmi_delta = target_fmi - fat_mass_index
+        st.metric(
+            label="Current → Target", 
+            value=f"{fat_mass_index:.1f} → {target_fmi:.1f} kg/m²",
+            delta=f"{fmi_delta:.1f} kg/m²",
+            delta_color="inverse"  # Inverse because lower FMI is usually better
+        )
+        
+        # Find target FMI category
+        target_fmi_category = "Unknown"
+        for category in fmi_categories:
+            if category["lower"] <= target_fmi <= category["upper"]:
+                target_fmi_category = category["name"]
+                break
+                
+        st.write(f"Target Category: **{target_fmi_category}**")
+    
+    with col2:
+        st.write("**Fat-Free Mass Index (FFMI)**")
+        ffmi_delta = target_ffmi - fat_free_mass_index
+        st.metric(
+            label="Current → Target", 
+            value=f"{fat_free_mass_index:.1f} → {target_ffmi:.1f} kg/m²",
+            delta=f"{ffmi_delta:.1f} kg/m²",
+            delta_color="normal"  # Normal because higher FFMI is usually better
+        )
+        
+        # Find target FFMI category
+        target_ffmi_category = "Unknown"
+        for category in ffmi_categories:
+            if category["lower"] <= target_ffmi <= category["upper"]:
+                target_ffmi_category = category["name"]
+                break
+                
+        st.write(f"Target Category: **{target_ffmi_category}**")
 
     # Display user preferences from Initial Setup
     body_comp_preference = st.session_state.user_info.get('body_comp_preference')
