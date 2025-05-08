@@ -83,31 +83,189 @@ with st.form("goal_setting_form"):
         else:  # maintain
             default_target_weight_lbs = current_weight_lbs
         
-        # Convert stored target weight to pounds if it exists
-        stored_target_weight_kg = st.session_state.goal_info.get('target_weight_kg')
-        stored_target_weight_lbs = stored_target_weight_kg * 2.20462 if stored_target_weight_kg else default_target_weight_lbs
-        
-        target_weight_lbs = st.number_input(
-            "Target Weight (lbs)",
-            min_value=66.0,
-            max_value=660.0,
-            value=stored_target_weight_lbs,
-            step=0.5,
-            format="%.1f"
-        )
-        
-        # Convert to kg for backend calculations
-        target_weight_kg = target_weight_lbs / 2.20462
-    
-    with col2:
-        target_bf = st.number_input(
-            "Target Body Fat (%)",
-            min_value=3.0,
-            max_value=50.0,
-            value=st.session_state.goal_info.get('target_body_fat', current_bf * 0.8 if goal_type == "Lose fat" else max(current_bf * 0.9, 8.0) if goal_type == "Gain muscle" else current_bf),
-            step=0.1,
-            format="%.1f"
-        )
+        # Display appropriate guidance based on goal type
+        if goal_type == "Lose fat":
+            # Calculate current fat mass
+            current_fat_mass_kg = current_weight_kg * (current_bf/100)
+            current_fat_mass_lbs = current_fat_mass_kg * 2.20462
+            current_fat_free_mass_kg = current_weight_kg - current_fat_mass_kg
+            current_fat_free_mass_lbs = current_fat_free_mass_kg * 2.20462
+            
+            st.info("""
+            **Fat Loss Guidelines:**
+            - A healthy fat loss rate is generally 0.5-1% of body weight per week
+            - It is recommended to target no more than 2 lbs of fat loss per week
+            - Maximum suggested target is 25 lbs of fat mass loss in an 8-12 week period
+            - Slower rates (0.25-0.5% per week) are better for preserving muscle and performance
+            """)
+            
+            # Weight loss rate tables
+            st.write("#### Weight Loss Rate Reference")
+            
+            weight_loss_rate_df = pd.DataFrame({
+                'Percentage of Weight Loss Per Week': ['0.25%', '0.50%', '0.75%', '1.00%', '1.25%'],
+                'Description': [
+                    'Slowest suggested rate of loss with intent to minimize performance and recovery decrements and loss of muscle mass.',
+                    'A moderate rate of loss with intent to minimize performance and recovery decrements and loss of muscle mass.',
+                    'A fast rate of loss with a higher risk of performance and recovery impairment and loss of muscle mass.',
+                    'This is an aggressive rate of loss with performance and recovery impairments more probable.',
+                    'This is a very aggressive rate of loss with a higher probability of impairments in performance, recovery, mood, and loss of muscle mass.'
+                ]
+            })
+            
+            st.table(weight_loss_rate_df)
+            
+            # Weight loss composition table
+            st.write("#### Weight Loss Composition Reference")
+            
+            weight_loss_comp_df = pd.DataFrame({
+                'Percentage of Weight Loss as Fat Tissue': ['50-70%', '70-80%', '80-100%'],
+                'Description': [
+                    'Low commitment, low physical activity, low protein intake, inadequate sleep, inconsistent tracking, inconsistent exercise',
+                    'Moderate commitment, light physical activity, moderate protein intake, more regular tracking, regular adequate sleep, 3-5 workouts per week',
+                    'High commitment, high physical activity, adequate protein intake, consistent adequate sleep, consistent tracking, >5 workouts per week'
+                ]
+            })
+            
+            st.table(weight_loss_comp_df)
+            
+            # Direct target fat mass input
+            st.write("#### Set Target Fat Mass")
+            target_fat_mass_lbs = st.number_input(
+                "Target Fat Mass (lbs)", 
+                min_value=max(current_fat_mass_lbs - 25, 5.0),  # Cap max loss at 25 lbs
+                max_value=current_fat_mass_lbs - 0.5,  # Must be at least 0.5 lb less
+                value=max(current_fat_mass_lbs * 0.85, current_fat_mass_lbs - 10),
+                step=0.5,
+                help="Enter your target fat mass in pounds (must be lower than current fat mass)"
+            )
+            
+            # Convert to kg
+            target_fat_mass_kg = target_fat_mass_lbs / 2.20462
+            
+            # Assume preservation of lean body mass for fat loss
+            target_ffm_lbs = st.number_input(
+                "Target Fat-Free Mass (lbs)",
+                min_value=current_fat_free_mass_lbs * 0.95,  # Allow slight loss
+                max_value=current_fat_free_mass_lbs * 1.05,  # Allow slight gain
+                value=current_fat_free_mass_lbs,
+                step=0.5,
+                help="Enter your target fat-free mass (usually similar to current for fat loss)"
+            )
+            
+            # Convert to kg
+            target_ffm_kg = target_ffm_lbs / 2.20462
+            
+            # Calculate resulting total weight and body fat
+            target_weight_kg = target_fat_mass_kg + target_ffm_kg
+            target_weight_lbs = target_weight_kg * 2.20462
+            target_bf = (target_fat_mass_kg / target_weight_kg) * 100
+            
+            st.success(f"Calculated Target Weight: {target_weight_lbs:.1f} lbs | Target Body Fat: {target_bf:.1f}%")
+            
+        elif goal_type == "Gain muscle":
+            # Calculate current fat mass
+            current_fat_mass_kg = current_weight_kg * (current_bf/100)
+            current_fat_mass_lbs = current_fat_mass_kg * 2.20462
+            current_fat_free_mass_kg = current_weight_kg - current_fat_mass_kg
+            current_fat_free_mass_lbs = current_fat_free_mass_kg * 2.20462
+            
+            st.info("""
+            **Muscle Gain Guidelines:**
+            - A realistic muscle gain rate is generally 0.25-0.5% of body weight per week
+            - It is recommended to target no more than 1 lb of muscle gain per week
+            - Maximum suggested target is 10 lbs of muscle mass gain in an 8-12 week period
+            - Faster rates typically result in more fat gain alongside muscle
+            """)
+            
+            # Weight gain rate tables
+            st.write("#### Weight Gain Rate Reference")
+            
+            weight_gain_rate_df = pd.DataFrame({
+                'Percentage of Weight Gain Per Week': ['0.13%', '0.25%', '0.50%', '0.75%'],
+                'Description': [
+                    'Slowest suggested rate of weight gain per week with the intent to aggressively minimize body fat gain but support muscle growth conservatively.',
+                    'Moderate rate of weight gain per week to support gains in muscle mass in an effort to minimize body fat gain.',
+                    'Aggressive rate of weight gain per week in an effort to maximize muscle growth without as much concern for gaining some body fat for a period of time.',
+                    'Very aggressive rate of weight gain per week to gain muscle mass with a higher probability of gaining a measurable amount of body fat for a period of time.'
+                ]
+            })
+            
+            st.table(weight_gain_rate_df)
+            
+            # Weight gain composition table
+            st.write("#### Weight Gain Composition Reference")
+            
+            weight_gain_comp_df = pd.DataFrame({
+                'Percentage of Weight Gain as Fat Tissue': ['5-30%', '30-70%', '>70%'],
+                'Description': [
+                    'High commitment, high physical activity, adequate protein intake, consistent adequate sleep, consistent tracking, >5 workouts per week',
+                    'Moderate commitment, light physical activity, moderate protein intake, more regular tracking, regular adequate sleep, 3-5 workouts per week',
+                    'Low commitment, low physical activity, low protein intake, inadequate sleep, inconsistent tracking, inconsistent exercise'
+                ]
+            })
+            
+            st.table(weight_gain_comp_df)
+            
+            # Direct target fat-free mass input 
+            st.write("#### Set Target Fat-Free Mass")
+            target_ffm_lbs = st.number_input(
+                "Target Fat-Free Mass (lbs)",
+                min_value=current_fat_free_mass_lbs + 0.5,  # Must be at least 0.5 lb more
+                max_value=min(current_fat_free_mass_lbs + 10, current_fat_free_mass_lbs * 1.1),  # Cap at 10 lbs gain
+                value=min(current_fat_free_mass_lbs * 1.05, current_fat_free_mass_lbs + 5),
+                step=0.5,
+                help="Enter your target fat-free mass (must be higher than current fat-free mass)"
+            )
+            
+            # Convert to kg
+            target_ffm_kg = target_ffm_lbs / 2.20462
+            
+            # Allow slight change in fat mass for muscle gain (usually increases)
+            target_fat_mass_lbs = st.number_input(
+                "Target Fat Mass (lbs)",
+                min_value=max(current_fat_mass_lbs * 0.9, 5.0),
+                max_value=current_fat_mass_lbs * 1.2,
+                value=current_fat_mass_lbs,
+                step=0.5,
+                help="Enter your target fat mass (may increase slightly during bulking)"
+            )
+            
+            # Convert to kg
+            target_fat_mass_kg = target_fat_mass_lbs / 2.20462
+            
+            # Calculate resulting total weight and body fat
+            target_weight_kg = target_fat_mass_kg + target_ffm_kg
+            target_weight_lbs = target_weight_kg * 2.20462
+            target_bf = (target_fat_mass_kg / target_weight_kg) * 100
+            
+            st.success(f"Calculated Target Weight: {target_weight_lbs:.1f} lbs | Target Body Fat: {target_bf:.1f}%")
+            
+        else:  # Maintain
+            # Convert stored target weight to pounds if it exists
+            stored_target_weight_kg = st.session_state.goal_info.get('target_weight_kg')
+            stored_target_weight_lbs = stored_target_weight_kg * 2.20462 if stored_target_weight_kg else default_target_weight_lbs
+            
+            target_weight_lbs = st.number_input(
+                "Target Weight (lbs)",
+                min_value=66.0,
+                max_value=660.0,
+                value=stored_target_weight_lbs,
+                step=0.5,
+                format="%.1f"
+            )
+            
+            # Convert to kg for backend calculations
+            target_weight_kg = target_weight_lbs / 2.20462
+            
+            target_bf = st.number_input(
+                "Target Body Fat (%)",
+                min_value=3.0,
+                max_value=50.0,
+                value=st.session_state.goal_info.get('target_body_fat', current_bf),
+                step=0.1,
+                format="%.1f"
+            )
         
         # Make sure all values are of the same type (float)
         timeline_weeks = st.number_input(
@@ -228,14 +386,31 @@ if st.session_state.goal_info.get('target_weight_kg'):
     target_lbm_kg = target_weight_kg * (1 - target_bf/100)
     lbm_change_kg = target_lbm_kg - current_lbm_kg
     
-    # Calculate Fat Mass and Fat-Free Mass Indices
+    # Calculate Fat Mass and Fat-Free Mass
     current_fat_mass_kg = current_weight_kg * (current_bf/100)
     current_fat_free_mass_kg = current_weight_kg - current_fat_mass_kg
     
+    # Convert to pounds
+    current_fat_mass_lbs = current_fat_mass_kg * 2.20462
+    current_fat_free_mass_lbs = current_fat_free_mass_kg * 2.20462
+    
+    # Calculate indices
     fat_mass_index = current_fat_mass_kg / (height_m * height_m)
     fat_free_mass_index = current_fat_free_mass_kg / (height_m * height_m)
     
-    # Display the indices
+    # Display current composition table
+    st.subheader("Current Body Composition Breakdown")
+    
+    comp_df = pd.DataFrame({
+        'Measurement': ['Current Weight', 'Current Fat Mass', 'Current Fat-Free Mass'],
+        'Kilograms': [f"{current_weight_kg:.1f} kg", f"{current_fat_mass_kg:.1f} kg", f"{current_fat_free_mass_kg:.1f} kg"],
+        'Pounds': [f"{current_weight_lbs:.1f} lbs", f"{current_fat_mass_lbs:.1f} lbs", f"{current_fat_free_mass_lbs:.1f} lbs"],
+        'Percentage': ["100%", f"{current_bf:.1f}%", f"{100-current_bf:.1f}%"]
+    })
+    
+    st.table(comp_df)
+    
+    # Display the indices side by side
     col1, col2 = st.columns(2)
     
     with col1:
@@ -298,6 +473,63 @@ if st.session_state.goal_info.get('target_weight_kg'):
                 st.markdown(f"- **{category['name']}**: {category['lower']} - {category['upper']} kg/m² ← **You are here**")
             else:
                 st.markdown(f"- {category['name']}: {category['lower']} - {category['upper']} kg/m²")
+    
+    # Calculate fat mass ranges for each FMI category based on user's height
+    st.subheader("Body Composition Reference Tables")
+    st.write("These tables show the fat mass and fat-free mass ranges for each category based on your height.")
+    
+    # Create fat mass ranges table
+    fmi_ranges = []
+    for category in fmi_categories:
+        min_fat_mass_kg = category["lower"] * (height_m * height_m)
+        max_fat_mass_kg = category["upper"] * (height_m * height_m)
+        min_fat_mass_lbs = min_fat_mass_kg * 2.20462
+        max_fat_mass_lbs = max_fat_mass_kg * 2.20462
+        
+        if user_fmi_category == category["name"]:
+            fmi_ranges.append({
+                'Category': f"**{category['name']}** ← **Current**",
+                'Fat Mass Range (kg)': f"**{min_fat_mass_kg:.1f} - {max_fat_mass_kg:.1f} kg**",
+                'Fat Mass Range (lbs)': f"**{min_fat_mass_lbs:.1f} - {max_fat_mass_lbs:.1f} lbs**"
+            })
+        else:
+            fmi_ranges.append({
+                'Category': category['name'],
+                'Fat Mass Range (kg)': f"{min_fat_mass_kg:.1f} - {max_fat_mass_kg:.1f} kg",
+                'Fat Mass Range (lbs)': f"{min_fat_mass_lbs:.1f} - {max_fat_mass_lbs:.1f} lbs"
+            })
+    
+    # Calculate fat-free mass ranges for each FFMI category based on user's height
+    ffmi_ranges = []
+    for category in ffmi_categories:
+        min_ffm_kg = category["lower"] * (height_m * height_m)
+        max_ffm_kg = category["upper"] * (height_m * height_m)
+        min_ffm_lbs = min_ffm_kg * 2.20462
+        max_ffm_lbs = max_ffm_kg * 2.20462
+        
+        if user_ffmi_category == category["name"]:
+            ffmi_ranges.append({
+                'Category': f"**{category['name']}** ← **Current**",
+                'Fat-Free Mass Range (kg)': f"**{min_ffm_kg:.1f} - {max_ffm_kg:.1f} kg**",
+                'Fat-Free Mass Range (lbs)': f"**{min_ffm_lbs:.1f} - {max_ffm_lbs:.1f} lbs**"
+            })
+        else:
+            ffmi_ranges.append({
+                'Category': category['name'],
+                'Fat-Free Mass Range (kg)': f"{min_ffm_kg:.1f} - {max_ffm_kg:.1f} kg",
+                'Fat-Free Mass Range (lbs)': f"{min_ffm_lbs:.1f} - {max_ffm_lbs:.1f} lbs"
+            })
+    
+    # Display the tables side by side
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Fat Mass Ranges for Your Height")
+        st.markdown(pd.DataFrame(fmi_ranges).to_markdown(index=False), unsafe_allow_html=True)
+    
+    with col2:
+        st.subheader("Fat-Free Mass Ranges for Your Height")
+        st.markdown(pd.DataFrame(ffmi_ranges).to_markdown(index=False), unsafe_allow_html=True)
     
     st.subheader("Expected Progress")
     
