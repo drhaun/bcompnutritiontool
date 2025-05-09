@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
+import json
 from datetime import datetime, timedelta
 import utils
 
@@ -12,10 +13,76 @@ if not os.path.exists("data"):
 # Set page configuration
 st.set_page_config(
     page_title="Fitomics Body Comp Planning Tool",
-    page_icon="💪",
+    page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Load Fitomics brand colors
+try:
+    with open('images/branding/fitomics_colors.json', 'r') as f:
+        brand_colors = json.load(f)
+except:
+    # Default brand colors if file not found
+    brand_colors = {
+        "dark_blue": {"hex": "#00263d"},
+        "navy": {"hex": "#003b59"},
+        "light_blue": {"hex": "#82c2d7"},
+        "dark_gold": {"hex": "#c19962"},
+        "light_gold": {"hex": "#e4ac61"}
+    }
+
+# Custom CSS with Fitomics branding
+st.markdown(f"""
+<style>
+    .main .block-container {{
+        padding-top: 2rem;
+    }}
+    h1, h2, h3 {{
+        color: {brand_colors["dark_blue"]["hex"]};
+    }}
+    .stButton>button {{
+        background-color: {brand_colors["dark_blue"]["hex"]};
+        color: white;
+    }}
+    .stButton>button:hover {{
+        background-color: {brand_colors["navy"]["hex"]};
+        color: white;
+    }}
+    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {{
+        font-size: 1rem;
+    }}
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 1rem;
+    }}
+    .stTabs [aria-selected="true"] {{
+        background-color: {brand_colors["light_gold"]["hex"]};
+    }}
+    .css-18e3th9 {{
+        padding-top: 0;
+    }}
+    
+    /* Custom class for the logo container */
+    .logo-container {{
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+    }}
+    .title-text {{
+        color: {brand_colors["dark_gold"]["hex"]};
+        margin-left: 1rem;
+    }}
+    
+    /* Custom sidebar styling */
+    .css-1d391kg {{
+        background-color: {brand_colors["dark_blue"]["hex"]};
+    }}
+    .css-1cypcdb {{
+        background-color: {brand_colors["navy"]["hex"]};
+        color: white !important;
+    }}
+</style>
+""", unsafe_allow_html=True)
 
 # Initialize session state variables if they don't exist
 if 'user_info' not in st.session_state:

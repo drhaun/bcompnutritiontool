@@ -1,0 +1,44 @@
+{
+    "pure_white": {
+        "rgb": "255, 255, 255",
+        "cmyk": "0, 0, 0, 0",
+        "hex": "#ffffff"
+    },
+    "dark_blue": {
+        "rgb": "0, 38, 61",
+        "pantone": "2965 C",
+        "cmyk": "100, 78, 49, 54",
+        "hex": "#00263d"
+    },
+    "navy": {
+        "rgb": "0, 59, 89",
+        "pantone": "302 C",
+        "cmyk": "100, 75, 42, 32",
+        "hex": "#003b59"
+    },
+    "light_blue": {
+        "rgb": "130, 194, 215",
+        "pantone": "630 C",
+        "cmyk": "47, 8, 11, 0",
+        "hex": "#82c2d7"
+    },
+    "dark_gold": {
+        "rgb": "193, 153, 98",
+        "pantone": "7562 C",
+        "cmyk": "24, 39, 70, 2",
+        "hex": "#c19962"
+    },
+    "light_gold": {
+        "rgb": "228, 172, 97",
+        "pantone": "7411 C",
+        "cmyk": "10, 34, 71, 0",
+        "hex": "#e4ac61"
+    },
+    "gold_foil": {
+        "rgb": "Gradient",
+        "pantone": "872 C",
+        "cmyk": "Gradient",
+        "hex_start": "#e4ac61",
+        "hex_end": "#c19962"
+    }
+}
