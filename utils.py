@@ -1012,7 +1012,7 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
         energy_availability = 0
         cumulative_fat_change = 0  # Track cumulative fat change from starting point
         
-        for week in range(timeline_weeks + 1):  # +1 to include the final state
+        for week in range(int(timeline_weeks) + 1):  # +1 to include the final state, convert float to int
             # Calculate the date for this week
             date = start_date + timedelta(days=7 * week)
             

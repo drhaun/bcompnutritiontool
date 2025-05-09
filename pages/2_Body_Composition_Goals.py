@@ -794,7 +794,43 @@ if st.session_state.goal_info.get('target_weight_kg'):
         height_cm
     )
     
-    # Create simplified table for display
+    # Check if the detailed progress table was generated successfully
+    if detailed_progress_df.empty:
+        st.error("Unable to generate detailed progress table. Please check your inputs and try again.")
+        # Create a simple progress table as a fallback
+        weeks = []
+        week = 0
+        while week <= timeline_weeks:
+            weeks.append(week)
+            week += 4
+        
+        # Make sure the final week is included if it's not already
+        if timeline_weeks not in weeks:
+            weeks.append(timeline_weeks)
+        
+        progress_data = []
+        for week in weeks:
+            expected_weight_kg = current_weight_kg + (weekly_weight_change_kg * week)
+            expected_weight_lbs = expected_weight_kg * 2.20462
+            expected_bf = current_bf + (weekly_bf_change * week)
+            expected_lbm_kg = expected_weight_kg * (1 - expected_bf/100)
+            expected_lbm_lbs = expected_lbm_kg * 2.20462
+            expected_fat_mass_kg = expected_weight_kg * (expected_bf/100)
+            expected_fat_mass_lbs = expected_fat_mass_kg * 2.20462
+            
+            progress_data.append({
+                'Week': week,
+                'Weight (lbs)': f"{expected_weight_lbs:.1f}",
+                'Body Fat (%)': f"{expected_bf:.1f}",
+                'Lean Mass (lbs)': f"{expected_lbm_lbs:.1f}",
+                'Fat Mass (lbs)': f"{expected_fat_mass_lbs:.1f}"
+            })
+        
+        summary_df = pd.DataFrame(progress_data)
+        st.table(summary_df)
+        st.stop()  # Stop execution to prevent errors with visualizations
+    
+    # Create simplified table for display if we have data
     summary_weeks = []
     week = 0
     while week <= timeline_weeks:
@@ -808,8 +844,9 @@ if st.session_state.goal_info.get('target_weight_kg'):
     # Create simpler summary table for display
     summary_data = []
     for week in summary_weeks:
+        week_data = {}
         if week == 0:
-            row = detailed_progress_df[detailed_progress_df['Week'] == 1].iloc[0].to_dict()
+            # Use starting values for week 0
             week_data = {
                 'Week': 0,
                 'Weight (lbs)': f"{current_weight_lbs:.1f}",
@@ -819,15 +856,17 @@ if st.session_state.goal_info.get('target_weight_kg'):
             }
         else:
             # Find the closest week in the detailed data
-            week_row = detailed_progress_df[detailed_progress_df['Week'] == week]
+            closest_week = min(detailed_progress_df['Week'].tolist(), key=lambda x: abs(x - week))
+            week_row = detailed_progress_df[detailed_progress_df['Week'] == closest_week]
+            
             if not week_row.empty:
                 row = week_row.iloc[0]
                 week_data = {
                     'Week': week,
-                    'Weight (lbs)': f"{row['Ending Weight (lbs)']:.1f}",
-                    'Body Fat (%)': f"{row['Ending Body Fat %']:.1f}",
-                    'Lean Mass (lbs)': f"{row['Ending FFM (lbs)']:.1f}",
-                    'Fat Mass (lbs)': f"{row['Ending Fat Mass (lbs)']:.1f}"
+                    'Weight (lbs)': f"{float(row['Ending Weight (lbs)']):.1f}",
+                    'Body Fat (%)': f"{float(row['Ending Body Fat %']):.1f}",
+                    'Lean Mass (lbs)': f"{float(row['Ending FFM (lbs)']):.1f}",
+                    'Fat Mass (lbs)': f"{float(row['Ending Fat Mass (lbs)']):.1f}"
                 }
         
         summary_data.append(week_data)
