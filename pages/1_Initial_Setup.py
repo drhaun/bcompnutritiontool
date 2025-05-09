@@ -236,6 +236,7 @@ with st.form("user_info_form"):
             'activity_level': mapped_activity,  # Use mapped activity for TDEE calculation
             'raw_activity_level': activity_level,  # Store original selection
             'workouts_per_week': workouts_per_week,
+            'workout_frequency': workout_frequency,
             'workout_calories': workout_calories,
             'goal_focus': goal_type,
             'performance_preference': performance_preference,

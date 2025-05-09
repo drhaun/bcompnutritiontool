@@ -9,6 +9,37 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import utils
 
+# Define body composition categories with rate recommendations
+# FMI categories with rate recommendations
+fmi_categories = [
+    {"name": "Extremely Lean", "lower": 2, "upper": 3, 
+     "gain_rate": 0.0075, "gain_fat_pct": 0.10, "loss_rate": None, "loss_fat_pct": None},
+    {"name": "Lean", "lower": 3.1, "upper": 5.2, 
+     "gain_rate": 0.0075, "gain_fat_pct": 0.10, "loss_rate": None, "loss_fat_pct": None},
+    {"name": "Considered Healthy", "lower": 5.3, "upper": 7.2, 
+     "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.0050, "loss_fat_pct": 0.80},
+    {"name": "Slightly Overfat", "lower": 7.3, "upper": 9.1, 
+     "gain_rate": 0.0013, "gain_fat_pct": 0.80, "loss_rate": 0.0075, "loss_fat_pct": 0.80},
+    {"name": "Overfat", "lower": 9.2, "upper": 12.9, 
+     "gain_rate": None, "gain_fat_pct": None, "loss_rate": 0.0100, "loss_fat_pct": 0.80},
+    {"name": "Significantly Overfat", "lower": 13, "upper": 35, 
+     "gain_rate": None, "gain_fat_pct": None, "loss_rate": 0.0125, "loss_fat_pct": 0.80}
+]
+
+# FFMI categories with rate recommendations
+ffmi_categories = [
+    {"name": "Undermuscled", "lower": 8, "upper": 16, 
+     "gain_rate": 0.0075, "gain_fat_pct": 0.10, "loss_rate": None, "loss_fat_pct": None},
+    {"name": "Moderately Undermuscled", "lower": 16.1, "upper": 17.8, 
+     "gain_rate": 0.0050, "gain_fat_pct": 0.10, "loss_rate": 0.0, "loss_fat_pct": 0.50},
+    {"name": "Considered Healthy", "lower": 17.9, "upper": 22, 
+     "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80},
+    {"name": "Muscular", "lower": 22.1, "upper": 25, 
+     "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80},
+    {"name": "High", "lower": 25.1, "upper": 35, 
+     "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80}
+]
+
 # Set page title and layout
 st.set_page_config(
     page_title="Fitomics - Body Composition Goals",
@@ -376,7 +407,110 @@ if st.session_state.goal_info.get('target_weight_kg'):
     height_cm = st.session_state.user_info['height_cm']
     height_m = height_cm / 100
     
-    # Calculate weekly changes
+    # Find the user's FMI and FFMI categories for rate recommendations
+    user_fmi_category = None
+    for category in fmi_categories:
+        if category["lower"] <= fat_mass_index <= category["upper"]:
+            user_fmi_category = category
+            break
+            
+    user_ffmi_category = None
+    for category in ffmi_categories:
+        if category["lower"] <= fat_free_mass_index <= category["upper"]:
+            user_ffmi_category = category
+            break
+    
+    # Convert from display types to calculation types for goal
+    goal_type_for_calc = "Muscle Gain" if goal_type == "Gain muscle" else "Fat Loss"
+    
+    # Prepare user data for rate calculation
+    user_data = {
+        "fmi_category": user_fmi_category,
+        "ffmi_category": user_ffmi_category,
+        "performance_preference": st.session_state.user_info.get('performance_preference', ""),
+        "body_comp_preference": st.session_state.user_info.get('body_comp_preference', ""),
+        "commitment_level": st.session_state.user_info.get('commitment_level', ""),
+        "workout_frequency": st.session_state.user_info.get('workout_frequency', "")
+    }
+    
+    # Get recommended weekly change rates
+    recommended_rates = utils.calculate_recommended_rate(user_data, goal_type_for_calc)
+    
+    # Calculate recommended weekly changes
+    recommended_weight_pct = recommended_rates["weekly_weight_pct"]
+    recommended_fat_pct = recommended_rates["weekly_fat_pct"] 
+    recommended_muscle_pct = recommended_rates["weekly_muscle_pct"]
+    
+    # Weekly percent of body weight change
+    if goal_type == "Lose fat":
+        # For fat loss, negative percentage
+        recommended_weekly_kg = -1 * current_weight_kg * recommended_weight_pct
+        recommended_weekly_fat_kg = recommended_weekly_kg * recommended_fat_pct
+        recommended_weekly_muscle_kg = recommended_weekly_kg * recommended_muscle_pct
+    else:
+        # For muscle gain, positive percentage  
+        recommended_weekly_kg = current_weight_kg * recommended_weight_pct
+        recommended_weekly_fat_kg = recommended_weekly_kg * recommended_fat_pct
+        recommended_weekly_muscle_kg = recommended_weekly_kg * recommended_muscle_pct
+    
+    # Convert to pounds
+    recommended_weekly_lbs = recommended_weekly_kg * 2.20462
+    recommended_weekly_fat_lbs = recommended_weekly_fat_kg * 2.20462
+    recommended_weekly_muscle_lbs = recommended_weekly_muscle_kg * 2.20462
+    
+    # Calculate what this means for total timeline
+    recommended_total_weight_kg = recommended_weekly_kg * timeline_weeks
+    recommended_total_weight_lbs = recommended_weekly_lbs * timeline_weeks
+    
+    # Calculate recommended target based on current + recommended change
+    recommended_target_weight_kg = current_weight_kg + recommended_total_weight_kg
+    recommended_target_weight_lbs = current_weight_lbs + recommended_total_weight_lbs
+    
+    # Calculate body fat change based on muscle/fat ratio
+    total_fat_change_kg = recommended_weekly_fat_kg * timeline_weeks
+    total_muscle_change_kg = recommended_weekly_muscle_kg * timeline_weeks
+    
+    # Calculate new body composition
+    rec_fat_mass_kg = current_fat_mass_kg + total_fat_change_kg
+    rec_muscle_mass_kg = current_weight_kg * (1 - current_bf/100) + total_muscle_change_kg
+    rec_total_weight_kg = rec_fat_mass_kg + rec_muscle_mass_kg
+    rec_body_fat_pct = (rec_fat_mass_kg / rec_total_weight_kg) * 100
+    
+    # Display recommendation
+    st.subheader("Recommended Rate of Change")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        direction = "loss" if goal_type == "Lose fat" else "gain"
+        st.info(f"Recommended weekly weight {direction}: **{abs(recommended_weekly_lbs):.2f} lbs** ({abs(recommended_weekly_kg):.2f} kg)")
+        
+        if goal_type == "Lose fat":
+            st.write(f"- Fat loss per week: **{abs(recommended_weekly_fat_lbs):.2f} lbs** ({100*recommended_fat_pct:.0f}% of weight loss)")
+            st.write(f"- Muscle loss per week: **{abs(recommended_weekly_muscle_lbs):.2f} lbs** ({100*recommended_muscle_pct:.0f}% of weight loss)")
+        else:
+            st.write(f"- Muscle gain per week: **{abs(recommended_weekly_muscle_lbs):.2f} lbs** ({100*recommended_muscle_pct:.0f}% of weight gain)")
+            st.write(f"- Fat gain per week: **{abs(recommended_weekly_fat_lbs):.2f} lbs** ({100*recommended_fat_pct:.0f}% of weight gain)")
+            
+    with col2:
+        st.info(f"Recommended {timeline_weeks}-week target: **{rec_total_weight_kg*2.20462:.1f} lbs at {rec_body_fat_pct:.1f}% body fat**")
+        
+        # Calculate percent of goal
+        if goal_type == "Lose fat":
+            goal_magnitude = abs(current_weight_kg - target_weight_kg)
+            rec_magnitude = abs(recommended_total_weight_kg)
+            pct_of_goal = min(100, (rec_magnitude / max(0.1, goal_magnitude)) * 100)
+            st.write(f"This is approximately **{pct_of_goal:.0f}%** of your selected goal.")
+        else:
+            goal_magnitude = abs(current_weight_kg - target_weight_kg)
+            rec_magnitude = abs(recommended_total_weight_kg)
+            pct_of_goal = min(100, (rec_magnitude / max(0.1, goal_magnitude)) * 100)
+            st.write(f"This is approximately **{pct_of_goal:.0f}%** of your selected goal.")
+            
+        st.write(f"This rate is customized based on your current body composition, performance preferences, and commitment level.")
+        
+    st.markdown("---")
+        
+    # Calculate weekly changes based on user's input (not recommendation)
     weekly_weight_change_kg = (target_weight_kg - current_weight_kg) / timeline_weeks
     weekly_weight_change_lbs = (target_weight_lbs - current_weight_lbs) / timeline_weeks
     weekly_bf_change = (target_bf - current_bf) / timeline_weeks
@@ -417,21 +551,7 @@ if st.session_state.goal_info.get('target_weight_kg'):
         st.subheader("Fat Mass Index (FMI)")
         st.metric("Your FMI", f"{fat_mass_index:.1f} kg/m²")
         
-        # FMI categories with rate recommendations
-        fmi_categories = [
-            {"name": "Extremely Lean", "lower": 2, "upper": 3, 
-             "gain_rate": 0.0075, "gain_fat_pct": 0.10, "loss_rate": None, "loss_fat_pct": None},
-            {"name": "Lean", "lower": 3.1, "upper": 5.2, 
-             "gain_rate": 0.0075, "gain_fat_pct": 0.10, "loss_rate": None, "loss_fat_pct": None},
-            {"name": "Considered Healthy", "lower": 5.3, "upper": 7.2, 
-             "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.0050, "loss_fat_pct": 0.80},
-            {"name": "Slightly Overfat", "lower": 7.3, "upper": 9.1, 
-             "gain_rate": 0.0013, "gain_fat_pct": 0.80, "loss_rate": 0.0075, "loss_fat_pct": 0.80},
-            {"name": "Overfat", "lower": 9.2, "upper": 12.9, 
-             "gain_rate": None, "gain_fat_pct": None, "loss_rate": 0.0100, "loss_fat_pct": 0.80},
-            {"name": "Significantly Overfat", "lower": 13, "upper": 35, 
-             "gain_rate": None, "gain_fat_pct": None, "loss_rate": 0.0125, "loss_fat_pct": 0.80}
-        ]
+        # Use the FMI categories defined at the top of the file
         
         # Find user's category
         user_fmi_category = "Unknown"
