@@ -713,7 +713,7 @@ def calculate_recommended_rate(user_data, goal_type):
                 base_fat_pct = 0.80
             else:
                 base_fat_pct = 0.50
-    else:
+    elif goal_type == "Fat Loss":
         # For fat loss, use the combined recommendation loss rate
         base_rate = combined_recommendation.get("loss_rate", 0.0050)
         
@@ -728,6 +728,12 @@ def calculate_recommended_rate(user_data, goal_type):
                 base_fat_pct = 1.00  # 100% fat (preserving all muscle)
             else:
                 base_fat_pct = 0.80   # 80% fat (20% muscle)
+    else:  # Maintain
+        # For maintain, set base rate to 0
+        base_rate = 0.0
+        
+        # Default fat percentage for maintenance is 50/50
+        base_fat_pct = 0.50  # 50% fat/50% muscle for maintenance
     
     # Get activity level multipliers
     activity_multipliers = get_activity_level_multipliers(

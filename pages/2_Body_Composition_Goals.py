@@ -508,32 +508,42 @@ if st.session_state.goal_info.get('target_weight_kg'):
     
     col1, col2 = st.columns(2)
     with col1:
-        direction = "loss" if goal_type == "Lose fat" else "gain"
-        st.info(f"Recommended weekly weight {direction}: **{abs(recommended_weekly_lbs):.2f} lbs** ({abs(recommended_weekly_kg):.2f} kg)")
-        
-        if goal_type == "Lose fat":
-            st.write(f"- Fat loss per week: **{abs(recommended_weekly_fat_lbs):.2f} lbs** ({100*recommended_fat_pct:.0f}% of weight loss)")
-            st.write(f"- Muscle loss per week: **{abs(recommended_weekly_muscle_lbs):.2f} lbs** ({100*recommended_muscle_pct:.0f}% of weight loss)")
+        if goal_type == "Maintain body composition":
+            st.info(f"Recommended approach: **Maintain current weight** with focus on performance")
+            st.write("- Focus on eating at maintenance calories")
+            st.write("- Prioritize protein intake for recovery")
+            st.write("- Match carbs and fats to training needs")
         else:
-            st.write(f"- Muscle gain per week: **{abs(recommended_weekly_muscle_lbs):.2f} lbs** ({100*recommended_muscle_pct:.0f}% of weight gain)")
-            st.write(f"- Fat gain per week: **{abs(recommended_weekly_fat_lbs):.2f} lbs** ({100*recommended_fat_pct:.0f}% of weight gain)")
+            direction = "loss" if goal_type == "Lose fat" else "gain"
+            st.info(f"Recommended weekly weight {direction}: **{abs(recommended_weekly_lbs):.2f} lbs** ({abs(recommended_weekly_kg):.2f} kg)")
+            
+            if goal_type == "Lose fat":
+                st.write(f"- Fat loss per week: **{abs(recommended_weekly_fat_lbs):.2f} lbs** ({100*recommended_fat_pct:.0f}% of weight loss)")
+                st.write(f"- Muscle loss per week: **{abs(recommended_weekly_muscle_lbs):.2f} lbs** ({100*recommended_muscle_pct:.0f}% of weight loss)")
+            else:
+                st.write(f"- Muscle gain per week: **{abs(recommended_weekly_muscle_lbs):.2f} lbs** ({100*recommended_muscle_pct:.0f}% of weight gain)")
+                st.write(f"- Fat gain per week: **{abs(recommended_weekly_fat_lbs):.2f} lbs** ({100*recommended_fat_pct:.0f}% of weight gain)")
             
     with col2:
-        st.info(f"Recommended {timeline_weeks}-week target: **{rec_total_weight_kg*2.20462:.1f} lbs at {rec_body_fat_pct:.1f}% body fat**")
-        
-        # Calculate percent of goal
-        if goal_type == "Lose fat":
-            goal_magnitude = abs(current_weight_kg - target_weight_kg)
-            rec_magnitude = abs(recommended_total_weight_kg)
-            pct_of_goal = min(100, (rec_magnitude / max(0.1, goal_magnitude)) * 100)
-            st.write(f"This is approximately **{pct_of_goal:.0f}%** of your selected goal.")
+        if goal_type == "Maintain body composition":
+            st.info(f"Focus on performance metrics instead of body weight changes")
+            st.write("- Track strength improvements")
+            st.write("- Monitor recovery quality")
+            st.write("- Adjust nutrition based on performance, not scale weight")
         else:
+            st.info(f"Recommended {timeline_weeks}-week target: **{rec_total_weight_kg*2.20462:.1f} lbs at {rec_body_fat_pct:.1f}% body fat**")
+        
+        # Calculate percent of goal for weight loss/gain only
+        if goal_type != "Maintain body composition":
             goal_magnitude = abs(current_weight_kg - target_weight_kg)
             rec_magnitude = abs(recommended_total_weight_kg)
-            pct_of_goal = min(100, (rec_magnitude / max(0.1, goal_magnitude)) * 100)
-            st.write(f"This is approximately **{pct_of_goal:.0f}%** of your selected goal.")
             
-        st.write(f"This rate is customized based on your combined FMI/FFMI categories, performance preferences, and commitment level.")
+            # Only show percentage if there's an actual goal magnitude
+            if goal_magnitude > 0.1:
+                pct_of_goal = min(100, (rec_magnitude / goal_magnitude) * 100)
+                st.write(f"This is approximately **{pct_of_goal:.0f}%** of your selected goal.")
+            
+            st.write(f"This rate is customized based on your combined FMI/FFMI categories, performance preferences, and commitment level.")
         
     # Add explanation about the combined FMI/FFMI approach
     with st.expander("About Rate Calculation System"):
