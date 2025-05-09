@@ -172,9 +172,234 @@ with col2:
         Please update your nutrition plan with valid macronutrient values.
         """)
 
-# Manual Adjustment Form
-st.subheader("Adjust Your Plan (Optional)")
-st.markdown("If you'd like to customize your nutrition targets, you can make adjustments below.")
+# Enhanced Nutrition Calculator
+st.subheader("Enhanced Nutrition Calculator")
+st.markdown("Use this advanced calculator to refine your nutrition targets based on scientific recommendations.")
+
+# Get weight in pounds and calculate fat-free mass
+weight_kg = st.session_state.user_info.get('weight_kg', 70)
+weight_lbs = weight_kg * 2.20462
+body_fat_pct = st.session_state.user_info.get('body_fat_percentage', 20)
+fat_free_mass_kg = weight_kg * (1 - body_fat_pct/100)
+fat_free_mass_lbs = fat_free_mass_kg * 2.20462
+
+# Create tabs for different macro setting approaches
+tab1, tab2 = st.tabs(["Standard Recommendations", "Custom Setup"])
+
+with tab1:
+    st.write("#### Protein Recommendations")
+    
+    protein_options = {
+        "1.0-1.4 g/lb": {"label": "1.0-1.4 g/lb of fat-free mass (Recommended)", "min": 1.0, "max": 1.4, "recommendation": "Generally recommended for most individuals"},
+        "0.8-1.0 g/lb": {"label": "0.8-1.0 g/lb of fat-free mass", "min": 0.8, "max": 1.0, "recommendation": "Caution warranted - may be insufficient for some individuals"},
+        "0.5-0.8 g/lb": {"label": "0.5-0.8 g/lb of fat-free mass", "min": 0.5, "max": 0.8, "recommendation": "Generally not recommended - likely insufficient for optimal results"}
+    }
+    
+    # Display protein recommendation table
+    protein_data = []
+    for option, data in protein_options.items():
+        min_protein = round(data["min"] * fat_free_mass_lbs)
+        max_protein = round(data["max"] * fat_free_mass_lbs)
+        protein_data.append({
+            "Option": option, 
+            "Recommendation": data["recommendation"],
+            "Daily Protein (g)": f"{min_protein} - {max_protein}",
+            "Calories from Protein": f"{min_protein * 4} - {max_protein * 4}"
+        })
+    
+    st.table(pd.DataFrame(protein_data))
+    
+    # Let user select protein recommendation
+    protein_option = st.selectbox(
+        "Select Standard Protein (g/lb of fat-free mass)",
+        options=list(protein_options.keys()),
+        index=0
+    )
+    
+    # Let user override with custom value
+    use_custom_protein = st.checkbox("Override with custom protein value")
+    
+    if use_custom_protein:
+        custom_protein_per_lb = st.slider(
+            "Custom Protein (g/lb of fat-free mass)",
+            min_value=0.5,
+            max_value=2.0,
+            value=1.2,
+            step=0.1
+        )
+        selected_protein_per_lb = custom_protein_per_lb
+    else:
+        # Use middle of range
+        selected_protein_per_lb = (protein_options[protein_option]["min"] + protein_options[protein_option]["max"]) / 2
+    
+    # Calculate protein target
+    protein_target_g = round(selected_protein_per_lb * fat_free_mass_lbs)
+    protein_calories = protein_target_g * 4
+    
+    st.write(f"#### Selected Protein Target: {protein_target_g} g/day ({selected_protein_per_lb:.1f} g/lb of fat-free mass)")
+    
+    st.write("#### Fat Recommendations")
+    
+    fat_options = {
+        "0.4-0.5 g/lb": {"label": "0.4-0.5 g/lb of body weight (Recommended)", "min": 0.4, "max": 0.5, "recommendation": "Generally recommended for hormone health and satiety"},
+        "0.3-0.4 g/lb": {"label": "0.3-0.4 g/lb of body weight", "min": 0.3, "max": 0.4, "recommendation": "Caution warranted - may be insufficient for some individuals"},
+        "0.2-0.3 g/lb": {"label": "0.2-0.3 g/lb of body weight", "min": 0.2, "max": 0.3, "recommendation": "Generally not recommended - may impact hormonal health"}
+    }
+    
+    # Display fat recommendation table
+    fat_data = []
+    for option, data in fat_options.items():
+        min_fat = round(data["min"] * weight_lbs)
+        max_fat = round(data["max"] * weight_lbs)
+        fat_data.append({
+            "Option": option, 
+            "Recommendation": data["recommendation"],
+            "Daily Fat (g)": f"{min_fat} - {max_fat}",
+            "Calories from Fat": f"{min_fat * 9} - {max_fat * 9}"
+        })
+    
+    st.table(pd.DataFrame(fat_data))
+    
+    # Let user select fat recommendation
+    fat_option = st.selectbox(
+        "Select Standard Fat (g/lb of body weight)",
+        options=list(fat_options.keys()),
+        index=0
+    )
+    
+    # Let user override with custom value
+    use_custom_fat = st.checkbox("Override with custom fat value")
+    
+    if use_custom_fat:
+        custom_fat_per_lb = st.slider(
+            "Custom Fat (g/lb of body weight)",
+            min_value=0.2,
+            max_value=1.0,
+            value=0.45,
+            step=0.05
+        )
+        selected_fat_per_lb = custom_fat_per_lb
+    else:
+        # Use middle of range
+        selected_fat_per_lb = (fat_options[fat_option]["min"] + fat_options[fat_option]["max"]) / 2
+    
+    # Calculate fat target
+    fat_target_g = round(selected_fat_per_lb * weight_lbs)
+    fat_calories = fat_target_g * 9
+    
+    st.write(f"#### Selected Fat Target: {fat_target_g} g/day ({selected_fat_per_lb:.2f} g/lb of body weight)")
+    
+    # Calculate remaining calories for carbs
+    target_calories = st.session_state.nutrition_plan['target_calories']
+    remaining_calories = target_calories - protein_calories - fat_calories
+    carbs_target_g = round(remaining_calories / 4)
+    carbs_per_lb = round(carbs_target_g / weight_lbs, 2)
+    
+    st.write(f"#### Suggested Carbs: {carbs_target_g} g/day ({carbs_per_lb:.2f} g/lb of body weight)")
+    
+    # Let user override carbs
+    use_custom_carbs = st.checkbox("Override with custom carb value")
+    
+    if use_custom_carbs:
+        custom_carbs_per_lb = st.slider(
+            "Custom Carbs (g/lb of body weight)",
+            min_value=0.0,
+            max_value=3.0,
+            value=carbs_per_lb,
+            step=0.1
+        )
+        carbs_target_g = round(custom_carbs_per_lb * weight_lbs)
+    
+    # Calculate total calories based on potentially adjusted macros
+    calculated_calories = (protein_target_g * 4) + (fat_target_g * 9) + (carbs_target_g * 4)
+    
+    # Display summary table
+    st.write("#### Nutrition Plan Summary")
+    summary_data = {
+        "Metric": ["Calculated Calories", "Target Calories", "Protein (g)", "Protein Calories", "% Calories from Protein", 
+                "Fat (g)", "Fat Calories", "% Calories from Fat", "Carbs (g)", "Carbs Calories", "% Calories from Carbs"],
+        "Value": [
+            calculated_calories,
+            target_calories,
+            protein_target_g,
+            protein_calories,
+            f"{round(protein_calories / calculated_calories * 100)}%",
+            fat_target_g,
+            fat_calories,
+            f"{round(fat_calories / calculated_calories * 100)}%",
+            carbs_target_g,
+            carbs_target_g * 4,
+            f"{round(carbs_target_g * 4 / calculated_calories * 100)}%"
+        ]
+    }
+    
+    st.table(pd.DataFrame(summary_data))
+    
+    # Button to apply this plan
+    if st.button("Apply This Nutrition Plan"):
+        st.session_state.nutrition_plan['target_calories'] = calculated_calories
+        st.session_state.nutrition_plan['target_protein'] = protein_target_g
+        st.session_state.nutrition_plan['target_carbs'] = carbs_target_g
+        st.session_state.nutrition_plan['target_fat'] = fat_target_g
+        utils.save_data()
+        st.success("Nutrition plan updated!")
+        st.rerun()
+
+with tab2:
+    st.write("Use this tab to manually set your nutrition targets without using the standard recommendations.")
+
+    # Calculate macros per pound of bodyweight for context
+    protein_per_lb = round(st.session_state.nutrition_plan['target_protein'] / weight_lbs, 2) if weight_lbs > 0 else 0
+    carbs_per_lb = round(st.session_state.nutrition_plan['target_carbs'] / weight_lbs, 2) if weight_lbs > 0 else 0 
+    fat_per_lb = round(st.session_state.nutrition_plan['target_fat'] / weight_lbs, 2) if weight_lbs > 0 else 0
+    
+    st.write(f"Current Stats: {weight_lbs:.1f} lbs, {body_fat_pct:.1f}% body fat, {fat_free_mass_lbs:.1f} lbs fat-free mass")
+    st.write(f"Current Plan: {st.session_state.nutrition_plan['target_calories']} calories, {st.session_state.nutrition_plan['target_protein']}g protein ({protein_per_lb} g/lb), {st.session_state.nutrition_plan['target_carbs']}g carbs, {st.session_state.nutrition_plan['target_fat']}g fat")
+    
+    # Let user override everything manually
+    custom_calories = st.number_input("Custom Daily Calories", 
+                                     min_value=1000.0, 
+                                     max_value=10000.0, 
+                                     value=float(st.session_state.nutrition_plan['target_calories']))
+    
+    custom_protein = st.number_input("Custom Protein (g)", 
+                                    min_value=50.0, 
+                                    max_value=500.0, 
+                                    value=float(st.session_state.nutrition_plan['target_protein']))
+    
+    custom_fat = st.number_input("Custom Fat (g)", 
+                                min_value=20.0, 
+                                max_value=300.0, 
+                                value=float(st.session_state.nutrition_plan['target_fat']))
+    
+    # Calculate remaining calories for carbs
+    remaining_calories = custom_calories - (custom_protein * 4) - (custom_fat * 9)
+    suggested_carbs = max(0, round(remaining_calories / 4))
+    
+    custom_carbs = st.number_input("Custom Carbs (g)", 
+                                  min_value=0.0, 
+                                  max_value=1000.0, 
+                                  value=float(suggested_carbs))
+    
+    # Calculate total calories based on macros
+    calculated_calories = (custom_protein * 4) + (custom_fat * 9) + (custom_carbs * 4)
+    
+    if abs(calculated_calories - custom_calories) > 50:
+        st.warning(f"Your macronutrient selections add up to {calculated_calories} calories, which is {abs(calculated_calories - custom_calories)} calories different from your target. Consider adjusting your macros.")
+    
+    # Button to apply this plan
+    if st.button("Save Custom Plan"):
+        st.session_state.nutrition_plan['target_calories'] = int(custom_calories)
+        st.session_state.nutrition_plan['target_protein'] = int(custom_protein)
+        st.session_state.nutrition_plan['target_carbs'] = int(custom_carbs)
+        st.session_state.nutrition_plan['target_fat'] = int(custom_fat)
+        utils.save_data()
+        st.success("Custom nutrition plan updated!")
+        st.rerun()
+
+# Original Manual Adjustment Form
+st.subheader("Quick Adjust Your Plan (Optional)")
+st.markdown("If you'd like to make quick adjustments to your nutrition targets, you can use the form below.")
 
 with st.form("nutrition_adjustment_form"):
     col1, col2, col3, col4 = st.columns(4)
@@ -182,37 +407,37 @@ with st.form("nutrition_adjustment_form"):
     with col1:
         calories = st.number_input(
             "Daily Calories",
-            min_value=1000,
-            max_value=10000,
-            value=st.session_state.nutrition_plan['target_calories'],
-            step=50
+            min_value=1000.0,
+            max_value=10000.0,
+            value=float(st.session_state.nutrition_plan['target_calories']),
+            step=50.0
         )
     
     with col2:
         protein = st.number_input(
             "Protein (g)",
-            min_value=50,
-            max_value=500,
-            value=st.session_state.nutrition_plan['target_protein'],
-            step=5
+            min_value=50.0,
+            max_value=500.0,
+            value=float(st.session_state.nutrition_plan['target_protein']),
+            step=5.0
         )
     
     with col3:
         carbs = st.number_input(
             "Carbohydrates (g)",
-            min_value=20,
-            max_value=1000,
-            value=st.session_state.nutrition_plan['target_carbs'],
-            step=5
+            min_value=20.0,
+            max_value=1000.0,
+            value=float(st.session_state.nutrition_plan['target_carbs']),
+            step=5.0
         )
     
     with col4:
         fat = st.number_input(
             "Fat (g)",
-            min_value=20,
-            max_value=500,
-            value=st.session_state.nutrition_plan['target_fat'],
-            step=5
+            min_value=20.0,
+            max_value=500.0,
+            value=float(st.session_state.nutrition_plan['target_fat']),
+            step=5.0
         )
     
     # Check if macros add up to target calories
