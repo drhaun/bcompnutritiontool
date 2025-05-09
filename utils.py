@@ -74,39 +74,61 @@ def calculate_target_calories(tdee, goal_type, weekly_change_kg=0.5):
 
 def calculate_macros(target_calories, body_weight_kg, goal_type):
     """Calculate macronutrient targets based on goal and body weight"""
+    
+    # Ensure we have valid values and minimum calories
+    if not target_calories or target_calories < 1200:
+        target_calories = max(1200, target_calories if target_calories else 1200)
+    
+    # Convert kg to lbs for easier reference
+    body_weight_lbs = body_weight_kg * 2.20462
+    
     if goal_type == "lose_fat":
         # Higher protein for fat loss
-        protein_g = 2.2 * body_weight_kg  # 2.2g per kg bodyweight
-        fat_g = 0.8 * body_weight_kg  # 0.8g per kg bodyweight
-        # Remaining calories from carbs
-        protein_calories = protein_g * 4
-        fat_calories = fat_g * 9
-        carb_calories = target_calories - protein_calories - fat_calories
-        carb_g = carb_calories / 4
-        
+        protein_g = 2.2 * body_weight_kg  # 2.2g per kg bodyweight (1.0g per lb)
+        fat_g = 0.8 * body_weight_kg  # 0.8g per kg bodyweight (0.35g per lb)
     elif goal_type == "gain_muscle":
         # High protein and carbs for muscle gain
-        protein_g = 2.0 * body_weight_kg  # 2.0g per kg bodyweight
-        fat_g = 0.8 * body_weight_kg  # 0.8g per kg bodyweight
-        # Remaining calories from carbs
-        protein_calories = protein_g * 4
-        fat_calories = fat_g * 9
-        carb_calories = target_calories - protein_calories - fat_calories
-        carb_g = carb_calories / 4
-        
+        protein_g = 2.0 * body_weight_kg  # 2.0g per kg bodyweight (0.9g per lb)
+        fat_g = 0.8 * body_weight_kg  # 0.8g per kg bodyweight (0.35g per lb)
     else:  # maintain
         # Balanced macros for maintenance
-        protein_g = 1.8 * body_weight_kg  # 1.8g per kg bodyweight
-        fat_g = 1.0 * body_weight_kg  # 1.0g per kg bodyweight
-        # Remaining calories from carbs
-        protein_calories = protein_g * 4
+        protein_g = 1.8 * body_weight_kg  # 1.8g per kg bodyweight (0.8g per lb)
+        fat_g = 1.0 * body_weight_kg  # 1.0g per kg bodyweight (0.45g per lb)
+    
+    # Calculate calories from protein and fat
+    protein_calories = protein_g * 4
+    fat_calories = fat_g * 9
+    
+    # Calculate remaining calories for carbs
+    carb_calories = target_calories - protein_calories - fat_calories
+    
+    # Handle negative or zero carb calories
+    if carb_calories <= 0:
+        # If we can't fit carbs in the calorie target, adjust fat down
+        fat_g_min = 0.5 * body_weight_kg  # Minimum fat (0.25g per lb)
+        fat_g = max(fat_g_min, fat_g)
+        
+        # Recalculate fat calories
         fat_calories = fat_g * 9
+        
+        # Recalculate carb calories
         carb_calories = target_calories - protein_calories - fat_calories
-        carb_g = carb_calories / 4
+        
+        # If still negative, adjust protein down slightly
+        if carb_calories <= 0:
+            protein_g_min = 1.6 * body_weight_kg  # Minimum protein (0.7g per lb)
+            protein_g = max(protein_g_min, protein_g)
+            protein_calories = protein_g * 4
+            carb_calories = target_calories - protein_calories - fat_calories
     
-    # Ensure carbs don't go negative (can happen with very low calorie targets)
-    carb_g = max(carb_g, 50)  # Minimum 50g carbs
+    # Convert carb calories to grams
+    carb_g = carb_calories / 4 if carb_calories > 0 else 50
     
+    # Ensure minimum carbs for health (50g or at least 0.25g/lb of bodyweight)
+    min_carbs = max(50, 0.25 * body_weight_lbs)
+    carb_g = max(carb_g, min_carbs)
+    
+    # Ensure we're returning whole numbers
     return {
         'protein': round(protein_g),
         'carbs': round(carb_g),

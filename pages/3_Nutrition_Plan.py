@@ -28,42 +28,47 @@ if not st.session_state.user_info['gender'] or not st.session_state.goal_info.ge
 st.title("Nutrition Plan")
 st.markdown("Based on your goals, here's your personalized nutrition plan.")
 
-# Calculate TDEE and nutrition targets if not already set
-if not st.session_state.nutrition_plan.get('target_calories'):
-    # Get user information
-    gender = st.session_state.user_info['gender']
-    weight_kg = st.session_state.user_info['weight_kg']
-    height_cm = st.session_state.user_info['height_cm']
-    age = st.session_state.user_info['age']
-    activity_level = st.session_state.user_info['activity_level']
-    workouts_per_week = st.session_state.user_info.get('workouts_per_week', 0)
-    workout_calories = st.session_state.user_info.get('workout_calories', 0)
-    
-    # Get goal information
-    goal_type = st.session_state.goal_info['goal_type']
-    target_weight = st.session_state.goal_info['target_weight_kg']
-    timeline_weeks = st.session_state.goal_info['timeline_weeks']
-    
-    # Calculate weekly change rate
-    weekly_change = (target_weight - weight_kg) / timeline_weeks
-    
-    # Calculate TDEE with workout calories
-    tdee = utils.calculate_tdee(
-        gender, 
-        weight_kg, 
-        height_cm, 
-        age, 
-        activity_level, 
-        workouts_per_week, 
-        workout_calories
-    )
-    
-    # Calculate target calories based on goal
-    target_calories = utils.calculate_target_calories(tdee, goal_type, abs(weekly_change))
-    
-    # Calculate macros
-    macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
-    
+# Calculate or recalculate TDEE and nutrition targets
+# Always recalculate the plan to ensure latest values are used
+# Get user information
+gender = st.session_state.user_info['gender']
+weight_kg = st.session_state.user_info['weight_kg']
+height_cm = st.session_state.user_info['height_cm']
+age = st.session_state.user_info['age']
+activity_level = st.session_state.user_info['activity_level']
+workouts_per_week = st.session_state.user_info.get('workouts_per_week', 0)
+workout_calories = st.session_state.user_info.get('workout_calories', 0)
+
+# Get goal information
+goal_type = st.session_state.goal_info['goal_type']
+target_weight = st.session_state.goal_info['target_weight_kg']
+timeline_weeks = st.session_state.goal_info['timeline_weeks']
+
+# Calculate weekly change rate
+weekly_change = (target_weight - weight_kg) / timeline_weeks
+
+# Calculate TDEE with workout calories
+tdee = utils.calculate_tdee(
+    gender, 
+    weight_kg, 
+    height_cm, 
+    age, 
+    activity_level, 
+    workouts_per_week, 
+    workout_calories
+)
+
+# Store TDEE in user_info for reference elsewhere in the app
+st.session_state.user_info['tdee'] = tdee
+
+# Calculate target calories based on goal
+target_calories = utils.calculate_target_calories(tdee, goal_type, abs(weekly_change))
+
+# Calculate macros
+macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
+
+# If this is the first time or we want to update the plan
+if not st.session_state.nutrition_plan.get('target_calories') or True:
     # Set nutrition plan
     st.session_state.nutrition_plan = {
         'tdee': round(tdee),
