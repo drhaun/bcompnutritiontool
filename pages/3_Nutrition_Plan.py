@@ -292,8 +292,14 @@ with tab1:
     # Calculate remaining calories for carbs
     target_calories = st.session_state.nutrition_plan['target_calories']
     remaining_calories = target_calories - protein_calories - fat_calories
-    carbs_target_g = round(remaining_calories / 4)
-    carbs_per_lb = round(carbs_target_g / weight_lbs, 2)
+    
+    # Check for NaN or negative values
+    if pd.isna(remaining_calories) or remaining_calories < 0:
+        carbs_target_g = 0
+    else:
+        carbs_target_g = round(remaining_calories / 4)
+        
+    carbs_per_lb = round(carbs_target_g / weight_lbs, 2) if weight_lbs > 0 else 0
     
     st.write(f"#### Suggested Carbs: {carbs_target_g} g/day ({carbs_per_lb:.2f} g/lb of body weight)")
     
@@ -315,6 +321,17 @@ with tab1:
     
     # Display summary table
     st.write("#### Nutrition Plan Summary")
+    
+    # Calculate percentages with error handling
+    if calculated_calories > 0:
+        protein_pct = round(protein_calories / calculated_calories * 100)
+        fat_pct = round(fat_calories / calculated_calories * 100) 
+        carbs_pct = round(carbs_target_g * 4 / calculated_calories * 100)
+    else:
+        protein_pct = 0
+        fat_pct = 0
+        carbs_pct = 0
+        
     summary_data = {
         "Metric": ["Calculated Calories", "Target Calories", "Protein (g)", "Protein Calories", "% Calories from Protein", 
                 "Fat (g)", "Fat Calories", "% Calories from Fat", "Carbs (g)", "Carbs Calories", "% Calories from Carbs"],
@@ -323,13 +340,13 @@ with tab1:
             target_calories,
             protein_target_g,
             protein_calories,
-            f"{round(protein_calories / calculated_calories * 100)}%",
+            f"{protein_pct}%",
             fat_target_g,
             fat_calories,
-            f"{round(fat_calories / calculated_calories * 100)}%",
+            f"{fat_pct}%",
             carbs_target_g,
             carbs_target_g * 4,
-            f"{round(carbs_target_g * 4 / calculated_calories * 100)}%"
+            f"{carbs_pct}%"
         ]
     }
     
