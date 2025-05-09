@@ -417,14 +417,20 @@ if st.session_state.goal_info.get('target_weight_kg'):
         st.subheader("Fat Mass Index (FMI)")
         st.metric("Your FMI", f"{fat_mass_index:.1f} kg/m²")
         
-        # FMI categories
+        # FMI categories with rate recommendations
         fmi_categories = [
-            {"name": "Extremely Lean", "lower": 2, "upper": 3},
-            {"name": "Lean", "lower": 3.1, "upper": 5.2},
-            {"name": "Considered Healthy", "lower": 5.3, "upper": 7.2},
-            {"name": "Slightly Overfat", "lower": 7.3, "upper": 9.1},
-            {"name": "Overfat", "lower": 9.2, "upper": 12.9},
-            {"name": "Significantly Overfat", "lower": 13, "upper": 35}
+            {"name": "Extremely Lean", "lower": 2, "upper": 3, 
+             "gain_rate": 0.0075, "gain_fat_pct": 0.10, "loss_rate": None, "loss_fat_pct": None},
+            {"name": "Lean", "lower": 3.1, "upper": 5.2, 
+             "gain_rate": 0.0075, "gain_fat_pct": 0.10, "loss_rate": None, "loss_fat_pct": None},
+            {"name": "Considered Healthy", "lower": 5.3, "upper": 7.2, 
+             "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.0050, "loss_fat_pct": 0.80},
+            {"name": "Slightly Overfat", "lower": 7.3, "upper": 9.1, 
+             "gain_rate": 0.0013, "gain_fat_pct": 0.80, "loss_rate": 0.0075, "loss_fat_pct": 0.80},
+            {"name": "Overfat", "lower": 9.2, "upper": 12.9, 
+             "gain_rate": None, "gain_fat_pct": None, "loss_rate": 0.0100, "loss_fat_pct": 0.80},
+            {"name": "Significantly Overfat", "lower": 13, "upper": 35, 
+             "gain_rate": None, "gain_fat_pct": None, "loss_rate": 0.0125, "loss_fat_pct": 0.80}
         ]
         
         # Find user's category
@@ -448,13 +454,18 @@ if st.session_state.goal_info.get('target_weight_kg'):
         st.subheader("Fat-Free Mass Index (FFMI)")
         st.metric("Your FFMI", f"{fat_free_mass_index:.1f} kg/m²")
         
-        # FFMI categories
+        # FFMI categories with rate recommendations
         ffmi_categories = [
-            {"name": "Undermuscled", "lower": 8, "upper": 16},
-            {"name": "Moderately Undermuscled", "lower": 16.1, "upper": 17.8},
-            {"name": "Considered Healthy", "lower": 17.9, "upper": 22},
-            {"name": "Muscular", "lower": 22.1, "upper": 25},
-            {"name": "High", "lower": 25.1, "upper": 35}
+            {"name": "Undermuscled", "lower": 8, "upper": 16, 
+             "gain_rate": 0.0075, "gain_fat_pct": 0.10, "loss_rate": None, "loss_fat_pct": None},
+            {"name": "Moderately Undermuscled", "lower": 16.1, "upper": 17.8, 
+             "gain_rate": 0.0050, "gain_fat_pct": 0.10, "loss_rate": 0.0, "loss_fat_pct": 0.50},
+            {"name": "Considered Healthy", "lower": 17.9, "upper": 22, 
+             "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80},
+            {"name": "Muscular", "lower": 22.1, "upper": 25, 
+             "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80},
+            {"name": "High", "lower": 25.1, "upper": 35, 
+             "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80}
         ]
         
         # Find user's category
@@ -525,11 +536,11 @@ if st.session_state.goal_info.get('target_weight_kg'):
     
     with col1:
         st.subheader("Fat Mass Ranges for Your Height")
-        st.markdown(pd.DataFrame(fmi_ranges).to_markdown(index=False), unsafe_allow_html=True)
+        st.table(pd.DataFrame(fmi_ranges))
     
     with col2:
         st.subheader("Fat-Free Mass Ranges for Your Height")
-        st.markdown(pd.DataFrame(ffmi_ranges).to_markdown(index=False), unsafe_allow_html=True)
+        st.table(pd.DataFrame(ffmi_ranges))
     
     st.subheader("Expected Progress")
     
