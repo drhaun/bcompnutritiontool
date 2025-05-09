@@ -116,19 +116,32 @@ carb_calories = st.session_state.nutrition_plan['target_carbs'] * 4
 fat_calories = st.session_state.nutrition_plan['target_fat'] * 9
 total_calories = protein_calories + carb_calories + fat_calories
 
-# Calculate percentages
-protein_pct = protein_calories / total_calories * 100
-carb_pct = carb_calories / total_calories * 100
-fat_pct = fat_calories / total_calories * 100
+# Initialize variables with defaults to avoid unbound errors
+protein_pct = 0
+carb_pct = 0
+fat_pct = 0
 
-# Create pie chart
-fig, ax = plt.subplots(figsize=(6, 6))
-labels = [f'Protein ({protein_pct:.0f}%)', f'Carbs ({carb_pct:.0f}%)', f'Fat ({fat_pct:.0f}%)']
-sizes = [protein_pct, carb_pct, fat_pct]
-colors = ['#ff9999', '#66b3ff', '#99ff99']
+# Protect against division by zero or NaN values
+if total_calories > 0:
+    # Calculate percentages
+    protein_pct = protein_calories / total_calories * 100
+    carb_pct = carb_calories / total_calories * 100
+    fat_pct = fat_calories / total_calories * 100
 
-# Simplified pie chart without shadow and explode to avoid errors
-ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+    # Create pie chart
+    fig, ax = plt.subplots(figsize=(6, 6))
+    labels = [f'Protein ({protein_pct:.0f}%)', f'Carbs ({carb_pct:.0f}%)', f'Fat ({fat_pct:.0f}%)']
+    sizes = [protein_pct, carb_pct, fat_pct]
+    colors = ['#ff9999', '#66b3ff', '#99ff99']
+
+    # Simplified pie chart without shadow and explode to avoid errors
+    ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+else:
+    # Create a placeholder chart if no valid macros are set
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.text(0.5, 0.5, 'No valid macronutrient data', 
+           horizontalalignment='center', verticalalignment='center', fontsize=12)
+    ax.axis('off')
 ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle
 plt.title("Macronutrient Ratio")
 
@@ -137,20 +150,27 @@ col1, col2 = st.columns([2, 3])
 with col1:
     st.pyplot(fig)
 with col2:
-    st.markdown(f"""
-    ### Macros Explained
-    
-    Your daily targets break down as:
-    - **Protein: {st.session_state.nutrition_plan['target_protein']} g** ({protein_pct:.0f}% of calories)
-    - **Carbs: {st.session_state.nutrition_plan['target_carbs']} g** ({carb_pct:.0f}% of calories)
-    - **Fat: {st.session_state.nutrition_plan['target_fat']} g** ({fat_pct:.0f}% of calories)
-    
-    This plan is optimized for your {st.session_state.goal_info['goal_type'].replace('_', ' ')} goal.
-    
-    - Protein supports muscle retention/growth ({protein_per_lb} g/lb of bodyweight)
-    - Carbs provide energy for workouts and recovery
-    - Fat supports hormone production and overall health
-    """)
+    if total_calories > 0:
+        st.markdown(f"""
+        ### Macros Explained
+        
+        Your daily targets break down as:
+        - **Protein: {st.session_state.nutrition_plan['target_protein']} g** ({protein_pct:.0f}% of calories)
+        - **Carbs: {st.session_state.nutrition_plan['target_carbs']} g** ({carb_pct:.0f}% of calories)
+        - **Fat: {st.session_state.nutrition_plan['target_fat']} g** ({fat_pct:.0f}% of calories)
+        
+        This plan is optimized for your {st.session_state.goal_info['goal_type'].replace('_', ' ')} goal.
+        
+        - Protein supports muscle retention/growth ({protein_per_lb} g/lb of bodyweight)
+        - Carbs provide energy for workouts and recovery
+        - Fat supports hormone production and overall health
+        """)
+    else:
+        st.markdown("""
+        ### Macros Explained
+        
+        Please update your nutrition plan with valid macronutrient values.
+        """)
 
 # Manual Adjustment Form
 st.subheader("Adjust Your Plan (Optional)")

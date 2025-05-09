@@ -940,6 +940,186 @@ def calculate_predicted_weeks(current_weight_kg, target_weight_kg, current_bf_pc
                 return max(1, round(predicted_weeks))
             return 52  # Default to a year if no valid calculation
 
+def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_weight_lbs, target_bf_pct, 
+                              weekly_weight_pct, weekly_fat_pct, timeline_weeks, start_date, tdee, gender, age, height_cm):
+    """
+    Generate a detailed weekly progress table showing expected weight, body composition, and energy data
+    for each week of the plan.
+    
+    Parameters:
+    current_weight_lbs (float): Starting weight in pounds
+    current_bf_pct (float): Starting body fat percentage
+    target_weight_lbs (float): Target weight in pounds
+    target_bf_pct (float): Target body fat percentage
+    weekly_weight_pct (float): Weekly weight change as percentage of current weight (decimal)
+    weekly_fat_pct (float): Percentage of weight change that is fat (decimal)
+    timeline_weeks (int): Number of weeks for the plan
+    start_date (str): Starting date in format 'YYYY-MM-DD'
+    tdee (float): Total Daily Energy Expenditure in calories
+    gender (str): "Male" or "Female"
+    age (int): Age in years
+    height_cm (float): Height in centimeters
+    
+    Returns:
+    pd.DataFrame: Detailed progress table with weekly projections
+    """
+    try:
+        # Convert pounds to kg for calculations
+        current_weight_kg = current_weight_lbs / 2.20462
+        target_weight_kg = target_weight_lbs / 2.20462
+        
+        # Calculate starting fat mass and fat-free mass
+        current_fat_mass_kg = current_weight_kg * (current_bf_pct/100)
+        current_ffm_kg = current_weight_kg - current_fat_mass_kg
+        
+        # Convert to pounds for display
+        current_fat_mass_lbs = current_fat_mass_kg * 2.20462
+        current_ffm_lbs = current_ffm_kg * 2.20462
+        
+        # Calculate weekly weight change in kg and lbs
+        weekly_weight_change_kg = current_weight_kg * weekly_weight_pct
+        weekly_weight_change_lbs = weekly_weight_change_kg * 2.20462
+        
+        # Parse start date
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        
+        # Initialize data structure
+        progress_data = []
+        
+        # Current stats
+        weight_kg = current_weight_kg
+        weight_lbs = current_weight_lbs
+        fat_mass_kg = current_fat_mass_kg
+        fat_mass_lbs = current_fat_mass_lbs
+        ffm_kg = current_ffm_kg
+        ffm_lbs = current_ffm_lbs
+        body_fat_pct = current_bf_pct
+        
+        goal_is_gain = weekly_weight_change_kg > 0
+        
+        # Energy availability per kg of FFM (measure of energy surplus/deficit relative to lean mass)
+        energy_availability = 0
+        
+        for week in range(timeline_weeks + 1):  # +1 to include the final state
+            # Calculate the date for this week
+            date = start_date + timedelta(days=7 * week)
+            
+            # Calculate energy balance needed to achieve the weekly change
+            daily_energy_balance = 0
+            if week > 0:  # Skip week 0 (starting point)
+                # Caloric surplus/deficit needed (~7700 kcal per kg of weight change)
+                if goal_is_gain:
+                    daily_energy_balance = (weekly_weight_change_kg * 7700) / 7  # Daily surplus
+                else:
+                    daily_energy_balance = -1 * (abs(weekly_weight_change_kg) * 7700) / 7  # Daily deficit
+            
+            # Calculate TDEE based on current weight
+            current_tdee = calculate_tdee(gender, weight_kg, height_cm, age, "Sedentary (office job, <2 hours exercise per week)")
+            
+            # Calculate target energy intake
+            target_energy = current_tdee + daily_energy_balance
+            
+            # Calculate energy availability per kg of FFM (important metric for athletes)
+            if ffm_kg > 0:
+                energy_availability = target_energy / ffm_kg
+            
+            # Only store the initial values for week 0
+            if week == 0:
+                progress_data.append({
+                    'Date': date.strftime('%m/%d/%Y'),
+                    'Week': week,
+                    'Starting Weight (lbs)': round(weight_lbs, 1),
+                    'Ending Weight (lbs)': round(weight_lbs, 1),
+                    'Weekly Change (lbs)': 0.0,
+                    'Starting Fat Mass (lbs)': round(fat_mass_lbs, 1),
+                    'Ending Fat Mass (lbs)': round(fat_mass_lbs, 1),
+                    'Fat Mass Change (lbs)': 0.0,
+                    'Cumulative Fat Change (lbs)': 0.0,
+                    'Starting FFM (lbs)': round(ffm_lbs, 1),
+                    'Ending FFM (lbs)': round(ffm_lbs, 1),
+                    'FFM Change (lbs)': 0.0,
+                    'Ending Body Fat %': round(body_fat_pct, 1),
+                    'Daily Energy Balance (kcal)': round(daily_energy_balance),
+                    'Daily TDEE (kcal)': round(current_tdee),
+                    'Daily Energy Target (kcal)': round(target_energy),
+                    'Energy Availability (kcal/kg FFM)': round(energy_availability)
+                })
+                continue
+            
+            # Calculate changes for this week
+            if goal_is_gain:
+                # Weight gain logic
+                new_weight_kg = weight_kg + weekly_weight_change_kg
+                fat_gain_kg = weekly_weight_change_kg * weekly_fat_pct
+                ffm_gain_kg = weekly_weight_change_kg * (1 - weekly_fat_pct)
+                
+                new_fat_mass_kg = fat_mass_kg + fat_gain_kg
+                new_ffm_kg = ffm_kg + ffm_gain_kg
+                
+                # Convert to pounds
+                fat_gain_lbs = fat_gain_kg * 2.20462
+                ffm_gain_lbs = ffm_gain_kg * 2.20462
+            else:
+                # Weight loss logic
+                new_weight_kg = weight_kg + weekly_weight_change_kg  # Note: change is negative
+                fat_loss_kg = abs(weekly_weight_change_kg) * weekly_fat_pct
+                ffm_loss_kg = abs(weekly_weight_change_kg) * (1 - weekly_fat_pct)
+                
+                new_fat_mass_kg = fat_mass_kg - fat_loss_kg
+                new_ffm_kg = ffm_kg - ffm_loss_kg
+                
+                # Convert to pounds
+                fat_gain_lbs = -1 * (fat_loss_kg * 2.20462)  # Negative for loss
+                ffm_gain_lbs = -1 * (ffm_loss_kg * 2.20462)  # Negative for loss
+            
+            # Convert to pounds
+            new_weight_lbs = new_weight_kg * 2.20462
+            new_fat_mass_lbs = new_fat_mass_kg * 2.20462
+            new_ffm_lbs = new_ffm_kg * 2.20462
+            
+            # Calculate new body fat percentage
+            new_body_fat_pct = (new_fat_mass_kg / new_weight_kg) * 100
+            
+            # Calculate cumulative fat change
+            cumulative_fat_change = (new_fat_mass_lbs - current_fat_mass_lbs)
+            
+            # Store this week's data
+            progress_data.append({
+                'Date': date.strftime('%m/%d/%Y'),
+                'Week': week,
+                'Starting Weight (lbs)': round(weight_lbs, 1),
+                'Ending Weight (lbs)': round(new_weight_lbs, 1),
+                'Weekly Change (lbs)': round(new_weight_lbs - weight_lbs, 2),
+                'Starting Fat Mass (lbs)': round(fat_mass_lbs, 1),
+                'Ending Fat Mass (lbs)': round(new_fat_mass_lbs, 1),
+                'Fat Mass Change (lbs)': round(fat_gain_lbs, 2),
+                'Cumulative Fat Change (lbs)': round(cumulative_fat_change, 1),
+                'Starting FFM (lbs)': round(ffm_lbs, 1),
+                'Ending FFM (lbs)': round(new_ffm_lbs, 1),
+                'FFM Change (lbs)': round(ffm_gain_lbs, 2),
+                'Ending Body Fat %': round(new_body_fat_pct, 1),
+                'Daily Energy Balance (kcal)': round(daily_energy_balance),
+                'Daily TDEE (kcal)': round(current_tdee),
+                'Daily Energy Target (kcal)': round(target_energy),
+                'Energy Availability (kcal/kg FFM)': round(energy_availability)
+            })
+            
+            # Update for next week
+            weight_kg = new_weight_kg
+            weight_lbs = new_weight_lbs
+            fat_mass_kg = new_fat_mass_kg
+            fat_mass_lbs = new_fat_mass_lbs
+            ffm_kg = new_ffm_kg
+            ffm_lbs = new_ffm_lbs
+            body_fat_pct = new_body_fat_pct
+        
+        # Create DataFrame
+        return pd.DataFrame(progress_data)
+    
+    except Exception as e:
+        print(f"Error generating progress table: {e}")
+        return pd.DataFrame()  # Return empty DataFrame on error
+
 def load_data():
     """Load data from CSV files into session state"""
     try:
