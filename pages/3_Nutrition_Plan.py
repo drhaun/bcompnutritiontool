@@ -332,25 +332,20 @@ with tab1:
         fat_pct = 0
         carbs_pct = 0
         
-    summary_data = {
-        "Metric": ["Calculated Calories", "Target Calories", "Protein (g)", "Protein Calories", "% Calories from Protein", 
-                "Fat (g)", "Fat Calories", "% Calories from Fat", "Carbs (g)", "Carbs Calories", "% Calories from Carbs"],
-        "Value": [
-            calculated_calories,
-            target_calories,
-            protein_target_g,
-            protein_calories,
-            f"{protein_pct}%",
-            fat_target_g,
-            fat_calories,
-            f"{fat_pct}%",
-            carbs_target_g,
-            carbs_target_g * 4,
-            f"{carbs_pct}%"
-        ]
-    }
+    # Create two columns of data to display as text rather than a data table with percentage strings
+    col1, col2 = st.columns(2)
     
-    st.table(pd.DataFrame(summary_data))
+    with col1:
+        st.write("**Calorie Information:**")
+        st.write(f"• Calculated Calories: {calculated_calories}")
+        st.write(f"• Target Calories: {target_calories}")
+        st.write(f"• Calorie Difference: {calculated_calories - target_calories}")
+    
+    with col2:
+        st.write("**Macronutrient Breakdown:**")
+        st.write(f"• Protein: {protein_target_g}g ({protein_pct}% of calories)")
+        st.write(f"• Fat: {fat_target_g}g ({fat_pct}% of calories)")
+        st.write(f"• Carbs: {carbs_target_g}g ({carbs_pct}% of calories)")
     
     # Button to apply this plan
     if st.button("Apply This Nutrition Plan"):
@@ -440,11 +435,15 @@ with st.form("nutrition_adjustment_form"):
         )
     
     with col3:
+        # Make sure value is at least the min_value
+        carb_value = max(0.0, float(st.session_state.nutrition_plan['target_carbs']))
+        carb_value = max(0.0, carb_value)  # Ensure it's not negative
+        
         carbs = st.number_input(
             "Carbohydrates (g)",
-            min_value=20.0,
+            min_value=0.0,
             max_value=1000.0,
-            value=float(st.session_state.nutrition_plan['target_carbs']),
+            value=carb_value,
             step=5.0
         )
     
