@@ -176,8 +176,33 @@ with col2:
 st.subheader("Enhanced Nutrition Calculator")
 st.markdown("Use this advanced calculator to refine your nutrition targets based on scientific recommendations.")
 
+# Calculate TDEE if not already set
+gender = st.session_state.user_info['gender']
+weight_kg = st.session_state.user_info['weight_kg']
+height_cm = st.session_state.user_info['height_cm']
+age = st.session_state.user_info['age']
+activity_level = st.session_state.user_info['activity_level']
+workouts_per_week = st.session_state.user_info.get('workouts_per_week', 0)
+workout_calories = st.session_state.user_info.get('workout_calories', 0)
+
+# Recalculate TDEE to ensure it's up to date
+tdee = utils.calculate_tdee(
+    gender, 
+    weight_kg, 
+    height_cm, 
+    age, 
+    activity_level, 
+    workouts_per_week, 
+    workout_calories
+)
+
+# Update TDEE in session state
+st.session_state.nutrition_plan['tdee'] = round(tdee)
+
+# Display TDEE
+st.info(f"Your Total Daily Energy Expenditure (TDEE) is estimated at {round(tdee)} calories per day.")
+
 # Get weight in pounds and calculate fat-free mass
-weight_kg = st.session_state.user_info.get('weight_kg', 70)
 weight_lbs = weight_kg * 2.20462
 body_fat_pct = st.session_state.user_info.get('body_fat_percentage', 20)
 fat_free_mass_kg = weight_kg * (1 - body_fat_pct/100)
@@ -386,7 +411,15 @@ with tab2:
     
     # Calculate remaining calories for carbs
     remaining_calories = custom_calories - (custom_protein * 4) - (custom_fat * 9)
-    suggested_carbs = max(0, round(remaining_calories / 4))
+    
+    # Check for NaN or negative values
+    if pd.isna(remaining_calories) or remaining_calories < 0:
+        suggested_carbs = 0
+    else:
+        suggested_carbs = round(remaining_calories / 4)
+    
+    # Show the suggested carbs based on the calculation
+    st.info(f"Suggested Carbs: {suggested_carbs}g based on remaining calories after protein and fat allocation.")
     
     custom_carbs = st.number_input("Custom Carbs (g)", 
                                   min_value=0.0, 
@@ -413,6 +446,23 @@ with tab2:
 st.subheader("Quick Adjust Your Plan (Optional)")
 st.markdown("If you'd like to make quick adjustments to your nutrition targets, you can use the form below.")
 
+# First, display the TDEE and suggested macros outside the form
+st.info(f"Your Total Daily Energy Expenditure (TDEE) is estimated at {st.session_state.nutrition_plan.get('tdee', 0)} calories per day.")
+
+# Calculate suggested carbs based on current protein and fat values
+target_calories = st.session_state.nutrition_plan['target_calories']
+protein_calories = st.session_state.nutrition_plan['target_protein'] * 4
+fat_calories = st.session_state.nutrition_plan['target_fat'] * 9
+remaining_calories = target_calories - protein_calories - fat_calories
+
+if pd.isna(remaining_calories) or remaining_calories < 0:
+    suggested_carbs = 0
+else:
+    suggested_carbs = round(remaining_calories / 4)
+
+st.info(f"Suggested Carbs: {suggested_carbs}g based on remaining calories ({remaining_calories} kcal) after protein and fat allocation.")
+
+# Now create the form
 with st.form("nutrition_adjustment_form"):
     col1, col2, col3, col4 = st.columns(4)
     
@@ -444,7 +494,8 @@ with st.form("nutrition_adjustment_form"):
             min_value=0.0,
             max_value=1000.0,
             value=carb_value,
-            step=5.0
+            step=5.0,
+            help="Tip: Carbs are typically calculated from remaining calories after protein and fat allocation."
         )
     
     with col4:
