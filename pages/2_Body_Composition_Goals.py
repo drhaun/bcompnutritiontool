@@ -759,39 +759,206 @@ if st.session_state.goal_info.get('target_weight_kg'):
     
     st.subheader("Expected Progress")
     
-    # Create a progress table - use a simpler approach with step-based weeks
-    # Create weeks at 0, 4, 8, etc. and include the final week
-    weeks = []
+    # Generate detailed weekly progress table
+    goal_type_code = st.session_state.goal_info.get('goal_type', 'lose_fat')
+    tdee = st.session_state.user_info.get('tdee', 2000)
+    gender = st.session_state.user_info.get('gender', 'Male')
+    age = st.session_state.user_info.get('age', 30)
+    height_cm = st.session_state.user_info.get('height_cm', 170)
+    
+    # Calculate weekly percentage changes
+    weekly_weight_pct = abs(weekly_weight_change_kg / current_weight_kg)
+    
+    # Determine fat percentage based on goal type
+    if goal_type_code == "lose_fat":
+        weekly_fat_pct = 0.8  # 80% of weight loss is fat by default
+    else:
+        weekly_fat_pct = 0.2  # 20% of weight gain is fat by default
+    
+    # Create start date
+    start_date_str = st.session_state.goal_info.get('start_date', datetime.now().strftime('%Y-%m-%d'))
+    
+    # Generate the detailed weekly projection table
+    detailed_progress_df = utils.generate_detailed_progress_table(
+        current_weight_lbs,
+        current_bf,
+        target_weight_lbs,
+        target_bf,
+        weekly_weight_pct,
+        weekly_fat_pct,
+        timeline_weeks,
+        start_date_str,
+        tdee,
+        gender,
+        age,
+        height_cm
+    )
+    
+    # Create simplified table for display
+    summary_weeks = []
     week = 0
     while week <= timeline_weeks:
-        weeks.append(week)
+        summary_weeks.append(week)
         week += 4
     
     # Make sure the final week is included if it's not already
-    if timeline_weeks not in weeks:
-        weeks.append(timeline_weeks)
+    if timeline_weeks not in summary_weeks:
+        summary_weeks.append(timeline_weeks)
     
-    progress_data = []
-    
-    for week in weeks:
-        expected_weight_kg = current_weight_kg + (weekly_weight_change_kg * week)
-        expected_weight_lbs = expected_weight_kg * 2.20462
-        expected_bf = current_bf + (weekly_bf_change * week)
-        expected_lbm_kg = expected_weight_kg * (1 - expected_bf/100)
-        expected_lbm_lbs = expected_lbm_kg * 2.20462
-        expected_fat_mass_kg = expected_weight_kg * (expected_bf/100)
-        expected_fat_mass_lbs = expected_fat_mass_kg * 2.20462
+    # Create simpler summary table for display
+    summary_data = []
+    for week in summary_weeks:
+        if week == 0:
+            row = detailed_progress_df[detailed_progress_df['Week'] == 1].iloc[0].to_dict()
+            week_data = {
+                'Week': 0,
+                'Weight (lbs)': f"{current_weight_lbs:.1f}",
+                'Body Fat (%)': f"{current_bf:.1f}",
+                'Lean Mass (lbs)': f"{current_weight_lbs * (1 - current_bf/100):.1f}",
+                'Fat Mass (lbs)': f"{current_weight_lbs * (current_bf/100):.1f}"
+            }
+        else:
+            # Find the closest week in the detailed data
+            week_row = detailed_progress_df[detailed_progress_df['Week'] == week]
+            if not week_row.empty:
+                row = week_row.iloc[0]
+                week_data = {
+                    'Week': week,
+                    'Weight (lbs)': f"{row['Ending Weight (lbs)']:.1f}",
+                    'Body Fat (%)': f"{row['Ending Body Fat %']:.1f}",
+                    'Lean Mass (lbs)': f"{row['Ending FFM (lbs)']:.1f}",
+                    'Fat Mass (lbs)': f"{row['Ending Fat Mass (lbs)']:.1f}"
+                }
         
-        progress_data.append({
-            'Week': week,
-            'Weight (lbs)': f"{expected_weight_lbs:.1f}",
-            'Body Fat (%)': f"{expected_bf:.1f}",
-            'Lean Mass (lbs)': f"{expected_lbm_lbs:.1f}",
-            'Fat Mass (lbs)': f"{expected_fat_mass_lbs:.1f}"
-        })
+        summary_data.append(week_data)
     
-    progress_df = pd.DataFrame(progress_data)
-    st.table(progress_df)
+    summary_df = pd.DataFrame(summary_data)
+    
+    # Display the summary table
+    st.table(summary_df)
+    
+    # Create visualizations for the expected progress
+    st.subheader("Visualized Progress")
+    
+    # Create progress visualization for weight and body composition
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+    
+    # Weight progress chart
+    weeks_list = detailed_progress_df['Week'].tolist()
+    weight_list = detailed_progress_df['Ending Weight (lbs)'].tolist()
+    
+    # Add the starting point (week 0)
+    weeks_list = [0] + weeks_list
+    weight_list = [current_weight_lbs] + weight_list
+    
+    ax1.plot(weeks_list, weight_list, marker='o', linewidth=2, color='#007BFF')
+    ax1.set_title(f'Weight Progress Over {timeline_weeks} Weeks', fontsize=14)
+    ax1.set_xlabel('Week', fontsize=12)
+    ax1.set_ylabel('Weight (lbs)', fontsize=12)
+    ax1.grid(True, linestyle='--', alpha=0.7)
+    
+    # Highlight starting and ending points
+    ax1.plot(0, current_weight_lbs, 'go', markersize=10, label='Start')
+    ax1.plot(timeline_weeks, target_weight_lbs, 'ro', markersize=10, label='Goal')
+    ax1.legend()
+    
+    # Add annotations
+    ax1.annotate(f"{current_weight_lbs:.1f} lbs", (0, current_weight_lbs), 
+                 textcoords="offset points", xytext=(0,10), ha='center')
+    ax1.annotate(f"{target_weight_lbs:.1f} lbs", (timeline_weeks, target_weight_lbs), 
+                 textcoords="offset points", xytext=(0,10), ha='center')
+    
+    # Body composition progress chart
+    fat_mass_list = detailed_progress_df['Ending Fat Mass (lbs)'].tolist()
+    ffm_list = detailed_progress_df['Ending FFM (lbs)'].tolist()
+    
+    # Add the starting point (week 0)
+    fat_mass_list = [current_weight_lbs * (current_bf/100)] + fat_mass_list
+    ffm_list = [current_weight_lbs * (1 - current_bf/100)] + ffm_list
+    
+    # Create a stacked bar chart for body composition
+    # Select weeks to display (0, 1/4, 1/2, 3/4, and final)
+    display_indices = [0]
+    for i in range(1, 4):
+        index = int(len(weeks_list) * (i/4))
+        if index not in display_indices and index < len(weeks_list):
+            display_indices.append(index)
+    if len(weeks_list) - 1 not in display_indices:
+        display_indices.append(len(weeks_list) - 1)
+    
+    display_weeks = [weeks_list[i] for i in display_indices]
+    display_fat = [fat_mass_list[i] for i in display_indices]
+    display_ffm = [ffm_list[i] for i in display_indices]
+    
+    bar_width = 0.6
+    ax2.bar(display_weeks, display_fat, bar_width, label='Fat Mass', color='#FFA500')
+    ax2.bar(display_weeks, display_ffm, bar_width, bottom=display_fat, label='Fat-Free Mass', color='#28A745')
+    
+    # Add body fat percentages on top of each bar
+    for i, week in enumerate(display_weeks):
+        total_height = display_fat[i] + display_ffm[i]
+        bf_pct = (display_fat[i] / total_height) * 100 if total_height > 0 else 0
+        ax2.text(week, total_height + 2, f"{bf_pct:.1f}%", ha='center', va='bottom')
+    
+    ax2.set_title('Body Composition Changes', fontsize=14)
+    ax2.set_xlabel('Week', fontsize=12)
+    ax2.set_ylabel('Weight (lbs)', fontsize=12)
+    ax2.legend(loc='upper center')
+    ax2.grid(True, linestyle='--', alpha=0.7)
+    
+    plt.tight_layout()
+    st.pyplot(fig)
+    
+    # Create visualizations for the nutritional aspects
+    fig2, (ax3, ax4) = plt.subplots(1, 2, figsize=(14, 6))
+    
+    # Energy balance chart
+    energy_balance = detailed_progress_df['Daily Energy Balance (kcal)'].tolist()
+    tdee_list = detailed_progress_df['Daily TDEE (kcal)'].tolist()
+    energy_target = detailed_progress_df['Daily Energy Target (kcal)'].tolist()
+    
+    # Add starting values
+    energy_balance = [energy_balance[0]] + energy_balance
+    tdee_list = [tdee_list[0]] + tdee_list
+    energy_target = [energy_target[0]] + energy_target
+    
+    ax3.plot(weeks_list, tdee_list, marker='o', linewidth=2, label='TDEE', color='#17a2b8')
+    ax3.plot(weeks_list, energy_target, marker='s', linewidth=2, label='Target Calories', color='#28A745')
+    ax3.axhline(y=0, color='gray', linestyle='-', alpha=0.3)
+    
+    # Color the energy balance differently based on surplus or deficit
+    for i in range(len(weeks_list)-1):
+        color = '#FFA500' if energy_balance[i] > 0 else '#007BFF'
+        ax3.plot([weeks_list[i], weeks_list[i+1]], 
+                 [energy_balance[i], energy_balance[i+1]], 
+                 marker='o', linewidth=2, color=color)
+    
+    ax3.set_title('Energy Balance Over Time', fontsize=14)
+    ax3.set_xlabel('Week', fontsize=12)
+    ax3.set_ylabel('Calories (kcal)', fontsize=12)
+    ax3.legend()
+    ax3.grid(True, linestyle='--', alpha=0.7)
+    
+    # Energy availability chart
+    energy_availability = detailed_progress_df['Energy Availability (kcal/kg FFM)'].tolist()
+    energy_availability = [energy_availability[0]] + energy_availability
+    
+    ax4.plot(weeks_list, energy_availability, marker='o', linewidth=2, color='#6f42c1')
+    ax4.axhline(y=30, color='red', linestyle='--', alpha=0.7, label='Min. Recommended')
+    ax4.axhline(y=45, color='green', linestyle='--', alpha=0.7, label='Optimal Range')
+    
+    ax4.set_title('Energy Availability (kcal/kg of FFM)', fontsize=14)
+    ax4.set_xlabel('Week', fontsize=12)
+    ax4.set_ylabel('Energy Availability', fontsize=12)
+    ax4.legend()
+    ax4.grid(True, linestyle='--', alpha=0.7)
+    
+    plt.tight_layout()
+    st.pyplot(fig2)
+    
+    # Display detailed progress table with an expandable section
+    with st.expander("View Detailed Weekly Progress Table"):
+        st.dataframe(detailed_progress_df)
     
     # Display some insights about the goal
     st.subheader("Goal Insights")
