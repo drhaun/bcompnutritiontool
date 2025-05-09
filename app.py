@@ -132,9 +132,10 @@ This application helps you plan and track your body composition and nutrition go
 1. **Initial Setup**: Enter your personal information
 2. **Body Composition Goals**: Define your body composition targets
 3. **Nutrition Plan**: Review your personalized nutrition recommendations
-4. **Advanced Meal Planning**: Create and plan meals with accurate nutrition data
-5. **Daily Monitoring**: Track your daily weight and nutrition intake
-6. **Progress Dashboard**: Visualize your journey and get weekly adjustments
+4. **Daily Monitoring**: Track your daily weight and nutrition intake
+5. **Progress Dashboard**: Visualize your journey and get weekly adjustments
+6. **Advanced Meal Planning**: Create and plan meals with accurate nutrition data
+7. **Reference Photos**: View body fat percentage examples
 
 Get started by selecting "Initial Setup" from the sidebar!
 """)
@@ -146,10 +147,22 @@ if not st.session_state.daily_records.empty:
     col1, col2, col3 = st.columns(3)
     
     with col1:
+        # Check if user preference is for imperial units
+        use_imperial = st.session_state.user_info.get('use_imperial', True)
+        
+        if use_imperial:
+            current_wt = st.session_state.daily_records['weight_kg'].iloc[-1] * 2.20462
+            initial_wt = st.session_state.daily_records['weight_kg'].iloc[0] * 2.20462
+            units = "lbs"
+        else:
+            current_wt = st.session_state.daily_records['weight_kg'].iloc[-1]
+            initial_wt = st.session_state.daily_records['weight_kg'].iloc[0]
+            units = "kg"
+            
         st.metric(
             label="Current Weight", 
-            value=f"{st.session_state.daily_records['weight_kg'].iloc[-1]:.1f} kg",
-            delta=f"{st.session_state.daily_records['weight_kg'].iloc[-1] - st.session_state.daily_records['weight_kg'].iloc[0]:.1f} kg"
+            value=f"{current_wt:.1f} {units}",
+            delta=f"{current_wt - initial_wt:.1f} {units}"
         )
     
     with col2:

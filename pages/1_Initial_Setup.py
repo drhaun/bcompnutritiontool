@@ -118,14 +118,22 @@ with st.form("user_info_form"):
             weight_lbs = weight_kg * 2.20462
     
     with col2:
-        body_fat = st.number_input(
-            "Enter Current Estimated Body Fat %",
-            min_value=3.0,
-            max_value=50.0,
-            value=st.session_state.user_info.get('body_fat_percentage', 15.0),
-            step=0.1,
-            format="%.1f"
-        )
+        st.write("Enter Current Estimated Body Fat %")
+        bf_col1, bf_col2 = st.columns([3, 1])
+        
+        with bf_col1:
+            body_fat = st.number_input(
+                "Body Fat Percentage",
+                min_value=3.0,
+                max_value=50.0,
+                value=st.session_state.user_info.get('body_fat_percentage', 15.0),
+                step=0.1,
+                format="%.1f",
+                label_visibility="collapsed"
+            )
+        
+        with bf_col2:
+            st.markdown("[View Reference Photos](/Reference_Photos)", unsafe_allow_html=True)
         
         # Define activity level options
         activity_options = [
@@ -166,7 +174,7 @@ with st.form("user_info_form"):
             step=1
         )
         
-        # New categorized workout frequency (for rate calculation)
+        # Define workout frequency categories
         workout_freq_options = [
             "0-1 workouts per week",
             "2-3 workouts per week", 
@@ -174,25 +182,18 @@ with st.form("user_info_form"):
             "6+ workouts per week"
         ]
         
-        # Determine default selection based on numeric input
+        # Automatically determine workout frequency category based on input number
         if workouts_per_week <= 1:
-            default_workout_index = 0
+            workout_frequency = workout_freq_options[0]
         elif workouts_per_week <= 3:
-            default_workout_index = 1
+            workout_frequency = workout_freq_options[1]
         elif workouts_per_week <= 5:
-            default_workout_index = 2
+            workout_frequency = workout_freq_options[2]
         else:
-            default_workout_index = 3
+            workout_frequency = workout_freq_options[3]
             
-        # Get stored value if available
-        stored_workout_freq = st.session_state.user_info.get('workout_frequency')
-        stored_workout_freq_index = workout_freq_options.index(stored_workout_freq) if stored_workout_freq in workout_freq_options else default_workout_index
-        
-        workout_frequency = st.selectbox(
-            "Workout Frequency Category (for rate calculation)",
-            options=workout_freq_options,
-            index=stored_workout_freq_index
-        )
+        # Display the automatically determined category
+        st.info(f"Workout frequency category: **{workout_frequency}**")
         
         workout_calories = st.number_input(
             "Enter Average Calories Expended During a Workout",
