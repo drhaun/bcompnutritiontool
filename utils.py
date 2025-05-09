@@ -1149,6 +1149,103 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
         traceback.print_exc()
         return pd.DataFrame()  # Return empty DataFrame on error
 
+def save_progress_photo(uploaded_file, date_str, photo_type):
+    """
+    Save a progress photo to the filesystem
+    
+    Parameters:
+    uploaded_file: The file uploaded through Streamlit's file_uploader
+    date_str: Date string in YYYY-MM-DD format
+    photo_type: Type of photo (e.g., 'front', 'side', 'back')
+    
+    Returns:
+    str: Path to the saved image
+    """
+    try:
+        # Create directory if it doesn't exist
+        os.makedirs('images/progress_photos', exist_ok=True)
+        
+        # Generate filename
+        file_extension = uploaded_file.name.split('.')[-1].lower()
+        filename = f"{date_str}_{photo_type}.{file_extension}"
+        filepath = os.path.join('images/progress_photos', filename)
+        
+        # Save the file
+        with open(filepath, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+            
+        # Add entry to photo tracking CSV
+        photo_df = get_progress_photos_df()
+        
+        # Check if we already have an entry for this date and photo type
+        existing_entry = photo_df[(photo_df['date'] == date_str) & (photo_df['photo_type'] == photo_type)]
+        
+        if not existing_entry.empty:
+            # Update existing entry
+            photo_df.loc[(photo_df['date'] == date_str) & (photo_df['photo_type'] == photo_type), 'filepath'] = filepath
+        else:
+            # Add new entry
+            new_entry = pd.DataFrame({
+                'date': [date_str],
+                'photo_type': [photo_type],
+                'filepath': [filepath]
+            })
+            photo_df = pd.concat([photo_df, new_entry], ignore_index=True)
+        
+        # Save the updated DataFrame
+        photo_df.to_csv('data/progress_photos.csv', index=False)
+        
+        return filepath
+    
+    except Exception as e:
+        st.error(f"Error saving photo: {e}")
+        return None
+
+def get_progress_photos_df():
+    """
+    Get DataFrame of progress photos
+    
+    Returns:
+    DataFrame: DataFrame containing progress photo information
+    """
+    try:
+        if os.path.exists('data/progress_photos.csv'):
+            return pd.read_csv('data/progress_photos.csv')
+        else:
+            # Create a new DataFrame with columns
+            photo_df = pd.DataFrame(columns=['date', 'photo_type', 'filepath'])
+            
+            # Ensure data directory exists
+            os.makedirs('data', exist_ok=True)
+            
+            # Save the empty DataFrame
+            photo_df.to_csv('data/progress_photos.csv', index=False)
+            
+            return photo_df
+    
+    except Exception as e:
+        st.error(f"Error getting progress photos: {e}")
+        return pd.DataFrame(columns=['date', 'photo_type', 'filepath'])
+
+def get_photos_for_date(date_str):
+    """
+    Get all photos for a specific date
+    
+    Parameters:
+    date_str: Date string in YYYY-MM-DD format
+    
+    Returns:
+    dict: Dictionary with photo_type as key and filepath as value
+    """
+    photo_df = get_progress_photos_df()
+    date_photos = photo_df[photo_df['date'] == date_str]
+    
+    result = {}
+    for _, row in date_photos.iterrows():
+        result[row['photo_type']] = row['filepath']
+    
+    return result
+
 def load_data():
     """Load data from CSV files into session state"""
     try:
@@ -1178,6 +1275,10 @@ def load_data():
         # Load daily records
         if os.path.exists('data/daily_records.csv'):
             st.session_state.daily_records = pd.read_csv('data/daily_records.csv')
+        
+        # Initialize progress photos tracking
+        if not os.path.exists('data/progress_photos.csv'):
+            get_progress_photos_df()
     
     except Exception as e:
         st.error(f"Error loading data: {e}")
