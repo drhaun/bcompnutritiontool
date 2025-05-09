@@ -62,6 +62,7 @@ This application helps you plan and track your body composition and nutrition go
 3. **Nutrition Plan**: Review your personalized nutrition recommendations
 4. **Daily Monitoring**: Track your daily weight and nutrition intake
 5. **Progress Dashboard**: Visualize your journey and get weekly adjustments
+6. **Enhanced Meal Planning**: Create and plan meals with accurate nutrition data from USDA
 
 Get started by selecting "Initial Setup" from the sidebar!
 """)
