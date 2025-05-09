@@ -464,6 +464,102 @@ def get_commitment_level_multipliers(commitment):
             "loss_fat_pct": 0.50
         }
 
+def get_combined_category_rates(fmi_category_name, ffmi_category_name):
+    """
+    Get recommended rates based on the combination of FMI and FFMI categories
+    
+    Parameters:
+    fmi_category_name (str): FMI category name
+    ffmi_category_name (str): FFMI category name
+    
+    Returns:
+    dict: Recommended rates and composition suggestion
+    """
+    # Comprehensive combination table
+    combination_rates = {
+        # Extremely Lean combinations
+        ("Extremely Lean", "Undermuscled"): 
+            {"recommendation": "Gain Muscle Mass", "gain_rate": 0.0075, "loss_rate": 0.0000},
+        ("Extremely Lean", "Moderately Undermuscled"): 
+            {"recommendation": "Gain Muscle Mass", "gain_rate": 0.0075, "loss_rate": 0.0000},
+        ("Extremely Lean", "Considered Healthy"): 
+            {"recommendation": "Gain Muscle Mass", "gain_rate": 0.0075, "loss_rate": 0.0000},
+        ("Extremely Lean", "Muscular"): 
+            {"recommendation": "No Indication", "gain_rate": 0.0013, "loss_rate": 0.0025},
+        ("Extremely Lean", "High"): 
+            {"recommendation": "No Indication", "gain_rate": 0.0013, "loss_rate": 0.0025},
+            
+        # Lean combinations
+        ("Lean", "Undermuscled"): 
+            {"recommendation": "Gain Muscle", "gain_rate": 0.0050, "loss_rate": 0.0000},
+        ("Lean", "Moderately Undermuscled"): 
+            {"recommendation": "Gain Muscle", "gain_rate": 0.0050, "loss_rate": 0.0000},
+        ("Lean", "Considered Healthy"): 
+            {"recommendation": "Gain Muscle", "gain_rate": 0.0050, "loss_rate": 0.0000},
+        ("Lean", "Muscular"): 
+            {"recommendation": "No Indication", "gain_rate": 0.0013, "loss_rate": 0.0025},
+        ("Lean", "High"): 
+            {"recommendation": "No Indication", "gain_rate": 0.0000, "loss_rate": 0.0025},
+            
+        # Considered Healthy combinations
+        ("Considered Healthy", "Undermuscled"): 
+            {"recommendation": "Gain Muscle", "gain_rate": 0.0025, "loss_rate": 0.0000},
+        ("Considered Healthy", "Moderately Undermuscled"): 
+            {"recommendation": "Gain Muscle", "gain_rate": 0.0013, "loss_rate": 0.0000},
+        ("Considered Healthy", "Considered Healthy"): 
+            {"recommendation": "Gain Muscle", "gain_rate": 0.0013, "loss_rate": 0.0025},
+        ("Considered Healthy", "Muscular"): 
+            {"recommendation": "Lose Fat", "gain_rate": 0.0013, "loss_rate": 0.0025},
+        ("Considered Healthy", "High"): 
+            {"recommendation": "Lose Fat", "gain_rate": 0.0000, "loss_rate": 0.0025},
+            
+        # Slightly Overfat combinations
+        ("Slightly Overfat", "Undermuscled"): 
+            {"recommendation": "Gain Muscle", "gain_rate": 0.0000, "loss_rate": 0.0025},
+        ("Slightly Overfat", "Moderately Undermuscled"): 
+            {"recommendation": "Gain Muscle", "gain_rate": 0.0000, "loss_rate": 0.0025},
+        ("Slightly Overfat", "Considered Healthy"): 
+            {"recommendation": "Lose Fat", "gain_rate": 0.0000, "loss_rate": 0.0050},
+        ("Slightly Overfat", "Muscular"): 
+            {"recommendation": "Lose Fat", "gain_rate": 0.0000, "loss_rate": 0.0050},
+        ("Slightly Overfat", "High"): 
+            {"recommendation": "Lose Fat", "gain_rate": 0.0000, "loss_rate": 0.0050},
+            
+        # Overfat combinations
+        ("Overfat", "Undermuscled"): 
+            {"recommendation": "Gain Muscle", "gain_rate": 0.0000, "loss_rate": 0.0025},
+        ("Overfat", "Moderately Undermuscled"): 
+            {"recommendation": "Gain Muscle", "gain_rate": 0.0000, "loss_rate": 0.0025},
+        ("Overfat", "Considered Healthy"): 
+            {"recommendation": "Lose Body Fat", "gain_rate": 0.0000, "loss_rate": 0.0075},
+        ("Overfat", "Muscular"): 
+            {"recommendation": "Lose Body Fat", "gain_rate": 0.0000, "loss_rate": 0.0075},
+        ("Overfat", "High"): 
+            {"recommendation": "Lose Body Fat", "gain_rate": 0.0000, "loss_rate": 0.0075},
+            
+        # Significantly Overfat combinations
+        ("Significantly Overfat", "Undermuscled"): 
+            {"recommendation": "Gain Muscle Mass", "gain_rate": 0.0000, "loss_rate": 0.0025},
+        ("Significantly Overfat", "Moderately Undermuscled"): 
+            {"recommendation": "Gain Muscle Mass", "gain_rate": 0.0000, "loss_rate": 0.0025},
+        ("Significantly Overfat", "Considered Healthy"): 
+            {"recommendation": "Lose Body Fat", "gain_rate": 0.0000, "loss_rate": 0.0100},
+        ("Significantly Overfat", "Muscular"): 
+            {"recommendation": "Lose Body Fat", "gain_rate": 0.0000, "loss_rate": 0.0100},
+        ("Significantly Overfat", "High"): 
+            {"recommendation": "Lose Body Fat", "gain_rate": 0.0000, "loss_rate": 0.0100}
+    }
+    
+    # Get the combination key
+    combo_key = (fmi_category_name, ffmi_category_name)
+    
+    # Return the rates for this combination, or a default if not found
+    return combination_rates.get(combo_key, {
+        "recommendation": "Maintain",
+        "gain_rate": 0.0025,
+        "loss_rate": 0.0025
+    })
+
 def calculate_recommended_rate(user_data, goal_type):
     """
     Calculate recommended weekly weight change rate and body composition breakdown
@@ -493,34 +589,47 @@ def calculate_recommended_rate(user_data, goal_type):
         user_data.get("commitment_level", "")
     )
     
-    # Determine base values from categories
-    if goal_type == "Muscle Gain":
-        # For muscle gain, primarily use FFMI category for base rate
-        base_rate = ffmi_category.get("gain_rate")
-        base_fat_pct = ffmi_category.get("gain_fat_pct")
-        
-        # If FFMI doesn't have a recommendation (e.g., already high), check FMI
-        if base_rate is None:
-            base_rate = fmi_category.get("gain_rate")
-            base_fat_pct = fmi_category.get("gain_fat_pct")
-    else:
-        # For fat loss, primarily use FMI category for base rate
-        base_rate = fmi_category.get("loss_rate") 
-        base_fat_pct = fmi_category.get("loss_fat_pct")
-        
-        # If FMI doesn't have a recommendation (e.g., already very lean), check FFMI
-        if base_rate is None:
-            base_rate = ffmi_category.get("loss_rate")
-            base_fat_pct = ffmi_category.get("loss_fat_pct")
+    # First try to get combined category recommendation
+    fmi_category_name = fmi_category.get("name", "Considered Healthy") if fmi_category else "Considered Healthy"
+    ffmi_category_name = ffmi_category.get("name", "Considered Healthy") if ffmi_category else "Considered Healthy"
     
-    # If no recommendation from categories, use default conservative values
-    if base_rate is None:
-        if goal_type == "Muscle Gain":
-            base_rate = 0.0025  # 0.25% per week
-            base_fat_pct = 0.5   # 50% fat
+    combined_recommendation = get_combined_category_rates(fmi_category_name, ffmi_category_name)
+    
+    # Determine base values from categories and combined recommendation
+    if goal_type == "Muscle Gain":
+        # For muscle gain, use the combined recommendation gain rate
+        base_rate = combined_recommendation.get("gain_rate", 0.0025)
+        
+        # Use rate from individual categories for fat percentage 
+        if fmi_category and "gain_fat_pct" in fmi_category:
+            base_fat_pct = fmi_category.get("gain_fat_pct", 0.50)
+        elif ffmi_category and "gain_fat_pct" in ffmi_category:
+            base_fat_pct = ffmi_category.get("gain_fat_pct", 0.50)
         else:
-            base_rate = 0.0050  # 0.5% per week
-            base_fat_pct = 0.8   # 80% fat (20% muscle)
+            # Default fat percentage based on FMI category name
+            if "Extremely Lean" in fmi_category_name or "Lean" in fmi_category_name:
+                base_fat_pct = 0.10
+            elif "Considered Healthy" in fmi_category_name:
+                base_fat_pct = 0.50
+            elif "Overfat" in fmi_category_name:
+                base_fat_pct = 0.80
+            else:
+                base_fat_pct = 0.50
+    else:
+        # For fat loss, use the combined recommendation loss rate
+        base_rate = combined_recommendation.get("loss_rate", 0.0050)
+        
+        # Use rate from individual categories for fat percentage
+        if fmi_category and "loss_fat_pct" in fmi_category:
+            base_fat_pct = fmi_category.get("loss_fat_pct", 0.80)
+        elif ffmi_category and "loss_fat_pct" in ffmi_category:
+            base_fat_pct = ffmi_category.get("loss_fat_pct", 0.80)
+        else:
+            # Default fat percentage based on commitment
+            if "High" in user_data.get("commitment_level", ""):
+                base_fat_pct = 1.00  # 100% fat (preserving all muscle)
+            else:
+                base_fat_pct = 0.80   # 80% fat (20% muscle)
     
     # Apply preference modifiers (taking the average)
     if goal_type == "Muscle Gain":
@@ -552,9 +661,12 @@ def calculate_recommended_rate(user_data, goal_type):
     modifiers = [m for m in modifiers if m is not None]
     fat_modifiers = [m for m in fat_modifiers if m is not None]
     
-    # Calculate final recommendations
+    # Calculate final recommendations (weighted average with combined recommendation having higher weight)
     if modifiers:
-        final_rate = sum(modifiers) / len(modifiers)
+        # Average of preference modifiers
+        pref_avg = sum(modifiers) / len(modifiers)
+        # Weight the combined recommendation more heavily (60/40 split)
+        final_rate = (base_rate * 0.6) + (pref_avg * 0.4)
     else:
         final_rate = base_rate
         
@@ -567,10 +679,14 @@ def calculate_recommended_rate(user_data, goal_type):
     weekly_weight_pct = final_rate  # as decimal
     weekly_fat_pct = final_fat_pct  # as decimal
     
+    # Store the recommended category for display
+    recommended_category = combined_recommendation.get("recommendation", "Maintain")
+    
     return {
         "weekly_weight_pct": weekly_weight_pct,
         "weekly_fat_pct": weekly_fat_pct,
-        "weekly_muscle_pct": 1 - weekly_fat_pct
+        "weekly_muscle_pct": 1 - weekly_fat_pct,
+        "recommendation": recommended_category
     }
 
 def save_data():

@@ -407,17 +407,29 @@ if st.session_state.goal_info.get('target_weight_kg'):
     height_cm = st.session_state.user_info['height_cm']
     height_m = height_cm / 100
     
+    # Calculate current fat mass and fat-free mass
+    current_fat_mass_kg = current_weight_kg * (current_bf/100)
+    current_fat_free_mass_kg = current_weight_kg - current_fat_mass_kg
+    
+    # Calculate indices
+    fat_mass_index = current_fat_mass_kg / (height_m * height_m)
+    fat_free_mass_index = current_fat_free_mass_kg / (height_m * height_m)
+    
     # Find the user's FMI and FFMI categories for rate recommendations
     user_fmi_category = None
+    fmi_category_name = "Unknown"
     for category in fmi_categories:
         if category["lower"] <= fat_mass_index <= category["upper"]:
             user_fmi_category = category
+            fmi_category_name = category["name"]
             break
             
     user_ffmi_category = None
+    ffmi_category_name = "Unknown"
     for category in ffmi_categories:
         if category["lower"] <= fat_free_mass_index <= category["upper"]:
             user_ffmi_category = category
+            ffmi_category_name = category["name"]
             break
     
     # Convert from display types to calculation types for goal
@@ -479,6 +491,15 @@ if st.session_state.goal_info.get('target_weight_kg'):
     # Display recommendation
     st.subheader("Recommended Rate of Change")
     
+    # Get the recommendation category from the calculation
+    recommended_category = recommended_rates.get("recommendation", "Maintain")
+    
+    # Display the overall recommendation
+    if recommended_category != "No Indication" and recommended_category != "Maintain":
+        st.success(f"Your body composition suggests you should: **{recommended_category}**")
+    else:
+        st.info("Based on your body composition, you have multiple viable options. Choose based on your personal preferences.")
+    
     col1, col2 = st.columns(2)
     with col1:
         direction = "loss" if goal_type == "Lose fat" else "gain"
@@ -506,7 +527,94 @@ if st.session_state.goal_info.get('target_weight_kg'):
             pct_of_goal = min(100, (rec_magnitude / max(0.1, goal_magnitude)) * 100)
             st.write(f"This is approximately **{pct_of_goal:.0f}%** of your selected goal.")
             
-        st.write(f"This rate is customized based on your current body composition, performance preferences, and commitment level.")
+        st.write(f"This rate is customized based on your combined FMI/FFMI categories, performance preferences, and commitment level.")
+        
+    # Add explanation about the combined FMI/FFMI approach
+    with st.expander("About Combined FMI/FFMI Recommendations"):
+        st.write("""
+        The recommended rate is calculated using a sophisticated system that considers:
+        
+        1. **Combined Body Composition Assessment**: Your FMI category ('{0}') and FFMI category ('{1}') 
+           together determine your baseline recommended rate.
+        
+        2. **Performance vs. Body Composition Preferences**: Your preferences for performance recovery vs. 
+           pure body composition are factored in.
+        
+        3. **Workout Frequency and Commitment Level**: Higher commitment leads to more aggressive but 
+           sustainable recommendations.
+        
+        This approach provides personalized recommendations based on research in body recomposition and 
+        accounts for individual differences in starting body composition.
+        """.format(fmi_category_name, ffmi_category_name))
+        
+        # Create a visual table showing the combination categories
+        st.subheader("Combined FMI/FFMI Recommendation Matrix")
+        st.write("This table shows the general recommendations based on different combinations of fat mass and muscle mass:")
+        
+        # Create data for the combined recommendations table
+        fmi_categories_short = ["Extremely Lean", "Lean", "Considered Healthy", "Slightly Overfat", "Overfat", "Significantly Overfat"]
+        ffmi_categories_short = ["Undermuscled", "Moderately Undermuscled", "Considered Healthy", "Muscular", "High"]
+        
+        # Create DataFrame for the visualization
+        matrix_data = []
+        for fmi in fmi_categories_short:
+            row_data = {'FMI': fmi}
+            for ffmi in ffmi_categories_short:
+                combo_rec = utils.get_combined_category_rates(fmi, ffmi)
+                recommendation = combo_rec.get("recommendation", "")
+                row_data[ffmi] = recommendation
+            matrix_data.append(row_data)
+        
+        recommendation_matrix = pd.DataFrame(matrix_data)
+        recommendation_matrix = recommendation_matrix.set_index('FMI')
+        
+        # Display the matrix
+        st.table(recommendation_matrix)
+        
+        # Highlight user's current position
+        st.write(f"**Your current position**: FMI: **{fmi_category_name}**, FFMI: **{ffmi_category_name}**")
+        st.write(f"**Recommendation**: {recommended_category}")
+        
+        # Create a second table showing the rate recommendations
+        st.subheader("Rate Recommendations by FMI/FFMI Combination")
+        st.write("Percent of bodyweight per week:")
+        
+        # Create data for gain rates
+        gain_matrix_data = []
+        for fmi in fmi_categories_short:
+            row_data = {'FMI': fmi}
+            for ffmi in ffmi_categories_short:
+                combo_rec = utils.get_combined_category_rates(fmi, ffmi)
+                gain_rate = combo_rec.get("gain_rate", 0) * 100  # Convert to percentage
+                row_data[ffmi] = f"{gain_rate:.2f}%" if gain_rate > 0 else "-"
+            gain_matrix_data.append(row_data)
+        
+        gain_matrix = pd.DataFrame(gain_matrix_data)
+        gain_matrix = gain_matrix.set_index('FMI')
+        
+        # Create data for loss rates
+        loss_matrix_data = []
+        for fmi in fmi_categories_short:
+            row_data = {'FMI': fmi}
+            for ffmi in ffmi_categories_short:
+                combo_rec = utils.get_combined_category_rates(fmi, ffmi)
+                loss_rate = combo_rec.get("loss_rate", 0) * 100  # Convert to percentage
+                row_data[ffmi] = f"{loss_rate:.2f}%" if loss_rate > 0 else "-"
+            loss_matrix_data.append(row_data)
+        
+        loss_matrix = pd.DataFrame(loss_matrix_data)
+        loss_matrix = loss_matrix.set_index('FMI')
+        
+        # Display the rates side by side
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Gain Rates (% of body weight/week)**")
+            st.table(gain_matrix)
+            
+        with col2:
+            st.write("**Loss Rates (% of body weight/week)**")
+            st.table(loss_matrix)
         
     st.markdown("---")
         
@@ -520,17 +628,11 @@ if st.session_state.goal_info.get('target_weight_kg'):
     target_lbm_kg = target_weight_kg * (1 - target_bf/100)
     lbm_change_kg = target_lbm_kg - current_lbm_kg
     
-    # Calculate Fat Mass and Fat-Free Mass
-    current_fat_mass_kg = current_weight_kg * (current_bf/100)
-    current_fat_free_mass_kg = current_weight_kg - current_fat_mass_kg
-    
-    # Convert to pounds
+    # Convert to pounds for display
     current_fat_mass_lbs = current_fat_mass_kg * 2.20462
     current_fat_free_mass_lbs = current_fat_free_mass_kg * 2.20462
     
-    # Calculate indices
-    fat_mass_index = current_fat_mass_kg / (height_m * height_m)
-    fat_free_mass_index = current_fat_free_mass_kg / (height_m * height_m)
+    # Note: Indices have already been calculated earlier
     
     # Display current composition table
     st.subheader("Current Body Composition Breakdown")
@@ -553,12 +655,8 @@ if st.session_state.goal_info.get('target_weight_kg'):
         
         # Use the FMI categories defined at the top of the file
         
-        # Find user's category
-        user_fmi_category = "Unknown"
-        for category in fmi_categories:
-            if category["lower"] <= fat_mass_index <= category["upper"]:
-                user_fmi_category = category["name"]
-                break
+        # Find user's category - using the already defined fmi_category_name
+        user_fmi_category = fmi_category_name
         
         st.success(f"Category: **{user_fmi_category}**")
         
@@ -574,26 +672,10 @@ if st.session_state.goal_info.get('target_weight_kg'):
         st.subheader("Fat-Free Mass Index (FFMI)")
         st.metric("Your FFMI", f"{fat_free_mass_index:.1f} kg/m²")
         
-        # FFMI categories with rate recommendations
-        ffmi_categories = [
-            {"name": "Undermuscled", "lower": 8, "upper": 16, 
-             "gain_rate": 0.0075, "gain_fat_pct": 0.10, "loss_rate": None, "loss_fat_pct": None},
-            {"name": "Moderately Undermuscled", "lower": 16.1, "upper": 17.8, 
-             "gain_rate": 0.0050, "gain_fat_pct": 0.10, "loss_rate": 0.0, "loss_fat_pct": 0.50},
-            {"name": "Considered Healthy", "lower": 17.9, "upper": 22, 
-             "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80},
-            {"name": "Muscular", "lower": 22.1, "upper": 25, 
-             "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80},
-            {"name": "High", "lower": 25.1, "upper": 35, 
-             "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80}
-        ]
+        # Use the FFMI categories defined at the top of the file
         
-        # Find user's category
-        user_ffmi_category = "Unknown"
-        for category in ffmi_categories:
-            if category["lower"] <= fat_free_mass_index <= category["upper"]:
-                user_ffmi_category = category["name"]
-                break
+        # Find user's category - using the already defined ffmi_category_name
+        user_ffmi_category = ffmi_category_name
         
         st.success(f"Category: **{user_ffmi_category}**")
         
