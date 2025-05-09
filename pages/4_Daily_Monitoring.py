@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
 import sys
 import os
 
@@ -192,7 +193,9 @@ with st.form("daily_tracking_form"):
         
         # Add workout type if a workout was done
         if workout_done:
-            new_entry['workout_type'] = workout_type
+            # Initialize workout_type with a default value if it doesn't exist for some reason
+            workout_type_val = locals().get('workout_type', "Other")
+            new_entry['workout_type'] = workout_type_val
         
         if len(existing_idx) > 0:
             # Update existing entry
@@ -479,9 +482,15 @@ if len(st.session_state.daily_records) >= 7:
                 # Create a visualization for the correlations
                 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
                 
+                # Initialize variables
+                mood_corr = None
+                energy_corr = None
+                
                 # Plot mood correlations
                 if 'mood_value' in correlation.columns:
-                    mood_corr = correlation['mood_value'].drop('mood_value').sort_values(ascending=False)
+                    mood_corr = correlation['mood_value'].drop('mood_value')
+                    # Sort values - provide empty list to sort without additional keys
+                    mood_corr = mood_corr.sort_values([], ascending=False)
                     colors = ['green' if x >= 0 else 'red' for x in mood_corr]
                     ax1.barh(mood_corr.index, mood_corr.values, color=colors)
                     ax1.set_title('Factors Correlated with Mood', fontsize=16)
@@ -500,7 +509,8 @@ if len(st.session_state.daily_records) >= 7:
                 
                 # Plot energy correlations
                 if 'energy_value' in correlation.columns:
-                    energy_corr = correlation['energy_value'].drop('energy_value').sort_values(ascending=False)
+                    energy_corr = correlation['energy_value'].drop('energy_value')
+                    energy_corr = energy_corr.sort_values(ascending=False)
                     colors = ['green' if x >= 0 else 'red' for x in energy_corr]
                     ax2.barh(energy_corr.index, energy_corr.values, color=colors)
                     ax2.set_title('Factors Correlated with Energy Levels', fontsize=16)
@@ -526,12 +536,15 @@ if len(st.session_state.daily_records) >= 7:
                 insights = []
                 
                 # Mood insights
-                if 'mood_value' in correlation.columns:
+                if mood_corr is not None:
                     # Strong positive correlations with mood
                     strong_pos_mood = [(col, corr) for col, corr in mood_corr.items() if corr >= 0.5]
                     if strong_pos_mood:
                         for col, corr in strong_pos_mood:
-                            factor = col.replace('_value', '').title()
+                            factor = str(col)  # Ensure it's a string
+                            if "_value" in factor:
+                                factor = factor.replace('_value', '').title()
+                            
                             if col == 'sleep_hours':
                                 factor = "Sleep Duration"
                             elif col == 'protein':
@@ -549,7 +562,10 @@ if len(st.session_state.daily_records) >= 7:
                     strong_neg_mood = [(col, corr) for col, corr in mood_corr.items() if corr <= -0.5]
                     if strong_neg_mood:
                         for col, corr in strong_neg_mood:
-                            factor = col.replace('_value', '').title()
+                            factor = str(col)  # Ensure it's a string
+                            if "_value" in factor:
+                                factor = factor.replace('_value', '').title()
+                            
                             if col == 'stress_value':
                                 factor = "Stress"
                                 insights.append(f"⚠️ Higher levels of {factor} are strongly associated with worse mood.")
@@ -557,12 +573,15 @@ if len(st.session_state.daily_records) >= 7:
                                 insights.append(f"⚠️ Higher {factor} is strongly associated with worse mood in your data.")
                 
                 # Energy insights
-                if 'energy_value' in correlation.columns:
+                if energy_corr is not None:
                     # Strong positive correlations with energy
                     strong_pos_energy = [(col, corr) for col, corr in energy_corr.items() if corr >= 0.5]
                     if strong_pos_energy:
                         for col, corr in strong_pos_energy:
-                            factor = col.replace('_value', '').title()
+                            factor = str(col)  # Ensure it's a string
+                            if "_value" in factor:
+                                factor = factor.replace('_value', '').title()
+                            
                             if col == 'sleep_hours':
                                 factor = "Sleep Duration"
                             elif col == 'protein':
@@ -580,7 +599,10 @@ if len(st.session_state.daily_records) >= 7:
                     strong_neg_energy = [(col, corr) for col, corr in energy_corr.items() if corr <= -0.5]
                     if strong_neg_energy:
                         for col, corr in strong_neg_energy:
-                            factor = col.replace('_value', '').title()
+                            factor = str(col)  # Ensure it's a string
+                            if "_value" in factor:
+                                factor = factor.replace('_value', '').title()
+                            
                             if col == 'stress_value':
                                 factor = "Stress"
                                 insights.append(f"⚠️ Higher levels of {factor} are strongly associated with lower energy levels.")
