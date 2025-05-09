@@ -4,8 +4,11 @@ address = "0.0.0.0"
 port = 5000
 
 [theme]
-primaryColor = "#4688F1"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F2F6"
-textColor = "#262730"
+primaryColor = "#c19962"  # Dark Gold
+backgroundColor = "#FFFFFF"  # White
+secondaryBackgroundColor = "#F0F2F6"  # Light Gray
+textColor = "#00263d"  # Dark Blue
 font = "sans serif"
+
+[logger]
+level = "info"
