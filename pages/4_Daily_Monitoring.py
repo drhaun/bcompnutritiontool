@@ -55,8 +55,40 @@ with st.form("daily_tracking_form"):
         
         # Convert to kg for storage and calculations
         weight_kg = weight_lbs / 2.20462
+        
+        # Add mood tracking
+        st.write("**Wellness Tracking**")
+        
+        mood_options = ["😔 Very Low", "🙁 Low", "😐 Neutral", "🙂 Good", "😄 Excellent"]
+        mood = st.select_slider(
+            "Today's Mood",
+            options=mood_options,
+            value="😐 Neutral"
+        )
+        
+        # Convert mood to numeric value for correlation analysis (1-5 scale)
+        mood_value = mood_options.index(mood) + 1
+        
+        energy_options = ["Very Low", "Low", "Moderate", "High", "Very High"]
+        energy = st.select_slider(
+            "Today's Energy Level",
+            options=energy_options,
+            value="Moderate"
+        )
+        
+        # Convert energy to numeric value for correlation analysis (1-5 scale)
+        energy_value = energy_options.index(energy) + 1
+        
+        sleep_hours = st.slider(
+            "Hours of Sleep Last Night",
+            min_value=0.0,
+            max_value=12.0,
+            value=7.0,
+            step=0.5
+        )
     
     with col2:
+        st.write("**Nutrition Tracking**")
         # Make sure all numeric values are of same type (float)
         calories = st.number_input(
             "Calories Consumed",
@@ -89,6 +121,37 @@ with st.form("daily_tracking_form"):
             value=float(st.session_state.nutrition_plan.get('target_fat', 70)),
             step=5.0
         )
+        
+        # Add stress level and workout intensity
+        stress_options = ["Very Low", "Low", "Moderate", "High", "Very High"]
+        stress = st.select_slider(
+            "Today's Stress Level",
+            options=stress_options,
+            value="Moderate"
+        )
+        
+        # Convert stress to numeric value for correlation analysis (1-5 scale)
+        stress_value = stress_options.index(stress) + 1
+        
+        # Add workout tracking
+        workout_done = st.checkbox("Did you workout today?")
+        
+        workout_intensity = 0
+        if workout_done:
+            intensity_options = ["Light", "Moderate", "Intense", "Very Intense"]
+            workout_type = st.selectbox(
+                "Workout Type",
+                options=["Resistance Training", "Cardio", "Both", "Other"]
+            )
+            
+            workout_intensity_label = st.select_slider(
+                "Workout Intensity",
+                options=intensity_options,
+                value="Moderate"
+            )
+            
+            # Convert intensity to numeric value (1-4 scale)
+            workout_intensity = intensity_options.index(workout_intensity_label) + 1
     
     # Check if macros add up to calories
     calculated_calories = (protein * 4) + (carbs * 4) + (fat * 9)
@@ -115,8 +178,21 @@ with st.form("daily_tracking_form"):
             'calories': calories,
             'protein': protein,
             'carbs': carbs,
-            'fat': fat
+            'fat': fat,
+            'mood': mood,
+            'mood_value': mood_value,
+            'energy': energy,
+            'energy_value': energy_value,
+            'sleep_hours': sleep_hours,
+            'stress': stress,
+            'stress_value': stress_value,
+            'workout_done': workout_done,
+            'workout_intensity': workout_intensity
         }
+        
+        # Add workout type if a workout was done
+        if workout_done:
+            new_entry['workout_type'] = workout_type
         
         if len(existing_idx) > 0:
             # Update existing entry
@@ -376,6 +452,173 @@ if len(st.session_state.daily_records) >= 7:
         st.warning("⚠️ Your protein intake was significantly below target. This can impact your muscle preservation/growth. Try to prioritize protein-rich foods.")
     elif avg_protein_adherence > 95:
         st.success("✅ Excellent job meeting your protein targets! This is crucial for body composition goals.")
+    
+    # Mood and Energy Correlation Analysis
+    st.subheader("Mood & Energy Correlation Analysis")
+    
+    # Check if we have mood and energy data in the records
+    if 'mood_value' in recent_week_data.columns and len(recent_week_data) >= 3:
+        try:
+            # Create a copy of the data for correlation analysis
+            corr_data = recent_week_data.copy()
+            
+            # Ensure numeric columns for correlation
+            numeric_columns = ['mood_value', 'energy_value', 'stress_value', 'calories', 
+                             'protein', 'carbs', 'fat', 'sleep_hours']
+            
+            # Only keep columns that exist in the data
+            numeric_columns = [col for col in numeric_columns if col in corr_data.columns]
+            
+            # Filter for only those columns and drop NaN values
+            corr_data = corr_data[numeric_columns].dropna()
+            
+            if len(corr_data) >= 3:  # Need at least 3 data points for meaningful correlation
+                # Calculate correlation matrix
+                correlation = corr_data.corr()
+                
+                # Create a visualization for the correlations
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+                
+                # Plot mood correlations
+                if 'mood_value' in correlation.columns:
+                    mood_corr = correlation['mood_value'].drop('mood_value').sort_values(ascending=False)
+                    colors = ['green' if x >= 0 else 'red' for x in mood_corr]
+                    ax1.barh(mood_corr.index, mood_corr.values, color=colors)
+                    ax1.set_title('Factors Correlated with Mood', fontsize=16)
+                    ax1.set_xlim(-1, 1)
+                    ax1.axvline(x=0, color='black', linestyle='-', alpha=0.3)
+                    ax1.grid(axis='x', linestyle='--', alpha=0.7)
+                    
+                    # Add correlation values as text
+                    for i, v in enumerate(mood_corr.values):
+                        ax1.text(v + (0.05 if v >= 0 else -0.05), 
+                                i, 
+                                f"{v:.2f}", 
+                                color='black', 
+                                va='center',
+                                ha='left' if v >= 0 else 'right')
+                
+                # Plot energy correlations
+                if 'energy_value' in correlation.columns:
+                    energy_corr = correlation['energy_value'].drop('energy_value').sort_values(ascending=False)
+                    colors = ['green' if x >= 0 else 'red' for x in energy_corr]
+                    ax2.barh(energy_corr.index, energy_corr.values, color=colors)
+                    ax2.set_title('Factors Correlated with Energy Levels', fontsize=16)
+                    ax2.set_xlim(-1, 1)
+                    ax2.axvline(x=0, color='black', linestyle='-', alpha=0.3)
+                    ax2.grid(axis='x', linestyle='--', alpha=0.7)
+                    
+                    # Add correlation values as text
+                    for i, v in enumerate(energy_corr.values):
+                        ax2.text(v + (0.05 if v >= 0 else -0.05), 
+                                i, 
+                                f"{v:.2f}", 
+                                color='black', 
+                                va='center',
+                                ha='left' if v >= 0 else 'right')
+                
+                plt.tight_layout()
+                st.pyplot(fig)
+                
+                # Provide insights based on correlations
+                st.subheader("Personalized Insights")
+                
+                insights = []
+                
+                # Mood insights
+                if 'mood_value' in correlation.columns:
+                    # Strong positive correlations with mood
+                    strong_pos_mood = [(col, corr) for col, corr in mood_corr.items() if corr >= 0.5]
+                    if strong_pos_mood:
+                        for col, corr in strong_pos_mood:
+                            factor = col.replace('_value', '').title()
+                            if col == 'sleep_hours':
+                                factor = "Sleep Duration"
+                            elif col == 'protein':
+                                factor = "Protein Intake"
+                            elif col == 'carbs':
+                                factor = "Carbohydrate Intake"
+                            elif col == 'fat':
+                                factor = "Fat Intake"
+                            elif col == 'calories':
+                                factor = "Calorie Intake"
+                            
+                            insights.append(f"✅ Higher {factor} is strongly associated with better mood in your data.")
+                    
+                    # Strong negative correlations with mood
+                    strong_neg_mood = [(col, corr) for col, corr in mood_corr.items() if corr <= -0.5]
+                    if strong_neg_mood:
+                        for col, corr in strong_neg_mood:
+                            factor = col.replace('_value', '').title()
+                            if col == 'stress_value':
+                                factor = "Stress"
+                                insights.append(f"⚠️ Higher levels of {factor} are strongly associated with worse mood.")
+                            else:
+                                insights.append(f"⚠️ Higher {factor} is strongly associated with worse mood in your data.")
+                
+                # Energy insights
+                if 'energy_value' in correlation.columns:
+                    # Strong positive correlations with energy
+                    strong_pos_energy = [(col, corr) for col, corr in energy_corr.items() if corr >= 0.5]
+                    if strong_pos_energy:
+                        for col, corr in strong_pos_energy:
+                            factor = col.replace('_value', '').title()
+                            if col == 'sleep_hours':
+                                factor = "Sleep Duration"
+                            elif col == 'protein':
+                                factor = "Protein Intake"
+                            elif col == 'carbs':
+                                factor = "Carbohydrate Intake"
+                            elif col == 'fat':
+                                factor = "Fat Intake"
+                            elif col == 'calories':
+                                factor = "Calorie Intake"
+                            
+                            insights.append(f"✅ Higher {factor} is strongly associated with better energy levels in your data.")
+                    
+                    # Strong negative correlations with energy
+                    strong_neg_energy = [(col, corr) for col, corr in energy_corr.items() if corr <= -0.5]
+                    if strong_neg_energy:
+                        for col, corr in strong_neg_energy:
+                            factor = col.replace('_value', '').title()
+                            if col == 'stress_value':
+                                factor = "Stress"
+                                insights.append(f"⚠️ Higher levels of {factor} are strongly associated with lower energy levels.")
+                            else:
+                                insights.append(f"⚠️ Higher {factor} is strongly associated with lower energy levels in your data.")
+                
+                # Macro insights
+                if 'carbs' in correlation.columns and 'mood_value' in correlation.columns:
+                    carb_mood_corr = correlation.loc['carbs', 'mood_value']
+                    if carb_mood_corr >= 0.3:
+                        insights.append(f"🔍 Your mood appears to respond positively to carbohydrate intake (correlation: {carb_mood_corr:.2f}).")
+                    elif carb_mood_corr <= -0.3:
+                        insights.append(f"🔍 Your mood appears to respond negatively to carbohydrate intake (correlation: {carb_mood_corr:.2f}).")
+                
+                if 'protein' in correlation.columns and 'energy_value' in correlation.columns:
+                    protein_energy_corr = correlation.loc['protein', 'energy_value']
+                    if protein_energy_corr >= 0.3:
+                        insights.append(f"🔍 Your energy levels appear to benefit from higher protein intake (correlation: {protein_energy_corr:.2f}).")
+                
+                if 'sleep_hours' in correlation.columns and 'energy_value' in correlation.columns:
+                    sleep_energy_corr = correlation.loc['sleep_hours', 'energy_value']
+                    if sleep_energy_corr >= 0.3:
+                        insights.append(f"🔍 Better sleep is associated with higher energy levels in your data (correlation: {sleep_energy_corr:.2f}).")
+                
+                if insights:
+                    for insight in insights:
+                        st.write(insight)
+                else:
+                    st.info("Keep tracking your data to reveal more personalized insights about how nutrition, sleep, and stress affect your mood and energy levels.")
+                    
+                st.caption("Note: Correlations show relationships between factors but don't necessarily indicate causation. More data points will improve the accuracy of these insights.")
+            else:
+                st.info("Continue tracking your mood, energy, and nutrition to see meaningful correlations (at least 3 days of data needed).")
+        except Exception as e:
+            st.error(f"Couldn't analyze mood and energy correlations: {e}")
+            st.info("Continue tracking your data consistently to enable correlation analysis.")
+    else:
+        st.info("Continue tracking your mood and energy levels to see how they correlate with your nutrition. At least 3 days of data are needed.")
 else:
     st.info("Weekly adjustments and analysis will be available once you have at least 7 days of data.")
 
