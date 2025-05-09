@@ -361,17 +361,567 @@ def selected_foods_ui(section_key="selected"):
             st.success(f"Removed {food_name} from selected foods!")
             st.rerun()
 
-# Main layout
-tab1, tab2, tab3 = st.tabs(["Food Search", "My Favorites", "Selected Foods"])
+# Function to create a recipe
+def create_recipe_ui(section_key="recipe"):
+    """UI for creating a recipe from selected foods"""
+    st.header("Create Recipe")
+    
+    if not st.session_state.selected_foods:
+        st.warning("Please add foods to your selection before creating a recipe.")
+        return
+    
+    # Recipe form
+    recipe_name = st.text_input("Recipe Name:", key=f"recipe_name_{section_key}", 
+                               placeholder="E.g., High Protein Breakfast, Post-Workout Meal")
+    
+    meal_type = st.selectbox("Meal Type:", 
+                            ["Breakfast", "Lunch", "Dinner", "Snack", "Any"], 
+                            key=f"meal_type_{section_key}")
+    
+    # Portion size inputs
+    st.subheader("Adjust Portion Sizes")
+    
+    # Calculate total nutrition
+    total_nutrition = {
+        'calories': 0,
+        'protein': 0,
+        'carbs': 0,
+        'fat': 0,
+        'fiber': 0
+    }
+    
+    portions = {}
+    
+    for i, food in enumerate(st.session_state.selected_foods):
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            st.write(f"**{food['name']}**")
+        
+        with col2:
+            default_portion = 100
+            portion = st.number_input(
+                f"Portion (g):", 
+                min_value=0, 
+                value=default_portion,
+                key=f"portion_{i}_{section_key}"
+            )
+            portions[food['name']] = portion
+        
+        with col3:
+            st.write(f"{food['calories'] * portion / 100:.0f} kcal")
+        
+        # Update total nutrition
+        total_nutrition['calories'] += food['calories'] * portion / 100
+        total_nutrition['protein'] += food['protein'] * portion / 100
+        total_nutrition['carbs'] += food['carbs'] * portion / 100
+        total_nutrition['fat'] += food['fat'] * portion / 100
+        total_nutrition['fiber'] += food.get('fiber', 0) * portion / 100
+    
+    # Display total nutrition
+    st.subheader("Recipe Nutrition")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric("Calories", f"{total_nutrition['calories']:.0f} kcal")
+    
+    with col2:
+        st.metric("Protein", f"{total_nutrition['protein']:.1f}g")
+    
+    with col3:
+        st.metric("Carbs", f"{total_nutrition['carbs']:.1f}g")
+    
+    with col4:
+        st.metric("Fat", f"{total_nutrition['fat']:.1f}g")
+    
+    with col5:
+        st.metric("Fiber", f"{total_nutrition['fiber']:.1f}g")
+    
+    # Calculate macros percentages for visualization
+    protein_cals = total_nutrition['protein'] * 4
+    carb_cals = total_nutrition['carbs'] * 4
+    fat_cals = total_nutrition['fat'] * 9
+    total_cals = protein_cals + carb_cals + fat_cals
+    
+    if total_cals > 0:
+        protein_pct = (protein_cals / total_cals) * 100
+        carb_pct = (carb_cals / total_cals) * 100
+        fat_pct = (fat_cals / total_cals) * 100
+        
+        # Create pie chart
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.pie([protein_pct, carb_pct, fat_pct], 
+              labels=['Protein', 'Carbs', 'Fat'],
+              colors=['#ff9999', '#99ff99', '#9999ff'],
+              autopct='%1.1f%%',
+              startangle=90)
+        ax.axis('equal')
+        st.pyplot(fig)
+    
+    # Save recipe button
+    if st.button("Save Recipe", key=f"save_recipe_{section_key}") and recipe_name:
+        # Add recipe to recipes
+        fdc_api.add_recipe(recipe_name, st.session_state.selected_foods, portions, meal_type)
+        st.success(f"Recipe '{recipe_name}' saved successfully!")
+        
+        # Clear selected foods
+        if st.button("Clear Selected Foods", key=f"clear_after_save_{section_key}"):
+            st.session_state.selected_foods = []
+            st.rerun()
+
+# Function to manage recipes
+def recipes_ui(section_key="recipes"):
+    """UI for managing saved recipes"""
+    st.header("My Recipes")
+    
+    # Get user recipes
+    recipes = fdc_api.get_user_recipes()
+    
+    if not recipes:
+        st.info("You haven't created any recipes yet. Use the 'Create Recipe' tab to create and save recipes.")
+        return
+    
+    # Display recipes in a table
+    table_data = []
+    
+    for i, recipe in enumerate(recipes):
+        table_data.append({
+            'Index': i + 1,
+            'Recipe Name': recipe['name'],
+            'Meal Type': recipe['meal_type'],
+            'Calories': f"{recipe.get('total_calories', 0):.0f}",
+            'Protein': f"{recipe.get('total_protein', 0):.1f}g",
+            'Carbs': f"{recipe.get('total_carbs', 0):.1f}g",
+            'Fat': f"{recipe.get('total_fat', 0):.1f}g"
+        })
+    
+    # Convert to DataFrame and display
+    recipes_df = pd.DataFrame(table_data)
+    st.dataframe(recipes_df, use_container_width=True)
+    
+    # Recipe selection
+    recipe_idx = st.number_input(
+        "Select recipe by index:", 
+        min_value=1, 
+        max_value=len(recipes), 
+        value=1, 
+        key=f"recipe_idx_{section_key}"
+    ) - 1
+    
+    if recipe_idx >= 0 and recipe_idx < len(recipes):
+        selected_recipe = recipes[recipe_idx]
+        
+        # Display recipe details
+        st.subheader(f"Selected: {selected_recipe['name']}")
+        st.write(f"Meal Type: {selected_recipe['meal_type']}")
+        
+        # Display ingredients
+        st.write("**Ingredients:**")
+        ingredients_data = []
+        
+        for food in selected_recipe.get('foods', []):
+            # Get portion size
+            portion = selected_recipe.get('portions', {}).get(food['name'], 100)
+            
+            ingredients_data.append({
+                'Food': food['name'],
+                'Portion': f"{portion}g",
+                'Calories': f"{food['calories'] * portion / 100:.0f} kcal",
+                'Protein': f"{food['protein'] * portion / 100:.1f}g",
+                'Carbs': f"{food['carbs'] * portion / 100:.1f}g",
+                'Fat': f"{food['fat'] * portion / 100:.1f}g"
+            })
+        
+        # Convert to DataFrame and display
+        ingredients_df = pd.DataFrame(ingredients_data)
+        st.dataframe(ingredients_df, use_container_width=True)
+        
+        # Action buttons for the recipe
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("Delete Recipe", key=f"delete_recipe_{section_key}"):
+                # Remove the recipe from the recipes list
+                recipes.pop(recipe_idx)
+                fdc_api.save_user_recipes(recipes)
+                st.success(f"Recipe '{selected_recipe['name']}' deleted successfully!")
+                st.rerun()
+        
+        with col2:
+            if st.button("Add to Meal Plan", key=f"add_to_meal_{section_key}"):
+                st.session_state.add_recipe_to_meal = selected_recipe
+                st.info("Recipe added. Go to 'Meal Planning' tab to add it to a specific meal.")
+        
+        with col3:
+            if st.button("Load Recipe Foods", key=f"load_recipe_{section_key}"):
+                # Add all foods from the recipe to selected foods
+                for food in selected_recipe.get('foods', []):
+                    if food['name'] not in [f['name'] for f in st.session_state.selected_foods]:
+                        st.session_state.selected_foods.append(food)
+                
+                st.success(f"Added foods from '{selected_recipe['name']}' to selected foods!")
+                st.rerun()
+
+# Function for meal planning by day
+def meal_planning_ui(section_key="meal_plan"):
+    """UI for planning meals by day"""
+    st.header("Weekly Meal Planning")
+    
+    # Initialize weekly meal plan in session state if not exists
+    if 'weekly_meal_plan' not in st.session_state:
+        st.session_state.weekly_meal_plan = {
+            day: {
+                'meals': [],
+                'total_nutrition': {
+                    'calories': 0,
+                    'protein': 0,
+                    'carbs': 0,
+                    'fat': 0,
+                    'fiber': 0
+                }
+            }
+            for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        }
+    
+    # Day selection
+    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    selected_day = st.selectbox("Select Day:", days, key=f"day_select_{section_key}")
+    
+    # Display current plan for the selected day
+    st.subheader(f"Meal Plan for {selected_day}")
+    
+    # Get meals for the day
+    day_plan = st.session_state.weekly_meal_plan[selected_day]
+    meals = day_plan.get('meals', [])
+    
+    if not meals:
+        st.info(f"No meals planned for {selected_day} yet. Add meals below.")
+    else:
+        # Display meals
+        for i, meal in enumerate(meals):
+            st.write(f"**Meal {i+1}: {meal.get('name', 'Unnamed Meal')}**")
+            
+            # Display meal details
+            meal_data = []
+            
+            for food in meal.get('foods', []):
+                portion = meal.get('portions', {}).get(food['name'], 100)
+                
+                meal_data.append({
+                    'Food': food['name'],
+                    'Portion': f"{portion}g",
+                    'Calories': f"{food['calories'] * portion / 100:.0f} kcal",
+                    'Protein': f"{food['protein'] * portion / 100:.1f}g",
+                    'Carbs': f"{food['carbs'] * portion / 100:.1f}g",
+                    'Fat': f"{food['fat'] * portion / 100:.1f}g"
+                })
+            
+            if meal_data:
+                meal_df = pd.DataFrame(meal_data)
+                st.dataframe(meal_df, use_container_width=True)
+                
+                # Remove meal button
+                if st.button("Remove Meal", key=f"remove_meal_{selected_day}_{i}"):
+                    # Remove meal from the plan
+                    meals.pop(i)
+                    
+                    # Recalculate total nutrition for the day
+                    day_plan['total_nutrition'] = {
+                        'calories': 0,
+                        'protein': 0,
+                        'carbs': 0,
+                        'fat': 0,
+                        'fiber': 0
+                    }
+                    
+                    for m in meals:
+                        for food in m.get('foods', []):
+                            portion = m.get('portions', {}).get(food['name'], 100)
+                            
+                            day_plan['total_nutrition']['calories'] += food['calories'] * portion / 100
+                            day_plan['total_nutrition']['protein'] += food['protein'] * portion / 100
+                            day_plan['total_nutrition']['carbs'] += food['carbs'] * portion / 100
+                            day_plan['total_nutrition']['fat'] += food['fat'] * portion / 100
+                            day_plan['total_nutrition']['fiber'] += food.get('fiber', 0) * portion / 100
+                    
+                    st.success(f"Removed Meal {i+1} from {selected_day}.")
+                    st.rerun()
+    
+    # Display total nutrition for the day
+    st.subheader("Daily Nutrition Totals")
+    
+    total_nutrition = day_plan.get('total_nutrition', {
+        'calories': 0,
+        'protein': 0,
+        'carbs': 0,
+        'fat': 0,
+        'fiber': 0
+    })
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric("Calories", f"{total_nutrition.get('calories', 0):.0f} kcal")
+    
+    with col2:
+        st.metric("Protein", f"{total_nutrition.get('protein', 0):.1f}g")
+    
+    with col3:
+        st.metric("Carbs", f"{total_nutrition.get('carbs', 0):.1f}g")
+    
+    with col4:
+        st.metric("Fat", f"{total_nutrition.get('fat', 0):.1f}g")
+    
+    with col5:
+        st.metric("Fiber", f"{total_nutrition.get('fiber', 0):.1f}g")
+    
+    # Add new meal section
+    st.subheader("Add New Meal")
+    
+    meal_name = st.text_input("Meal Name:", key=f"new_meal_name_{selected_day}", 
+                            placeholder="E.g., Breakfast, Lunch, Dinner, Snack")
+    
+    # Check if there are selected foods or a recipe to add
+    if st.session_state.selected_foods:
+        st.write("**Selected Foods:**")
+        
+        selected_foods_data = []
+        portions = {}
+        
+        for i, food in enumerate(st.session_state.selected_foods):
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                st.write(f"{food['name']}")
+            
+            with col2:
+                portion = st.number_input(
+                    f"Portion (g):", 
+                    min_value=0, 
+                    value=100,
+                    key=f"meal_portion_{selected_day}_{i}"
+                )
+                portions[food['name']] = portion
+            
+            selected_foods_data.append({
+                'Food': food['name'],
+                'Portion': f"{portion}g",
+                'Calories': f"{food['calories'] * portion / 100:.0f} kcal",
+                'Protein': f"{food['protein'] * portion / 100:.1f}g",
+                'Carbs': f"{food['carbs'] * portion / 100:.1f}g",
+                'Fat': f"{food['fat'] * portion / 100:.1f}g"
+            })
+        
+        if selected_foods_data:
+            selected_df = pd.DataFrame(selected_foods_data)
+            st.dataframe(selected_df, use_container_width=True)
+        
+        if st.button("Add to Meal Plan", key=f"add_to_plan_{selected_day}") and meal_name:
+            # Create a new meal
+            new_meal = {
+                'name': meal_name,
+                'foods': st.session_state.selected_foods.copy(),
+                'portions': portions.copy()
+            }
+            
+            # Add to the day's meal plan
+            meals.append(new_meal)
+            
+            # Update total nutrition for the day
+            for food in new_meal['foods']:
+                portion = new_meal['portions'].get(food['name'], 100)
+                
+                day_plan['total_nutrition']['calories'] += food['calories'] * portion / 100
+                day_plan['total_nutrition']['protein'] += food['protein'] * portion / 100
+                day_plan['total_nutrition']['carbs'] += food['carbs'] * portion / 100
+                day_plan['total_nutrition']['fat'] += food['fat'] * portion / 100
+                day_plan['total_nutrition']['fiber'] += food.get('fiber', 0) * portion / 100
+            
+            st.success(f"Added {meal_name} to {selected_day}'s meal plan!")
+            
+            # Clear selected foods
+            if st.button("Clear Selected Foods", key=f"clear_after_add_{selected_day}"):
+                st.session_state.selected_foods = []
+                st.rerun()
+    else:
+        st.info("No foods selected. Use the 'Food Search' or 'My Favorites' tabs to select foods for this meal.")
+
+# Function for grocery list generation
+def grocery_list_ui(section_key="grocery"):
+    """UI for generating grocery lists from meal plans"""
+    st.header("Grocery List Generator")
+    
+    # Option to select days to include
+    st.subheader("Select Days to Include")
+    
+    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    selected_days = []
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.checkbox("Monday", key=f"day_mon_{section_key}", value=True):
+            selected_days.append('Monday')
+        if st.checkbox("Tuesday", key=f"day_tue_{section_key}", value=True):
+            selected_days.append('Tuesday')
+        if st.checkbox("Wednesday", key=f"day_wed_{section_key}", value=True):
+            selected_days.append('Wednesday')
+        if st.checkbox("Thursday", key=f"day_thu_{section_key}", value=True):
+            selected_days.append('Thursday')
+    
+    with col2:
+        if st.checkbox("Friday", key=f"day_fri_{section_key}", value=True):
+            selected_days.append('Friday')
+        if st.checkbox("Saturday", key=f"day_sat_{section_key}", value=True):
+            selected_days.append('Saturday')
+        if st.checkbox("Sunday", key=f"day_sun_{section_key}", value=True):
+            selected_days.append('Sunday')
+    
+    # Generate grocery list button
+    if st.button("Generate Grocery List", key=f"gen_grocery_{section_key}"):
+        if not selected_days:
+            st.warning("Please select at least one day to include in the grocery list.")
+        else:
+            # Collect all foods from selected days
+            all_foods = {}
+            
+            for day in selected_days:
+                day_plan = st.session_state.weekly_meal_plan.get(day, {})
+                meals = day_plan.get('meals', [])
+                
+                for meal in meals:
+                    for food in meal.get('foods', []):
+                        food_name = food['name']
+                        portion = meal.get('portions', {}).get(food_name, 100)
+                        
+                        if food_name in all_foods:
+                            all_foods[food_name]['portion'] += portion
+                        else:
+                            all_foods[food_name] = {
+                                'food': food,
+                                'portion': portion
+                            }
+            
+            if not all_foods:
+                st.warning("No foods found in the selected days. Please add meals to your plan first.")
+            else:
+                # Categorize foods
+                categorized_foods = {
+                    'Protein': [],
+                    'Carbs': [],
+                    'Fats': [],
+                    'Fruits & Vegetables': [],
+                    'Dairy': [],
+                    'Other': []
+                }
+                
+                for food_name, food_info in all_foods.items():
+                    food = food_info['food']
+                    portion = food_info['portion']
+                    
+                    # Determine category based on food properties
+                    category = food.get('category', '').lower()
+                    
+                    if category in ['protein', 'high protein']:
+                        categorized_foods['Protein'].append({
+                            'name': food_name,
+                            'portion': portion
+                        })
+                    elif category in ['carb', 'carbohydrate', 'high carb']:
+                        categorized_foods['Carbs'].append({
+                            'name': food_name,
+                            'portion': portion
+                        })
+                    elif category in ['fat', 'high fat']:
+                        categorized_foods['Fats'].append({
+                            'name': food_name,
+                            'portion': portion
+                        })
+                    elif category in ['fruit', 'vegetable', 'produce']:
+                        categorized_foods['Fruits & Vegetables'].append({
+                            'name': food_name,
+                            'portion': portion
+                        })
+                    elif category in ['dairy', 'milk']:
+                        categorized_foods['Dairy'].append({
+                            'name': food_name,
+                            'portion': portion
+                        })
+                    else:
+                        categorized_foods['Other'].append({
+                            'name': food_name,
+                            'portion': portion
+                        })
+                
+                # Display grocery list by category
+                st.subheader("Grocery List")
+                
+                grocery_text = "# Grocery List\n\n"
+                
+                for category, foods in categorized_foods.items():
+                    if foods:
+                        st.write(f"**{category}**")
+                        grocery_text += f"## {category}\n\n"
+                        
+                        for food in foods:
+                            st.write(f"- {food['name']}: {food['portion']:.0f}g")
+                            grocery_text += f"- {food['name']}: {food['portion']:.0f}g\n"
+                        
+                        grocery_text += "\n"
+                
+                # Option to print/export
+                st.write("---")
+                st.subheader("Export Options")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    if st.button("Print Grocery List", key=f"print_grocery_{section_key}"):
+                        st.code(grocery_text, language="markdown")
+                        st.info("Copy the text above to print or save your grocery list.")
+                
+                with col2:
+                    if st.download_button(
+                        label="Download Grocery List",
+                        data=grocery_text,
+                        file_name="grocery_list.md",
+                        mime="text/markdown",
+                        key=f"download_grocery_{section_key}"
+                    ):
+                        st.success("Grocery list downloaded successfully!")
+
+# Main layout with tabs
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "Food Search", 
+    "My Favorites", 
+    "Selected Foods", 
+    "Create Recipe", 
+    "My Recipes", 
+    "Meal Planning",
+    "Grocery List"
+])
 
 with tab1:
-    food_search_ui()
+    food_search_ui("main")
 
 with tab2:
-    favorites_ui()
+    favorites_ui("main")
 
 with tab3:
-    selected_foods_ui()
+    selected_foods_ui("main")
+
+with tab4:
+    create_recipe_ui("main")
+
+with tab5:
+    recipes_ui("main")
+
+with tab6:
+    meal_planning_ui("main")
+
+with tab7:
+    grocery_list_ui("main")
 
 # Show navigation hint
 st.markdown("---")
