@@ -976,12 +976,25 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
         current_fat_mass_lbs = current_fat_mass_kg * 2.20462
         current_ffm_lbs = current_ffm_kg * 2.20462
         
-        # Calculate weekly weight change in kg and lbs
-        weekly_weight_change_kg = current_weight_kg * weekly_weight_pct
+        # Calculate total weight change and weekly weight change
+        total_weight_change_kg = target_weight_kg - current_weight_kg
+        total_weight_change_lbs = target_weight_lbs - current_weight_lbs
+        weekly_weight_change_kg = total_weight_change_kg / timeline_weeks
         weekly_weight_change_lbs = weekly_weight_change_kg * 2.20462
         
+        # Determine if this is a weight gain or loss goal
+        goal_is_gain = total_weight_change_kg > 0
+        
         # Parse start date
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        if isinstance(start_date, str):
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            except ValueError:
+                # Fallback if date format is wrong
+                start_date = datetime.now().date()
+        else:
+            # Fallback if not a string
+            start_date = datetime.now().date()
         
         # Initialize data structure
         progress_data = []
@@ -995,10 +1008,9 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
         ffm_lbs = current_ffm_lbs
         body_fat_pct = current_bf_pct
         
-        goal_is_gain = weekly_weight_change_kg > 0
-        
         # Energy availability per kg of FFM (measure of energy surplus/deficit relative to lean mass)
         energy_availability = 0
+        cumulative_fat_change = 0  # Track cumulative fat change from starting point
         
         for week in range(timeline_weeks + 1):  # +1 to include the final state
             # Calculate the date for this week
@@ -1009,7 +1021,7 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
             if week > 0:  # Skip week 0 (starting point)
                 # Caloric surplus/deficit needed (~7700 kcal per kg of weight change)
                 if goal_is_gain:
-                    daily_energy_balance = (weekly_weight_change_kg * 7700) / 7  # Daily surplus
+                    daily_energy_balance = (abs(weekly_weight_change_kg) * 7700) / 7  # Daily surplus
                 else:
                     daily_energy_balance = -1 * (abs(weekly_weight_change_kg) * 7700) / 7  # Daily deficit
             
@@ -1046,78 +1058,73 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
                 })
                 continue
             
+            # For the next entry, we calculate the changes based on weekly progress
+            # Store starting values for this week
+            week_starting_weight_lbs = weight_lbs
+            week_starting_fat_mass_lbs = fat_mass_lbs
+            week_starting_ffm_lbs = ffm_lbs
+            
             # Calculate changes for this week
             if goal_is_gain:
                 # Weight gain logic
-                new_weight_kg = weight_kg + weekly_weight_change_kg
-                fat_gain_kg = weekly_weight_change_kg * weekly_fat_pct
-                ffm_gain_kg = weekly_weight_change_kg * (1 - weekly_fat_pct)
+                weight_lbs += weekly_weight_change_lbs
+                fat_gain_lbs = weekly_weight_change_lbs * weekly_fat_pct
+                ffm_gain_lbs = weekly_weight_change_lbs * (1 - weekly_fat_pct)
                 
-                new_fat_mass_kg = fat_mass_kg + fat_gain_kg
-                new_ffm_kg = ffm_kg + ffm_gain_kg
-                
-                # Convert to pounds
-                fat_gain_lbs = fat_gain_kg * 2.20462
-                ffm_gain_lbs = ffm_gain_kg * 2.20462
+                fat_mass_lbs += fat_gain_lbs
+                ffm_lbs += ffm_gain_lbs
             else:
                 # Weight loss logic
-                new_weight_kg = weight_kg + weekly_weight_change_kg  # Note: change is negative
-                fat_loss_kg = abs(weekly_weight_change_kg) * weekly_fat_pct
-                ffm_loss_kg = abs(weekly_weight_change_kg) * (1 - weekly_fat_pct)
+                weight_lbs += weekly_weight_change_lbs  # Will be negative for weight loss
+                fat_loss_lbs = abs(weekly_weight_change_lbs) * weekly_fat_pct
+                ffm_loss_lbs = abs(weekly_weight_change_lbs) * (1 - weekly_fat_pct)
                 
-                new_fat_mass_kg = fat_mass_kg - fat_loss_kg
-                new_ffm_kg = ffm_kg - ffm_loss_kg
+                fat_mass_lbs -= fat_loss_lbs
+                ffm_lbs -= ffm_loss_lbs
                 
-                # Convert to pounds
-                fat_gain_lbs = -1 * (fat_loss_kg * 2.20462)  # Negative for loss
-                ffm_gain_lbs = -1 * (ffm_loss_kg * 2.20462)  # Negative for loss
+                # Ensure we use negative values for losses
+                fat_gain_lbs = -fat_loss_lbs
+                ffm_gain_lbs = -ffm_loss_lbs
             
-            # Convert to pounds
-            new_weight_lbs = new_weight_kg * 2.20462
-            new_fat_mass_lbs = new_fat_mass_kg * 2.20462
-            new_ffm_lbs = new_ffm_kg * 2.20462
+            # Convert back to kg for calculations
+            weight_kg = weight_lbs / 2.20462
+            fat_mass_kg = fat_mass_lbs / 2.20462
+            ffm_kg = ffm_lbs / 2.20462
             
             # Calculate new body fat percentage
-            new_body_fat_pct = (new_fat_mass_kg / new_weight_kg) * 100
+            body_fat_pct = (fat_mass_kg / weight_kg) * 100 if weight_kg > 0 else 0
             
-            # Calculate cumulative fat change
-            cumulative_fat_change = (new_fat_mass_lbs - current_fat_mass_lbs)
+            # Update cumulative fat change from start
+            cumulative_fat_change = fat_mass_lbs - current_fat_mass_lbs
             
             # Store this week's data
             progress_data.append({
                 'Date': date.strftime('%m/%d/%Y'),
                 'Week': week,
-                'Starting Weight (lbs)': round(weight_lbs, 1),
-                'Ending Weight (lbs)': round(new_weight_lbs, 1),
-                'Weekly Change (lbs)': round(new_weight_lbs - weight_lbs, 2),
-                'Starting Fat Mass (lbs)': round(fat_mass_lbs, 1),
-                'Ending Fat Mass (lbs)': round(new_fat_mass_lbs, 1),
+                'Starting Weight (lbs)': round(week_starting_weight_lbs, 1),
+                'Ending Weight (lbs)': round(weight_lbs, 1),
+                'Weekly Change (lbs)': round(weight_lbs - week_starting_weight_lbs, 2),
+                'Starting Fat Mass (lbs)': round(week_starting_fat_mass_lbs, 1),
+                'Ending Fat Mass (lbs)': round(fat_mass_lbs, 1),
                 'Fat Mass Change (lbs)': round(fat_gain_lbs, 2),
                 'Cumulative Fat Change (lbs)': round(cumulative_fat_change, 1),
-                'Starting FFM (lbs)': round(ffm_lbs, 1),
-                'Ending FFM (lbs)': round(new_ffm_lbs, 1),
+                'Starting FFM (lbs)': round(week_starting_ffm_lbs, 1),
+                'Ending FFM (lbs)': round(ffm_lbs, 1),
                 'FFM Change (lbs)': round(ffm_gain_lbs, 2),
-                'Ending Body Fat %': round(new_body_fat_pct, 1),
+                'Ending Body Fat %': round(body_fat_pct, 1),
                 'Daily Energy Balance (kcal)': round(daily_energy_balance),
                 'Daily TDEE (kcal)': round(current_tdee),
                 'Daily Energy Target (kcal)': round(target_energy),
                 'Energy Availability (kcal/kg FFM)': round(energy_availability)
             })
-            
-            # Update for next week
-            weight_kg = new_weight_kg
-            weight_lbs = new_weight_lbs
-            fat_mass_kg = new_fat_mass_kg
-            fat_mass_lbs = new_fat_mass_lbs
-            ffm_kg = new_ffm_kg
-            ffm_lbs = new_ffm_lbs
-            body_fat_pct = new_body_fat_pct
         
         # Create DataFrame
         return pd.DataFrame(progress_data)
     
     except Exception as e:
         print(f"Error generating progress table: {e}")
+        import traceback
+        traceback.print_exc()
         return pd.DataFrame()  # Return empty DataFrame on error
 
 def load_data():

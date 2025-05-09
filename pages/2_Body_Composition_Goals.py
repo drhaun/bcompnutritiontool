@@ -916,12 +916,17 @@ if st.session_state.goal_info.get('target_weight_kg'):
     st.markdown("---")
     st.subheader("Detailed Weekly Progress Projection")
     
-    # Calculate the rate as a percentage of body weight
+    # Use the actual rate based on target and timeline, not the recommended rate
+    # This ensures the weekly projection matches the user's chosen targets
+    weight_change_kg = target_weight_kg - current_weight_kg
+    weekly_weight_change_kg = weight_change_kg / timeline_weeks
+    
+    # For percentage calculations, we need the sign to be correct
     if goal_type == "Lose fat":
-        weekly_weight_pct = abs(weekly_weight_change_kg / current_weight_kg)
+        weekly_weight_pct = weekly_weight_change_kg / current_weight_kg  # Will be negative for weight loss
         weekly_fat_pct = recommended_fat_pct  # Use the recommended fat percentage for loss
     else:  # Gain muscle
-        weekly_weight_pct = weekly_weight_change_kg / current_weight_kg
+        weekly_weight_pct = weekly_weight_change_kg / current_weight_kg  # Will be positive for weight gain
         weekly_fat_pct = recommended_fat_pct  # Use the recommended fat percentage for gain
     
     # Get other parameters needed for the calculation
