@@ -121,6 +121,34 @@ with st.form("user_info_form"):
             step=1
         )
         
+        # New categorized workout frequency (for rate calculation)
+        workout_freq_options = [
+            "0-1 workouts per week",
+            "2-3 workouts per week", 
+            "4-5 workouts per week",
+            "6+ workouts per week"
+        ]
+        
+        # Determine default selection based on numeric input
+        if workouts_per_week <= 1:
+            default_workout_index = 0
+        elif workouts_per_week <= 3:
+            default_workout_index = 1
+        elif workouts_per_week <= 5:
+            default_workout_index = 2
+        else:
+            default_workout_index = 3
+            
+        # Get stored value if available
+        stored_workout_freq = st.session_state.user_info.get('workout_frequency')
+        stored_workout_freq_index = workout_freq_options.index(stored_workout_freq) if stored_workout_freq in workout_freq_options else default_workout_index
+        
+        workout_frequency = st.selectbox(
+            "Workout Frequency Category (for rate calculation)",
+            options=workout_freq_options,
+            index=stored_workout_freq_index
+        )
+        
         workout_calories = st.number_input(
             "Enter Average Calories Expended During a Workout",
             min_value=0,

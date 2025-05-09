@@ -360,6 +360,219 @@ def plot_macro_adherence(data, nutrition_plan):
     
     return fig
 
+def get_performance_preference_multipliers(preference):
+    """
+    Get rate modifiers based on performance preference
+    
+    Parameters:
+    preference (str): The performance preference selection
+    
+    Returns:
+    dict: Multipliers for gain_rate, gain_fat_pct, loss_rate, loss_fat_pct
+    """
+    if preference == "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal.":
+        # Body Composition priority
+        return {
+            "gain_rate": 0.0013,
+            "gain_fat_pct": 0.8,
+            "loss_rate": 0.0125, 
+            "loss_fat_pct": 0.5
+        }
+    else:
+        # Performance and Recovery priority
+        return {
+            "gain_rate": 0.0050,
+            "gain_fat_pct": 0.1,
+            "loss_rate": 0.0025,
+            "loss_fat_pct": 1.0
+        }
+
+def get_body_comp_tradeoff_multipliers(preference, goal_type):
+    """
+    Get rate modifiers based on body composition tradeoff preference
+    
+    Parameters:
+    preference (str): The body comp tradeoff preference
+    goal_type (str): "Muscle Gain" or "Fat Loss"
+    
+    Returns:
+    dict: Multipliers for gain_rate, gain_fat_pct, loss_rate, loss_fat_pct or None if not applicable
+    """
+    if goal_type == "Muscle Gain":
+        if preference == "I'm ok with gaining a little body fat to maximize muscle growth.":
+            return {
+                "gain_rate": 0.0075,
+                "gain_fat_pct": 0.50,
+                "loss_rate": None,
+                "loss_fat_pct": None
+            }
+        else:  # Don't want to gain body fat
+            return {
+                "gain_rate": 0.0013,
+                "gain_fat_pct": 0.10,
+                "loss_rate": None,
+                "loss_fat_pct": None
+            }
+    else:  # Fat Loss
+        if preference == "I don't want to lose any muscle mass while losing body fat.":
+            return {
+                "gain_rate": None,
+                "gain_fat_pct": None,
+                "loss_rate": 0.0025,
+                "loss_fat_pct": 1.00
+            }
+        else:  # Ok with losing muscle
+            return {
+                "gain_rate": None,
+                "gain_fat_pct": None,
+                "loss_rate": 0.0125,
+                "loss_fat_pct": 0.50
+            }
+
+def get_commitment_level_multipliers(commitment):
+    """
+    Get rate modifiers based on commitment level
+    
+    Parameters:
+    commitment (str): The commitment level selection string
+    
+    Returns:
+    dict: Multipliers for gain_rate, gain_fat_pct, loss_rate, loss_fat_pct
+    """
+    if "I am committed to prioritizing adequate sleep" in commitment:
+        # High commitment
+        return {
+            "gain_rate": 0.0050,
+            "gain_fat_pct": 0.100,
+            "loss_rate": 0.0125,
+            "loss_fat_pct": 1.00
+        }
+    elif "I can commit to at least a few workouts per week" in commitment:
+        # Moderate commitment
+        return {
+            "gain_rate": 0.0025,
+            "gain_fat_pct": 0.500,
+            "loss_rate": 0.0075,
+            "loss_fat_pct": 0.80
+        }
+    else:
+        # Low commitment
+        return {
+            "gain_rate": 0.0013,
+            "gain_fat_pct": 0.800,
+            "loss_rate": 0.0025,
+            "loss_fat_pct": 0.50
+        }
+
+def calculate_recommended_rate(user_data, goal_type):
+    """
+    Calculate recommended weekly weight change rate and body composition breakdown
+    
+    Parameters:
+    user_data (dict): User information including FMI category, FFMI category, preferences
+    goal_type (str): "Muscle Gain" or "Fat Loss"
+    
+    Returns:
+    dict: Recommended weekly rate and composition percentages
+    """
+    # Get category-based recommendations
+    fmi_category = user_data.get("fmi_category", {})
+    ffmi_category = user_data.get("ffmi_category", {})
+    
+    # Get preference-based multipliers
+    performance_multipliers = get_performance_preference_multipliers(
+        user_data.get("performance_preference", "")
+    )
+    
+    body_comp_multipliers = get_body_comp_tradeoff_multipliers(
+        user_data.get("body_comp_preference", ""),
+        goal_type
+    )
+    
+    commitment_multipliers = get_commitment_level_multipliers(
+        user_data.get("commitment_level", "")
+    )
+    
+    # Determine base values from categories
+    if goal_type == "Muscle Gain":
+        # For muscle gain, primarily use FFMI category for base rate
+        base_rate = ffmi_category.get("gain_rate")
+        base_fat_pct = ffmi_category.get("gain_fat_pct")
+        
+        # If FFMI doesn't have a recommendation (e.g., already high), check FMI
+        if base_rate is None:
+            base_rate = fmi_category.get("gain_rate")
+            base_fat_pct = fmi_category.get("gain_fat_pct")
+    else:
+        # For fat loss, primarily use FMI category for base rate
+        base_rate = fmi_category.get("loss_rate") 
+        base_fat_pct = fmi_category.get("loss_fat_pct")
+        
+        # If FMI doesn't have a recommendation (e.g., already very lean), check FFMI
+        if base_rate is None:
+            base_rate = ffmi_category.get("loss_rate")
+            base_fat_pct = ffmi_category.get("loss_fat_pct")
+    
+    # If no recommendation from categories, use default conservative values
+    if base_rate is None:
+        if goal_type == "Muscle Gain":
+            base_rate = 0.0025  # 0.25% per week
+            base_fat_pct = 0.5   # 50% fat
+        else:
+            base_rate = 0.0050  # 0.5% per week
+            base_fat_pct = 0.8   # 80% fat (20% muscle)
+    
+    # Apply preference modifiers (taking the average)
+    if goal_type == "Muscle Gain":
+        modifiers = [
+            performance_multipliers.get("gain_rate"),
+            body_comp_multipliers.get("gain_rate") if body_comp_multipliers else None,
+            commitment_multipliers.get("gain_rate")
+        ]
+        
+        fat_modifiers = [
+            performance_multipliers.get("gain_fat_pct"),
+            body_comp_multipliers.get("gain_fat_pct") if body_comp_multipliers else None,
+            commitment_multipliers.get("gain_fat_pct")
+        ]
+    else:
+        modifiers = [
+            performance_multipliers.get("loss_rate"),
+            body_comp_multipliers.get("loss_rate") if body_comp_multipliers else None,
+            commitment_multipliers.get("loss_rate")
+        ]
+        
+        fat_modifiers = [
+            performance_multipliers.get("loss_fat_pct"),
+            body_comp_multipliers.get("loss_fat_pct") if body_comp_multipliers else None,
+            commitment_multipliers.get("loss_fat_pct")
+        ]
+    
+    # Filter out None values
+    modifiers = [m for m in modifiers if m is not None]
+    fat_modifiers = [m for m in fat_modifiers if m is not None]
+    
+    # Calculate final recommendations
+    if modifiers:
+        final_rate = sum(modifiers) / len(modifiers)
+    else:
+        final_rate = base_rate
+        
+    if fat_modifiers:
+        final_fat_pct = sum(fat_modifiers) / len(fat_modifiers)
+    else:
+        final_fat_pct = base_fat_pct
+    
+    # Turn percentages into actual weekly changes
+    weekly_weight_pct = final_rate  # as decimal
+    weekly_fat_pct = final_fat_pct  # as decimal
+    
+    return {
+        "weekly_weight_pct": weekly_weight_pct,
+        "weekly_fat_pct": weekly_fat_pct,
+        "weekly_muscle_pct": 1 - weekly_fat_pct
+    }
+
 def save_data():
     """Save session state data to CSV files"""
     # Save user info
