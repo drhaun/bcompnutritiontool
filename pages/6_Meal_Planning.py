@@ -283,7 +283,7 @@ def calculate_meal_distribution(total_nutrition, num_meals, num_snacks, training
 load_meal_plans()
 
 # Create tabs for different sections
-tab1, tab2, tab3, tab4 = st.tabs(["Weekly Overview", "Plan Your Day", "Food Selection", "Grocery List"])
+tab1, tab2 = st.tabs(["Meal Planner & Weekly Overview", "Grocery List"])
 
 # Common food database
 food_categories = {
@@ -477,135 +477,881 @@ def calculate_total_macros(foods, portions):
         'fiber': round(total_fiber)
     }
 
-# Weekly overview tab
+# Integrated meal planner tab
 with tab1:
-    st.header("Weekly Meal Plan Overview")
+    # Create a layout with two main sections - Weekly overview and Day plan
+    st.header("Meal Planner")
     
-    # Create a weekly overview in a tabular format
-    if st.session_state.meal_plans:
-        # Create tabs for each view
-        overview_type = st.radio("View", ["Summary", "Detailed"], horizontal=True)
-        
-        if overview_type == "Summary":
-            # Create a table with basic info for each day
-            weekly_summary = []
+    # Initialize weekly data for display
+    weekly_summary = []
+    for day in days_of_week:
+        if day in st.session_state.meal_plans:
+            plan = st.session_state.meal_plans[day]
             
-            for day in days_of_week:
-                if day in st.session_state.meal_plans:
-                    plan = st.session_state.meal_plans[day]
-                    
-                    # Check for training sessions for display
-                    training_status = "Rest Day"
-                    if 'training_sessions' in plan and plan['training_sessions'] and plan['training_sessions'][0] != "No Training":
-                        if len(plan['training_sessions']) == 1:
-                            training_status = f"Training: {plan['training_sessions'][0]}"
-                        else:
-                            training_session_times = [s for s in plan['training_sessions'] if s != "No Training"]
-                            training_status = f"{len(training_session_times)} Sessions"
-                    
-                    weekly_summary.append({
-                        "Day": day,
-                        "Day Type": plan['day_type'],
-                        "Training": training_status,
-                        "Meals": plan['num_meals'],
-                        "Snacks": plan.get('num_snacks', 0),
-                        "Calories": plan['nutrition']['calories'],
-                        "Protein (g)": plan['nutrition']['protein'],
-                        "Carbs (g)": plan['nutrition']['carbs'],
-                        "Fat (g)": plan['nutrition']['fat']
-                    })
+            # Check for training session for display
+            training_status = "Rest Day"
+            if 'training_sessions' in plan and plan['training_sessions'] and plan['training_sessions'][0] != "No Training":
+                training_session_times = [s for s in plan['training_sessions'] if s != "No Training"]
+                if len(training_session_times) == 1:
+                    training_status = f"{training_session_times[0]}"
                 else:
-                    weekly_summary.append({
-                        "Day": day,
-                        "Day Type": "Not Planned",
-                        "Training": "-",
-                        "Meals": 0,
-                        "Snacks": 0,
-                        "Calories": 0,
-                        "Protein (g)": 0,
-                        "Carbs (g)": 0,
-                        "Fat (g)": 0
-                    })
+                    training_status = f"{len(training_session_times)} Sessions"
             
-            weekly_df = pd.DataFrame(weekly_summary)
-            st.dataframe(weekly_df, use_container_width=True)
-            
-            # Add button to copy a day's plan to other days
-            st.subheader("Copy Plan Between Days")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                copy_from_day = st.selectbox("Copy from day", days_of_week, 
-                                            index=[i for i, day in enumerate(days_of_week) if day in st.session_state.meal_plans][0] 
-                                            if any(day in st.session_state.meal_plans for day in days_of_week) else 0)
-            
-            if copy_from_day in st.session_state.meal_plans:
-                with col2:
-                    copy_to_days = st.multiselect("Copy to days", 
-                                                [day for day in days_of_week if day != copy_from_day],
-                                                default=[])
+            weekly_summary.append({
+                "Day": day,
+                "Day Type": plan['day_type'],
+                "Training": training_status,
+                "Meals": plan['num_meals'],
+                "Snacks": plan.get('num_snacks', 0),
+                "Calories": plan['nutrition']['calories'],
+                "Protein (g)": plan['nutrition']['protein'],
+                "Carbs (g)": plan['nutrition']['carbs'],
+                "Fat (g)": plan['nutrition']['fat']
+            })
+        else:
+            weekly_summary.append({
+                "Day": day,
+                "Day Type": "Not Planned",
+                "Training": "-",
+                "Meals": 0,
+                "Snacks": 0,
+                "Calories": 0,
+                "Protein (g)": 0,
+                "Carbs (g)": 0,
+                "Fat (g)": 0
+            })
+    
+    weekly_df = pd.DataFrame(weekly_summary)
+    
+    # Calculate weekly totals
+    planned_days_df = weekly_df[weekly_df["Day Type"] != "Not Planned"]
+    weekly_calories = planned_days_df["Calories"].sum() if not planned_days_df.empty else 0
+    weekly_protein = planned_days_df["Protein (g)"].sum() if not planned_days_df.empty else 0
+    weekly_carbs = planned_days_df["Carbs (g)"].sum() if not planned_days_df.empty else 0
+    weekly_fat = planned_days_df["Fat (g)"].sum() if not planned_days_df.empty else 0
+    
+    # Create tabs for each day of week
+    day_tabs = st.tabs(days_of_week)
+    
+    # For each day tab
+    for i, day in enumerate(days_of_week):
+        with day_tabs[i]:
+            # Check if day is planned or not
+            if day in st.session_state.meal_plans:
+                # We have a plan for this day - show it and allow editing
+                plan = st.session_state.meal_plans[day]
                 
-                if st.button("Copy Plan") and copy_to_days:
-                    # Get the plan to copy
-                    plan_to_copy = st.session_state.meal_plans[copy_from_day]
+                # Split into two columns - planning and summary
+                plan_col, summary_col = st.columns([3, 1])
+                
+                with plan_col:
+                    # PLAN SECTION - Show current plan with option to edit
+                    st.subheader(f"{day} - {plan['day_type']}")
                     
-                    # Copy the plan to selected days
-                    for day in copy_to_days:
-                        st.session_state.meal_plans[day] = plan_to_copy.copy()
+                    # Training sessions information
+                    if 'training_sessions' in plan and plan['training_sessions'] and plan['training_sessions'][0] != "No Training":
+                        st.write("**Training Sessions:**")
+                        for session in plan['training_sessions']:
+                            if session != "No Training":
+                                st.write(f"- {session}")
+                    else:
+                        st.write("**Rest Day - No Training**")
+                    
+                    # Display meals and allow editing in place
+                    if 'meals' in plan and plan['meals']:
+                        st.write("**Meals:**")
+                        
+                        for meal_idx, meal in enumerate(plan['meals']):
+                            meal_expander = st.expander(f"{meal['name']} - {meal.get('time', 'Time not specified')}")
+                            
+                            with meal_expander:
+                                # Show meal targets
+                                st.write(f"**Targets:** {meal['calories']} kcal | {meal['protein']}g protein | {meal['carbs']}g carbs | {meal['fat']}g fat")
+                                
+                                # NEW INTEGRATED FOOD SELECTION
+                                # Check if we're editing this meal
+                                is_editing = st.session_state.get('editing_meal') == (day, meal_idx)
+                                
+                                if is_editing or not meal.get('foods', []):
+                                    # We're in edit mode or no foods yet - show food selection UI
+                                    st.write("### Select Foods")
+                                    
+                                    # Food selection interface with dropdowns
+                                    protein_options = ["None"] + [f["name"] for f in all_foods if f["category"] == "protein"]
+                                    fat_options = ["None"] + [f["name"] for f in all_foods if f["category"] == "fat"]
+                                    carb_options = ["None"] + [f["name"] for f in all_foods if f["category"] == "carb"]
+                                    vegetable_options = ["None"] + [f["name"] for f in all_foods if f["category"] == "vegetable"]
+                                    fruit_options = ["None"] + [f["name"] for f in all_foods if f["category"] == "fruit"]
+                                    
+                                    # Get currently selected foods if any
+                                    current_foods = meal.get('foods', [])
+                                    current_food_names = [f['name'] for f in current_foods]
+                                    
+                                    # Create a form for food selection
+                                    food_col1, food_col2 = st.columns(2)
+                                    
+                                    with food_col1:
+                                        protein_source = st.selectbox(
+                                            "Protein Source", 
+                                            protein_options,
+                                            index=next((i for i, name in enumerate(protein_options) if name in current_food_names), 0),
+                                            key=f"protein_{day}_{meal_idx}"
+                                        )
+                                        
+                                        fat_source = st.selectbox(
+                                            "Fat Source", 
+                                            fat_options,
+                                            index=next((i for i, name in enumerate(fat_options) if name in current_food_names), 0),
+                                            key=f"fat_{day}_{meal_idx}"
+                                        )
+                                        
+                                        vegetable = st.selectbox(
+                                            "Vegetable", 
+                                            vegetable_options,
+                                            index=next((i for i, name in enumerate(vegetable_options) if name in current_food_names), 0),
+                                            key=f"veg_{day}_{meal_idx}"
+                                        )
+                                    
+                                    with food_col2:
+                                        carb_source = st.selectbox(
+                                            "Carbohydrate Source", 
+                                            carb_options,
+                                            index=next((i for i, name in enumerate(carb_options) if name in current_food_names), 0),
+                                            key=f"carb_{day}_{meal_idx}"
+                                        )
+                                        
+                                        fruit_source = st.selectbox(
+                                            "Fruit", 
+                                            fruit_options,
+                                            index=next((i for i, name in enumerate(fruit_options) if name in current_food_names), 0),
+                                            key=f"fruit_{day}_{meal_idx}"
+                                        )
+                                    
+                                    # Create list of selected foods (excluding "None")
+                                    selected_foods = []
+                                    
+                                    if protein_source != "None":
+                                        protein_food = next((f for f in all_foods if f["name"] == protein_source), None)
+                                        if protein_food:
+                                            selected_foods.append(protein_food)
+                                    
+                                    if fat_source != "None":
+                                        fat_food = next((f for f in all_foods if f["name"] == fat_source), None)
+                                        if fat_food:
+                                            selected_foods.append(fat_food)
+                                    
+                                    if carb_source != "None":
+                                        carb_food = next((f for f in all_foods if f["name"] == carb_source), None)
+                                        if carb_food:
+                                            selected_foods.append(carb_food)
+                                    
+                                    if vegetable != "None":
+                                        veg_food = next((f for f in all_foods if f["name"] == vegetable), None)
+                                        if veg_food:
+                                            selected_foods.append(veg_food)
+                                    
+                                    if fruit_source != "None":
+                                        fruit_food = next((f for f in all_foods if f["name"] == fruit_source), None)
+                                        if fruit_food:
+                                            selected_foods.append(fruit_food)
+                                    
+                                    # Adjust serving sizes
+                                    if selected_foods:
+                                        st.write("### Adjust Serving Sizes")
+                                        
+                                        # Initialize session state for serving adjustments
+                                        if f'serving_adj_{day}_{meal_idx}' not in st.session_state:
+                                            # Try to get existing adjustments from current food portions
+                                            existing_adjustments = {}
+                                            for food in current_foods:
+                                                food_info = next((f for f in all_foods if f["name"] == food["name"]), None)
+                                                if food_info:
+                                                    # Reverse calculate the adjustment factor
+                                                    portion = food["amount"]
+                                                    # Find what the calculated portion would be with no adjustment
+                                                    original_portion = 0
+                                                    if food_info["category"] == "protein" and meal["protein"] > 0:
+                                                        original_portion = (meal["protein"] / len([f for f in selected_foods if f["category"] == "protein"]) * 100) / food_info["protein"]
+                                                    elif food_info["category"] == "carb" and meal["carbs"] > 0:
+                                                        original_portion = (meal["carbs"] / len([f for f in selected_foods if f["category"] == "carb"]) * 100) / food_info["carbs"]
+                                                    elif food_info["category"] == "fat" and meal["fat"] > 0:
+                                                        original_portion = (meal["fat"] / len([f for f in selected_foods if f["category"] == "fat"]) * 100) / food_info["fat"]
+                                                    
+                                                    if original_portion > 0:
+                                                        adjustment = portion / original_portion
+                                                        existing_adjustments[food["name"]] = max(0.25, min(3.0, adjustment))
+                                                    else:
+                                                        existing_adjustments[food["name"]] = 1.0
+                                            
+                                            st.session_state[f'serving_adj_{day}_{meal_idx}'] = existing_adjustments if existing_adjustments else {food["name"]: 1.0 for food in selected_foods}
+                                        
+                                        # Create sliders for each food
+                                        for food in selected_foods:
+                                            # Get or initialize adjustment for this food
+                                            if food["name"] not in st.session_state[f'serving_adj_{day}_{meal_idx}']:
+                                                st.session_state[f'serving_adj_{day}_{meal_idx}'][food["name"]] = 1.0
+                                            
+                                            # Create slider
+                                            adj_value = st.slider(
+                                                f"Adjust {food['name']} portion", 
+                                                min_value=0.25, 
+                                                max_value=3.0, 
+                                                value=st.session_state[f'serving_adj_{day}_{meal_idx}'][food["name"]],
+                                                step=0.25,
+                                                format="%.2fx",
+                                                key=f"slider_{day}_{meal_idx}_{food['name']}"
+                                            )
+                                            
+                                            # Store the adjustment
+                                            st.session_state[f'serving_adj_{day}_{meal_idx}'][food["name"]] = adj_value
+                                        
+                                        # Calculate portions based on current adjustments
+                                        serving_adjustments = st.session_state[f'serving_adj_{day}_{meal_idx}']
+                                        portions = calculate_portion_sizes(meal, selected_foods, serving_adjustments)
+                                        
+                                        # Show calculated portions in a table
+                                        portion_data = []
+                                        for food_name, amount in portions.items():
+                                            food_obj = next((f for f in all_foods if f["name"] == food_name), None)
+                                            if food_obj:
+                                                cals = food_obj['calories'] * amount / 100
+                                                protein = food_obj['protein'] * amount / 100
+                                                carbs = food_obj['carbs'] * amount / 100
+                                                fat = food_obj['fat'] * amount / 100
+                                                
+                                                portion_data.append({
+                                                    'Food': food_name,
+                                                    'Amount': f"{amount}g",
+                                                    'Calories': f"{cals:.0f}",
+                                                    'Protein': f"{protein:.1f}g",
+                                                    'Carbs': f"{carbs:.1f}g",
+                                                    'Fat': f"{fat:.1f}g"
+                                                })
+                                        
+                                        if portion_data:
+                                            st.write("### Calculated Portions")
+                                            st.dataframe(pd.DataFrame(portion_data), use_container_width=True)
+                                        
+                                        # Calculate and show total nutrition from these portions
+                                        total_macros = calculate_total_macros(selected_foods, portions)
+                                        
+                                        st.write("### Meal Totals vs. Targets")
+                                        
+                                        # Show comparison 
+                                        col1, col2, col3, col4 = st.columns(4)
+                                        with col1:
+                                            st.metric("Calories", f"{total_macros['calories']}", f"{total_macros['calories'] - meal['calories']}")
+                                        with col2:
+                                            st.metric("Protein", f"{total_macros['protein']}g", f"{total_macros['protein'] - meal['protein']}g")
+                                        with col3:
+                                            st.metric("Carbs", f"{total_macros['carbs']}g", f"{total_macros['carbs'] - meal['carbs']}g")
+                                        with col4:
+                                            st.metric("Fat", f"{total_macros['fat']}g", f"{total_macros['fat'] - meal['fat']}g")
+                                        
+                                        # Buttons for saving or canceling
+                                        save_col, cancel_col = st.columns(2)
+                                        
+                                        with save_col:
+                                            if st.button("Save Foods", key=f"save_foods_{day}_{meal_idx}"):
+                                                # Convert to food objects with portions
+                                                meal_foods = []
+                                                for food_name, amount in portions.items():
+                                                    meal_foods.append({
+                                                        'name': food_name,
+                                                        'amount': amount,
+                                                        'unit': 'g'
+                                                    })
+                                                
+                                                # Update the meal
+                                                st.session_state.meal_plans[day]['meals'][meal_idx]['foods'] = meal_foods
+                                                
+                                                # Reset editing state and save
+                                                st.session_state['editing_meal'] = None
+                                                if f'serving_adj_{day}_{meal_idx}' in st.session_state:
+                                                    del st.session_state[f'serving_adj_{day}_{meal_idx}']
+                                                
+                                                save_meal_plans()
+                                                st.success("Foods saved!")
+                                                st.rerun()
+                                        
+                                        with cancel_col:
+                                            if st.button("Cancel", key=f"cancel_foods_{day}_{meal_idx}"):
+                                                # Reset editing state
+                                                st.session_state['editing_meal'] = None
+                                                if f'serving_adj_{day}_{meal_idx}' in st.session_state:
+                                                    del st.session_state[f'serving_adj_{day}_{meal_idx}']
+                                                st.rerun()
+                                    else:
+                                        st.info("Select at least one food to continue.")
+                                
+                                else:
+                                    # Display current foods
+                                    st.write("### Current Foods")
+                                    food_details = []
+                                    
+                                    for food_item in meal.get('foods', []):
+                                        food_name = food_item['name']
+                                        amount = food_item['amount']
+                                        
+                                        # Find the food in our database
+                                        food_info = next((f for f in all_foods if f['name'] == food_name), None)
+                                        
+                                        if food_info:
+                                            # Calculate macros based on the amount
+                                            cals = food_info['calories'] * amount / 100
+                                            protein = food_info['protein'] * amount / 100
+                                            carbs = food_info['carbs'] * amount / 100
+                                            fat = food_info['fat'] * amount / 100
+                                            
+                                            food_details.append({
+                                                'Food': food_name,
+                                                'Amount': f"{amount}g",
+                                                'Calories': f"{cals:.0f}",
+                                                'Protein': f"{protein:.1f}g",
+                                                'Carbs': f"{carbs:.1f}g",
+                                                'Fat': f"{fat:.1f}g"
+                                            })
+                                    
+                                    if food_details:
+                                        st.dataframe(pd.DataFrame(food_details), use_container_width=True)
+                                    
+                                    # Button to edit foods
+                                    if st.button(f"Edit Foods", key=f"edit_{day}_{meal_idx}"):
+                                        st.session_state['editing_meal'] = (day, meal_idx)
+                                        st.rerun()
+                    
+                    # Display snacks
+                    if 'snacks' in plan and plan['snacks'] and len(plan['snacks']) > 0:
+                        st.write("**Snacks:**")
+                        
+                        for snack_idx, snack in enumerate(plan['snacks']):
+                            snack_expander = st.expander(f"{snack['name']}")
+                            
+                            with snack_expander:
+                                # Show snack targets
+                                st.write(f"**Targets:** {snack['calories']} kcal | {snack['protein']}g protein | {snack['carbs']}g carbs | {snack['fat']}g fat")
+                                
+                                # Similar food selection as with meals
+                                is_editing = st.session_state.get('editing_snack') == (day, snack_idx)
+                                
+                                if is_editing or not snack.get('foods', []):
+                                    # We're in edit mode or no foods yet - show food selection UI
+                                    st.write("### Select Foods")
+                                    
+                                    # Food selection interface with dropdowns - simpler for snacks
+                                    protein_options = ["None"] + [f["name"] for f in all_foods if f["category"] == "protein"]
+                                    carb_options = ["None"] + [f["name"] for f in all_foods if f["category"] == "carb"]
+                                    fat_options = ["None"] + [f["name"] for f in all_foods if f["category"] == "fat"]
+                                    fruit_options = ["None"] + [f["name"] for f in all_foods if f["category"] == "fruit"]
+                                    
+                                    # Get currently selected foods if any
+                                    current_foods = snack.get('foods', [])
+                                    current_food_names = [f['name'] for f in current_foods]
+                                    
+                                    # Create a form for food selection
+                                    food_col1, food_col2 = st.columns(2)
+                                    
+                                    with food_col1:
+                                        protein_source = st.selectbox(
+                                            "Protein Source", 
+                                            protein_options,
+                                            index=next((i for i, name in enumerate(protein_options) if name in current_food_names), 0),
+                                            key=f"snack_protein_{day}_{snack_idx}"
+                                        )
+                                        
+                                        carb_source = st.selectbox(
+                                            "Carbohydrate Source", 
+                                            carb_options,
+                                            index=next((i for i, name in enumerate(carb_options) if name in current_food_names), 0),
+                                            key=f"snack_carb_{day}_{snack_idx}"
+                                        )
+                                    
+                                    with food_col2:
+                                        fat_source = st.selectbox(
+                                            "Fat Source", 
+                                            fat_options,
+                                            index=next((i for i, name in enumerate(fat_options) if name in current_food_names), 0),
+                                            key=f"snack_fat_{day}_{snack_idx}"
+                                        )
+                                        
+                                        fruit_source = st.selectbox(
+                                            "Fruit", 
+                                            fruit_options,
+                                            index=next((i for i, name in enumerate(fruit_options) if name in current_food_names), 0),
+                                            key=f"snack_fruit_{day}_{snack_idx}"
+                                        )
+                                    
+                                    # Create list of selected foods (excluding "None")
+                                    selected_foods = []
+                                    
+                                    if protein_source != "None":
+                                        protein_food = next((f for f in all_foods if f["name"] == protein_source), None)
+                                        if protein_food:
+                                            selected_foods.append(protein_food)
+                                    
+                                    if carb_source != "None":
+                                        carb_food = next((f for f in all_foods if f["name"] == carb_source), None)
+                                        if carb_food:
+                                            selected_foods.append(carb_food)
+                                    
+                                    if fat_source != "None":
+                                        fat_food = next((f for f in all_foods if f["name"] == fat_source), None)
+                                        if fat_food:
+                                            selected_foods.append(fat_food)
+                                    
+                                    if fruit_source != "None":
+                                        fruit_food = next((f for f in all_foods if f["name"] == fruit_source), None)
+                                        if fruit_food:
+                                            selected_foods.append(fruit_food)
+                                    
+                                    # Similar adjustment and portion calculation as for meals
+                                    if selected_foods:
+                                        st.write("### Adjust Serving Sizes")
+                                        
+                                        # Initialize session state for serving adjustments
+                                        if f'snack_serving_adj_{day}_{snack_idx}' not in st.session_state:
+                                            # Try to get existing adjustments
+                                            existing_adjustments = {}
+                                            for food in current_foods:
+                                                food_info = next((f for f in all_foods if f["name"] == food["name"]), None)
+                                                if food_info:
+                                                    # Calculate adjustment factor
+                                                    existing_adjustments[food["name"]] = 1.0  # Default
+                                            
+                                            st.session_state[f'snack_serving_adj_{day}_{snack_idx}'] = existing_adjustments if existing_adjustments else {food["name"]: 1.0 for food in selected_foods}
+                                        
+                                        # Create sliders for each food
+                                        for food in selected_foods:
+                                            # Get or initialize adjustment for this food
+                                            if food["name"] not in st.session_state[f'snack_serving_adj_{day}_{snack_idx}']:
+                                                st.session_state[f'snack_serving_adj_{day}_{snack_idx}'][food["name"]] = 1.0
+                                            
+                                            # Create slider
+                                            adj_value = st.slider(
+                                                f"Adjust {food['name']} portion", 
+                                                min_value=0.25, 
+                                                max_value=3.0, 
+                                                value=st.session_state[f'snack_serving_adj_{day}_{snack_idx}'][food["name"]],
+                                                step=0.25,
+                                                format="%.2fx",
+                                                key=f"snack_slider_{day}_{snack_idx}_{food['name']}"
+                                            )
+                                            
+                                            # Store the adjustment
+                                            st.session_state[f'snack_serving_adj_{day}_{snack_idx}'][food["name"]] = adj_value
+                                        
+                                        # Calculate portions
+                                        serving_adjustments = st.session_state[f'snack_serving_adj_{day}_{snack_idx}']
+                                        portions = calculate_portion_sizes(snack, selected_foods, serving_adjustments)
+                                        
+                                        # Show calculated portions
+                                        portion_data = []
+                                        for food_name, amount in portions.items():
+                                            food_obj = next((f for f in all_foods if f["name"] == food_name), None)
+                                            if food_obj:
+                                                cals = food_obj['calories'] * amount / 100
+                                                protein = food_obj['protein'] * amount / 100
+                                                carbs = food_obj['carbs'] * amount / 100
+                                                fat = food_obj['fat'] * amount / 100
+                                                
+                                                portion_data.append({
+                                                    'Food': food_name,
+                                                    'Amount': f"{amount}g",
+                                                    'Calories': f"{cals:.0f}",
+                                                    'Protein': f"{protein:.1f}g",
+                                                    'Carbs': f"{carbs:.1f}g",
+                                                    'Fat': f"{fat:.1f}g"
+                                                })
+                                        
+                                        if portion_data:
+                                            st.write("### Calculated Portions")
+                                            st.dataframe(pd.DataFrame(portion_data), use_container_width=True)
+                                        
+                                        # Calculate total macros
+                                        total_macros = calculate_total_macros(selected_foods, portions)
+                                        
+                                        st.write("### Snack Totals vs. Targets")
+                                        
+                                        # Show comparison 
+                                        col1, col2, col3, col4 = st.columns(4)
+                                        with col1:
+                                            st.metric("Calories", f"{total_macros['calories']}", f"{total_macros['calories'] - snack['calories']}")
+                                        with col2:
+                                            st.metric("Protein", f"{total_macros['protein']}g", f"{total_macros['protein'] - snack['protein']}g")
+                                        with col3:
+                                            st.metric("Carbs", f"{total_macros['carbs']}g", f"{total_macros['carbs'] - snack['carbs']}g")
+                                        with col4:
+                                            st.metric("Fat", f"{total_macros['fat']}g", f"{total_macros['fat'] - snack['fat']}g")
+                                        
+                                        # Buttons for saving or canceling
+                                        save_col, cancel_col = st.columns(2)
+                                        
+                                        with save_col:
+                                            if st.button("Save Foods", key=f"save_snack_foods_{day}_{snack_idx}"):
+                                                # Convert to food objects with portions
+                                                snack_foods = []
+                                                for food_name, amount in portions.items():
+                                                    snack_foods.append({
+                                                        'name': food_name,
+                                                        'amount': amount,
+                                                        'unit': 'g'
+                                                    })
+                                                
+                                                # Update the snack
+                                                st.session_state.meal_plans[day]['snacks'][snack_idx]['foods'] = snack_foods
+                                                
+                                                # Reset editing state and save
+                                                st.session_state['editing_snack'] = None
+                                                if f'snack_serving_adj_{day}_{snack_idx}' in st.session_state:
+                                                    del st.session_state[f'snack_serving_adj_{day}_{snack_idx}']
+                                                
+                                                save_meal_plans()
+                                                st.success("Foods saved!")
+                                                st.rerun()
+                                        
+                                        with cancel_col:
+                                            if st.button("Cancel", key=f"cancel_snack_foods_{day}_{snack_idx}"):
+                                                # Reset editing state
+                                                st.session_state['editing_snack'] = None
+                                                if f'snack_serving_adj_{day}_{snack_idx}' in st.session_state:
+                                                    del st.session_state[f'snack_serving_adj_{day}_{snack_idx}']
+                                                st.rerun()
+                                    else:
+                                        st.info("Select at least one food to continue.")
+                                
+                                else:
+                                    # Display current foods
+                                    st.write("### Current Foods")
+                                    food_details = []
+                                    
+                                    for food_item in snack.get('foods', []):
+                                        food_name = food_item['name']
+                                        amount = food_item['amount']
+                                        
+                                        # Find the food in our database
+                                        food_info = next((f for f in all_foods if f['name'] == food_name), None)
+                                        
+                                        if food_info:
+                                            # Calculate macros based on the amount
+                                            cals = food_info['calories'] * amount / 100
+                                            protein = food_info['protein'] * amount / 100
+                                            carbs = food_info['carbs'] * amount / 100
+                                            fat = food_info['fat'] * amount / 100
+                                            
+                                            food_details.append({
+                                                'Food': food_name,
+                                                'Amount': f"{amount}g",
+                                                'Calories': f"{cals:.0f}",
+                                                'Protein': f"{protein:.1f}g",
+                                                'Carbs': f"{carbs:.1f}g",
+                                                'Fat': f"{fat:.1f}g"
+                                            })
+                                    
+                                    if food_details:
+                                        st.dataframe(pd.DataFrame(food_details), use_container_width=True)
+                                    
+                                    # Button to edit foods
+                                    if st.button(f"Edit Foods", key=f"edit_snack_{day}_{snack_idx}"):
+                                        st.session_state['editing_snack'] = (day, snack_idx)
+                                        st.rerun()
+                
+                with summary_col:
+                    # SUMMARY SECTION - Show nutritional targets and stats
+                    st.subheader("Daily Targets")
+                    st.write(f"Calories: {plan['nutrition']['calories']}")
+                    st.write(f"Protein: {plan['nutrition']['protein']}g")
+                    st.write(f"Carbs: {plan['nutrition']['carbs']}g")
+                    st.write(f"Fat: {plan['nutrition']['fat']}g")
+                    st.write(f"Fiber: {plan['nutrition']['fiber']}g")
+                    
+                    # Show macronutrient breakdown as percentages
+                    protein_cals = plan['nutrition']['protein'] * 4
+                    carb_cals = plan['nutrition']['carbs'] * 4
+                    fat_cals = plan['nutrition']['fat'] * 9
+                    total_cals = protein_cals + carb_cals + fat_cals
+                    
+                    if total_cals > 0:
+                        protein_pct = (protein_cals / total_cals) * 100
+                        carb_pct = (carb_cals / total_cals) * 100
+                        fat_pct = (fat_cals / total_cals) * 100
+                        
+                        # Create donut chart for macros
+                        fig, ax = plt.subplots(figsize=(4, 4))
+                        ax.pie([protein_pct, carb_pct, fat_pct], 
+                              labels=['P', 'C', 'F'],
+                              colors=['#ff9999', '#99ff99', '#9999ff'],
+                              autopct='%1.1f%%',
+                              startangle=90,
+                              wedgeprops=dict(width=0.5))
+                        ax.axis('equal')
+                        st.pyplot(fig)
+                    
+                    # Link to edit plan
+                    if st.button("Edit Day Plan", key=f"edit_plan_{day}"):
+                        st.session_state['active_editing_day'] = day
+                        st.rerun()
+                    
+                    # Copy plan to other days
+                    st.write("### Copy to Days")
+                    copy_to_days = st.multiselect(
+                        "Copy plan to other days",
+                        [d for d in days_of_week if d != day],
+                        key=f"copy_to_{day}"
+                    )
+                    
+                    if copy_to_days and st.button("Copy", key=f"do_copy_{day}"):
+                        # Get the plan to copy
+                        plan_to_copy = st.session_state.meal_plans[day]
+                        
+                        # Copy the plan to selected days
+                        for target_day in copy_to_days:
+                            st.session_state.meal_plans[target_day] = plan_to_copy.copy()
+                        
+                        # Save to file
+                        save_meal_plans()
+                        
+                        st.success(f"Plan copied to {', '.join(copy_to_days)}")
+                        st.rerun()
+                    
+                    # Weekly progress
+                    if planned_days_df is not None and not planned_days_df.empty:
+                        st.write("### Weekly Progress")
+                        st.write(f"Days planned: {len(planned_days_df)}/7")
+                        
+                        # How does this day compare to the weekly average?
+                        avg_calories = planned_days_df["Calories"].mean()
+                        avg_protein = planned_days_df["Protein (g)"].mean()
+                        avg_carbs = planned_days_df["Carbs (g)"].mean()
+                        avg_fat = planned_days_df["Fat (g)"].mean()
+                        
+                        # Compare this day to weekly average
+                        st.write("#### vs. Weekly Average")
+                        
+                        if abs(plan['nutrition']['calories'] - avg_calories) > 50:
+                            cal_diff = plan['nutrition']['calories'] - avg_calories
+                            st.write(f"Calories: {cal_diff:+.0f} kcal")
+                        
+                        if abs(plan['nutrition']['protein'] - avg_protein) > 5:
+                            protein_diff = plan['nutrition']['protein'] - avg_protein
+                            st.write(f"Protein: {protein_diff:+.0f}g")
+                        
+                        if abs(plan['nutrition']['carbs'] - avg_carbs) > 10:
+                            carbs_diff = plan['nutrition']['carbs'] - avg_carbs
+                            st.write(f"Carbs: {carbs_diff:+.0f}g")
+                        
+                        if abs(plan['nutrition']['fat'] - avg_fat) > 5:
+                            fat_diff = plan['nutrition']['fat'] - avg_fat
+                            st.write(f"Fat: {fat_diff:+.0f}g")
+            
+            else:
+                # No plan exists for this day - show create plan UI
+                st.subheader(f"Create Plan for {day}")
+                
+                # Use two columns for the form
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # Day type selection
+                    day_type = st.selectbox(f"Day Type", day_types, key=f"create_day_type_{day}")
+                    
+                    # Training sessions
+                    if day_type != 'Rest Day':
+                        st.write("#### Training Sessions")
+                        training_options = ["No Training"] + time_slots
+                        
+                        training_session1 = st.selectbox("Training Session 1", training_options, key=f"create_training1_{day}")
+                        
+                        show_session2 = st.checkbox("Add second training session", key=f"create_add_session2_{day}")
+                        if show_session2:
+                            training_session2 = st.selectbox("Training Session 2", training_options, key=f"create_training2_{day}")
+                        else:
+                            training_session2 = "No Training"
+                        
+                        show_session3 = st.checkbox("Add third training session", key=f"create_add_session3_{day}")
+                        if show_session3 and show_session2:
+                            training_session3 = st.selectbox("Training Session 3", training_options, key=f"create_training3_{day}")
+                        else:
+                            training_session3 = "No Training"
+                        
+                        training_sessions = [session for session in [training_session1, training_session2, training_session3] 
+                                          if session != "No Training"]
+                        
+                        if not training_sessions:
+                            training_sessions = ["No Training"]
+                    else:
+                        training_sessions = ["No Training"]
+                    
+                    # Meal structure
+                    st.write("#### Meal Structure")
+                    num_meals = st.slider("Number of Main Meals", min_value=2, max_value=6, value=3, step=1, key=f"create_meals_{day}")
+                    num_snacks = st.slider("Number of Snacks", min_value=0, max_value=4, value=2, step=1, key=f"create_snacks_{day}")
+                    
+                    # Meal times
+                    st.write("#### Approximate Meal Times")
+                    meal_times = []
+                    for i in range(num_meals):
+                        default_idx = 0
+                        if i == 0:
+                            default_idx = 2  # Default breakfast at 7-8am
+                        elif i == 1:
+                            default_idx = 6  # Default lunch at 12-1pm
+                        elif i == 2:
+                            default_idx = 13  # Default dinner at 6-7pm
+                        
+                        meal_times.append(st.selectbox(f"Meal {i+1} Time", time_slots, index=default_idx, key=f"create_meal_time_{day}_{i}"))
+                
+                with col2:
+                    # Nutrition targets
+                    st.write("#### Nutrition Targets")
+                    
+                    # Get default values and adjust based on day type
+                    default_values = get_default_nutrition_values()
+                    
+                    if day_type == 'Rest Day':
+                        calorie_adjustment = -200
+                        carb_adjustment = -30
+                    elif day_type == 'Training Day - Light':
+                        calorie_adjustment = 0
+                        carb_adjustment = 0
+                    elif day_type == 'Training Day - Moderate':
+                        calorie_adjustment = 200
+                        carb_adjustment = 20
+                    elif day_type == 'Training Day - Intense':
+                        calorie_adjustment = 400
+                        carb_adjustment = 50
+                    else:
+                        calorie_adjustment = 0
+                        carb_adjustment = 0
+                    
+                    # Nutrition inputs
+                    target_calories = st.number_input(
+                        "Daily Calorie Target", 
+                        min_value=1000, 
+                        max_value=5000, 
+                        value=int(default_values['calories'] + calorie_adjustment),
+                        key=f"create_calories_{day}"
+                    )
+                    
+                    target_protein = st.number_input(
+                        "Protein Target (g)", 
+                        min_value=50, 
+                        max_value=400, 
+                        value=int(default_values['protein']),
+                        key=f"create_protein_{day}"
+                    )
+                    
+                    target_carbs = st.number_input(
+                        "Carbohydrate Target (g)", 
+                        min_value=50, 
+                        max_value=600, 
+                        value=int(default_values['carbs'] + carb_adjustment),
+                        key=f"create_carbs_{day}"
+                    )
+                    
+                    target_fat = st.number_input(
+                        "Fat Target (g)", 
+                        min_value=20, 
+                        max_value=200, 
+                        value=int(default_values['fat']),
+                        key=f"create_fat_{day}"
+                    )
+                    
+                    target_fiber = st.number_input(
+                        "Fiber Target (g)", 
+                        min_value=10, 
+                        max_value=50, 
+                        value=default_values['fiber'],
+                        key=f"create_fiber_{day}"
+                    )
+                    
+                    # Show macronutrient breakdown
+                    st.write("#### Macronutrient Breakdown")
+                    
+                    # Calculate percentages
+                    protein_calories = target_protein * 4
+                    carb_calories = target_carbs * 4
+                    fat_calories = target_fat * 9
+                    total_calories_from_macros = protein_calories + carb_calories + fat_calories
+                    
+                    if total_calories_from_macros > 0:
+                        protein_pct = (protein_calories / total_calories_from_macros) * 100
+                        carb_pct = (carb_calories / total_calories_from_macros) * 100
+                        fat_pct = (fat_calories / total_calories_from_macros) * 100
+                        
+                        # Display as a bar chart
+                        fig, ax = plt.subplots(figsize=(8, 2))
+                        ax.barh(['Macros'], [protein_pct], color='#ff9999', label=f'Protein: {protein_pct:.1f}%')
+                        ax.barh(['Macros'], [carb_pct], left=[protein_pct], color='#99ff99', label=f'Carbs: {carb_pct:.1f}%')
+                        ax.barh(['Macros'], [fat_pct], left=[protein_pct + carb_pct], color='#9999ff', label=f'Fat: {fat_pct:.1f}%')
+                        
+                        ax.set_xlim(0, 100)
+                        ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=3)
+                        ax.set_xticks([])
+                        ax.set_yticks([])
+                        
+                        for spine in ax.spines.values():
+                            spine.set_visible(False)
+                        
+                        st.pyplot(fig)
+                
+                # Button to generate the plan
+                if st.button(f"Generate Plan for {day}"):
+                    nutrition = {
+                        'calories': target_calories,
+                        'protein': target_protein,
+                        'carbs': target_carbs,
+                        'fat': target_fat,
+                        'fiber': target_fiber
+                    }
+                    
+                    # Calculate meal and snack distribution
+                    meals, snacks = calculate_meal_distribution(nutrition, num_meals, num_snacks, training_sessions, meal_times)
+                    
+                    # Create the meal plan
+                    meal_plan = {
+                        'day_type': day_type,
+                        'training_sessions': training_sessions,
+                        'num_meals': num_meals,
+                        'num_snacks': num_snacks,
+                        'nutrition': nutrition,
+                        'meals': meals,
+                        'snacks': snacks,
+                        'grocery_list': []
+                    }
+                    
+                    # Save to session state
+                    st.session_state.meal_plans[day] = meal_plan
                     
                     # Save to file
                     save_meal_plans()
                     
-                    st.success(f"Plan copied from {copy_from_day} to {', '.join(copy_to_days)}")
+                    st.success(f"Plan for {day} has been generated!")
                     st.rerun()
-            else:
-                st.info(f"No meal plan exists for {copy_from_day} yet.")
+    
+    # Show weekly overview and summary at the bottom
+    if st.session_state.meal_plans:
+        st.header("Weekly Nutrition Overview")
+        
+        # Display the weekly table
+        st.dataframe(weekly_df, use_container_width=True)
+        
+        # If we have planned days, show summary stats
+        if not planned_days_df.empty:
+            # Calculate and show weekly macronutrient breakdown
+            weekly_protein_cals = weekly_protein * 4
+            weekly_carb_cals = weekly_carbs * 4
+            weekly_fat_cals = weekly_fat * 9
+            weekly_total_cals = weekly_protein_cals + weekly_carb_cals + weekly_fat_cals
             
-            # Calculate weekly totals and averages
-            planned_days_df = weekly_df[weekly_df["Day Type"] != "Not Planned"]
-            
-            if not planned_days_df.empty:
-                st.subheader("Weekly Summary")
+            if weekly_total_cals > 0:
+                protein_pct = (weekly_protein_cals / weekly_total_cals) * 100
+                carb_pct = (weekly_carb_cals / weekly_total_cals) * 100
+                fat_pct = (weekly_fat_cals / weekly_total_cals) * 100
                 
-                weekly_calories = planned_days_df["Calories"].sum()
-                weekly_protein = planned_days_df["Protein (g)"].sum()
-                weekly_carbs = planned_days_df["Carbs (g)"].sum()
-                weekly_fat = planned_days_df["Fat (g)"].sum()
-                
-                avg_calories = planned_days_df["Calories"].mean()
-                avg_protein = planned_days_df["Protein (g)"].mean()
-                avg_carbs = planned_days_df["Carbs (g)"].mean()
-                avg_fat = planned_days_df["Fat (g)"].mean()
-                
-                # Display weekly summary
-                col1, col2 = st.columns(2)
+                col1, col2 = st.columns([2, 1])
                 
                 with col1:
-                    st.write("**Weekly Totals**")
-                    st.write(f"Total Calories: {weekly_calories:,.0f} kcal")
-                    st.write(f"Total Protein: {weekly_protein:,.0f} g")
-                    st.write(f"Total Carbs: {weekly_carbs:,.0f} g")
-                    st.write(f"Total Fat: {weekly_fat:,.0f} g")
-                
-                with col2:
-                    st.write("**Daily Averages**")
-                    st.write(f"Average Calories: {avg_calories:.1f} kcal")
-                    st.write(f"Average Protein: {avg_protein:.1f} g")
-                    st.write(f"Average Carbs: {avg_carbs:.1f} g")
-                    st.write(f"Average Fat: {avg_fat:.1f} g")
-                
-                # Create weekly macro distribution chart
-                weekly_protein_cals = weekly_protein * 4
-                weekly_carb_cals = weekly_carbs * 4
-                weekly_fat_cals = weekly_fat * 9
-                weekly_total_cals = weekly_protein_cals + weekly_carb_cals + weekly_fat_cals
-                
-                if weekly_total_cals > 0:
-                    protein_pct = (weekly_protein_cals / weekly_total_cals) * 100
-                    carb_pct = (weekly_carb_cals / weekly_total_cals) * 100
-                    fat_pct = (weekly_fat_cals / weekly_total_cals) * 100
-                    
+                    # Display as a bar chart
                     fig, ax = plt.subplots(figsize=(10, 2))
                     ax.barh(['Weekly Macros'], [protein_pct], color='#ff9999', label=f'Protein: {protein_pct:.1f}%')
                     ax.barh(['Weekly Macros'], [carb_pct], left=[protein_pct], color='#99ff99', label=f'Carbs: {carb_pct:.1f}%')
@@ -620,499 +1366,22 @@ with tab1:
                         spine.set_visible(False)
                     
                     st.pyplot(fig)
-        
-        else:  # Detailed view
-            # Create a tab for each day of the week
-            day_tabs = st.tabs(days_of_week)
-            
-            for i, day in enumerate(days_of_week):
-                with day_tabs[i]:
-                    if day in st.session_state.meal_plans:
-                        plan = st.session_state.meal_plans[day]
-                        
-                        col1, col2 = st.columns([3, 1])
-                        
-                        with col1:
-                            st.subheader(f"{day} - {plan['day_type']}")
-                            
-                            # Display training info
-                            if 'training_sessions' in plan and plan['training_sessions'] and plan['training_sessions'][0] != "No Training":
-                                st.write("**Training Sessions:**")
-                                for session in plan['training_sessions']:
-                                    if session != "No Training":
-                                        st.write(f"- {session}")
-                            else:
-                                st.write("**Rest Day - No Training**")
-                            
-                            # Display meal info
-                            if 'meals' in plan and plan['meals']:
-                                st.write("**Meals:**")
-                                
-                                for meal in plan['meals']:
-                                    st.markdown(f"*{meal['name']}* - {meal.get('time', 'Time not specified')}")
-                                    st.write(f"Calories: {meal['calories']} | Protein: {meal['protein']}g | Carbs: {meal['carbs']}g | Fat: {meal['fat']}g")
-                                    
-                                    # Display foods if any
-                                    if 'foods' in meal and meal['foods']:
-                                        food_list = []
-                                        for food in meal['foods']:
-                                            food_list.append(f"{food['name']}: {food['amount']} {food['unit']}")
-                                        
-                                        st.markdown("• " + " • ".join(food_list))
-                            
-                            # Display snack info
-                            if 'snacks' in plan and plan['snacks'] and len(plan['snacks']) > 0:
-                                st.write("**Snacks:**")
-                                
-                                for snack in plan['snacks']:
-                                    st.markdown(f"*{snack['name']}*")
-                                    st.write(f"Calories: {snack['calories']} | Protein: {snack['protein']}g | Carbs: {snack['carbs']}g | Fat: {snack['fat']}g")
-                                    
-                                    # Display foods if any
-                                    if 'foods' in snack and snack['foods']:
-                                        food_list = []
-                                        for food in snack['foods']:
-                                            food_list.append(f"{food['name']}: {food['amount']} {food['unit']}")
-                                        
-                                        st.markdown("• " + " • ".join(food_list))
-                        
-                        with col2:
-                            st.write("**Daily Targets**")
-                            st.write(f"Calories: {plan['nutrition']['calories']}")
-                            st.write(f"Protein: {plan['nutrition']['protein']}g")
-                            st.write(f"Carbs: {plan['nutrition']['carbs']}g")
-                            st.write(f"Fat: {plan['nutrition']['fat']}g")
-                            st.write(f"Fiber: {plan['nutrition']['fiber']}g")
-                            
-                            # Calculate macronutrient percentages
-                            protein_cals = plan['nutrition']['protein'] * 4
-                            carb_cals = plan['nutrition']['carbs'] * 4
-                            fat_cals = plan['nutrition']['fat'] * 9
-                            total_cals = protein_cals + carb_cals + fat_cals
-                            
-                            if total_cals > 0:
-                                protein_pct = (protein_cals / total_cals) * 100
-                                carb_pct = (carb_cals / total_cals) * 100
-                                fat_pct = (fat_cals / total_cals) * 100
-                                
-                                # Create a small pie chart for macros
-                                fig, ax = plt.subplots(figsize=(4, 4))
-                                ax.pie([protein_pct, carb_pct, fat_pct], 
-                                      labels=['P', 'C', 'F'],
-                                      colors=['#ff9999', '#99ff99', '#9999ff'],
-                                      autopct='%1.1f%%',
-                                      startangle=90)
-                                ax.axis('equal')
-                                st.pyplot(fig)
-                    else:
-                        st.info(f"No meal plan has been created for {day} yet.")
-                        if st.button(f"Create plan for {day}", key=f"create_{day}"):
-                            # Switch to the Plan Your Day tab with this day selected
-                            st.session_state.selected_day = day
-                            st.rerun()
-    else:
-        st.info("No meal plans have been created yet. Use the 'Plan Your Day' tab to create your first meal plan.")
-
-# Plan for individual day
-with tab2:
-    st.header("Daily Meal Planning")
-    
-    # Create two columns for form inputs
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Day of the week selection
-        day_of_week = st.selectbox("Day of the Week", days_of_week, 
-                                   key="daily_day_selection",
-                                   index=days_of_week.index(st.session_state.get("selected_day", days_of_week[0])))
-        
-        # Day type selection
-        day_type = st.selectbox("Day Type", day_types,
-                               index=0 if day_of_week not in st.session_state.meal_plans 
-                               else day_types.index(st.session_state.meal_plans[day_of_week]['day_type']))
-        
-        # Training time ranges (up to 3)
-        if day_type != 'Rest Day':
-            st.subheader("Training Sessions")
-            training_options = ["No Training"] + time_slots
-            
-            training_session1 = st.selectbox("Training Session 1", 
-                                            training_options,
-                                            index=0 if day_of_week not in st.session_state.meal_plans 
-                                            else training_options.index(st.session_state.meal_plans[day_of_week].get('training_sessions', ["No Training"])[0]) 
-                                            if st.session_state.meal_plans.get(day_of_week, {}).get('training_sessions', ["No Training"])[0] in training_options else 0)
-            
-            show_session2 = st.checkbox("Add second training session", 
-                                        value=day_of_week in st.session_state.meal_plans and 
-                                        len(st.session_state.meal_plans[day_of_week].get('training_sessions', [])) > 1 and
-                                        st.session_state.meal_plans[day_of_week]['training_sessions'][1] != "No Training")
-            
-            if show_session2:
-                training_session2 = st.selectbox("Training Session 2", 
-                                                training_options,
-                                                index=0 if day_of_week not in st.session_state.meal_plans or len(st.session_state.meal_plans[day_of_week].get('training_sessions', [])) < 2
-                                                else training_options.index(st.session_state.meal_plans[day_of_week]['training_sessions'][1])
-                                                if st.session_state.meal_plans.get(day_of_week, {}).get('training_sessions', ["No Training", "No Training"])[1] in training_options else 0)
-            else:
-                training_session2 = "No Training"
-            
-            show_session3 = st.checkbox("Add third training session", 
-                                        value=day_of_week in st.session_state.meal_plans and 
-                                        len(st.session_state.meal_plans[day_of_week].get('training_sessions', [])) > 2 and
-                                        st.session_state.meal_plans[day_of_week]['training_sessions'][2] != "No Training")
-            
-            if show_session3 and show_session2:
-                training_session3 = st.selectbox("Training Session 3", 
-                                                training_options,
-                                                index=0 if day_of_week not in st.session_state.meal_plans or len(st.session_state.meal_plans[day_of_week].get('training_sessions', [])) < 3
-                                                else training_options.index(st.session_state.meal_plans[day_of_week]['training_sessions'][2])
-                                                if st.session_state.meal_plans.get(day_of_week, {}).get('training_sessions', ["No Training", "No Training", "No Training"])[2] in training_options else 0)
-            else:
-                training_session3 = "No Training"
-            
-            # Compile training sessions
-            training_sessions = [session for session in [training_session1, training_session2, training_session3] 
-                               if session != "No Training"]
-            
-            if not training_sessions:
-                training_sessions = ["No Training"]
-        else:
-            training_sessions = ["No Training"]
-        
-        # Number of preferred meals and snacks
-        st.subheader("Meal Structure")
-        num_meals = st.slider("Number of Main Meals", 
-                              min_value=2, 
-                              max_value=6, 
-                              value=st.session_state.meal_plans.get(day_of_week, {}).get('num_meals', 3),
-                              step=1)
-        
-        num_snacks = st.slider("Number of Snacks", 
-                              min_value=0, 
-                              max_value=4, 
-                              value=st.session_state.meal_plans.get(day_of_week, {}).get('num_snacks', 2),
-                              step=1)
-        
-        # Meal times - based on number of meals
-        st.subheader("Approximate Meal Times")
-        meal_times = []
-        for i in range(num_meals):
-            default_idx = 0
-            if i == 0:
-                default_idx = 2  # Default breakfast at 7-8am
-            elif i == 1:
-                default_idx = 6  # Default lunch at 12-1pm
-            elif i == 2:
-                default_idx = 13  # Default dinner at 6-7pm
-            
-            meal_times.append(st.selectbox(f"Meal {i+1} Time", time_slots, index=default_idx, key=f"meal_time_{day_of_week}_{i}"))
-    
-    with col2:
-        st.subheader("Nutrition Targets")
-        # Get default nutrition values based on the nutrition plan
-        default_values = get_default_nutrition_values()
-        
-        # Adjust based on day type
-        if day_type == 'Rest Day':
-            calorie_adjustment = -200  # Decrease calories on rest days
-            carb_adjustment = -30  # Lower carbs on rest days
-        elif day_type == 'Training Day - Light':
-            calorie_adjustment = 0
-            carb_adjustment = 0
-        elif day_type == 'Training Day - Moderate':
-            calorie_adjustment = 200  # Increase calories on training days
-            carb_adjustment = 20
-        elif day_type == 'Training Day - Intense':
-            calorie_adjustment = 400  # Further increase for intense training
-            carb_adjustment = 50
-        else:
-            calorie_adjustment = 0
-            carb_adjustment = 0
-        
-        # If we already have a plan for this day, use those values instead
-        if day_of_week in st.session_state.meal_plans:
-            existing_plan = st.session_state.meal_plans[day_of_week]
-            default_calories = existing_plan['nutrition']['calories']
-            default_protein = existing_plan['nutrition']['protein']
-            default_carbs = existing_plan['nutrition']['carbs']
-            default_fat = existing_plan['nutrition']['fat']
-            default_fiber = existing_plan['nutrition']['fiber']
-        else:
-            default_calories = int(default_values['calories'] + calorie_adjustment)
-            default_protein = int(default_values['protein'])
-            default_carbs = int(default_values['carbs'] + carb_adjustment)
-            default_fat = int(default_values['fat'])
-            default_fiber = default_values['fiber']
-        
-        # Pre-fill nutrition targets based on nutritional plan
-        target_calories = st.number_input(
-            "Daily Calorie Target", 
-            min_value=1000, 
-            max_value=5000, 
-            value=default_calories
-        )
-        
-        target_protein = st.number_input(
-            "Protein Target (g)", 
-            min_value=50, 
-            max_value=400, 
-            value=default_protein
-        )
-        
-        target_carbs = st.number_input(
-            "Carbohydrate Target (g)", 
-            min_value=50, 
-            max_value=600, 
-            value=default_carbs
-        )
-        
-        target_fat = st.number_input(
-            "Fat Target (g)", 
-            min_value=20, 
-            max_value=200, 
-            value=default_fat
-        )
-        
-        target_fiber = st.number_input(
-            "Fiber Target (g)", 
-            min_value=10, 
-            max_value=50, 
-            value=default_fiber
-        )
-        
-        # Show macronutrient breakdown
-        st.subheader("Macronutrient Breakdown")
-        
-        # Calculate percentages
-        protein_calories = target_protein * 4
-        carb_calories = target_carbs * 4
-        fat_calories = target_fat * 9
-        total_calories_from_macros = protein_calories + carb_calories + fat_calories
-        
-        if total_calories_from_macros > 0:
-            protein_pct = (protein_calories / total_calories_from_macros) * 100
-            carb_pct = (carb_calories / total_calories_from_macros) * 100
-            fat_pct = (fat_calories / total_calories_from_macros) * 100
-            
-            # Display as a bar chart
-            fig, ax = plt.subplots(figsize=(8, 2))
-            ax.barh(['Macros'], [protein_pct], color='#ff9999', label=f'Protein: {protein_pct:.1f}%')
-            ax.barh(['Macros'], [carb_pct], left=[protein_pct], color='#99ff99', label=f'Carbs: {carb_pct:.1f}%')
-            ax.barh(['Macros'], [fat_pct], left=[protein_pct + carb_pct], color='#9999ff', label=f'Fat: {fat_pct:.1f}%')
-            
-            ax.set_xlim(0, 100)
-            ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=3)
-            ax.set_xticks([])
-            ax.set_yticks([])
-            
-            for spine in ax.spines.values():
-                spine.set_visible(False)
-            
-            st.pyplot(fig)
-            
-            # Display specific values
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Protein", f"{protein_pct:.1f}%", f"{target_protein}g")
-            with col2:
-                st.metric("Carbs", f"{carb_pct:.1f}%", f"{target_carbs}g")
-            with col3:
-                st.metric("Fat", f"{fat_pct:.1f}%", f"{target_fat}g")
-            
-            # Check if macros add up to target calories
-            if abs(total_calories_from_macros - target_calories) > 50:
-                st.warning(f"Calories from macros ({total_calories_from_macros:.0f}) don't match target calories ({target_calories}). Consider adjusting your macronutrient targets.")
-    
-    # Button to save meal plan for selected day
-    if st.button("Generate Meal Plan"):
-        nutrition = {
-            'calories': target_calories,
-            'protein': target_protein,
-            'carbs': target_carbs,
-            'fat': target_fat,
-            'fiber': target_fiber
-        }
-        
-        # Calculate meal and snack distribution
-        meals, snacks = calculate_meal_distribution(nutrition, num_meals, num_snacks, training_sessions, meal_times)
-        
-        # Create a structured object for the meal plan
-        meal_plan = {
-            'day_type': day_type,
-            'training_sessions': training_sessions,
-            'num_meals': num_meals,
-            'num_snacks': num_snacks,
-            'nutrition': nutrition,
-            'meals': meals,
-            'snacks': snacks,
-            'grocery_list': []
-        }
-        
-        # Save the meal plan to the session state
-        st.session_state.meal_plans[day_of_week] = meal_plan
-        
-        # Save to file
-        save_meal_plans()
-        
-        st.success(f"Meal plan for {day_of_week} has been generated!")
-        st.rerun()
-    
-    # Display meal and snack details if a plan exists for the selected day
-    if day_of_week in st.session_state.meal_plans:
-        plan = st.session_state.meal_plans[day_of_week]
-        
-        st.header(f"Meal Plan for {day_of_week}")
-        
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            st.subheader("Meals")
-            
-            if 'meals' in plan and plan['meals']:
-                for i, meal in enumerate(plan['meals']):
-                    with st.expander(f"{meal['name']} - {meal.get('time', 'Time not specified')}"):
-                        # Display the nutritional targets
-                        col_a, col_b, col_c, col_d = st.columns(4)
-                        with col_a:
-                            st.write(f"Calories: {meal['calories']}")
-                        with col_b:
-                            st.write(f"Protein: {meal['protein']}g")
-                        with col_c:
-                            st.write(f"Carbs: {meal['carbs']}g")
-                        with col_d:
-                            st.write(f"Fat: {meal['fat']}g")
-                        
-                        # Display foods (if any) and allow food selection
-                        if 'foods' in meal and meal['foods']:
-                            st.write("Foods in this meal:")
-                            
-                            # Create a detailed table of the foods
-                            meal_foods = []
-                            food_details = []
-                            
-                            for food_item in meal['foods']:
-                                food_name = food_item['name']
-                                amount = food_item['amount']
-                                
-                                # Find the food in our database
-                                food_info = next((f for f in all_foods if f['name'] == food_name), None)
-                                
-                                if food_info:
-                                    # Calculate macros based on the amount
-                                    cals = food_info['calories'] * amount / 100
-                                    protein = food_info['protein'] * amount / 100
-                                    carbs = food_info['carbs'] * amount / 100
-                                    fat = food_info['fat'] * amount / 100
-                                    
-                                    food_details.append({
-                                        'Food': food_name,
-                                        'Amount': f"{amount}g",
-                                        'Calories': f"{cals:.0f}",
-                                        'Protein': f"{protein:.1f}g",
-                                        'Carbs': f"{carbs:.1f}g",
-                                        'Fat': f"{fat:.1f}g"
-                                    })
-                            
-                            # Display the foods in a table
-                            if food_details:
-                                st.dataframe(pd.DataFrame(food_details), use_container_width=True)
-                            
-                            # Allow editing of the food list
-                            if st.button(f"Edit Foods for {meal['name']}", key=f"edit_foods_{day_of_week}_{i}"):
-                                # Set state to edit this specific meal
-                                st.session_state.editing_meal = (day_of_week, i)
-                                st.rerun()
-                        else:
-                            # Allow adding foods to this meal
-                            if st.button(f"Add Foods to {meal['name']}", key=f"add_foods_{day_of_week}_{i}"):
-                                # Set state to edit this specific meal
-                                st.session_state.editing_meal = (day_of_week, i)
-                                st.rerun()
-            else:
-                st.info("No meals have been planned yet. Click 'Generate Meal Plan' to distribute your nutrition targets.")
-            
-            if 'snacks' in plan and plan['snacks'] and len(plan['snacks']) > 0:
-                st.subheader("Snacks")
                 
-                for i, snack in enumerate(plan['snacks']):
-                    with st.expander(f"{snack['name']}"):
-                        # Display the nutritional targets
-                        col_a, col_b, col_c, col_d = st.columns(4)
-                        with col_a:
-                            st.write(f"Calories: {snack['calories']}")
-                        with col_b:
-                            st.write(f"Protein: {snack['protein']}g")
-                        with col_c:
-                            st.write(f"Carbs: {snack['carbs']}g")
-                        with col_d:
-                            st.write(f"Fat: {snack['fat']}g")
-                        
-                        # Display foods (if any)
-                        if 'foods' in snack and snack['foods']:
-                            st.write("Foods in this snack:")
-                            
-                            # Create a detailed table of the foods
-                            snack_foods = []
-                            food_details = []
-                            
-                            for food_item in snack['foods']:
-                                food_name = food_item['name']
-                                amount = food_item['amount']
-                                
-                                # Find the food in our database
-                                food_info = next((f for f in all_foods if f['name'] == food_name), None)
-                                
-                                if food_info:
-                                    # Calculate macros based on the amount
-                                    cals = food_info['calories'] * amount / 100
-                                    protein = food_info['protein'] * amount / 100
-                                    carbs = food_info['carbs'] * amount / 100
-                                    fat = food_info['fat'] * amount / 100
-                                    
-                                    food_details.append({
-                                        'Food': food_name,
-                                        'Amount': f"{amount}g",
-                                        'Calories': f"{cals:.0f}",
-                                        'Protein': f"{protein:.1f}g",
-                                        'Carbs': f"{carbs:.1f}g",
-                                        'Fat': f"{fat:.1f}g"
-                                    })
-                            
-                            # Display the foods in a table
-                            if food_details:
-                                st.dataframe(pd.DataFrame(food_details), use_container_width=True)
-                            
-                            # Allow editing of the food list
-                            if st.button(f"Edit Foods for {snack['name']}", key=f"edit_snack_{day_of_week}_{i}"):
-                                # Set state to edit this specific snack
-                                st.session_state.editing_snack = (day_of_week, i)
-                                st.rerun()
-                        else:
-                            # Allow adding foods to this snack
-                            if st.button(f"Add Foods to {snack['name']}", key=f"add_snack_foods_{day_of_week}_{i}"):
-                                # Set state to edit this specific snack
-                                st.session_state.editing_snack = (day_of_week, i)
-                                st.rerun()
-        
-        with col2:
-            st.subheader("Training Schedule")
-            if 'training_sessions' in plan and plan['training_sessions'] and plan['training_sessions'][0] != "No Training":
-                for i, session in enumerate(plan['training_sessions']):
-                    if session != "No Training":
-                        st.write(f"Session {i+1}: {session}")
-            else:
-                st.write("Rest Day - No Training")
-            
-            st.subheader("Daily Nutritional Targets")
-            st.write(f"Calories: {plan['nutrition']['calories']}")
-            st.write(f"Protein: {plan['nutrition']['protein']}g")
-            st.write(f"Carbs: {plan['nutrition']['carbs']}g")
-            st.write(f"Fat: {plan['nutrition']['fat']}g")
-            st.write(f"Fiber: {plan['nutrition']['fiber']}g")
-
-# Food Selection tab - for editing meal contents
-with tab3:
-    st.header("Food Selection")
+                with col2:
+                    # Weekly totals
+                    st.write("**Weekly Nutrition Totals**")
+                    st.write(f"Calories: {weekly_calories:,.0f} kcal")
+                    st.write(f"Protein: {weekly_protein:,.0f} g")
+                    st.write(f"Carbs: {weekly_carbs:,.0f} g")
+                    st.write(f"Fat: {weekly_fat:,.0f} g")
+                    
+                    # Daily averages
+                    st.write("**Daily Averages**")
+                    avg_days = len(planned_days_df)
+                    st.write(f"Calories: {weekly_calories/avg_days:.0f} kcal")
+                    st.write(f"Protein: {weekly_protein/avg_days:.0f} g")
+                    st.write(f"Carbs: {weekly_carbs/avg_days:.0f} g")
+                    st.write(f"Fat: {weekly_fat/avg_days:.0f} g")
     
     # Check if we're editing a meal
     editing_meal = st.session_state.get('editing_meal', None)
@@ -1478,7 +1747,7 @@ with tab3:
                 st.dataframe(food_df, use_container_width=True)
 
 # Grocery list tab
-with tab4:
+with tab2:
     st.header("Grocery List")
     
     if st.session_state.meal_plans:
@@ -1564,80 +1833,4 @@ with tab4:
 st.markdown("---")
 st.markdown("👈 Use the sidebar to navigate between pages")
 
-with tab2:
-    st.header("Meal Library & Food Selection")
-    
-    # Define common food categories and example foods
-    food_categories = {
-        "Protein Sources": [
-            {"name": "Chicken Breast", "protein": 31, "carbs": 0, "fat": 3.6, "calories": 165, "unit": "100g"},
-            {"name": "Lean Ground Beef", "protein": 26, "carbs": 0, "fat": 15, "calories": 250, "unit": "100g"},
-            {"name": "Salmon", "protein": 25, "carbs": 0, "fat": 13, "calories": 208, "unit": "100g"},
-            {"name": "Egg Whites", "protein": 11, "carbs": 0.7, "fat": 0.2, "calories": 52, "unit": "100g"},
-            {"name": "Greek Yogurt", "protein": 10, "carbs": 3.6, "fat": 0.4, "calories": 59, "unit": "100g"},
-            {"name": "Tofu", "protein": 8, "carbs": 1.9, "fat": 4.8, "calories": 76, "unit": "100g"},
-        ],
-        "Carbohydrate Sources": [
-            {"name": "Brown Rice", "protein": 2.6, "carbs": 23, "fat": 0.9, "calories": 112, "unit": "100g"},
-            {"name": "Sweet Potato", "protein": 1.6, "carbs": 20, "fat": 0.1, "calories": 86, "unit": "100g"},
-            {"name": "Oatmeal", "protein": 13, "carbs": 68, "fat": 6.9, "calories": 389, "unit": "100g"},
-            {"name": "Quinoa", "protein": 4.4, "carbs": 21, "fat": 1.9, "calories": 120, "unit": "100g"},
-            {"name": "Whole Wheat Bread", "protein": 13, "carbs": 43, "fat": 3.3, "calories": 247, "unit": "100g"},
-        ],
-        "Fat Sources": [
-            {"name": "Avocado", "protein": 2, "carbs": 8.5, "fat": 15, "calories": 160, "unit": "100g"},
-            {"name": "Olive Oil", "protein": 0, "carbs": 0, "fat": 14, "calories": 119, "unit": "tbsp"},
-            {"name": "Almonds", "protein": 21, "carbs": 22, "fat": 49, "calories": 579, "unit": "100g"},
-            {"name": "Peanut Butter", "protein": 25, "carbs": 20, "fat": 50, "calories": 588, "unit": "100g"},
-        ],
-        "Fruits & Vegetables": [
-            {"name": "Banana", "protein": 1.1, "carbs": 23, "fat": 0.3, "calories": 89, "unit": "100g"},
-            {"name": "Broccoli", "protein": 2.8, "carbs": 7, "fat": 0.4, "calories": 34, "unit": "100g"},
-            {"name": "Spinach", "protein": 2.9, "carbs": 3.6, "fat": 0.4, "calories": 23, "unit": "100g"},
-            {"name": "Berries", "protein": 0.7, "carbs": 14, "fat": 0.3, "calories": 57, "unit": "100g"},
-        ]
-    }
-    
-    st.write("This feature will allow you to select foods for each meal and automatically calculate portion sizes to match your target macros.")
-    
-    # Create a tabs for each food category
-    food_tabs = st.tabs(list(food_categories.keys()))
-    
-    for i, (category, foods) in enumerate(food_categories.items()):
-        with food_tabs[i]:
-            st.subheader(f"{category}")
-            
-            # Create a table of foods
-            foods_df = pd.DataFrame(foods)
-            st.dataframe(foods_df, use_container_width=True)
-            
-            st.write("Coming soon: Select foods to add to your meals and automatically calculate portion sizes.")
-    
-    st.subheader("Upcoming Features")
-    st.info("This section will soon include:")
-    st.markdown("""
-    - Ability to add foods to specific meals or snacks
-    - Automatic calculation of portion sizes to match your macro targets
-    - Custom food creation
-    - Recipe library with cronometer integration
-    - Meal templates for quick planning
-    """)
-
-with tab3:
-    st.header("Grocery List")
-    
-    st.write("This feature will help you generate grocery lists based on your meal plans.")
-    
-    # Show what's coming
-    st.info("Coming soon! The grocery list feature will allow you to:")
-    st.markdown("""
-    - Automatically generate grocery lists based on your meal plans
-    - Organize items by food category (produce, protein, etc.)
-    - Check off items as you shop
-    - Save favorite items for quick addition to your list
-    - Export your grocery list to print or email
-    """)
-
-# Show navigation hint
-st.markdown("---")
-st.markdown("👈 Use the sidebar to navigate between pages")
+# End of meal planning page code
