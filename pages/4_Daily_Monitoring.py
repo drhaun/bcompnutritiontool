@@ -336,59 +336,74 @@ with photos_tab:
         - For front and back views, stand with feet shoulder-width apart and arms slightly away from body
         - For side view, choose your preferred side and be consistent
         """)
-        # Format date as string
-        date_str = log_date.strftime('%Y-%m-%d')
+    
+    # Photo comparison feature
+    st.subheader("Photo Comparison")
+    st.markdown("Compare photos from different dates to visualize your progress.")
+    
+    # Get all available dates with photos
+    photo_df = utils.get_progress_photos_df()
+    if not photo_df.empty:
+        # Get unique dates
+        unique_dates = sorted(photo_df['date'].unique(), reverse=True)
         
-        # Check if there's already an entry for this date
-        existing_idx = st.session_state.daily_records[
-            st.session_state.daily_records['date'] == date_str
-        ].index
-        
-        new_entry = {
-            'date': date_str,
-            'weight_kg': weight_kg,
-            'weight_lbs': weight_lbs,
-            'calories': calories,
-            'protein': protein,
-            'carbs': carbs,
-            'fat': fat,
-            'mood': mood,
-            'mood_value': mood_value,
-            'energy': energy,
-            'energy_value': energy_value,
-            'sleep_hours': sleep_hours,
-            'stress': stress,
-            'stress_value': stress_value,
-            'workout_done': workout_done,
-            'workout_intensity': workout_intensity
-        }
-        
-        # Add workout type if a workout was done
-        if workout_done:
-            # Initialize workout_type with a default value if it doesn't exist for some reason
-            workout_type_val = locals().get('workout_type', "Other")
-            new_entry['workout_type'] = workout_type_val
-        
-        if len(existing_idx) > 0:
-            # Update existing entry
-            for key, value in new_entry.items():
-                st.session_state.daily_records.at[existing_idx[0], key] = value
-            st.success(f"Entry for {date_str} updated!")
+        if len(unique_dates) >= 2:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Get the most recent date as default
+                date1 = st.selectbox("First Date", unique_dates, index=0, key="compare_date1")
+                date1_photos = utils.get_photos_for_date(date1)
+            
+            with col2:
+                # Get the second most recent date as default
+                default_idx = min(1, len(unique_dates) - 1)
+                date2 = st.selectbox("Second Date", unique_dates, index=default_idx, key="compare_date2")
+                date2_photos = utils.get_photos_for_date(date2)
+            
+            # Create tabs for each photo type
+            photo_types = ["front", "side", "back"]
+            valid_types = []
+            
+            # Only show tabs for photo types that exist in at least one of the dates
+            for photo_type in photo_types:
+                if photo_type in date1_photos or photo_type in date2_photos:
+                    valid_types.append(photo_type)
+            
+            if valid_types:
+                photo_tabs = st.tabs([t.capitalize() for t in valid_types])
+                
+                for i, photo_type in enumerate(valid_types):
+                    with photo_tabs[i]:
+                        comp_col1, comp_col2 = st.columns(2)
+                        
+                        with comp_col1:
+                            st.markdown(f"### {date1}")
+                            if photo_type in date1_photos:
+                                try:
+                                    st.image(date1_photos[photo_type], use_column_width=True)
+                                except Exception as e:
+                                    st.error(f"Error displaying photo: {e}")
+                            else:
+                                st.info(f"No {photo_type} view photo for {date1}")
+                        
+                        with comp_col2:
+                            st.markdown(f"### {date2}")
+                            if photo_type in date2_photos:
+                                try:
+                                    st.image(date2_photos[photo_type], use_column_width=True)
+                                except Exception as e:
+                                    st.error(f"Error displaying photo: {e}")
+                            else:
+                                st.info(f"No {photo_type} view photo for {date2}")
+            else:
+                st.info("No matching photo types found for the selected dates.")
+        elif len(unique_dates) == 1:
+            st.info("You need at least two different dates with photos to use the comparison feature.")
         else:
-            # Add new entry
-            st.session_state.daily_records = pd.concat([
-                st.session_state.daily_records,
-                pd.DataFrame([new_entry])
-            ], ignore_index=True)
-            st.success(f"Entry for {date_str} added!")
-        
-        # Update the user's current weight
-        if log_date.strftime('%Y-%m-%d') == datetime.now().strftime('%Y-%m-%d'):
-            st.session_state.user_info['weight_kg'] = weight_kg
-            st.session_state.user_info['weight_lbs'] = weight_lbs
-        
-        # Save data
-        utils.save_data()
+            st.info("No photos found. Upload photos to use the comparison feature.")
+    else:
+        st.info("No photos uploaded yet. Use the section above to start tracking your progress visually.")
 
 # Display the daily records
 if not st.session_state.daily_records.empty:

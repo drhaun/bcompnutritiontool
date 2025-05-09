@@ -1212,8 +1212,8 @@ def get_progress_photos_df():
         if os.path.exists('data/progress_photos.csv'):
             return pd.read_csv('data/progress_photos.csv')
         else:
-            # Create a new DataFrame with columns
-            photo_df = pd.DataFrame(columns=['date', 'photo_type', 'filepath'])
+            # Create a new empty DataFrame with correct column names
+            photo_df = pd.DataFrame(data=[], columns=['date', 'photo_type', 'filepath'])
             
             # Ensure data directory exists
             os.makedirs('data', exist_ok=True)
@@ -1225,7 +1225,8 @@ def get_progress_photos_df():
     
     except Exception as e:
         st.error(f"Error getting progress photos: {e}")
-        return pd.DataFrame(columns=['date', 'photo_type', 'filepath'])
+        # Create an empty DataFrame with correct column names
+        return pd.DataFrame(data=[], columns=['date', 'photo_type', 'filepath'])
 
 def get_photos_for_date(date_str):
     """
