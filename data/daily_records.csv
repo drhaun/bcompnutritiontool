@@ -1,1 +1,2 @@
-date,weight_kg,calories,protein,carbs,fat
+date,weight_kg,calories,protein,carbs,fat,weight_lbs,mood,mood_value,energy,energy_value,sleep_hours,stress,stress_value,workout_done,workout_intensity
+2025-05-09,88.45061733994974,1964.0,195.0,137.0,71.0,195.0,😐 Neutral,3.0,Moderate,3.0,7.0,Moderate,3.0,False,0.0

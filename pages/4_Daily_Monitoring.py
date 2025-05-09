@@ -224,7 +224,7 @@ if not st.session_state.daily_records.empty:
     
     # Sort by date (newest first) and take most recent 10 entries
     recent_data = st.session_state.daily_records.copy()
-    recent_data = recent_data.sort_values(by=['date'], ascending=False).head(10)
+    recent_data = recent_data.sort_values(by='date', ascending=False).head(10)
     
     # Ensure weight_lbs exists (for backward compatibility)
     if 'weight_lbs' not in recent_data.columns:
@@ -282,8 +282,8 @@ if not st.session_state.daily_records.empty:
     
     # Get dates for selection
     dates = recent_data[['date', 'date_display']].copy()
-    # Sort by date in descending order
-    dates = dates.sort_values(by=['date'], ascending=False)
+    # Sort by date in descending order - pass by as a string instead of a list
+    dates = dates.sort_values(by='date', ascending=False)
     date_options = dates['date_display'].tolist()
     date_values = dates['date'].tolist()
     
@@ -390,7 +390,7 @@ if len(st.session_state.daily_records) >= 7:
     
     # Get recent week of data
     recent_week_data = st.session_state.daily_records.copy()
-    recent_week_data = recent_week_data.sort_values(by=['date'], ascending=False).head(7)
+    recent_week_data = recent_week_data.sort_values(by='date', ascending=False).head(7)
     
     # Calculate average adherence
     avg_cal_adherence = 100 - min(abs(recent_week_data['calories'].mean() - st.session_state.nutrition_plan['target_calories']) / 
@@ -401,7 +401,7 @@ if len(st.session_state.daily_records) >= 7:
     
     # Calculate weight change
     sorted_weekly_data = recent_week_data.copy()
-    sorted_weekly_data = sorted_weekly_data.sort_values(by=['date'], ascending=True)
+    sorted_weekly_data = sorted_weekly_data.sort_values(by='date', ascending=True)
     first_weight = sorted_weekly_data['weight_lbs'].iloc[0]
     last_weight = sorted_weekly_data['weight_lbs'].iloc[-1]
     weekly_weight_change = last_weight - first_weight
@@ -510,7 +510,8 @@ if len(st.session_state.daily_records) >= 7:
                 # Plot energy correlations
                 if 'energy_value' in correlation.columns:
                     energy_corr = correlation['energy_value'].drop('energy_value')
-                    energy_corr = energy_corr.sort_values(ascending=False)
+                    # Sort values - provide empty list to sort without additional keys
+                    energy_corr = energy_corr.sort_values([], ascending=False)
                     colors = ['green' if x >= 0 else 'red' for x in energy_corr]
                     ax2.barh(energy_corr.index, energy_corr.values, color=colors)
                     ax2.set_title('Factors Correlated with Energy Levels', fontsize=16)
