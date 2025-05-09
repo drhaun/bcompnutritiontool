@@ -756,7 +756,7 @@ def calculate_recommended_rate(user_data, goal_type):
             activity_multipliers.get("gain_fat_pct"),
             workout_multipliers.get("gain_fat_pct")
         ]
-    else:
+    elif goal_type == "Fat Loss":
         modifiers = [
             performance_multipliers.get("loss_rate"),
             body_comp_multipliers.get("loss_rate") if body_comp_multipliers else None,
@@ -772,6 +772,12 @@ def calculate_recommended_rate(user_data, goal_type):
             activity_multipliers.get("loss_fat_pct"),
             workout_multipliers.get("loss_fat_pct")
         ]
+    else:  # Maintain scenario
+        # Set all modifiers to 0 for maintaining
+        modifiers = [0.0]
+        fat_modifiers = [0.5]  # 50% fat/50% muscle as default for maintenance
+        base_rate = 0.0  # No weekly change in weight
+        base_fat_pct = 0.5  # 50/50 split in case there are any slight variations
     
     # Filter out None values
     modifiers = [m for m in modifiers if m is not None]
@@ -790,8 +796,15 @@ def calculate_recommended_rate(user_data, goal_type):
         remaining_weight = 1.0 - body_comp_weight
         
         # Get specific modifiers we want to assign different weights to
-        activity_modifier = activity_multipliers.get("gain_rate" if goal_type == "Muscle Gain" else "loss_rate")
-        workout_modifier = workout_multipliers.get("gain_rate" if goal_type == "Muscle Gain" else "loss_rate")
+        if goal_type == "Muscle Gain":
+            activity_modifier = activity_multipliers.get("gain_rate")
+            workout_modifier = workout_multipliers.get("gain_rate")
+        elif goal_type == "Fat Loss":
+            activity_modifier = activity_multipliers.get("loss_rate")
+            workout_modifier = workout_multipliers.get("loss_rate")
+        else:  # Maintain
+            activity_modifier = 0.0
+            workout_modifier = 0.0
         
         # Isolate these from the general modifiers list
         other_modifiers = [m for m in modifiers if m != activity_modifier and m != workout_modifier]
@@ -826,8 +839,15 @@ def calculate_recommended_rate(user_data, goal_type):
     # Similar weighted approach for fat percentage
     if fat_modifiers:
         # For fat percentage, we prioritize workout frequency and commitment level
-        workout_fat_modifier = workout_multipliers.get("gain_fat_pct" if goal_type == "Muscle Gain" else "loss_fat_pct")
-        commitment_fat_modifier = commitment_multipliers.get("gain_fat_pct" if goal_type == "Muscle Gain" else "loss_fat_pct")
+        if goal_type == "Muscle Gain":
+            workout_fat_modifier = workout_multipliers.get("gain_fat_pct")
+            commitment_fat_modifier = commitment_multipliers.get("gain_fat_pct")
+        elif goal_type == "Fat Loss":
+            workout_fat_modifier = workout_multipliers.get("loss_fat_pct")
+            commitment_fat_modifier = commitment_multipliers.get("loss_fat_pct")
+        else:  # Maintain
+            workout_fat_modifier = 0.5  # 50% fat as default for maintenance
+            commitment_fat_modifier = 0.5  # 50% fat as default for maintenance
         
         # Isolate these from the general fat modifiers list
         other_fat_modifiers = [m for m in fat_modifiers if m != workout_fat_modifier and m != commitment_fat_modifier]

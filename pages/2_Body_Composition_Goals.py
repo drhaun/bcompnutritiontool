@@ -434,7 +434,12 @@ if st.session_state.goal_info.get('target_weight_kg'):
             break
     
     # Convert from display types to calculation types for goal
-    goal_type_for_calc = "Muscle Gain" if goal_type == "Gain muscle" else "Fat Loss"
+    if goal_type == "Gain muscle":
+        goal_type_for_calc = "Muscle Gain"
+    elif goal_type == "Lose fat":
+        goal_type_for_calc = "Fat Loss"
+    else:  # Maintain body composition
+        goal_type_for_calc = "Maintain"
     
     # Prepare user data for rate calculation
     user_data = {
