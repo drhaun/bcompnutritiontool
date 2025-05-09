@@ -860,6 +860,10 @@ def calculate_recommended_rate(user_data, goal_type):
         
         # Base fat percentage gets 30% weight
         base_fat_weight = 0.3
+        # Ensure base_fat_pct is always a number
+        if base_fat_pct is None:
+            # Default to 0.5 (50% fat) if None
+            base_fat_pct = 0.5
         base_fat_contrib = base_fat_pct * base_fat_weight
         
         # Workout frequency gets 30% weight for fat percentage
@@ -888,11 +892,11 @@ def calculate_recommended_rate(user_data, goal_type):
         # Combine all contributions for fat percentage
         final_fat_pct = base_fat_contrib + workout_fat_contrib + commitment_fat_contrib + other_fat_contrib
     else:
-        final_fat_pct = base_fat_pct
+        final_fat_pct = base_fat_pct if base_fat_pct is not None else 0.5
     
     # Turn percentages into actual weekly changes
     weekly_weight_pct = final_rate  # as decimal
-    weekly_fat_pct = final_fat_pct  # as decimal
+    weekly_fat_pct = final_fat_pct if final_fat_pct is not None else 0.5  # as decimal
     
     # Store the recommended category for display
     recommended_category = combined_recommendation.get("recommendation", "Maintain")
