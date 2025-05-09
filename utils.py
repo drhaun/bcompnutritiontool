@@ -879,6 +879,67 @@ def save_data():
     # Save daily records
     st.session_state.daily_records.to_csv('data/daily_records.csv', index=False)
 
+def calculate_predicted_weeks(current_weight_kg, target_weight_kg, current_bf_pct, target_bf_pct, weekly_weight_pct, weekly_fat_pct, goal_type):
+    """
+    Calculate the predicted number of weeks to reach the target body composition
+    
+    Parameters:
+    current_weight_kg (float): Current weight in kg
+    target_weight_kg (float): Target weight in kg
+    current_bf_pct (float): Current body fat percentage (as a whole number, e.g. 20 for 20%)
+    target_bf_pct (float): Target body fat percentage (as a whole number, e.g. 15 for 15%)
+    weekly_weight_pct (float): Selected percentage of weight change per week (as a decimal, e.g. 0.005 for 0.5%)
+    weekly_fat_pct (float): Selected percentage of weight change as fat (as a decimal, e.g. 0.8 for 80%)
+    goal_type (str): "lose_fat" or "gain_muscle"
+    
+    Returns:
+    float: Predicted number of weeks to reach the target
+    """
+    # Convert body fat percentages to decimals
+    current_bf = current_bf_pct / 100
+    target_bf = target_bf_pct / 100
+    
+    # Calculate current fat mass and fat-free mass
+    current_fat_mass = current_weight_kg * current_bf
+    current_ffm = current_weight_kg * (1 - current_bf)
+    
+    # Calculate target fat mass and fat-free mass
+    target_fat_mass = target_weight_kg * target_bf
+    target_ffm = target_weight_kg * (1 - target_bf)
+    
+    if goal_type == "lose_fat":
+        # For fat loss, use the logarithmic formula:
+        # LOG(current body mass/predicted resultant body mass)/-LOG(1-selected % of weight loss per week)
+        try:
+            predicted_weeks = np.log(current_weight_kg/target_weight_kg) / -np.log(1 - weekly_weight_pct)
+            return max(1, round(predicted_weeks))  # Ensure at least 1 week
+        except (ValueError, ZeroDivisionError):
+            # Fallback calculation if logarithmic formula fails
+            if weekly_weight_pct > 0:
+                # Simple linear calculation
+                weight_to_lose = current_weight_kg - target_weight_kg
+                weekly_loss_kg = current_weight_kg * weekly_weight_pct
+                predicted_weeks = weight_to_lose / weekly_loss_kg if weekly_loss_kg > 0 else 52
+                return max(1, round(predicted_weeks))
+            return 52  # Default to a year if no valid calculation
+    else:  # gain_muscle
+        # For muscle gain, use the formula:
+        # (Target fat-free mass - Current fat-free mass) / 
+        # (current body mass * selected % rate of gain per week * (1 - selected % of weight gain as fat per week))
+        try:
+            ffm_to_gain = target_ffm - current_ffm
+            weekly_ffm_gain = current_weight_kg * weekly_weight_pct * (1 - weekly_fat_pct)
+            predicted_weeks = ffm_to_gain / weekly_ffm_gain if weekly_ffm_gain > 0 else 52
+            return max(1, round(predicted_weeks))
+        except (ValueError, ZeroDivisionError):
+            # Fallback to simple calculation
+            if weekly_weight_pct > 0:
+                weight_to_gain = target_weight_kg - current_weight_kg
+                weekly_gain_kg = current_weight_kg * weekly_weight_pct
+                predicted_weeks = weight_to_gain / weekly_gain_kg if weekly_gain_kg > 0 else 52
+                return max(1, round(predicted_weeks))
+            return 52  # Default to a year if no valid calculation
+
 def load_data():
     """Load data from CSV files into session state"""
     try:
