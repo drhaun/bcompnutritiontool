@@ -373,18 +373,19 @@ def get_performance_preference_multipliers(preference):
     if preference == "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal.":
         # Body Composition priority
         return {
-            "gain_rate": 0.0013,
-            "gain_fat_pct": 0.8,
-            "loss_rate": 0.0125, 
-            "loss_fat_pct": 0.5
+            "gain_rate": 0.0013,  # Lower gain rate for better body composition 
+            "gain_fat_pct": 0.8,  # Higher fat % with lower overall gain
+            "loss_rate": 0.0125,  # Higher loss rate (faster fat loss)
+            "loss_fat_pct": 0.5   # Lower fat % (more muscle loss)
         }
     else:
         # Performance and Recovery priority
+        # Based on your table: Performance & Recovery priority has gain rate 0.01, gain fat % 0.10, loss rate 0.00, loss fat % 1.00
         return {
-            "gain_rate": 0.0050,
-            "gain_fat_pct": 0.1,
-            "loss_rate": 0.0025,
-            "loss_fat_pct": 1.0
+            "gain_rate": 0.0100,  # Higher gain rate for better performance gains
+            "gain_fat_pct": 0.1,  # Lower fat % for cleaner gains
+            "loss_rate": 0.0025,  # Lower loss rate (slower, more sustainable)
+            "loss_fat_pct": 1.0   # Higher fat % (preserving more muscle)
         }
 
 def get_body_comp_tradeoff_multipliers(preference, goal_type):
@@ -401,15 +402,16 @@ def get_body_comp_tradeoff_multipliers(preference, goal_type):
     if goal_type == "Muscle Gain":
         if preference == "I'm ok with gaining a little body fat to maximize muscle growth.":
             return {
-                "gain_rate": 0.0075,
-                "gain_fat_pct": 0.50,
+                "gain_rate": 0.0075,  # Higher gain rate for more muscle growth
+                "gain_fat_pct": 0.50,  # Higher fat percentage (accepting more fat gain)
                 "loss_rate": None,
                 "loss_fat_pct": None
             }
         else:  # Don't want to gain body fat
+            # Based on your table: "Don't want to gain any body fat" has gain rate 0.00, gain fat % 0.10
             return {
-                "gain_rate": 0.0013,
-                "gain_fat_pct": 0.10,
+                "gain_rate": 0.0013,  # Very low gain rate for minimal fat gain
+                "gain_fat_pct": 0.10,  # Very low fat percentage (mostly lean gains)
                 "loss_rate": None,
                 "loss_fat_pct": None
             }
@@ -418,16 +420,89 @@ def get_body_comp_tradeoff_multipliers(preference, goal_type):
             return {
                 "gain_rate": None,
                 "gain_fat_pct": None,
-                "loss_rate": 0.0025,
-                "loss_fat_pct": 1.00
+                "loss_rate": 0.0025,  # Slower fat loss rate to preserve muscle
+                "loss_fat_pct": 1.00   # 100% fat loss (no muscle loss)
             }
         else:  # Ok with losing muscle
             return {
                 "gain_rate": None,
                 "gain_fat_pct": None,
-                "loss_rate": 0.0125,
-                "loss_fat_pct": 0.50
+                "loss_rate": 0.0125,  # Faster fat loss rate
+                "loss_fat_pct": 0.50   # Only 50% fat loss (more muscle loss)
             }
+
+def get_activity_level_multipliers(activity_level):
+    """
+    Get rate modifiers based on activity level
+    
+    Parameters:
+    activity_level (str): The activity level selection
+    
+    Returns:
+    dict: Values for gain_rate, gain_fat_pct, loss_rate, loss_fat_pct
+    """
+    # Based on your table: Activity Level Light has gain rate 0.00, gain fat % 0.50, loss rate 0.01, loss fat % 0.01
+    if activity_level == "Light (mostly sedentary, minimal physical activity)":
+        return {
+            "gain_rate": 0.0025,  # Lower gain rate due to less activity
+            "gain_fat_pct": 0.50,  # Higher fat percentage due to less activity
+            "loss_rate": 0.0075,  # Moderate loss rate
+            "loss_fat_pct": 0.70   # Lower fat percentage (more muscle loss with less activity)
+        }
+    elif activity_level == "Moderate (regular daily activity, some exercise)":
+        return {
+            "gain_rate": 0.0050,  # Moderate gain rate
+            "gain_fat_pct": 0.30,  # Moderate fat percentage
+            "loss_rate": 0.0100,  # Higher loss rate 
+            "loss_fat_pct": 0.80   # Higher fat percentage (better muscle preservation)
+        }
+    else:  # High activity
+        return {
+            "gain_rate": 0.0075,  # Higher gain rate with high activity
+            "gain_fat_pct": 0.20,  # Lower fat percentage (better nutrient partitioning)
+            "loss_rate": 0.0125,  # Highest loss rate with high activity
+            "loss_fat_pct": 0.90   # Highest fat percentage (best muscle preservation)
+        }
+
+def get_workout_frequency_multipliers(frequency):
+    """
+    Get rate modifiers based on workout frequency
+    
+    Parameters:
+    frequency (str): The workout frequency selection
+    
+    Returns:
+    dict: Values for gain_rate, gain_fat_pct, loss_rate, loss_fat_pct
+    """
+    # Based on your table: Workout Frequency >5 has gain rate 0.01, gain fat % 0.10, loss rate 0.05, loss fat % 1.00
+    if "5+" in frequency:
+        return {
+            "gain_rate": 0.0100,  # Highest gain rate with frequent workouts
+            "gain_fat_pct": 0.10,  # Lowest fat percentage (optimal nutrient partitioning)
+            "loss_rate": 0.0125,  # Highest loss rate with frequent workouts
+            "loss_fat_pct": 1.00   # 100% fat loss (best muscle preservation)
+        }
+    elif "3-4" in frequency:
+        return {
+            "gain_rate": 0.0075,  # High gain rate
+            "gain_fat_pct": 0.20,  # Low fat percentage
+            "loss_rate": 0.0100,  # High loss rate
+            "loss_fat_pct": 0.90   # High fat percentage (good muscle preservation)
+        }
+    elif "1-2" in frequency:
+        return {
+            "gain_rate": 0.0050,  # Moderate gain rate
+            "gain_fat_pct": 0.30,  # Moderate fat percentage
+            "loss_rate": 0.0075,  # Moderate loss rate
+            "loss_fat_pct": 0.80   # Moderate fat percentage (some muscle loss)
+        }
+    else:  # Less than once per week
+        return {
+            "gain_rate": 0.0025,  # Low gain rate with infrequent workouts
+            "gain_fat_pct": 0.50,  # Higher fat percentage
+            "loss_rate": 0.0050,  # Lower loss rate
+            "loss_fat_pct": 0.60   # Lower fat percentage (more muscle loss)
+        }
 
 def get_commitment_level_multipliers(commitment):
     """
@@ -442,26 +517,26 @@ def get_commitment_level_multipliers(commitment):
     if "I am committed to prioritizing adequate sleep" in commitment:
         # High commitment
         return {
-            "gain_rate": 0.0050,
-            "gain_fat_pct": 0.100,
-            "loss_rate": 0.0125,
-            "loss_fat_pct": 1.00
+            "gain_rate": 0.0050,  # Higher gain rate due to better recovery and consistency
+            "gain_fat_pct": 0.100,  # Lower fat percentage (cleaner gains with better nutrition)
+            "loss_rate": 0.0125,  # Faster fat loss with high commitment
+            "loss_fat_pct": 1.00   # 100% fat loss (better muscle preservation)
         }
     elif "I can commit to at least a few workouts per week" in commitment:
         # Moderate commitment
         return {
-            "gain_rate": 0.0025,
-            "gain_fat_pct": 0.500,
-            "loss_rate": 0.0075,
-            "loss_fat_pct": 0.80
+            "gain_rate": 0.0025,  # Moderate gain rate
+            "gain_fat_pct": 0.500,  # Moderate fat percentage
+            "loss_rate": 0.0075,  # Moderate fat loss rate
+            "loss_fat_pct": 0.80   # 80% fat loss (some muscle loss)
         }
     else:
-        # Low commitment
+        # Low commitment - based on your table: Low commitment has gain rate 0.00, gain fat % 0.80, loss rate 0.00, loss fat % 0.50
         return {
-            "gain_rate": 0.0013,
-            "gain_fat_pct": 0.800,
-            "loss_rate": 0.0025,
-            "loss_fat_pct": 0.50
+            "gain_rate": 0.0013,  # Very low gain rate due to inconsistent training/nutrition
+            "gain_fat_pct": 0.800,  # Higher fat percentage with gains (poorer nutrient partitioning)
+            "loss_rate": 0.0025,  # Slower fat loss rate with low commitment
+            "loss_fat_pct": 0.50   # Only 50% fat loss (more muscle loss with low commitment)
         }
 
 def get_combined_category_rates(fmi_category_name, ffmi_category_name):
@@ -631,47 +706,138 @@ def calculate_recommended_rate(user_data, goal_type):
             else:
                 base_fat_pct = 0.80   # 80% fat (20% muscle)
     
+    # Get activity level multipliers
+    activity_multipliers = get_activity_level_multipliers(
+        user_data.get("activity_level", "Moderate (regular daily activity, some exercise)")
+    )
+    
+    # Get workout frequency multipliers
+    workout_multipliers = get_workout_frequency_multipliers(
+        user_data.get("workout_frequency", "1-2 workouts per week")
+    )
+    
     # Apply preference modifiers (taking the average)
     if goal_type == "Muscle Gain":
         modifiers = [
             performance_multipliers.get("gain_rate"),
             body_comp_multipliers.get("gain_rate") if body_comp_multipliers else None,
-            commitment_multipliers.get("gain_rate")
+            commitment_multipliers.get("gain_rate"),
+            activity_multipliers.get("gain_rate"),
+            workout_multipliers.get("gain_rate")
         ]
         
         fat_modifiers = [
             performance_multipliers.get("gain_fat_pct"),
             body_comp_multipliers.get("gain_fat_pct") if body_comp_multipliers else None,
-            commitment_multipliers.get("gain_fat_pct")
+            commitment_multipliers.get("gain_fat_pct"),
+            activity_multipliers.get("gain_fat_pct"),
+            workout_multipliers.get("gain_fat_pct")
         ]
     else:
         modifiers = [
             performance_multipliers.get("loss_rate"),
             body_comp_multipliers.get("loss_rate") if body_comp_multipliers else None,
-            commitment_multipliers.get("loss_rate")
+            commitment_multipliers.get("loss_rate"),
+            activity_multipliers.get("loss_rate"),
+            workout_multipliers.get("loss_rate")
         ]
         
         fat_modifiers = [
             performance_multipliers.get("loss_fat_pct"),
             body_comp_multipliers.get("loss_fat_pct") if body_comp_multipliers else None,
-            commitment_multipliers.get("loss_fat_pct")
+            commitment_multipliers.get("loss_fat_pct"),
+            activity_multipliers.get("loss_fat_pct"),
+            workout_multipliers.get("loss_fat_pct")
         ]
     
     # Filter out None values
     modifiers = [m for m in modifiers if m is not None]
     fat_modifiers = [m for m in fat_modifiers if m is not None]
     
-    # Calculate final recommendations (weighted average with combined recommendation having higher weight)
+    # Calculate final recommendations with weighted components
     if modifiers:
-        # Average of preference modifiers
-        pref_avg = sum(modifiers) / len(modifiers)
-        # Weight the combined recommendation more heavily (60/40 split)
-        final_rate = (base_rate * 0.6) + (pref_avg * 0.4)
+        # Enhanced weighting system that prioritizes certain factors
+        # Define weights for different modifiers based on their importance from the data table
+        
+        # First calculate the base from body composition (FMI/FFMI) - 40% weight
+        body_comp_weight = 0.4
+        body_comp_contrib = base_rate * body_comp_weight
+        
+        # Calculate remaining weight to distribute
+        remaining_weight = 1.0 - body_comp_weight
+        
+        # Get specific modifiers we want to assign different weights to
+        activity_modifier = activity_multipliers.get("gain_rate" if goal_type == "Muscle Gain" else "loss_rate")
+        workout_modifier = workout_multipliers.get("gain_rate" if goal_type == "Muscle Gain" else "loss_rate")
+        
+        # Isolate these from the general modifiers list
+        other_modifiers = [m for m in modifiers if m != activity_modifier and m != workout_modifier]
+        
+        # Assign 25% to workout frequency, 15% to activity level, and 20% to other factors
+        if workout_modifier is not None:
+            workout_weight = 0.25
+            workout_contrib = workout_modifier * workout_weight
+        else:
+            workout_weight = 0
+            workout_contrib = 0
+            
+        if activity_modifier is not None:
+            activity_weight = 0.15
+            activity_contrib = activity_modifier * activity_weight
+        else:
+            activity_weight = 0
+            activity_contrib = 0
+            
+        # Remaining weight goes to other factors (preferences, commitment)
+        if other_modifiers:
+            other_weight = remaining_weight - workout_weight - activity_weight
+            other_contrib = (sum(other_modifiers) / len(other_modifiers)) * other_weight
+        else:
+            other_contrib = 0
+        
+        # Combine all contributions
+        final_rate = body_comp_contrib + workout_contrib + activity_contrib + other_contrib
     else:
         final_rate = base_rate
         
+    # Similar weighted approach for fat percentage
     if fat_modifiers:
-        final_fat_pct = sum(fat_modifiers) / len(fat_modifiers)
+        # For fat percentage, we prioritize workout frequency and commitment level
+        workout_fat_modifier = workout_multipliers.get("gain_fat_pct" if goal_type == "Muscle Gain" else "loss_fat_pct")
+        commitment_fat_modifier = commitment_multipliers.get("gain_fat_pct" if goal_type == "Muscle Gain" else "loss_fat_pct")
+        
+        # Isolate these from the general fat modifiers list
+        other_fat_modifiers = [m for m in fat_modifiers if m != workout_fat_modifier and m != commitment_fat_modifier]
+        
+        # Base fat percentage gets 30% weight
+        base_fat_weight = 0.3
+        base_fat_contrib = base_fat_pct * base_fat_weight
+        
+        # Workout frequency gets 30% weight for fat percentage
+        if workout_fat_modifier is not None:
+            workout_fat_weight = 0.3
+            workout_fat_contrib = workout_fat_modifier * workout_fat_weight
+        else:
+            workout_fat_weight = 0
+            workout_fat_contrib = 0
+            
+        # Commitment level gets 20% weight
+        if commitment_fat_modifier is not None:
+            commitment_fat_weight = 0.2
+            commitment_fat_contrib = commitment_fat_modifier * commitment_fat_weight
+        else:
+            commitment_fat_weight = 0
+            commitment_fat_contrib = 0
+            
+        # Other factors get remaining weight
+        remaining_fat_weight = 1.0 - base_fat_weight - workout_fat_weight - commitment_fat_weight
+        if other_fat_modifiers:
+            other_fat_contrib = (sum(other_fat_modifiers) / len(other_fat_modifiers)) * remaining_fat_weight
+        else:
+            other_fat_contrib = 0
+            
+        # Combine all contributions for fat percentage
+        final_fat_pct = base_fat_contrib + workout_fat_contrib + commitment_fat_contrib + other_fat_contrib
     else:
         final_fat_pct = base_fat_pct
     

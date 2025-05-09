@@ -530,21 +530,33 @@ if st.session_state.goal_info.get('target_weight_kg'):
         st.write(f"This rate is customized based on your combined FMI/FFMI categories, performance preferences, and commitment level.")
         
     # Add explanation about the combined FMI/FFMI approach
-    with st.expander("About Combined FMI/FFMI Recommendations"):
+    with st.expander("About Rate Calculation System"):
         st.write("""
-        The recommended rate is calculated using a sophisticated system that considers:
+        The recommended rate is calculated using a sophisticated weighted system that considers:
         
-        1. **Combined Body Composition Assessment**: Your FMI category ('{0}') and FFMI category ('{1}') 
-           together determine your baseline recommended rate.
+        1. **Combined Body Composition Assessment (40% weight)**: Your FMI category ('{0}') and FFMI category ('{1}') 
+           together form the baseline recommended rate.
         
-        2. **Performance vs. Body Composition Preferences**: Your preferences for performance recovery vs. 
-           pure body composition are factored in.
+        2. **Workout Frequency (25% weight)**: Higher workout frequency significantly improves nutrient partitioning,
+           allowing for faster rates with better body composition outcomes.
+           
+        3. **Activity Level (15% weight)**: General activity level outside of structured workouts influences 
+           your body's response to caloric changes.
         
-        3. **Workout Frequency and Commitment Level**: Higher commitment leads to more aggressive but 
-           sustainable recommendations.
+        4. **Performance vs Body Composition Preferences (10% weight)**: Your preferences for performance recovery vs. 
+           pure body composition influence the aggressiveness of recommendations.
+           
+        5. **Commitment Level (10% weight)**: Higher commitment to tracking, consistency, nutrition, and sleep
+           enables more aggressive but sustainable recommendations.
+           
+        The system calculates the fat/muscle breakdown slightly differently:
+        - Workout frequency (30% weight) has the largest impact on how much fat vs. muscle you gain or lose
+        - Your starting body composition (30% weight) sets the baseline
+        - Commitment level (20% weight) influences nutrient partitioning through consistency
+        - Other factors (20% weight) provide fine-tuning
         
-        This approach provides personalized recommendations based on research in body recomposition and 
-        accounts for individual differences in starting body composition.
+        This approach provides truly personalized recommendations based on the latest research in body recomposition
+        and accounts for your unique starting point and specific lifestyle factors.
         """.format(fmi_category_name, ffmi_category_name))
         
         # Create a visual table showing the combination categories
