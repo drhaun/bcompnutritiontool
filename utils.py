@@ -372,20 +372,21 @@ def get_performance_preference_multipliers(preference):
     """
     if preference == "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal.":
         # Body Composition priority
+        # Based on data table: Performance No has gain rate 0.01, gain fat % 0.50, loss rate 0.02, loss fat % 0.80
         return {
-            "gain_rate": 0.0013,  # Lower gain rate for better body composition 
-            "gain_fat_pct": 0.8,  # Higher fat % with lower overall gain
-            "loss_rate": 0.0125,  # Higher loss rate (faster fat loss)
-            "loss_fat_pct": 0.5   # Lower fat % (more muscle loss)
+            "gain_rate": 0.0050,  # Higher gain rate (faster changes, may impact performance)
+            "gain_fat_pct": 0.50,  # Higher fat percentage (faster weight gain, less concern with fat gain)
+            "loss_rate": 0.0125,  # Higher loss rate (faster fat loss but may impact performance)
+            "loss_fat_pct": 0.80   # Lower fat % (may lose more muscle, less concern with performance)
         }
     else:
         # Performance and Recovery priority
-        # Based on your table: Performance & Recovery priority has gain rate 0.01, gain fat % 0.10, loss rate 0.00, loss fat % 1.00
+        # Based on data table: Performance Yes has gain rate 0.00, gain fat % 0.30, loss rate 0.01, loss fat % 1.00
         return {
-            "gain_rate": 0.0100,  # Higher gain rate for better performance gains
-            "gain_fat_pct": 0.1,  # Lower fat % for cleaner gains
-            "loss_rate": 0.0025,  # Lower loss rate (slower, more sustainable)
-            "loss_fat_pct": 1.0   # Higher fat % (preserving more muscle)
+            "gain_rate": 0.0025,  # Lower gain rate (slower, more sustainable for performance)
+            "gain_fat_pct": 0.30,  # Lower fat percentage (cleaner gains, better for performance)
+            "loss_rate": 0.0050,  # Lower loss rate (slower, more sustainable for performance)
+            "loss_fat_pct": 1.0    # Higher fat % (preserving all muscle for performance)
         }
 
 def get_body_comp_tradeoff_multipliers(preference, goal_type):
