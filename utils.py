@@ -492,56 +492,95 @@ def get_workout_frequency_multipliers(frequency):
     Get rate modifiers based on workout frequency
     
     Parameters:
-    frequency (str): The workout frequency selection
+    frequency (str or int): The workout frequency selection
     
     Returns:
     dict: Values for gain_rate, gain_fat_pct, loss_rate, loss_fat_pct
     """
-    # Handle potential type issues with frequency parameter
-    if frequency is None:
-        # Default to moderate workout frequency
-        frequency = "3-4"
+    # Default values if anything goes wrong
+    default_values = {
+        "gain_rate": 0.0075,  # Default to moderate-high values
+        "gain_fat_pct": 0.20,  # Moderate fat percentage
+        "loss_rate": 0.0100,  # Medium loss rate
+        "loss_fat_pct": 0.90   # Good fat percentage (good muscle preservation)
+    }
     
-    # Ensure frequency is a string for 'in' comparison
-    frequency = str(frequency)
-    
-    # Based on your table: Workout Frequency >5 has gain rate 0.01, gain fat % 0.10, loss rate 0.05, loss fat % 1.00
-    if "5+" in frequency:
-        return {
-            "gain_rate": 0.0100,  # Highest gain rate with frequent workouts
-            "gain_fat_pct": 0.10,  # Lowest fat percentage (optimal nutrient partitioning)
-            "loss_rate": 0.0125,  # Highest loss rate with frequent workouts
-            "loss_fat_pct": 1.00   # 100% fat loss (best muscle preservation)
-        }
-    elif "3-4" in frequency:
-        return {
-            "gain_rate": 0.0075,  # High gain rate
-            "gain_fat_pct": 0.20,  # Low fat percentage
-            "loss_rate": 0.0100,  # High loss rate
-            "loss_fat_pct": 0.90   # High fat percentage (good muscle preservation)
-        }
-    elif "1-2" in frequency:
-        return {
-            "gain_rate": 0.0050,  # Moderate gain rate
-            "gain_fat_pct": 0.30,  # Moderate fat percentage
-            "loss_rate": 0.0075,  # Moderate loss rate
-            "loss_fat_pct": 0.80   # Moderate fat percentage (some muscle loss)
-        }
-    elif frequency == "0":  # Less than once per week
-        return {
-            "gain_rate": 0.0025,  # Low gain rate with infrequent workouts
-            "gain_fat_pct": 0.50,  # Higher fat percentage
-            "loss_rate": 0.0050,  # Low loss rate
-            "loss_fat_pct": 0.70   # Lower fat percentage (more muscle loss)
-        }
-    else:
-        # Default case if the frequency doesn't match any expected pattern
-        return {
-            "gain_rate": 0.0075,  # Default to moderate-high values
-            "gain_fat_pct": 0.20,  # Moderate fat percentage
-            "loss_rate": 0.0100,  # Medium loss rate
-            "loss_fat_pct": 0.90   # Good fat percentage (good muscle preservation)
-        }
+    try:
+        # Handle None case
+        if frequency is None:
+            return default_values
+        
+        # Convert to string for comparison
+        freq_str = str(frequency).strip()
+        
+        # Handle numeric frequencies
+        if freq_str.isdigit():
+            freq_num = int(freq_str)
+            if freq_num >= 5:
+                return {
+                    "gain_rate": 0.0100,
+                    "gain_fat_pct": 0.10,
+                    "loss_rate": 0.0125, 
+                    "loss_fat_pct": 1.00
+                }
+            elif freq_num >= 3:
+                return {
+                    "gain_rate": 0.0075,
+                    "gain_fat_pct": 0.20,
+                    "loss_rate": 0.0100,
+                    "loss_fat_pct": 0.90
+                }
+            elif freq_num >= 1:
+                return {
+                    "gain_rate": 0.0050,
+                    "gain_fat_pct": 0.30,
+                    "loss_rate": 0.0075,
+                    "loss_fat_pct": 0.80
+                }
+            else:  # freq_num == 0
+                return {
+                    "gain_rate": 0.0025,
+                    "gain_fat_pct": 0.50,
+                    "loss_rate": 0.0050,
+                    "loss_fat_pct": 0.70
+                }
+        
+        # Handle string formats like "5+" or "3-4"
+        if "5+" in freq_str:
+            return {
+                "gain_rate": 0.0100,  # Highest gain rate with frequent workouts
+                "gain_fat_pct": 0.10,  # Lowest fat percentage (optimal nutrient partitioning)
+                "loss_rate": 0.0125,  # Highest loss rate with frequent workouts
+                "loss_fat_pct": 1.00   # 100% fat loss (best muscle preservation)
+            }
+        elif "3-4" in freq_str or "3" in freq_str or "4" in freq_str:
+            return {
+                "gain_rate": 0.0075,  # High gain rate
+                "gain_fat_pct": 0.20,  # Low fat percentage
+                "loss_rate": 0.0100,  # High loss rate
+                "loss_fat_pct": 0.90   # High fat percentage (good muscle preservation)
+            }
+        elif "1-2" in freq_str or "1" in freq_str or "2" in freq_str:
+            return {
+                "gain_rate": 0.0050,  # Moderate gain rate
+                "gain_fat_pct": 0.30,  # Moderate fat percentage
+                "loss_rate": 0.0075,  # Moderate loss rate
+                "loss_fat_pct": 0.80   # Moderate fat percentage (some muscle loss)
+            }
+        elif "0" in freq_str:  # Less than once per week
+            return {
+                "gain_rate": 0.0025,  # Low gain rate with infrequent workouts
+                "gain_fat_pct": 0.50,  # Higher fat percentage
+                "loss_rate": 0.0050,  # Low loss rate
+                "loss_fat_pct": 0.70   # Lower fat percentage (more muscle loss)
+            }
+        
+        # Default case if no match found
+        return default_values
+        
+    except Exception:
+        # If any error occurs, return default values
+        return default_values
 
 def get_commitment_level_multipliers(commitment):
     """
