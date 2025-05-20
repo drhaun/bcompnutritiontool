@@ -446,7 +446,7 @@ with st.form("goal_setting_form"):
             stored_start_date = datetime.strptime(stored_start_date, '%Y-%m-%d').date()
         except:
             stored_start_date = default_start_date
-    elif not isinstance(stored_start_date, datetime.date):
+    elif not isinstance(stored_start_date, (datetime, datetime.date)):
         stored_start_date = default_start_date
     
     # Format date as string for Streamlit
@@ -505,11 +505,13 @@ with st.form("goal_setting_form"):
                 ffmi_category_name = category["name"]
                 break
         
-        rec_rates = utils.calculate_recommended_rate({
+        # Create user_data dict in the format expected by calculate_recommended_rate
+        user_data = {
             "fmi_category": fmi_category_name,
             "ffmi_category": ffmi_category_name,
             "preferences": goal_additional_prefs
-        }, goal_type_code)
+        }
+        rec_rates = utils.calculate_recommended_rate(user_data, goal_type_code)
         
         if rec_rates:
             st.session_state.goal_info["recommended_rates"] = rec_rates

@@ -687,21 +687,30 @@ def calculate_recommended_rate(user_data, goal_type):
         user_data.get("commitment_level", "")
     )
     
-    # First try to get combined category recommendation
-    fmi_category_name = fmi_category.get("name", "Considered Healthy") if fmi_category else "Considered Healthy"
-    ffmi_category_name = ffmi_category.get("name", "Considered Healthy") if ffmi_category else "Considered Healthy"
+    # Check if we received category objects or category names
+    if isinstance(fmi_category, dict) and "name" in fmi_category:
+        fmi_category_name = fmi_category.get("name", "Considered Healthy")
+    else:
+        # If we received a string, it's already the category name
+        fmi_category_name = fmi_category if fmi_category else "Considered Healthy"
+        
+    if isinstance(ffmi_category, dict) and "name" in ffmi_category:
+        ffmi_category_name = ffmi_category.get("name", "Considered Healthy")
+    else:
+        # If we received a string, it's already the category name
+        ffmi_category_name = ffmi_category if ffmi_category else "Considered Healthy"
     
     combined_recommendation = get_combined_category_rates(fmi_category_name, ffmi_category_name)
     
     # Determine base values from categories and combined recommendation
-    if goal_type == "Muscle Gain":
+    if goal_type == "Muscle Gain" or goal_type == "gain_muscle":
         # For muscle gain, use the combined recommendation gain rate
         base_rate = combined_recommendation.get("gain_rate", 0.0025)
         
-        # Use rate from individual categories for fat percentage 
-        if fmi_category and "gain_fat_pct" in fmi_category:
+        # Use rate from individual categories for fat percentage only if they're dictionaries
+        if isinstance(fmi_category, dict) and "gain_fat_pct" in fmi_category:
             base_fat_pct = fmi_category.get("gain_fat_pct", 0.50)
-        elif ffmi_category and "gain_fat_pct" in ffmi_category:
+        elif isinstance(ffmi_category, dict) and "gain_fat_pct" in ffmi_category:
             base_fat_pct = ffmi_category.get("gain_fat_pct", 0.50)
         else:
             # Default fat percentage based on FMI category name
