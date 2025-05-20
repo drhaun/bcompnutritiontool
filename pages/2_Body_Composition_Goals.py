@@ -612,45 +612,46 @@ if st.session_state.goal_info.get('target_weight_kg'):
         st.write(f"**Recommendation**: {recommended_category}")
         
         # Create a second table showing the rate recommendations
-        st.subheader("Rate Recommendations by FMI/FFMI Combination")
-        st.write("Percent of bodyweight per week:")
-        
-        # Create data for gain rates
-        gain_matrix_data = []
-        for fmi in fmi_categories_short:
-            row_data = {'FMI': fmi}
-            for ffmi in ffmi_categories_short:
-                combo_rec = utils.get_combined_category_rates(fmi, ffmi)
-                gain_rate = combo_rec.get("gain_rate", 0) * 100  # Convert to percentage
-                row_data[ffmi] = f"{gain_rate:.2f}%" if gain_rate > 0 else "-"
-            gain_matrix_data.append(row_data)
-        
-        gain_matrix = pd.DataFrame(gain_matrix_data)
-        gain_matrix = gain_matrix.set_index('FMI')
-        
-        # Create data for loss rates
-        loss_matrix_data = []
-        for fmi in fmi_categories_short:
-            row_data = {'FMI': fmi}
-            for ffmi in ffmi_categories_short:
-                combo_rec = utils.get_combined_category_rates(fmi, ffmi)
-                loss_rate = combo_rec.get("loss_rate", 0) * 100  # Convert to percentage
-                row_data[ffmi] = f"{loss_rate:.2f}%" if loss_rate > 0 else "-"
-            loss_matrix_data.append(row_data)
-        
-        loss_matrix = pd.DataFrame(loss_matrix_data)
-        loss_matrix = loss_matrix.set_index('FMI')
-        
-        # Display the rates side by side
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.write("**Gain Rates (% of body weight/week)**")
-            st.table(gain_matrix)
+        rates_expander = st.expander("📊 View Rate Recommendations by FMI/FFMI Combination")
+        with rates_expander:
+            st.write("Percent of bodyweight per week:")
             
-        with col2:
-            st.write("**Loss Rates (% of body weight/week)**")
-            st.table(loss_matrix)
+            # Create data for gain rates
+            gain_matrix_data = []
+            for fmi in fmi_categories_short:
+                row_data = {'FMI': fmi}
+                for ffmi in ffmi_categories_short:
+                    combo_rec = utils.get_combined_category_rates(fmi, ffmi)
+                    gain_rate = combo_rec.get("gain_rate", 0) * 100  # Convert to percentage
+                    row_data[ffmi] = f"{gain_rate:.2f}%" if gain_rate > 0 else "-"
+                gain_matrix_data.append(row_data)
+            
+            gain_matrix = pd.DataFrame(gain_matrix_data)
+            gain_matrix = gain_matrix.set_index('FMI')
+            
+            # Create data for loss rates
+            loss_matrix_data = []
+            for fmi in fmi_categories_short:
+                row_data = {'FMI': fmi}
+                for ffmi in ffmi_categories_short:
+                    combo_rec = utils.get_combined_category_rates(fmi, ffmi)
+                    loss_rate = combo_rec.get("loss_rate", 0) * 100  # Convert to percentage
+                    row_data[ffmi] = f"{loss_rate:.2f}%" if loss_rate > 0 else "-"
+                loss_matrix_data.append(row_data)
+            
+            loss_matrix = pd.DataFrame(loss_matrix_data)
+            loss_matrix = loss_matrix.set_index('FMI')
+            
+            # Display the rates side by side
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.write("**Gain Rates (% of body weight/week)**")
+                st.table(gain_matrix)
+                
+            with col2:
+                st.write("**Loss Rates (% of body weight/week)**")
+                st.table(loss_matrix)
         
     st.markdown("---")
         
@@ -687,11 +688,11 @@ if st.session_state.goal_info.get('target_weight_kg'):
     with ref_photos_expander:
         ref_photo_path = "images/reference/body_fat_reference.jpg"
         if os.path.exists(ref_photo_path):
-            st.image(ref_photo_path, caption="Body Fat Percentage Reference", use_container_width=True)
+            st.image(ref_photo_path, caption="Body Fat Percentage Reference - Men (top) and Women (bottom)", use_container_width=True)
             st.write("These visual references can help you understand how different body fat percentages look.")
         else:
             st.warning("Reference photos not available in this view. Check the Reference Photos page.")
-            st.button("Go to Reference Photos", on_click=lambda: st.switch_page("pages/7_Reference_Photos.py"))
+            st.link_button("Go to Reference Photos", url="Reference_Photos")
     
     # Display the indices side by side
     col1, col2 = st.columns(2)
@@ -1154,7 +1155,9 @@ if st.session_state.goal_info.get('target_weight_kg'):
 
     # Generate detailed weekly progress projection table
     st.markdown("---")
-    st.subheader("Detailed Weekly Progress Projection")
+    st.subheader("Weekly Progress Details")
+    
+    progress_expander = st.expander("📈 View Detailed Weekly Progress Projection")
     
     # Use the actual rate based on target and timeline, not the recommended rate
     # This ensures the weekly projection matches the user's chosen targets
