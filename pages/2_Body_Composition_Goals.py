@@ -205,6 +205,56 @@ with st.form("goal_setting_form"):
                 st.warning("Reference photos not available. Visit the Reference Photos page for examples.")
                 st.link_button("Go to Reference Photos", url="Reference_Photos")
     
+    # SECTION 2.5: Fat Mass and Fat-Free Mass Index information
+    with st.expander("📊 View Detailed Information on Fat Mass Index and Fat-Free Mass Index"):
+        st.subheader("Body Composition Indices Explained")
+        
+        # Fat Mass Index explanation
+        st.write("### Fat Mass Index (FMI)")
+        st.write("""
+        **What is FMI?** The Fat Mass Index is a measure of the amount of fat mass relative to height. 
+        It is calculated by dividing fat mass (in kg) by height squared (in meters²).
+        
+        **FMI Categories:**
+        - **Extremely Lean**: 2-3 kg/m² - Very low levels of body fat, typically seen in elite athletes or bodybuilders during competition
+        - **Lean**: 3.1-5.2 kg/m² - Low body fat levels, common in athletes and very active individuals
+        - **Considered Healthy**: 5.3-7.2 kg/m² - Normal and healthy levels of body fat
+        - **Slightly Overfat**: 7.3-9.1 kg/m² - Slightly elevated body fat levels
+        - **Overfat**: 9.2-12.9 kg/m² - Elevated body fat levels that may lead to health concerns
+        - **Significantly Overfat**: 13+ kg/m² - High body fat levels with increased health risks
+        """)
+        
+        # Fat-Free Mass Index explanation
+        st.write("### Fat-Free Mass Index (FFMI)")
+        st.write("""
+        **What is FFMI?** The Fat-Free Mass Index is a measure of muscle and lean tissue relative to height.
+        It is calculated by dividing fat-free mass (in kg) by height squared (in meters²).
+        
+        **Normalized FFMI** adjusts for height differences to provide better comparisons between individuals.
+        
+        **FFMI Categories:**
+        - **Undermuscled**: 8-16 kg/m² - Lower levels of muscle mass
+        - **Moderately Undermuscled**: 16.1-17.8 kg/m² - Slightly below average muscle mass
+        - **Considered Healthy**: 17.9-22 kg/m² - Normal and healthy levels of muscle mass
+        - **Muscular**: 22.1-25 kg/m² - Above average muscle mass, typical of strength athletes
+        - **High**: 25.1+ kg/m² - Very high muscle mass, usually seen in elite strength athletes
+        
+        *Note: FFMI values above 25 are difficult to achieve without performance-enhancing substances.*
+        """)
+        
+        # Body Composition Recommendations
+        st.write("### How to Use These Indices")
+        st.write("""
+        The combination of your FMI and FFMI categories helps determine the most appropriate body composition goal:
+        
+        - If your FMI is high and FFMI is low or average: Focus on losing fat while maintaining muscle
+        - If your FMI is low or average and FFMI is low: Focus on building muscle
+        - If your FMI is low and FFMI is high: Consider maintenance or a slight surplus for performance
+        - If your FMI is high and FFMI is high: Consider body recomposition (lose fat while maintaining muscle)
+        
+        The "Body Composition Category Reference Tables" provide specific recommendations based on your unique combination.
+        """)
+    
     # SECTION 3: Calculate current composition values
     current_fat_mass_kg = current_weight_kg * (current_bf/100)
     current_fat_mass_lbs = current_fat_mass_kg * 2.20462
