@@ -27,150 +27,95 @@ st.markdown("""
 # Attempt to load existing data
 utils.load_data()
 
+# Ensure the images folder exists for saving reference photos
+os.makedirs("images/reference", exist_ok=True)
+
+# Save the reference photo image if it doesn't exist
+ref_photo_path = "images/reference/body_fat_reference.jpg"
+if not os.path.exists(ref_photo_path):
+    try:
+        # Copy the reference photo from attached_assets to images/reference folder
+        if os.path.exists("attached_assets/ref_photos.jpg"):
+            from shutil import copyfile
+            copyfile("attached_assets/ref_photos.jpg", ref_photo_path)
+    except Exception as e:
+        st.error(f"Error copying reference photo: {e}")
+
 def main():
     st.write("""
     ## Body Fat Percentage Reference
     
     These reference photos provide visual examples of different body fat percentages for men and women.
     Use these as a guide to help estimate your current body fat percentage.
+    
+    Body fat percentage is a key measure for fitness and health goals. The images below show what different 
+    body fat levels typically look like.
     """)
     
-    # Gender selector
-    gender = st.radio("Select gender for reference photos", ["Male", "Female"])
-    
-    # Create tabs for different body fat ranges
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "5-10% (Very Lean)", 
-        "10-15% (Lean)", 
-        "15-20% (Athletic)", 
-        "20-25% (Average)", 
-        "25%+ (Above Average)"
-    ])
-    
-    with tab1:
-        if gender == "Male":
-            st.subheader("Male: 5-10% Body Fat (Very Lean)")
-            st.write("""
-            * Visible six-pack abs
-            * Visible vascularity throughout the body
-            * Muscle striations visible
-            * Minimal body fat
-            * Very defined muscles
-            """)
-            # Placeholder for male 5-10% image
-            st.image("https://via.placeholder.com/600x400?text=Male+5-10%+Body+Fat", caption="5-10% Body Fat - Male Example")
+    # Display reference photos directly
+    try:
+        if os.path.exists(ref_photo_path):
+            st.image(ref_photo_path, caption="Body Fat Percentage Reference - Men (top) and Women (bottom)", use_column_width=True)
         else:
-            st.subheader("Female: 10-15% Body Fat (Very Lean)")
-            st.write("""
-            * Visible muscle definition
-            * Some vascularity
-            * Visible abs
-            * Minimal body fat
-            * Very defined muscles
-            """)
-            # Placeholder for female 10-15% image
-            st.image("https://via.placeholder.com/600x400?text=Female+10-15%+Body+Fat", caption="10-15% Body Fat - Female Example")
+            st.warning("Reference photos not found. Please make sure the image is available.")
+    except Exception as e:
+        st.error(f"Error loading reference photo: {e}")
     
-    with tab2:
-        if gender == "Male":
-            st.subheader("Male: 10-15% Body Fat (Lean)")
-            st.write("""
-            * Visible abs
-            * Some vascularity
-            * Good muscle definition
-            * Low body fat
-            * Athletic appearance
-            """)
-            # Placeholder for male 10-15% image
-            st.image("https://via.placeholder.com/600x400?text=Male+10-15%+Body+Fat", caption="10-15% Body Fat - Male Example")
-        else:
-            st.subheader("Female: 15-20% Body Fat (Lean)")
-            st.write("""
-            * Some muscle definition
-            * Athletic appearance
-            * Some abdominal definition
-            * Low body fat
-            * Fit appearance
-            """)
-            # Placeholder for female 15-20% image
-            st.image("https://via.placeholder.com/600x400?text=Female+15-20%+Body+Fat", caption="15-20% Body Fat - Female Example")
+    # Detailed description of body fat percentages
+    st.subheader("Understanding Body Fat Percentages")
     
-    with tab3:
-        if gender == "Male":
-            st.subheader("Male: 15-20% Body Fat (Athletic)")
-            st.write("""
-            * Some abdominal definition
-            * Less vascularity
-            * Muscle definition still visible
-            * Moderate body fat
-            * Fit appearance
-            """)
-            # Placeholder for male 15-20% image
-            st.image("https://via.placeholder.com/600x400?text=Male+15-20%+Body+Fat", caption="15-20% Body Fat - Male Example")
-        else:
-            st.subheader("Female: 20-25% Body Fat (Athletic)")
-            st.write("""
-            * Soft muscle definition
-            * Limited abdominal definition
-            * Healthy appearance
-            * Moderate body fat
-            * Fit but not visibly lean
-            """)
-            # Placeholder for female 20-25% image
-            st.image("https://via.placeholder.com/600x400?text=Female+20-25%+Body+Fat", caption="20-25% Body Fat - Female Example")
+    col1, col2 = st.columns(2)
     
-    with tab4:
-        if gender == "Male":
-            st.subheader("Male: 20-25% Body Fat (Average)")
-            st.write("""
-            * Little to no muscle definition
-            * No visible abs
-            * Some fat accumulation around waist
-            * Higher body fat
-            * Average appearance
-            """)
-            # Placeholder for male 20-25% image
-            st.image("https://via.placeholder.com/600x400?text=Male+20-25%+Body+Fat", caption="20-25% Body Fat - Male Example")
-        else:
-            st.subheader("Female: 25-30% Body Fat (Average)")
-            st.write("""
-            * Limited muscle definition
-            * Softer appearance
-            * No abdominal definition
-            * Higher body fat
-            * Average appearance
-            """)
-            # Placeholder for female 25-30% image
-            st.image("https://via.placeholder.com/600x400?text=Female+25-30%+Body+Fat", caption="25-30% Body Fat - Female Example")
+    with col1:
+        st.write("### Men")
+        st.write("""
+        - **3-4%**: Competition bodybuilder level. Extremely lean with visible striations. Not sustainable long-term.
+        - **5-7%**: Fitness model level. Very visible muscle definition and vascularity. Difficult to maintain.
+        - **8-10%**: Athletic with visible abs. Good balance of definition while being more sustainable.
+        - **14-15%**: Lean with some muscle definition. Healthy range for most men.
+        - **20-22%**: Some fat accumulation, minimal muscle definition. Average for many men.
+        - **30%+**: Significant fat accumulation. Associated with higher health risks.
+        """)
     
-    with tab5:
-        if gender == "Male":
-            st.subheader("Male: 25%+ Body Fat (Above Average)")
-            st.write("""
-            * No muscle definition
-            * Significant fat around waist and other areas
-            * Rounded appearance
-            * High body fat
-            * Above average appearance
-            """)
-            # Placeholder for male 25%+ image
-            st.image("https://via.placeholder.com/600x400?text=Male+25%2B+Body+Fat", caption="25%+ Body Fat - Male Example")
-        else:
-            st.subheader("Female: 30%+ Body Fat (Above Average)")
-            st.write("""
-            * No muscle definition
-            * Softer, rounded appearance
-            * Fat accumulation in various areas
-            * High body fat
-            * Above average appearance
-            """)
-            # Placeholder for female 30%+ image
-            st.image("https://via.placeholder.com/600x400?text=Female+30%2B+Body+Fat", caption="30%+ Body Fat - Female Example")
+    with col2:
+        st.write("### Women")
+        st.write("""
+        - **11-12%**: Competition level leanness. Extremely defined with visible muscle striations.
+        - **14-15%**: Fitness model physique. Very defined muscles with visible abs.
+        - **17-18%**: Athletic build with visible muscle tone and some definition.
+        - **20-21%**: Lean and toned appearance. Healthy range for most active women.
+        - **25-26%**: Soft definition with curves. Healthy range for many women.
+        - **34-35%+**: More rounded appearance. Higher body fat levels may pose health risks.
+        """)
+    
+    st.write("""
+    ## Factors That Affect Body Fat Distribution
+    
+    - **Genetics**: Determines where your body naturally stores fat
+    - **Hormones**: Influence fat storage patterns differently in men and women
+    - **Age**: Body fat distribution changes as we age
+    - **Activity level**: Different types of exercise affect how fat is stored and metabolized
+    - **Diet**: Nutrition affects both total body fat and fat distribution
+    """)
+    
+    st.write("""
+    ## Measuring Body Fat Percentage
+    
+    While visual comparison is helpful, for more accurate assessment consider:
+    
+    1. **DEXA scan**: Gold standard, uses X-rays to measure fat, muscle, and bone
+    2. **Hydrostatic weighing**: Underwater weighing that calculates density and body composition
+    3. **Skin calipers**: Measures fat thickness at specific body sites
+    4. **Bioelectrical impedance**: Found in many scales and handheld devices
+    5. **3D body scanning**: Newer technology that creates detailed body models
+    """)
     
     st.write("""
     ## Disclaimer
+    
     These are approximate visual references. Body fat distribution varies based on genetics, age, and other factors.
     For a more accurate assessment, consider using methods like DEXA scans, hydrostatic weighing, or skin fold calipers with a professional.
+    The visual appearance of a specific body fat percentage can vary significantly between individuals.
     """)
 
 if __name__ == "__main__":
