@@ -682,6 +682,17 @@ if st.session_state.goal_info.get('target_weight_kg'):
     
     st.table(comp_df)
     
+    # Add reference photo viewing option
+    ref_photos_expander = st.expander("📷 View Body Fat Percentage Reference Photos")
+    with ref_photos_expander:
+        ref_photo_path = "images/reference/body_fat_reference.jpg"
+        if os.path.exists(ref_photo_path):
+            st.image(ref_photo_path, caption="Body Fat Percentage Reference", use_container_width=True)
+            st.write("These visual references can help you understand how different body fat percentages look.")
+        else:
+            st.warning("Reference photos not available in this view. Check the Reference Photos page.")
+            st.button("Go to Reference Photos", on_click=lambda: st.switch_page("pages/7_Reference_Photos.py"))
+    
     # Display the indices side by side
     col1, col2 = st.columns(2)
     
