@@ -497,6 +497,14 @@ def get_workout_frequency_multipliers(frequency):
     Returns:
     dict: Values for gain_rate, gain_fat_pct, loss_rate, loss_fat_pct
     """
+    # Handle potential type issues with frequency parameter
+    if frequency is None:
+        # Default to moderate workout frequency
+        frequency = "3-4"
+    
+    # Ensure frequency is a string for 'in' comparison
+    frequency = str(frequency)
+    
     # Based on your table: Workout Frequency >5 has gain rate 0.01, gain fat % 0.10, loss rate 0.05, loss fat % 1.00
     if "5+" in frequency:
         return {
@@ -519,12 +527,20 @@ def get_workout_frequency_multipliers(frequency):
             "loss_rate": 0.0075,  # Moderate loss rate
             "loss_fat_pct": 0.80   # Moderate fat percentage (some muscle loss)
         }
-    else:  # Less than once per week
+    elif frequency == "0":  # Less than once per week
         return {
             "gain_rate": 0.0025,  # Low gain rate with infrequent workouts
             "gain_fat_pct": 0.50,  # Higher fat percentage
-            "loss_rate": 0.0050,  # Lower loss rate
-            "loss_fat_pct": 0.60   # Lower fat percentage (more muscle loss)
+            "loss_rate": 0.0050,  # Low loss rate
+            "loss_fat_pct": 0.70   # Lower fat percentage (more muscle loss)
+        }
+    else:
+        # Default case if the frequency doesn't match any expected pattern
+        return {
+            "gain_rate": 0.0075,  # Default to moderate-high values
+            "gain_fat_pct": 0.20,  # Moderate fat percentage
+            "loss_rate": 0.0100,  # Medium loss rate
+            "loss_fat_pct": 0.90   # Good fat percentage (good muscle preservation)
         }
 
 def get_commitment_level_multipliers(commitment):
