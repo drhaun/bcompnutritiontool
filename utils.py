@@ -722,14 +722,14 @@ def calculate_recommended_rate(user_data, goal_type):
                 base_fat_pct = 0.80
             else:
                 base_fat_pct = 0.50
-    elif goal_type == "Fat Loss":
+    elif goal_type == "Fat Loss" or goal_type == "lose_fat":
         # For fat loss, use the combined recommendation loss rate
         base_rate = combined_recommendation.get("loss_rate", 0.0050)
         
-        # Use rate from individual categories for fat percentage
-        if fmi_category and "loss_fat_pct" in fmi_category:
+        # Use rate from individual categories for fat percentage only if they're dictionaries
+        if isinstance(fmi_category, dict) and "loss_fat_pct" in fmi_category:
             base_fat_pct = fmi_category.get("loss_fat_pct", 0.80)
-        elif ffmi_category and "loss_fat_pct" in ffmi_category:
+        elif isinstance(ffmi_category, dict) and "loss_fat_pct" in ffmi_category:
             base_fat_pct = ffmi_category.get("loss_fat_pct", 0.80)
         else:
             # Default fat percentage based on commitment

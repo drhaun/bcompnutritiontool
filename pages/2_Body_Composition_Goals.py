@@ -264,8 +264,75 @@ with st.form("goal_setting_form"):
     # Display the table - this is for display only, not editable
     st.table(comp_df)
     
+    # Calculate and display body composition indices
+    height_cm = st.session_state.user_info['height_cm']
+    height_m = height_cm / 100
+    
+    # Calculate FMI (Fat Mass Index)
+    fmi = current_fat_mass_kg / (height_m * height_m)
+    
+    # Find which FMI category the user is in
+    fmi_category_name = "Unknown"
+    for category in fmi_categories:
+        if category["lower"] <= fmi <= category["upper"]:
+            fmi_category_name = category["name"]
+            break
+    
+    # Calculate FFMI (Fat-Free Mass Index)
+    ffmi = current_fat_free_mass_kg / (height_m * height_m)
+    
+    # Apply the FFMI normalization formula for heights != 1.8m
+    ffmi_normalized = ffmi * (1.8 / height_m)
+    
+    # Find which FFMI category the user is in
+    ffmi_category_name = "Unknown"
+    for category in ffmi_categories:
+        if category["lower"] <= ffmi <= category["upper"]:
+            ffmi_category_name = category["name"]
+            break
+    
+    # Get the recommendation based on FMI and FFMI categories
+    combo_rec = utils.get_combined_category_rates(fmi_category_name, ffmi_category_name)
+    recommended_category = combo_rec.get("recommendation", "No specific recommendation available")
+    
+    # Display body composition indices and categories
+    st.subheader("Body Composition Indices")
+    indices_col1, indices_col2 = st.columns(2)
+    
+    with indices_col1:
+        st.metric("Fat Mass Index (FMI)", f"{fmi:.1f} kg/m²")
+        st.write(f"Category: **{fmi_category_name}**")
+        
+    with indices_col2:
+        st.metric("Fat-Free Mass Index (FFMI)", f"{ffmi:.1f} kg/m²")
+        st.write(f"Normalized FFMI: **{ffmi_normalized:.1f}** kg/m²")
+        st.write(f"Category: **{ffmi_category_name}**")
+    
+    st.write(f"**Recommendation based on your current body composition**: {recommended_category}")
+    
+    with st.expander("View Body Composition Category Reference Tables"):
+        # Create matrix data with category combinations
+        fmi_categories_short = [c["name"] for c in fmi_categories]
+        ffmi_categories_short = [c["name"] for c in ffmi_categories]
+        
+        matrix_data = []
+        for fmi_cat in fmi_categories_short:
+            row_data = {'FMI': fmi_cat}
+            for ffmi_cat in ffmi_categories_short:
+                combo_rec = utils.get_combined_category_rates(fmi_cat, ffmi_cat)
+                recommendation = combo_rec.get("recommendation", "")
+                row_data[ffmi_cat] = recommendation
+            matrix_data.append(row_data)
+        
+        recommendation_matrix = pd.DataFrame(matrix_data)
+        recommendation_matrix = recommendation_matrix.set_index('FMI')
+        
+        st.write("#### Body Composition Recommendations by FMI/FFMI Combination")
+        st.table(recommendation_matrix)
+    
     # Editable target values
-    st.write("#### Set Your Target Body Composition")
+    st.markdown("---")
+    st.subheader("Set Your Target Body Composition")
     st.write("Adjust your target values below:")
     
     col1, col2 = st.columns(2)

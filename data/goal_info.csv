@@ -1,2 +1,2 @@
-goal_type,target_weight_kg,target_weight_lbs,target_body_fat,timeline_weeks,start_date
-lose_fat,79.7790548938139,175.8825,11.560274615155002,10.0,2025-05-12
+goal_type,target_weight_kg,target_weight_lbs,target_body_fat,target_fat_mass_kg,target_fat_mass_lbs,target_ffm_kg,target_ffm_lbs,timeline_weeks,start_date,additional_preferences,recommended_rates
+lose_fat,90.47590968057989,199.46500000000003,15.724563206577596,14.226941604448843,31.365000000000006,76.24896807613105,168.10000000000002,10.0,2025-05-12,"{'performance_impact': 'I want to balance performance and fat loss equally', 'aggressive_deficit': 'Moderate: Balanced approach', 'commitment_level': 'I can commit to a mostly consistent diet, regular workouts, tracking most meals, and good sleep for most of the program.'}","{'weekly_weight_pct': 0.0, 'weekly_fat_pct': 0.4, 'weekly_muscle_pct': 0.6, 'recommendation': 'Lose Fat'}"
