@@ -612,8 +612,8 @@ if st.session_state.goal_info.get('target_weight_kg'):
         st.write(f"**Recommendation**: {recommended_category}")
         
         # Create a second table showing the rate recommendations
-        st.subheader("Rate Recommendations by FMI/FFMI Combination")
-        st.write("Percent of bodyweight per week:")
+        with st.expander("📊 View Rate Recommendations by FMI/FFMI Combination"):
+            st.write("Percent of bodyweight per week:")
         
         # Create data for gain rates
         gain_matrix_data = []
@@ -681,6 +681,16 @@ if st.session_state.goal_info.get('target_weight_kg'):
     })
     
     st.table(comp_df)
+    
+    # Add reference photo viewing option
+    with st.expander("📷 View Body Fat Percentage Reference Photos"):
+        ref_photo_path = "images/reference/body_fat_reference.jpg"
+        if os.path.exists(ref_photo_path):
+            st.image(ref_photo_path, caption="Body Fat Percentage Reference - Men (top) and Women (bottom)", use_container_width=True)
+            st.write("These visual references can help you understand how different body fat percentages look.")
+        else:
+            st.warning("Reference photos not available. Visit the Reference Photos page for examples.")
+            st.link_button("Go to Reference Photos", url="Reference_Photos")
     
     # Display the indices side by side
     col1, col2 = st.columns(2)
