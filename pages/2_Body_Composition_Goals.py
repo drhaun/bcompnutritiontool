@@ -1249,39 +1249,39 @@ if st.session_state.goal_info.get('target_weight_kg'):
                 # Display the summary table
                 st.dataframe(summary_table[summary_columns])
         
-        with tab3:
-            # Create visualization of the progress
-            st.subheader("Projected Body Composition Changes")
-            
-            # Create a line chart for weight changes
-            fig, ax1 = plt.subplots(figsize=(10, 6))
-            
-            # Plot weight progression
-            ax1.plot(progress_table['Week'], progress_table['Ending Weight (lbs)'], 
-                    'b-', linewidth=2, label='Weight (lbs)')
-            ax1.set_xlabel('Week')
-            ax1.set_ylabel('Weight (lbs)', color='b')
-            ax1.tick_params('y', colors='b')
-            
-            # Create a second y-axis for body fat percentage
-            ax2 = ax1.twinx()
-            ax2.plot(progress_table['Week'], progress_table['Ending Body Fat %'], 
-                    'r-', linewidth=2, label='Body Fat %')
-            ax2.set_ylabel('Body Fat %', color='r')
-            ax2.tick_params('y', colors='r')
-            
-            # Add a grid for better readability
-            ax1.grid(True, alpha=0.3)
-            
-            # Add title and legend
-            plt.title('Projected Weight and Body Fat Changes')
-            
-            # Combine legends from both axes
-            lines1, labels1 = ax1.get_legend_handles_labels()
-            lines2, labels2 = ax2.get_legend_handles_labels()
-            ax1.legend(lines1 + lines2, labels1 + labels2, loc='best')
-            
-            st.pyplot(fig)
+            with tab3:
+                # Create visualization of the progress
+                st.subheader("Projected Body Composition Changes")
+                
+                # Create a line chart for weight changes
+                fig, ax1 = plt.subplots(figsize=(10, 6))
+                
+                # Plot weight progression
+                ax1.plot(progress_table['Week'], progress_table['Ending Weight (lbs)'], 
+                        'b-', linewidth=2, label='Weight (lbs)')
+                ax1.set_xlabel('Week')
+                ax1.set_ylabel('Weight (lbs)', color='b')
+                ax1.tick_params('y', colors='b')
+                
+                # Create a second y-axis for body fat percentage
+                ax2 = ax1.twinx()
+                ax2.plot(progress_table['Week'], progress_table['Ending Body Fat %'], 
+                        'r-', linewidth=2, label='Body Fat %')
+                ax2.set_ylabel('Body Fat %', color='r')
+                ax2.tick_params('y', colors='r')
+                
+                # Add a grid for better readability
+                ax1.grid(True, alpha=0.3)
+                
+                # Add title and legend
+                plt.title('Projected Weight and Body Fat Changes')
+                
+                # Combine legends from both axes
+                lines1, labels1 = ax1.get_legend_handles_labels()
+                lines2, labels2 = ax2.get_legend_handles_labels()
+                ax1.legend(lines1 + lines2, labels1 + labels2, loc='best')
+                
+                st.pyplot(fig)
             
             # Create a second chart showing fat mass and fat-free mass changes
             fig2, ax = plt.subplots(figsize=(10, 6))
