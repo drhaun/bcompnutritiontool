@@ -406,185 +406,264 @@ with st.form("goal_setting_form"):
     st.write("### Set Target Values")
     st.write("Adjust any of these values and the others will update automatically:")
     
+    # Set up container for inputs
+    target_input_container = st.container()
+    
+    # Initialize session state for tracking changes
+    if "form_submitted" not in st.session_state:
+        st.session_state.form_submitted = False
+        
+    if "target_bf_prev" not in st.session_state:
+        st.session_state.target_bf_prev = target_bf
+        
+    if "target_fat_prev" not in st.session_state:
+        st.session_state.target_fat_prev = target_fat_mass_lbs
+        
+    if "target_ffm_prev" not in st.session_state:
+        st.session_state.target_ffm_prev = target_ffm_lbs
+    
+    # Function to update values based on body fat change
+    def on_bf_change():
+        if st.session_state.target_bf != st.session_state.target_bf_prev:
+            # Body fat % was changed, update fat mass and FFM assuming same weight
+            new_bf = st.session_state.target_bf
+            total_weight = st.session_state.target_fat + st.session_state.target_ffm
+            
+            # Calculate new fat mass based on BF%
+            new_fat_mass = total_weight * (new_bf / 100)
+            new_ffm = total_weight - new_fat_mass
+            
+            # Update other fields
+            st.session_state.target_fat = new_fat_mass
+            st.session_state.target_ffm = new_ffm
+            st.session_state.target_bf_prev = new_bf
+    
+    # Function to update values based on fat mass change
+    def on_fat_change():
+        if st.session_state.target_fat != st.session_state.target_fat_prev:
+            # Fat mass was changed, update body fat % keeping FFM the same
+            new_fat_mass = st.session_state.target_fat
+            ffm = st.session_state.target_ffm
+            
+            # Calculate new body fat percentage
+            total_weight = new_fat_mass + ffm
+            new_bf = (new_fat_mass / total_weight) * 100
+            
+            # Update BF%
+            st.session_state.target_bf = new_bf
+            st.session_state.target_fat_prev = new_fat_mass
+    
+    # Function to update values based on FFM change
+    def on_ffm_change():
+        if st.session_state.target_ffm != st.session_state.target_ffm_prev:
+            # FFM was changed, update body fat % keeping fat mass the same
+            new_ffm = st.session_state.target_ffm
+            fat_mass = st.session_state.target_fat
+            
+            # Calculate new body fat percentage
+            total_weight = fat_mass + new_ffm
+            new_bf = (fat_mass / total_weight) * 100
+            
+            # Update BF%
+            st.session_state.target_bf = new_bf
+            st.session_state.target_ffm_prev = new_ffm
+            
     # Set up tabs for different input methods
-    target_tabs = st.tabs(["Body Composition", "Body Composition Indices"])
+    with target_input_container:
+        target_tabs = st.tabs(["Body Composition", "Body Composition Indices"])
+        
+        # Tab 1: Body Composition (Weight, BF%, Fat Mass, FFM)
+        with target_tabs[0]:
+            target_col1, target_col2, target_col3 = st.columns(3)
+            
+            # Column 1: Body Fat percentage
+            with target_col1:
+                # Min/Max BF limits based on goal
+                min_target_bf = max(3.0, current_bf * 0.7) if goal_type == "Lose fat" else max(3.0, current_bf * 0.9)
+                max_target_bf = min(50.0, current_bf * 1.1) if goal_type == "Gain muscle" else min(50.0, current_bf * 0.99)
+                
+                # For maintain goal type, set reasonable limits
+                if goal_type == "Maintain current composition":
+                    min_target_bf = max(3.0, current_bf * 0.9)
+                    max_target_bf = min(50.0, current_bf * 1.1)
+                
+                # Target body fat percentage
+                new_target_bf = st.number_input(
+                    "Target Body Fat (%)",
+                    min_value=min_target_bf,
+                    max_value=max_target_bf,
+                    value=target_bf,
+                    step=0.1,
+                    key="target_bf",
+                    on_change=on_bf_change,
+                    help="Enter your target body fat percentage"
+                )
+            
+            # Column 2: Target Fat Mass
+            with target_col2:
+                # Adjust limits based on goal
+                fat_mass_min = max(current_fat_mass_lbs - 25, 5.0) if goal_type == "Lose fat" else max(current_fat_mass_lbs * 0.8, 5.0)
+                fat_mass_max = current_fat_mass_lbs - 0.5 if goal_type == "Lose fat" else current_fat_mass_lbs * 1.2
+                
+                # For maintain, use different limits
+                if goal_type == "Maintain current composition":
+                    fat_mass_min = max(current_fat_mass_lbs * 0.9, 5.0)
+                    fat_mass_max = current_fat_mass_lbs * 1.1
+                
+                new_target_fat_mass_lbs = st.number_input(
+                    "Target Fat Mass (lbs)", 
+                    min_value=fat_mass_min,
+                    max_value=fat_mass_max,
+                    value=float(target_fat_mass_lbs),
+                    step=0.5,
+                    key="target_fat",
+                    on_change=on_fat_change,
+                    help="Enter your target fat mass in pounds"
+                )
+            
+            # Column 3: Target Fat-Free Mass
+            with target_col3:
+                # Adjust limits based on goal
+                ffm_min = current_fat_free_mass_lbs * 0.95 if goal_type == "Lose fat" else current_fat_free_mass_lbs + 0.5
+                ffm_max = current_fat_free_mass_lbs * 1.05 if goal_type == "Lose fat" else min(current_fat_free_mass_lbs + 10, current_fat_free_mass_lbs * 1.1)
+                
+                # For maintain, use different limits
+                if goal_type == "Maintain current composition":
+                    ffm_min = current_fat_free_mass_lbs * 0.9
+                    ffm_max = current_fat_free_mass_lbs * 1.1
+                
+                new_target_ffm_lbs = st.number_input(
+                    "Target Fat-Free Mass (lbs)",
+                    min_value=ffm_min,
+                    max_value=ffm_max,
+                    value=float(target_ffm_lbs),
+                    step=0.5,
+                    key="target_ffm",
+                    on_change=on_ffm_change,
+                    help="Enter your target fat-free mass in pounds"
+                )
+        
+        # Tab 2: Body Composition Indices (FMI, FFMI)
+        with target_tabs[1]:
+            # Get height for index calculations
+            height_m = height_cm / 100
+            
+            indices_col1, indices_col2 = st.columns(2)
+            
+            # Column 1: Target FMI 
+            with indices_col1:
+                # Calculate current FMI range for limits
+                current_fmi = current_fat_mass_kg / (height_m * height_m)
+                
+                # Set reasonable min/max limits based on goal
+                fmi_min = max(2.0, current_fmi * 0.7) if goal_type == "Lose fat" else max(2.0, current_fmi * 0.9)
+                fmi_max = current_fmi * 0.99 if goal_type == "Lose fat" else current_fmi * 1.1
+                
+                # For maintain, use different limits
+                if goal_type == "Maintain current composition":
+                    fmi_min = max(2.0, current_fmi * 0.9)
+                    fmi_max = current_fmi * 1.1
+                
+                # Current target fat mass converted to kg
+                target_fat_mass_kg_current = st.session_state.target_fat / 2.20462
+                
+                # Calculate current target FMI
+                target_fmi_current = target_fat_mass_kg_current / (height_m * height_m)
+                
+                # Target FMI input
+                new_target_fmi = st.number_input(
+                    "Target Fat Mass Index (kg/m²)",
+                    min_value=float(fmi_min),
+                    max_value=float(fmi_max),
+                    value=float(target_fmi_current),
+                    step=0.1,
+                    key="target_fmi",
+                    help="Enter your target Fat Mass Index (FMI)"
+                )
+                
+                # Find FMI category 
+                target_fmi_category = "Unknown"
+                for category in fmi_categories:
+                    if category["lower"] <= new_target_fmi <= category["upper"]:
+                        target_fmi_category = category["name"]
+                        break
+                
+                st.write(f"Target FMI Category: **{target_fmi_category}**")
+                
+                # Update fat mass based on FMI if it was changed
+                new_target_fat_mass_kg = new_target_fmi * (height_m * height_m)
+                new_target_fat_mass_lbs = new_target_fat_mass_kg * 2.20462
+                
+                if abs(new_target_fat_mass_lbs - st.session_state.target_fat) > 0.01:
+                    st.session_state.target_fat = new_target_fat_mass_lbs
+                    # Recalculate BF%
+                    total_weight = new_target_fat_mass_lbs + st.session_state.target_ffm
+                    st.session_state.target_bf = (new_target_fat_mass_lbs / total_weight) * 100
+            
+            # Column 2: Target FFMI
+            with indices_col2:
+                # Calculate current FFMI range for limits
+                current_ffmi = current_fat_free_mass_kg / (height_m * height_m)
+                
+                # Set reasonable min/max limits based on goal
+                ffmi_min = max(current_ffmi * 0.95, 8.0) if goal_type == "Lose fat" else max(current_ffmi * 1.01, 8.0)
+                ffmi_max = current_ffmi * 1.02 if goal_type == "Lose fat" else min(current_ffmi * 1.1, 27.0)
+                
+                # For maintain, use different limits
+                if goal_type == "Maintain current composition":
+                    ffmi_min = max(current_ffmi * 0.95, 8.0)
+                    ffmi_max = min(current_ffmi * 1.05, 27.0)
+                
+                # Current target FFM converted to kg
+                target_ffm_kg_current = st.session_state.target_ffm / 2.20462
+                
+                # Calculate current target FFMI
+                target_ffmi_current = target_ffm_kg_current / (height_m * height_m)
+                
+                # Target FFMI input
+                new_target_ffmi = st.number_input(
+                    "Target Fat-Free Mass Index (kg/m²)",
+                    min_value=float(ffmi_min),
+                    max_value=float(ffmi_max),
+                    value=float(target_ffmi_current),
+                    step=0.1,
+                    key="target_ffmi",
+                    help="Enter your target Fat-Free Mass Index (FFMI)"
+                )
+                
+                # Apply normalization formula to show normalized FFMI
+                normalized_target_ffmi = new_target_ffmi * (1.8 / height_m)
+                st.write(f"Normalized Target FFMI: **{normalized_target_ffmi:.1f}** kg/m²")
+                
+                # Find FFMI category
+                target_ffmi_category = "Unknown"
+                for category in ffmi_categories:
+                    if category["lower"] <= new_target_ffmi <= category["upper"]:
+                        target_ffmi_category = category["name"]
+                        break
+                
+                st.write(f"Target FFMI Category: **{target_ffmi_category}**")
+                
+                # Update FFM based on FFMI if it was changed
+                new_target_ffm_kg = new_target_ffmi * (height_m * height_m)
+                new_target_ffm_lbs = new_target_ffm_kg * 2.20462
+                
+                if abs(new_target_ffm_lbs - st.session_state.target_ffm) > 0.01:
+                    st.session_state.target_ffm = new_target_ffm_lbs
+                    # Recalculate BF%
+                    total_weight = st.session_state.target_fat + new_target_ffm_lbs
+                    st.session_state.target_bf = (st.session_state.target_fat / total_weight) * 100
+            
+            # Calculate the new combo recommendation
+            combo_rec = utils.get_combined_category_rates(target_fmi_category, target_ffmi_category)
+            target_recommended_category = combo_rec.get("recommendation", "No specific recommendation available")
+            
+            st.write(f"**Recommendation based on target body composition**: {target_recommended_category}")
     
-    # Tab 1: Body Composition (Weight, BF%, Fat Mass, FFM)
-    with target_tabs[0]:
-        target_col1, target_col2, target_col3 = st.columns(3)
-        
-        # Column 1: Body Fat percentage
-        with target_col1:
-            # Min/Max BF limits based on goal
-            min_target_bf = max(3.0, current_bf * 0.7) if goal_type == "Lose fat" else max(3.0, current_bf * 0.9)
-            max_target_bf = min(50.0, current_bf * 1.1) if goal_type == "Gain muscle" else min(50.0, current_bf * 0.99)
-            
-            # For maintain goal type, set reasonable limits
-            if goal_type == "Maintain current composition":
-                min_target_bf = max(3.0, current_bf * 0.9)
-                max_target_bf = min(50.0, current_bf * 1.1)
-            
-            # Target body fat percentage
-            new_target_bf = st.number_input(
-                "Target Body Fat (%)",
-                min_value=min_target_bf,
-                max_value=max_target_bf,
-                value=target_bf,
-                step=0.1,
-                key="target_bf_input",
-                help="Enter your target body fat percentage"
-            )
-        
-        # Column 2: Target Fat Mass
-        with target_col2:
-            # Adjust limits based on goal
-            fat_mass_min = max(current_fat_mass_lbs - 25, 5.0) if goal_type == "Lose fat" else max(current_fat_mass_lbs * 0.8, 5.0)
-            fat_mass_max = current_fat_mass_lbs - 0.5 if goal_type == "Lose fat" else current_fat_mass_lbs * 1.2
-            
-            # For maintain, use different limits
-            if goal_type == "Maintain current composition":
-                fat_mass_min = max(current_fat_mass_lbs * 0.9, 5.0)
-                fat_mass_max = current_fat_mass_lbs * 1.1
-            
-            new_target_fat_mass_lbs = st.number_input(
-                "Target Fat Mass (lbs)", 
-                min_value=fat_mass_min,
-                max_value=fat_mass_max,
-                value=float(target_fat_mass_lbs),
-                step=0.5,
-                key="target_fat_input",
-                help="Enter your target fat mass in pounds"
-            )
-        
-        # Column 3: Target Fat-Free Mass
-        with target_col3:
-            # Adjust limits based on goal
-            ffm_min = current_fat_free_mass_lbs * 0.95 if goal_type == "Lose fat" else current_fat_free_mass_lbs + 0.5
-            ffm_max = current_fat_free_mass_lbs * 1.05 if goal_type == "Lose fat" else min(current_fat_free_mass_lbs + 10, current_fat_free_mass_lbs * 1.1)
-            
-            # For maintain, use different limits
-            if goal_type == "Maintain current composition":
-                ffm_min = current_fat_free_mass_lbs * 0.9
-                ffm_max = current_fat_free_mass_lbs * 1.1
-            
-            new_target_ffm_lbs = st.number_input(
-                "Target Fat-Free Mass (lbs)",
-                min_value=ffm_min,
-                max_value=ffm_max,
-                value=float(target_ffm_lbs),
-                step=0.5,
-                key="target_ffm_input",
-                help="Enter your target fat-free mass in pounds"
-            )
-    
-    # Tab 2: Body Composition Indices (FMI, FFMI)
-    with target_tabs[1]:
-        # Get height for index calculations
-        height_m = height_cm / 100
-        
-        indices_col1, indices_col2 = st.columns(2)
-        
-        # Column 1: Target FMI 
-        with indices_col1:
-            # Calculate current FMI range for limits
-            current_fmi = current_fat_mass_kg / (height_m * height_m)
-            
-            # Set reasonable min/max limits based on goal
-            fmi_min = max(2.0, current_fmi * 0.7) if goal_type == "Lose fat" else max(2.0, current_fmi * 0.9)
-            fmi_max = current_fmi * 0.99 if goal_type == "Lose fat" else current_fmi * 1.1
-            
-            # For maintain, use different limits
-            if goal_type == "Maintain current composition":
-                fmi_min = max(2.0, current_fmi * 0.9)
-                fmi_max = current_fmi * 1.1
-            
-            # Current target fat mass converted to kg
-            target_fat_mass_kg_current = target_fat_mass_lbs / 2.20462
-            
-            # Calculate current target FMI
-            target_fmi_current = target_fat_mass_kg_current / (height_m * height_m)
-            
-            # Target FMI input
-            new_target_fmi = st.number_input(
-                "Target Fat Mass Index (kg/m²)",
-                min_value=float(fmi_min),
-                max_value=float(fmi_max),
-                value=float(target_fmi_current),
-                step=0.1,
-                key="target_fmi_input",
-                help="Enter your target Fat Mass Index (FMI)"
-            )
-            
-            # Find FMI category 
-            target_fmi_category = "Unknown"
-            for category in fmi_categories:
-                if category["lower"] <= new_target_fmi <= category["upper"]:
-                    target_fmi_category = category["name"]
-                    break
-            
-            st.write(f"Target FMI Category: **{target_fmi_category}**")
-        
-        # Column 2: Target FFMI
-        with indices_col2:
-            # Calculate current FFMI range for limits
-            current_ffmi = current_fat_free_mass_kg / (height_m * height_m)
-            
-            # Set reasonable min/max limits based on goal
-            ffmi_min = max(current_ffmi * 0.95, 8.0) if goal_type == "Lose fat" else max(current_ffmi * 1.01, 8.0)
-            ffmi_max = current_ffmi * 1.02 if goal_type == "Lose fat" else min(current_ffmi * 1.1, 27.0)
-            
-            # For maintain, use different limits
-            if goal_type == "Maintain current composition":
-                ffmi_min = max(current_ffmi * 0.95, 8.0)
-                ffmi_max = min(current_ffmi * 1.05, 27.0)
-            
-            # Current target FFM converted to kg
-            target_ffm_kg_current = target_ffm_lbs / 2.20462
-            
-            # Calculate current target FFMI
-            target_ffmi_current = target_ffm_kg_current / (height_m * height_m)
-            
-            # Target FFMI input
-            new_target_ffmi = st.number_input(
-                "Target Fat-Free Mass Index (kg/m²)",
-                min_value=float(ffmi_min),
-                max_value=float(ffmi_max),
-                value=float(target_ffmi_current),
-                step=0.1,
-                key="target_ffmi_input",
-                help="Enter your target Fat-Free Mass Index (FFMI)"
-            )
-            
-            # Apply normalization formula to show normalized FFMI
-            normalized_target_ffmi = new_target_ffmi * (1.8 / height_m)
-            st.write(f"Normalized Target FFMI: **{normalized_target_ffmi:.1f}** kg/m²")
-            
-            # Find FFMI category
-            target_ffmi_category = "Unknown"
-            for category in ffmi_categories:
-                if category["lower"] <= new_target_ffmi <= category["upper"]:
-                    target_ffmi_category = category["name"]
-                    break
-            
-            st.write(f"Target FFMI Category: **{target_ffmi_category}**")
-            
-        # Calculate the new combo recommendation
-        combo_rec = utils.get_combined_category_rates(target_fmi_category, target_ffmi_category)
-        target_recommended_category = combo_rec.get("recommendation", "No specific recommendation available")
-        
-        st.write(f"**Recommendation based on target body composition**: {target_recommended_category}")
-    
-    # Determine which field was last changed
-    last_changed = None
-    if "last_changed" not in st.session_state:
-        st.session_state.last_changed = "bf"  # Default to body fat
-    
-    # Check which field was last modified
-    for field in ["bf", "fat", "ffm", "fmi", "ffmi"]:
-        if f"target_{field}_input" in st.session_state:
-            st.session_state.last_changed = field
-            last_changed = field
-            break
+    # Get values from session state
+    target_bf = st.session_state.target_bf
+    target_fat_mass_lbs = st.session_state.target_fat
+    target_ffm_lbs = st.session_state.target_ffm
     
     # Recalculate values based on last changed field
     if last_changed == "bf":
@@ -630,6 +709,9 @@ with st.form("goal_setting_form"):
         target_ffm_lbs = new_target_ffm_lbs
         target_weight_lbs = target_fat_mass_lbs + target_ffm_lbs
         target_bf = (target_fat_mass_lbs / target_weight_lbs) * 100
+    
+    # Calculate target weight from fat mass and FFM
+    target_weight_lbs = target_fat_mass_lbs + target_ffm_lbs
     
     # Display the calculated values
     st.write("### Target Body Composition Summary")
