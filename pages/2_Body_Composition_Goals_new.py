@@ -236,15 +236,6 @@ with st.form("goal_setting_form"):
         
         st.table(comp_df)
         
-        # Save this information for reference cards to show during target selection
-        current_comp_summary = {
-            'weight_lbs': f"{current_weight_lbs:.1f} lbs",
-            'fat_mass_lbs': f"{current_fat_mass_lbs:.1f} lbs",
-            'ffm_lbs': f"{current_fat_free_mass_lbs:.1f} lbs",
-            'bf': f"{current_bf:.1f}%",
-            'ffm_percentage': f"{100-current_bf:.1f}%"
-        }
-        
         # Add reference photo viewing option
         with st.expander("📷 View Body Fat Percentage Reference Photos"):
             ref_photo_path = "images/ref_photos.jpg"
@@ -375,96 +366,72 @@ with st.form("goal_setting_form"):
         # SECTION 4: TARGET SELECTION
         st.markdown("---")
         if goal_type == "Lose fat":
+            # Direct target fat mass input
             st.subheader("Set Target Fat Mass")
+            target_fat_mass_lbs = st.number_input(
+                "Target Fat Mass (lbs)", 
+                min_value=max(current_fat_mass_lbs - 25, 5.0),  # Cap max loss at 25 lbs
+                max_value=current_fat_mass_lbs - 0.5,  # Must be at least 0.5 lb less
+                value=max(current_fat_mass_lbs * 0.85, current_fat_mass_lbs - 10),
+                step=0.5,
+                help="Enter your target fat mass in pounds (must be lower than current fat mass)"
+            )
             
-            # Create two columns for current values and target input
-            col1, col2 = st.columns(2)
+            # Convert to kg
+            target_fat_mass_kg = target_fat_mass_lbs / 2.20462
             
-            with col1:
-                st.info("### Current Values")
-                st.write(f"**Current Fat Mass:** {current_comp_summary['fat_mass_lbs']} ({current_comp_summary['bf']} of body weight)")
-                st.write(f"**Current Fat-Free Mass:** {current_comp_summary['ffm_lbs']} ({current_comp_summary['ffm_percentage']} of body weight)")
-                st.write(f"**Current Total Weight:** {current_comp_summary['weight_lbs']}")
+            # Assume preservation of lean body mass for fat loss
+            target_ffm_lbs = st.number_input(
+                "Target Fat-Free Mass (lbs)",
+                min_value=current_fat_free_mass_lbs * 0.95,  # Allow slight loss
+                max_value=current_fat_free_mass_lbs * 1.05,  # Allow slight gain
+                value=current_fat_free_mass_lbs,
+                step=0.5,
+                help="Enter your target fat-free mass (usually similar to current for fat loss)"
+            )
             
-            with col2:
-                st.info("### Target Values")
-                # Direct target fat mass input
-                target_fat_mass_lbs = st.number_input(
-                    "Target Fat Mass (lbs)", 
-                    min_value=max(current_fat_mass_lbs - 25, 5.0),  # Cap max loss at 25 lbs
-                    max_value=current_fat_mass_lbs - 0.5,  # Must be at least 0.5 lb less
-                    value=max(current_fat_mass_lbs * 0.85, current_fat_mass_lbs - 10),
-                    step=0.5,
-                    help="Enter your target fat mass in pounds (must be lower than current fat mass)"
-                )
-                
-                # Convert to kg
-                target_fat_mass_kg = target_fat_mass_lbs / 2.20462
-                
-                # Assume preservation of lean body mass for fat loss
-                target_ffm_lbs = st.number_input(
-                    "Target Fat-Free Mass (lbs)",
-                    min_value=current_fat_free_mass_lbs * 0.95,  # Allow slight loss
-                    max_value=current_fat_free_mass_lbs * 1.05,  # Allow slight gain
-                    value=current_fat_free_mass_lbs,
-                    step=0.5,
-                    help="Enter your target fat-free mass (usually similar to current for fat loss)"
-                )
-                
-                # Convert to kg
-                target_ffm_kg = target_ffm_lbs / 2.20462
-                
-                # Calculate resulting total weight and body fat
-                target_weight_kg = target_fat_mass_kg + target_ffm_kg
-                target_weight_lbs = target_weight_kg * 2.20462
-                target_bf = (target_fat_mass_kg / target_weight_kg) * 100
+            # Convert to kg
+            target_ffm_kg = target_ffm_lbs / 2.20462
+            
+            # Calculate resulting total weight and body fat
+            target_weight_kg = target_fat_mass_kg + target_ffm_kg
+            target_weight_lbs = target_weight_kg * 2.20462
+            target_bf = (target_fat_mass_kg / target_weight_kg) * 100
             
             st.success(f"Calculated Target Weight: {target_weight_lbs:.1f} lbs | Target Body Fat: {target_bf:.1f}%")
             
         elif goal_type == "Gain muscle":
+            # Direct target fat-free mass input 
             st.subheader("Set Target Fat-Free Mass")
+            target_ffm_lbs = st.number_input(
+                "Target Fat-Free Mass (lbs)",
+                min_value=current_fat_free_mass_lbs + 0.5,  # Must be at least 0.5 lb more
+                max_value=min(current_fat_free_mass_lbs + 10, current_fat_free_mass_lbs * 1.1),  # Cap at 10 lbs gain
+                value=min(current_fat_free_mass_lbs * 1.05, current_fat_free_mass_lbs + 5),
+                step=0.5,
+                help="Enter your target fat-free mass (must be higher than current fat-free mass)"
+            )
             
-            # Create two columns for current values and target input
-            col1, col2 = st.columns(2)
+            # Convert to kg
+            target_ffm_kg = target_ffm_lbs / 2.20462
             
-            with col1:
-                st.info("### Current Values")
-                st.write(f"**Current Fat-Free Mass:** {current_comp_summary['ffm_lbs']} ({current_comp_summary['ffm_percentage']} of body weight)")
-                st.write(f"**Current Fat Mass:** {current_comp_summary['fat_mass_lbs']} ({current_comp_summary['bf']} of body weight)")
-                st.write(f"**Current Total Weight:** {current_comp_summary['weight_lbs']}")
+            # Allow slight change in fat mass for muscle gain (usually increases)
+            target_fat_mass_lbs = st.number_input(
+                "Target Fat Mass (lbs)",
+                min_value=max(current_fat_mass_lbs * 0.9, 5.0),
+                max_value=current_fat_mass_lbs * 1.2,
+                value=current_fat_mass_lbs,
+                step=0.5,
+                help="Enter your target fat mass (may increase slightly during bulking)"
+            )
             
-            with col2:
-                st.info("### Target Values")
-                # Direct target fat-free mass input 
-                target_ffm_lbs = st.number_input(
-                    "Target Fat-Free Mass (lbs)",
-                    min_value=current_fat_free_mass_lbs + 0.5,  # Must be at least 0.5 lb more
-                    max_value=min(current_fat_free_mass_lbs + 10, current_fat_free_mass_lbs * 1.1),  # Cap at 10 lbs gain
-                    value=min(current_fat_free_mass_lbs * 1.05, current_fat_free_mass_lbs + 5),
-                    step=0.5,
-                    help="Enter your target fat-free mass (must be higher than current fat-free mass)"
-                )
-                
-                # Convert to kg
-                target_ffm_kg = target_ffm_lbs / 2.20462
-                
-                # Allow slight change in fat mass for muscle gain (usually increases)
-                target_fat_mass_lbs = st.number_input(
-                    "Target Fat Mass (lbs)",
-                    min_value=max(current_fat_mass_lbs * 0.9, 5.0),
-                    max_value=current_fat_mass_lbs * 1.2,
-                    value=current_fat_mass_lbs,
-                    step=0.5,
-                    help="Enter your target fat mass (may increase slightly during bulking)"
-                )
-                
-                # Convert to kg
-                target_fat_mass_kg = target_fat_mass_lbs / 2.20462
-                
-                # Calculate resulting total weight and body fat
-                target_weight_kg = target_fat_mass_kg + target_ffm_kg
-                target_weight_lbs = target_weight_kg * 2.20462
-                target_bf = (target_fat_mass_kg / target_weight_kg) * 100
+            # Convert to kg
+            target_fat_mass_kg = target_fat_mass_lbs / 2.20462
+            
+            # Calculate resulting total weight and body fat
+            target_weight_kg = target_fat_mass_kg + target_ffm_kg
+            target_weight_lbs = target_weight_kg * 2.20462
+            target_bf = (target_fat_mass_kg / target_weight_kg) * 100
             
             st.success(f"Calculated Target Weight: {target_weight_lbs:.1f} lbs | Target Body Fat: {target_bf:.1f}%")
             
@@ -474,46 +441,32 @@ with st.form("goal_setting_form"):
             stored_target_weight_lbs = stored_target_weight_kg * 2.20462 if stored_target_weight_kg else default_target_weight_lbs
             
             st.subheader("Set Target Weight and Body Fat")
+            target_weight_lbs = st.number_input(
+                "Target Weight (lbs)",
+                min_value=66.0,
+                max_value=660.0,
+                value=stored_target_weight_lbs,
+                step=0.5,
+                format="%.1f"
+            )
             
-            # Create two columns for current values and target input
-            col1, col2 = st.columns(2)
+            # Convert to kg for backend calculations
+            target_weight_kg = target_weight_lbs / 2.20462
             
-            with col1:
-                st.info("### Current Values")
-                st.write(f"**Current Weight:** {current_comp_summary['weight_lbs']}")
-                st.write(f"**Current Body Fat:** {current_comp_summary['bf']}")
-                st.write(f"**Current Composition:** {current_comp_summary['fat_mass_lbs']} fat / {current_comp_summary['ffm_lbs']} fat-free mass")
-            
-            with col2:
-                st.info("### Target Values")
-                target_weight_lbs = st.number_input(
-                    "Target Weight (lbs)",
-                    min_value=66.0,
-                    max_value=660.0,
-                    value=stored_target_weight_lbs,
-                    step=0.5,
-                    format="%.1f"
-                )
-                
-                # Convert to kg for backend calculations
-                target_weight_kg = target_weight_lbs / 2.20462
-                
-                target_bf = st.number_input(
-                    "Target Body Fat (%)",
-                    min_value=3.0,
-                    max_value=50.0,
-                    value=st.session_state.goal_info.get('target_body_fat', current_bf),
-                    step=0.1,
-                    format="%.1f"
-                )
+            target_bf = st.number_input(
+                "Target Body Fat (%)",
+                min_value=3.0,
+                max_value=50.0,
+                value=st.session_state.goal_info.get('target_body_fat', current_bf),
+                step=0.1,
+                format="%.1f"
+            )
             
             # Calculate target fat mass and fat-free mass
             target_fat_mass_kg = target_weight_kg * (target_bf / 100)
             target_fat_mass_lbs = target_fat_mass_kg * 2.20462
             target_ffm_kg = target_weight_kg - target_fat_mass_kg
             target_ffm_lbs = target_ffm_kg * 2.20462
-            
-            st.success(f"Resulting Composition: {target_fat_mass_lbs:.1f} lbs fat / {target_ffm_lbs:.1f} lbs fat-free mass")
         
         # Make sure all values are of the same type (float)
         timeline_weeks = st.number_input(
