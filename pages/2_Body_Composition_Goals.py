@@ -611,7 +611,7 @@ if st.session_state.goal_info.get('target_weight_kg'):
         st.write(f"**Your current position**: FMI: **{fmi_category_name}**, FFMI: **{ffmi_category_name}**")
         st.write(f"**Recommendation**: {recommended_category}")
         
-        # Create a second table showing the rate recommendations in an expandable section
+        # Create a second table showing the rate recommendations in a collapsible section
         with st.expander("📊 View Rate Recommendations by FMI/FFMI Combination"):
             st.write("Percent of bodyweight per week:")
             
@@ -1159,20 +1159,21 @@ if st.session_state.goal_info.get('target_weight_kg'):
 
     # Generate detailed weekly progress projection table
     st.markdown("---")
-    st.subheader("Detailed Weekly Progress Projection")
+    st.subheader("Weekly Progress Details")
     
-    # Use the actual rate based on target and timeline, not the recommended rate
-    # This ensures the weekly projection matches the user's chosen targets
-    weight_change_kg = target_weight_kg - current_weight_kg
-    weekly_weight_change_kg = weight_change_kg / timeline_weeks
-    
-    # For percentage calculations, we need the sign to be correct
-    if goal_type == "Lose fat":
-        weekly_weight_pct = weekly_weight_change_kg / current_weight_kg  # Will be negative for weight loss
-        weekly_fat_pct = recommended_fat_pct  # Use the recommended fat percentage for loss
-    else:  # Gain muscle
-        weekly_weight_pct = weekly_weight_change_kg / current_weight_kg  # Will be positive for weight gain
-        weekly_fat_pct = recommended_fat_pct  # Use the recommended fat percentage for gain
+    with st.expander("View Detailed Weekly Progress Projection"):
+        # Use the actual rate based on target and timeline, not the recommended rate
+        # This ensures the weekly projection matches the user's chosen targets
+        weight_change_kg = target_weight_kg - current_weight_kg
+        weekly_weight_change_kg = weight_change_kg / timeline_weeks
+        
+        # For percentage calculations, we need the sign to be correct
+        if goal_type == "Lose fat":
+            weekly_weight_pct = weekly_weight_change_kg / current_weight_kg  # Will be negative for weight loss
+            weekly_fat_pct = recommended_fat_pct  # Use the recommended fat percentage for loss
+        else:  # Gain muscle
+            weekly_weight_pct = weekly_weight_change_kg / current_weight_kg  # Will be positive for weight gain
+            weekly_fat_pct = recommended_fat_pct  # Use the recommended fat percentage for gain
     
     # Get other parameters needed for the calculation
     start_date_str = st.session_state.goal_info.get('start_date')
@@ -1183,105 +1184,101 @@ if st.session_state.goal_info.get('target_weight_kg'):
     activity_level = st.session_state.user_info.get('activity_level', "Sedentary (office job, <2 hours exercise per week)")
     tdee = utils.calculate_tdee(gender, current_weight_kg, height_cm, age, activity_level)
     
-    # Add Expected Progress section with collapsible content
-    st.subheader("Expected Progress")
+    # Generate the detailed progress table
+    progress_table = utils.generate_detailed_progress_table(
+        current_weight_lbs, 
+        current_bf, 
+        target_weight_lbs, 
+        target_bf, 
+        weekly_weight_pct, 
+        weekly_fat_pct, 
+        int(timeline_weeks), 
+        start_date_str, 
+        tdee, 
+        gender, 
+        age, 
+        height_cm
+    )
     
-    with st.expander("View Expected Progress Details"):
-        # Generate the detailed progress table
-        progress_table = utils.generate_detailed_progress_table(
-            current_weight_lbs, 
-            current_bf, 
-            target_weight_lbs, 
-            target_bf, 
-            weekly_weight_pct, 
-            weekly_fat_pct, 
-            int(timeline_weeks), 
-            start_date_str, 
-            tdee, 
-            gender, 
-            age, 
-            height_cm
-        )
+    if not progress_table.empty:
+        # Create a tab view for different representations of the data
+        tab1, tab2, tab3 = st.tabs(["Full Table", "Summary View", "Visualization"])
         
-        if not progress_table.empty:
-            # Create a tab view for different representations of the data
-            tab1, tab2, tab3 = st.tabs(["Full Table", "Summary View", "Visualization"])
+        with tab1:
+            # Display the full detailed table
+            st.dataframe(progress_table)
             
-            with tab1:
-                # Display the full detailed table
-                st.dataframe(progress_table)
-                
-                # Add download button for CSV
-                csv = progress_table.to_csv(index=False)
-                st.download_button(
-                    label="Download Progress Table as CSV",
-                    data=csv,
-                    file_name="progress_projection.csv",
-                    mime="text/csv",
-                )
+            # Add download button for CSV
+            csv = progress_table.to_csv(index=False)
+            st.download_button(
+                label="Download Progress Table as CSV",
+                data=csv,
+                file_name="progress_projection.csv",
+                mime="text/csv",
+            )
         
-            with tab2:
-                # Create a more condensed view showing only key weeks (starting, 1/4, 1/2, 3/4, ending)
-                num_weeks = len(progress_table) - 1  # Exclude week 0
-                weeks_to_show = [0]  # Always show starting point
-                
-                if num_weeks >= 4:
-                    # Add quarter points
-                    weeks_to_show.extend([
-                        max(1, round(num_weeks * 0.25)),
-                        round(num_weeks * 0.5),
-                        round(num_weeks * 0.75),
-                        num_weeks  # Final week
-                    ])
-                else:
-                    # For shorter plans, just show all weeks
-                    weeks_to_show.extend(list(range(1, num_weeks + 1)))
-                
-                # Select rows for the specified weeks
-                summary_table = progress_table[progress_table['Week'].isin(weeks_to_show)]
-                
-                # Choose only the most relevant columns for the summary
-                summary_columns = [
-                    'Date', 'Week', 'Starting Weight (lbs)', 'Ending Weight (lbs)', 
-                    'Weekly Change (lbs)', 'Ending Body Fat %', 'Daily Energy Target (kcal)'
-                ]
-                
-                # Display the summary table
-                st.dataframe(summary_table[summary_columns])
+        with tab2:
+            # Create a more condensed view showing only key weeks (starting, 1/4, 1/2, 3/4, ending)
+            num_weeks = len(progress_table) - 1  # Exclude week 0
+            weeks_to_show = [0]  # Always show starting point
+            
+            if num_weeks >= 4:
+                # Add quarter points
+                weeks_to_show.extend([
+                    max(1, round(num_weeks * 0.25)),
+                    round(num_weeks * 0.5),
+                    round(num_weeks * 0.75),
+                    num_weeks  # Final week
+                ])
+            else:
+                # For shorter plans, just show all weeks
+                weeks_to_show.extend(list(range(1, num_weeks + 1)))
+            
+            # Select rows for the specified weeks
+            summary_table = progress_table[progress_table['Week'].isin(weeks_to_show)]
+            
+            # Choose only the most relevant columns for the summary
+            summary_columns = [
+                'Date', 'Week', 'Starting Weight (lbs)', 'Ending Weight (lbs)', 
+                'Weekly Change (lbs)', 'Ending Body Fat %', 'Daily Energy Target (kcal)'
+            ]
+            
+            # Display the summary table
+            st.dataframe(summary_table[summary_columns])
         
-            with tab3:
-                # Create visualization of the progress
-                st.subheader("Projected Body Composition Changes")
-                
-                # Create a line chart for weight changes
-                fig, ax1 = plt.subplots(figsize=(10, 6))
-                
-                # Plot weight progression
-                ax1.plot(progress_table['Week'], progress_table['Ending Weight (lbs)'], 
-                        'b-', linewidth=2, label='Weight (lbs)')
-                ax1.set_xlabel('Week')
-                ax1.set_ylabel('Weight (lbs)', color='b')
-                ax1.tick_params('y', colors='b')
-                
-                # Create a second y-axis for body fat percentage
-                ax2 = ax1.twinx()
-                ax2.plot(progress_table['Week'], progress_table['Ending Body Fat %'], 
-                        'r-', linewidth=2, label='Body Fat %')
-                ax2.set_ylabel('Body Fat %', color='r')
-                ax2.tick_params('y', colors='r')
-                
-                # Add a grid for better readability
-                ax1.grid(True, alpha=0.3)
-                
-                # Add title and legend
-                plt.title('Projected Weight and Body Fat Changes')
-                
-                # Combine legends from both axes
-                lines1, labels1 = ax1.get_legend_handles_labels()
-                lines2, labels2 = ax2.get_legend_handles_labels()
-                ax1.legend(lines1 + lines2, labels1 + labels2, loc='best')
-                
-                st.pyplot(fig)
+        with tab3:
+            # Create visualization of the progress
+            st.subheader("Projected Body Composition Changes")
+            
+            # Create a line chart for weight changes
+            fig, ax1 = plt.subplots(figsize=(10, 6))
+            
+            # Plot weight progression
+            ax1.plot(progress_table['Week'], progress_table['Ending Weight (lbs)'], 
+                    'b-', linewidth=2, label='Weight (lbs)')
+            ax1.set_xlabel('Week')
+            ax1.set_ylabel('Weight (lbs)', color='b')
+            ax1.tick_params('y', colors='b')
+            
+            # Create a second y-axis for body fat percentage
+            ax2 = ax1.twinx()
+            ax2.plot(progress_table['Week'], progress_table['Ending Body Fat %'], 
+                    'r-', linewidth=2, label='Body Fat %')
+            ax2.set_ylabel('Body Fat %', color='r')
+            ax2.tick_params('y', colors='r')
+            
+            # Add a grid for better readability
+            ax1.grid(True, alpha=0.3)
+            
+            # Add title and legend
+            plt.title('Projected Weight and Body Fat Changes')
+            
+            # Combine legends from both axes
+            lines1, labels1 = ax1.get_legend_handles_labels()
+            lines2, labels2 = ax2.get_legend_handles_labels()
+            ax1.legend(lines1 + lines2, labels1 + labels2, loc='best')
+            
+            st.pyplot(fig)
             
             # Create a second chart showing fat mass and fat-free mass changes
             fig2, ax = plt.subplots(figsize=(10, 6))
