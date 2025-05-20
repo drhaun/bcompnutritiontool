@@ -383,57 +383,161 @@ with st.form("goal_setting_form"):
     # Editable target values
     st.markdown("---")
     st.subheader("Set Your Target Body Composition")
-    st.write("Adjust your target values below:")
+    st.write("Choose one or more target values below. The others will be calculated automatically:")
     
-    col1, col2 = st.columns(2)
+    # Add tabs for different input methods
+    target_tabs = st.tabs(["Target Body Fat %", "Target Fat Mass", "Target Fat-Free Mass"])
     
-    with col1:
-        new_target_fat_mass_lbs = None
-        if goal_type == "Lose fat":
-            new_target_fat_mass_lbs = st.number_input(
-                "Target Fat Mass (lbs)", 
-                min_value=max(current_fat_mass_lbs - 25, 5.0),  # Cap max loss at 25 lbs
-                max_value=current_fat_mass_lbs - 0.5,  # Must be at least 0.5 lb less
-                value=float(target_fat_mass_lbs),
-                step=0.5,
-                help="Enter your target fat mass in pounds (must be lower than current fat mass)"
-            )
-        else:
-            new_target_fat_mass_lbs = st.number_input(
-                "Target Fat Mass (lbs)",
-                min_value=max(current_fat_mass_lbs * 0.8, 5.0),
-                max_value=current_fat_mass_lbs * 1.2,
-                value=float(target_fat_mass_lbs),
-                step=0.5,
-                help="Enter your target fat mass in pounds"
-            )
+    # Option 1: Set target body fat percentage
+    with target_tabs[0]:
+        # Min/Max BF limits based on goal
+        min_target_bf = max(3.0, current_bf * 0.7) if goal_type == "Lose fat" else max(3.0, current_bf * 0.9)
+        max_target_bf = min(50.0, current_bf * 1.1) if goal_type == "Gain muscle" else min(50.0, current_bf * 0.99)
+        
+        # For maintain goal type, set reasonable limits
+        if goal_type == "Maintain current composition":
+            min_target_bf = max(3.0, current_bf * 0.9)
+            max_target_bf = min(50.0, current_bf * 1.1)
+        
+        # Target body fat percentage
+        target_bf_input = st.number_input(
+            "Target Body Fat (%)",
+            min_value=min_target_bf,
+            max_value=max_target_bf,
+            value=target_bf,
+            step=0.1,
+            help="Enter your target body fat percentage"
+        )
+        
+        # Calculate fat mass and FFM based on current weight and target BF%
+        # For now, assume weight stays the same, will adjust with sliders below
+        temp_target_weight_lbs = current_weight_lbs
+        temp_target_fat_mass_lbs = temp_target_weight_lbs * (target_bf_input / 100)
+        temp_target_ffm_lbs = temp_target_weight_lbs - temp_target_fat_mass_lbs
+        
+        # Option to adjust weight
+        st.write("Adjust target weight to change fat mass and fat-free mass:")
+        weight_adjustment = st.slider(
+            "Target Weight Adjustment (lbs)",
+            min_value=current_weight_lbs * 0.8,
+            max_value=current_weight_lbs * 1.2,
+            value=current_weight_lbs,
+            step=1.0,
+            help="Adjust the target weight while maintaining the selected body fat percentage"
+        )
+        
+        # Recalculate fat mass and FFM based on adjusted weight
+        temp_target_fat_mass_lbs = weight_adjustment * (target_bf_input / 100)
+        temp_target_ffm_lbs = weight_adjustment - temp_target_fat_mass_lbs
+        
+        # Display calculated values
+        st.success(f"Calculated Fat Mass: {temp_target_fat_mass_lbs:.1f} lbs | Fat-Free Mass: {temp_target_ffm_lbs:.1f} lbs")
     
-    with col2:
-        new_target_ffm_lbs = None
-        if goal_type == "Gain muscle":
-            new_target_ffm_lbs = st.number_input(
-                "Target Fat-Free Mass (lbs)",
-                min_value=current_fat_free_mass_lbs + 0.5,  # Must be at least 0.5 lb more
-                max_value=min(current_fat_free_mass_lbs + 10, current_fat_free_mass_lbs * 1.1),  # Cap at 10 lbs gain
-                value=float(target_ffm_lbs),
-                step=0.5,
-                help="Enter your target fat-free mass (must be higher than current fat-free mass)"
-            )
-        else:
-            new_target_ffm_lbs = st.number_input(
-                "Target Fat-Free Mass (lbs)",
-                min_value=current_fat_free_mass_lbs * 0.9,
-                max_value=current_fat_free_mass_lbs * 1.1,
-                value=float(target_ffm_lbs),
-                step=0.5,
-                help="Enter your target fat-free mass in pounds"
-            )
+    # Option 2: Set target fat mass
+    with target_tabs[1]:
+        # Adjust limits based on goal
+        fat_mass_min = max(current_fat_mass_lbs - 25, 5.0) if goal_type == "Lose fat" else max(current_fat_mass_lbs * 0.8, 5.0)
+        fat_mass_max = current_fat_mass_lbs - 0.5 if goal_type == "Lose fat" else current_fat_mass_lbs * 1.2
+        
+        # For maintain, use different limits
+        if goal_type == "Maintain current composition":
+            fat_mass_min = max(current_fat_mass_lbs * 0.9, 5.0)
+            fat_mass_max = current_fat_mass_lbs * 1.1
+        
+        temp_target_fat_mass_lbs = st.number_input(
+            "Target Fat Mass (lbs)", 
+            min_value=fat_mass_min,
+            max_value=fat_mass_max,
+            value=float(target_fat_mass_lbs),
+            step=0.5,
+            help="Enter your target fat mass in pounds"
+        )
+        
+        # Keep FFM the same initially
+        temp_target_ffm_lbs = current_fat_free_mass_lbs
+        
+        # Option to adjust FFM
+        ffm_adjustment = st.slider(
+            "Fat-Free Mass Adjustment (lbs)",
+            min_value=current_fat_free_mass_lbs * 0.9,
+            max_value=current_fat_free_mass_lbs * 1.1,
+            value=current_fat_free_mass_lbs,
+            step=1.0,
+            help="Adjust the fat-free mass"
+        )
+        
+        temp_target_ffm_lbs = ffm_adjustment
+        
+        # Calculate body fat % and total weight
+        temp_target_weight_lbs = temp_target_fat_mass_lbs + temp_target_ffm_lbs
+        temp_target_bf = (temp_target_fat_mass_lbs / temp_target_weight_lbs) * 100
+        
+        # Display calculated values
+        st.success(f"Calculated Weight: {temp_target_weight_lbs:.1f} lbs | Body Fat: {temp_target_bf:.1f}%")
     
-    # Calculate the updated values
-    target_fat_mass_lbs = new_target_fat_mass_lbs
-    target_ffm_lbs = new_target_ffm_lbs
+    # Option 3: Set target fat-free mass
+    with target_tabs[2]:
+        # Adjust limits based on goal
+        ffm_min = current_fat_free_mass_lbs * 0.95 if goal_type == "Lose fat" else current_fat_free_mass_lbs + 0.5
+        ffm_max = current_fat_free_mass_lbs * 1.05 if goal_type == "Lose fat" else min(current_fat_free_mass_lbs + 10, current_fat_free_mass_lbs * 1.1)
+        
+        # For maintain, use different limits
+        if goal_type == "Maintain current composition":
+            ffm_min = current_fat_free_mass_lbs * 0.9
+            ffm_max = current_fat_free_mass_lbs * 1.1
+        
+        temp_target_ffm_lbs = st.number_input(
+            "Target Fat-Free Mass (lbs)",
+            min_value=ffm_min,
+            max_value=ffm_max,
+            value=float(target_ffm_lbs),
+            step=0.5,
+            help="Enter your target fat-free mass in pounds"
+        )
+        
+        # Keep fat mass the same initially
+        temp_target_fat_mass_lbs = current_fat_mass_lbs
+        
+        # Option to adjust fat mass
+        fat_adjustment = st.slider(
+            "Fat Mass Adjustment (lbs)",
+            min_value=max(current_fat_mass_lbs * 0.8, 5.0),
+            max_value=current_fat_mass_lbs * 1.2,
+            value=current_fat_mass_lbs,
+            step=1.0,
+            help="Adjust the fat mass"
+        )
+        
+        temp_target_fat_mass_lbs = fat_adjustment
+        
+        # Calculate body fat % and total weight
+        temp_target_weight_lbs = temp_target_fat_mass_lbs + temp_target_ffm_lbs
+        temp_target_bf = (temp_target_fat_mass_lbs / temp_target_weight_lbs) * 100
+        
+        # Display calculated values
+        st.success(f"Calculated Weight: {temp_target_weight_lbs:.1f} lbs | Body Fat: {temp_target_bf:.1f}%")
+    
+    # Select which tab's values to use
+    active_tab = st.session_state.get("active_tab", 0)
+    if "active_tab" not in st.session_state:
+        st.session_state.active_tab = 0
+    
+    # Use the values from the active tab
+    if active_tab == 0:  # Body Fat % tab
+        target_fat_mass_lbs = temp_target_fat_mass_lbs
+        target_ffm_lbs = temp_target_ffm_lbs
+        target_bf = target_bf_input
+    else:  # Fat Mass or FFM tabs
+        target_fat_mass_lbs = temp_target_fat_mass_lbs
+        target_ffm_lbs = temp_target_ffm_lbs
+        target_bf = temp_target_bf
+    
+    # Final calculations for all paths
     target_weight_lbs = target_fat_mass_lbs + target_ffm_lbs
-    target_bf = (target_fat_mass_lbs / target_weight_lbs) * 100
+    
+    # Display the final target values
+    st.write(f"### Final Target Values")
+    st.info(f"Target Weight: {target_weight_lbs:.1f} lbs | Target Body Fat: {target_bf:.1f}% | Fat Mass: {target_fat_mass_lbs:.1f} lbs | Fat-Free Mass: {target_ffm_lbs:.1f} lbs")
     
     # Convert to kg for backend calculations
     target_fat_mass_kg = target_fat_mass_lbs / 2.20462
