@@ -97,14 +97,22 @@ with st.form("goal_setting_form"):
     col1, col2 = st.columns(2)
     
     with col1:
-        goal_type = st.radio(
-            "What is your primary goal?",
-            options=["Lose fat", "Gain muscle", "Maintain current composition"],
-            index=initial_goal_index
-        )
+        # Use the goal from the user info instead of asking again
+        if "goal_focus" in st.session_state.user_info:
+            goal_type = st.session_state.user_info["goal_focus"]
+            # Handle maintain body composition format difference
+            if goal_type == "Maintain body composition/Support performance":
+                goal_type = "Maintain current composition"
+            
+            st.write(f"**Your Primary Goal**: {goal_type}")
+        else:
+            # Fallback in case goal wasn't set in Initial Setup
+            goal_type = "Lose fat"
+            st.write(f"**Your Primary Goal**: {goal_type}")
+            st.write("(You can change this in the Initial Setup page)")
         
         # Convert the display name to the internal code
-        goal_type_code = "lose_fat" if goal_type == "Lose fat" else "gain_muscle" if goal_type == "Gain muscle" else "maintain"
+        goal_type_code = "lose_fat" if goal_type == "Lose fat" else "gain_muscle" if goal_type in ["Gain muscle", "Build muscle"] else "maintain"
         
         # Default target weight based on goal type (in pounds)
         default_target_weight_lbs = 0

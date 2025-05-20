@@ -245,8 +245,8 @@ with st.form("user_info_form"):
         )
     elif goal_type == "Build muscle":
         body_comp_preference_options = [
-            "I'm ok with gaining a little body fat to maximize muscle growth.",
-            "I do not want to gain any body fat while targeting muscle gain."
+            "I want to maximize muscle growth and am ok with gaining some body fat.",
+            "I don't want to gain any body fat while focusing on building muscle."
         ]
         
         body_comp_preference = st.radio(
