@@ -611,46 +611,46 @@ if st.session_state.goal_info.get('target_weight_kg'):
         st.write(f"**Your current position**: FMI: **{fmi_category_name}**, FFMI: **{ffmi_category_name}**")
         st.write(f"**Recommendation**: {recommended_category}")
         
-        # Create a second table showing the rate recommendations
-        st.subheader("Rate Recommendations by FMI/FFMI Combination")
-        st.write("Percent of bodyweight per week:")
-        
-        # Create data for gain rates
-        gain_matrix_data = []
-        for fmi in fmi_categories_short:
-            row_data = {'FMI': fmi}
-            for ffmi in ffmi_categories_short:
-                combo_rec = utils.get_combined_category_rates(fmi, ffmi)
-                gain_rate = combo_rec.get("gain_rate", 0) * 100  # Convert to percentage
-                row_data[ffmi] = f"{gain_rate:.2f}%" if gain_rate > 0 else "-"
-            gain_matrix_data.append(row_data)
-        
-        gain_matrix = pd.DataFrame(gain_matrix_data)
-        gain_matrix = gain_matrix.set_index('FMI')
-        
-        # Create data for loss rates
-        loss_matrix_data = []
-        for fmi in fmi_categories_short:
-            row_data = {'FMI': fmi}
-            for ffmi in ffmi_categories_short:
-                combo_rec = utils.get_combined_category_rates(fmi, ffmi)
-                loss_rate = combo_rec.get("loss_rate", 0) * 100  # Convert to percentage
-                row_data[ffmi] = f"{loss_rate:.2f}%" if loss_rate > 0 else "-"
-            loss_matrix_data.append(row_data)
-        
-        loss_matrix = pd.DataFrame(loss_matrix_data)
-        loss_matrix = loss_matrix.set_index('FMI')
-        
-        # Display the rates side by side
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.write("**Gain Rates (% of body weight/week)**")
-            st.table(gain_matrix)
+        # Create a second table showing the rate recommendations in an expandable section
+        with st.expander("📊 View Rate Recommendations by FMI/FFMI Combination"):
+            st.write("Percent of bodyweight per week:")
             
-        with col2:
-            st.write("**Loss Rates (% of body weight/week)**")
-            st.table(loss_matrix)
+            # Create data for gain rates
+            gain_matrix_data = []
+            for fmi in fmi_categories_short:
+                row_data = {'FMI': fmi}
+                for ffmi in ffmi_categories_short:
+                    combo_rec = utils.get_combined_category_rates(fmi, ffmi)
+                    gain_rate = combo_rec.get("gain_rate", 0) * 100  # Convert to percentage
+                    row_data[ffmi] = f"{gain_rate:.2f}%" if gain_rate > 0 else "-"
+                gain_matrix_data.append(row_data)
+            
+            gain_matrix = pd.DataFrame(gain_matrix_data)
+            gain_matrix = gain_matrix.set_index('FMI')
+            
+            # Create data for loss rates
+            loss_matrix_data = []
+            for fmi in fmi_categories_short:
+                row_data = {'FMI': fmi}
+                for ffmi in ffmi_categories_short:
+                    combo_rec = utils.get_combined_category_rates(fmi, ffmi)
+                    loss_rate = combo_rec.get("loss_rate", 0) * 100  # Convert to percentage
+                    row_data[ffmi] = f"{loss_rate:.2f}%" if loss_rate > 0 else "-"
+                loss_matrix_data.append(row_data)
+            
+            loss_matrix = pd.DataFrame(loss_matrix_data)
+            loss_matrix = loss_matrix.set_index('FMI')
+            
+            # Display the rates side by side
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.write("**Gain Rates (% of body weight/week)**")
+                st.table(gain_matrix)
+                
+            with col2:
+                st.write("**Loss Rates (% of body weight/week)**")
+                st.table(loss_matrix)
         
     st.markdown("---")
         
@@ -681,6 +681,22 @@ if st.session_state.goal_info.get('target_weight_kg'):
     })
     
     st.table(comp_df)
+    
+    # Add reference photo link
+    with st.expander("📷 View Body Fat Percentage Reference Photos"):
+        # Check if we have reference photos in the images directory
+        ref_photo_path = "images/reference/body_fat_reference.jpg"
+        
+        try:
+            if os.path.exists(ref_photo_path):
+                st.image(ref_photo_path, caption="Body Fat Percentage Reference - Men (top) and Women (bottom)", use_container_width=True)
+                st.write("These visual references can help you understand how different body fat percentages look.")
+            else:
+                st.warning("Reference photos not available. Visit the Reference Photos page for examples.")
+                st.link_button("Go to Reference Photos", url="Reference_Photos")
+        except Exception as e:
+            st.error(f"Error loading reference photo: {e}")
+            st.link_button("Go to Reference Photos", url="Reference_Photos")
     
     # Display the indices side by side
     col1, col2 = st.columns(2)
@@ -1167,67 +1183,71 @@ if st.session_state.goal_info.get('target_weight_kg'):
     activity_level = st.session_state.user_info.get('activity_level', "Sedentary (office job, <2 hours exercise per week)")
     tdee = utils.calculate_tdee(gender, current_weight_kg, height_cm, age, activity_level)
     
-    # Generate the detailed progress table
-    progress_table = utils.generate_detailed_progress_table(
-        current_weight_lbs, 
-        current_bf, 
-        target_weight_lbs, 
-        target_bf, 
-        weekly_weight_pct, 
-        weekly_fat_pct, 
-        int(timeline_weeks), 
-        start_date_str, 
-        tdee, 
-        gender, 
-        age, 
-        height_cm
-    )
+    # Add Expected Progress section with collapsible content
+    st.subheader("Expected Progress")
     
-    if not progress_table.empty:
-        # Create a tab view for different representations of the data
-        tab1, tab2, tab3 = st.tabs(["Full Table", "Summary View", "Visualization"])
+    with st.expander("View Expected Progress Details"):
+        # Generate the detailed progress table
+        progress_table = utils.generate_detailed_progress_table(
+            current_weight_lbs, 
+            current_bf, 
+            target_weight_lbs, 
+            target_bf, 
+            weekly_weight_pct, 
+            weekly_fat_pct, 
+            int(timeline_weeks), 
+            start_date_str, 
+            tdee, 
+            gender, 
+            age, 
+            height_cm
+        )
         
-        with tab1:
-            # Display the full detailed table
-            st.dataframe(progress_table)
+        if not progress_table.empty:
+            # Create a tab view for different representations of the data
+            tab1, tab2, tab3 = st.tabs(["Full Table", "Summary View", "Visualization"])
             
-            # Add download button for CSV
-            csv = progress_table.to_csv(index=False)
-            st.download_button(
-                label="Download Progress Table as CSV",
-                data=csv,
-                file_name="progress_projection.csv",
-                mime="text/csv",
-            )
+            with tab1:
+                # Display the full detailed table
+                st.dataframe(progress_table)
+                
+                # Add download button for CSV
+                csv = progress_table.to_csv(index=False)
+                st.download_button(
+                    label="Download Progress Table as CSV",
+                    data=csv,
+                    file_name="progress_projection.csv",
+                    mime="text/csv",
+                )
         
-        with tab2:
-            # Create a more condensed view showing only key weeks (starting, 1/4, 1/2, 3/4, ending)
-            num_weeks = len(progress_table) - 1  # Exclude week 0
-            weeks_to_show = [0]  # Always show starting point
-            
-            if num_weeks >= 4:
-                # Add quarter points
-                weeks_to_show.extend([
-                    max(1, round(num_weeks * 0.25)),
-                    round(num_weeks * 0.5),
-                    round(num_weeks * 0.75),
-                    num_weeks  # Final week
-                ])
-            else:
-                # For shorter plans, just show all weeks
-                weeks_to_show.extend(list(range(1, num_weeks + 1)))
-            
-            # Select rows for the specified weeks
-            summary_table = progress_table[progress_table['Week'].isin(weeks_to_show)]
-            
-            # Choose only the most relevant columns for the summary
-            summary_columns = [
-                'Date', 'Week', 'Starting Weight (lbs)', 'Ending Weight (lbs)', 
-                'Weekly Change (lbs)', 'Ending Body Fat %', 'Daily Energy Target (kcal)'
-            ]
-            
-            # Display the summary table
-            st.dataframe(summary_table[summary_columns])
+            with tab2:
+                # Create a more condensed view showing only key weeks (starting, 1/4, 1/2, 3/4, ending)
+                num_weeks = len(progress_table) - 1  # Exclude week 0
+                weeks_to_show = [0]  # Always show starting point
+                
+                if num_weeks >= 4:
+                    # Add quarter points
+                    weeks_to_show.extend([
+                        max(1, round(num_weeks * 0.25)),
+                        round(num_weeks * 0.5),
+                        round(num_weeks * 0.75),
+                        num_weeks  # Final week
+                    ])
+                else:
+                    # For shorter plans, just show all weeks
+                    weeks_to_show.extend(list(range(1, num_weeks + 1)))
+                
+                # Select rows for the specified weeks
+                summary_table = progress_table[progress_table['Week'].isin(weeks_to_show)]
+                
+                # Choose only the most relevant columns for the summary
+                summary_columns = [
+                    'Date', 'Week', 'Starting Weight (lbs)', 'Ending Weight (lbs)', 
+                    'Weekly Change (lbs)', 'Ending Body Fat %', 'Daily Energy Target (kcal)'
+                ]
+                
+                # Display the summary table
+                st.dataframe(summary_table[summary_columns])
         
         with tab3:
             # Create visualization of the progress
