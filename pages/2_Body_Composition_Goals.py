@@ -612,8 +612,8 @@ if st.session_state.goal_info.get('target_weight_kg'):
         st.write(f"**Recommendation**: {recommended_category}")
         
         # Create a second table showing the rate recommendations
-        with st.expander("📊 View Rate Recommendations by FMI/FFMI Combination"):
-            st.write("Percent of bodyweight per week:")
+        st.subheader("Rate Recommendations by FMI/FFMI Combination")
+        st.write("Percent of bodyweight per week:")
         
         # Create data for gain rates
         gain_matrix_data = []
@@ -1153,7 +1153,9 @@ if st.session_state.goal_info.get('target_weight_kg'):
 
     # Generate detailed weekly progress projection table
     st.markdown("---")
-    st.subheader("Detailed Weekly Progress Projection")
+    st.subheader("Weekly Progress Details")
+    
+    weekly_progress_expander = st.expander("📋 View Detailed Weekly Progress Projection")
     
     # Use the actual rate based on target and timeline, not the recommended rate
     # This ensures the weekly projection matches the user's chosen targets
