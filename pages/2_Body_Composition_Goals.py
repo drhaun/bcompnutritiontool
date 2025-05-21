@@ -99,11 +99,17 @@ tdee = st.session_state.tdee
 # SECTION 1: Current Body Composition Summary
 st.write("### Current Body Composition")
 
-# Calculate current body composition values
-current_weight_lbs = weight_lbs
+# Calculate current body composition values - get weight from session state directly
+current_weight_lbs = st.session_state.weight_kg * 2.20462  # Force direct calculation
 current_bf = body_fat_pct
 current_fat_mass_lbs = current_weight_lbs * (current_bf / 100)
 current_fat_free_mass_lbs = current_weight_lbs - current_fat_mass_lbs
+
+# Debug weight values - display in sidebar for troubleshooting
+with st.sidebar:
+    st.write("### Debug Weight Info")
+    st.write(f"Session state weight: {st.session_state.weight_kg:.2f} kg = {st.session_state.weight_kg * 2.20462:.2f} lbs")
+    st.write(f"Current weight in analysis: {current_weight_lbs:.2f} lbs")
 
 # Calculate FMI and FFMI
 height_m = height_cm / 100
