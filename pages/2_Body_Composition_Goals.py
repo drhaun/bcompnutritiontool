@@ -677,6 +677,107 @@ st.success(f"""
 - **Target Fat-Free Mass**: {target_ffm_lbs:.1f} lbs ({(target_ffm_lbs-current_fat_free_mass_lbs):.1f} lbs change)
 """)
 
+# Now show the detailed Body Composition Analysis Table based on current selections
+st.markdown("---")
+st.subheader("Body Composition Analysis")
+
+# Get target values from session state
+target_fmi = st.session_state.target_fmi
+target_ffmi = st.session_state.target_ffmi
+target_normalized_ffmi = target_ffmi * (1.8 / height_m)
+
+# Create dataframe with current values
+comp_data = {
+    'Measurement': [
+        'Weight', 
+        'Fat Mass', 
+        'Fat-Free Mass', 
+        'Body Fat %',
+        'Fat Mass Index (FMI)',
+        'Fat-Free Mass Index (FFMI)',
+        'Normalized FFMI'
+    ],
+    'Current': [
+        f"{current_weight_lbs:.1f} lbs", 
+        f"{current_fat_mass_lbs:.1f} lbs", 
+        f"{current_fat_free_mass_lbs:.1f} lbs", 
+        f"{current_bf:.1f}%",
+        f"{current_fmi:.1f} kg/m²",
+        f"{current_ffmi:.1f} kg/m²",
+        f"{current_normalized_ffmi:.1f} kg/m²"
+    ]
+}
+
+# Add target values to the dataframe
+comp_data['Target'] = [
+    f"{target_weight_lbs:.1f} lbs", 
+    f"{target_fat_mass_lbs:.1f} lbs", 
+    f"{target_ffm_lbs:.1f} lbs", 
+    f"{target_bf:.1f}%",
+    f"{target_fmi:.1f} kg/m²",
+    f"{target_ffmi:.1f} kg/m²",
+    f"{target_normalized_ffmi:.1f} kg/m²"
+]
+
+# Calculate changes
+weight_change = target_weight_lbs - current_weight_lbs
+fat_change = target_fat_mass_lbs - current_fat_mass_lbs
+ffm_change = target_ffm_lbs - current_fat_free_mass_lbs
+bf_change = target_bf - current_bf
+fmi_change = target_fmi - current_fmi
+ffmi_change = target_ffmi - current_ffmi
+normalized_ffmi_change = target_normalized_ffmi - current_normalized_ffmi
+
+# Add change values to the dataframe
+comp_data['Change'] = [
+    f"{weight_change:.1f} lbs",
+    f"{fat_change:.1f} lbs",
+    f"{ffm_change:.1f} lbs",
+    f"{bf_change:.1f}%",
+    f"{fmi_change:.1f} kg/m²",
+    f"{ffmi_change:.1f} kg/m²",
+    f"{normalized_ffmi_change:.1f} kg/m²"
+]
+
+# Create and display the dataframe
+comp_df = pd.DataFrame(comp_data)
+st.dataframe(comp_df, use_container_width=True)
+
+# Display category information
+st.write("#### Body Composition Categories")
+col1, col2 = st.columns(2)
+
+with col1:
+    st.write(f"**Current FMI Category**: {current_fmi_category}")
+    st.write(f"**Current FFMI Category**: {current_ffmi_category}")
+
+with col2:
+    # Find target categories
+    target_fmi_category = "Unknown"
+    for category in fmi_categories:
+        if category["lower"] <= target_fmi <= category["upper"]:
+            target_fmi_category = category["name"]
+            break
+            
+    target_ffmi_category = "Unknown"
+    for category in ffmi_categories:
+        if category["lower"] <= target_ffmi <= category["upper"]:
+            target_ffmi_category = category["name"]
+            break
+            
+    st.write(f"**Target FMI Category**: {target_fmi_category}")
+    st.write(f"**Target FFMI Category**: {target_ffmi_category}")
+
+# Get combined recommendations
+current_combo_rec = utils.get_combined_category_rates(current_fmi_category, current_ffmi_category)
+target_combo_rec = utils.get_combined_category_rates(target_fmi_category, target_ffmi_category)
+current_recommended_category = current_combo_rec.get("recommendation", "No specific recommendation available")
+target_recommended_category = target_combo_rec.get("recommendation", "No specific recommendation available")
+
+st.write("#### Recommendations")
+st.write(f"**Based on current body composition**: {current_recommended_category}")
+st.write(f"**Based on target body composition**: {target_recommended_category}")
+
 # Convert to kg for backend calculations
 target_fat_mass_kg = target_fat_mass_lbs / 2.20462
 target_ffm_kg = target_ffm_lbs / 2.20462
