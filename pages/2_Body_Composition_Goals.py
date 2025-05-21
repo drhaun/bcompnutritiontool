@@ -268,9 +268,8 @@ with st.expander("📊 View Detailed Information on Fat Mass Index and Fat-Free 
     The "Body Composition Category Reference Tables" provide specific recommendations based on your unique combination.
     """)
 
-# SECTION 3: Body Composition Analysis Table 
+# SECTION 3: Initialize variables needed for targeting
 st.markdown("---")
-st.subheader("Body Composition Analysis")
 
 # Find categories for current values
 current_fmi_category = "Unknown"
