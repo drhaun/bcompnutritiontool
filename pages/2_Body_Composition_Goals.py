@@ -288,42 +288,33 @@ for category in ffmi_categories:
         current_ffmi_category = category["name"]
         break
 
-# Set up targets and initialize session state if needed
+# Initialize target session state variables if needed
 if "target_bf" not in st.session_state:
-    # Set defaults for target values based on goal type
-    if goal_type == "Lose fat":
-        target_fat_mass_lbs = max(current_fat_mass_lbs * 0.85, current_fat_mass_lbs - 10)
-        target_ffm_lbs = current_fat_free_mass_lbs  # Assume preservation of FFM
-    elif goal_type == "Gain muscle":
-        target_fat_mass_lbs = current_fat_mass_lbs  # Might increase slightly during bulking
-        target_ffm_lbs = min(current_fat_free_mass_lbs * 1.05, current_fat_free_mass_lbs + 5)
-    else:  # Maintain
-        target_fat_mass_lbs = current_fat_mass_lbs
-        target_ffm_lbs = current_fat_free_mass_lbs
+    # Initialize with placeholder values
+    st.session_state.target_bf = current_bf
+    st.session_state.target_fat = current_fat_mass_lbs
+    st.session_state.target_ffm = current_fat_free_mass_lbs
+    st.session_state.target_fmi = current_fmi
+    st.session_state.target_ffmi = current_ffmi
     
-    # Calculate target weight and body fat percentage
+# Get target values from session state, but only use them if targets have been explicitly set
+if st.session_state.targets_set:
+    target_bf = st.session_state.target_bf
+    target_fat_mass_lbs = st.session_state.target_fat
+    target_ffm_lbs = st.session_state.target_ffm
     target_weight_lbs = target_fat_mass_lbs + target_ffm_lbs
-    target_bf = (target_fat_mass_lbs / target_weight_lbs) * 100
-    
-    # Store in session state
-    st.session_state.target_bf = target_bf
-    st.session_state.target_fat = target_fat_mass_lbs
-    st.session_state.target_ffm = target_ffm_lbs
-    
-    # Calculate and store target FMI and FFMI
-    target_fat_mass_kg = target_fat_mass_lbs / 2.20462
-    target_ffm_kg = target_ffm_lbs / 2.20462
-    st.session_state.target_fmi = target_fat_mass_kg / (height_m * height_m)
-    st.session_state.target_ffmi = target_ffm_kg / (height_m * height_m)
-
-# Get target values from session state
-target_bf = st.session_state.target_bf
-target_fat_mass_lbs = st.session_state.target_fat
-target_ffm_lbs = st.session_state.target_ffm
-target_weight_lbs = target_fat_mass_lbs + target_ffm_lbs
-target_fmi = st.session_state.target_fmi
-target_ffmi = st.session_state.target_ffmi
-target_normalized_ffmi = target_ffmi * (1.8 / height_m)
+    target_fmi = st.session_state.target_fmi
+    target_ffmi = st.session_state.target_ffmi
+    target_normalized_ffmi = target_ffmi * (1.8 / height_m)
+else:
+    # Use placeholder values but don't display them
+    target_bf = current_bf
+    target_fat_mass_lbs = current_fat_mass_lbs
+    target_ffm_lbs = current_fat_free_mass_lbs
+    target_weight_lbs = current_weight_lbs
+    target_fmi = current_fmi
+    target_ffmi = current_ffmi
+    target_normalized_ffmi = current_normalized_ffmi
 
 # Create initial dataframe with current values
 comp_data = {
