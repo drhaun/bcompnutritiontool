@@ -10,6 +10,10 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import utils
 
+# Initialize session state variables
+if "targets_set" not in st.session_state:
+    st.session_state.targets_set = False
+
 # Define body composition categories with rate recommendations
 # FMI categories with rate recommendations
 fmi_categories = [
@@ -697,9 +701,7 @@ else:
 st.markdown("---")
 st.subheader("Body Composition Analysis")
 
-# Initialize the targets_set flag if it doesn't exist
-if "targets_set" not in st.session_state:
-    st.session_state.targets_set = False
+# This code is duplicated intentionally for session state initialization
 
 # Create dataframe with current values
 comp_data = {
