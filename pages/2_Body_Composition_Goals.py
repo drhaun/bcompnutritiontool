@@ -53,7 +53,7 @@ st.set_page_config(
 )
 
 # Header
-st.image("images/branding/fitomicshorizontalgold.png", width=300)
+st.image("images/branding/fitomics_horizontal_gold.png", width=300)
 st.title("Body Composition Goals")
 st.markdown("Define your body composition targets and timeline.")
 
