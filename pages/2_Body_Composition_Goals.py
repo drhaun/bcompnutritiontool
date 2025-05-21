@@ -85,11 +85,11 @@ if "activity_level" not in st.session_state:
 if "tdee" not in st.session_state:
     st.session_state.tdee = 2500
 
-# Load saved data if available
+# Load saved data if available 
 gender = st.session_state.gender
 age = st.session_state.age
 height_cm = st.session_state.height_cm
-weight_kg = st.session_state.weight_kg
+weight_kg = st.session_state.user_info['weight_kg']  # Use direct user_info access
 weight_lbs = weight_kg * 2.20462
 body_fat_pct = st.session_state.body_fat_pct
 goal_type = st.session_state.goal_type
