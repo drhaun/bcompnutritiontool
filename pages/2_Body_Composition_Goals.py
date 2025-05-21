@@ -590,38 +590,86 @@ with col1:
         
         st.write(f"**Recommendation**: {recommended_text}")
         
-        # Weekly percentage rate slider with recommended value
-        weekly_weight_pct = st.slider(
-            "Weekly rate (% of body weight)",
-            min_value=0.0,
-            max_value=max(1.0, rec_weekly_pct * 2),  # Allow up to double the recommended rate
-            value=float(rec_weekly_pct),
-            step=0.001,
-            format="%.3f",
-            help="Set the weekly rate of change as a percentage of current body weight"
-        )
+        # Weekly percentage rate slider with recommended value - adjusted for goal type
+        if goal_type == "Lose fat":
+            # For fat loss, use negative values
+            weekly_weight_pct = -1 * st.slider(
+                "Weekly rate (% of body weight)",
+                min_value=0.0,
+                max_value=max(1.0, rec_weekly_pct * 2),  # Allow up to double the recommended rate
+                value=float(rec_weekly_pct),
+                step=0.001,
+                format="%.3f",
+                help="Set the weekly rate of fat loss as a percentage of current body weight"
+            )
+        elif goal_type == "Gain muscle":
+            # For muscle gain, use positive values
+            weekly_weight_pct = st.slider(
+                "Weekly rate (% of body weight)",
+                min_value=0.0,
+                max_value=max(1.0, rec_weekly_pct * 2),  # Allow up to double the recommended rate
+                value=float(rec_weekly_pct),
+                step=0.001,
+                format="%.3f",
+                help="Set the weekly rate of muscle gain as a percentage of current body weight"
+            )
+        else:  # Maintenance
+            # For maintenance, use a much smaller range centered around zero
+            weekly_weight_pct = st.slider(
+                "Weekly rate (% of body weight)",
+                min_value=-0.001,
+                max_value=0.001,
+                value=0.0,
+                step=0.0001,
+                format="%.4f",
+                help="For maintenance, keep this near zero for stable weight with small body composition changes"
+            )
         
         # Display the weekly change in absolute terms
         weekly_weight_change_lbs = weekly_weight_pct * current_weight_lbs
         weekly_weight_change_kg = weekly_weight_pct * current_weight_kg
         
-        if goal_type != "Maintain":
-            st.write(f"This equals approximately {weekly_weight_change_lbs:.1f} lbs ({weekly_weight_change_kg:.1f} kg) per week.")
+        # Show rate in pounds/kg format with proper direction
+        if goal_type == "Maintain" and abs(weekly_weight_pct) < 0.0001:
+            st.write("This equals approximately no change in weight per week (maintenance).")
+        else:
+            change_direction = "gain" if weekly_weight_change_lbs > 0 else "loss"
+            st.write(f"This equals approximately {abs(weekly_weight_change_lbs):.2f} lbs ({abs(weekly_weight_change_kg):.2f} kg) {change_direction} per week.")
         
-        # Fat percentage slider
-        if goal_type != "Maintain":
-            # Use recommended value as default
+        # Fat percentage slider - adjusted for goal type
+        if goal_type == "Lose fat":
+            # For fat loss, higher percentages are better (preserving more muscle)
             weekly_fat_pct = st.slider(
                 "Percentage as fat tissue",
-                min_value=0.0,
+                min_value=0.6,  # At least 60% fat loss
                 max_value=1.0,
                 value=float(rec_fat_pct),
                 step=0.05,
                 format="%d%%",
-                help="What percentage of the weight change will be fat tissue"
+                help="Higher values mean more fat loss and better muscle preservation"
             )
-        else:
-            weekly_fat_pct = 0.5  # Default for maintenance
+        elif goal_type == "Gain muscle":
+            # For muscle gain, lower percentages are better (more muscle gain)
+            weekly_fat_pct = st.slider(
+                "Percentage as fat tissue",
+                min_value=0.0,
+                max_value=0.5,  # At most 50% fat gain
+                value=float(rec_fat_pct),
+                step=0.05,
+                format="%d%%",
+                help="Lower values mean more muscle gain relative to fat"
+            )
+        else:  # Maintenance
+            # For maintenance, allow recomposition in either direction
+            weekly_fat_pct = st.slider(
+                "Percentage as fat tissue",
+                min_value=0.0,
+                max_value=1.0,
+                value=0.5,  # Default 50/50 for maintenance
+                step=0.05,
+                format="%d%%",
+                help="For maintenance, this determines the ratio of small fat/muscle changes"
+            )
             
     else:
         st.info("Set your target values above to configure your timeline and rate settings.")
@@ -632,16 +680,42 @@ with col1:
 with col2:
     # Only show timeline settings if targets are set
     if st.session_state.targets_set:
-        # Calculate timeline
-        timeline_weeks = utils.calculate_predicted_weeks(
-            current_weight_lbs / 2.20462,  # Current weight in kg
-            target_weight_lbs / 2.20462,   # Target weight in kg
-            current_bf,                   # Current body fat percentage
-            target_bf,                    # Target body fat percentage
-            weekly_weight_pct,            # Weekly weight change percentage
-            weekly_fat_pct,               # Percentage of weight change that is fat
-            "lose_fat" if goal_type == "Lose fat" else "gain_muscle"
-        )
+        # Handle different goal types for timeline calculation
+        if goal_type == "Maintain":
+            # For maintenance, suggest a standard timeline
+            timeline_weeks = 12
+            st.write("#### Timeline for Maintenance")
+            st.write("For body composition maintenance, we recommend a standard 12-week timeline for consistent tracking.")
+        else:
+            # Calculate timeline based on target body composition
+            try:
+                goal_type_code = "lose_fat" if goal_type == "Lose fat" else "gain_muscle"
+                # Use absolute value of weekly_weight_pct for calculation
+                actual_rate = abs(weekly_weight_pct)
+                
+                # Only calculate if there's a meaningful rate
+                if actual_rate > 0.0001:
+                    timeline_weeks = utils.calculate_predicted_weeks(
+                        current_weight_lbs / 2.20462,  # Current weight in kg
+                        target_weight_lbs / 2.20462,   # Target weight in kg
+                        current_bf,                   # Current body fat percentage
+                        target_bf,                    # Target body fat percentage
+                        actual_rate,                  # Weekly weight change percentage (absolute)
+                        weekly_fat_pct,               # Percentage of weight change that is fat
+                        goal_type_code
+                    )
+                else:
+                    # Default for minimal change
+                    timeline_weeks = 12
+                
+                # Provide warnings for extreme timelines
+                if timeline_weeks < 4:
+                    st.warning("The calculated timeline is very short. Consider a more moderate rate for sustainable results.")
+                elif timeline_weeks > 52:
+                    st.warning("The calculated timeline exceeds 1 year. Consider adjusting your goals or rates for a more achievable timeline.")
+            except Exception as e:
+                st.error(f"Error calculating timeline: {str(e)}")
+                timeline_weeks = 12  # Default fallback
         
         # Display the calculated timeline
         if timeline_weeks > 0:
