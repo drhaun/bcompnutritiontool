@@ -113,18 +113,7 @@ current_fmi = current_fat_mass_kg / (height_m * height_m)
 current_ffmi = current_ffm_kg / (height_m * height_m)
 current_normalized_ffmi = current_ffmi * (1.8 / height_m)
 
-# Display current body composition
-st.success(f"""
-- **Current Weight**: {current_weight_lbs:.1f} lbs
-- **Current Body Fat**: {current_bf:.1f}%
-- **Current Fat Mass**: {current_fat_mass_lbs:.1f} lbs
-- **Current Fat-Free Mass**: {current_fat_free_mass_lbs:.1f} lbs
-- **Current FMI**: {current_fmi:.1f} kg/m²
-- **Current FFMI**: {current_ffmi:.1f} kg/m²
-- **Current Normalized FFMI**: {current_normalized_ffmi:.1f} kg/m²
-""")
-
-# Create initial dataframe with current values
+# Display current body composition in a well-formatted table
 comp_data = {
     'Measurement': [
         'Weight', 
@@ -523,17 +512,12 @@ if st.session_state.targets_set:
     target_weight_lbs = target_fat_mass_lbs + target_ffm_lbs
     target_normalized_ffmi = target_ffmi * (1.8 / height_m)
 
-    # Display the calculated values
-    st.write("### Target Body Composition Summary")
-    st.success(f"""
-    - **Target Weight**: {target_weight_lbs:.1f} lbs ({(target_weight_lbs-current_weight_lbs):.1f} lbs change)
-    - **Target Body Fat**: {target_bf:.1f}% ({(target_bf-current_bf):.1f}% change)
-    - **Target Fat Mass**: {target_fat_mass_lbs:.1f} lbs ({(target_fat_mass_lbs-current_fat_mass_lbs):.1f} lbs change)
-    - **Target Fat-Free Mass**: {target_ffm_lbs:.1f} lbs ({(target_ffm_lbs-current_fat_free_mass_lbs):.1f} lbs change)
-    """)
+    # Just show a simple heading
+    st.write("### Target Body Composition Set")
+    st.success("Your target body composition values have been set. See the analysis table below for details.")
 else:
-    st.write("### Target Body Composition Summary")
-    st.info("Set your target values above to see your target body composition summary.")
+    st.write("### Target Body Composition")
+    st.info("Set your target values above to see the analysis table with your target measurements.")
 
 # Now show the detailed Body Composition Analysis Table based on current selections
 st.markdown("---")
