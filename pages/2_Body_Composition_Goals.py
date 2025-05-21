@@ -258,34 +258,24 @@ if "target_bf" not in st.session_state:
 st.markdown("---")
 st.write("### Set Target Values")
 
-# Create a radio button for target selection method
-target_method = st.radio(
-    "Choose how you want to set your target:",
-    options=["Target Body Fat %", "Target Weight Components"],
-    help="Select whether to set your target by body fat percentage or by specific weight components"
-)
-
-# Function to safely update target body fat and related values
-def update_from_bf(new_bf_pct):
+# Function to update targets and calculate body fat
+def update_weight_components():
     try:
-        # Get current total weight
-        total_weight = st.session_state.target_fat + st.session_state.target_ffm
+        # Get target fat and ffm from session state
+        target_fat_mass = st.session_state.target_fat
+        target_ffm = st.session_state.target_ffm
         
-        # Update fat mass based on new body fat percentage
-        new_fat_mass = total_weight * (new_bf_pct / 100)
-        
-        # Update fat-free mass to maintain total weight
-        new_ffm = total_weight - new_fat_mass
+        # Calculate total weight and body fat percentage
+        total_weight = target_fat_mass + target_ffm
+        target_bf_pct = (target_fat_mass / total_weight) * 100 if total_weight > 0 else 0
         
         # Store in session state
-        st.session_state.target_bf = new_bf_pct
-        st.session_state.target_fat = new_fat_mass
-        st.session_state.target_ffm = new_ffm
+        st.session_state.target_bf = target_bf_pct
         
         # Calculate and update FMI and FFMI
         height_m = height_cm / 100
-        target_fat_kg = new_fat_mass / 2.20462
-        target_ffm_kg = new_ffm / 2.20462
+        target_fat_kg = target_fat_mass / 2.20462
+        target_ffm_kg = target_ffm / 2.20462
         st.session_state.target_fmi = target_fat_kg / (height_m * height_m)
         st.session_state.target_ffmi = target_ffm_kg / (height_m * height_m)
         
@@ -294,110 +284,63 @@ def update_from_bf(new_bf_pct):
     except Exception as e:
         st.error(f"Error updating values: {e}")
 
-# Add explanation about target body fat changes
+# Add explanation about setting component targets
 st.write("""
-#### How Target Body Fat % Works
-When you adjust target body fat %, the total body weight stays the same but the composition changes - 
-more or less of your weight becomes fat vs. muscle. This matches how many body composition changes occur in real life.
-If you want to change your total weight, adjust the Fat Mass and Fat-Free Mass directly.
+#### Setting Your Body Composition Targets
+Use the controls below to set your target fat mass and fat-free mass. The body fat percentage will be 
+automatically calculated based on these values. This approach gives you precise control over your body composition goals.
 """)
 
-# Target Body Fat % Method
-if target_method == "Target Body Fat %":
-    st.write("Use the slider to adjust your target body fat percentage:")
-    try:
-        # Get current target body fat from session state
-        current_target_bf = float(st.session_state.target_bf)
-        
-        # Get min/max values based on gender
-        min_bf = 5 if gender == "Male" else 12
-        max_bf = 35
-        
-        # Adjust based on goal type
-        if goal_type == "Lose fat":
-            max_bf = min(max_bf, current_bf - 1)
-        elif goal_type == "Gain muscle":
-            min_bf = max(min_bf, current_bf - 5)
-            max_bf = min(max_bf, current_bf + 2)
-        
-        # Ensure current target is within limits
-        if current_target_bf < min_bf:
-            current_target_bf = min_bf
-        if current_target_bf > max_bf:
-            current_target_bf = max_bf
-            
-        # Target body fat slider
-        new_target_bf = st.slider(
-            "Target Body Fat %",
-            min_value=float(min_bf),
-            max_value=float(max_bf),
-            value=float(current_target_bf),
-            step=0.5,
-            help="Set your target body fat percentage"
-        )
-        
-        # Update values if slider changed
-        if new_target_bf != current_target_bf:
-            update_from_bf(new_target_bf)
-            st.success(f"Target body fat set to {new_target_bf:.1f}%")
-            # Use st.rerun() which is the current recommended way
-            try:
-                st.rerun()
-            except:
-                st.warning("Please refresh the page to see updated values.")
-    except Exception as e:
-        st.error(f"Error setting target body fat: {e}")
-        st.info("Please try setting your target using weight components instead.")
+# Show current values in a column
+col1, col2 = st.columns(2)
 
-# Target Weight Components Method
-else:
+with col1:
+    st.write("#### Current Values")
+    st.write(f"Current Fat Mass: **{current_fat_mass_lbs:.1f} lbs**")
+    st.write(f"Current Fat-Free Mass: **{current_fat_free_mass_lbs:.1f} lbs**")
+    st.write(f"Current Body Fat: **{current_bf:.1f}%**")
+    st.write(f"Current FMI: **{current_fmi:.1f} kg/m²** ({current_fmi_category})")
+    st.write(f"Current FFMI: **{current_ffmi:.1f} kg/m²** ({current_ffmi_category})")
+
+# Show target inputs in the second column
+with col2:
+    st.write("#### Set Target Values")
+    
+    # Set default safe values for fat mass
+    fat_mass_min = max(5.0, current_fat_mass_lbs * 0.5)
+    fat_mass_max = current_fat_mass_lbs * 1.5
+    
+    # Adjust based on goal type with safety checks
     try:
-        # Show options for setting specific weight components
-        st.write("Set your target weight components:")
-        comp_col1, comp_col2 = st.columns(2)
-        
-        with comp_col1:
-            st.write("#### Current Values")
-            st.write(f"Current Fat Mass: **{current_fat_mass_lbs:.1f} lbs**")
-            st.write(f"Current Fat-Free Mass: **{current_fat_free_mass_lbs:.1f} lbs**")
-            st.write(f"Current FMI: **{current_fmi:.1f} kg/m²** ({current_fmi_category})")
-            st.write(f"Current FFMI: **{current_ffmi:.1f} kg/m²** ({current_ffmi_category})")
-            
-            # Set default safe values
+        if goal_type == "Lose fat":
             fat_mass_min = max(5.0, current_fat_mass_lbs * 0.5)
-            fat_mass_max = current_fat_mass_lbs * 1.5
+            fat_mass_max = max(fat_mass_min + 1.0, current_fat_mass_lbs * 0.99)
+        elif goal_type == "Gain muscle":
+            fat_mass_min = max(5.0, current_fat_mass_lbs * 0.8)
+            fat_mass_max = max(fat_mass_min + 1.0, current_fat_mass_lbs * 1.2)
+        else:  # Maintain
+            fat_mass_min = max(5.0, current_fat_mass_lbs * 0.9)
+            fat_mass_max = max(fat_mass_min + 1.0, current_fat_mass_lbs * 1.1)
             
-            # Adjust based on goal type with safety checks
-            try:
-                if goal_type == "Lose fat":
-                    fat_mass_min = max(5.0, current_fat_mass_lbs * 0.5)
-                    fat_mass_max = max(fat_mass_min + 1.0, current_fat_mass_lbs * 0.99)
-                elif goal_type == "Gain muscle":
-                    fat_mass_min = max(5.0, current_fat_mass_lbs * 0.8)
-                    fat_mass_max = max(fat_mass_min + 1.0, current_fat_mass_lbs * 1.2)
-                else:  # Maintain
-                    fat_mass_min = max(5.0, current_fat_mass_lbs * 0.9)
-                    fat_mass_max = max(fat_mass_min + 1.0, current_fat_mass_lbs * 1.1)
-                    
-                # Ensure current value is within limits
-                current_target_fat = float(st.session_state.target_fat)
-                if current_target_fat < fat_mass_min:
-                    current_target_fat = fat_mass_min
-                if current_target_fat > fat_mass_max:
-                    current_target_fat = fat_mass_max
-                    
-                # Target fat mass input
-                new_target_fat_mass_lbs = st.number_input(
-                    "Target Fat Mass (lbs)",
-                    min_value=float(fat_mass_min),
-                    max_value=float(fat_mass_max),
-                    value=float(current_target_fat),
-                    step=0.5,
-                    help="Set your target fat mass in pounds"
-                )
-            except Exception as e:
-                st.error(f"Error setting fat mass options: {e}")
-                new_target_fat_mass_lbs = current_fat_mass_lbs
+        # Ensure current value is within limits
+        current_target_fat = float(st.session_state.target_fat)
+        if current_target_fat < fat_mass_min:
+            current_target_fat = fat_mass_min
+        if current_target_fat > fat_mass_max:
+            current_target_fat = fat_mass_max
+            
+        # Target fat mass input
+        new_target_fat_mass_lbs = st.number_input(
+            "Target Fat Mass (lbs)",
+            min_value=float(fat_mass_min),
+            max_value=float(fat_mass_max),
+            value=float(current_target_fat),
+            step=0.5,
+            help="Set your target fat mass in pounds"
+        )
+    except Exception as e:
+        st.error(f"Error setting fat mass options: {e}")
+        new_target_fat_mass_lbs = current_fat_mass_lbs
             
             # FFM range settings
             ffm_min = max(70.0, current_fat_free_mass_lbs * 0.9)
