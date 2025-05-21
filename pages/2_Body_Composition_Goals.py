@@ -447,8 +447,19 @@ def update_from_bf(new_bf_pct):
         target_ffm_kg = new_ffm / 2.20462
         st.session_state.target_fmi = target_fat_kg / (height_m * height_m)
         st.session_state.target_ffmi = target_ffm_kg / (height_m * height_m)
+        
+        # Set flag that target values have been set
+        st.session_state.targets_set = True
     except Exception as e:
         st.error(f"Error updating values: {e}")
+
+# Add explanation about target body fat changes
+st.write("""
+#### How Target Body Fat % Works
+When you adjust target body fat %, the total body weight stays the same but the composition changes - 
+more or less of your weight becomes fat vs. muscle. This matches how many body composition changes occur in real life.
+If you want to change your total weight, adjust the Fat Mass and Fat-Free Mass directly.
+""")
 
 # Target Body Fat % Method
 if target_method == "Target Body Fat %":
@@ -622,6 +633,7 @@ else:
                 st.session_state.target_bf = resulting_bf_pct
                 st.session_state.target_fmi = resulting_fmi
                 st.session_state.target_ffmi = resulting_ffmi
+                st.session_state.targets_set = True
                 st.success("Target weight components updated successfully!")
                 # Use st.rerun() which is the current recommended way
                 try:
@@ -680,10 +692,9 @@ st.success(f"""
 st.markdown("---")
 st.subheader("Body Composition Analysis")
 
-# Get target values from session state
-target_fmi = st.session_state.target_fmi
-target_ffmi = st.session_state.target_ffmi
-target_normalized_ffmi = target_ffmi * (1.8 / height_m)
+# Initialize the targets_set flag if it doesn't exist
+if "targets_set" not in st.session_state:
+    st.session_state.targets_set = False
 
 # Create dataframe with current values
 comp_data = {
@@ -707,36 +718,45 @@ comp_data = {
     ]
 }
 
-# Add target values to the dataframe
-comp_data['Target'] = [
-    f"{target_weight_lbs:.1f} lbs", 
-    f"{target_fat_mass_lbs:.1f} lbs", 
-    f"{target_ffm_lbs:.1f} lbs", 
-    f"{target_bf:.1f}%",
-    f"{target_fmi:.1f} kg/m²",
-    f"{target_ffmi:.1f} kg/m²",
-    f"{target_normalized_ffmi:.1f} kg/m²"
-]
-
-# Calculate changes
-weight_change = target_weight_lbs - current_weight_lbs
-fat_change = target_fat_mass_lbs - current_fat_mass_lbs
-ffm_change = target_ffm_lbs - current_fat_free_mass_lbs
-bf_change = target_bf - current_bf
-fmi_change = target_fmi - current_fmi
-ffmi_change = target_ffmi - current_ffmi
-normalized_ffmi_change = target_normalized_ffmi - current_normalized_ffmi
-
-# Add change values to the dataframe
-comp_data['Change'] = [
-    f"{weight_change:.1f} lbs",
-    f"{fat_change:.1f} lbs",
-    f"{ffm_change:.1f} lbs",
-    f"{bf_change:.1f}%",
-    f"{fmi_change:.1f} kg/m²",
-    f"{ffmi_change:.1f} kg/m²",
-    f"{normalized_ffmi_change:.1f} kg/m²"
-]
+# Add target values to the dataframe only if targets have been set
+if st.session_state.targets_set:
+    # Get target values from session state
+    target_fmi = st.session_state.target_fmi
+    target_ffmi = st.session_state.target_ffmi
+    target_normalized_ffmi = target_ffmi * (1.8 / height_m)
+    
+    comp_data['Target'] = [
+        f"{target_weight_lbs:.1f} lbs", 
+        f"{target_fat_mass_lbs:.1f} lbs", 
+        f"{target_ffm_lbs:.1f} lbs", 
+        f"{target_bf:.1f}%",
+        f"{target_fmi:.1f} kg/m²",
+        f"{target_ffmi:.1f} kg/m²",
+        f"{target_normalized_ffmi:.1f} kg/m²"
+    ]
+    
+    # Calculate changes
+    weight_change = target_weight_lbs - current_weight_lbs
+    fat_change = target_fat_mass_lbs - current_fat_mass_lbs
+    ffm_change = target_ffm_lbs - current_fat_free_mass_lbs
+    bf_change = target_bf - current_bf
+    fmi_change = target_fmi - current_fmi
+    ffmi_change = target_ffmi - current_ffmi
+    normalized_ffmi_change = target_normalized_ffmi - current_normalized_ffmi
+    
+    # Add change values to the dataframe
+    comp_data['Change'] = [
+        f"{weight_change:.1f} lbs",
+        f"{fat_change:.1f} lbs",
+        f"{ffm_change:.1f} lbs",
+        f"{bf_change:.1f}%",
+        f"{fmi_change:.1f} kg/m²",
+        f"{ffmi_change:.1f} kg/m²",
+        f"{normalized_ffmi_change:.1f} kg/m²"
+    ]
+else:
+    # Display message to set targets
+    st.info("Set your target values above to see the comparison with your current measurements here.")
 
 # Create and display the dataframe
 comp_df = pd.DataFrame(comp_data)
