@@ -157,6 +157,41 @@ with st.expander("Customize Protein Target", expanded=True):
     st.write(f"Your current protein target is **{st.session_state.nutrition_plan['target_protein']}g** " +
              f"({protein_per_kg} g/kg or {protein_per_lb} g/lb of body weight).")
     
+    # Protein multiplier selection with dynamic fields
+    st.write("##### Select your protein target using bodyweight multiplier:")
+    
+    # Create columns for the bodyweight multiplier fields
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Add "g per kg" multiplier with visual immediate result
+        protein_multiplier_kg = st.slider(
+            "Protein (g per kg of bodyweight)",
+            min_value=0.8,
+            max_value=3.0,
+            value=protein_per_kg,
+            step=0.1,
+            help="Select your protein target as a multiplier of your bodyweight in kg"
+        )
+        calculated_protein_kg = round(protein_multiplier_kg * weight_kg)
+        st.write(f"→ **{calculated_protein_kg}g** total protein ({round(protein_multiplier_kg * weight_kg * 4)} calories)")
+    
+    with col2:
+        # Add "g per lb" multiplier with visual immediate result
+        protein_multiplier_lb = st.slider(
+            "Protein (g per lb of bodyweight)",
+            min_value=0.4,
+            max_value=1.4,
+            value=protein_per_lb,
+            step=0.05,
+            help="Select your protein target as a multiplier of your bodyweight in lbs"
+        )
+        calculated_protein_lb = round(protein_multiplier_lb * weight_lbs)
+        st.write(f"→ **{calculated_protein_lb}g** total protein ({round(protein_multiplier_lb * weight_lbs * 4)} calories)")
+    
+    # Show common recommendations
+    st.write("##### Common recommendations by activity level:")
+    
     # Protein recommendation table
     protein_rec_df = pd.DataFrame({
         'Activity Level': ['Sedentary', 'Light Activity', 'Moderate Activity', 'High Activity', 'Athlete'],
@@ -173,15 +208,19 @@ with st.expander("Customize Protein Target", expanded=True):
     
     st.dataframe(protein_rec_df, hide_index=True, use_container_width=True)
     
-    # Protein selection
-    protein_option = st.selectbox(
-        "Select Protein Target",
-        options=["Standard", "Moderate High", "High", "Very High", "Custom"],
-        index=0,
-        help="Choose your preferred protein intake level"
+    # Choose which protein calculation to use (from kg or lb multiplier, or custom input)
+    protein_source = st.radio(
+        "Choose protein calculation method:",
+        options=["Use g/kg multiplier", "Use g/lb multiplier", "Enter custom value"],
+        horizontal=True,
+        index=0
     )
     
-    if protein_option == "Custom":
+    if protein_source == "Use g/kg multiplier":
+        custom_protein = calculated_protein_kg
+    elif protein_source == "Use g/lb multiplier":
+        custom_protein = calculated_protein_lb
+    else:  # Custom value
         custom_protein = st.number_input(
             "Custom Protein Target (g)",
             min_value=min(50, st.session_state.nutrition_plan['target_protein'] - 50),
@@ -189,24 +228,67 @@ with st.expander("Customize Protein Target", expanded=True):
             value=st.session_state.nutrition_plan['target_protein'],
             step=5
         )
-    else:
-        # Adjust protein based on selection
-        if protein_option == "Standard":
-            custom_protein = macros['protein']  # Original calculated value
-        elif protein_option == "Moderate High":
-            custom_protein = round(weight_kg * 1.8)  # 1.8g per kg
-        elif protein_option == "High":
-            custom_protein = round(weight_kg * 2.2)  # 2.2g per kg
-        elif protein_option == "Very High":
-            custom_protein = round(weight_kg * 2.5)  # 2.5g per kg
 
 # Fat customization section
 with st.expander("Customize Fat Target", expanded=True):
     fat_pct = round((st.session_state.nutrition_plan['target_fat'] * 9) / st.session_state.nutrition_plan['target_calories'] * 100)
+    fat_per_kg = round(st.session_state.nutrition_plan['target_fat'] / weight_kg, 1)
+    
     st.write(f"Your current fat target is **{st.session_state.nutrition_plan['target_fat']}g** "
-             f"({fat_pct}% of total calories).")
+             f"({fat_pct}% of total calories or {fat_per_kg}g/kg of bodyweight).")
+    
+    # Fat multipliers and percentage options
+    st.write("##### Select your fat target:")
+    
+    tab1, tab2 = st.tabs(["Percentage of Calories", "Multiplier of Bodyweight"])
+    
+    with tab1:
+        # By percentage of calories
+        fat_percentage = st.slider(
+            "Fat (percentage of total calories)",
+            min_value=15,
+            max_value=45,
+            value=fat_pct,
+            step=5,
+            help="Select fat as a percentage of total calories"
+        )
+        calculated_fat_pct = round((target_calories * fat_percentage / 100) / 9)
+        st.write(f"→ **{calculated_fat_pct}g** total fat ({round(calculated_fat_pct * 9)} calories, {fat_percentage}% of total)")
+    
+    with tab2:
+        # By multiplier of bodyweight
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # g per kg multiplier
+            fat_multiplier_kg = st.slider(
+                "Fat (g per kg of bodyweight)",
+                min_value=0.5,
+                max_value=2.0,
+                value=fat_per_kg,
+                step=0.1,
+                help="Select your fat target as a multiplier of your bodyweight in kg"
+            )
+            calculated_fat_kg = round(fat_multiplier_kg * weight_kg)
+            fat_percent_of_calories = round((calculated_fat_kg * 9) / target_calories * 100)
+            st.write(f"→ **{calculated_fat_kg}g** total fat ({round(calculated_fat_kg * 9)} calories, {fat_percent_of_calories}% of total)")
+        
+        with col2:
+            # g per lb multiplier
+            fat_multiplier_lb = st.slider(
+                "Fat (g per lb of bodyweight)",
+                min_value=0.2,
+                max_value=1.0,
+                value=round(fat_per_kg / 2.20462, 1),
+                step=0.05,
+                help="Select your fat target as a multiplier of your bodyweight in lbs"
+            )
+            calculated_fat_lb = round(fat_multiplier_lb * weight_lbs)
+            fat_lb_percent_of_calories = round((calculated_fat_lb * 9) / target_calories * 100)
+            st.write(f"→ **{calculated_fat_lb}g** total fat ({round(calculated_fat_lb * 9)} calories, {fat_lb_percent_of_calories}% of total)")
     
     # Fat recommendation table
+    st.write("##### Common fat intake recommendations:")
     fat_rec_df = pd.DataFrame({
         'Fat Percentage': ['15-20%', '20-25%', '25-30%', '30-35%', '>35%'],
         'Description': [
@@ -220,15 +302,21 @@ with st.expander("Customize Fat Target", expanded=True):
     
     st.dataframe(fat_rec_df, hide_index=True, use_container_width=True)
     
-    # Fat selection
-    fat_option = st.selectbox(
-        "Select Fat Target",
-        options=["Standard", "Lower", "Higher", "Custom"],
-        index=0,
-        help="Choose your preferred fat intake level"
+    # Choose which fat calculation to use
+    fat_source = st.radio(
+        "Choose fat calculation method:",
+        options=["Use percentage of calories", "Use g/kg multiplier", "Use g/lb multiplier", "Enter custom value"],
+        horizontal=True,
+        index=0
     )
     
-    if fat_option == "Custom":
+    if fat_source == "Use percentage of calories":
+        custom_fat = calculated_fat_pct
+    elif fat_source == "Use g/kg multiplier":
+        custom_fat = calculated_fat_kg
+    elif fat_source == "Use g/lb multiplier":
+        custom_fat = calculated_fat_lb
+    else:  # Custom value
         custom_fat = st.number_input(
             "Custom Fat Target (g)",
             min_value=max(30, st.session_state.nutrition_plan['target_fat'] - 30),
@@ -236,16 +324,6 @@ with st.expander("Customize Fat Target", expanded=True):
             value=st.session_state.nutrition_plan['target_fat'],
             step=5
         )
-    else:
-        # Adjust fat based on selection
-        if fat_option == "Standard":
-            custom_fat = macros['fat']  # Original calculated value
-        elif fat_option == "Lower":
-            # Aim for about 20% of calories from fat
-            custom_fat = round((target_calories * 0.2) / 9)
-        elif fat_option == "Higher":
-            # Aim for about 35% of calories from fat
-            custom_fat = round((target_calories * 0.35) / 9)
 
 # Calculate remaining calories for carbs
 protein_cals = custom_protein * 4
