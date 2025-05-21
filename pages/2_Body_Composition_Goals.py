@@ -89,9 +89,9 @@ if "tdee" not in st.session_state:
 gender = st.session_state.gender
 age = st.session_state.age
 height_cm = st.session_state.height_cm
-weight_kg = st.session_state.user_info['weight_kg']  # Use direct user_info access
+weight_kg = st.session_state.weight_kg  # Use session state variables directly
 weight_lbs = weight_kg * 2.20462
-body_fat_pct = st.session_state.user_info['body_fat_percentage']  # Get directly from user_info
+body_fat_pct = st.session_state.body_fat_pct
 goal_type = st.session_state.goal_type
 activity_level = st.session_state.activity_level
 tdee = st.session_state.tdee
@@ -590,86 +590,88 @@ with col1:
         
         st.write(f"**Recommendation**: {recommended_text}")
         
-        # Weekly percentage rate slider with recommended value - adjusted for goal type
+        # Simplified rate selection with predefined options
+        st.write("### Set the timeline and rate for your body composition changes:")
+        
         if goal_type == "Lose fat":
-            # For fat loss, use negative values
-            weekly_weight_pct = -1 * st.slider(
-                "Weekly rate (% of body weight)",
-                min_value=0.0,
-                max_value=max(1.0, rec_weekly_pct * 2),  # Allow up to double the recommended rate
-                value=float(rec_weekly_pct),
-                step=0.001,
-                format="%.3f",
-                help="Set the weekly rate of fat loss as a percentage of current body weight"
+            # Predefined rates for fat loss
+            rate_options = {
+                "Gradual (0.25% per week)": 0.0025,
+                "Moderate (0.5% per week)": 0.005,
+                "Aggressive (0.75% per week)": 0.0075,
+                "Very Aggressive (1.0% per week)": 0.01
+            }
+            
+            # Default to recommended or moderate
+            default_option = f"Moderate ({rec_weekly_pct*100:.2f}% per week)" if abs(rec_weekly_pct-0.005) < 0.001 else f"Custom ({rec_weekly_pct*100:.2f}% per week)"
+            selected_rate = st.radio(
+                "Select weekly rate of change:",
+                options=list(rate_options.keys()),
+                index=list(rate_options.keys()).index("Moderate (0.5% per week)") if default_option not in rate_options else list(rate_options.keys()).index(default_option),
+                help="How quickly you want to lose fat. More aggressive rates may be harder to sustain."
             )
+            
+            weekly_weight_pct = -1 * rate_options[selected_rate]  # Negative for fat loss
+            
         elif goal_type == "Gain muscle":
-            # For muscle gain, use positive values
-            weekly_weight_pct = st.slider(
-                "Weekly rate (% of body weight)",
-                min_value=0.0,
-                max_value=max(1.0, rec_weekly_pct * 2),  # Allow up to double the recommended rate
-                value=float(rec_weekly_pct),
-                step=0.001,
-                format="%.3f",
-                help="Set the weekly rate of muscle gain as a percentage of current body weight"
+            # Predefined rates for muscle gain
+            rate_options = {
+                "Gradual (0.12% per week)": 0.00125,
+                "Moderate (0.25% per week)": 0.0025,
+                "Aggressive (0.5% per week)": 0.005,
+                "Very Aggressive (0.75% per week)": 0.0075
+            }
+            
+            # Default to recommended or moderate
+            default_option = f"Moderate ({rec_weekly_pct*100:.2f}% per week)" if abs(rec_weekly_pct-0.0025) < 0.001 else f"Custom ({rec_weekly_pct*100:.2f}% per week)"
+            selected_rate = st.radio(
+                "Select weekly rate of change:",
+                options=list(rate_options.keys()),
+                index=list(rate_options.keys()).index("Moderate (0.25% per week)") if default_option not in rate_options else list(rate_options.keys()).index(default_option),
+                help="How quickly you want to gain muscle. More aggressive rates may include more fat gain."
             )
+            
+            weekly_weight_pct = rate_options[selected_rate]  # Positive for muscle gain
+            
         else:  # Maintenance
-            # For maintenance, use a much smaller range centered around zero
-            weekly_weight_pct = st.slider(
-                "Weekly rate (% of body weight)",
-                min_value=-0.001,
-                max_value=0.001,
-                value=0.0,
-                step=0.0001,
-                format="%.4f",
-                help="For maintenance, keep this near zero for stable weight with small body composition changes"
+            # For maintenance, offer body recomposition options
+            rate_options = {
+                "Pure maintenance (0% per week)": 0.0,
+                "Slight deficit (0.1% per week)": 0.001,
+                "Slight surplus (0.1% per week)": -0.001
+            }
+            
+            selected_rate = st.radio(
+                "Select maintenance approach:",
+                options=list(rate_options.keys()),
+                index=0,
+                help="For maintenance, you can either maintain exact weight or create a very small deficit/surplus."
             )
+            
+            weekly_weight_pct = rate_options[selected_rate]
         
         # Display the weekly change in absolute terms
         weekly_weight_change_lbs = weekly_weight_pct * current_weight_lbs
         weekly_weight_change_kg = weekly_weight_pct * current_weight_kg
         
         # Show rate in pounds/kg format with proper direction
-        if goal_type == "Maintain" and abs(weekly_weight_pct) < 0.0001:
+        if abs(weekly_weight_pct) < 0.0001:
             st.write("This equals approximately no change in weight per week (maintenance).")
         else:
             change_direction = "gain" if weekly_weight_change_lbs > 0 else "loss"
             st.write(f"This equals approximately {abs(weekly_weight_change_lbs):.2f} lbs ({abs(weekly_weight_change_kg):.2f} kg) {change_direction} per week.")
         
-        # Fat percentage slider - adjusted for goal type
+        # Use the recommended fat percentage instead of a slider
+        # since targets have already been set in a previous step
         if goal_type == "Lose fat":
-            # For fat loss, higher percentages are better (preserving more muscle)
-            weekly_fat_pct = st.slider(
-                "Percentage as fat tissue",
-                min_value=0.6,  # At least 60% fat loss
-                max_value=1.0,
-                value=float(rec_fat_pct),
-                step=0.05,
-                format="%d%%",
-                help="Higher values mean more fat loss and better muscle preservation"
-            )
+            weekly_fat_pct = float(rec_fat_pct)  # Default to 85% for fat loss
+            st.info(f"Based on your targets, approximately {weekly_fat_pct*100:.0f}% of your weekly weight change will be fat tissue, with the rest being lean tissue.")
         elif goal_type == "Gain muscle":
-            # For muscle gain, lower percentages are better (more muscle gain)
-            weekly_fat_pct = st.slider(
-                "Percentage as fat tissue",
-                min_value=0.0,
-                max_value=0.5,  # At most 50% fat gain
-                value=float(rec_fat_pct),
-                step=0.05,
-                format="%d%%",
-                help="Lower values mean more muscle gain relative to fat"
-            )
+            weekly_fat_pct = float(rec_fat_pct)  # Default to 25% for muscle gain
+            st.info(f"Based on your targets, approximately {weekly_fat_pct*100:.0f}% of your weekly weight gain will be fat tissue, with {(1-weekly_fat_pct)*100:.0f}% being muscle.")
         else:  # Maintenance
-            # For maintenance, allow recomposition in either direction
-            weekly_fat_pct = st.slider(
-                "Percentage as fat tissue",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.5,  # Default 50/50 for maintenance
-                step=0.05,
-                format="%d%%",
-                help="For maintenance, this determines the ratio of small fat/muscle changes"
-            )
+            weekly_fat_pct = 0.5  # Default 50/50 for maintenance
+            st.info("For maintenance, we assume equal changes in fat and muscle tissue for small body composition adjustments.")
             
     else:
         st.info("Set your target values above to configure your timeline and rate settings.")
@@ -717,29 +719,29 @@ with col2:
                 st.error(f"Error calculating timeline: {str(e)}")
                 timeline_weeks = 12  # Default fallback
         
-        # Display the calculated timeline
+        # Display the calculated timeline with simplified options
         if timeline_weeks > 0:
             st.success(f"Estimated time to reach your target: **{timeline_weeks:.1f} weeks** (approximately {timeline_weeks/4:.1f} months)")
             
-            # Option to adjust timeline
-            st.write("Or set your desired timeline:")
-            desired_weeks = st.slider(
-                "Timeline (weeks)",
-                min_value=int(max(1, timeline_weeks / 2)),  # Allow timeline to be cut in half as minimum
-                max_value=int(timeline_weeks * 2),  # Allow timeline to be doubled as maximum
-                value=int(timeline_weeks),
-                step=1,
-                help="Set your desired timeline in weeks"
+            # Create 3 preset timeline options based on calculated timeline
+            timeline_options = [
+                f"Faster ({max(4, int(timeline_weeks * 0.7)):.0f} weeks)",
+                f"Recommended ({int(timeline_weeks):.0f} weeks)",
+                f"Slower ({int(timeline_weeks * 1.3):.0f} weeks)"
+            ]
+            
+            selected_timeline = st.radio(
+                "Choose your preferred timeline:",
+                options=timeline_options,
+                index=1,  # Default to recommended
+                help="A longer timeline means smaller weekly changes that may be easier to maintain."
             )
             
-            # Recalculate required rate based on desired timeline
-            if desired_weeks != timeline_weeks:
-                # This is a simplification; a more accurate calculation would require solving for weekly_weight_pct
-                required_rate = weekly_weight_pct * (timeline_weeks / desired_weeks)
-                st.write(f"To reach your target in {desired_weeks} weeks, you would need a weekly rate of approximately {required_rate*100:.3f}% of body weight.")
-                
-                # Update the timeline_weeks for the progress table
-                timeline_weeks = desired_weeks
+            # Extract the selected timeline value
+            if "Faster" in selected_timeline:
+                timeline_weeks = max(4, int(timeline_weeks * 0.7))
+            elif "Slower" in selected_timeline:
+                timeline_weeks = int(timeline_weeks * 1.3)
         else:
             st.warning("The targets you've set do not represent a significant change. Consider adjusting your targets or selecting 'Maintain' as your goal type.")
             timeline_weeks = 12  # Default to 12 weeks for maintenance or when calculation gives invalid result
