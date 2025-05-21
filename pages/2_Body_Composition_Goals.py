@@ -664,29 +664,34 @@ for category in ffmi_categories:
         target_ffmi_category = category["name"]
         break
 
-# Show categories and recommendations
-with st.expander("Body Composition Index Categories"):
-    st.write("#### Target Categories")
-    st.write(f"Target FMI: **{target_fmi:.1f} kg/m²** ({target_fmi_category})")
-    st.write(f"Target FFMI: **{target_ffmi:.1f} kg/m²** ({target_ffmi_category})")
-    
-    # Calculate the new combo recommendation
-    combo_rec = utils.get_combined_category_rates(target_fmi_category, target_ffmi_category)
-    target_recommended_category = combo_rec.get("recommendation", "No specific recommendation available")
-    
-    st.write(f"**Recommendation based on target body composition**: {target_recommended_category}")
+# Display target information only if targets have been set
+if st.session_state.targets_set:
+    # Show categories and recommendations
+    with st.expander("Body Composition Index Categories"):
+        st.write("#### Target Categories")
+        st.write(f"Target FMI: **{target_fmi:.1f} kg/m²** ({target_fmi_category})")
+        st.write(f"Target FFMI: **{target_ffmi:.1f} kg/m²** ({target_ffmi_category})")
+        
+        # Calculate the new combo recommendation
+        combo_rec = utils.get_combined_category_rates(target_fmi_category, target_ffmi_category)
+        target_recommended_category = combo_rec.get("recommendation", "No specific recommendation available")
+        
+        st.write(f"**Recommendation based on target body composition**: {target_recommended_category}")
 
-# Calculate target weight from fat mass and FFM
-target_weight_lbs = target_fat_mass_lbs + target_ffm_lbs
+    # Calculate target weight from fat mass and FFM
+    target_weight_lbs = target_fat_mass_lbs + target_ffm_lbs
 
-# Display the calculated values
-st.write("### Target Body Composition Summary")
-st.success(f"""
-- **Target Weight**: {target_weight_lbs:.1f} lbs ({(target_weight_lbs-current_weight_lbs):.1f} lbs change)
-- **Target Body Fat**: {target_bf:.1f}% ({(target_bf-current_bf):.1f}% change)
-- **Target Fat Mass**: {target_fat_mass_lbs:.1f} lbs ({(target_fat_mass_lbs-current_fat_mass_lbs):.1f} lbs change)
-- **Target Fat-Free Mass**: {target_ffm_lbs:.1f} lbs ({(target_ffm_lbs-current_fat_free_mass_lbs):.1f} lbs change)
-""")
+    # Display the calculated values
+    st.write("### Target Body Composition Summary")
+    st.success(f"""
+    - **Target Weight**: {target_weight_lbs:.1f} lbs ({(target_weight_lbs-current_weight_lbs):.1f} lbs change)
+    - **Target Body Fat**: {target_bf:.1f}% ({(target_bf-current_bf):.1f}% change)
+    - **Target Fat Mass**: {target_fat_mass_lbs:.1f} lbs ({(target_fat_mass_lbs-current_fat_mass_lbs):.1f} lbs change)
+    - **Target Fat-Free Mass**: {target_ffm_lbs:.1f} lbs ({(target_ffm_lbs-current_fat_free_mass_lbs):.1f} lbs change)
+    """)
+else:
+    st.write("### Target Body Composition Summary")
+    st.info("Set your target values above to see your target body composition summary.")
 
 # Now show the detailed Body Composition Analysis Table based on current selections
 st.markdown("---")
