@@ -53,7 +53,10 @@ st.set_page_config(
 )
 
 # Header
-st.image("images/branding/fitomics_horizontal_gold.png", width=300)
+try:
+    st.image("images/fitomicshorizontalgold.png", width=300)
+except:
+    st.title("Fitomics")
 st.title("Body Composition Goals")
 st.markdown("Define your body composition targets and timeline.")
 
@@ -239,20 +242,19 @@ with st.expander("📊 View Detailed Information on Fat Mass Index and Fat-Free 
     # Body Composition Category Reference Tables
     st.write("### Body Composition Category Reference Tables")
     
-    # Add advice based on combined categories
-    with st.expander("View Body Composition Category Combinations and Recommendations"):
-        st.write("""
-        The combination of your FMI and FFMI categories provides a comprehensive picture of your body composition status.
-        
-        **General Patterns:**
-        - If your FMI is high and FFMI is low: Focus on losing fat while gaining muscle
-        - If your FMI is high and FFMI is average: Focus on losing fat while maintaining muscle
-        - If your FMI is low or average and FFMI is low: Focus on building muscle
-        - If your FMI is low and FFMI is high: Consider maintenance or a slight surplus for performance
-        - If your FMI is high and FFMI is high: Consider body recomposition (lose fat while maintaining muscle)
-        
-        The "Body Composition Category Reference Tables" provide specific recommendations based on your unique combination.
-        """)
+    # Add advice about combined categories (not in nested expander)
+    st.write("""
+    The combination of your FMI and FFMI categories provides a comprehensive picture of your body composition status.
+    
+    **General Patterns:**
+    - If your FMI is high and FFMI is low: Focus on losing fat while gaining muscle
+    - If your FMI is high and FFMI is average: Focus on losing fat while maintaining muscle
+    - If your FMI is low or average and FFMI is low: Focus on building muscle
+    - If your FMI is low and FFMI is high: Consider maintenance or a slight surplus for performance
+    - If your FMI is high and FFMI is high: Consider body recomposition (lose fat while maintaining muscle)
+    
+    The "Body Composition Category Reference Tables" provide specific recommendations based on your unique combination.
+    """)
 
 # Initialize target session state variables if needed
 if "target_bf" not in st.session_state:
