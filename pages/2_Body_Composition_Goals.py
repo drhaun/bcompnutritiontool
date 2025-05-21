@@ -391,21 +391,25 @@ with col1:
     st.write(f"**Current FFMI Category**: {current_ffmi_category}")
 
 with col2:
-    # Find categories for target values
-    target_fmi_category = "Unknown"
-    for category in fmi_categories:
-        if category["lower"] <= target_fmi <= category["upper"]:
-            target_fmi_category = category["name"]
-            break
-            
-    target_ffmi_category = "Unknown"
-    for category in ffmi_categories:
-        if category["lower"] <= target_ffmi <= category["upper"]:
-            target_ffmi_category = category["name"]
-            break
-            
-    st.write(f"**Target FMI Category**: {target_fmi_category}")
-    st.write(f"**Target FFMI Category**: {target_ffmi_category}")
+    if st.session_state.targets_set:
+        # Find categories for target values
+        target_fmi_category = "Unknown"
+        for category in fmi_categories:
+            if category["lower"] <= target_fmi <= category["upper"]:
+                target_fmi_category = category["name"]
+                break
+                
+        target_ffmi_category = "Unknown"
+        for category in ffmi_categories:
+            if category["lower"] <= target_ffmi <= category["upper"]:
+                target_ffmi_category = category["name"]
+                break
+                
+        st.write(f"**Target FMI Category**: {target_fmi_category}")
+        st.write(f"**Target FFMI Category**: {target_ffmi_category}")
+    else:
+        st.write("**Target FMI Category**: Set target values first")
+        st.write("**Target FFMI Category**: Set target values first")
 
 # Get combined recommendations
 current_combo_rec = utils.get_combined_category_rates(current_fmi_category, current_ffmi_category)
