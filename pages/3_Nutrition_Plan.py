@@ -774,6 +774,79 @@ for i in range(meals_per_day):
                     }
         
     with cols[4]:
+        # Add a vegetables/fruits field
+        st.write("### Vegetables/Fruits")
+        veggie_fruit = st.selectbox(
+            "Add a side",
+            options=["None", "Broccoli", "Spinach", "Mixed Greens", "Asparagus", "Bell Peppers", 
+                    "Carrots", "Zucchini", "Cauliflower", "Apple", "Berries", "Banana", "Orange", "Search..."],
+            index=0,
+            key=f"veggie_fruit_{i}"
+        )
+        
+        if veggie_fruit == "Search...":
+            vf_search = st.text_input("Search for vegetables/fruits:", key=f"vf_search_{i}")
+            if vf_search:
+                st.info(f"Searching for '{vf_search}' (Note: This would connect to the USDA database)")
+                # In a real implementation, this would call the FDC API
+        
+        if veggie_fruit != "None" and veggie_fruit != "Search...":
+            # Predefined vegetable/fruit values (per 100g)
+            vf_foods = {
+                "Broccoli": {"protein": 2.8, "carbs": 7, "fat": 0.4, "fiber": 2.6, "calories": 34, "serving": "100g"},
+                "Spinach": {"protein": 2.9, "carbs": 3.6, "fat": 0.4, "fiber": 2.2, "calories": 23, "serving": "100g"},
+                "Mixed Greens": {"protein": 1.5, "carbs": 2.9, "fat": 0.2, "fiber": 1.5, "calories": 17, "serving": "100g"},
+                "Asparagus": {"protein": 2.2, "carbs": 3.9, "fat": 0.1, "fiber": 2.1, "calories": 20, "serving": "100g"},
+                "Bell Peppers": {"protein": 0.9, "carbs": 6, "fat": 0.2, "fiber": 2.1, "calories": 28, "serving": "100g"},
+                "Carrots": {"protein": 0.9, "carbs": 9.6, "fat": 0.2, "fiber": 2.8, "calories": 41, "serving": "100g"},
+                "Zucchini": {"protein": 1.2, "carbs": 3.1, "fat": 0.3, "fiber": 1, "calories": 17, "serving": "100g"},
+                "Cauliflower": {"protein": 1.9, "carbs": 5, "fat": 0.3, "fiber": 2, "calories": 25, "serving": "100g"},
+                "Apple": {"protein": 0.3, "carbs": 14, "fat": 0.2, "fiber": 2.4, "calories": 52, "serving": "100g (1 medium)"},
+                "Berries": {"protein": 0.7, "carbs": 14, "fat": 0.3, "fiber": 2, "calories": 57, "serving": "100g"},
+                "Banana": {"protein": 1.1, "carbs": 22.8, "fat": 0.3, "fiber": 2.6, "calories": 89, "serving": "100g (1 medium)"},
+                "Orange": {"protein": 0.9, "carbs": 11.8, "fat": 0.1, "fiber": 2.4, "calories": 47, "serving": "100g (1 medium)"},
+            }
+            
+            # Standard serving for vegetables/fruits (usually around 100g)
+            standard_serving = 100  # grams
+            selected_food = vf_foods[veggie_fruit]
+            
+            # Display serving information
+            st.write(f"Standard serving: **{standard_serving}g**")
+            
+            # Show macronutrient contribution
+            vf_protein = round((standard_serving/100) * selected_food['protein'])
+            vf_carbs = round((standard_serving/100) * selected_food['carbs'])
+            vf_fat = round((standard_serving/100) * selected_food['fat'])
+            vf_fiber = round((standard_serving/100) * selected_food['fiber'])
+            vf_calories = round((standard_serving/100) * selected_food['calories'])
+            
+            # Display nutrition info
+            st.write(f"Provides: {vf_protein}g protein, {vf_carbs}g carbs, {vf_fat}g fat")
+            st.write(f"Fiber: {vf_fiber}g | Calories: {vf_calories}")
+            
+            # Store in session state
+            if 'meal_components' in st.session_state and f"meal_{i}" in st.session_state.meal_components:
+                st.session_state.meal_components[f"meal_{i}"]["veggie_fruit"] = {
+                    "food": veggie_fruit,
+                    "serving": standard_serving,
+                    "macros": {
+                        "protein": vf_protein,
+                        "carbs": vf_carbs,
+                        "fat": vf_fat,
+                        "fiber": vf_fiber,
+                        "calories": vf_calories
+                    }
+                }
+                
+                # Update the meal's macros to include the vegetables/fruits
+                protein += vf_protein
+                carbs += vf_carbs
+                fat += vf_fat
+                st.session_state.current_meals.at[i, "Protein (g)"] = protein
+                st.session_state.current_meals.at[i, "Carbs (g)"] = carbs
+                st.session_state.current_meals.at[i, "Fat (g)"] = fat
+        
         # Calculate and update calories
         calories = (protein * 4) + (carbs * 4) + (fat * 9)
         st.session_state.current_meals.at[i, "Calories"] = calories
