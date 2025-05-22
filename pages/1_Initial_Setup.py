@@ -290,6 +290,17 @@ with st.form("user_info_form"):
         else:  # Maintain body composition
             goal_type_code = "maintain"
         
+        # Calculate TDEE here in Initial Setup
+        tdee = utils.calculate_tdee(
+            gender,
+            weight_kg,
+            height_cm,
+            age,
+            mapped_activity,  # Use mapped activity for TDEE calculation
+            workouts_per_week,
+            workout_calories
+        )
+        
         # Update session state with all the new fields
         st.session_state.user_info = {
             'gender': gender,
@@ -308,7 +319,8 @@ with st.form("user_info_form"):
             'goal_focus': goal_type,
             'performance_preference': performance_preference,
             'body_comp_preference': body_comp_preference,
-            'commitment_level': commitment_level
+            'commitment_level': commitment_level,
+            'tdee': tdee  # Store the calculated TDEE in user_info
         }
         
         # Set the goal type in goal_info as well since it's now collected in initial setup

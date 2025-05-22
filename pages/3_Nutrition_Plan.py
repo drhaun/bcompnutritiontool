@@ -59,8 +59,21 @@ weekly_weight_pct = st.session_state.goal_info.get('weekly_weight_pct', 0.005)  
 weekly_fat_pct = st.session_state.goal_info.get('weekly_fat_pct', 0.7)  # default 70%
 weekly_change_kg = (target_weight_kg - weight_kg) / timeline_weeks if timeline_weeks > 0 else 0
 
-# Use fixed TDEE value of 2500 calories as confirmed by the user
-tdee = 2500
+# Retrieve TDEE from session state if it was already calculated in the Initial Setup
+if 'tdee' in st.session_state.user_info and st.session_state.user_info['tdee'] is not None:
+    # Use the TDEE that was calculated in Initial Setup
+    tdee = st.session_state.user_info['tdee']
+else:
+    # Calculate TDEE if not already done
+    tdee = utils.calculate_tdee(
+        gender, 
+        weight_kg, 
+        height_cm, 
+        age, 
+        activity_level, 
+        workouts_per_week, 
+        workout_calories
+    )
 st.session_state.tdee = tdee
 
 # Generate progress table to get correct calorie targets
