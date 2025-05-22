@@ -668,7 +668,7 @@ with timeline_container:
                             {display_text} 
                             <span style="float:right">
                                 <a href="?delete={activity['type']}_{activity['idx']}" 
-                                   title="Remove">❌</a>
+                                   title="Remove" style="text-decoration:none;">❌</a>
                             </span>
                         </div>
                         """
@@ -825,10 +825,10 @@ with activity_tabs[2]:
 
 
 # Handle URL query params for removing/adding activities
-query_params = st.experimental_get_query_params()
+query_params = st.query_params
 
 if "delete" in query_params:
-    delete_param = query_params["delete"][0]
+    delete_param = query_params["delete"]
     try:
         activity_type, idx = delete_param.split("_")
         idx = int(idx)
@@ -837,26 +837,26 @@ if "delete" in query_params:
             deleted_item = st.session_state.weekly_schedule['days'][selected_day]['meals'].pop(idx)
             st.success(f"Removed {deleted_item['name']} from {selected_day}")
             # Clear query param by rerunning
-            st.experimental_set_query_params()
+            st.query_params.clear()
             st.rerun()
         elif activity_type == "workout" and idx < len(st.session_state.weekly_schedule['days'][selected_day]['workouts']):
             deleted_item = st.session_state.weekly_schedule['days'][selected_day]['workouts'].pop(idx)
             st.success(f"Removed {deleted_item['type']} from {selected_day}")
             # Clear query param by rerunning
-            st.experimental_set_query_params()
+            st.query_params.clear()
             st.rerun()
         elif activity_type == "activity" and idx < len(st.session_state.weekly_schedule['days'][selected_day]['work']):
             deleted_item = st.session_state.weekly_schedule['days'][selected_day]['work'].pop(idx)
             st.success(f"Removed {deleted_item['type']} from {selected_day}")
             # Clear query param by rerunning
-            st.experimental_set_query_params()
+            st.query_params.clear()
             st.rerun()
     except Exception as e:
         st.error(f"Error processing delete request: {e}")
-        st.experimental_set_query_params()
+        st.query_params.clear()
 
 if "add" in query_params:
-    add_param = query_params["add"][0]
+    add_param = query_params["add"]
     try:
         parts = add_param.split("_")
         if len(parts) >= 3:
@@ -884,7 +884,7 @@ if "add" in query_params:
                                 "time": f"{hour}:00"
                             })
                             st.success(f"Added {quick_add_option} to {day} at {hour}:00")
-                            st.experimental_set_query_params()
+                            st.query_params.clear()
                             st.rerun()
                             
                     elif quick_add_type == "Workout":
@@ -913,7 +913,7 @@ if "add" in query_params:
                                 "intensity": "Moderate"
                             })
                             st.success(f"Added {quick_add_option} to {day} at {hour}:00")
-                            st.experimental_set_query_params()
+                            st.query_params.clear()
                             st.rerun()
                             
                     else:  # Other Activity
@@ -941,15 +941,15 @@ if "add" in query_params:
                                 "end": end_time
                             })
                             st.success(f"Added {quick_add_option} to {day} at {hour}:00")
-                            st.experimental_set_query_params()
+                            st.query_params.clear()
                             st.rerun()
                 
                 if st.button("Cancel", key="quick_add_cancel"):
-                    st.experimental_set_query_params()
+                    st.query_params.clear()
                     st.rerun()
     except Exception as e:
         st.error(f"Error processing add request: {e}")
-        st.experimental_set_query_params()
+        st.query_params.clear()
 
 # Activity Editor Section
 st.write("### Quick Edit Activities")
