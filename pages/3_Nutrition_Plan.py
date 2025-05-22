@@ -589,13 +589,141 @@ for hour in range(min_hour, max_hour + 1):
                 st.markdown("—")
 
 # Activity Editor Section
-st.write("### Add or Edit Activities")
+st.write("### Quick Edit Activities")
+st.info("Click on any element in the calendar grid above to edit directly. Or use the simplified editors below to make changes.")
+
+# Create a day selector for quick editing all activities on a specific day
+selected_edit_day = st.selectbox(
+    "Select day to edit:",
+    days_of_week,
+    key="quick_edit_day"
+)
 
 # Create tabs for easier editing of different activity types
-edit_tabs = st.tabs(["Meals", "Workouts", "Work/Activities"])
+edit_tabs = st.tabs(["All Activities", "Meals", "Workouts", "Work/Activities"])
+
+# All Activities tab (quick edit)
+with edit_tabs[0]:
+    st.write(f"#### All Activities for {selected_edit_day}")
+    
+    # Display and edit all activities for the selected day
+    day_data = st.session_state.weekly_schedule['days'][selected_edit_day]
+    
+    # Quick add multiple activity types
+    add_cols = st.columns(3)
+    
+    with add_cols[0]:
+        st.write("**Quick Add Meal**")
+        quick_meal_name = st.selectbox(
+            "Type",
+            options=["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"],
+            key="quick_add_meal_type"
+        )
+        quick_meal_time = st.time_input("Time", pd.to_datetime("12:00").time(), key="quick_add_meal_time")
+        if st.button("+ Add Meal", key="quick_add_meal_btn"):
+            day_data['meals'].append({
+                "name": quick_meal_name,
+                "time": quick_meal_time.strftime("%H:%M")
+            })
+            st.success(f"Added {quick_meal_name} at {quick_meal_time.strftime('%H:%M')}")
+            st.rerun()
+    
+    with add_cols[1]:
+        st.write("**Quick Add Workout**")
+        quick_workout_type = st.selectbox(
+            "Type",
+            options=["Strength", "Cardio", "HIIT", "Flexibility", "Sports"],
+            key="quick_add_workout_type"
+        )
+        quick_workout_time = st.time_input("Start Time", pd.to_datetime("17:00").time(), key="quick_add_workout_time")
+        quick_workout_duration = st.number_input("Duration (mins)", 15, 120, 60, 15, key="quick_add_workout_duration")
+        
+        # Calculate end time
+        hours, minutes = quick_workout_time.hour, quick_workout_time.minute
+        minutes += quick_workout_duration
+        hours += minutes // 60
+        minutes = minutes % 60
+        quick_workout_end = f"{hours:02d}:{minutes:02d}"
+        
+        if st.button("+ Add Workout", key="quick_add_workout_btn"):
+            day_data['workouts'].append({
+                "type": quick_workout_type,
+                "start": quick_workout_time.strftime("%H:%M"),
+                "end": quick_workout_end,
+                "intensity": "Moderate"
+            })
+            st.success(f"Added {quick_workout_type} at {quick_workout_time.strftime('%H:%M')}")
+            st.rerun()
+    
+    with add_cols[2]:
+        st.write("**Quick Add Activity**")
+        quick_activity_type = st.selectbox(
+            "Type",
+            options=["Work", "School", "Commuting", "Family Time", "Other"],
+            key="quick_add_activity_type"
+        )
+        quick_activity_start = st.time_input("Start Time", pd.to_datetime("09:00").time(), key="quick_add_activity_start")
+        quick_activity_end = st.time_input("End Time", pd.to_datetime("17:00").time(), key="quick_add_activity_end")
+        
+        if st.button("+ Add Activity", key="quick_add_activity_btn"):
+            day_data['work'].append({
+                "type": quick_activity_type,
+                "start": quick_activity_start.strftime("%H:%M"),
+                "end": quick_activity_end.strftime("%H:%M")
+            })
+            st.success(f"Added {quick_activity_type} at {quick_activity_start.strftime('%H:%M')}")
+            st.rerun()
+    
+    # Display table of current schedule for the day
+    st.markdown("---")
+    st.write("##### Current Schedule")
+    
+    # Display meals
+    if day_data['meals']:
+        st.write("**Meals:**")
+        for i, meal in enumerate(day_data['meals']):
+            cols = st.columns([3, 2, 1])
+            with cols[0]:
+                st.write(f"🍽️ {meal['name']}")
+            with cols[1]:
+                st.write(f"Time: {meal['time']}")
+            with cols[2]:
+                if st.button("Remove", key=f"remove_meal_{i}"):
+                    day_data['meals'].pop(i)
+                    st.rerun()
+    
+    # Display workouts
+    if day_data['workouts']:
+        st.write("**Workouts:**")
+        for i, workout in enumerate(day_data['workouts']):
+            cols = st.columns([2, 2, 1, 1])
+            with cols[0]:
+                st.write(f"💪 {workout['type']}")
+            with cols[1]:
+                st.write(f"{workout['start']} - {workout['end']}")
+            with cols[2]:
+                st.write(f"Intensity: {workout['intensity']}")
+            with cols[3]:
+                if st.button("Remove", key=f"remove_workout_{i}"):
+                    day_data['workouts'].pop(i)
+                    st.rerun()
+    
+    # Display work/activities
+    if day_data['work']:
+        st.write("**Activities:**")
+        for i, work in enumerate(day_data['work']):
+            cols = st.columns([2, 2, 1])
+            with cols[0]:
+                st.write(f"📆 {work['type']}")
+            with cols[1]:
+                st.write(f"{work['start']} - {work['end']}")
+            with cols[2]:
+                if st.button("Remove", key=f"remove_work_{i}"):
+                    day_data['work'].pop(i)
+                    st.rerun()
 
 # Meals tab
-with edit_tabs[0]:
+with edit_tabs[1]:
     st.write("#### Meal Schedule")
     
     # Select day for editing
@@ -604,58 +732,88 @@ with edit_tabs[0]:
     # Current meals for the selected day
     current_meals = st.session_state.weekly_schedule['days'][meal_day]['meals']
     
-    # Show current meals in a table format for editing
-    for i, meal in enumerate(current_meals):
-        cols = st.columns([3, 2, 1])
-        with cols[0]:
-            meal_name = st.selectbox(
-                f"Meal {i+1} Type",
-                options=["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"],
-                index=["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"].index(meal['name']) 
-                    if meal['name'] in ["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"] else 0,
-                key=f"edit_meal_name_{meal_day}_{i}"
-            )
-            current_meals[i]['name'] = meal_name
+    # Add multiple meals at once option
+    with st.expander("Add Multiple Standard Meals"):
+        standard_meals = {
+            "Standard 3 Meals": [
+                {"name": "Breakfast", "time": "07:00"},
+                {"name": "Lunch", "time": "12:00"},
+                {"name": "Dinner", "time": "18:00"}
+            ],
+            "Standard 5 Meals": [
+                {"name": "Breakfast", "time": "07:00"},
+                {"name": "Snack", "time": "10:00"},
+                {"name": "Lunch", "time": "13:00"},
+                {"name": "Snack", "time": "16:00"},
+                {"name": "Dinner", "time": "19:00"}
+            ],
+            "With Pre/Post Workout": [
+                {"name": "Breakfast", "time": "07:00"},
+                {"name": "Pre-workout", "time": "15:30"},
+                {"name": "Post-workout", "time": "17:30"},
+                {"name": "Dinner", "time": "19:00"}
+            ]
+        }
         
-        with cols[1]:
-            meal_time = st.time_input(
-                f"Time",
-                value=pd.to_datetime(meal['time']).time(),
-                key=f"edit_meal_time_{meal_day}_{i}"
-            )
-            current_meals[i]['time'] = meal_time.strftime("%H:%M")
-            
-        with cols[2]:
-            if st.button("Delete", key=f"delete_meal_{meal_day}_{i}"):
-                current_meals.pop(i)
-                st.rerun()
+        meal_pattern = st.selectbox(
+            "Choose meal pattern",
+            options=list(standard_meals.keys()),
+            key=f"meal_pattern_{meal_day}"
+        )
+        
+        if st.button("Apply Meal Pattern", key=f"apply_pattern_{meal_day}"):
+            # Replace current meals with selected pattern
+            st.session_state.weekly_schedule['days'][meal_day]['meals'] = copy.deepcopy(standard_meals[meal_pattern])
+            st.success(f"Applied {meal_pattern} pattern to {meal_day}")
+            st.rerun()
     
-    # Add new meal
-    with st.expander("Add New Meal"):
-        new_meal_cols = st.columns([3, 2])
-        with new_meal_cols[0]:
+    # Show current meals in a table format for editing
+    meal_table = []
+    for meal in current_meals:
+        meal_table.append({"Type": meal['name'], "Time": meal['time']})
+    
+    # If we have meals, display them in a table
+    if meal_table:
+        st.dataframe(pd.DataFrame(meal_table), use_container_width=True, hide_index=True)
+    else:
+        st.info("No meals scheduled for this day. Use 'Add New Meal' or 'Apply Meal Pattern' to add meals.")
+    
+    # Simplified meal editor
+    st.markdown("---")
+    with st.form(key=f"edit_meal_form_{meal_day}"):
+        st.write("#### Add or Edit Meal")
+        form_cols = st.columns([3, 2])
+        
+        with form_cols[0]:
             new_meal_name = st.selectbox(
                 "Meal Type",
                 options=["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"],
                 key=f"new_meal_name_{meal_day}"
             )
         
-        with new_meal_cols[1]:
+        with form_cols[1]:
             new_meal_time = st.time_input(
                 "Time",
                 value=pd.to_datetime("12:00").time(),
                 key=f"new_meal_time_{meal_day}"
             )
-            
-        if st.button("Add Meal", key=f"add_meal_{meal_day}"):
+        
+        # Submit button
+        submit = st.form_submit_button("Add Meal")
+        
+        if submit:
             current_meals.append({
                 "name": new_meal_name,
                 "time": new_meal_time.strftime("%H:%M")
             })
+            st.success(f"Added {new_meal_name} at {new_meal_time.strftime('%H:%M')}")
+            
+            # Sort meals by time
+            current_meals.sort(key=lambda x: x['time'])
             st.rerun()
 
 # Workouts tab
-with edit_tabs[1]:
+with edit_tabs[2]:
     st.write("#### Workout Schedule")
     
     # Select day for editing
