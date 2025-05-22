@@ -1141,8 +1141,14 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
                 else:
                     daily_energy_balance = -1 * (abs(weekly_weight_change_kg) * 7700) / 7  # Daily deficit
             
-            # Calculate TDEE based on current weight - use the original activity level
-            current_tdee = calculate_tdee(gender, weight_kg, height_cm, age, activity_level)
+            # Use the passed-in TDEE instead of recalculating it - this ensures consistency with the user's initial TDEE
+            current_tdee = tdee
+            
+            # Only adjust TDEE for significant weight changes (over 5% of starting weight) to avoid minor fluctuations
+            if week > 0 and abs(weight_kg - current_weight_kg) / current_weight_kg > 0.05:
+                # Small adjustment to TDEE based on weight change (approximately 10 calories per pound)
+                weight_change_factor = (weight_kg - current_weight_kg) * 22  # 22 calories per kg
+                current_tdee = tdee + weight_change_factor
             
             # Calculate target energy intake (adjusted for weight change goal)
             target_energy = current_tdee + daily_energy_balance
