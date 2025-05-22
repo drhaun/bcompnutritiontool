@@ -382,7 +382,264 @@ else:
     st.session_state.custom_carbs = st.session_state.standard_carbs
 
 # ------------------------
-# STEP 6: Display macronutrient breakdown
+# STEP 6: Weekly Schedule Planner
+# ------------------------
+st.header("Weekly Schedule Planner")
+st.write("Plan your weekly schedule to optimize meal timing around your daily activities.")
+
+# Initialize weekly schedule in session state if not present
+if 'weekly_schedule' not in st.session_state:
+    st.session_state.weekly_schedule = {
+        'wake_time': '06:00',
+        'bed_time': '22:00',
+        'days': {
+            'Monday': {'meals': [], 'workouts': [], 'work': []},
+            'Tuesday': {'meals': [], 'workouts': [], 'work': []},
+            'Wednesday': {'meals': [], 'workouts': [], 'work': []},
+            'Thursday': {'meals': [], 'workouts': [], 'work': []},
+            'Friday': {'meals': [], 'workouts': [], 'work': []},
+            'Saturday': {'meals': [], 'workouts': [], 'work': []},
+            'Sunday': {'meals': [], 'workouts': [], 'work': []}
+        }
+    }
+
+# Function to convert time string to hours (for positioning events)
+def time_to_hours(time_str):
+    hours, minutes = map(int, time_str.split(':'))
+    return hours + minutes/60
+
+# Function to get hour range based on wake and bed times
+def get_hour_range(wake_time, bed_time):
+    wake_hours = time_to_hours(wake_time)
+    bed_hours = time_to_hours(bed_time)
+    if bed_hours < wake_hours:  # Handle overnight schedules
+        bed_hours += 24
+    return wake_hours, bed_hours
+
+# Set wake and bed times
+wake_bed_cols = st.columns(2)
+with wake_bed_cols[0]:
+    wake_time = st.time_input("Wake Time", value=pd.to_datetime(st.session_state.weekly_schedule['wake_time']).time())
+    st.session_state.weekly_schedule['wake_time'] = wake_time.strftime("%H:%M")
+    
+with wake_bed_cols[1]:
+    bed_time = st.time_input("Bed Time", value=pd.to_datetime(st.session_state.weekly_schedule['bed_time']).time())
+    st.session_state.weekly_schedule['bed_time'] = bed_time.strftime("%H:%M")
+
+# Calculate waking hours
+wake_hours, bed_hours = get_hour_range(st.session_state.weekly_schedule['wake_time'], 
+                                     st.session_state.weekly_schedule['bed_time'])
+waking_hours = bed_hours - wake_hours
+
+# Week Schedule Tabs
+days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+schedule_tabs = st.tabs(days_of_week)
+
+for i, day in enumerate(days_of_week):
+    with schedule_tabs[i]:
+        st.write(f"### {day} Schedule")
+        
+        # Create three columns for different types of activities
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.write("#### Meals")
+            meal_count = st.number_input(f"Number of meals on {day}", 
+                                        min_value=1, max_value=6, value=3, 
+                                        key=f"meal_count_{day}")
+            
+            meal_times = []
+            for meal_idx in range(meal_count):
+                meal_name = st.selectbox(
+                    f"Meal {meal_idx+1} Type", 
+                    options=["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"],
+                    key=f"meal_type_{day}_{meal_idx}"
+                )
+                
+                # Get meal time
+                meal_time = st.time_input(
+                    f"{meal_name} Time",
+                    value=pd.to_datetime(f"{7 + meal_idx*4}:00").time(),
+                    key=f"meal_time_{day}_{meal_idx}"
+                )
+                
+                meal_times.append({
+                    "name": meal_name,
+                    "time": meal_time.strftime("%H:%M")
+                })
+            
+            # Store in session state
+            st.session_state.weekly_schedule['days'][day]['meals'] = meal_times
+            
+        with col2:
+            st.write("#### Workouts")
+            workout_count = st.number_input(f"Number of workouts on {day}", 
+                                          min_value=0, max_value=2, value=1 if day not in ["Saturday", "Sunday"] else 0,
+                                          key=f"workout_count_{day}")
+            
+            workout_times = []
+            for workout_idx in range(workout_count):
+                workout_type = st.selectbox(
+                    f"Workout {workout_idx+1} Type", 
+                    options=["Strength", "Cardio", "HIIT", "Flexibility", "Sports"],
+                    key=f"workout_type_{day}_{workout_idx}"
+                )
+                
+                # Start and end times for workout
+                workout_start = st.time_input(
+                    f"{workout_type} Start Time",
+                    value=pd.to_datetime("17:00").time(),  # Default to 5 PM
+                    key=f"workout_start_{day}_{workout_idx}"
+                )
+                
+                workout_end = st.time_input(
+                    f"{workout_type} End Time",
+                    value=pd.to_datetime("18:00").time(),  # Default to 6 PM
+                    key=f"workout_end_{day}_{workout_idx}"
+                )
+                
+                workout_intensity = st.select_slider(
+                    f"{workout_type} Intensity",
+                    options=["Light", "Moderate", "High"],
+                    value="Moderate",
+                    key=f"workout_intensity_{day}_{workout_idx}"
+                )
+                
+                workout_times.append({
+                    "type": workout_type,
+                    "start": workout_start.strftime("%H:%M"),
+                    "end": workout_end.strftime("%H:%M"),
+                    "intensity": workout_intensity
+                })
+            
+            # Store in session state
+            st.session_state.weekly_schedule['days'][day]['workouts'] = workout_times
+            
+        with col3:
+            st.write("#### Work/Other Activities")
+            work_count = st.number_input(f"Number of work periods on {day}", 
+                                        min_value=0, max_value=2, value=1 if day not in ["Saturday", "Sunday"] else 0,
+                                        key=f"work_count_{day}")
+            
+            work_times = []
+            for work_idx in range(work_count):
+                work_type = st.selectbox(
+                    f"Activity {work_idx+1} Type", 
+                    options=["Work", "School", "Commuting", "Family Time", "Other"],
+                    key=f"work_type_{day}_{work_idx}"
+                )
+                
+                # Start and end times for work
+                work_start = st.time_input(
+                    f"{work_type} Start Time",
+                    value=pd.to_datetime("09:00").time(),  # Default to 9 AM
+                    key=f"work_start_{day}_{work_idx}"
+                )
+                
+                work_end = st.time_input(
+                    f"{work_type} End Time",
+                    value=pd.to_datetime("17:00").time(),  # Default to 5 PM
+                    key=f"work_end_{day}_{work_idx}"
+                )
+                
+                work_times.append({
+                    "type": work_type,
+                    "start": work_start.strftime("%H:%M"),
+                    "end": work_end.strftime("%H:%M")
+                })
+            
+            # Store in session state
+            st.session_state.weekly_schedule['days'][day]['work'] = work_times
+        
+        # Visual timeline of the day
+        st.write("#### Daily Timeline")
+        
+        # Create a simple timeline visualization
+        fig, ax = plt.subplots(figsize=(10, 3))
+        
+        # Set x-axis range based on wake and bed times
+        ax.set_xlim(wake_hours, bed_hours)
+        ax.set_xticks(range(int(wake_hours), int(bed_hours) + 1))
+        ax.set_xticklabels([f"{h % 24}:00" for h in range(int(wake_hours), int(bed_hours) + 1)])
+        
+        # Plot wake and bed times as vertical lines
+        ax.axvline(x=wake_hours, color='green', linestyle='--', alpha=0.7, label='Wake')
+        ax.axvline(x=bed_hours, color='blue', linestyle='--', alpha=0.7, label='Bed')
+        
+        # Plot meal times
+        y_pos = 0.8
+        for meal in st.session_state.weekly_schedule['days'][day]['meals']:
+            meal_hour = time_to_hours(meal['time'])
+            if wake_hours <= meal_hour <= bed_hours:
+                ax.scatter(meal_hour, y_pos, color='orange', s=100, zorder=5)
+                ax.text(meal_hour, y_pos + 0.05, meal['name'], ha='center', fontsize=8, rotation=45)
+        
+        # Plot workout times
+        y_pos = 0.6
+        for workout in st.session_state.weekly_schedule['days'][day]['workouts']:
+            workout_start = time_to_hours(workout['start'])
+            workout_end = time_to_hours(workout['end'])
+            
+            # Handle overnight workouts
+            if workout_end < workout_start:
+                workout_end += 24
+                
+            if workout_start <= bed_hours and workout_end >= wake_hours:
+                # Adjust values if they fall outside the displayed range
+                plot_start = max(workout_start, wake_hours)
+                plot_end = min(workout_end, bed_hours)
+                
+                ax.barh(y_pos, plot_end - plot_start, left=plot_start, height=0.1, 
+                       color='red', alpha=0.6)
+                ax.text((plot_start + plot_end)/2, y_pos, workout['type'], 
+                       ha='center', va='center', fontsize=8, color='white')
+        
+        # Plot work times
+        y_pos = 0.4
+        for work in st.session_state.weekly_schedule['days'][day]['work']:
+            work_start = time_to_hours(work['start'])
+            work_end = time_to_hours(work['end'])
+            
+            # Handle overnight work
+            if work_end < work_start:
+                work_end += 24
+                
+            if work_start <= bed_hours and work_end >= wake_hours:
+                # Adjust values if they fall outside the displayed range
+                plot_start = max(work_start, wake_hours)
+                plot_end = min(work_end, bed_hours)
+                
+                ax.barh(y_pos, plot_end - plot_start, left=plot_start, height=0.1, 
+                       color='blue', alpha=0.6)
+                ax.text((plot_start + plot_end)/2, y_pos, work['type'], 
+                       ha='center', va='center', fontsize=8, color='white')
+        
+        # Remove y-axis and add a simple legend
+        ax.set_yticks([])
+        ax.set_ylabel('')
+        ax.grid(axis='x', linestyle='--', alpha=0.3)
+        ax.set_title(f"{day}'s Schedule")
+        
+        # Custom legend
+        custom_lines = [
+            plt.Line2D([0], [0], color='orange', marker='o', linestyle='None', markersize=10),
+            plt.Line2D([0], [0], color='red', lw=4, alpha=0.6),
+            plt.Line2D([0], [0], color='blue', lw=4, alpha=0.6)
+        ]
+        ax.legend(custom_lines, ['Meals', 'Workouts', 'Work/Activities'], loc='upper center', 
+                 bbox_to_anchor=(0.5, -0.15), ncol=3)
+        
+        # Display the plot
+        st.pyplot(fig)
+
+# Generate meal plan recommendations button
+if st.button("Generate Optimal Meal & Training Schedule", type="primary"):
+    st.session_state.show_meal_plan = True
+    st.success("Weekly schedule saved! Now you can customize your nutrition plan below.")
+    # In a real implementation, we would use the schedule to optimize meal timing
+
+# ------------------------
+# STEP 7: Display macronutrient breakdown
 # ------------------------
 st.header("Macronutrient Breakdown")
 
