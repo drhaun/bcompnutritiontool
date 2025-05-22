@@ -549,8 +549,174 @@ max_hour = int(time_to_hours(st.session_state.weekly_schedule['bed_time']))
 if max_hour < min_hour:  # Handle overnight schedules
     max_hour += 24
 
-# Display the schedule visualization first
-st.markdown(f"#### {selected_day}'s Schedule")
+# Copy Schedule Feature
+st.markdown("""
+<div style="background-color:#f8f9fa;padding:10px;border-radius:5px;margin-bottom:15px">
+<h4 style="margin-top:0">Copy Schedule</h4>
+</div>
+""", unsafe_allow_html=True)
+
+copy_cols = st.columns(3)
+with copy_cols[0]:
+    source_day = st.selectbox("Copy from:", days_of_week, key="copy_source_day")
+with copy_cols[1]:
+    target_day = st.selectbox("Copy to:", days_of_week, key="copy_target_day")
+with copy_cols[2]:
+    if st.button("Copy Schedule", key="copy_schedule_button"):
+        if source_day != target_day:
+            # Deep copy all schedule items
+            st.session_state.weekly_schedule['days'][target_day]['meals'] = copy.deepcopy(
+                st.session_state.weekly_schedule['days'][source_day]['meals']
+            )
+            st.session_state.weekly_schedule['days'][target_day]['workouts'] = copy.deepcopy(
+                st.session_state.weekly_schedule['days'][source_day]['workouts']
+            )
+            st.session_state.weekly_schedule['days'][target_day]['work'] = copy.deepcopy(
+                st.session_state.weekly_schedule['days'][source_day]['work']
+            )
+            
+            st.success(f"Copied schedule from {source_day} to {target_day}")
+            if target_day == selected_day:
+                st.rerun()
+        else:
+            st.warning("Source and target days must be different")
+
+# Activity editing interface - much cleaner and more focused
+st.markdown("""
+<div style="background-color:#f8f9fa;padding:10px;border-radius:5px;margin-bottom:15px">
+<h4 style="margin-top:0">Add Activities</h4>
+<p style="font-size:14px;margin-bottom:0">Select an activity type and place it on your schedule</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Create tabs for activity categories - a more organized approach
+activity_tabs = st.tabs(["Meals", "Workouts", "Activities"])
+
+# Meals tab
+with activity_tabs[0]:
+    meal_cols = st.columns(4)
+    for i, meal in enumerate(activity_types["Meals"]):
+        with meal_cols[i % 4]:
+            # Create a card-like button that's more visually pleasing
+            st.markdown(f"""
+            <div style="background-color:{meal['color']}20;
+                        padding:10px;
+                        border-radius:5px;
+                        border-left:3px solid {meal['color']};
+                        text-align:center;
+                        margin-bottom:10px">
+                <div style="font-size:24px">{meal['icon']}</div>
+                <div style="font-weight:bold">{meal['name']}</div>
+                <div style="font-size:12px">{meal['time']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Add button with cleaner styling
+            if st.button(f"Add {meal['name']}", key=f"add_meal_{i}"):
+                # Add meal to the selected day
+                st.session_state.weekly_schedule['days'][selected_day]['meals'].append({
+                    "name": meal['name'],
+                    "time": meal['time']
+                })
+                st.success(f"Added {meal['name']} to {selected_day}")
+                st.rerun()
+                
+# Workouts tab
+with activity_tabs[1]:
+    workout_cols = st.columns(4)
+    for i, workout in enumerate(activity_types["Workouts"]):
+        with workout_cols[i % 4]:
+            # Create a card-like button
+            st.markdown(f"""
+            <div style="background-color:{workout['color']}20;
+                        padding:10px;
+                        border-radius:5px;
+                        border-left:3px solid {workout['color']};
+                        text-align:center;
+                        margin-bottom:10px">
+                <div style="font-size:24px">{workout['icon']}</div>
+                <div style="font-weight:bold">{workout['name']}</div>
+                <div style="font-size:12px">{workout['duration']} mins</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Time selector
+            workout_time = st.time_input(
+                "Start time", 
+                value=pd.to_datetime("17:00").time(),
+                key=f"workout_time_{i}"
+            )
+            
+            # Add button
+            if st.button(f"Add {workout['name']}", key=f"add_workout_{i}"):
+                # Calculate end time
+                start_hour = workout_time.hour
+                start_minute = workout_time.minute
+                total_minutes = start_minute + workout['duration']
+                end_hour = start_hour + (total_minutes // 60)
+                end_minute = total_minutes % 60
+                
+                # Add workout to the selected day
+                st.session_state.weekly_schedule['days'][selected_day]['workouts'].append({
+                    "type": workout['name'],
+                    "start": f"{start_hour:02d}:{start_minute:02d}",
+                    "end": f"{end_hour % 24:02d}:{end_minute:02d}",
+                    "intensity": "Moderate"
+                })
+                st.success(f"Added {workout['name']} to {selected_day}")
+                st.rerun()
+
+# Activities tab
+with activity_tabs[2]:
+    activity_cols = st.columns(4)
+    for i, activity in enumerate(activity_types["Activities"]):
+        with activity_cols[i % 4]:
+            # Create a card-like button
+            st.markdown(f"""
+            <div style="background-color:{activity['color']}20;
+                        padding:10px;
+                        border-radius:5px;
+                        border-left:3px solid {activity['color']};
+                        text-align:center;
+                        margin-bottom:10px">
+                <div style="font-size:24px">{activity['icon']}</div>
+                <div style="font-weight:bold">{activity['name']}</div>
+                <div style="font-size:12px">{activity['duration'] // 60}h {activity['duration'] % 60}m</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Time selector
+            activity_time = st.time_input(
+                "Start time", 
+                value=pd.to_datetime("09:00").time() if activity['name'] == "Work" else pd.to_datetime("14:00").time(),
+                key=f"activity_time_{i}"
+            )
+            
+            # Add button
+            if st.button(f"Add {activity['name']}", key=f"add_activity_{i}"):
+                # Calculate end time
+                start_hour = activity_time.hour
+                start_minute = activity_time.minute
+                total_minutes = start_minute + activity['duration']
+                end_hour = start_hour + (total_minutes // 60)
+                end_minute = total_minutes % 60
+                
+                # Add activity to the selected day
+                st.session_state.weekly_schedule['days'][selected_day]['work'].append({
+                    "type": activity['name'],
+                    "start": f"{start_hour:02d}:{start_minute:02d}",
+                    "end": f"{end_hour % 24:02d}:{end_minute:02d}"
+                })
+                st.success(f"Added {activity['name']} to {selected_day}")
+                st.rerun()
+
+# Display the schedule visualization 
+st.markdown("""
+<div style="background-color:#f8f9fa;padding:10px;border-radius:5px;margin:15px 0">
+<h4 style="margin-top:0">Daily Schedule Timeline</h4>
+<p style="font-size:14px;margin-bottom:0">View and edit your activities throughout the day</p>
+</div>
+""", unsafe_allow_html=True)
 
 # Create a timeline-style visualization - a cleaner approach
 timeline_container = st.container()
@@ -697,131 +863,6 @@ with timeline_container:
         # Add a subtle separator between hours
         st.markdown('<hr style="margin:0;padding:0;border:none;border-top:1px solid #f0f0f0">', 
                    unsafe_allow_html=True)
-
-# Activity editing interface - much cleaner and more focused
-st.markdown("#### Add Activities")
-st.markdown("Drag activities to your schedule by selecting a type and time")
-
-# Create tabs for activity categories - a more organized approach
-activity_tabs = st.tabs(["Meals", "Workouts", "Activities"])
-
-# Meals tab
-with activity_tabs[0]:
-    meal_cols = st.columns(4)
-    for i, meal in enumerate(activity_types["Meals"]):
-        with meal_cols[i % 4]:
-            # Create a card-like button that's more visually pleasing
-            st.markdown(f"""
-            <div style="background-color:{meal['color']}20;
-                        padding:10px;
-                        border-radius:5px;
-                        border-left:3px solid {meal['color']};
-                        text-align:center;
-                        margin-bottom:10px">
-                <div style="font-size:24px">{meal['icon']}</div>
-                <div style="font-weight:bold">{meal['name']}</div>
-                <div style="font-size:12px">{meal['time']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Add button with cleaner styling
-            if st.button(f"Add {meal['name']}", key=f"add_meal_{i}"):
-                # Add meal to the selected day
-                st.session_state.weekly_schedule['days'][selected_day]['meals'].append({
-                    "name": meal['name'],
-                    "time": meal['time']
-                })
-                st.success(f"Added {meal['name']} to {selected_day}")
-                st.rerun()
-                
-# Workouts tab
-with activity_tabs[1]:
-    workout_cols = st.columns(4)
-    for i, workout in enumerate(activity_types["Workouts"]):
-        with workout_cols[i % 4]:
-            # Create a card-like button
-            st.markdown(f"""
-            <div style="background-color:{workout['color']}20;
-                        padding:10px;
-                        border-radius:5px;
-                        border-left:3px solid {workout['color']};
-                        text-align:center;
-                        margin-bottom:10px">
-                <div style="font-size:24px">{workout['icon']}</div>
-                <div style="font-weight:bold">{workout['name']}</div>
-                <div style="font-size:12px">{workout['duration']} mins</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Time selector
-            workout_time = st.time_input(
-                "Start time", 
-                value=pd.to_datetime("17:00").time(),
-                key=f"workout_time_{i}"
-            )
-            
-            # Add button
-            if st.button(f"Add {workout['name']}", key=f"add_workout_{i}"):
-                # Calculate end time
-                start_hour = workout_time.hour
-                start_minute = workout_time.minute
-                total_minutes = start_minute + workout['duration']
-                end_hour = start_hour + (total_minutes // 60)
-                end_minute = total_minutes % 60
-                
-                # Add workout to the selected day
-                st.session_state.weekly_schedule['days'][selected_day]['workouts'].append({
-                    "type": workout['name'],
-                    "start": f"{start_hour:02d}:{start_minute:02d}",
-                    "end": f"{end_hour % 24:02d}:{end_minute:02d}",
-                    "intensity": "Moderate"
-                })
-                st.success(f"Added {workout['name']} to {selected_day}")
-                st.rerun()
-
-# Activities tab
-with activity_tabs[2]:
-    activity_cols = st.columns(4)
-    for i, activity in enumerate(activity_types["Activities"]):
-        with activity_cols[i % 4]:
-            # Create a card-like button
-            st.markdown(f"""
-            <div style="background-color:{activity['color']}20;
-                        padding:10px;
-                        border-radius:5px;
-                        border-left:3px solid {activity['color']};
-                        text-align:center;
-                        margin-bottom:10px">
-                <div style="font-size:24px">{activity['icon']}</div>
-                <div style="font-weight:bold">{activity['name']}</div>
-                <div style="font-size:12px">{activity['duration'] // 60}h {activity['duration'] % 60}m</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Time selector
-            activity_time = st.time_input(
-                "Start time", 
-                value=pd.to_datetime("09:00").time() if activity['name'] == "Work" else pd.to_datetime("14:00").time(),
-                key=f"activity_time_{i}"
-            )
-            
-            # Add button
-            if st.button(f"Add {activity['name']}", key=f"add_activity_{i}"):
-                # Calculate end time
-                start_hour = activity_time.hour
-                start_minute = activity_time.minute
-                total_minutes = start_minute + activity['duration']
-                end_hour = start_hour + (total_minutes // 60)
-                end_minute = total_minutes % 60
-                
-                # Add activity to the selected day
-                st.session_state.weekly_schedule['days'][selected_day]['work'].append({
-                    "type": activity['name'],
-                    "start": f"{start_hour:02d}:{start_minute:02d}",
-                    "end": f"{end_hour % 24:02d}:{end_minute:02d}"
-                })
-                st.success(f"Added {activity['name']} to {selected_day}")
-                st.rerun()
 
 
 # Handle URL query params for removing/adding activities
