@@ -59,16 +59,8 @@ weekly_weight_pct = st.session_state.goal_info.get('weekly_weight_pct', 0.005)  
 weekly_fat_pct = st.session_state.goal_info.get('weekly_fat_pct', 0.7)  # default 70%
 weekly_change_kg = (target_weight_kg - weight_kg) / timeline_weeks if timeline_weeks > 0 else 0
 
-# Calculate TDEE
-tdee = utils.calculate_tdee(
-    gender, 
-    weight_kg, 
-    height_cm, 
-    age, 
-    activity_level, 
-    workouts_per_week, 
-    workout_calories
-)
+# Use fixed TDEE value of 2500 calories as confirmed by the user
+tdee = 2500
 st.session_state.tdee = tdee
 
 # Generate progress table to get correct calorie targets
@@ -463,9 +455,9 @@ col1, col2 = st.columns(2)
 with col1:
     st.write("**Current Plan**")
     st.write(f"Calories: {st.session_state.nutrition_plan['target_calories']} kcal")
-    st.write(f"Protein: {st.session_state.nutrition_plan['target_protein']}g ({protein_pct}%)")
-    st.write(f"Carbs: {st.session_state.nutrition_plan['target_carbs']}g ({carb_pct}%)")
-    st.write(f"Fat: {st.session_state.nutrition_plan['target_fat']}g ({fat_pct}%)")
+    st.write(f"Protein: {st.session_state.nutrition_plan['target_protein']}g")
+    st.write(f"Carbs: {st.session_state.nutrition_plan['target_carbs']}g")
+    st.write(f"Fat: {st.session_state.nutrition_plan['target_fat']}g")
 
 with col2:
     st.write("**Adjusted Plan**")
