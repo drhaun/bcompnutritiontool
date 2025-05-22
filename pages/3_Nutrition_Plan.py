@@ -198,20 +198,25 @@ protein_col, fat_col, carb_col = st.columns(3)
 
 # Protein section
 with protein_col:
-    st.write("### Protein Target", help="""
-    **Why Protein Matters:**
-    - Essential for muscle repair and growth
-    - Helps preserve lean mass during fat loss
-    - More thermogenic (burns more calories during digestion) than other macros
-    - Provides greater satiety than carbs or fat
-    
-    **Standard Recommendations:**
-    - Maintenance: 1.6-1.8g/kg bodyweight
-    - Fat Loss: 1.8-2.0g/kg bodyweight to preserve muscle
-    - Muscle Gain: 1.8-2.2g/kg bodyweight to support new muscle tissue
-    
-    Higher protein intakes (up to 2.2-2.4g/kg) may benefit athletes and those in a caloric deficit.
-    """)
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        st.write("### Protein Target")
+    with col2:
+        with st.popover("ℹ️ Info"):
+            st.markdown("""
+            **Why Protein Matters:**
+            - Essential for muscle repair and growth
+            - Helps preserve lean mass during fat loss
+            - More thermogenic (burns more calories during digestion) than other macros
+            - Provides greater satiety than carbs or fat
+            
+            **Standard Recommendations:**
+            - Maintenance: 1.6-1.8g/kg bodyweight
+            - Fat Loss: 1.8-2.0g/kg bodyweight to preserve muscle
+            - Muscle Gain: 1.8-2.2g/kg bodyweight to support new muscle tissue
+            
+            Higher protein intakes (up to 2.2-2.4g/kg) may benefit athletes and those in a caloric deficit.
+            """)
     
     # Standard protein calculation
     standard_protein = st.session_state.standard_protein
@@ -225,21 +230,26 @@ with protein_col:
 
 # Fat section
 with fat_col:
-    st.write("### Fat Target", help="""
-    **Why Fat Matters:**
-    - Essential for hormone production
-    - Helps absorb fat-soluble vitamins (A, D, E, K)
-    - Provides energy and satiety
-    - Supports brain health and cell structure
-    
-    **Standard Recommendations:**
-    - Minimum: 0.4g/lb bodyweight or 20% of calories
-    - Balanced approach: 25-30% of total calories
-    - Higher fat preference: 30-35% of total calories
-    
-    Going below 15-20% of calories from fat can negatively impact hormone production, 
-    especially important for women's health.
-    """)
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        st.write("### Fat Target")
+    with col2:
+        with st.popover("ℹ️ Info"):
+            st.markdown("""
+            **Why Fat Matters:**
+            - Essential for hormone production
+            - Helps absorb fat-soluble vitamins (A, D, E, K)
+            - Provides energy and satiety
+            - Supports brain health and cell structure
+            
+            **Standard Recommendations:**
+            - Minimum: 0.4g/lb bodyweight or 20% of calories
+            - Balanced approach: 25-30% of total calories
+            - Higher fat preference: 30-35% of total calories
+            
+            Going below 15-20% of calories from fat can negatively impact hormone production, 
+            especially important for women's health.
+            """)
     
     # Standard fat calculation
     standard_fat = st.session_state.standard_fat
@@ -253,19 +263,24 @@ with fat_col:
 
 # Carb section
 with carb_col:
-    st.write("### Carbohydrate Target", help="""
-    **Why Carbs Matter:**
-    - Primary energy source for high-intensity exercise
-    - Spare protein for muscle building rather than energy
-    - Support workout performance and recovery
-    - Help maintain muscle glycogen stores
-    
-    **Standard Approach:**
-    - Carbs are calculated to fill remaining calories after protein and fat are set
-    - Lower intensity activities may require fewer carbs
-    - Higher intensity training benefits from more carbs
-    - Minimum recommendation: 50g per day for brain function
-    """)
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        st.write("### Carbohydrate Target")
+    with col2:
+        with st.popover("ℹ️ Info"):
+            st.markdown("""
+            **Why Carbs Matter:**
+            - Primary energy source for high-intensity exercise
+            - Spare protein for muscle building rather than energy
+            - Support workout performance and recovery
+            - Help maintain muscle glycogen stores
+            
+            **Standard Approach:**
+            - Carbs are calculated to fill remaining calories after protein and fat are set
+            - Lower intensity activities may require fewer carbs
+            - Higher intensity training benefits from more carbs
+            - Minimum recommendation: 50g per day for brain function
+            """)
     
     # Standard carb calculation
     standard_carbs = st.session_state.standard_carbs
@@ -318,17 +333,34 @@ if target_option == "I'd like to use my own custom targets":
         st.write(f"{fat_percent}% of calories or {fat_per_lb}g/lb")
         
     with custom_cols[2]:
-        # Calculate remaining calories for carbs
+        # Calculate auto carbs based on remaining calories
         protein_calories = st.session_state.custom_protein * 4
         fat_calories = st.session_state.custom_fat * 9
         remaining_calories = target_calories - protein_calories - fat_calories
         auto_carbs = max(50, round(remaining_calories / 4))
-            
-        st.session_state.custom_carbs = auto_carbs
         
-        carb_percent = round((st.session_state.custom_carbs * 4 / target_calories) * 100)
-        st.write(f"**Auto-calculated: {st.session_state.custom_carbs}g**")
-        st.write(f"{carb_percent}% of total calories")
+        # Option to auto-calculate or manually set carbs
+        carb_option = st.radio(
+            "Carbohydrate option:",
+            ["Auto-calculate carbs", "Set carbs manually"],
+            key="carb_option"
+        )
+        
+        if carb_option == "Auto-calculate carbs":
+            st.session_state.custom_carbs = auto_carbs
+            carb_percent = round((st.session_state.custom_carbs * 4 / target_calories) * 100)
+            st.write(f"**Auto-calculated: {st.session_state.custom_carbs}g**")
+            st.write(f"{carb_percent}% of total calories")
+        else:
+            st.session_state.custom_carbs = st.number_input(
+                "Custom Carbs Target (g)",
+                min_value=50,
+                max_value=500,
+                value=auto_carbs,
+                step=5
+            )
+            carb_percent = round((st.session_state.custom_carbs * 4 / target_calories) * 100)
+            st.write(f"{carb_percent}% of total calories")
     
     # Calculate how custom macros affect total energy compared to target
     custom_protein_calories = st.session_state.custom_protein * 4
