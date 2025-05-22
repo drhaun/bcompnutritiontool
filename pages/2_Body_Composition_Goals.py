@@ -644,6 +644,28 @@ with col1:
             st.write(f"This rate will create a daily deficit of approximately **{daily_calorie_deficit} calories**.")
             st.write(f"Your TDEE is **{tdee} calories**, so your daily target would be approximately **{tdee - daily_calorie_deficit} calories**.")
             
+            # Add a button to confirm this rate selection
+            if st.button("Set Target Change Rate", key="set_fat_loss_rate"):
+                # Save the selected weekly rate to session state
+                st.session_state.selected_weekly_weight_pct = weekly_weight_pct
+                # For fat loss, we use the pre-calculated rec_fat_pct (default 85% fat mass loss)
+                st.session_state.selected_weekly_fat_pct = rec_fat_pct
+                st.session_state.rate_set = True
+                
+                # Save to goal_info for persistence
+                if "goal_info" not in st.session_state:
+                    st.session_state.goal_info = {}
+                
+                st.session_state.goal_info["weekly_weight_pct"] = weekly_weight_pct
+                st.session_state.goal_info["weekly_fat_pct"] = rec_fat_pct
+                
+                # Save data to ensure it persists
+                utils.save_data()
+                
+                # Success message
+                st.success("Target change rate has been set! The projected weekly progress table will now be generated.")
+                st.rerun()
+            
         elif goal_type == "Gain muscle":
             # Predefined rates for muscle gain
             rate_options = {
@@ -669,6 +691,28 @@ with col1:
             
             st.write(f"This rate will create a daily surplus of approximately **{daily_calorie_surplus} calories**.")
             st.write(f"Your TDEE is **{tdee} calories**, so your daily target would be approximately **{tdee + daily_calorie_surplus} calories**.")
+            
+            # Add a button to confirm this rate selection
+            if st.button("Set Target Change Rate", key="set_muscle_gain_rate"):
+                # Save the selected weekly rate to session state
+                st.session_state.selected_weekly_weight_pct = weekly_weight_pct
+                # For muscle gain, we use the pre-calculated rec_fat_pct (default 25% fat mass gain)
+                st.session_state.selected_weekly_fat_pct = rec_fat_pct
+                st.session_state.rate_set = True
+                
+                # Save to goal_info for persistence
+                if "goal_info" not in st.session_state:
+                    st.session_state.goal_info = {}
+                
+                st.session_state.goal_info["weekly_weight_pct"] = weekly_weight_pct
+                st.session_state.goal_info["weekly_fat_pct"] = rec_fat_pct
+                
+                # Save data to ensure it persists
+                utils.save_data()
+                
+                # Success message
+                st.success("Target change rate has been set! The projected weekly progress table will now be generated.")
+                st.rerun()
             
         else:  # Maintenance
             # For maintenance, offer body recomposition options

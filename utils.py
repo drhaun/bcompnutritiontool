@@ -1057,7 +1057,7 @@ def calculate_predicted_weeks(current_weight_kg, target_weight_kg, current_bf_pc
             return 52  # Default to a year if no valid calculation
 
 def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_weight_lbs, target_bf_pct, 
-                              weekly_weight_pct, weekly_fat_pct, timeline_weeks, start_date, tdee, gender, age, height_cm):
+                              weekly_weight_pct, weekly_fat_pct, timeline_weeks, start_date, tdee, gender, age, height_cm, activity_level="Moderately active"):
     """
     Generate a detailed weekly progress table showing expected weight, body composition, and energy data
     for each week of the plan.
