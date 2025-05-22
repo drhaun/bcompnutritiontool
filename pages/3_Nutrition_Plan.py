@@ -514,11 +514,123 @@ with template_cols[3]:
 # Create the calendar view
 st.write("### Weekly Calendar")
 
+# Define common activity types for quick selection
+activity_templates = {
+    "🍽️ Breakfast": {"type": "meal", "name": "Breakfast", "duration": 30},
+    "🍽️ Lunch": {"type": "meal", "name": "Lunch", "duration": 45},
+    "🍽️ Dinner": {"type": "meal", "name": "Dinner", "duration": 60},
+    "🍽️ Snack": {"type": "meal", "name": "Snack", "duration": 15},
+    "💪 Strength Workout": {"type": "workout", "name": "Strength", "duration": 60, "intensity": "Moderate"},
+    "💪 Cardio": {"type": "workout", "name": "Cardio", "duration": 45, "intensity": "Moderate"},
+    "💪 HIIT": {"type": "workout", "name": "HIIT", "duration": 30, "intensity": "High"},
+    "🧘 Yoga/Stretch": {"type": "workout", "name": "Flexibility", "duration": 45, "intensity": "Light"},
+    "💼 Work": {"type": "activity", "name": "Work", "duration": 480},
+    "📚 Study": {"type": "activity", "name": "School", "duration": 120},
+    "🏠 Chores": {"type": "activity", "name": "Other", "duration": 60},
+    "👨‍👩‍👧‍👦 Family Time": {"type": "activity", "name": "Family Time", "duration": 120}
+}
+
+# Show activity palette for drag-like experience
+st.write("#### Quick Add Activities")
+st.write("Select an activity and time slot to add it to your calendar")
+
+palette_cols = st.columns(4)
+selected_activity = None
+
+# Create first row of activity buttons
+for i, (label, details) in enumerate(list(activity_templates.items())[:4]):
+    with palette_cols[i % 4]:
+        if st.button(label, key=f"activity_btn_{i}"):
+            selected_activity = {"label": label, "details": details}
+
+# Create second row of activity buttons
+for i, (label, details) in enumerate(list(activity_templates.items())[4:8]):
+    with palette_cols[i % 4]:
+        if st.button(label, key=f"activity_btn_{i+4}"):
+            selected_activity = {"label": label, "details": details}
+            
+# Create third row of activity buttons
+for i, (label, details) in enumerate(list(activity_templates.items())[8:]):
+    with palette_cols[i % 4]:
+        if st.button(label, key=f"activity_btn_{i+8}"):
+            selected_activity = {"label": label, "details": details}
+
 # Create time slots for the calendar (hourly)
 min_hour = int(time_to_hours(st.session_state.weekly_schedule['wake_time']))
 max_hour = int(time_to_hours(st.session_state.weekly_schedule['bed_time']))
 if max_hour < min_hour:  # Handle overnight schedules
     max_hour += 24
+
+# Allow user to select day and time to add selected activity
+if selected_activity:
+    st.success(f"Selected: {selected_activity['label']}")
+    add_cols = st.columns(3)
+    
+    with add_cols[0]:
+        add_day = st.selectbox("Day to add activity:", days_of_week, key="add_activity_day")
+    
+    with add_cols[1]:
+        add_hour = st.selectbox(
+            "Time:", 
+            [f"{h % 24:02d}:00" for h in range(min_hour, max_hour + 1)],
+            key="add_activity_hour"
+        )
+        add_minutes = st.selectbox(
+            "Minutes:", 
+            ["00", "15", "30", "45"],
+            key="add_activity_minutes"
+        )
+        activity_time = f"{add_hour.split(':')[0]}:{add_minutes}"
+    
+    with add_cols[2]:
+        # Calculate duration in minutes
+        duration = selected_activity['details']['duration']
+        duration_hours = duration // 60
+        duration_minutes = duration % 60
+        
+        if duration_hours > 0:
+            st.write(f"Duration: {duration_hours}h {duration_minutes}m")
+        else:
+            st.write(f"Duration: {duration_minutes}m")
+            
+        # Calculate end time
+        start_hour, start_minute = map(int, activity_time.split(':'))
+        end_minutes = start_minute + duration_minutes
+        end_hour = start_hour + duration_hours + (end_minutes // 60)
+        end_minute = end_minutes % 60
+        end_time = f"{end_hour % 24:02d}:{end_minute:02d}"
+        
+        st.write(f"End time: {end_time}")
+        
+        # Add to calendar button
+        if st.button("Add to Calendar", type="primary"):
+            activity_type = selected_activity['details']['type']
+            if activity_type == "meal":
+                st.session_state.weekly_schedule['days'][add_day]['meals'].append({
+                    "name": selected_activity['details']['name'],
+                    "time": activity_time
+                })
+            elif activity_type == "workout":
+                st.session_state.weekly_schedule['days'][add_day]['workouts'].append({
+                    "type": selected_activity['details']['name'],
+                    "start": activity_time,
+                    "end": end_time,
+                    "intensity": selected_activity['details']['intensity']
+                })
+            elif activity_type == "activity":
+                st.session_state.weekly_schedule['days'][add_day]['work'].append({
+                    "type": selected_activity['details']['name'],
+                    "start": activity_time,
+                    "end": end_time
+                })
+                
+            st.success(f"Added {selected_activity['label']} to {add_day} at {activity_time}")
+            st.rerun()
+
+# Calendar view with clickable cells
+st.write("### Calendar View")
+
+st.info("Click on a time slot to see the options for that time period or to remove activities")
 
 # Calendar header row with days of the week
 cal_cols = st.columns([0.8] + [1] * len(days_of_week))
@@ -544,13 +656,15 @@ for hour in range(min_hour, max_hour + 1):
             activities = []
             
             # Check meals
-            for meal in st.session_state.weekly_schedule['days'][day]['meals']:
+            for meal_idx, meal in enumerate(st.session_state.weekly_schedule['days'][day]['meals']):
                 meal_hour = int(time_to_hours(meal['time']))
                 if meal_hour == display_hour:
-                    activities.append(f"🍽️ {meal['name']} ({meal['time']})")
+                    # Make a clickable activity that can be removed
+                    meal_text = f"🍽️ {meal['name']} ({meal['time']})"
+                    activities.append((meal_text, "meal", meal_idx))
             
             # Check workouts
-            for workout in st.session_state.weekly_schedule['days'][day]['workouts']:
+            for workout_idx, workout in enumerate(st.session_state.weekly_schedule['days'][day]['workouts']):
                 workout_start_hour = int(time_to_hours(workout['start']))
                 workout_end_hour = int(time_to_hours(workout['end']))
                 
@@ -561,12 +675,13 @@ for hour in range(min_hour, max_hour + 1):
                 if workout_start_hour <= display_hour <= workout_end_hour:
                     # Only show the full details at the start hour
                     if workout_start_hour == display_hour:
-                        activities.append(f"💪 {workout['type']} ({workout['start']}-{workout['end']})")
+                        workout_text = f"💪 {workout['type']} ({workout['start']}-{workout['end']})"
                     else:
-                        activities.append(f"💪 {workout['type']} (cont.)")
+                        workout_text = f"💪 {workout['type']} (cont.)"
+                    activities.append((workout_text, "workout", workout_idx))
             
             # Check work/activities
-            for work in st.session_state.weekly_schedule['days'][day]['work']:
+            for work_idx, work in enumerate(st.session_state.weekly_schedule['days'][day]['work']):
                 work_start_hour = int(time_to_hours(work['start']))
                 work_end_hour = int(time_to_hours(work['end']))
                 
@@ -577,16 +692,149 @@ for hour in range(min_hour, max_hour + 1):
                 if work_start_hour <= display_hour <= work_end_hour:
                     # Only show the full details at the start hour
                     if work_start_hour == display_hour:
-                        activities.append(f"📆 {work['type']} ({work['start']}-{work['end']})")
+                        work_text = f"📆 {work['type']} ({work['start']}-{work['end']})"
                     else:
-                        activities.append(f"📆 {work['type']} (cont.)")
+                        work_text = f"📆 {work['type']} (cont.)"
+                    activities.append((work_text, "activity", work_idx))
             
-            # Display all activities for this hour
+            # Create a unique key for this time slot
+            slot_key = f"{day}_{display_hour:02d}00"
+            
+            # Display all activities for this hour or allow adding if empty
             if activities:
-                for activity in activities:
-                    st.markdown(f"{activity}", help="Double-click to edit")
+                for activity_text, activity_type, activity_idx in activities:
+                    # Create a container with a different background to look like a cell
+                    with st.container(border=True):
+                        st.write(activity_text)
+                        if st.button("🗑️ Remove", key=f"remove_{activity_type}_{day}_{activity_idx}_{display_hour}"):
+                            if activity_type == "meal":
+                                st.session_state.weekly_schedule['days'][day]['meals'].pop(activity_idx)
+                            elif activity_type == "workout":
+                                st.session_state.weekly_schedule['days'][day]['workouts'].pop(activity_idx)
+                            elif activity_type == "activity":
+                                st.session_state.weekly_schedule['days'][day]['work'].pop(activity_idx)
+                            st.success(f"Removed activity from {day} at {display_hour:02d}:00")
+                            st.rerun()
             else:
-                st.markdown("—")
+                # Empty slot - show a placeholder
+                with st.container(border=True):
+                    st.markdown(f"*Empty*")
+                    
+                    # Quick add buttons for the most common activities
+                    quick_cols = st.columns(3)
+                    with quick_cols[0]:
+                        if st.button("+ Meal", key=f"add_meal_{slot_key}"):
+                            st.session_state['add_to_day'] = day
+                            st.session_state['add_to_hour'] = f"{display_hour:02d}:00"
+                            st.session_state['add_activity_type'] = "meal"
+                            st.rerun()
+                            
+                    with quick_cols[1]:
+                        if st.button("+ Workout", key=f"add_workout_{slot_key}"):
+                            st.session_state['add_to_day'] = day
+                            st.session_state['add_to_hour'] = f"{display_hour:02d}:00"
+                            st.session_state['add_activity_type'] = "workout"
+                            st.rerun()
+                            
+                    with quick_cols[2]:
+                        if st.button("+ Activity", key=f"add_activity_{slot_key}"):
+                            st.session_state['add_to_day'] = day
+                            st.session_state['add_to_hour'] = f"{display_hour:02d}:00"
+                            st.session_state['add_activity_type'] = "activity"
+                            st.rerun()
+
+
+# Check if user clicked to add to a specific time slot
+if 'add_to_day' in st.session_state and 'add_to_hour' in st.session_state and 'add_activity_type' in st.session_state:
+    day = st.session_state['add_to_day']
+    hour = st.session_state['add_to_hour']
+    activity_type = st.session_state['add_activity_type']
+    
+    st.sidebar.markdown(f"### Add to {day} at {hour}")
+    
+    if activity_type == "meal":
+        meal_name = st.sidebar.selectbox(
+            "Meal Type",
+            options=["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"],
+            key=f"quick_add_meal_name"
+        )
+        
+        if st.sidebar.button("Add Meal", type="primary"):
+            st.session_state.weekly_schedule['days'][day]['meals'].append({
+                "name": meal_name,
+                "time": hour.split(":")[0] + ":00"
+            })
+            # Clear temporary session state
+            del st.session_state['add_to_day']
+            del st.session_state['add_to_hour']
+            del st.session_state['add_activity_type']
+            st.sidebar.success(f"Added {meal_name} to {day} at {hour}")
+            st.rerun()
+            
+    elif activity_type == "workout":
+        workout_type = st.sidebar.selectbox(
+            "Workout Type",
+            options=["Strength", "Cardio", "HIIT", "Flexibility", "Sports"],
+            key=f"quick_add_workout_type"
+        )
+        
+        workout_duration = st.sidebar.slider("Duration (minutes)", 15, 120, 60, 15)
+        
+        # Calculate end time
+        start_hour = int(hour.split(":")[0])
+        end_hour = start_hour + (workout_duration // 60)
+        end_minute = workout_duration % 60
+        end_time = f"{end_hour % 24:02d}:{end_minute:02d}"
+        
+        if st.sidebar.button("Add Workout", type="primary"):
+            st.session_state.weekly_schedule['days'][day]['workouts'].append({
+                "type": workout_type,
+                "start": hour.split(":")[0] + ":00",
+                "end": end_time,
+                "intensity": "Moderate"
+            })
+            # Clear temporary session state
+            del st.session_state['add_to_day']
+            del st.session_state['add_to_hour']
+            del st.session_state['add_activity_type']
+            st.sidebar.success(f"Added {workout_type} workout to {day} at {hour}")
+            st.rerun()
+            
+    elif activity_type == "activity":
+        activity_name = st.sidebar.selectbox(
+            "Activity Type",
+            options=["Work", "School", "Commuting", "Family Time", "Other"],
+            key=f"quick_add_activity_name"
+        )
+        
+        activity_duration = st.sidebar.slider("Duration (minutes)", 30, 480, 120, 30)
+        
+        # Calculate end time
+        start_hour = int(hour.split(":")[0])
+        end_hour = start_hour + (activity_duration // 60)
+        end_minute = activity_duration % 60
+        end_time = f"{end_hour % 24:02d}:{end_minute:02d}"
+        
+        if st.sidebar.button("Add Activity", type="primary"):
+            st.session_state.weekly_schedule['days'][day]['work'].append({
+                "type": activity_name,
+                "start": hour.split(":")[0] + ":00",
+                "end": end_time
+            })
+            # Clear temporary session state
+            del st.session_state['add_to_day']
+            del st.session_state['add_to_hour']
+            del st.session_state['add_activity_type']
+            st.sidebar.success(f"Added {activity_name} to {day} at {hour}")
+            st.rerun()
+    
+    # Cancel button
+    if st.sidebar.button("Cancel"):
+        # Clear temporary session state
+        del st.session_state['add_to_day']
+        del st.session_state['add_to_hour']
+        del st.session_state['add_activity_type']
+        st.rerun()
 
 # Activity Editor Section
 st.write("### Quick Edit Activities")
