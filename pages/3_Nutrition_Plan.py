@@ -86,8 +86,27 @@ else:
     # Fallback calculation if progress table doesn't have the data
     target_calories = utils.calculate_target_calories(tdee, goal_type, abs(weekly_change_kg))
 
-# Calculate macros
-macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
+# Calculate macros with standardized targets
+# Standard protein is 1.6-2.0 g/kg
+standard_protein = round(weight_kg * 1.8)  # Using 1.8g/kg as a default middle value
+
+# Standard fat is 30% of calories or at least 0.4g/lb
+fat_from_pct = round((target_calories * 0.3) / 9)  # 30% of calories
+fat_from_weight = round(weight_lbs * 0.4)  # 0.4g/lb
+standard_fat = max(fat_from_pct, fat_from_weight)
+
+# Calculate remaining calories for carbs
+protein_calories = standard_protein * 4
+fat_calories = standard_fat * 9
+carb_calories = target_calories - protein_calories - fat_calories
+standard_carbs = max(50, round(carb_calories / 4))  # Ensure minimum carbs
+
+# Create macros dictionary
+macros = {
+    'protein': standard_protein,
+    'carbs': standard_carbs,
+    'fat': standard_fat
+}
 
 # If this is the first time or we want to update the plan with calculated values
 if not st.session_state.nutrition_plan.get('target_calories'):
@@ -126,44 +145,133 @@ with col2:
     st.metric("Target Daily Calories", f"{st.session_state.nutrition_plan['target_calories']} kcal", delta=delta,
               help="This is your recommended daily calorie intake to achieve your goals.")
 
-# Show macros with progress bars
-st.subheader("Current Macronutrient Targets")
+# Show macros selection
+st.subheader("Select Macronutrient Targets")
 
-# Calculate percentages
-protein_calories = st.session_state.nutrition_plan['target_protein'] * 4
-carb_calories = st.session_state.nutrition_plan['target_carbs'] * 4
-fat_calories = st.session_state.nutrition_plan['target_fat'] * 9
-total_calories = protein_calories + carb_calories + fat_calories
+st.info("""
+Based on your body composition goals, here are your recommended macronutrient targets. 
+Standard protein is 1.6-2.0 g/kg, standard fat is 30% of calories or at least 0.4 g/lb of body weight.
+""")
 
-if total_calories > 0:
-    protein_pct = round((protein_calories / total_calories) * 100)
-    carb_pct = round((carb_calories / total_calories) * 100)
-    fat_pct = round((fat_calories / total_calories) * 100)
+# Initialize custom targets with current plan values
+if 'custom_protein' not in st.session_state:
+    st.session_state.custom_protein = st.session_state.nutrition_plan['target_protein']
+if 'custom_fat' not in st.session_state:
+    st.session_state.custom_fat = st.session_state.nutrition_plan['target_fat']
+if 'custom_carbs' not in st.session_state:
+    st.session_state.custom_carbs = st.session_state.nutrition_plan['target_carbs']
+
+# Create columns for selecting targets
+protein_col, fat_col, carb_col = st.columns(3)
+
+with protein_col:
+    st.write("#### Protein Target")
+    protein_option = st.radio(
+        "Select protein amount:",
+        ["Standard (1.8g/kg)", "High (2.0g/kg)", "Very High (2.2g/kg)", "Custom"],
+        key="protein_option"
+    )
+    
+    if protein_option == "Standard (1.8g/kg)":
+        st.session_state.custom_protein = round(weight_kg * 1.8)
+    elif protein_option == "High (2.0g/kg)":
+        st.session_state.custom_protein = round(weight_kg * 2.0)
+    elif protein_option == "Very High (2.2g/kg)":
+        st.session_state.custom_protein = round(weight_kg * 2.2)
+    elif protein_option == "Custom":
+        st.session_state.custom_protein = st.number_input(
+            "Custom protein (g)",
+            min_value=50,
+            max_value=400,
+            value=st.session_state.custom_protein,
+            step=5
+        )
+    
+    protein_per_kg = round(st.session_state.custom_protein / weight_kg, 1)
+    protein_per_lb = round(st.session_state.custom_protein / weight_lbs, 1)
+    st.write(f"**{st.session_state.custom_protein}g** = {protein_per_kg}g/kg or {protein_per_lb}g/lb")
+    
+with fat_col:
+    st.write("#### Fat Target")
+    fat_option = st.radio(
+        "Select fat amount:",
+        ["Standard (30% calories)", "Lower (25% calories)", "Higher (35% calories)", "Custom"],
+        key="fat_option"
+    )
+    
+    if fat_option == "Standard (30% calories)":
+        st.session_state.custom_fat = round((target_calories * 0.3) / 9)
+    elif fat_option == "Lower (25% calories)":
+        st.session_state.custom_fat = round((target_calories * 0.25) / 9)
+    elif fat_option == "Higher (35% calories)":
+        st.session_state.custom_fat = round((target_calories * 0.35) / 9)
+    elif fat_option == "Custom":
+        st.session_state.custom_fat = st.number_input(
+            "Custom fat (g)",
+            min_value=30,
+            max_value=200,
+            value=st.session_state.custom_fat,
+            step=5
+        )
+    
+    fat_percent = round((st.session_state.custom_fat * 9 / target_calories) * 100)
+    fat_per_lb = round(st.session_state.custom_fat / weight_lbs, 2)
+    st.write(f"**{st.session_state.custom_fat}g** = {fat_percent}% calories or {fat_per_lb}g/lb")
+
+with carb_col:
+    st.write("#### Carbohydrate Target")
+    
+    # Calculate remaining calories and auto-carbs
+    protein_calories = st.session_state.custom_protein * 4
+    fat_calories = st.session_state.custom_fat * 9
+    remaining_calories = target_calories - protein_calories - fat_calories
+    auto_carbs = max(50, round(remaining_calories / 4))
+    
+    st.session_state.custom_carbs = auto_carbs
+    carb_percent = round((st.session_state.custom_carbs * 4 / target_calories) * 100)
+    
+    st.write(f"**{st.session_state.custom_carbs}g** (auto-calculated)")
+    st.write(f"{carb_percent}% of total calories")
+    st.write("Carbs fill remaining calories after protein and fat are set.")
+
+# Display macronutrient visualization
+st.subheader("Macronutrient Breakdown")
+
+# Calculate current percentages
+custom_protein_calories = st.session_state.custom_protein * 4
+custom_carbs_calories = st.session_state.custom_carbs * 4
+custom_fat_calories = st.session_state.custom_fat * 9
+custom_total_calories = custom_protein_calories + custom_carbs_calories + custom_fat_calories
+
+if custom_total_calories > 0:
+    custom_protein_pct = round((custom_protein_calories / custom_total_calories) * 100)
+    custom_carbs_pct = round((custom_carbs_calories / custom_total_calories) * 100)
+    custom_fat_pct = round((custom_fat_calories / custom_total_calories) * 100)
 else:
-    protein_pct = 0
-    carb_pct = 0
-    fat_pct = 0
+    custom_protein_pct = 0
+    custom_carbs_pct = 0
+    custom_fat_pct = 0
 
 # Show macros with a better visualization
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric("Protein", f"{st.session_state.nutrition_plan['target_protein']}g ({protein_pct}%)", 
+    st.metric("Protein", f"{st.session_state.custom_protein}g ({custom_protein_pct}%)", 
               help="Protein is essential for muscle repair and growth.")
-    st.progress(protein_pct/100)
-    st.write(f"{protein_calories} calories from protein")
+    st.progress(custom_protein_pct/100)
+    st.write(f"{custom_protein_calories} calories from protein")
 
 with col2:
-    st.metric("Carbohydrates", f"{st.session_state.nutrition_plan['target_carbs']}g ({carb_pct}%)", 
+    st.metric("Carbohydrates", f"{st.session_state.custom_carbs}g ({custom_carbs_pct}%)", 
               help="Carbohydrates are your body's primary energy source.")
-    st.progress(carb_pct/100)
-    st.write(f"{carb_calories} calories from carbs")
+    st.progress(custom_carbs_pct/100)
+    st.write(f"{custom_carbs_calories} calories from carbs")
 
 with col3:
-    st.metric("Fat", f"{st.session_state.nutrition_plan['target_fat']}g ({fat_pct}%)", 
+    st.metric("Fat", f"{st.session_state.custom_fat}g ({custom_fat_pct}%)", 
               help="Dietary fat is important for hormone production and nutrient absorption.")
-    st.progress(fat_pct/100)
-    st.write(f"{fat_calories} calories from fat")
+    st.progress(custom_fat_pct/100)
+    st.write(f"{custom_fat_calories} calories from fat")
 
 # Show progress table preview for energy targets over time
 with st.expander("View Projected Weekly Energy Targets"):
