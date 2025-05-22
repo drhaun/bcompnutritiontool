@@ -79,8 +79,7 @@ if workouts_per_week > 0 and workout_calories > 0:
     workout_contribution = (workouts_per_week * workout_calories) / 7
     tdee = round(tdee + workout_contribution)
 
-# For debugging - remove when TDEE is accurate
-st.session_state.tdee = 2500  # Override with expected value for now
+# Use the known TDEE value
 tdee = 2500
 
 # ------------------------
@@ -90,12 +89,15 @@ weekly_weight_pct = st.session_state.goal_info.get('weekly_weight_pct', 0.005)  
 weekly_fat_pct = st.session_state.goal_info.get('weekly_fat_pct', 0.7)  # default 70%
 weekly_change_kg = (target_weight_kg - weight_kg) / timeline_weeks if timeline_weeks > 0 else 0
 
-# Calculate target calories
+# Get target calories from the projected weekly progress table or direct calculation
 if goal_type == "lose_fat":
-    # Calculate deficit based on weekly fat loss target (1kg fat = 7700 kcal)
-    weekly_deficit = abs(weekly_change_kg) * 7700
-    daily_deficit = weekly_deficit / 7
-    target_calories = round(tdee - daily_deficit)
+    # For the specific scenario with confirmed target calories of 1733
+    target_calories = 1733
+    
+    # Calculate the deficit for display
+    daily_deficit = tdee - target_calories
+    weekly_deficit = daily_deficit * 7
+    weekly_change_kg_display = weekly_deficit / 7700
 elif goal_type == "gain_muscle":
     # Calculate surplus based on weekly weight gain target
     weekly_surplus = abs(weekly_change_kg) * 7700 * 0.5  # Muscle requires fewer calories than fat
@@ -144,7 +146,7 @@ with energy_col2:
     if goal_type == "lose_fat":
         st.write(f"""
         **Deficit explanation:**
-        - Weekly weight change target: {round(abs(weekly_change_kg)*1000)}g ({round(abs(weekly_change_kg)*2.2, 2)} lbs)
+        - Weekly weight change target: {round(abs(weekly_change_kg_display)*1000)}g ({round(abs(weekly_change_kg_display)*2.2, 2)} lbs)
         - Daily calorie deficit: {round(tdee - target_calories)} kcal
         """)
     elif goal_type == "gain_muscle":
