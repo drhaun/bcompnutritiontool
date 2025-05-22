@@ -1141,10 +1141,10 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
                 else:
                     daily_energy_balance = -1 * (abs(weekly_weight_change_kg) * 7700) / 7  # Daily deficit
             
-            # Calculate TDEE based on current weight
-            current_tdee = calculate_tdee(gender, weight_kg, height_cm, age, "Sedentary (office job, <2 hours exercise per week)")
+            # Calculate TDEE based on current weight - use the original activity level
+            current_tdee = calculate_tdee(gender, weight_kg, height_cm, age, activity_level)
             
-            # Calculate target energy intake
+            # Calculate target energy intake (adjusted for weight change goal)
             target_energy = current_tdee + daily_energy_balance
             
             # Calculate energy availability per kg of FFM (important metric for athletes)
