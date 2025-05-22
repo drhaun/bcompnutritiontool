@@ -429,24 +429,185 @@ st.header("Meal Planning Guidance")
 
 st.write("Distribute your daily macros across your preferred number of meals.")
 
-meals_per_day = st.slider("Number of meals per day:", 2, 6, 4)
+# Set up meal planning options
+meals_per_day = st.slider("Number of meals per day:", 2, 8, 4)
 st.session_state.nutrition_plan['meals_per_day'] = meals_per_day
 
-# Calculate per-meal macros
-protein_per_meal = round(st.session_state.custom_protein / meals_per_day)
-carbs_per_meal = round(st.session_state.custom_carbs / meals_per_day)
-fat_per_meal = round(st.session_state.custom_fat / meals_per_day)
-calories_per_meal = round(custom_total_calories / meals_per_day)
+# Initialize meal plan in session state if not already present
+if 'meal_plan' not in st.session_state:
+    st.session_state.meal_plan = {}
 
-# Display meal breakdown
-st.subheader(f"Average Macros Per Meal ({meals_per_day} meals)")
-meals_df = pd.DataFrame({
-    'Calories': [calories_per_meal],
-    'Protein (g)': [protein_per_meal],
-    'Carbs (g)': [carbs_per_meal],
-    'Fat (g)': [fat_per_meal]
-})
-st.table(meals_df)
+# Standard meal names/types
+meal_options = ["Breakfast", "Lunch", "Dinner", "Snack", "Pre-Workout", "Post-Workout"]
+
+# Create and show meal distribution table
+st.subheader("Customize Your Meal Distribution")
+
+# Track the remaining macros as we go
+remaining_protein = st.session_state.custom_protein
+remaining_carbs = st.session_state.custom_carbs
+remaining_fat = st.session_state.custom_fat
+
+# Create the dataframe to show the meals
+if 'current_meals' not in st.session_state:
+    # Initialize with default values
+    meal_data = []
+    for i in range(meals_per_day):
+        # Distribute macros evenly by default
+        meal_protein = round(st.session_state.custom_protein / meals_per_day)
+        meal_carbs = round(st.session_state.custom_carbs / meals_per_day)
+        meal_fat = round(st.session_state.custom_fat / meals_per_day)
+        
+        # Default meal name based on meal number
+        if i == 0:
+            meal_name = "Breakfast"
+        elif i == 1:
+            meal_name = "Lunch"
+        elif i == 2:
+            meal_name = "Dinner"
+        else:
+            meal_name = f"Snack {i-2}"
+            
+        # Calculate calories for this meal
+        meal_calories = (meal_protein * 4) + (meal_carbs * 4) + (meal_fat * 9)
+        
+        meal_data.append({
+            "Meal": meal_name,
+            "Protein (g)": meal_protein,
+            "Carbs (g)": meal_carbs,
+            "Fat (g)": meal_fat,
+            "Calories": meal_calories
+        })
+    
+    st.session_state.current_meals = pd.DataFrame(meal_data)
+else:
+    # Update number of meals if changed
+    current_num_meals = len(st.session_state.current_meals)
+    
+    if current_num_meals < meals_per_day:
+        # Add more meals
+        for i in range(current_num_meals, meals_per_day):
+            # Get default values
+            meal_protein = round(st.session_state.custom_protein / meals_per_day)
+            meal_carbs = round(st.session_state.custom_carbs / meals_per_day)
+            meal_fat = round(st.session_state.custom_fat / meals_per_day)
+            meal_calories = (meal_protein * 4) + (meal_carbs * 4) + (meal_fat * 9)
+            
+            # Default name for new meal
+            if i == 0:
+                meal_name = "Breakfast"
+            elif i == 1:
+                meal_name = "Lunch"
+            elif i == 2:
+                meal_name = "Dinner"
+            else:
+                meal_name = f"Snack {i-2}"
+                
+            # Add to dataframe
+            new_row = pd.DataFrame([{
+                "Meal": meal_name,
+                "Protein (g)": meal_protein,
+                "Carbs (g)": meal_carbs,
+                "Fat (g)": meal_fat,
+                "Calories": meal_calories
+            }])
+            st.session_state.current_meals = pd.concat([st.session_state.current_meals, new_row], ignore_index=True)
+    
+    elif current_num_meals > meals_per_day:
+        # Remove extra meals
+        st.session_state.current_meals = st.session_state.current_meals.iloc[:meals_per_day].reset_index(drop=True)
+
+# Display macro budget at the top
+col1, col2, col3 = st.columns(3)
+
+# Calculate currently allocated macros
+allocated_protein = st.session_state.current_meals["Protein (g)"].sum()
+allocated_carbs = st.session_state.current_meals["Carbs (g)"].sum()
+allocated_fat = st.session_state.current_meals["Fat (g)"].sum()
+
+# Calculate remaining macros
+remaining_protein = st.session_state.custom_protein - allocated_protein
+remaining_carbs = st.session_state.custom_carbs - allocated_carbs
+remaining_fat = st.session_state.custom_fat - allocated_fat
+
+with col1:
+    protein_status = "🟢" if abs(remaining_protein) < 5 else "🟠" if remaining_protein > 0 else "🔴"
+    st.markdown(f"**Protein Budget: {protein_status} {remaining_protein}g remaining**")
+    st.progress(1 - max(0, min(1, abs(remaining_protein) / st.session_state.custom_protein)))
+
+with col2:
+    carbs_status = "🟢" if abs(remaining_carbs) < 5 else "🟠" if remaining_carbs > 0 else "🔴"
+    st.markdown(f"**Carbs Budget: {carbs_status} {remaining_carbs}g remaining**")
+    st.progress(1 - max(0, min(1, abs(remaining_carbs) / st.session_state.custom_carbs)))
+
+with col3:
+    fat_status = "🟢" if abs(remaining_fat) < 3 else "🟠" if remaining_fat > 0 else "🔴"
+    st.markdown(f"**Fat Budget: {fat_status} {remaining_fat}g remaining**")
+    st.progress(1 - max(0, min(1, abs(remaining_fat) / st.session_state.custom_fat)))
+
+# Now allow editing of the meal plan
+for i in range(meals_per_day):
+    st.markdown(f"#### Meal {i+1}")
+    cols = st.columns([2, 1, 1, 1, 1])
+    
+    with cols[0]:
+        meal_name = st.selectbox(
+            "Meal Type",
+            options=meal_options + [f"Custom Meal {i+1}"],
+            index=meal_options.index(st.session_state.current_meals.at[i, "Meal"]) if st.session_state.current_meals.at[i, "Meal"] in meal_options else len(meal_options),
+            key=f"meal_name_{i}"
+        )
+        
+        if meal_name == f"Custom Meal {i+1}":
+            custom_name = st.text_input("Custom Meal Name", value=st.session_state.current_meals.at[i, "Meal"] if st.session_state.current_meals.at[i, "Meal"] not in meal_options else "", key=f"custom_meal_name_{i}")
+            if custom_name:
+                meal_name = custom_name
+                
+        st.session_state.current_meals.at[i, "Meal"] = meal_name
+    
+    with cols[1]:
+        protein = st.number_input(
+            "Protein (g)",
+            min_value=0,
+            max_value=200,
+            value=int(st.session_state.current_meals.at[i, "Protein (g)"]),
+            step=5,
+            key=f"protein_{i}"
+        )
+        st.session_state.current_meals.at[i, "Protein (g)"] = protein
+        
+    with cols[2]:
+        carbs = st.number_input(
+            "Carbs (g)",
+            min_value=0,
+            max_value=200,
+            value=int(st.session_state.current_meals.at[i, "Carbs (g)"]),
+            step=5,
+            key=f"carbs_{i}"
+        )
+        st.session_state.current_meals.at[i, "Carbs (g)"] = carbs
+        
+    with cols[3]:
+        fat = st.number_input(
+            "Fat (g)",
+            min_value=0,
+            max_value=100,
+            value=int(st.session_state.current_meals.at[i, "Fat (g)"]),
+            step=1,
+            key=f"fat_{i}"
+        )
+        st.session_state.current_meals.at[i, "Fat (g)"] = fat
+        
+    with cols[4]:
+        # Calculate and update calories
+        calories = (protein * 4) + (carbs * 4) + (fat * 9)
+        st.session_state.current_meals.at[i, "Calories"] = calories
+        st.metric("Calories", f"{calories} kcal")
+
+# Display meal summary table
+st.subheader("Meal Plan Summary")
+summary_df = st.session_state.current_meals.copy()
+st.dataframe(summary_df)
 
 # Show examples of food combinations
 with st.expander("Example Meal Ideas", expanded=False):
