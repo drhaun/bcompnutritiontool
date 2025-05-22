@@ -67,30 +67,60 @@ if False and ("setup_complete" not in st.session_state or not st.session_state.s
     st.link_button("Go to Initial Setup", url="Initial_Setup")
     st.stop()
 
-# Initialize session state variables for testing if needed
-if "gender" not in st.session_state:
-    st.session_state.gender = "Male"
-if "age" not in st.session_state:
-    st.session_state.age = 30
-if "height_cm" not in st.session_state:
-    st.session_state.height_cm = 175
-if "weight_kg" not in st.session_state:
-    st.session_state.weight_kg = 75
-if "body_fat_pct" not in st.session_state:
-    st.session_state.body_fat_pct = 15
-if "goal_type" not in st.session_state:
-    st.session_state.goal_type = "Lose fat"
-if "activity_level" not in st.session_state:
-    st.session_state.activity_level = "Moderately active"
-if "tdee" not in st.session_state:
-    st.session_state.tdee = 2500
+# Initialize session state variables with user_info if available
+if "user_info" in st.session_state:
+    # Get values directly from user_info dictionary which contains the latest data
+    gender = st.session_state.user_info.get('gender', "Male")
+    age = st.session_state.user_info.get('age', 30)
+    height_cm = st.session_state.user_info.get('height_cm', 175)
+    weight_kg = st.session_state.user_info.get('weight_kg', 75)
+    body_fat_pct = st.session_state.user_info.get('body_fat_percentage', 15)
+    goal_type = st.session_state.user_info.get('goal_focus', "Lose fat")
+    activity_level = st.session_state.user_info.get('activity_level', "Moderately active")
+    tdee = st.session_state.user_info.get('tdee', 2500)
+    
+    # Update session state with these values to ensure consistency
+    st.session_state.gender = gender
+    st.session_state.age = age
+    st.session_state.height_cm = height_cm
+    st.session_state.weight_kg = weight_kg
+    st.session_state.body_fat_pct = body_fat_pct
+    st.session_state.goal_type = goal_type
+    st.session_state.activity_level = activity_level
+    st.session_state.tdee = tdee
+else:
+    # Fall back to defaults or existing session state values
+    if "gender" not in st.session_state:
+        st.session_state.gender = "Male"
+    if "age" not in st.session_state:
+        st.session_state.age = 30
+    if "height_cm" not in st.session_state:
+        st.session_state.height_cm = 175
+    if "weight_kg" not in st.session_state:
+        st.session_state.weight_kg = 75
+    if "body_fat_pct" not in st.session_state:
+        st.session_state.body_fat_pct = 15
+    if "goal_type" not in st.session_state:
+        st.session_state.goal_type = "Lose fat"
+    if "activity_level" not in st.session_state:
+        st.session_state.activity_level = "Moderately active"
+    if "tdee" not in st.session_state:
+        st.session_state.tdee = 2500
 
-# Load saved data if available 
+# Load data from session state
 gender = st.session_state.gender
 age = st.session_state.age
 height_cm = st.session_state.height_cm
 weight_kg = st.session_state.weight_kg  # Use session state variables directly
 weight_lbs = weight_kg * 2.20462
+
+# Debug weight values to troubleshoot
+if "user_info" in st.session_state:
+    st.sidebar.write("#### Debug User Info")
+    st.sidebar.write(f"User Info Weight: {st.session_state.user_info.get('weight_kg', 0):.2f} kg = {st.session_state.user_info.get('weight_kg', 0) * 2.20462:.2f} lbs")
+    st.sidebar.write(f"User Info Weight (lbs): {st.session_state.user_info.get('weight_lbs', 0):.2f} lbs")
+    st.sidebar.write(f"Session state weight: {st.session_state.weight_kg:.2f} kg = {st.session_state.weight_kg * 2.20462:.2f} lbs")
+
 body_fat_pct = st.session_state.body_fat_pct
 goal_type = st.session_state.goal_type
 activity_level = st.session_state.activity_level
