@@ -422,20 +422,28 @@ with col2:
     st.write(f"FMI: **{resulting_fmi:.1f} kg/m²**")
     st.write(f"FFMI: **{resulting_ffmi:.1f} kg/m²**")
     
-    # Apply button
+    # Apply button - uses the updated st.rerun() approach for seamless updates
     if st.button("Set Body Composition Targets"):
+        # Save all values to session state
         st.session_state.target_fat = new_target_fat_mass_lbs
         st.session_state.target_ffm = new_target_ffm_lbs
         st.session_state.target_bf = resulting_bf_pct
         st.session_state.target_fmi = resulting_fmi
         st.session_state.target_ffmi = resulting_ffmi
         st.session_state.targets_set = True
-        st.success("Body composition targets updated successfully!")
-        # Use st.rerun() which is the current recommended way
-        try:
-            st.rerun()
-        except:
-            st.warning("Please refresh the page to see updated values.")
+        
+        # Also save results to goal_info to ensure persistence
+        if "goal_info" not in st.session_state:
+            st.session_state.goal_info = {}
+        
+        st.session_state.goal_info["target_fat_mass_lbs"] = new_target_fat_mass_lbs
+        st.session_state.goal_info["target_ffm_lbs"] = new_target_ffm_lbs
+        st.session_state.goal_info["target_body_fat"] = resulting_bf_pct
+        st.session_state.goal_info["target_fmi"] = resulting_fmi
+        st.session_state.goal_info["target_ffmi"] = resulting_ffmi
+        
+        # Use the modern rerun method to refresh the page
+        st.rerun()
 
 # Get target values from session state if targets have been set
 if st.session_state.targets_set:
@@ -468,9 +476,23 @@ if st.session_state.targets_set:
         target_weight_lbs = target_fat_mass_lbs + target_ffm_lbs
         target_normalized_ffmi = target_ffmi * (1.8 / height_m)
 
-    # Just show a simple heading
+    # Success message with guidance for next steps
     st.write("### Target Body Composition Set")
-    st.success("Your target body composition values have been set. See the analysis table below for details.")
+    success_col1, success_col2 = st.columns([3, 1])
+    
+    with success_col1:
+        st.success("Your target body composition values have been set! Continue to the Timeline section below.")
+    
+    with success_col2:
+        # Add a button that will scroll to the timeline section
+        st.markdown("""
+        <a href="#timeline_section" style="text-decoration: none;">
+            <button style="background-color: #4CAF50; color: white; padding: 10px 15px; 
+            border: none; border-radius: 4px; cursor: pointer; width: 100%;">
+                Continue to Timeline ↓
+            </button>
+        </a>
+        """, unsafe_allow_html=True)
 else:
     st.write("### Target Body Composition")
     st.info("Set your target values above to see the analysis table with your target measurements.")
@@ -530,6 +552,8 @@ st.dataframe(comp_df, use_container_width=True)
 
 # SECTION 5: Timeline and Rate Settings
 st.markdown("---")
+# Add an HTML anchor for the button to scroll to
+st.markdown('<div id="timeline_section"></div>', unsafe_allow_html=True)
 st.write("### Timeline and Rate Settings")
 st.write("Set the timeline and target rate for your body composition changes:")
 
