@@ -627,16 +627,22 @@ with col1:
                 "Very Aggressive (1.0% per week)": 0.01
             }
             
-            # Default to recommended or moderate
-            default_option = f"Moderate ({rec_weekly_pct*100:.2f}% per week)" if abs(rec_weekly_pct-0.005) < 0.001 else f"Custom ({rec_weekly_pct*100:.2f}% per week)"
+            # Simplify rate selection
             selected_rate = st.radio(
-                "Select weekly rate of change:",
+                "Select weekly rate of target change:",
                 options=list(rate_options.keys()),
-                index=list(rate_options.keys()).index("Moderate (0.5% per week)") if default_option not in rate_options else list(rate_options.keys()).index(default_option),
+                index=1,  # Default to Moderate
                 help="How quickly you want to lose fat. More aggressive rates may be harder to sustain."
             )
             
             weekly_weight_pct = -1 * rate_options[selected_rate]  # Negative for fat loss
+            
+            # Calculate and display the energy deficit this will create
+            weekly_lbs_loss = abs(weekly_weight_pct * current_weight_lbs)
+            daily_calorie_deficit = round((weekly_lbs_loss * 3500) / 7)  # 3500 calories per pound, divided by 7 days
+            
+            st.write(f"This rate will create a daily deficit of approximately **{daily_calorie_deficit} calories**.")
+            st.write(f"Your TDEE is **{tdee} calories**, so your daily target would be approximately **{tdee - daily_calorie_deficit} calories**.")
             
         elif goal_type == "Gain muscle":
             # Predefined rates for muscle gain
@@ -647,16 +653,22 @@ with col1:
                 "Very Aggressive (0.75% per week)": 0.0075
             }
             
-            # Default to recommended or moderate
-            default_option = f"Moderate ({rec_weekly_pct*100:.2f}% per week)" if abs(rec_weekly_pct-0.0025) < 0.001 else f"Custom ({rec_weekly_pct*100:.2f}% per week)"
+            # Simplify rate selection
             selected_rate = st.radio(
-                "Select weekly rate of change:",
+                "Select weekly rate of target change:",
                 options=list(rate_options.keys()),
-                index=list(rate_options.keys()).index("Moderate (0.25% per week)") if default_option not in rate_options else list(rate_options.keys()).index(default_option),
+                index=1,  # Default to Moderate
                 help="How quickly you want to gain muscle. More aggressive rates may include more fat gain."
             )
             
             weekly_weight_pct = rate_options[selected_rate]  # Positive for muscle gain
+            
+            # Calculate and display the energy surplus this will create
+            weekly_lbs_gain = weekly_weight_pct * current_weight_lbs
+            daily_calorie_surplus = round((weekly_lbs_gain * 3500) / 7)  # 3500 calories per pound, divided by 7 days
+            
+            st.write(f"This rate will create a daily surplus of approximately **{daily_calorie_surplus} calories**.")
+            st.write(f"Your TDEE is **{tdee} calories**, so your daily target would be approximately **{tdee + daily_calorie_surplus} calories**.")
             
         else:  # Maintenance
             # For maintenance, offer body recomposition options
@@ -744,29 +756,15 @@ with col2:
                 st.error(f"Error calculating timeline: {str(e)}")
                 timeline_weeks = 12  # Default fallback
         
-        # Display the calculated timeline with simplified options
+        # Display the calculated timeline without additional options
         if timeline_weeks > 0:
             st.success(f"Estimated time to reach your target: **{timeline_weeks:.1f} weeks** (approximately {timeline_weeks/4:.1f} months)")
             
-            # Create 3 preset timeline options based on calculated timeline
-            timeline_options = [
-                f"Faster ({max(4, int(timeline_weeks * 0.7)):.0f} weeks)",
-                f"Recommended ({int(timeline_weeks):.0f} weeks)",
-                f"Slower ({int(timeline_weeks * 1.3):.0f} weeks)"
-            ]
-            
-            selected_timeline = st.radio(
-                "Choose your preferred timeline:",
-                options=timeline_options,
-                index=1,  # Default to recommended
-                help="A longer timeline means smaller weekly changes that may be easier to maintain."
-            )
-            
-            # Extract the selected timeline value
-            if "Faster" in selected_timeline:
-                timeline_weeks = max(4, int(timeline_weeks * 0.7))
-            elif "Slower" in selected_timeline:
-                timeline_weeks = int(timeline_weeks * 1.3)
+            # Display start and end dates
+            start_date = datetime.now().date()
+            end_date = start_date + timedelta(days=int(timeline_weeks * 7))
+            st.write(f"Start date: **{start_date.strftime('%B %d, %Y')}**")
+            st.write(f"Estimated completion date: **{end_date.strftime('%B %d, %Y')}**")
         else:
             st.warning("The targets you've set do not represent a significant change. Consider adjusting your targets or selecting 'Maintain' as your goal type.")
             timeline_weeks = 12  # Default to 12 weeks for maintenance or when calculation gives invalid result
