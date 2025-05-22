@@ -540,24 +540,84 @@ activity_types = {
     ]
 }
 
-# Set up daily view
-selected_day = st.selectbox("Select day to view/edit:", days_of_week, 
-                           format_func=lambda x: f"📅 {x}")
+# Set up day selection with a clean interface
+cols = st.columns([1, 1])
+with cols[0]:
+    selected_day = st.selectbox("Select day:", days_of_week, 
+                              format_func=lambda x: f"📅 {x}")
+    day_data = st.session_state.weekly_schedule['days'][selected_day]
 
-# Create a cleaner visual layout with tabs for adding activities
-day_data = st.session_state.weekly_schedule['days'][selected_day]
-
-# Display the schedule visualization first for better UX
-st.markdown("""
-<div style="background-color:#f8f9fa;padding:10px;border-radius:5px;margin:15px 0">
-<h4 style="margin-top:0">Daily Schedule Timeline</h4>
-<p style="font-size:14px;margin-bottom:0">View and edit your activities throughout the day</p>
-</div>
-""", unsafe_allow_html=True)
+with cols[1]:
+    # Template patterns for quick schedule creation
+    template_options = {
+        "3 Meals": [
+            {"type": "meal", "name": "Breakfast", "time": "07:30"},
+            {"type": "meal", "name": "Lunch", "time": "12:30"}, 
+            {"type": "meal", "name": "Dinner", "time": "18:30"}
+        ],
+        "5 Meals": [
+            {"type": "meal", "name": "Breakfast", "time": "07:00"},
+            {"type": "meal", "name": "Snack", "time": "10:00"},
+            {"type": "meal", "name": "Lunch", "time": "13:00"},
+            {"type": "meal", "name": "Snack", "time": "16:00"},
+            {"type": "meal", "name": "Dinner", "time": "19:00"}
+        ],
+        "Workout Day": [
+            {"type": "meal", "name": "Breakfast", "time": "07:00"},
+            {"type": "meal", "name": "Pre-workout", "time": "15:30"},
+            {"type": "workout", "start": "16:30", "end": "17:30", "type": "Strength", "intensity": "Moderate"},
+            {"type": "meal", "name": "Post-workout", "time": "18:00"},
+            {"type": "meal", "name": "Dinner", "time": "20:00"}
+        ],
+        "Work Day": [
+            {"type": "activity", "type": "Wake Up", "start": "06:30", "end": "07:00"},
+            {"type": "meal", "name": "Breakfast", "time": "07:15"},
+            {"type": "activity", "type": "Work", "start": "09:00", "end": "17:00"},
+            {"type": "meal", "name": "Lunch", "time": "12:30"},
+            {"type": "workout", "start": "18:00", "end": "19:00", "type": "Workout", "intensity": "Moderate"},
+            {"type": "meal", "name": "Dinner", "time": "19:30"},
+            {"type": "activity", "type": "Sleep", "start": "22:30", "end": "06:30"}
+        ]
+    }
+    
+    template_name = st.selectbox("Quick template:", ["None"] + list(template_options.keys()))
+    
+    if template_name != "None" and st.button("Apply Template"):
+        # Clear existing day data first
+        st.session_state.weekly_schedule['days'][selected_day]['meals'] = []
+        st.session_state.weekly_schedule['days'][selected_day]['workouts'] = [] 
+        st.session_state.weekly_schedule['days'][selected_day]['work'] = []
+        
+        # Add template items
+        for item in template_options[template_name]:
+            if "type" in item and item["type"] == "meal":
+                st.session_state.weekly_schedule['days'][selected_day]['meals'].append({
+                    "name": item["name"],
+                    "time": item["time"]
+                })
+            elif "type" in item and item["type"] == "workout":
+                st.session_state.weekly_schedule['days'][selected_day]['workouts'].append({
+                    "type": item["type"],
+                    "start": item["start"],
+                    "end": item["end"],
+                    "intensity": item.get("intensity", "Moderate")
+                })
+            elif "type" in item:  # Activity
+                st.session_state.weekly_schedule['days'][selected_day]['work'].append({
+                    "type": item["type"],
+                    "start": item["start"],
+                    "end": item["end"]
+                })
+        
+        st.success(f"Applied template '{template_name}' to {selected_day}")
+        st.rerun()
 
 # Create fixed time range (6am to midnight) rather than using wake/bedtime
 min_hour = 6  # 6 AM
 max_hour = 24  # Midnight
+
+# Display the schedule visualization
+st.markdown(f"#### {selected_day}'s Schedule")
 
 # Create a timeline-style visualization - a cleaner approach
 timeline_container = st.container()
@@ -705,124 +765,38 @@ with timeline_container:
         st.markdown('<hr style="margin:0;padding:0;border:none;border-top:1px solid #f0f0f0">', 
                    unsafe_allow_html=True)
 
-# Copy Schedule Feature - moved below the schedule
-st.markdown("""
-<div style="background-color:#f8f9fa;padding:10px;border-radius:5px;margin:20px 0 15px 0">
-<h4 style="margin-top:0">Quick Templates</h4>
-<p style="font-size:14px;margin-bottom:0">Copy schedule between days or apply templates</p>
-</div>
-""", unsafe_allow_html=True)
-
-# Template patterns
-template_options = {
-    "3 Meals": [
-        {"type": "meal", "name": "Breakfast", "time": "07:30"},
-        {"type": "meal", "name": "Lunch", "time": "12:30"}, 
-        {"type": "meal", "name": "Dinner", "time": "18:30"}
-    ],
-    "5 Meals": [
-        {"type": "meal", "name": "Breakfast", "time": "07:00"},
-        {"type": "meal", "name": "Snack", "time": "10:00"},
-        {"type": "meal", "name": "Lunch", "time": "13:00"},
-        {"type": "meal", "name": "Snack", "time": "16:00"},
-        {"type": "meal", "name": "Dinner", "time": "19:00"}
-    ],
-    "Workout Day": [
-        {"type": "meal", "name": "Breakfast", "time": "07:00"},
-        {"type": "meal", "name": "Pre-workout", "time": "15:30"},
-        {"type": "workout", "start": "16:30", "end": "17:30", "type": "Strength", "intensity": "Moderate"},
-        {"type": "meal", "name": "Post-workout", "time": "18:00"},
-        {"type": "meal", "name": "Dinner", "time": "20:00"}
-    ],
-    "Work Day": [
-        {"type": "activity", "type": "Wake Up", "start": "06:30", "end": "07:00"},
-        {"type": "meal", "name": "Breakfast", "time": "07:15"},
-        {"type": "activity", "type": "Work", "start": "09:00", "end": "17:00"},
-        {"type": "meal", "name": "Lunch", "time": "12:30"},
-        {"type": "workout", "start": "18:00", "end": "19:00", "type": "Workout", "intensity": "Moderate"},
-        {"type": "meal", "name": "Dinner", "time": "19:30"},
-        {"type": "activity", "type": "Sleep", "start": "22:30", "end": "06:30"}
-    ]
-}
-
-template_cols = st.columns([2, 1, 1])
-with template_cols[0]:
-    # Day-to-day copy
-    copy_cols = st.columns(3)
-    with copy_cols[0]:
-        source_day = st.selectbox("Copy from day:", days_of_week, key="copy_source_day")
-    with copy_cols[1]:
-        target_day = st.selectbox("Copy to day:", days_of_week, key="copy_target_day")
-    with copy_cols[2]:
-        if st.button("Copy Schedule", key="copy_schedule_button"):
-            if source_day != target_day:
-                # Deep copy all schedule items
-                st.session_state.weekly_schedule['days'][target_day]['meals'] = copy.deepcopy(
-                    st.session_state.weekly_schedule['days'][source_day]['meals']
-                )
-                st.session_state.weekly_schedule['days'][target_day]['workouts'] = copy.deepcopy(
-                    st.session_state.weekly_schedule['days'][source_day]['workouts']
-                )
-                st.session_state.weekly_schedule['days'][target_day]['work'] = copy.deepcopy(
-                    st.session_state.weekly_schedule['days'][source_day]['work']
-                )
-                
-                st.success(f"Copied schedule from {source_day} to {target_day}")
-                if target_day == selected_day:
-                    st.rerun()
-            else:
-                st.warning("Source and target days must be different")
-
-with template_cols[1]:
-    template_name = st.selectbox("Apply template:", list(template_options.keys()), key="template_select")
-
-with template_cols[2]:
-    if st.button("Apply Template", key="apply_template_button"):
-        # Clear existing day data first
-        st.session_state.weekly_schedule['days'][selected_day]['meals'] = []
-        st.session_state.weekly_schedule['days'][selected_day]['workouts'] = [] 
-        st.session_state.weekly_schedule['days'][selected_day]['work'] = []
+# Day-to-day copy interface - simplified
+st.markdown(f"#### Copy Schedule to Other Days", help="Copy today's schedule to other days of the week")
+copy_cols = st.columns(3)
+with copy_cols[0]:
+    target_day = st.selectbox("Copy to:", [d for d in days_of_week if d != selected_day], key="copy_target_day")
+with copy_cols[2]:
+    if st.button("Copy Schedule", key="copy_schedule_button"):
+        # Deep copy all schedule items
+        st.session_state.weekly_schedule['days'][target_day]['meals'] = copy.deepcopy(
+            st.session_state.weekly_schedule['days'][selected_day]['meals']
+        )
+        st.session_state.weekly_schedule['days'][target_day]['workouts'] = copy.deepcopy(
+            st.session_state.weekly_schedule['days'][selected_day]['workouts']
+        )
+        st.session_state.weekly_schedule['days'][target_day]['work'] = copy.deepcopy(
+            st.session_state.weekly_schedule['days'][selected_day]['work']
+        )
         
-        # Add template items
-        for item in template_options[template_name]:
-            if "type" in item and item["type"] == "meal":
-                st.session_state.weekly_schedule['days'][selected_day]['meals'].append({
-                    "name": item["name"],
-                    "time": item["time"]
-                })
-            elif "type" in item and item["type"] == "workout":
-                st.session_state.weekly_schedule['days'][selected_day]['workouts'].append({
-                    "type": item["type"],
-                    "start": item["start"],
-                    "end": item["end"],
-                    "intensity": item.get("intensity", "Moderate")
-                })
-            elif "type" in item:  # Activity
-                st.session_state.weekly_schedule['days'][selected_day]['work'].append({
-                    "type": item["type"],
-                    "start": item["start"],
-                    "end": item["end"]
-                })
-        
-        st.success(f"Applied template '{template_name}' to {selected_day}")
+        st.success(f"Copied schedule from {selected_day} to {target_day}")
         st.rerun()
 
 # Activity editing interface - much cleaner and more focused
-st.markdown("""
-<div style="background-color:#f8f9fa;padding:10px;border-radius:5px;margin:15px 0">
-<h4 style="margin-top:0">Add Activities</h4>
-<p style="font-size:14px;margin-bottom:0">Select an activity type and place it on your schedule</p>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("#### Add Activities")
 
 # Create tabs for activity categories - a more organized approach
-activity_tabs = st.tabs(["Meals", "Workouts", "Activities"])
+activity_tabs = st.tabs(["Meals", "Workouts", "Other Activities"])
 
 # Meals tab
 with activity_tabs[0]:
-    meal_cols = st.columns(4)
+    meal_cols = st.columns(6)
     for i, meal in enumerate(activity_types["Meals"]):
-        with meal_cols[i % 4]:
+        with meal_cols[i % 6]:
             # Create a card-like button that's more visually pleasing
             st.markdown(f"""
             <div style="background-color:{meal['color']}20;
@@ -836,15 +810,15 @@ with activity_tabs[0]:
             </div>
             """, unsafe_allow_html=True)
             
-            # Add time selector for meals too
+            # Add time selector for meals
             meal_time = st.time_input(
-                "Meal time", 
+                "Time", 
                 value=pd.to_datetime("12:00").time(),
                 key=f"meal_time_{i}"
             )
             
             # Add button with cleaner styling
-            if st.button(f"Add {meal['name']}", key=f"add_meal_{i}"):
+            if st.button(f"Add", key=f"add_meal_{i}"):
                 # Add meal to the selected day with user-selected time
                 st.session_state.weekly_schedule['days'][selected_day]['meals'].append({
                     "name": meal['name'],
@@ -880,7 +854,7 @@ with activity_tabs[1]:
             )
             
             # Add button
-            if st.button(f"Add {workout['name']}", key=f"add_workout_{i}"):
+            if st.button(f"Add", key=f"add_workout_{i}"):
                 # Calculate end time
                 start_hour = workout_time.hour
                 start_minute = workout_time.minute
@@ -900,9 +874,9 @@ with activity_tabs[1]:
 
 # Activities tab
 with activity_tabs[2]:
-    activity_cols = st.columns(4)
+    activity_cols = st.columns(6)
     for i, activity in enumerate(activity_types["Activities"]):
-        with activity_cols[i % 4]:
+        with activity_cols[i % 6]:
             # Create a card-like button
             st.markdown(f"""
             <div style="background-color:{activity['color']}20;
@@ -917,15 +891,15 @@ with activity_tabs[2]:
             </div>
             """, unsafe_allow_html=True)
             
-            # Time selector
-            start_value = pd.to_datetime("09:00").time() if activity['name'] == "Work" else pd.to_datetime("14:00").time()
+            # Time selector with smart defaults
+            start_value = pd.to_datetime("09:00").time() 
             if activity['name'] == "Sleep":
                 start_value = pd.to_datetime("22:00").time()
             elif activity['name'] == "Wake Up":
                 start_value = pd.to_datetime("06:00").time()
                 
             activity_time = st.time_input(
-                "Start time", 
+                "Start", 
                 value=start_value,
                 key=f"activity_time_{i}"
             )
@@ -933,7 +907,7 @@ with activity_tabs[2]:
             # Duration adjustment for certain activities
             if activity['name'] in ["Sleep", "Work"]:
                 duration = st.slider(
-                    f"{activity['name']} duration (hrs)", 
+                    f"Duration", 
                     min_value=1, 
                     max_value=12, 
                     value=activity['duration'] // 60,
@@ -943,7 +917,7 @@ with activity_tabs[2]:
                 duration = activity['duration']
             
             # Add button
-            if st.button(f"Add {activity['name']}", key=f"add_activity_{i}"):
+            if st.button(f"Add", key=f"add_activity_{i}"):
                 # Calculate end time
                 start_hour = activity_time.hour
                 start_minute = activity_time.minute
