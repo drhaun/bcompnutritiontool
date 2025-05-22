@@ -292,9 +292,21 @@ with st.expander("View Projected Weekly Energy Targets"):
         st.info("Complete your body composition goals first to see projected weekly energy targets.")
 
 # Create a section to customize the nutrition plan
+# Add a button to save the custom macros
 st.markdown("---")
-st.subheader("Customize Your Nutrition Plan")
-st.write("Adjust your macronutrient targets based on your preferences:")
+if st.button("Save Customized Nutrition Plan"):
+    # Update nutrition plan with customized values from the new UI
+    st.session_state.nutrition_plan['target_protein'] = st.session_state.custom_protein
+    st.session_state.nutrition_plan['target_carbs'] = st.session_state.custom_carbs
+    st.session_state.nutrition_plan['target_fat'] = st.session_state.custom_fat
+    st.session_state.nutrition_plan['updated_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Save data
+    utils.save_data()
+    st.success("Customized nutrition plan saved successfully!")
+    
+    # Rerun to update UI
+    st.rerun()
 
 # Protein customization section
 with st.expander("Customize Protein Target", expanded=True):
