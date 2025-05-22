@@ -545,9 +545,21 @@ with col3:
     st.markdown(f"**Fat Budget: {fat_status} {remaining_fat}g remaining**")
     st.progress(1 - max(0, min(1, abs(remaining_fat) / st.session_state.custom_fat)))
 
+# Calculate per-meal calorie target
+per_meal_calories = round(target_calories / meals_per_day)
+
 # Now allow editing of the meal plan
 for i in range(meals_per_day):
     st.markdown(f"#### Meal {i+1}")
+    
+    # Calculate current calories for this meal
+    current_calories = int(st.session_state.current_meals.at[i, "Calories"])
+    calorie_diff = current_calories - per_meal_calories
+    
+    # Show meal calorie budget
+    calorie_status = "✅" if abs(calorie_diff) < 50 else "⚠️" if calorie_diff < 0 else "⚠️"
+    st.info(f"**Meal Calorie Budget:** Target: {per_meal_calories} kcal | Current: {current_calories} kcal | Difference: {calorie_status} {calorie_diff} kcal")
+    
     cols = st.columns([2, 1, 1, 1, 1])
     
     with cols[0]:
