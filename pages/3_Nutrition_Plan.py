@@ -566,6 +566,7 @@ for i in range(meals_per_day):
         st.session_state.current_meals.at[i, "Meal"] = meal_name
     
     with cols[1]:
+        # Protein input
         protein = st.number_input(
             "Protein (g)",
             min_value=0,
@@ -576,7 +577,72 @@ for i in range(meals_per_day):
         )
         st.session_state.current_meals.at[i, "Protein (g)"] = protein
         
+        # Protein food source selection
+        if protein > 0:
+            # Initialize meal components in session state if not present
+            if 'meal_components' not in st.session_state:
+                st.session_state.meal_components = {}
+            
+            # Initialize for this specific meal
+            meal_key = f"meal_{i}"
+            if meal_key not in st.session_state.meal_components:
+                st.session_state.meal_components[meal_key] = {"protein": None, "carbs": None, "fat": None}
+            
+            # Protein food selection
+            protein_source = st.selectbox(
+                "Protein Source",
+                options=["Select protein source...", "Chicken Breast", "Ground Beef (90% lean)", "Eggs", "Greek Yogurt", 
+                        "Salmon", "Tofu", "Tuna", "Protein Powder", "Search..."],
+                index=0,
+                key=f"protein_source_{i}"
+            )
+            
+            if protein_source == "Search...":
+                protein_search = st.text_input("Search for protein foods:", key=f"protein_search_{i}")
+                if protein_search:
+                    st.info(f"Searching for '{protein_search}' (Note: This would connect to the USDA database)")
+                    # In a real implementation, this would call the FDC API
+                    # foods = fdc_api.search_foods(protein_search)
+                    # display search results and allow selection
+            
+            if protein_source != "Select protein source..." and protein_source != "Search...":
+                # Predefined protein values for common foods (per 100g)
+                protein_foods = {
+                    "Chicken Breast": {"protein": 31, "carbs": 0, "fat": 3.6, "calories": 165, "serving": "100g"},
+                    "Ground Beef (90% lean)": {"protein": 26, "carbs": 0, "fat": 10, "calories": 196, "serving": "100g"},
+                    "Eggs": {"protein": 13, "carbs": 1, "fat": 11, "calories": 155, "serving": "100g (2 large eggs)"},
+                    "Greek Yogurt": {"protein": 10, "carbs": 3.6, "fat": 0.4, "calories": 59, "serving": "100g"},
+                    "Salmon": {"protein": 25, "carbs": 0, "fat": 13, "calories": 206, "serving": "100g"},
+                    "Tofu": {"protein": 8, "carbs": 2, "fat": 4, "calories": 76, "serving": "100g"},
+                    "Tuna": {"protein": 30, "carbs": 0, "fat": 1, "calories": 130, "serving": "100g"},
+                    "Protein Powder": {"protein": 80, "carbs": 10, "fat": 3, "calories": 400, "serving": "100g"},
+                }
+                
+                # Calculate required serving size to hit protein target
+                selected_food = protein_foods[protein_source]
+                required_serving = (protein / selected_food["protein"]) * 100  # Scale from 100g
+                
+                # Display serving size
+                st.write(f"Serving: **{round(required_serving)}g** ({round(required_serving/selected_food['protein'], 1)} servings)")
+                
+                # Show macronutrient contribution
+                st.write(f"Provides: {protein}g protein, " + 
+                        f"{round((required_serving/100) * selected_food['carbs'])}g carbs, " +
+                        f"{round((required_serving/100) * selected_food['fat'])}g fat")
+                
+                # Store in session state
+                st.session_state.meal_components[meal_key]["protein"] = {
+                    "food": protein_source,
+                    "serving": required_serving,
+                    "macros": {
+                        "protein": protein,
+                        "carbs": round((required_serving/100) * selected_food['carbs']),
+                        "fat": round((required_serving/100) * selected_food['fat']),
+                    }
+                }
+        
     with cols[2]:
+        # Carbohydrate input
         carbs = st.number_input(
             "Carbs (g)",
             min_value=0,
@@ -587,7 +653,62 @@ for i in range(meals_per_day):
         )
         st.session_state.current_meals.at[i, "Carbs (g)"] = carbs
         
+        # Carbohydrate food source selection
+        if carbs > 0:
+            # Carbs food selection
+            carbs_source = st.selectbox(
+                "Carb Source",
+                options=["Select carb source...", "Rice", "Potato", "Oats", "Bread", "Pasta", 
+                        "Sweet Potato", "Quinoa", "Fruits", "Search..."],
+                index=0,
+                key=f"carbs_source_{i}"
+            )
+            
+            if carbs_source == "Search...":
+                carbs_search = st.text_input("Search for carb foods:", key=f"carbs_search_{i}")
+                if carbs_search:
+                    st.info(f"Searching for '{carbs_search}' (Note: This would connect to the USDA database)")
+                    # In a real implementation, this would call the FDC API
+            
+            if carbs_source != "Select carb source..." and carbs_source != "Search...":
+                # Predefined carb values for common foods (per 100g)
+                carb_foods = {
+                    "Rice": {"protein": 2.7, "carbs": 28, "fat": 0.3, "calories": 130, "serving": "100g (cooked)"},
+                    "Potato": {"protein": 2, "carbs": 17, "fat": 0.1, "calories": 77, "serving": "100g"},
+                    "Oats": {"protein": 13, "carbs": 68, "fat": 6.9, "calories": 389, "serving": "100g (dry)"},
+                    "Bread": {"protein": 9, "carbs": 49, "fat": 3.2, "calories": 265, "serving": "100g"},
+                    "Pasta": {"protein": 5, "carbs": 25, "fat": 1.1, "calories": 131, "serving": "100g (cooked)"},
+                    "Sweet Potato": {"protein": 1.6, "carbs": 20, "fat": 0.1, "calories": 86, "serving": "100g"},
+                    "Quinoa": {"protein": 4.4, "carbs": 21, "fat": 1.9, "calories": 120, "serving": "100g (cooked)"},
+                    "Fruits": {"protein": 0.5, "carbs": 14, "fat": 0.3, "calories": 60, "serving": "100g"},
+                }
+                
+                # Calculate required serving size to hit carb target
+                selected_food = carb_foods[carbs_source]
+                required_serving = (carbs / selected_food["carbs"]) * 100  # Scale from 100g
+                
+                # Display serving size
+                st.write(f"Serving: **{round(required_serving)}g** ({round(required_serving/100, 1)} servings)")
+                
+                # Show macronutrient contribution
+                st.write(f"Provides: {round((required_serving/100) * selected_food['protein'])}g protein, " + 
+                        f"{carbs}g carbs, " +
+                        f"{round((required_serving/100) * selected_food['fat'])}g fat")
+                
+                # Store in session state
+                if 'meal_components' in st.session_state and f"meal_{i}" in st.session_state.meal_components:
+                    st.session_state.meal_components[f"meal_{i}"]["carbs"] = {
+                        "food": carbs_source,
+                        "serving": required_serving,
+                        "macros": {
+                            "protein": round((required_serving/100) * selected_food['protein']),
+                            "carbs": carbs,
+                            "fat": round((required_serving/100) * selected_food['fat']),
+                        }
+                    }
+        
     with cols[3]:
+        # Fat input
         fat = st.number_input(
             "Fat (g)",
             min_value=0,
@@ -597,6 +718,60 @@ for i in range(meals_per_day):
             key=f"fat_{i}"
         )
         st.session_state.current_meals.at[i, "Fat (g)"] = fat
+        
+        # Fat food source selection
+        if fat > 0:
+            # Fat food selection
+            fat_source = st.selectbox(
+                "Fat Source",
+                options=["Select fat source...", "Olive Oil", "Avocado", "Nuts", "Nut Butter", 
+                        "Cheese", "Coconut Oil", "Butter", "Seeds", "Search..."],
+                index=0,
+                key=f"fat_source_{i}"
+            )
+            
+            if fat_source == "Search...":
+                fat_search = st.text_input("Search for fat foods:", key=f"fat_search_{i}")
+                if fat_search:
+                    st.info(f"Searching for '{fat_search}' (Note: This would connect to the USDA database)")
+                    # In a real implementation, this would call the FDC API
+            
+            if fat_source != "Select fat source..." and fat_source != "Search...":
+                # Predefined fat values for common foods (per 100g or serving)
+                fat_foods = {
+                    "Olive Oil": {"protein": 0, "carbs": 0, "fat": 100, "calories": 884, "serving": "100g"},
+                    "Avocado": {"protein": 2, "carbs": 9, "fat": 15, "calories": 160, "serving": "100g"},
+                    "Nuts": {"protein": 21, "carbs": 21, "fat": 49, "calories": 607, "serving": "100g"},
+                    "Nut Butter": {"protein": 25, "carbs": 20, "fat": 50, "calories": 589, "serving": "100g"},
+                    "Cheese": {"protein": 25, "carbs": 1.3, "fat": 33, "calories": 402, "serving": "100g"},
+                    "Coconut Oil": {"protein": 0, "carbs": 0, "fat": 100, "calories": 862, "serving": "100g"},
+                    "Butter": {"protein": 0.9, "carbs": 0.1, "fat": 81, "calories": 717, "serving": "100g"},
+                    "Seeds": {"protein": 18, "carbs": 34, "fat": 42, "calories": 534, "serving": "100g"},
+                }
+                
+                # Calculate required serving size to hit fat target
+                selected_food = fat_foods[fat_source]
+                required_serving = (fat / selected_food["fat"]) * 100  # Scale from 100g
+                
+                # Display serving size
+                st.write(f"Serving: **{round(required_serving)}g** ({round(required_serving/100, 1)} servings)")
+                
+                # Show macronutrient contribution
+                st.write(f"Provides: {round((required_serving/100) * selected_food['protein'])}g protein, " + 
+                        f"{round((required_serving/100) * selected_food['carbs'])}g carbs, " +
+                        f"{fat}g fat")
+                
+                # Store in session state
+                if 'meal_components' in st.session_state and f"meal_{i}" in st.session_state.meal_components:
+                    st.session_state.meal_components[f"meal_{i}"]["fat"] = {
+                        "food": fat_source,
+                        "serving": required_serving,
+                        "macros": {
+                            "protein": round((required_serving/100) * selected_food['protein']),
+                            "carbs": round((required_serving/100) * selected_food['carbs']),
+                            "fat": fat,
+                        }
+                    }
         
     with cols[4]:
         # Calculate and update calories
