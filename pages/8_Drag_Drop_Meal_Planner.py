@@ -49,6 +49,12 @@ if 'meal_plan' not in st.session_state:
         'dinner': [],
         'snacks': []
     }
+else:
+    # Ensure all required meal types exist in the meal plan
+    required_meal_types = ['breakfast', 'lunch', 'dinner', 'snacks']
+    for meal_type in required_meal_types:
+        if meal_type not in st.session_state.meal_plan:
+            st.session_state.meal_plan[meal_type] = []
     
 if 'search_results' not in st.session_state:
     st.session_state.search_results = []
@@ -96,6 +102,11 @@ def add_to_meal(food_item, meal_type, portion=100):
     # Create a copy of the food item with the portion information
     meal_item = food_item.copy()
     meal_item['portion'] = portion
+    
+    # Ensure the meal type exists in the meal plan
+    meal_type = meal_type.lower()  # Case insensitive
+    if meal_type not in st.session_state.meal_plan:
+        st.session_state.meal_plan[meal_type] = []
     
     # Add to the meal plan
     st.session_state.meal_plan[meal_type].append(meal_item)
