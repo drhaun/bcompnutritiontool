@@ -175,9 +175,8 @@ comp_data = {
 comp_df = pd.DataFrame(comp_data)
 st.dataframe(comp_df, use_container_width=True)
 
-# Display category information
+# Display category information - simplified version without recommendations
 st.write("#### Body Composition Categories")
-col1, col2 = st.columns(2)
 
 # Find categories for current values
 current_fmi_category = "Unknown"
@@ -192,21 +191,9 @@ for category in ffmi_categories:
         current_ffmi_category = category["name"]
         break
 
-with col1:
-    st.write(f"**Current FMI Category**: {current_fmi_category}")
-    st.write(f"**Current FFMI Category**: {current_ffmi_category}")
-
-with col2:
-    st.write("**Target FMI Category**: Set target values first")
-    st.write("**Target FFMI Category**: Set target values first")
-
-# Get combined recommendations for current values
-current_combo_rec = utils.get_combined_category_rates(current_fmi_category, current_ffmi_category)
-current_recommended_category = current_combo_rec.get("recommendation", "No specific recommendation available")
-
-st.write("#### Recommendations")
-st.write(f"**Based on current body composition**: {current_recommended_category}")
-st.write("**Based on target body composition**: Set target values first")
+# Display current categories without target columns
+st.write(f"**Current FMI Category**: {current_fmi_category}")
+st.write(f"**Current FFMI Category**: {current_ffmi_category}")
 
 # SECTION 2: Reference photos in collapsible section
 with st.expander("📷 View Body Fat Percentage Reference Photos"):
@@ -473,21 +460,13 @@ if st.session_state.targets_set:
             break
     
     # Display target information only if targets have been set
-    # Show categories and recommendations
+    # Show categories but without targets and recommendations
     with st.expander("Body Composition Index Categories"):
-        st.write("#### Target Categories")
-        st.write(f"Target FMI: **{target_fmi:.1f} kg/m²** ({target_fmi_category})")
-        st.write(f"Target FFMI: **{target_ffmi:.1f} kg/m²** ({target_ffmi_category})")
+        st.write("Categories are based on your current measurements.")
         
-        # Calculate the new combo recommendation
-        combo_rec = utils.get_combined_category_rates(target_fmi_category, target_ffmi_category)
-        target_recommended_category = combo_rec.get("recommendation", "No specific recommendation available")
-        
-        st.write(f"**Recommendation based on target body composition**: {target_recommended_category}")
-
-    # Calculate target weight from fat mass and FFM
-    target_weight_lbs = target_fat_mass_lbs + target_ffm_lbs
-    target_normalized_ffmi = target_ffmi * (1.8 / height_m)
+        # Calculate target weight from fat mass and FFM
+        target_weight_lbs = target_fat_mass_lbs + target_ffm_lbs
+        target_normalized_ffmi = target_ffmi * (1.8 / height_m)
 
     # Just show a simple heading
     st.write("### Target Body Composition Set")
@@ -500,60 +479,46 @@ else:
 st.markdown("---")
 st.subheader("Body Composition Analysis")
 
-# Create dataframe with current values
+# Create dataframe with current values - removed FMI and FFMI from display as requested
 comp_data = {
     'Measurement': [
         'Weight', 
         'Fat Mass', 
         'Fat-Free Mass', 
-        'Body Fat %',
-        'Fat Mass Index (FMI)',
-        'Fat-Free Mass Index (FFMI)',
-        'Normalized FFMI'
+        'Body Fat %'
     ],
     'Current': [
         f"{current_weight_lbs:.1f} lbs", 
         f"{current_fat_mass_lbs:.1f} lbs", 
         f"{current_fat_free_mass_lbs:.1f} lbs", 
-        f"{current_bf:.1f}%",
-        f"{current_fmi:.1f} kg/m²",
-        f"{current_ffmi:.1f} kg/m²",
-        f"{current_normalized_ffmi:.1f} kg/m²"
+        f"{current_bf:.1f}%"
     ]
 }
 
-# Add target values to the dataframe only if targets have been set
+# Add target values to the dataframe only if targets have been set - simplified to remove FMI/FFMI
 if st.session_state.targets_set:
+    # We still calculate these values for internal use, but don't display them
     target_normalized_ffmi = target_ffmi * (1.8 / height_m)
     
     comp_data['Target'] = [
         f"{target_weight_lbs:.1f} lbs", 
         f"{target_fat_mass_lbs:.1f} lbs", 
         f"{target_ffm_lbs:.1f} lbs", 
-        f"{target_bf:.1f}%",
-        f"{target_fmi:.1f} kg/m²",
-        f"{target_ffmi:.1f} kg/m²",
-        f"{target_normalized_ffmi:.1f} kg/m²"
+        f"{target_bf:.1f}%"
     ]
     
-    # Calculate changes
+    # Calculate changes for the displayed metrics
     weight_change = target_weight_lbs - current_weight_lbs
     fat_change = target_fat_mass_lbs - current_fat_mass_lbs
     ffm_change = target_ffm_lbs - current_fat_free_mass_lbs
     bf_change = target_bf - current_bf
-    fmi_change = target_fmi - current_fmi
-    ffmi_change = target_ffmi - current_ffmi
-    normalized_ffmi_change = target_normalized_ffmi - current_normalized_ffmi
     
-    # Add change values to the dataframe
+    # Add change values to the dataframe (for displayed metrics only)
     comp_data['Change'] = [
         f"{weight_change:.1f} lbs",
         f"{fat_change:.1f} lbs",
         f"{ffm_change:.1f} lbs",
-        f"{bf_change:.1f}%",
-        f"{fmi_change:.1f} kg/m²",
-        f"{ffmi_change:.1f} kg/m²",
-        f"{normalized_ffmi_change:.1f} kg/m²"
+        f"{bf_change:.1f}%"
     ]
 else:
     # Display message to set targets
