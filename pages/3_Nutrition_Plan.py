@@ -4,6 +4,7 @@ import numpy as np
 from datetime import datetime, timedelta
 import sys
 import os
+import copy
 import matplotlib.pyplot as plt
 
 # Add the root directory to the path
@@ -431,128 +432,412 @@ wake_hours, bed_hours = get_hour_range(st.session_state.weekly_schedule['wake_ti
                                      st.session_state.weekly_schedule['bed_time'])
 waking_hours = bed_hours - wake_hours
 
-# Week Schedule Tabs
-days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-schedule_tabs = st.tabs(days_of_week)
+# Calendar View Weekly Schedule
 
+# Define days of week
+days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+# Function to create template schedules
+def create_template_schedule():
+    return {
+        "meals": [
+            {"name": "Breakfast", "time": "07:00"},
+            {"name": "Lunch", "time": "12:00"},
+            {"name": "Dinner", "time": "18:00"}
+        ],
+        "workouts": [
+            {"type": "Strength", "start": "17:00", "end": "18:00", "intensity": "Moderate"}
+        ],
+        "work": [
+            {"type": "Work", "start": "09:00", "end": "17:00"}
+        ]
+    }
+
+# Add template options for quick schedule setup
+st.write("#### Quick Templates")
+template_cols = st.columns(4)
+
+with template_cols[0]:
+    if st.button("Weekday Template", key="template_weekday"):
+        weekday_template = create_template_schedule()
+        for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]:
+            st.session_state.weekly_schedule['days'][day] = weekday_template.copy()
+        st.rerun()
+
+with template_cols[1]:
+    if st.button("Weekend Template", key="template_weekend"):
+        weekend_template = {
+            "meals": [
+                {"name": "Breakfast", "time": "08:30"},
+                {"name": "Lunch", "time": "13:00"},
+                {"name": "Dinner", "time": "19:00"}
+            ],
+            "workouts": [
+                {"type": "Cardio", "start": "10:00", "end": "11:00", "intensity": "Moderate"}
+            ],
+            "work": []
+        }
+        for day in ["Saturday", "Sunday"]:
+            st.session_state.weekly_schedule['days'][day] = weekend_template.copy()
+        st.rerun()
+
+with template_cols[2]:
+    if st.button("Clear All", key="clear_all"):
+        for day in days_of_week:
+            st.session_state.weekly_schedule['days'][day] = {"meals": [], "workouts": [], "work": []}
+        st.rerun()
+
+with template_cols[3]:
+    template_source = st.selectbox(
+        "Copy schedule from:", 
+        ["Select day..."] + days_of_week,
+        key="template_source"
+    )
+    
+    template_target = st.selectbox(
+        "Copy to:", 
+        ["Select day..."] + days_of_week,
+        key="template_target"
+    )
+    
+    if st.button("Copy Schedule", key="copy_schedule"):
+        if template_source != "Select day..." and template_target != "Select day...":
+            if template_source != template_target:
+                st.session_state.weekly_schedule['days'][template_target] = copy.deepcopy(
+                    st.session_state.weekly_schedule['days'][template_source]
+                )
+                st.success(f"Copied schedule from {template_source} to {template_target}")
+                st.rerun()
+            else:
+                st.warning("Source and target days must be different")
+
+# Create the calendar view
+st.write("### Weekly Calendar")
+
+# Create time slots for the calendar (hourly)
+min_hour = int(time_to_hours(st.session_state.weekly_schedule['wake_time']))
+max_hour = int(time_to_hours(st.session_state.weekly_schedule['bed_time']))
+if max_hour < min_hour:  # Handle overnight schedules
+    max_hour += 24
+
+# Calendar header row with days of the week
+cal_cols = st.columns([0.8] + [1] * len(days_of_week))
+with cal_cols[0]:
+    st.write("**Time**")
 for i, day in enumerate(days_of_week):
-    with schedule_tabs[i]:
-        st.write(f"### {day} Schedule")
+    with cal_cols[i+1]:
+        st.write(f"**{day}**")
+
+# Create the calendar grid
+for hour in range(min_hour, max_hour + 1):
+    display_hour = hour % 24
+    
+    # Time column
+    cal_cols = st.columns([0.8] + [1] * len(days_of_week))
+    with cal_cols[0]:
+        st.write(f"**{display_hour:02d}:00**")
+    
+    # Day columns
+    for i, day in enumerate(days_of_week):
+        with cal_cols[i+1]:
+            # Find activities for this hour
+            activities = []
+            
+            # Check meals
+            for meal in st.session_state.weekly_schedule['days'][day]['meals']:
+                meal_hour = int(time_to_hours(meal['time']))
+                if meal_hour == display_hour:
+                    activities.append(f"🍽️ {meal['name']} ({meal['time']})")
+            
+            # Check workouts
+            for workout in st.session_state.weekly_schedule['days'][day]['workouts']:
+                workout_start_hour = int(time_to_hours(workout['start']))
+                workout_end_hour = int(time_to_hours(workout['end']))
+                
+                # Handle overnight workouts
+                if workout_end_hour < workout_start_hour:
+                    workout_end_hour += 24
+                
+                if workout_start_hour <= display_hour <= workout_end_hour:
+                    # Only show the full details at the start hour
+                    if workout_start_hour == display_hour:
+                        activities.append(f"💪 {workout['type']} ({workout['start']}-{workout['end']})")
+                    else:
+                        activities.append(f"💪 {workout['type']} (cont.)")
+            
+            # Check work/activities
+            for work in st.session_state.weekly_schedule['days'][day]['work']:
+                work_start_hour = int(time_to_hours(work['start']))
+                work_end_hour = int(time_to_hours(work['end']))
+                
+                # Handle overnight work
+                if work_end_hour < work_start_hour:
+                    work_end_hour += 24
+                
+                if work_start_hour <= display_hour <= work_end_hour:
+                    # Only show the full details at the start hour
+                    if work_start_hour == display_hour:
+                        activities.append(f"📆 {work['type']} ({work['start']}-{work['end']})")
+                    else:
+                        activities.append(f"📆 {work['type']} (cont.)")
+            
+            # Display all activities for this hour
+            if activities:
+                for activity in activities:
+                    st.markdown(f"{activity}", help="Double-click to edit")
+            else:
+                st.markdown("—")
+
+# Activity Editor Section
+st.write("### Add or Edit Activities")
+
+# Create tabs for easier editing of different activity types
+edit_tabs = st.tabs(["Meals", "Workouts", "Work/Activities"])
+
+# Meals tab
+with edit_tabs[0]:
+    st.write("#### Meal Schedule")
+    
+    # Select day for editing
+    meal_day = st.selectbox("Day", days_of_week, key="meal_edit_day")
+    
+    # Current meals for the selected day
+    current_meals = st.session_state.weekly_schedule['days'][meal_day]['meals']
+    
+    # Show current meals in a table format for editing
+    for i, meal in enumerate(current_meals):
+        cols = st.columns([3, 2, 1])
+        with cols[0]:
+            meal_name = st.selectbox(
+                f"Meal {i+1} Type",
+                options=["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"],
+                index=["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"].index(meal['name']) 
+                    if meal['name'] in ["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"] else 0,
+                key=f"edit_meal_name_{meal_day}_{i}"
+            )
+            current_meals[i]['name'] = meal_name
         
-        # Create three columns for different types of activities
-        col1, col2, col3 = st.columns(3)
+        with cols[1]:
+            meal_time = st.time_input(
+                f"Time",
+                value=pd.to_datetime(meal['time']).time(),
+                key=f"edit_meal_time_{meal_day}_{i}"
+            )
+            current_meals[i]['time'] = meal_time.strftime("%H:%M")
+            
+        with cols[2]:
+            if st.button("Delete", key=f"delete_meal_{meal_day}_{i}"):
+                current_meals.pop(i)
+                st.rerun()
+    
+    # Add new meal
+    with st.expander("Add New Meal"):
+        new_meal_cols = st.columns([3, 2])
+        with new_meal_cols[0]:
+            new_meal_name = st.selectbox(
+                "Meal Type",
+                options=["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"],
+                key=f"new_meal_name_{meal_day}"
+            )
         
-        with col1:
-            st.write("#### Meals")
-            meal_count = st.number_input(f"Number of meals on {day}", 
-                                        min_value=1, max_value=6, value=3, 
-                                        key=f"meal_count_{day}")
+        with new_meal_cols[1]:
+            new_meal_time = st.time_input(
+                "Time",
+                value=pd.to_datetime("12:00").time(),
+                key=f"new_meal_time_{meal_day}"
+            )
             
-            meal_times = []
-            for meal_idx in range(meal_count):
-                meal_name = st.selectbox(
-                    f"Meal {meal_idx+1} Type", 
-                    options=["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"],
-                    key=f"meal_type_{day}_{meal_idx}"
-                )
-                
-                # Get meal time
-                meal_time = st.time_input(
-                    f"{meal_name} Time",
-                    value=pd.to_datetime(f"{7 + meal_idx*4}:00").time(),
-                    key=f"meal_time_{day}_{meal_idx}"
-                )
-                
-                meal_times.append({
-                    "name": meal_name,
-                    "time": meal_time.strftime("%H:%M")
-                })
-            
-            # Store in session state
-            st.session_state.weekly_schedule['days'][day]['meals'] = meal_times
-            
-        with col2:
-            st.write("#### Workouts")
-            workout_count = st.number_input(f"Number of workouts on {day}", 
-                                          min_value=0, max_value=2, value=1 if day not in ["Saturday", "Sunday"] else 0,
-                                          key=f"workout_count_{day}")
-            
-            workout_times = []
-            for workout_idx in range(workout_count):
-                workout_type = st.selectbox(
-                    f"Workout {workout_idx+1} Type", 
-                    options=["Strength", "Cardio", "HIIT", "Flexibility", "Sports"],
-                    key=f"workout_type_{day}_{workout_idx}"
-                )
-                
-                # Start and end times for workout
-                workout_start = st.time_input(
-                    f"{workout_type} Start Time",
-                    value=pd.to_datetime("17:00").time(),  # Default to 5 PM
-                    key=f"workout_start_{day}_{workout_idx}"
-                )
-                
-                workout_end = st.time_input(
-                    f"{workout_type} End Time",
-                    value=pd.to_datetime("18:00").time(),  # Default to 6 PM
-                    key=f"workout_end_{day}_{workout_idx}"
-                )
-                
-                workout_intensity = st.select_slider(
-                    f"{workout_type} Intensity",
-                    options=["Light", "Moderate", "High"],
-                    value="Moderate",
-                    key=f"workout_intensity_{day}_{workout_idx}"
-                )
-                
-                workout_times.append({
-                    "type": workout_type,
-                    "start": workout_start.strftime("%H:%M"),
-                    "end": workout_end.strftime("%H:%M"),
-                    "intensity": workout_intensity
-                })
-            
-            # Store in session state
-            st.session_state.weekly_schedule['days'][day]['workouts'] = workout_times
-            
-        with col3:
-            st.write("#### Work/Other Activities")
-            work_count = st.number_input(f"Number of work periods on {day}", 
-                                        min_value=0, max_value=2, value=1 if day not in ["Saturday", "Sunday"] else 0,
-                                        key=f"work_count_{day}")
-            
-            work_times = []
-            for work_idx in range(work_count):
-                work_type = st.selectbox(
-                    f"Activity {work_idx+1} Type", 
-                    options=["Work", "School", "Commuting", "Family Time", "Other"],
-                    key=f"work_type_{day}_{work_idx}"
-                )
-                
-                # Start and end times for work
-                work_start = st.time_input(
-                    f"{work_type} Start Time",
-                    value=pd.to_datetime("09:00").time(),  # Default to 9 AM
-                    key=f"work_start_{day}_{work_idx}"
-                )
-                
-                work_end = st.time_input(
-                    f"{work_type} End Time",
-                    value=pd.to_datetime("17:00").time(),  # Default to 5 PM
-                    key=f"work_end_{day}_{work_idx}"
-                )
-                
-                work_times.append({
-                    "type": work_type,
-                    "start": work_start.strftime("%H:%M"),
-                    "end": work_end.strftime("%H:%M")
-                })
-            
-            # Store in session state
-            st.session_state.weekly_schedule['days'][day]['work'] = work_times
+        if st.button("Add Meal", key=f"add_meal_{meal_day}"):
+            current_meals.append({
+                "name": new_meal_name,
+                "time": new_meal_time.strftime("%H:%M")
+            })
+            st.rerun()
+
+# Workouts tab
+with edit_tabs[1]:
+    st.write("#### Workout Schedule")
+    
+    # Select day for editing
+    workout_day = st.selectbox("Day", days_of_week, key="workout_edit_day")
+    
+    # Current workouts for the selected day
+    current_workouts = st.session_state.weekly_schedule['days'][workout_day]['workouts']
+    
+    # Show current workouts in a table format for editing
+    for i, workout in enumerate(current_workouts):
+        cols = st.columns([2, 1.5, 1.5, 2, 1])
+        with cols[0]:
+            workout_type = st.selectbox(
+                f"Workout {i+1} Type",
+                options=["Strength", "Cardio", "HIIT", "Flexibility", "Sports"],
+                index=["Strength", "Cardio", "HIIT", "Flexibility", "Sports"].index(workout['type']) 
+                    if workout['type'] in ["Strength", "Cardio", "HIIT", "Flexibility", "Sports"] else 0,
+                key=f"edit_workout_type_{workout_day}_{i}"
+            )
+            current_workouts[i]['type'] = workout_type
         
-        # Visual timeline of the day
-        st.write("#### Daily Timeline")
+        with cols[1]:
+            workout_start = st.time_input(
+                f"Start Time",
+                value=pd.to_datetime(workout['start']).time(),
+                key=f"edit_workout_start_{workout_day}_{i}"
+            )
+            current_workouts[i]['start'] = workout_start.strftime("%H:%M")
+            
+        with cols[2]:
+            workout_end = st.time_input(
+                f"End Time",
+                value=pd.to_datetime(workout['end']).time(),
+                key=f"edit_workout_end_{workout_day}_{i}"
+            )
+            current_workouts[i]['end'] = workout_end.strftime("%H:%M")
+            
+        with cols[3]:
+            workout_intensity = st.select_slider(
+                f"Intensity",
+                options=["Light", "Moderate", "High"],
+                value=workout['intensity'] if workout['intensity'] in ["Light", "Moderate", "High"] else "Moderate",
+                key=f"edit_workout_intensity_{workout_day}_{i}"
+            )
+            current_workouts[i]['intensity'] = workout_intensity
+            
+        with cols[4]:
+            if st.button("Delete", key=f"delete_workout_{workout_day}_{i}"):
+                current_workouts.pop(i)
+                st.rerun()
+    
+    # Add new workout
+    with st.expander("Add New Workout"):
+        new_workout_cols = st.columns([2, 1.5, 1.5, 2])
+        with new_workout_cols[0]:
+            new_workout_type = st.selectbox(
+                "Workout Type",
+                options=["Strength", "Cardio", "HIIT", "Flexibility", "Sports"],
+                key=f"new_workout_type_{workout_day}"
+            )
+        
+        with new_workout_cols[1]:
+            new_workout_start = st.time_input(
+                "Start Time",
+                value=pd.to_datetime("17:00").time(),
+                key=f"new_workout_start_{workout_day}"
+            )
+            
+        with new_workout_cols[2]:
+            new_workout_end = st.time_input(
+                "End Time",
+                value=pd.to_datetime("18:00").time(),
+                key=f"new_workout_end_{workout_day}"
+            )
+            
+        with new_workout_cols[3]:
+            new_workout_intensity = st.select_slider(
+                "Intensity",
+                options=["Light", "Moderate", "High"],
+                value="Moderate",
+                key=f"new_workout_intensity_{workout_day}"
+            )
+            
+        if st.button("Add Workout", key=f"add_workout_{workout_day}"):
+            current_workouts.append({
+                "type": new_workout_type,
+                "start": new_workout_start.strftime("%H:%M"),
+                "end": new_workout_end.strftime("%H:%M"),
+                "intensity": new_workout_intensity
+            })
+            st.rerun()
+
+# Work/Activities tab
+with edit_tabs[2]:
+    st.write("#### Work/Activities Schedule")
+    
+    # Select day for editing
+    work_day = st.selectbox("Day", days_of_week, key="work_edit_day")
+    
+    # Current work activities for the selected day
+    current_work = st.session_state.weekly_schedule['days'][work_day]['work']
+    
+    # Show current work activities in a table format for editing
+    for i, work in enumerate(current_work):
+        cols = st.columns([3, 2, 2, 1])
+        with cols[0]:
+            work_type = st.selectbox(
+                f"Activity {i+1} Type",
+                options=["Work", "School", "Commuting", "Family Time", "Other"],
+                index=["Work", "School", "Commuting", "Family Time", "Other"].index(work['type']) 
+                    if work['type'] in ["Work", "School", "Commuting", "Family Time", "Other"] else 0,
+                key=f"edit_work_type_{work_day}_{i}"
+            )
+            current_work[i]['type'] = work_type
+        
+        with cols[1]:
+            work_start = st.time_input(
+                f"Start Time",
+                value=pd.to_datetime(work['start']).time(),
+                key=f"edit_work_start_{work_day}_{i}"
+            )
+            current_work[i]['start'] = work_start.strftime("%H:%M")
+            
+        with cols[2]:
+            work_end = st.time_input(
+                f"End Time",
+                value=pd.to_datetime(work['end']).time(),
+                key=f"edit_work_end_{work_day}_{i}"
+            )
+            current_work[i]['end'] = work_end.strftime("%H:%M")
+            
+        with cols[3]:
+            if st.button("Delete", key=f"delete_work_{work_day}_{i}"):
+                current_work.pop(i)
+                st.rerun()
+    
+    # Add new work activity
+    with st.expander("Add New Activity"):
+        new_work_cols = st.columns([3, 2, 2])
+        with new_work_cols[0]:
+            new_work_type = st.selectbox(
+                "Activity Type",
+                options=["Work", "School", "Commuting", "Family Time", "Other"],
+                key=f"new_work_type_{work_day}"
+            )
+        
+        with new_work_cols[1]:
+            new_work_start = st.time_input(
+                "Start Time",
+                value=pd.to_datetime("09:00").time(),
+                key=f"new_work_start_{work_day}"
+            )
+            
+        with new_work_cols[2]:
+            new_work_end = st.time_input(
+                "End Time",
+                value=pd.to_datetime("17:00").time(),
+                key=f"new_work_end_{work_day}"
+            )
+            
+        if st.button("Add Activity", key=f"add_work_{work_day}"):
+            current_work.append({
+                "type": new_work_type,
+                "start": new_work_start.strftime("%H:%M"),
+                "end": new_work_end.strftime("%H:%M")
+            })
+            st.rerun()
+
+# Display daily visualizations in an expander
+with st.expander("Daily Timeline Visualizations", expanded=False):
+    viz_cols = st.columns(2)
+    
+    # Select days to visualize
+    with viz_cols[0]:
+        viz_day1 = st.selectbox("Select day 1:", days_of_week, key="viz_day1")
+    
+    with viz_cols[1]:
+        viz_day2 = st.selectbox("Select day 2:", days_of_week, key="viz_day2", index=1)
+    
+    # Create visualizations for selected days
+    for day in [viz_day1, viz_day2]:
+        st.write(f"#### {day}'s Schedule")
         
         # Create a simple timeline visualization
         fig, ax = plt.subplots(figsize=(10, 3))
@@ -590,9 +875,9 @@ for i, day in enumerate(days_of_week):
                 plot_end = min(workout_end, bed_hours)
                 
                 ax.barh(y_pos, plot_end - plot_start, left=plot_start, height=0.1, 
-                       color='red', alpha=0.6)
+                      color='red', alpha=0.6)
                 ax.text((plot_start + plot_end)/2, y_pos, workout['type'], 
-                       ha='center', va='center', fontsize=8, color='white')
+                      ha='center', va='center', fontsize=8, color='white')
         
         # Plot work times
         y_pos = 0.4
@@ -610,9 +895,9 @@ for i, day in enumerate(days_of_week):
                 plot_end = min(work_end, bed_hours)
                 
                 ax.barh(y_pos, plot_end - plot_start, left=plot_start, height=0.1, 
-                       color='blue', alpha=0.6)
+                      color='blue', alpha=0.6)
                 ax.text((plot_start + plot_end)/2, y_pos, work['type'], 
-                       ha='center', va='center', fontsize=8, color='white')
+                      ha='center', va='center', fontsize=8, color='white')
         
         # Remove y-axis and add a simple legend
         ax.set_yticks([])
@@ -627,7 +912,7 @@ for i, day in enumerate(days_of_week):
             plt.Line2D([0], [0], color='blue', lw=4, alpha=0.6)
         ]
         ax.legend(custom_lines, ['Meals', 'Workouts', 'Work/Activities'], loc='upper center', 
-                 bbox_to_anchor=(0.5, -0.15), ncol=3)
+                bbox_to_anchor=(0.5, -0.15), ncol=3)
         
         # Display the plot
         st.pyplot(fig)
