@@ -167,103 +167,187 @@ st.session_state.target_calories = target_calories
 # ------------------------
 st.header("Select Macronutrient Targets")
 
-st.info("""
-Standard recommendations for macronutrients:
-- **Protein:** 1.6-2.0 g/kg body weight (0.7-0.9 g/lb)
-- **Fat:** 20-35% of total calories, minimum 0.4 g/lb body weight
-- **Carbs:** Remaining calories after protein and fat are set
-""")
-
-# Initialize custom targets
-if 'custom_protein' not in st.session_state:
+# Initialize standard targets
+if 'standard_protein' not in st.session_state:
     # Default protein is 1.8g/kg
-    st.session_state.custom_protein = round(weight_kg * 1.8)
+    st.session_state.standard_protein = round(weight_kg * 1.8)
     
-if 'custom_fat' not in st.session_state:
+if 'standard_fat' not in st.session_state:
     # Default fat is 30% of calories or 0.4g/lb, whichever is higher
     fat_from_pct = round((target_calories * 0.3) / 9)
     fat_from_weight = round(weight_lbs * 0.4)
-    st.session_state.custom_fat = max(fat_from_pct, fat_from_weight)
+    st.session_state.standard_fat = max(fat_from_pct, fat_from_weight)
     
-if 'custom_carbs' not in st.session_state:
+if 'standard_carbs' not in st.session_state:
     # Calculate remaining calories for carbs
-    protein_calories = st.session_state.custom_protein * 4
-    fat_calories = st.session_state.custom_fat * 9
+    protein_calories = st.session_state.standard_protein * 4
+    fat_calories = st.session_state.standard_fat * 9
     remaining_calories = target_calories - protein_calories - fat_calories
-    st.session_state.custom_carbs = max(50, round(remaining_calories / 4))
+    st.session_state.standard_carbs = max(50, round(remaining_calories / 4))
+
+# Initialize custom targets if not already done
+if 'custom_protein' not in st.session_state:
+    st.session_state.custom_protein = st.session_state.standard_protein
+if 'custom_fat' not in st.session_state:
+    st.session_state.custom_fat = st.session_state.standard_fat
+if 'custom_carbs' not in st.session_state:
+    st.session_state.custom_carbs = st.session_state.standard_carbs
 
 # Create columns for macro selection
 protein_col, fat_col, carb_col = st.columns(3)
 
+# Protein section
 with protein_col:
-    st.write("### Protein Target")
-    protein_option = st.radio(
-        "Select protein amount:",
-        ["Standard (1.8g/kg)", "High (2.0g/kg)", "Very High (2.2g/kg)", "Custom"],
-        key="protein_option"
-    )
+    st.write("### Protein Target", help="""
+    **Why Protein Matters:**
+    - Essential for muscle repair and growth
+    - Helps preserve lean mass during fat loss
+    - More thermogenic (burns more calories during digestion) than other macros
+    - Provides greater satiety than carbs or fat
     
-    if protein_option == "Standard (1.8g/kg)":
-        st.session_state.custom_protein = round(weight_kg * 1.8)
-    elif protein_option == "High (2.0g/kg)":
-        st.session_state.custom_protein = round(weight_kg * 2.0)
-    elif protein_option == "Very High (2.2g/kg)":
-        st.session_state.custom_protein = round(weight_kg * 2.2)
-    elif protein_option == "Custom":
+    **Standard Recommendations:**
+    - Maintenance: 1.6-1.8g/kg bodyweight
+    - Fat Loss: 1.8-2.0g/kg bodyweight to preserve muscle
+    - Muscle Gain: 1.8-2.2g/kg bodyweight to support new muscle tissue
+    
+    Higher protein intakes (up to 2.2-2.4g/kg) may benefit athletes and those in a caloric deficit.
+    """)
+    
+    # Standard protein calculation
+    standard_protein = st.session_state.standard_protein
+    protein_per_kg = round(standard_protein / weight_kg, 1)
+    protein_per_lb = round(standard_protein / weight_lbs, 1)
+    
+    st.write(f"""
+    **Standard recommendation:** {standard_protein}g 
+    ({protein_per_kg}g/kg or {protein_per_lb}g/lb of body weight)
+    """)
+
+# Fat section
+with fat_col:
+    st.write("### Fat Target", help="""
+    **Why Fat Matters:**
+    - Essential for hormone production
+    - Helps absorb fat-soluble vitamins (A, D, E, K)
+    - Provides energy and satiety
+    - Supports brain health and cell structure
+    
+    **Standard Recommendations:**
+    - Minimum: 0.4g/lb bodyweight or 20% of calories
+    - Balanced approach: 25-30% of total calories
+    - Higher fat preference: 30-35% of total calories
+    
+    Going below 15-20% of calories from fat can negatively impact hormone production, 
+    especially important for women's health.
+    """)
+    
+    # Standard fat calculation
+    standard_fat = st.session_state.standard_fat
+    fat_percent = round((standard_fat * 9 / target_calories) * 100)
+    fat_per_lb = round(standard_fat / weight_lbs, 2)
+    
+    st.write(f"""
+    **Standard recommendation:** {standard_fat}g 
+    ({fat_percent}% of calories or {fat_per_lb}g/lb of body weight)
+    """)
+
+# Carb section
+with carb_col:
+    st.write("### Carbohydrate Target", help="""
+    **Why Carbs Matter:**
+    - Primary energy source for high-intensity exercise
+    - Spare protein for muscle building rather than energy
+    - Support workout performance and recovery
+    - Help maintain muscle glycogen stores
+    
+    **Standard Approach:**
+    - Carbs are calculated to fill remaining calories after protein and fat are set
+    - Lower intensity activities may require fewer carbs
+    - Higher intensity training benefits from more carbs
+    - Minimum recommendation: 50g per day for brain function
+    """)
+    
+    # Standard carb calculation
+    standard_carbs = st.session_state.standard_carbs
+    carb_percent = round((standard_carbs * 4 / target_calories) * 100)
+    
+    st.write(f"""
+    **Standard recommendation:** {standard_carbs}g 
+    ({carb_percent}% of total calories)
+    """)
+
+# Target selection option
+st.markdown("---")
+
+target_option = st.radio(
+    "Choose your preferred approach:",
+    ["I'd like to start with these standard targets", "I'd like to use my own custom targets"],
+    key="target_option"
+)
+
+if target_option == "I'd like to use my own custom targets":
+    st.markdown("### Enter your custom macronutrient targets")
+    
+    # Create columns for custom inputs
+    custom_cols = st.columns(3)
+    
+    with custom_cols[0]:
         st.session_state.custom_protein = st.number_input(
-            "Custom protein (g)",
+            "Custom Protein Target (g)",
             min_value=50,
             max_value=400,
             value=st.session_state.custom_protein,
             step=5
         )
-    
-    protein_per_kg = round(st.session_state.custom_protein / weight_kg, 1)
-    protein_per_lb = round(st.session_state.custom_protein / weight_lbs, 1)
-    st.write(f"**{st.session_state.custom_protein}g** = {protein_per_kg}g/kg or {protein_per_lb}g/lb")
-    
-with fat_col:
-    st.write("### Fat Target")
-    fat_option = st.radio(
-        "Select fat amount:",
-        ["Standard (30% calories)", "Lower (25% calories)", "Higher (35% calories)", "Custom"],
-        key="fat_option"
-    )
-    
-    if fat_option == "Standard (30% calories)":
-        st.session_state.custom_fat = round((target_calories * 0.3) / 9)
-    elif fat_option == "Lower (25% calories)":
-        st.session_state.custom_fat = round((target_calories * 0.25) / 9)
-    elif fat_option == "Higher (35% calories)":
-        st.session_state.custom_fat = round((target_calories * 0.35) / 9)
-    elif fat_option == "Custom":
+        
+        protein_per_kg = round(st.session_state.custom_protein / weight_kg, 1)
+        protein_per_lb = round(st.session_state.custom_protein / weight_lbs, 1)
+        st.write(f"{protein_per_kg}g/kg or {protein_per_lb}g/lb of body weight")
+        
+    with custom_cols[1]:
         st.session_state.custom_fat = st.number_input(
-            "Custom fat (g)",
+            "Custom Fat Target (g)",
             min_value=30,
             max_value=200,
             value=st.session_state.custom_fat,
             step=5
         )
+        
+        fat_percent = round((st.session_state.custom_fat * 9 / target_calories) * 100)
+        fat_per_lb = round(st.session_state.custom_fat / weight_lbs, 2)
+        st.write(f"{fat_percent}% of calories or {fat_per_lb}g/lb")
+        
+    with custom_cols[2]:
+        # Calculate remaining calories for carbs
+        protein_calories = st.session_state.custom_protein * 4
+        fat_calories = st.session_state.custom_fat * 9
+        remaining_calories = target_calories - protein_calories - fat_calories
+        auto_carbs = max(50, round(remaining_calories / 4))
+            
+        st.session_state.custom_carbs = auto_carbs
+        
+        carb_percent = round((st.session_state.custom_carbs * 4 / target_calories) * 100)
+        st.write(f"**Auto-calculated: {st.session_state.custom_carbs}g**")
+        st.write(f"{carb_percent}% of total calories")
     
-    fat_percent = round((st.session_state.custom_fat * 9 / target_calories) * 100)
-    fat_per_lb = round(st.session_state.custom_fat / weight_lbs, 2)
-    st.write(f"**{st.session_state.custom_fat}g** = {fat_percent}% calories or {fat_per_lb}g/lb")
-
-with carb_col:
-    st.write("### Carbohydrate Target")
+    # Calculate how custom macros affect total energy compared to target
+    custom_protein_calories = st.session_state.custom_protein * 4
+    custom_fat_calories = st.session_state.custom_fat * 9
+    custom_carb_calories = st.session_state.custom_carbs * 4
+    custom_total_calories = custom_protein_calories + custom_fat_calories + custom_carb_calories
     
-    # Calculate remaining calories and auto-carbs
-    protein_calories = st.session_state.custom_protein * 4
-    fat_calories = st.session_state.custom_fat * 9
-    remaining_calories = target_calories - protein_calories - fat_calories
-    auto_carbs = max(50, round(remaining_calories / 4))
+    calorie_difference = custom_total_calories - target_calories
     
-    st.session_state.custom_carbs = auto_carbs
-    carb_percent = round((st.session_state.custom_carbs * 4 / target_calories) * 100)
-    
-    st.write(f"**{st.session_state.custom_carbs}g** (auto-calculated)")
-    st.write(f"{carb_percent}% of total calories")
-    st.write("Carbs fill remaining calories after protein and fat are set.")
+    if abs(calorie_difference) > 5:  # If there's a meaningful difference
+        st.info(f"""
+        Your custom macros provide a total of **{custom_total_calories} calories**.
+        This is **{abs(calorie_difference)} calories {"higher" if calorie_difference > 0 else "lower"}** than your target of {target_calories} calories.
+        """)
+else:
+    # Use standard targets
+    st.session_state.custom_protein = st.session_state.standard_protein
+    st.session_state.custom_fat = st.session_state.standard_fat
+    st.session_state.custom_carbs = st.session_state.standard_carbs
 
 # ------------------------
 # STEP 6: Display macronutrient breakdown
