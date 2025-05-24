@@ -1146,24 +1146,80 @@ with tab2:
             # Create data for display
             if len(st.session_state.day_specific_nutrition) > 0:
                 weekly_data = []
+                weekly_total_calories = 0
+                weekly_total_protein = 0
+                weekly_total_carbs = 0
+                weekly_total_fat = 0
+                days_with_data = 0
+                
                 for day in days_of_week:
                     if day in st.session_state.day_specific_nutrition:
                         day_data = st.session_state.day_specific_nutrition[day]
+                        day_cals = day_data['target_calories']
+                        day_protein = day_data['protein']
+                        day_carbs = day_data['carbs']
+                        day_fat = day_data['fat']
+                        days_with_data += 1
+                        
+                        # Calculate macronutrient percentages
+                        try:
+                            protein_pct = round((day_protein * 4 / float(day_cals)) * 100)
+                            carbs_pct = round((day_carbs * 4 / float(day_cals)) * 100)
+                            fat_pct = round((day_fat * 9 / float(day_cals)) * 100)
+                        except (ZeroDivisionError, TypeError, ValueError):
+                            protein_pct = 0
+                            carbs_pct = 0
+                            fat_pct = 0
+                            
                         weekly_data.append({
                             "Day": day,
-                            "Calories": f"{day_data['target_calories']}",
-                            "Protein (g)": f"{day_data['protein']}",
-                            "Carbs (g)": f"{day_data['carbs']}",
-                            "Fat (g)": f"{day_data['fat']}"
+                            "Calories": f"{day_cals} kcal",
+                            "Protein": f"{day_protein}g ({protein_pct}%)",
+                            "Carbs": f"{day_carbs}g ({carbs_pct}%)",
+                            "Fat": f"{day_fat}g ({fat_pct}%)"
                         })
+                        
+                        # Add to weekly totals
+                        try:
+                            weekly_total_calories += float(day_cals)
+                            weekly_total_protein += float(day_protein)
+                            weekly_total_carbs += float(day_carbs)
+                            weekly_total_fat += float(day_fat)
+                        except (TypeError, ValueError):
+                            pass  # Skip if can't convert to float
                     else:
                         weekly_data.append({
                             "Day": day,
                             "Calories": "Not set",
-                            "Protein (g)": "Not set",
-                            "Carbs (g)": "Not set",
-                            "Fat (g)": "Not set"
+                            "Protein": "Not set",
+                            "Carbs": "Not set",
+                            "Fat": "Not set"
                         })
+                
+                # Add weekly average row if we have data
+                if days_with_data > 0:
+                    avg_calories = round(weekly_total_calories / days_with_data)
+                    avg_protein = round(weekly_total_protein / days_with_data)
+                    avg_carbs = round(weekly_total_carbs / days_with_data)
+                    avg_fat = round(weekly_total_fat / days_with_data)
+                    
+                    # Calculate average percentages
+                    try:
+                        avg_protein_pct = round((avg_protein * 4 / avg_calories) * 100)
+                        avg_carbs_pct = round((avg_carbs * 4 / avg_calories) * 100)
+                        avg_fat_pct = round((avg_fat * 9 / avg_calories) * 100)
+                    except (ZeroDivisionError, TypeError):
+                        avg_protein_pct = 0
+                        avg_carbs_pct = 0
+                        avg_fat_pct = 0
+                    
+                    weekly_data.append({
+                        "Day": "WEEKLY AVG",
+                        "Calories": f"{avg_calories} kcal",
+                        "Protein": f"{avg_protein}g ({avg_protein_pct}%)",
+                        "Carbs": f"{avg_carbs}g ({avg_carbs_pct}%)",
+                        "Fat": f"{avg_fat}g ({avg_fat_pct}%)"
+                    })
                 
                 # Display as a table
                 weekly_df = pd.DataFrame(weekly_data)
