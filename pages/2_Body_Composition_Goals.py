@@ -804,10 +804,15 @@ with col2:
         if timeline_weeks > 0:
             st.success(f"Estimated time to reach your target: **{timeline_weeks:.1f} weeks** (approximately {timeline_weeks/4:.1f} months)")
             
-            # Display start and end dates
-            start_date = datetime.now().date()
+            # Allow user to select start date
+            start_date = st.date_input(
+                "Start Date:",
+                value=datetime.now().date(),
+                help="When do you want to start your plan? This will be Week 0 in your progress table."
+            )
+            
+            # Calculate end date based on selected start date
             end_date = start_date + timedelta(days=int(timeline_weeks * 7))
-            st.write(f"Start date: **{start_date.strftime('%B %d, %Y')}**")
             st.write(f"Estimated completion date: **{end_date.strftime('%B %d, %Y')}**")
         else:
             st.warning("The targets you've set do not represent a significant change. Consider adjusting your targets or selecting 'Maintain' as your goal type.")
@@ -822,7 +827,7 @@ st.subheader("Projected Weekly Progress")
 
 # Only show progress table if targets are set
 if st.session_state.targets_set and timeline_weeks > 0:
-    # Generate detailed progress table
+    # Generate detailed progress table with the selected start date
     progress_df = utils.generate_detailed_progress_table(
         current_weight_lbs,
         current_bf,
@@ -831,7 +836,7 @@ if st.session_state.targets_set and timeline_weeks > 0:
         weekly_weight_pct,
         weekly_fat_pct,
         timeline_weeks,
-        datetime.now().date().strftime('%Y-%m-%d'),
+        start_date.strftime('%Y-%m-%d'),
         tdee,
         gender,
         age,
