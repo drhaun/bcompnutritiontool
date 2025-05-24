@@ -1032,19 +1032,32 @@ with tab2:
                 help="Recommended: 0.5g per kg of body weight or about 25-30% of calories"
             )
             
-            # Calculate remaining calories for carbs
-            protein_calories = custom_day_protein * 4
-            fat_calories = custom_day_fat * 9
-            carb_calories = custom_day_calories - protein_calories - fat_calories
-            custom_day_carbs = max(0, round(carb_calories / 4))
-            
-            # Display calculated carbs
-            st.write(f"**Carbohydrates:** {custom_day_carbs}g (calculated from remaining calories)")
-            
-            # Show macronutrient breakdown percentages
-            protein_pct = round((custom_day_protein * 4 / custom_day_calories) * 100)
-            fat_pct = round((custom_day_fat * 9 / custom_day_calories) * 100)
-            carbs_pct = round((custom_day_carbs * 4 / custom_day_calories) * 100)
+            # Calculate remaining calories for carbs with error handling
+            try:
+                protein_calories = float(custom_day_protein) * 4
+                fat_calories = float(custom_day_fat) * 9
+                carb_calories = float(custom_day_calories) - protein_calories - fat_calories
+                custom_day_carbs = max(0, round(carb_calories / 4))
+                
+                # Display calculated carbs
+                st.write(f"**Carbohydrates:** {custom_day_carbs}g (calculated from remaining calories)")
+                
+                # Show macronutrient breakdown percentages
+                if float(custom_day_calories) > 0:
+                    protein_pct = round((protein_calories / float(custom_day_calories)) * 100)
+                    fat_pct = round((fat_calories / float(custom_day_calories)) * 100)
+                    carbs_pct = round((custom_day_carbs * 4 / float(custom_day_calories)) * 100)
+                else:
+                    protein_pct = 0
+                    fat_pct = 0
+                    carbs_pct = 0
+            except (TypeError, ValueError, ZeroDivisionError):
+                # Fallback to safe values if calculation fails
+                custom_day_carbs = 0
+                protein_pct = 0
+                fat_pct = 0
+                carbs_pct = 0
+                st.warning("Unable to calculate carbs and percentages due to invalid values.")
             
             st.write(f"**Macronutrient Ratio:** Protein: {protein_pct}% | Carbs: {carbs_pct}% | Fat: {fat_pct}%")
             
