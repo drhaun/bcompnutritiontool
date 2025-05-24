@@ -210,9 +210,11 @@ with tab2:
         custom_protein = st.slider("Protein (g)", 50, max_protein, default_macros['protein'], 
                                   help="Recommended range: 1.6-2.2g per kg of body weight")
         
-        # Show per-kg metrics and guidance for protein
+        # Show per-kg and per-lb metrics and guidance for protein
         protein_per_kg = round(custom_protein / weight_kg, 2)
+        protein_per_lb = round(custom_protein / (weight_kg * 2.20462), 2)  # Convert to lb
         protein_per_ffm_kg = round(custom_protein / ffm_kg, 2) if ffm_kg > 0 else 0
+        protein_per_ffm_lb = round(custom_protein / (ffm_kg * 2.20462), 2) if ffm_kg > 0 else 0
         protein_pct_calories = round((custom_protein * 4 / target_calories) * 100)
         
         # Protein guidance text
@@ -227,8 +229,8 @@ with tab2:
         
         st.markdown(f"""
         **Protein Metrics:**
-        - {protein_per_kg}g per kg of body weight
-        - {protein_per_ffm_kg}g per kg of fat-free mass
+        - {protein_per_kg}g per kg of body weight ({protein_per_lb}g per lb)
+        - {protein_per_ffm_kg}g per kg of fat-free mass ({protein_per_ffm_lb}g per lb of fat-free mass)
         - {protein_pct_calories}% of total calories
         
         {protein_guidance}
@@ -238,8 +240,9 @@ with tab2:
         custom_fat = st.slider("Fat (g)", 20, max_fat, default_macros['fat'],
                               help="Recommended minimum: 0.5g per kg of body weight or about 25-30% of calories")
         
-        # Show per-kg metrics and guidance for fat
+        # Show per-kg and per-lb metrics and guidance for fat
         fat_per_kg = round(custom_fat / weight_kg, 2)
+        fat_per_lb = round(custom_fat / (weight_kg * 2.20462), 2)  # Convert to lb
         fat_pct_calories = round((custom_fat * 9 / target_calories) * 100)
         
         # Fat guidance text
@@ -254,7 +257,7 @@ with tab2:
         
         st.markdown(f"""
         **Fat Metrics:**
-        - {fat_per_kg}g per kg of body weight
+        - {fat_per_kg}g per kg of body weight ({fat_per_lb}g per lb)
         - {fat_pct_calories}% of total calories
         
         {fat_guidance}
@@ -266,9 +269,10 @@ with tab2:
         carb_calories = target_calories - protein_calories - fat_calories
         custom_carbs = max(0, round(carb_calories / 4))
         
-        # Carb guidance text
+        # Carb guidance text with both kg and lb metrics
         carb_pct_calories = round((custom_carbs * 4 / target_calories) * 100)
         carb_per_kg = round(custom_carbs / weight_kg, 2)
+        carb_per_lb = round(custom_carbs / (weight_kg * 2.20462), 2)  # Convert to lb
         
         if carb_pct_calories < 20:
             carb_guidance = "⚠️ This is very low and may impact workout performance and recovery."
@@ -277,10 +281,10 @@ with tab2:
         else:
             carb_guidance = "✅ This provides ample energy for performance and glycogen replenishment."
         
-        # Display the calculated carbs with guidance
+        # Display the calculated carbs with guidance including pounds
         st.markdown(f"""
         **Carbohydrates: {custom_carbs}g** (calculated from remaining calories)
-        - {carb_per_kg}g per kg of body weight
+        - {carb_per_kg}g per kg of body weight ({carb_per_lb}g per lb)
         - {carb_pct_calories}% of total calories
         
         {carb_guidance}
