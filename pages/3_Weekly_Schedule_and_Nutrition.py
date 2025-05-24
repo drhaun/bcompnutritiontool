@@ -102,32 +102,29 @@ if workouts_per_week > 0 and workout_calories > 0:
 # Calculate target calories based on goal
 weekly_weight_pct = st.session_state.goal_info.get('weekly_weight_pct', 0.005)  # default 0.5%
 weekly_fat_pct = st.session_state.goal_info.get('weekly_fat_pct', 0.7)  # default 70%
+
+# Calculate weekly change in kg for our diet plan
 weekly_change_kg = (target_weight_kg - weight_kg) / timeline_weeks if timeline_weeks > 0 else 0
 
-# Check if we already have a calculated target calories in the goal_info
-if 'target_energy' in goal_info:
-    # Use the already calculated target energy from the progress table (Week 0)
-    target_calories = goal_info.get('target_energy')
-else:
-    # Calculate target calories based on goal
-    if goal_type == "lose_fat":
-        # Calculate deficit based on weekly fat loss target
-        weekly_deficit = abs(weekly_change_kg) * 7700  # Approx. calories in 1kg of fat
-        daily_deficit = weekly_deficit / 7
-        target_calories = round(tdee - daily_deficit)
-        # Ensure minimum healthy calories
-        target_calories = max(target_calories, 1200 if gender == "Female" else 1500)
-    elif goal_type == "gain_muscle":
-        # Calculate surplus based on weekly weight gain target
-        weekly_surplus = abs(weekly_change_kg) * 7700 * 0.5  # Muscle requires fewer calories than fat
-        daily_surplus = weekly_surplus / 7
-        target_calories = round(tdee + daily_surplus)
-    else:  # maintain
-        target_calories = tdee
-        
-    # Store this calculated target in the goal_info for future reference
-    goal_info['target_energy'] = target_calories
-    st.session_state.goal_info = goal_info
+# Calculate target calories based on goal
+if goal_type == "lose_fat":
+    # Calculate deficit based on weekly fat loss target
+    weekly_deficit = abs(weekly_change_kg) * 7700  # Approx. calories in 1kg of fat
+    daily_deficit = weekly_deficit / 7
+    target_calories = round(tdee - daily_deficit)
+    # Ensure minimum healthy calories
+    target_calories = max(target_calories, 1200 if gender == "Female" else 1500)
+elif goal_type == "gain_muscle":
+    # Calculate surplus based on weekly weight gain target
+    weekly_surplus = abs(weekly_change_kg) * 7700 * 0.5  # Muscle requires fewer calories than fat
+    daily_surplus = weekly_surplus / 7
+    target_calories = round(tdee + daily_surplus)
+else:  # maintain
+    target_calories = tdee
+    
+# Store this calculated target in the goal_info for future reference
+goal_info['target_energy'] = target_calories
+st.session_state.goal_info = goal_info
 
 # Display TDEE and target calories
 energy_col1, energy_col2 = st.columns(2)

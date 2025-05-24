@@ -1128,19 +1128,19 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
         energy_availability = 0
         cumulative_fat_change = 0  # Track cumulative fat change from starting point
         
+        # First, calculate the energy balance for the diet plan (what Week 0 will use)
+        # This is the deficit/surplus needed to achieve the weekly change
+        if goal_is_gain:
+            daily_energy_balance = (abs(weekly_weight_change_kg) * 7700) / 7  # Daily surplus
+        else:
+            daily_energy_balance = -1 * (abs(weekly_weight_change_kg) * 7700) / 7  # Daily deficit
+        
+        # Calculate the diet's target energy from day 1 (TDEE + energy balance)
+        diet_target_energy = tdee + daily_energy_balance
+        
         for week in range(int(timeline_weeks) + 1):  # +1 to include the final state, convert float to int
             # Calculate the date for this week
             date = start_date + timedelta(days=7 * week)
-            
-            # Calculate energy balance needed to achieve the weekly change
-            daily_energy_balance = 0
-            if week > 0:  # Skip week 0 (starting point)
-                # Week 1 begins the actual diet plan with caloric deficit/surplus
-                # Caloric surplus/deficit needed (~7700 kcal per kg of weight change)
-                if goal_is_gain:
-                    daily_energy_balance = (abs(weekly_weight_change_kg) * 7700) / 7  # Daily surplus
-                else:
-                    daily_energy_balance = -1 * (abs(weekly_weight_change_kg) * 7700) / 7  # Daily deficit
             
             # Use the passed-in TDEE instead of recalculating it - this ensures consistency with the user's initial TDEE
             current_tdee = tdee
@@ -1158,11 +1158,10 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
             if ffm_kg > 0:
                 energy_availability = target_energy / ffm_kg
             
-            # Handle Week 0 as the starting point of the diet plan
+            # Handle Week 0 as the starting point of the diet plan with diet target calories
             if week == 0:
-                # For Week 0, use the start date with TDEE as target calories
-                # This represents the baseline before diet changes begin
-                # Week 0 uses TDEE as the target energy (no deficit/surplus yet)
+                # For Week 0, use the diet's target energy (with deficit already applied)
+                # This represents the start of the diet plan on your selected date
                 progress_data.append({
                     'Date': date.strftime('%m/%d/%Y'),
                     'Week': week,
@@ -1177,10 +1176,10 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
                     'Ending FFM (lbs)': round(ffm_lbs, 1),
                     'FFM Change (lbs)': 0.0,
                     'Ending Body Fat %': round(body_fat_pct, 1),
-                    'Daily Energy Balance (kcal)': 0,  # No energy balance change yet
+                    'Daily Energy Balance (kcal)': round(daily_energy_balance),  # Already apply energy balance at Week 0
                     'Daily TDEE (kcal)': round(current_tdee),
-                    'Daily Energy Target (kcal)': round(current_tdee),  # Week 0 uses TDEE, not target_energy
-                    'Energy Availability (kcal/kg FFM)': round(energy_availability)
+                    'Daily Energy Target (kcal)': round(diet_target_energy),  # Week 0 uses diet target energy
+                    'Energy Availability (kcal/kg FFM)': round(diet_target_energy / ffm_kg if ffm_kg > 0 else 0)
                 })
                 continue
             
