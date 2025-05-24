@@ -49,6 +49,25 @@ if 'meal_plan' not in st.session_state:
         'dinner': [],
         'snacks': []
     }
+    
+# Initialize user preferences if not present
+if 'food_preferences' not in st.session_state:
+    st.session_state.food_preferences = {
+        'liked_foods': [],
+        'disliked_foods': [],
+        'cuisine_preferences': [],
+        'dietary_restrictions': []
+    }
+    
+# Initialize custom macro variables to prevent errors
+if 'custom_protein' not in st.session_state:
+    st.session_state.custom_protein = 150
+    
+if 'custom_carbs' not in st.session_state:
+    st.session_state.custom_carbs = 200
+    
+if 'custom_fat' not in st.session_state:
+    st.session_state.custom_fat = 70
 else:
     # Ensure all required meal types exist in the meal plan
     required_meal_types = ['breakfast', 'lunch', 'dinner', 'snacks']
@@ -124,23 +143,120 @@ def update_portion(meal_type, index, new_portion):
 # Main app layout
 st.sidebar.header("Nutrition Targets")
 
-# Get nutrition targets from session state if available
-if 'target_calories' in st.session_state:
-    default_calories = st.session_state.target_calories
-    default_protein = st.session_state.custom_protein
-    default_carbs = st.session_state.custom_carbs
-    default_fat = st.session_state.custom_fat
-else:
-    default_calories = 2000
-    default_protein = 150
-    default_carbs = 200
-    default_fat = 70
+# Create tabs for manual entry vs. day-specific targets
+target_tabs = st.sidebar.tabs(["Manual Entry", "Use Day Targets"])
 
-# Allow user to set nutrition targets
-target_calories = st.sidebar.number_input("Target Calories", 1200, 5000, default_calories)
-target_protein = st.sidebar.number_input("Target Protein (g)", 50, 300, default_protein)
-target_carbs = st.sidebar.number_input("Target Carbs (g)", 50, 500, default_carbs)
-target_fat = st.sidebar.number_input("Target Fat (g)", 20, 200, default_fat)
+with target_tabs[0]:
+    # Get nutrition targets from session state if available
+    if 'target_calories' in st.session_state:
+        default_calories = st.session_state.target_calories
+        default_protein = st.session_state.custom_protein
+        default_carbs = st.session_state.custom_carbs
+        default_fat = st.session_state.custom_fat
+    else:
+        default_calories = 2000
+        default_protein = 150
+        default_carbs = 200
+        default_fat = 70
+
+    # Allow user to set nutrition targets manually
+    target_calories = st.number_input("Target Calories", 1200, 5000, default_calories)
+    target_protein = st.number_input("Target Protein (g)", 50, 300, default_protein)
+    target_carbs = st.number_input("Target Carbs (g)", 50, 500, default_carbs)
+    target_fat = st.number_input("Target Fat (g)", 20, 200, default_fat)
+    
+    # Save to session state
+    st.session_state.target_calories = target_calories
+    st.session_state.custom_protein = target_protein
+    st.session_state.custom_carbs = target_carbs
+    st.session_state.custom_fat = target_fat
+
+with target_tabs[1]:
+    # Check if day-specific nutrition targets exist
+    has_day_targets = False
+    selected_day = None
+    
+    if 'day_specific_nutrition' in st.session_state and st.session_state.day_specific_nutrition:
+        has_day_targets = True
+        
+        # Let user select a day
+        days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        selected_day = st.selectbox("Select Day:", days, key="day_target_select")
+        
+        if selected_day in st.session_state.day_specific_nutrition:
+            day_targets = st.session_state.day_specific_nutrition[selected_day]
+            
+            # Display the day's targets
+            st.success(f"Using {selected_day}'s nutrition targets")
+            
+            # Show the target macros
+            target_cols = st.columns(4)
+            with target_cols[0]:
+                st.metric("Target Calories", f"{day_targets.get('target_calories', 0)} kcal")
+                target_calories = day_targets.get('target_calories', 2000)
+            with target_cols[1]:
+                st.metric("Target Protein", f"{day_targets.get('protein', 0)}g")
+                target_protein = day_targets.get('protein', 150)
+            with target_cols[2]:
+                st.metric("Target Carbs", f"{day_targets.get('carbs', 0)}g")
+                target_carbs = day_targets.get('carbs', 200)
+            with target_cols[3]:
+                st.metric("Target Fat", f"{day_targets.get('fat', 0)}g")
+                target_fat = day_targets.get('fat', 70)
+                
+            # Save to session state
+            st.session_state.target_calories = target_calories
+            st.session_state.custom_protein = target_protein
+            st.session_state.custom_carbs = target_carbs
+            st.session_state.custom_fat = target_fat
+        else:
+            st.warning(f"No nutrition targets found for {selected_day}. Please set them in the Weekly Schedule and Nutrition page.")
+    else:
+        st.info("Day-specific nutrition targets not found. Please set them in the Weekly Schedule and Nutrition page first.")
+
+# Add user preference section to sidebar
+st.sidebar.header("Food Preferences")
+with st.sidebar.expander("Set Your Food Preferences", expanded=False):
+    # Foods you like
+    liked_foods = st.text_area(
+        "Foods You Like",
+        value=", ".join(st.session_state.food_preferences['liked_foods']),
+        help="Enter foods you enjoy, separated by commas"
+    )
+    
+    # Foods you dislike
+    disliked_foods = st.text_area(
+        "Foods You Dislike",
+        value=", ".join(st.session_state.food_preferences['disliked_foods']),
+        help="Enter foods you want to avoid, separated by commas"
+    )
+    
+    # Cuisine preferences
+    cuisine_options = ["American", "Italian", "Mexican", "Asian", "Mediterranean", "Indian", "Middle Eastern", "French"]
+    selected_cuisines = st.multiselect(
+        "Preferred Cuisines",
+        options=cuisine_options,
+        default=st.session_state.food_preferences['cuisine_preferences']
+    )
+    
+    # Dietary restrictions
+    diet_options = ["None", "Vegetarian", "Vegan", "Gluten-Free", "Dairy-Free", "Keto", "Low-Carb", "Low-Fat"]
+    selected_diet = st.selectbox(
+        "Dietary Restrictions",
+        options=diet_options,
+        index=0 if not st.session_state.food_preferences['dietary_restrictions'] else 
+             diet_options.index(st.session_state.food_preferences['dietary_restrictions'][0])
+    )
+    
+    # Save button
+    if st.button("Save Preferences"):
+        st.session_state.food_preferences['liked_foods'] = [food.strip() for food in liked_foods.split(",") if food.strip()]
+        st.session_state.food_preferences['disliked_foods'] = [food.strip() for food in disliked_foods.split(",") if food.strip()]
+        st.session_state.food_preferences['cuisine_preferences'] = selected_cuisines
+        st.session_state.food_preferences['dietary_restrictions'] = [selected_diet] if selected_diet != "None" else []
+        st.success("Preferences saved! Your meal recommendations will now be personalized.")
+        
+    st.info("These preferences will be used to make smarter meal recommendations tailored to your tastes.")
 
 # Food search section
 st.header("Food Search")
@@ -446,23 +562,75 @@ with st.expander("Generate recipe based on your macronutrient needs", expanded=F
                    f"**{target_recipe_carbs}g carbs**, " + 
                    f"**{target_recipe_fat}g fat**")
     
-    # Dietary preferences and restrictions
+    # Use saved preferences instead of separate checkboxes
     st.markdown("### Dietary Preferences")
-    diet_cols = st.columns(3)
     
-    with diet_cols[0]:
-        vegetarian = st.checkbox("Vegetarian")
+    # Show current preferences
+    pref_cols = st.columns(2)
     
-    with diet_cols[1]:
-        dairy_free = st.checkbox("Dairy-Free")
+    with pref_cols[0]:
+        st.markdown("#### Current Preferences:")
+        
+        # Display liked foods
+        if st.session_state.food_preferences['liked_foods']:
+            st.markdown("**Foods you like:**")
+            for food in st.session_state.food_preferences['liked_foods']:
+                st.markdown(f"- {food}")
+        else:
+            st.markdown("**Foods you like:** None specified")
+            
+        # Display cuisine preferences
+        if st.session_state.food_preferences['cuisine_preferences']:
+            st.markdown("**Preferred cuisines:**")
+            for cuisine in st.session_state.food_preferences['cuisine_preferences']:
+                st.markdown(f"- {cuisine}")
+        else:
+            st.markdown("**Preferred cuisines:** None specified")
     
-    with diet_cols[2]:
-        gluten_free = st.checkbox("Gluten-Free")
+    with pref_cols[1]:
+        # Display disliked foods
+        if st.session_state.food_preferences['disliked_foods']:
+            st.markdown("**Foods to avoid:**")
+            for food in st.session_state.food_preferences['disliked_foods']:
+                st.markdown(f"- {food}")
+        else:
+            st.markdown("**Foods to avoid:** None specified")
+            
+        # Display dietary restrictions
+        if st.session_state.food_preferences['dietary_restrictions']:
+            st.markdown("**Dietary restriction:**")
+            for restriction in st.session_state.food_preferences['dietary_restrictions']:
+                st.markdown(f"- {restriction}")
+        else:
+            st.markdown("**Dietary restriction:** None specified")
     
-    # Ingredients preference
-    st.markdown("### Preferred Ingredients")
-    st.markdown("(Optional) Include specific ingredients:")
-    preferred_ingredients = st.text_input("Enter ingredients separated by commas", placeholder="e.g. chicken, rice, broccoli")
+    st.markdown("*To update preferences, use the Food Preferences section in the sidebar.*")
+    st.markdown("---")
+    
+    # Additional recipe customization options
+    recipe_cols = st.columns(2)
+    
+    with recipe_cols[0]:
+        meal_time = st.selectbox(
+            "Meal Time", 
+            ["Breakfast", "Lunch", "Dinner", "Snack"],
+            index=0
+        )
+        
+        # Default to preferred cuisines if available, otherwise show all options
+        cuisine_options = ["Any"]
+        if st.session_state.food_preferences['cuisine_preferences']:
+            cuisine_options.extend(st.session_state.food_preferences['cuisine_preferences'])
+        else:
+            cuisine_options.extend(["American", "Italian", "Mexican", "Asian", "Mediterranean", "Indian", "Middle Eastern"])
+        
+        cuisine_type = st.selectbox("Cuisine", cuisine_options)
+        
+    with recipe_cols[1]:
+        special_request = st.text_area(
+            "Special Recipe Request (optional)",
+            placeholder="E.g., 'quick and easy', 'meal prep friendly', 'high protein', etc."
+        )
     
     # Generate recipe button
     if st.button("Generate Recipe", type="primary"):
