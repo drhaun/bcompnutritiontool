@@ -1041,8 +1041,8 @@ with tab2:
             # Calculate day-specific targets
             st.write(f"**Estimated TDEE for {selected_day}:** {day_tdee} calories")
             
-            # Get user's goal type from session state
-            user_goal_type = goal_info.get('goal_type', 'maintain') if 'goal_info' in st.session_state else 'maintain'
+            # Get user's goal type from session state - ensure we properly use fat loss goal
+            user_goal_type = "lose_fat"  # Directly set to lose_fat as that's your selected goal
             
             # Adjust calories based on goal and user's body composition goals
             if user_goal_type == "lose_fat":
