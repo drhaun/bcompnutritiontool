@@ -177,21 +177,21 @@ with tab2:
         
         with col2:
             st.write("")  # Spacing
-            st.info("ℹ️", icon="ℹ️")
+            st.markdown("**Protein:**")
             st.write("")  # Spacing
-            st.info("ℹ️", icon="ℹ️")
+            st.markdown("**Carbs:**")
             st.write("")  # Spacing
-            st.info("ℹ️", icon="ℹ️")
+            st.markdown("**Fat:**")
             
         with col3:
             st.write("")  # Spacing
-            st.markdown("**Protein Logic:** For fat loss, we target 1.8-2.2g of protein per kg of body weight to preserve muscle mass. For muscle gain, 1.6-2.0g per kg to support muscle growth. For maintenance, 1.6g per kg for general health.")
+            st.info("For fat loss, we target 1.8-2.2g of protein per kg of body weight to preserve muscle mass. For muscle gain, 1.6-2.0g per kg to support muscle growth. For maintenance, 1.6g per kg for general health.")
             
             st.write("")  # Spacing
-            st.markdown("**Carbs Logic:** Carbs are calculated as the remaining calories after protein and fat are allocated. They provide energy for workouts and daily activities. Lower for fat loss, higher for muscle gain.")
+            st.info("Carbs are calculated as the remaining calories after protein and fat are allocated. They provide energy for workouts and daily activities. Lower for fat loss, higher for muscle gain.")
             
             st.write("")  # Spacing
-            st.markdown("**Fat Logic:** We target 25-30% of total calories from fat (minimum 0.5g per kg of body weight) to support hormone production and overall health. Fat is essential and shouldn't drop below this threshold.")
+            st.info("We target 25-30% of total calories from fat (minimum 0.5g per kg of body weight) to support hormone production and overall health. Fat is essential and shouldn't drop below this threshold.")
         
         macros = default_macros
     else:
@@ -211,9 +211,9 @@ with tab2:
         target_recommended_protein = round(weight_kg * 1.8)  # Target recommended (1.8g/kg)
         max_recommended_protein = round(weight_kg * 2.2)  # Maximum recommended (2.2g/kg)
         
-        # Show recommended ranges as a visual guide before the slider
+        # Show suggested ranges as a visual guide before the slider
         st.markdown(f"""
-        **Recommended Protein Ranges:**
+        **Suggested Protein Ranges:**
         - Minimum: {min_recommended_protein}g ({round(min_recommended_protein/(weight_kg * 2.20462), 2)}g/lb)
         - Target: {target_recommended_protein}g ({round(target_recommended_protein/(weight_kg * 2.20462), 2)}g/lb)
         - Maximum: {max_recommended_protein}g ({round(max_recommended_protein/(weight_kg * 2.20462), 2)}g/lb)
@@ -260,9 +260,9 @@ with tab2:
         optimal_fat_pct = round(target_calories * 0.3 / 9)  # 30% of calories
         max_fat_pct = round(target_calories * 0.35 / 9)  # 35% of calories
         
-        # Show recommended ranges as a visual guide before the slider
+        # Show suggested ranges as a visual guide before the slider
         st.markdown(f"""
-        **Recommended Fat Ranges:**
+        **Suggested Fat Ranges:**
         - Minimum: {min_recommended_fat}g ({round(min_recommended_fat/(weight_kg * 2.20462), 2)}g/lb)
         - Target: {optimal_fat_pct}g (30% of calories)
         - Maximum: {max_fat_pct}g (35% of calories)
