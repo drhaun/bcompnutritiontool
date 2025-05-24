@@ -955,14 +955,17 @@ with tab2:
             # Calculate day-specific targets
             st.write(f"**Estimated TDEE for {selected_day}:** {day_tdee} calories")
             
+            # Get user's goal type from session state
+            user_goal_type = goal_info.get('goal_type', 'maintain') if 'goal_info' in st.session_state else 'maintain'
+            
             # Adjust calories based on goal and user's body composition goals
-            if goal_type == "lose_fat":
+            if user_goal_type == "lose_fat":
                 # Get weekly deficit from goal_info or use default (500-700 kcal/day for fat loss)
                 weekly_deficit = goal_info.get('weekly_deficit', 3500)  # Default ~1lb/week
                 daily_deficit = weekly_deficit / 7
                 day_target_calories = round(day_tdee - daily_deficit)
                 st.write(f"**Target Calories for Fat Loss:** {day_target_calories} calories ({round(daily_deficit)} kcal deficit)")
-            elif goal_type == "gain_muscle":
+            elif user_goal_type == "gain_muscle":
                 # Get weekly surplus from goal_info or use default (250-350 kcal/day for muscle gain)
                 weekly_surplus = goal_info.get('weekly_surplus', 1750)  # Default ~0.5lb/week
                 daily_surplus = weekly_surplus / 7
@@ -975,18 +978,20 @@ with tab2:
             # Initialize day-specific macros from overall macros if not yet set
             if selected_day not in st.session_state.day_specific_nutrition:
                 # For protein, use g/kg of bodyweight targets based on goal
-                if goal_type == "lose_fat":
+                user_weight_kg = user_info.get('weight_kg', 70)  # Default if not available
+                
+                if user_goal_type == "lose_fat":
                     # Higher protein for fat loss to preserve muscle
-                    day_protein = round(weight_kg * 2.0)  # 2.0g/kg for fat loss
-                elif goal_type == "gain_muscle":
+                    day_protein = round(float(user_weight_kg) * 2.0)  # 2.0g/kg for fat loss
+                elif user_goal_type == "gain_muscle":
                     # High protein for muscle gain
-                    day_protein = round(weight_kg * 1.8)  # 1.8g/kg for muscle gain
+                    day_protein = round(float(user_weight_kg) * 1.8)  # 1.8g/kg for muscle gain
                 else:
                     # Moderate protein for maintenance
-                    day_protein = round(weight_kg * 1.6)  # 1.6g/kg for maintenance
+                    day_protein = round(float(user_weight_kg) * 1.6)  # 1.6g/kg for maintenance
                 
                 # For fat, use minimum based on body weight
-                day_fat = round(weight_kg * 0.8)  # 0.8g/kg as baseline
+                day_fat = round(float(user_weight_kg) * 0.8)  # 0.8g/kg as baseline
                 
                 # Calculate remaining calories for carbs
                 protein_calories = day_protein * 4
