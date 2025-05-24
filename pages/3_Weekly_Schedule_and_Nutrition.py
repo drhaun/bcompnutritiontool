@@ -1155,15 +1155,15 @@ with tab2:
             
             # Get current day-specific nutrition
             day_macros = st.session_state.day_specific_nutrition.get(selected_day, {
-                'target_calories': day_target_calories,
+                'target_calories': day_target_calories,  # This is already adjusted for deficit/surplus based on goal
                 'protein': round(0.3 * day_target_calories / 4),  # Default 30% from protein
                 'carbs': round(0.4 * day_target_calories / 4),    # Default 40% from carbs
                 'fat': round(0.3 * day_target_calories / 9)       # Default 30% from fat
             })
             
-            # Ensure the target_calories is an integer, not a list
-            if isinstance(day_macros['target_calories'], list):
-                day_macros['target_calories'] = day_target_calories
+            # Ensure the target_calories is an integer, not a list or other type
+            if not isinstance(day_macros['target_calories'], int):
+                day_macros['target_calories'] = int(day_target_calories)
             
             # UI for adjusting day-specific macros
             st.subheader(f"Customize Macros for {selected_day}")
@@ -1208,7 +1208,23 @@ with tab2:
             try:
                 min_cal = int(float(day_tdee) * 0.7)
                 max_cal = int(float(day_tdee) * 1.3)
-                default_cal = int(day_macros['target_calories'])
+                
+                # Ensure default_cal reflects body composition goals (fat loss, muscle gain)
+                # This is the key change to use target energy intake based on body composition goals
+                if user_goal_type == "lose_fat":
+                    weekly_deficit = goal_info.get('weekly_deficit', 3500)  # Default ~1lb/week
+                    daily_deficit = weekly_deficit / 7
+                    default_cal = int(day_tdee - daily_deficit)
+                elif user_goal_type == "gain_muscle":
+                    weekly_surplus = goal_info.get('weekly_surplus', 1750)  # Default ~0.5lb/week
+                    daily_surplus = weekly_surplus / 7
+                    default_cal = int(day_tdee + daily_surplus)
+                else:  # Maintenance
+                    default_cal = int(day_tdee)
+                    
+                # Use the calculated default_cal or the existing value in day_macros
+                if 'target_calories' in day_macros and isinstance(day_macros['target_calories'], (int, float)):
+                    default_cal = int(day_macros['target_calories'])
             except (TypeError, ValueError):
                 # Use safe defaults if calculations fail
                 min_cal = 1500
