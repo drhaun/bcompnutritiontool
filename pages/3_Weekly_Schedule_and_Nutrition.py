@@ -58,6 +58,9 @@ with tab2:
     st.header("Nutrition Targets")
     st.write("Set your daily nutrition targets based on your body composition goals.")
     
+    # Add disclaimer about the purpose of this section
+    st.info("**Note:** This section is for setting up your average daily nutrition targets. These are starting recommendations that you can customize here. In the upcoming meal planning steps, you'll be able to adjust and distribute these targets across your daily meals based on your preferences and specific needs.")
+    
     # Display user's stats (using session state)
     gender = st.session_state.get('gender', 'Male')
     age = st.session_state.get('age', 30)
