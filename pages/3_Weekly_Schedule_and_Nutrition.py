@@ -248,6 +248,43 @@ with tab1:
                     "intensity": cardio_intensity
                 })
             
+            # Calculate workout calories for this day
+            workout_calories = 0
+            intensity_multipliers = {
+                "Light": 5.0,
+                "Moderate": 7.5,
+                "High": 10.0,
+                "Very High": 12.5
+            }
+            
+            for workout in day_schedule["workouts"]:
+                calories = workout.get("duration", 60) * intensity_multipliers.get(workout.get("intensity", "Moderate"), 7.5)
+                workout_calories += calories
+            
+            # Calculate TDEE based on user's base data
+            user_info = st.session_state.get('user_info', {})
+            weight_kg = user_info.get('weight_kg', 70)
+            height_cm = user_info.get('height_cm', 175)
+            age = user_info.get('age', 30)
+            gender = user_info.get('gender', 'Male')
+            
+            # Calculate base TDEE using utility function
+            base_tdee = utils.calculate_bmr(gender, weight_kg, height_cm, age)
+            
+            # Apply day's activity factor
+            activity_multipliers = {
+                "Sedentary": 1.2,
+                "Lightly Active": 1.375,
+                "Moderately Active": 1.55,
+                "Very Active": 1.725,
+                "Extremely Active": 1.9
+            }
+            day_activity_factor = activity_multipliers.get(day_schedule["total_activity_level"], 1.2)
+            day_tdee = int(base_tdee * day_activity_factor) + workout_calories
+            
+            # Store the estimated TDEE for this day
+            day_schedule["estimated_tdee"] = day_tdee
+            
             # Store the day's schedule
             st.session_state.weekly_schedule[day] = day_schedule
         
