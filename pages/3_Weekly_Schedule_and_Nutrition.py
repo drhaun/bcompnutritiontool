@@ -880,28 +880,44 @@ with tab2:
             # Calculate day-specific targets
             st.write(f"**Estimated TDEE for {selected_day}:** {day_tdee} calories")
             
-            # Adjust calories based on goal
+            # Adjust calories based on goal and user's body composition goals
             if goal_type == "lose_fat":
-                day_target_calories = round(day_tdee * 0.8)  # 20% deficit
-                st.write(f"**Target Calories for Fat Loss:** {day_target_calories} calories (20% deficit)")
+                # Get weekly deficit from goal_info or use default (500-700 kcal/day for fat loss)
+                weekly_deficit = goal_info.get('weekly_deficit', 3500)  # Default ~1lb/week
+                daily_deficit = weekly_deficit / 7
+                day_target_calories = round(day_tdee - daily_deficit)
+                st.write(f"**Target Calories for Fat Loss:** {day_target_calories} calories ({round(daily_deficit)} kcal deficit)")
             elif goal_type == "gain_muscle":
-                day_target_calories = round(day_tdee * 1.1)  # 10% surplus
-                st.write(f"**Target Calories for Muscle Gain:** {day_target_calories} calories (10% surplus)")
+                # Get weekly surplus from goal_info or use default (250-350 kcal/day for muscle gain)
+                weekly_surplus = goal_info.get('weekly_surplus', 1750)  # Default ~0.5lb/week
+                daily_surplus = weekly_surplus / 7
+                day_target_calories = round(day_tdee + daily_surplus)
+                st.write(f"**Target Calories for Muscle Gain:** {day_target_calories} calories ({round(daily_surplus)} kcal surplus)")
             else:  # Maintenance
                 day_target_calories = day_tdee
                 st.write(f"**Target Calories for Maintenance:** {day_target_calories} calories")
             
             # Initialize day-specific macros from overall macros if not yet set
             if selected_day not in st.session_state.day_specific_nutrition:
-                # Use percentage-based distribution from overall macros
-                protein_pct = round((macros['protein'] * 4) / target_calories * 100)
-                carbs_pct = round((macros['carbs'] * 4) / target_calories * 100)
-                fat_pct = round((macros['fat'] * 9) / target_calories * 100)
+                # For protein, use g/kg of bodyweight targets based on goal
+                if goal_type == "lose_fat":
+                    # Higher protein for fat loss to preserve muscle
+                    day_protein = round(weight_kg * 2.0)  # 2.0g/kg for fat loss
+                elif goal_type == "gain_muscle":
+                    # High protein for muscle gain
+                    day_protein = round(weight_kg * 1.8)  # 1.8g/kg for muscle gain
+                else:
+                    # Moderate protein for maintenance
+                    day_protein = round(weight_kg * 1.6)  # 1.6g/kg for maintenance
                 
-                # Calculate day-specific macros based on day's calories
-                day_protein = round((protein_pct/100) * day_target_calories / 4)
-                day_fat = round((fat_pct/100) * day_target_calories / 9)
-                day_carbs = round((carbs_pct/100) * day_target_calories / 4)
+                # For fat, use minimum based on body weight
+                day_fat = round(weight_kg * 0.8)  # 0.8g/kg as baseline
+                
+                # Calculate remaining calories for carbs
+                protein_calories = day_protein * 4
+                fat_calories = day_fat * 9
+                carb_calories = day_target_calories - protein_calories - fat_calories
+                day_carbs = max(0, round(carb_calories / 4))
                 
                 # Adjust for workout days
                 if workout_count > 0:
@@ -948,6 +964,42 @@ with tab2:
             
             # UI for adjusting day-specific macros
             st.subheader(f"Customize Macros for {selected_day}")
+            
+            # Add option to copy settings from another day
+            copy_cols = st.columns([2, 1])
+            with copy_cols[0]:
+                copy_from_day = st.selectbox(
+                    "Copy settings from another day:", 
+                    ["None"] + [day for day in days_of_week if day != selected_day],
+                    key=f"copy_from_day_{selected_day}"
+                )
+            
+            with copy_cols[1]:
+                if copy_from_day != "None" and st.button("Apply Settings", key=f"apply_settings_{selected_day}"):
+                    if copy_from_day in st.session_state.day_specific_nutrition:
+                        # Copy macro ratios, but adjust for the current day's calorie target
+                        source_macros = st.session_state.day_specific_nutrition[copy_from_day]
+                        
+                        # Calculate percentages from the source day
+                        source_calories = float(source_macros['target_calories'])
+                        protein_pct = (float(source_macros['protein']) * 4) / source_calories
+                        fat_pct = (float(source_macros['fat']) * 9) / source_calories
+                        
+                        # Apply those percentages to the current day's calorie target
+                        day_macros['protein'] = round(protein_pct * day_target_calories / 4)
+                        day_macros['fat'] = round(fat_pct * day_target_calories / 9)
+                        
+                        # Calculate carbs as the remainder
+                        protein_calories = day_macros['protein'] * 4
+                        fat_calories = day_macros['fat'] * 9
+                        day_macros['carbs'] = max(0, round((day_target_calories - protein_calories - fat_calories) / 4))
+                        
+                        # Update target calories
+                        day_macros['target_calories'] = day_target_calories
+                        
+                        # Save the updated macros
+                        st.session_state.day_specific_nutrition[selected_day] = day_macros
+                        st.success(f"Applied settings from {copy_from_day} to {selected_day}")
             
             # Ensure all values are proper integers to avoid type mismatches
             try:
