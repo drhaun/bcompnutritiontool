@@ -618,6 +618,208 @@ with tab2:
                 'fat': custom_fat
             }
     
+    # Implement day-specific nutrition targets tab
+    with nutrition_tab2:
+        st.subheader("Day-Specific Nutrition Targets")
+        st.write("Customize your nutrition targets for each day of the week based on your activity levels.")
+        
+        # Guidance information
+        st.info("""
+        **Why This Matters:**
+        - Training days typically require more calories and carbohydrates than rest days
+        - Higher intensity days may benefit from increased protein for recovery
+        - Customizing nutrition by day can improve performance and recovery
+        """)
+        
+        # Check if confirmed weekly schedule exists
+        if 'confirmed_weekly_schedule' not in st.session_state:
+            st.warning("Please set up and confirm your weekly schedule first.")
+        else:
+            # Get days of week
+            days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+            
+            # Select a day to customize
+            selected_day = st.selectbox("Select day to customize:", days_of_week, key="day_specific_select")
+            
+            # Get day's schedule and TDEE
+            day_schedule = st.session_state.confirmed_weekly_schedule.get(selected_day, {})
+            day_tdee = day_schedule.get('estimated_tdee', target_calories)
+            
+            # Show day's activities summary
+            workout_count = len(day_schedule.get("workouts", []))
+            
+            if workout_count > 0:
+                workout_info = ", ".join([f"{w.get('name', 'Workout')} ({w.get('intensity', 'Moderate')})" for w in day_schedule.get("workouts", [])])
+                st.write(f"**Day Summary:** {workout_count} workout(s): {workout_info}")
+            else:
+                st.write("**Day Summary:** Rest day (no workouts scheduled)")
+            
+            # Calculate day-specific targets
+            st.write(f"**Estimated TDEE for {selected_day}:** {day_tdee} calories")
+            
+            # Adjust calories based on goal
+            if goal_type == "lose_fat":
+                day_target_calories = round(day_tdee * 0.8)  # 20% deficit
+                st.write(f"**Target Calories for Fat Loss:** {day_target_calories} calories (20% deficit)")
+            elif goal_type == "gain_muscle":
+                day_target_calories = round(day_tdee * 1.1)  # 10% surplus
+                st.write(f"**Target Calories for Muscle Gain:** {day_target_calories} calories (10% surplus)")
+            else:  # Maintenance
+                day_target_calories = day_tdee
+                st.write(f"**Target Calories for Maintenance:** {day_target_calories} calories")
+            
+            # Initialize day-specific macros from overall macros if not yet set
+            if selected_day not in st.session_state.day_specific_nutrition:
+                # Use percentage-based distribution from overall macros
+                protein_pct = round((macros['protein'] * 4) / target_calories * 100)
+                carbs_pct = round((macros['carbs'] * 4) / target_calories * 100)
+                fat_pct = round((macros['fat'] * 9) / target_calories * 100)
+                
+                # Calculate day-specific macros based on day's calories
+                day_protein = round((protein_pct/100) * day_target_calories / 4)
+                day_fat = round((fat_pct/100) * day_target_calories / 9)
+                day_carbs = round((carbs_pct/100) * day_target_calories / 4)
+                
+                # Adjust for workout days
+                if workout_count > 0:
+                    # Slightly higher protein and carbs on workout days
+                    workout_intensity = "Moderate"
+                    if day_schedule.get("workouts"):
+                        # Get the highest intensity workout for the day
+                        intensities = [w.get('intensity', 'Moderate') for w in day_schedule.get("workouts", [])]
+                        intensity_rank = {'Light': 1, 'Moderate': 2, 'High': 3, 'Very High': 4}
+                        highest_intensity = max(intensities, key=lambda x: intensity_rank.get(x, 2))
+                        workout_intensity = highest_intensity
+                    
+                    # Adjust macros based on workout intensity
+                    if workout_intensity == 'High' or workout_intensity == 'Very High':
+                        # Higher carbs for high intensity days
+                        day_protein = round(day_protein * 1.1)  # 10% more protein
+                        day_carbs = round(day_carbs * 1.2)  # 20% more carbs
+                        day_fat = max(round((day_target_calories - (day_protein * 4) - (day_carbs * 4)) / 9), round(weight_kg * 0.5))
+                    else:
+                        # Moderate adjustment for moderate intensity
+                        day_protein = round(day_protein * 1.05)  # 5% more protein
+                        day_carbs = round(day_carbs * 1.1)   # 10% more carbs
+                        day_fat = max(round((day_target_calories - (day_protein * 4) - (day_carbs * 4)) / 9), round(weight_kg * 0.5))
+                
+                # Store initial day-specific macros
+                st.session_state.day_specific_nutrition[selected_day] = {
+                    'target_calories': day_target_calories,
+                    'protein': day_protein,
+                    'carbs': day_carbs,
+                    'fat': day_fat
+                }
+            
+            # Get current day-specific nutrition
+            day_macros = st.session_state.day_specific_nutrition.get(selected_day, {
+                'target_calories': day_target_calories,
+                'protein': round(0.3 * day_target_calories / 4),  # Default 30% from protein
+                'carbs': round(0.4 * day_target_calories / 4),    # Default 40% from carbs
+                'fat': round(0.3 * day_target_calories / 9)       # Default 30% from fat
+            })
+            
+            # UI for adjusting day-specific macros
+            st.subheader(f"Customize Macros for {selected_day}")
+            
+            # Allow adjusting calories if needed
+            custom_day_calories = st.slider(
+                f"Calories for {selected_day}", 
+                min_value=int(day_tdee * 0.7),
+                max_value=int(day_tdee * 1.3),
+                value=day_macros['target_calories'],
+                step=50
+            )
+            
+            # Protein adjustment
+            custom_day_protein = st.slider(
+                f"Protein (g) for {selected_day}",
+                min_value=round(weight_kg * 1.2),  # Minimum 1.2g/kg
+                max_value=round(weight_kg * 2.5),  # Maximum 2.5g/kg
+                value=day_macros['protein'],
+                help="Recommended: 1.6-2.2g per kg of body weight"
+            )
+            
+            # Fat adjustment (ensure minimum fat intake)
+            min_fat = round(weight_kg * 0.5)  # Minimum 0.5g/kg
+            custom_day_fat = st.slider(
+                f"Fat (g) for {selected_day}",
+                min_value=min_fat,
+                max_value=round(custom_day_calories * 0.4 / 9),  # Maximum 40% of calories
+                value=day_macros['fat'],
+                help="Recommended: 0.5g per kg of body weight or about 25-30% of calories"
+            )
+            
+            # Calculate remaining calories for carbs
+            protein_calories = custom_day_protein * 4
+            fat_calories = custom_day_fat * 9
+            carb_calories = custom_day_calories - protein_calories - fat_calories
+            custom_day_carbs = max(0, round(carb_calories / 4))
+            
+            # Display calculated carbs
+            st.write(f"**Carbohydrates:** {custom_day_carbs}g (calculated from remaining calories)")
+            
+            # Show macronutrient breakdown percentages
+            protein_pct = round((custom_day_protein * 4 / custom_day_calories) * 100)
+            fat_pct = round((custom_day_fat * 9 / custom_day_calories) * 100)
+            carbs_pct = round((custom_day_carbs * 4 / custom_day_calories) * 100)
+            
+            st.write(f"**Macronutrient Ratio:** Protein: {protein_pct}% | Carbs: {carbs_pct}% | Fat: {fat_pct}%")
+            
+            # Update day-specific nutrition in session state
+            if st.button(f"Save {selected_day}'s Nutrition Plan"):
+                st.session_state.day_specific_nutrition[selected_day] = {
+                    'target_calories': custom_day_calories,
+                    'protein': custom_day_protein,
+                    'carbs': custom_day_carbs,
+                    'fat': custom_day_fat
+                }
+                st.success(f"Nutrition plan for {selected_day} has been saved!")
+            
+            # Option to copy settings to other days
+            st.subheader("Copy to Other Days")
+            days_to_copy = st.multiselect(
+                f"Copy {selected_day}'s nutrition settings to:", 
+                [day for day in days_of_week if day != selected_day]
+            )
+            
+            if st.button("Copy Nutrition Settings") and days_to_copy:
+                current_settings = st.session_state.day_specific_nutrition[selected_day]
+                for day in days_to_copy:
+                    st.session_state.day_specific_nutrition[day] = current_settings.copy()
+                st.success(f"Copied {selected_day}'s nutrition settings to {', '.join(days_to_copy)}")
+            
+            # Weekly nutrition overview
+            st.subheader("Weekly Nutrition Overview")
+            
+            # Create data for display
+            if len(st.session_state.day_specific_nutrition) > 0:
+                weekly_data = []
+                for day in days_of_week:
+                    if day in st.session_state.day_specific_nutrition:
+                        day_data = st.session_state.day_specific_nutrition[day]
+                        weekly_data.append({
+                            "Day": day,
+                            "Calories": f"{day_data['target_calories']}",
+                            "Protein (g)": f"{day_data['protein']}",
+                            "Carbs (g)": f"{day_data['carbs']}",
+                            "Fat (g)": f"{day_data['fat']}"
+                        })
+                    else:
+                        weekly_data.append({
+                            "Day": day,
+                            "Calories": "Not set",
+                            "Protein (g)": "Not set",
+                            "Carbs (g)": "Not set",
+                            "Fat (g)": "Not set"
+                        })
+                
+                # Display as a table
+                weekly_df = pd.DataFrame(weekly_data)
+                st.table(weekly_df)
+            else:
+                st.write("No day-specific nutrition plans have been set up yet.")
+    
     # Macro breakdown visualization
     st.subheader("Macronutrient Breakdown")
     
