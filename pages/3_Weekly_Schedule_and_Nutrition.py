@@ -517,14 +517,24 @@ with tab2:
     goal_info = st.session_state.goal_info if 'goal_info' in st.session_state else {}
     goal_type = goal_info.get('goal_type', 'maintain')  # Default to maintenance if not set
     timeline_weeks = goal_info.get('timeline_weeks', 12)  # Default to 12 weeks
+    
+    # Ensure we have valid target weight values
     target_weight_kg = goal_info.get('target_weight_kg')
-    # If target weight is not set, use current weight
-    if target_weight_kg is None:
+    # If target weight is not set or invalid, use current weight
+    if target_weight_kg is None or not isinstance(target_weight_kg, (int, float)):
         target_weight_kg = weight_kg
-    target_weight_lbs = target_weight_kg * 2.20462
+        
+    # Calculate target weight in pounds
+    try:
+        target_weight_lbs = float(target_weight_kg) * 2.20462
+    except (TypeError, ValueError):
+        # If conversion fails, set a default
+        target_weight_lbs = weight_kg * 2.20462
+    
+    # Ensure we have valid target body fat values
     target_bf_pct = goal_info.get('target_bf')
-    # If target body fat is not set, use current body fat
-    if target_bf_pct is None:
+    # If target body fat is not set or invalid, use current body fat
+    if target_bf_pct is None or not isinstance(target_bf_pct, (int, float)):
         target_bf_pct = body_fat_pct
     
     # Calculate TDEE (Total Daily Energy Expenditure)
@@ -935,12 +945,23 @@ with tab2:
             # UI for adjusting day-specific macros
             st.subheader(f"Customize Macros for {selected_day}")
             
+            # Ensure all values are proper integers to avoid type mismatches
+            try:
+                min_cal = int(float(day_tdee) * 0.7)
+                max_cal = int(float(day_tdee) * 1.3)
+                default_cal = int(day_macros['target_calories'])
+            except (TypeError, ValueError):
+                # Use safe defaults if calculations fail
+                min_cal = 1500
+                max_cal = 3000
+                default_cal = 2000
+                
             # Allow adjusting calories if needed
             custom_day_calories = st.slider(
                 f"Calories for {selected_day}", 
-                min_value=int(day_tdee * 0.7),
-                max_value=int(day_tdee * 1.3),
-                value=int(day_macros['target_calories']),  # Ensure this is an integer
+                min_value=min_cal,
+                max_value=max_cal,
+                value=default_cal,  # Ensure this is an integer
                 step=50
             )
             
@@ -948,12 +969,33 @@ with tab2:
             if isinstance(day_macros['protein'], list):
                 day_macros['protein'] = round(weight_kg * 1.8)  # Default to 1.8g/kg
                 
+            # Ensure proper values for protein slider
+            try:
+                min_protein = round(float(weight_kg) * 1.2)  # Minimum 1.2g/kg
+                max_protein = round(float(weight_kg) * 2.5)  # Maximum 2.5g/kg
+                default_protein = int(day_macros['protein'])
+                
+                # Set some sensible limits
+                min_protein = max(50, min_protein)
+                max_protein = max(200, max_protein)
+                
+                # Make sure default is within range
+                if default_protein < min_protein:
+                    default_protein = min_protein
+                elif default_protein > max_protein:
+                    default_protein = max_protein
+            except (TypeError, ValueError):
+                # Use safe defaults if calculations fail
+                min_protein = 100
+                max_protein = 250
+                default_protein = 150
+            
             # Protein adjustment
             custom_day_protein = st.slider(
                 f"Protein (g) for {selected_day}",
-                min_value=round(weight_kg * 1.2),  # Minimum 1.2g/kg
-                max_value=round(weight_kg * 2.5),  # Maximum 2.5g/kg
-                value=int(day_macros['protein']),  # Ensure this is an integer
+                min_value=min_protein,
+                max_value=max_protein,
+                value=default_protein,
                 help="Recommended: 1.6-2.2g per kg of body weight"
             )
             
@@ -962,12 +1004,31 @@ with tab2:
                 day_macros['fat'] = round(weight_kg * 0.8)  # Default to 0.8g/kg
             
             # Fat adjustment (ensure minimum fat intake)
-            min_fat = round(weight_kg * 0.5)  # Minimum 0.5g/kg
+            try:
+                min_fat = round(float(weight_kg) * 0.5)  # Minimum 0.5g/kg
+                max_fat = round(float(custom_day_calories) * 0.4 / 9)  # Maximum 40% of calories
+                default_fat = int(day_macros['fat'])
+                
+                # Set sensible limits
+                min_fat = max(20, min_fat)
+                max_fat = max(min_fat + 20, max_fat)  # Ensure max is greater than min
+                
+                # Make sure default is within range
+                if default_fat < min_fat:
+                    default_fat = min_fat
+                elif default_fat > max_fat:
+                    default_fat = max_fat
+            except (TypeError, ValueError):
+                # Use safe defaults if calculations fail
+                min_fat = 50
+                max_fat = 120
+                default_fat = 70
+                
             custom_day_fat = st.slider(
                 f"Fat (g) for {selected_day}",
                 min_value=min_fat,
-                max_value=round(custom_day_calories * 0.4 / 9),  # Maximum 40% of calories
-                value=int(day_macros['fat']),  # Ensure this is an integer
+                max_value=max_fat,
+                value=default_fat,
                 help="Recommended: 0.5g per kg of body weight or about 25-30% of calories"
             )
             
