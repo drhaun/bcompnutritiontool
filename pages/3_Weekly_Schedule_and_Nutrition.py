@@ -43,13 +43,259 @@ tab1, tab2 = st.tabs(["Weekly Schedule", "Nutrition Targets"])
 # -----------------------------
 with tab1:
     st.header("Weekly Schedule Planner")
-    st.write("Plan your weekly activities including meals, workouts, and work schedule.")
+    st.write("Plan your weekly activities including meals, workouts, and sleep schedule.")
     
-    # Timeline visualization and schedule editing UI code here
-    # (This would include the interactive timeline and activity cards)
+    # Add guidance information
+    st.info("""
+    **Why this matters:** 
+    - Your activity levels and workout schedule affect your daily energy needs
+    - Rest days typically require fewer calories than training days
+    - Meal timing around workouts can optimize performance and recovery
+    - Getting 7-9 hours of sleep is essential for recovery and results
+    """)
     
-    # Simple placeholder for now
-    st.info("Weekly schedule planner will be displayed here with an interactive timeline view.")
+    # Get general sleep schedule first (to use as default for all days)
+    st.subheader("General Sleep Schedule")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        default_wake_time = st.session_state.get('default_wake_time', "06:00")
+        default_wake_time = st.time_input("Default Wake Time", value=datetime.time.fromisoformat(default_wake_time))
+        st.session_state['default_wake_time'] = default_wake_time.strftime("%H:%M")
+    
+    with col2:
+        default_bed_time = st.session_state.get('default_bed_time', "22:00")
+        default_bed_time = st.time_input("Default Bed Time", value=datetime.time.fromisoformat(default_bed_time))
+        st.session_state['default_bed_time'] = default_bed_time.strftime("%H:%M")
+    
+    # Calculate sleep duration
+    def calculate_sleep_duration(wake_time, bed_time):
+        wake_datetime = datetime.datetime.combine(datetime.date.today(), wake_time)
+        bed_datetime = datetime.datetime.combine(datetime.date.today(), bed_time)
+        
+        # If bed time is earlier than wake time, it means the person sleeps past midnight
+        if bed_datetime < wake_datetime:
+            bed_datetime += datetime.timedelta(days=1)
+            
+        sleep_duration = bed_datetime - wake_datetime
+        return 24 - (sleep_duration.total_seconds() / 3600)  # Convert to hours
+    
+    sleep_hours = calculate_sleep_duration(default_wake_time, default_bed_time)
+    
+    if sleep_hours < 7:
+        st.warning(f"You're planning {sleep_hours:.1f} hours of sleep, which is less than the recommended 7-9 hours for optimal recovery and health.")
+    else:
+        st.success(f"You're planning {sleep_hours:.1f} hours of sleep, which is within the recommended 7-9 hours for optimal recovery and health.")
+    
+    # Set up weekly schedule tabs
+    st.subheader("Weekly Activity Schedule")
+    
+    # Create days of week selector with explanation
+    days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    selected_day = st.selectbox("Select day to edit:", days_of_week)
+    
+    # Initialize daily schedule if not already in session state
+    if 'weekly_schedule' not in st.session_state:
+        st.session_state.weekly_schedule = {}
+        
+        # Create a default schedule for each day
+        for day in days_of_week:
+            st.session_state.weekly_schedule[day] = {
+                "wake_time": default_wake_time.strftime("%H:%M"),
+                "bed_time": default_bed_time.strftime("%H:%M"),
+                "meals": [
+                    {"name": "Breakfast", "time": "07:00"},
+                    {"name": "Lunch", "time": "12:00"},
+                    {"name": "Dinner", "time": "18:00"}
+                ],
+                "snacks": [],
+                "workouts": [],
+                "total_activity_level": "Moderate" # Default activity level
+            }
+    
+    # Get current day's schedule
+    day_schedule = st.session_state.weekly_schedule.get(selected_day, {})
+    
+    # Layout for current day's schedule
+    st.write(f"### {selected_day}'s Schedule")
+    
+    # Sleep schedule for this specific day
+    sleep_col1, sleep_col2 = st.columns(2)
+    
+    with sleep_col1:
+        day_wake_time = day_schedule.get("wake_time", default_wake_time.strftime("%H:%M"))
+        day_wake_time = st.time_input(f"Wake Time ({selected_day})", 
+                                       value=datetime.time.fromisoformat(day_wake_time))
+        day_schedule["wake_time"] = day_wake_time.strftime("%H:%M")
+    
+    with sleep_col2:
+        day_bed_time = day_schedule.get("bed_time", default_bed_time.strftime("%H:%M"))
+        day_bed_time = st.time_input(f"Bed Time ({selected_day})", 
+                                     value=datetime.time.fromisoformat(day_bed_time))
+        day_schedule["bed_time"] = day_bed_time.strftime("%H:%M")
+    
+    # Meals section
+    st.write("#### Meals")
+    meals = day_schedule.get("meals", [])
+    
+    # Display existing meals with time and edit/delete buttons
+    for i, meal in enumerate(meals):
+        col1, col2, col3 = st.columns([3, 2, 1])
+        
+        with col1:
+            meal_name = st.text_input(f"Meal {i+1} Name", meal["name"], key=f"{selected_day}_meal_{i}_name")
+            meals[i]["name"] = meal_name
+            
+        with col2:
+            meal_time = st.time_input(f"Time", datetime.time.fromisoformat(meal["time"]), 
+                                       key=f"{selected_day}_meal_{i}_time")
+            meals[i]["time"] = meal_time.strftime("%H:%M")
+            
+        with col3:
+            if st.button("Remove", key=f"{selected_day}_remove_meal_{i}"):
+                meals.pop(i)
+                st.rerun()
+    
+    # Add new meal button
+    if st.button("+ Add Meal"):
+        next_meal_num = len(meals) + 1
+        next_meal_name = "Snack" if next_meal_num > 3 else f"Meal {next_meal_num}"
+        meals.append({"name": next_meal_name, "time": "15:00"})
+        st.rerun()
+    
+    # Workouts section
+    st.write("#### Workouts")
+    workouts = day_schedule.get("workouts", [])
+    
+    # Display existing workouts with edit/delete buttons
+    for i, workout in enumerate(workouts):
+        col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 2, 1])
+        
+        with col1:
+            workout_name = st.text_input(f"Workout {i+1} Type", workout.get("name", ""), 
+                                          key=f"{selected_day}_workout_{i}_name",
+                                          placeholder="e.g., Weight Training, Cardio")
+            workouts[i]["name"] = workout_name
+            
+        with col2:
+            workout_start = st.time_input(f"Start Time", 
+                                          datetime.time.fromisoformat(workout.get("start_time", "18:00")), 
+                                          key=f"{selected_day}_workout_{i}_start")
+            workouts[i]["start_time"] = workout_start.strftime("%H:%M")
+            
+        with col3:
+            workout_duration = st.number_input(f"Duration (min)", 
+                                              min_value=15, max_value=180, step=15,
+                                              value=workout.get("duration", 60),
+                                              key=f"{selected_day}_workout_{i}_duration")
+            workouts[i]["duration"] = workout_duration
+            
+        with col4:
+            workout_intensity = st.selectbox(f"Intensity", 
+                                            options=["Light", "Moderate", "High", "Very High"],
+                                            index=["Light", "Moderate", "High", "Very High"].index(workout.get("intensity", "Moderate")),
+                                            key=f"{selected_day}_workout_{i}_intensity")
+            workouts[i]["intensity"] = workout_intensity
+            
+        with col5:
+            if st.button("Remove", key=f"{selected_day}_remove_workout_{i}"):
+                workouts.pop(i)
+                st.rerun()
+    
+    # Add new workout button
+    if st.button("+ Add Workout"):
+        workouts.append({
+            "name": "Weight Training", 
+            "start_time": "18:00", 
+            "duration": 60,
+            "intensity": "Moderate"
+        })
+        st.rerun()
+    
+    # Overall daily activity level
+    st.write("#### Overall Activity Level")
+    activity_levels = ["Sedentary", "Lightly Active", "Moderately Active", "Very Active", "Extremely Active"]
+    day_activity = st.selectbox("Daily Activity Level (outside of workouts)", 
+                               options=activity_levels,
+                               index=activity_levels.index(day_schedule.get("total_activity_level", "Moderately Active")),
+                               help="This affects your daily energy needs")
+    day_schedule["total_activity_level"] = day_activity
+    
+    # Estimated energy expenditure for this day
+    st.write("#### Estimated Energy Expenditure")
+    
+    # Basic calculation based on TDEE and workout intensity
+    base_tdee = st.session_state.get('tdee', 2000)  # Get base TDEE or default to 2000
+    
+    # Adjust for daily activity level
+    activity_multipliers = {
+        "Sedentary": 1.0,
+        "Lightly Active": 1.1, 
+        "Moderately Active": 1.2,
+        "Very Active": 1.3,
+        "Extremely Active": 1.4
+    }
+    
+    # Calculate additional calories from workouts
+    workout_calories = 0
+    for workout in workouts:
+        intensity_multipliers = {
+            "Light": 5,
+            "Moderate": 7.5,
+            "High": 10,
+            "Very High": 12.5
+        }
+        # Calories = duration * intensity factor
+        calories = workout.get("duration", 60) * intensity_multipliers.get(workout.get("intensity", "Moderate"), 7.5)
+        workout_calories += calories
+    
+    # Calculate day's TDEE
+    day_activity_factor = activity_multipliers.get(day_activity, 1.2)
+    day_tdee = int(base_tdee * day_activity_factor) + workout_calories
+    
+    # Show estimated TDEE for this day
+    st.metric("Estimated Daily Energy Expenditure", f"{day_tdee} calories",
+             delta=f"{day_tdee - base_tdee} from base TDEE")
+    
+    # Store the day's TDEE in the schedule for later use
+    day_schedule["estimated_tdee"] = day_tdee
+    
+    # Copy schedule to other days
+    st.write("### Copy Schedule to Other Days")
+    days_to_copy = st.multiselect("Copy this day's schedule to:", 
+                                 [day for day in days_of_week if day != selected_day])
+    
+    if st.button("Copy Schedule") and days_to_copy:
+        for day in days_to_copy:
+            st.session_state.weekly_schedule[day] = copy.deepcopy(day_schedule)
+        st.success(f"Copied {selected_day}'s schedule to {', '.join(days_to_copy)}")
+    
+    # Update session state with the modified schedule
+    st.session_state.weekly_schedule[selected_day] = day_schedule
+    
+    # Add a visual weekly overview
+    st.write("### Weekly Overview")
+    
+    # Create a simple visualization of the week's activities
+    week_data = []
+    for day in days_of_week:
+        day_data = st.session_state.weekly_schedule.get(day, {})
+        workout_count = len(day_data.get("workouts", []))
+        workout_summary = f"{workout_count} workout{'s' if workout_count != 1 else ''}"
+        meal_count = len(day_data.get("meals", []))
+        
+        week_data.append({
+            "Day": day,
+            "Wake": day_data.get("wake_time", "N/A"),
+            "Bed": day_data.get("bed_time", "N/A"),
+            "Meals": meal_count,
+            "Workouts": workout_summary,
+            "Est. TDEE": f"{day_data.get('estimated_tdee', 'N/A')} cal"
+        })
+    
+    # Display as a table
+    df = pd.DataFrame(week_data)
+    st.table(df)
     
 # -----------------------------
 # Tab 2: Nutrition Targets
