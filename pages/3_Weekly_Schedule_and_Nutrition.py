@@ -508,6 +508,10 @@ with tab2:
     # Initialize day-specific nutrition targets if not exist
     if 'day_specific_nutrition' not in st.session_state:
         st.session_state.day_specific_nutrition = {}
+        
+    # Initialize confirmed_weekly_schedule if not exist
+    if 'confirmed_weekly_schedule' not in st.session_state:
+        st.session_state.confirmed_weekly_schedule = {}
     
     # Get goal information
     goal_info = st.session_state.goal_info if 'goal_info' in st.session_state else {}
@@ -524,14 +528,43 @@ with tab2:
         target_bf_pct = body_fat_pct
     
     # Calculate TDEE (Total Daily Energy Expenditure)
-    bmr = utils.calculate_bmr(gender, weight_kg, height_cm, age)
-    activity_multiplier = utils.get_activity_multiplier(activity_level)
-    tdee = round(bmr * activity_multiplier)
     
-    # Add workout calories if applicable
-    if workouts_per_week > 0 and workout_calories > 0:
-        workout_contribution = (workouts_per_week * workout_calories) / 7
-        tdee = round(tdee + workout_contribution)
+    # Check if we have a confirmed weekly schedule with day-specific TDEE values
+    if 'confirmed_weekly_schedule' in st.session_state:
+        # Calculate average TDEE from weekly schedule
+        days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        weekly_tdee_values = []
+        
+        for day in days_of_week:
+            day_data = st.session_state.confirmed_weekly_schedule.get(day, {})
+            day_tdee = day_data.get('estimated_tdee')
+            if day_tdee:
+                weekly_tdee_values.append(day_tdee)
+        
+        if weekly_tdee_values:
+            # Use the average TDEE from weekly schedule
+            tdee = round(sum(weekly_tdee_values) / len(weekly_tdee_values))
+            st.info(f"Using average TDEE of {tdee} calories calculated from your confirmed weekly schedule.")
+        else:
+            # Fall back to basic calculation if no weekly schedule values
+            bmr = utils.calculate_bmr(gender, weight_kg, height_cm, age)
+            activity_multiplier = utils.get_activity_multiplier(activity_level)
+            tdee = round(bmr * activity_multiplier)
+            
+            # Add workout calories if applicable
+            if workouts_per_week > 0 and workout_calories > 0:
+                workout_contribution = (workouts_per_week * workout_calories) / 7
+                tdee = round(tdee + workout_contribution)
+    else:
+        # Basic calculation if no weekly schedule exists
+        bmr = utils.calculate_bmr(gender, weight_kg, height_cm, age)
+        activity_multiplier = utils.get_activity_multiplier(activity_level)
+        tdee = round(bmr * activity_multiplier)
+        
+        # Add workout calories if applicable
+        if workouts_per_week > 0 and workout_calories > 0:
+            workout_contribution = (workouts_per_week * workout_calories) / 7
+            tdee = round(tdee + workout_contribution)
 
     # Calculate weekly change in kg for diet plan
     weekly_weight_pct = goal_info.get('weekly_weight_pct', 0.005)  # default 0.5%
@@ -804,8 +837,8 @@ with tab2:
         - Customizing nutrition by day can improve performance and recovery
         """)
         
-        # Check if confirmed weekly schedule exists
-        if 'confirmed_weekly_schedule' not in st.session_state:
+        # Check if confirmed weekly schedule exists and has data
+        if 'confirmed_weekly_schedule' not in st.session_state or not st.session_state.confirmed_weekly_schedule:
             st.warning("Please set up and confirm your weekly schedule first.")
         else:
             # Get days of week
@@ -816,7 +849,10 @@ with tab2:
             
             # Get day's schedule and TDEE
             day_schedule = st.session_state.confirmed_weekly_schedule.get(selected_day, {})
-            day_tdee = day_schedule.get('estimated_tdee', target_calories)
+            # Set a default TDEE if not available in the schedule
+            day_tdee = day_schedule.get('estimated_tdee')
+            if not day_tdee:
+                day_tdee = target_calories
             
             # Show day's activities summary
             workout_count = len(day_schedule.get("workouts", []))
