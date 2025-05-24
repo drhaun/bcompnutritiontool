@@ -1135,6 +1135,7 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
             # Calculate energy balance needed to achieve the weekly change
             daily_energy_balance = 0
             if week > 0:  # Skip week 0 (starting point)
+                # Week 1 begins the actual diet plan with caloric deficit/surplus
                 # Caloric surplus/deficit needed (~7700 kcal per kg of weight change)
                 if goal_is_gain:
                     daily_energy_balance = (abs(weekly_weight_change_kg) * 7700) / 7  # Daily surplus
@@ -1157,10 +1158,11 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
             if ffm_kg > 0:
                 energy_availability = target_energy / ffm_kg
             
-            # Only store the initial values for week 0
+            # Handle Week 0 as the starting point of the diet plan
             if week == 0:
-                # For Week 0, use the start date and show no changes (baseline)
-                # Also store target_energy in session state for use elsewhere
+                # For Week 0, use the start date with TDEE as target calories
+                # This represents the baseline before diet changes begin
+                # Week 0 uses TDEE as the target energy (no deficit/surplus yet)
                 progress_data.append({
                     'Date': date.strftime('%m/%d/%Y'),
                     'Week': week,
@@ -1175,9 +1177,9 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
                     'Ending FFM (lbs)': round(ffm_lbs, 1),
                     'FFM Change (lbs)': 0.0,
                     'Ending Body Fat %': round(body_fat_pct, 1),
-                    'Daily Energy Balance (kcal)': round(daily_energy_balance),
+                    'Daily Energy Balance (kcal)': 0,  # No energy balance change yet
                     'Daily TDEE (kcal)': round(current_tdee),
-                    'Daily Energy Target (kcal)': round(target_energy),
+                    'Daily Energy Target (kcal)': round(current_tdee),  # Week 0 uses TDEE, not target_energy
                     'Energy Availability (kcal/kg FFM)': round(energy_availability)
                 })
                 continue
