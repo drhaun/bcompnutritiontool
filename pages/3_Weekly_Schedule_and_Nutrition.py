@@ -594,6 +594,10 @@ with tab2:
     # Display TDEE and target calories
     energy_col1, energy_col2 = st.columns(2)
     
+    # Calculate BMR for explanation
+    bmr = utils.calculate_bmr(gender, weight_kg, height_cm, age)
+    activity_multiplier = utils.get_activity_multiplier(activity_level)
+    
     with energy_col1:
         st.metric(
             "Total Daily Energy Expenditure (TDEE)", 
