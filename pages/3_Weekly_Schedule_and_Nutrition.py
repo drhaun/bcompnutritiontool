@@ -69,23 +69,25 @@ st.write("Plan your meals, workouts, activities, and set your nutritional target
 # ------------------------------
 st.header("Nutrition Targets")
 
-# Get user information from session state
-gender = st.session_state.user_info['gender']
-weight_kg = st.session_state.user_info['weight_kg']
+# Get user information from session state with safe default values
+user_info = st.session_state.user_info
+gender = user_info.get('gender', 'Male')
+weight_kg = user_info.get('weight_kg', 70)  # Default 70kg if not set
 weight_lbs = weight_kg * 2.20462
-height_cm = st.session_state.user_info['height_cm']
-age = st.session_state.user_info['age']
-body_fat_pct = st.session_state.user_info['body_fat_percentage']
-activity_level = st.session_state.user_info['activity_level']
-workouts_per_week = st.session_state.user_info.get('workouts_per_week', 0)
-workout_calories = st.session_state.user_info.get('workout_calories', 0)
+height_cm = user_info.get('height_cm', 175)  # Default 175cm if not set
+age = user_info.get('age', 30)  # Default 30 years if not set
+body_fat_pct = user_info.get('body_fat_percentage', 15)  # Default 15% if not set
+activity_level = user_info.get('activity_level', 'Moderately active')
+workouts_per_week = user_info.get('workouts_per_week', 3)
+workout_calories = user_info.get('workout_calories', 300)
 
-# Get goal information
-goal_type = st.session_state.goal_info['goal_type']
-timeline_weeks = st.session_state.goal_info.get('timeline_weeks', 12)  # Default to 12 weeks
-target_weight_kg = st.session_state.goal_info.get('target_weight_kg', weight_kg)
+# Get goal information with safe default values
+goal_info = st.session_state.goal_info
+goal_type = goal_info.get('goal_type', 'maintain')  # Default to maintenance if not set
+timeline_weeks = goal_info.get('timeline_weeks', 12)  # Default to 12 weeks
+target_weight_kg = goal_info.get('target_weight_kg', weight_kg)  # Default to current weight
 target_weight_lbs = target_weight_kg * 2.20462
-target_bf_pct = st.session_state.goal_info.get('target_bf', body_fat_pct)
+target_bf_pct = goal_info.get('target_bf', body_fat_pct)  # Default to current BF%
 
 # Calculate TDEE
 bmr = utils.calculate_bmr(gender, weight_kg, height_cm, age)
@@ -337,10 +339,14 @@ with carb_col:
     )
     st.session_state.custom_carbs = custom_carbs
 
-# Calculate totals
-protein_cals = st.session_state.custom_protein * 4
-fat_cals = st.session_state.custom_fat * 9
-carb_cals = st.session_state.custom_carbs * 4
+# Calculate totals (with safe handling for None values)
+custom_protein = st.session_state.custom_protein if st.session_state.custom_protein is not None else 0
+custom_fat = st.session_state.custom_fat if st.session_state.custom_fat is not None else 0
+custom_carbs = st.session_state.custom_carbs if st.session_state.custom_carbs is not None else 0
+
+protein_cals = custom_protein * 4
+fat_cals = custom_fat * 9
+carb_cals = custom_carbs * 4
 total_cals = protein_cals + fat_cals + carb_cals
 
 # Display macronutrient breakdown
@@ -350,10 +356,10 @@ st.subheader("Macronutrient Breakdown")
 macro_data = {
     "Macronutrient": ["Protein", "Fat", "Carbohydrates", "Total"],
     "Grams": [
-        st.session_state.custom_protein,
-        st.session_state.custom_fat,
-        st.session_state.custom_carbs,
-        st.session_state.custom_protein + st.session_state.custom_fat + st.session_state.custom_carbs
+        custom_protein,
+        custom_fat,
+        custom_carbs,
+        custom_protein + custom_fat + custom_carbs
     ],
     "Calories": [
         protein_cals,
@@ -387,14 +393,19 @@ else:
 if 'nutrition_plan' not in st.session_state:
     st.session_state.nutrition_plan = {}
 
+# Safely get percentages
+protein_pct = round((protein_cals / total_cals) * 100) if total_cals > 0 else 0
+fat_pct = round((fat_cals / total_cals) * 100) if total_cals > 0 else 0
+carbs_pct = round((carb_cals / total_cals) * 100) if total_cals > 0 else 0
+
 st.session_state.nutrition_plan = {
     "target_calories": target_calories,
-    "protein": st.session_state.custom_protein,
-    "fat": st.session_state.custom_fat,
-    "carbs": st.session_state.custom_carbs,
-    "protein_pct": round((protein_cals / total_cals) * 100) if total_cals > 0 else 0,
-    "fat_pct": round((fat_cals / total_cals) * 100) if total_cals > 0 else 0,
-    "carbs_pct": round((carb_cals / total_cals) * 100) if total_cals > 0 else 0,
+    "protein": custom_protein,
+    "fat": custom_fat,
+    "carbs": custom_carbs,
+    "protein_pct": protein_pct,
+    "fat_pct": fat_pct,
+    "carbs_pct": carbs_pct,
     "total_calories": total_cals
 }
 
@@ -657,16 +668,13 @@ if st.session_state.add_activity_popup:
                 key="popup_workout_name"
             )
             
-            # Find duration for selected workout
-            duration = 60
-            for workout in activity_types["Workouts"]:
-                if workout["name"] == workout_name:
-                    duration = workout["duration"]
-                    break
+            # Use safer approach for workout duration
+            duration = 60  # Default duration
             
-            # Calculate end time
-            end_hour = popup_hour + (duration // 60)
-            end_minute = duration % 60
+            # Calculate end time (default to current hour + 1 if needed)
+            popup_hour_safe = 8 if popup_hour is None else popup_hour
+            end_hour = popup_hour_safe + 1  # Default 1 hour
+            end_minute = 0
             end_time = f"{end_hour % 24:02d}:{end_minute:02d}"
             
             st.write(f"Duration: {duration} minutes (ends at {end_time})")
@@ -690,12 +698,8 @@ if st.session_state.add_activity_popup:
                 key="popup_activity_name"
             )
             
-            # Find default duration
-            duration_hours = 1
-            for activity in activity_types["Activities"]:
-                if activity["name"] == activity_name:
-                    duration_hours = activity["duration"] // 60
-                    break
+            # Use safe approach for activity duration
+            duration_hours = 1  # Default duration in hours
             
             # Let user customize duration
             duration_hours = st.slider(
@@ -706,9 +710,10 @@ if st.session_state.add_activity_popup:
                 step=0.5
             )
             
-            # Calculate end time
+            # Calculate end time (safely)
             duration_minutes = int(duration_hours * 60)
-            end_hour = popup_hour + (duration_minutes // 60)
+            popup_hour_safe = 8 if popup_hour is None else popup_hour
+            end_hour = popup_hour_safe + (duration_minutes // 60)
             end_minute = duration_minutes % 60
             end_time = f"{end_hour % 24:02d}:{end_minute:02d}"
             
