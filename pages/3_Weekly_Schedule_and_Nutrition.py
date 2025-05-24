@@ -258,7 +258,7 @@ with tab1:
         day_tdee_values = {}
         for day in days_of_week:
             day_data = st.session_state.weekly_schedule.get(day, {})
-            day_tdee_values[day] = day_data.get('estimated_tdee', base_tdee)
+            day_tdee_values[day] = day_data.get('estimated_tdee', 2000)
         
         st.session_state.day_tdee_values = day_tdee_values
         
@@ -276,7 +276,7 @@ with tab1:
         # Populate nutrition targets for each day based on goals and workout intensity
         for day in days_of_week:
             day_data = st.session_state.confirmed_weekly_schedule.get(day, {})
-            day_tdee = day_data.get('estimated_tdee', base_tdee)
+            day_tdee = day_data.get('estimated_tdee', 2000)
             workout_count = len(day_data.get("workouts", []))
             
             # Adjust calories based on goal and weekly deficit/surplus
@@ -562,7 +562,7 @@ with tab1:
         day_tdee_values = {}
         for day in days_of_week:
             day_data = st.session_state.weekly_schedule.get(day, {})
-            day_tdee_values[day] = day_data.get('estimated_tdee', base_tdee)
+            day_tdee_values[day] = day_data.get('estimated_tdee', 2000)
         
         st.session_state.day_tdee_values = day_tdee_values
         
@@ -580,7 +580,7 @@ with tab1:
         # Populate nutrition targets for each day based on goals and workout intensity
         for day in days_of_week:
             day_data = st.session_state.confirmed_weekly_schedule.get(day, {})
-            day_tdee = day_data.get('estimated_tdee', base_tdee)
+            day_tdee = day_data.get('estimated_tdee', 2000)
             workout_count = len(day_data.get("workouts", []))
             
             # Adjust calories based on goal and weekly deficit/surplus
