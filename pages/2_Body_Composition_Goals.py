@@ -893,6 +893,6 @@ with st.form(key="save_goal_form"):
             st.warning("Please set your target values before saving.")
 
 st.markdown("---")
-st.write("Continue to the Nutrition Plan page to set up your nutrition targets based on these goals.")
+st.write("Continue to the Weekly Schedule and Nutrition page to set up your nutrition targets based on these goals.")
 if st.session_state.targets_set:
-    st.link_button("Continue to Nutrition Plan", url="Nutrition_Plan")
+    st.link_button("Continue to Weekly Schedule and Nutrition", url="Weekly_Schedule_and_Nutrition")
