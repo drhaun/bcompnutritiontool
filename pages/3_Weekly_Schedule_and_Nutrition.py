@@ -346,9 +346,15 @@ with tab2:
     goal_info = st.session_state.goal_info if 'goal_info' in st.session_state else {}
     goal_type = goal_info.get('goal_type', 'maintain')  # Default to maintenance if not set
     timeline_weeks = goal_info.get('timeline_weeks', 12)  # Default to 12 weeks
-    target_weight_kg = goal_info.get('target_weight_kg', weight_kg)  # Default to current weight
+    target_weight_kg = goal_info.get('target_weight_kg')
+    # If target weight is not set, use current weight
+    if target_weight_kg is None:
+        target_weight_kg = weight_kg
     target_weight_lbs = target_weight_kg * 2.20462
-    target_bf_pct = goal_info.get('target_bf', body_fat_pct)  # Default to current BF%
+    target_bf_pct = goal_info.get('target_bf')
+    # If target body fat is not set, use current body fat
+    if target_bf_pct is None:
+        target_bf_pct = body_fat_pct
     
     # Calculate TDEE (Total Daily Energy Expenditure)
     bmr = utils.calculate_bmr(gender, weight_kg, height_cm, age)
