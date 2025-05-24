@@ -1240,15 +1240,34 @@ with tab2:
                 step=50
             )
             
-            # Ensure protein value is an integer
-            if isinstance(day_macros['protein'], list):
-                day_macros['protein'] = round(weight_kg * 1.8)  # Default to 1.8g/kg
+            # Ensure protein value is an integer and follows standard coefficients
+            # For fat loss: 2.0g/kg or 0.9g/lb
+            # For muscle gain: 1.8g/kg or 0.8g/lb
+            # For maintenance: 1.6g/kg or 0.7g/lb
+            if not isinstance(day_macros['protein'], (int, float)) or day_macros['protein'] <= 0:
+                if user_goal_type == "lose_fat":
+                    day_macros['protein'] = round(weight_kg * 2.0)  # Higher for fat loss to preserve muscle
+                elif user_goal_type == "gain_muscle":
+                    day_macros['protein'] = round(weight_kg * 1.8)  # High for muscle gain
+                else:  # Maintenance
+                    day_macros['protein'] = round(weight_kg * 1.6)  # Moderate for maintenance
                 
             # Ensure proper values for protein slider
             try:
                 min_protein = round(float(weight_kg) * 1.2)  # Minimum 1.2g/kg
                 max_protein = round(float(weight_kg) * 2.5)  # Maximum 2.5g/kg
-                default_protein = int(day_macros['protein'])
+                
+                # Set default based on goal type as per standard coefficients
+                if user_goal_type == "lose_fat":
+                    default_protein = round(weight_kg * 2.0)  # 2.0g/kg for fat loss
+                elif user_goal_type == "gain_muscle":
+                    default_protein = round(weight_kg * 1.8)  # 1.8g/kg for muscle gain
+                else:  # Maintenance
+                    default_protein = round(weight_kg * 1.6)  # 1.6g/kg for maintenance
+                    
+                # Use existing value if reasonable, otherwise use standard coefficients
+                if isinstance(day_macros['protein'], (int, float)) and day_macros['protein'] > 0:
+                    default_protein = int(day_macros['protein'])
                 
                 # Set some sensible limits
                 min_protein = max(50, min_protein)
@@ -1274,15 +1293,30 @@ with tab2:
                 help="Recommended: 1.6-2.2g per kg of body weight"
             )
             
-            # Ensure fat value is an integer
-            if isinstance(day_macros['fat'], list):
-                day_macros['fat'] = round(weight_kg * 0.8)  # Default to 0.8g/kg
+            # Ensure fat value is an integer and follows standard coefficients
+            # Standard: minimum of either 0.8g/kg or 30% of calories
+            if not isinstance(day_macros['fat'], (int, float)) or day_macros['fat'] <= 0:
+                # Calculate based on standard of minimum 0.8g/kg or 30% of calories
+                min_fat_by_weight = round(weight_kg * 0.8)  # 0.8g/kg
+                min_fat_by_calories = round(custom_day_calories * 0.3 / 9)  # 30% of calories
+                day_macros['fat'] = max(min_fat_by_weight, min_fat_by_calories)
             
             # Fat adjustment (ensure minimum fat intake)
             try:
+                # Minimum fat based on weight (0.5g/kg or 0.25g/lb)
                 min_fat = round(float(weight_kg) * 0.5)  # Minimum 0.5g/kg
+                
+                # Maximum fat based on calories (40% of calories)
                 max_fat = round(float(custom_day_calories) * 0.4 / 9)  # Maximum 40% of calories
-                default_fat = int(day_macros['fat'])
+                
+                # Default fat based on standard coefficients (30% of calories or 0.8g/kg, whichever is higher)
+                min_fat_by_weight = round(weight_kg * 0.8)  # 0.8g/kg
+                min_fat_by_calories = round(custom_day_calories * 0.3 / 9)  # 30% of calories
+                default_fat = max(min_fat_by_weight, min_fat_by_calories)
+                
+                # Use existing value if reasonable, otherwise use standard coefficient
+                if isinstance(day_macros['fat'], (int, float)) and day_macros['fat'] > 0:
+                    default_fat = int(day_macros['fat'])
                 
                 # Set sensible limits
                 min_fat = max(20, min_fat)
