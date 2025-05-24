@@ -174,6 +174,14 @@ with tab2:
             # Protein with info icon
             st.markdown(f"**Protein:** {default_macros['protein']}g")
             st.markdown(f"({round(default_macros['protein'] * 4)} kcal, {round(default_macros['protein'] * 4 / target_calories * 100)}% of calories)")
+            
+            # Carbs with values
+            st.markdown(f"**Carbs:** {default_macros['carbs']}g")
+            st.markdown(f"({round(default_macros['carbs'] * 4)} kcal, {round(default_macros['carbs'] * 4 / target_calories * 100)}% of calories)")
+            
+            # Fat with values
+            st.markdown(f"**Fat:** {default_macros['fat']}g")
+            st.markdown(f"({round(default_macros['fat'] * 9)} kcal, {round(default_macros['fat'] * 9 / target_calories * 100)}% of calories)")
         
         with col2:
             st.write("")  # Spacing
