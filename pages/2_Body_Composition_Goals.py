@@ -866,6 +866,24 @@ with st.form(key="save_goal_form"):
             st.session_state.weekly_weight_pct = weekly_weight_pct
             st.session_state.weekly_fat_pct = weekly_fat_pct
             st.session_state.timeline_weeks = timeline_weeks
+            st.session_state.start_date = start_date.strftime('%Y-%m-%d')
+            
+            # Get target energy from Week 0 of progress table
+            if 'progress_df' in locals() and not progress_df.empty:
+                week0_data = progress_df[progress_df['Week'] == 0]
+                if not week0_data.empty and 'Daily Energy Target (kcal)' in week0_data.columns:
+                    target_energy = int(week0_data['Daily Energy Target (kcal)'].iloc[0])
+                    
+                    # Create or update goal_info dictionary
+                    if 'goal_info' not in st.session_state:
+                        st.session_state.goal_info = {}
+                    
+                    # Update goal_info with all relevant data including target energy
+                    st.session_state.goal_info.update({
+                        'goal_type': goal_type,
+                        'target_energy': target_energy,
+                        'start_date': start_date.strftime('%Y-%m-%d')
+                    })
             
             # Save to data file
             utils.save_data()
