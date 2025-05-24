@@ -1407,9 +1407,12 @@ with tab2:
             # Calculate Energy Availability
             # Energy Availability = (Calorie intake - exercise energy expenditure) / kg of fat-free mass
             try:
-                # Get body fat percentage and calculate fat-free mass
-                body_fat_pct = user_info.get('body_fat_pct', 20)  # Default to 20% if not available
-                weight_kg = user_info.get('weight_kg', 70)  # Default to 70kg if not available
+                # Get user information using the same method as elsewhere in the code
+                gender = st.session_state.get('gender', 'Male')
+                age = st.session_state.get('age', 30)
+                weight_kg = st.session_state.get('weight_kg', 70)
+                height_cm = st.session_state.get('height_cm', 175)
+                body_fat_pct = st.session_state.get('body_fat_pct', 20)
                 
                 # Calculate fat-free mass in kg
                 fat_mass_kg = weight_kg * (body_fat_pct / 100)
