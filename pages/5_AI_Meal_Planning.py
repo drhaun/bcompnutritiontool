@@ -634,42 +634,207 @@ with st.expander("Generate recipe based on your macronutrient needs", expanded=F
     
     # Generate recipe button
     if st.button("Generate Recipe", type="primary"):
-        with st.spinner("Creating your recipe..."):
-            # Sample recipes for different macro targets
-            high_protein_recipes = [
-                {
-                    "name": "High Protein Chicken Bowl",
-                    "ingredients": [
-                        {"name": "Chicken Breast", "amount": "200g", "protein": 62, "carbs": 0, "fat": 7, "calories": 330},
-                        {"name": "Brown Rice", "amount": "100g cooked", "protein": 2.6, "carbs": 23, "fat": 0.9, "calories": 112},
-                        {"name": "Broccoli", "amount": "100g", "protein": 2.8, "carbs": 7, "fat": 0.4, "calories": 34},
-                        {"name": "Olive Oil", "amount": "1 tbsp", "protein": 0, "carbs": 0, "fat": 14, "calories": 120},
-                    ],
-                    "instructions": [
-                        "1. Season chicken breast with salt, pepper, and herbs of choice.",
-                        "2. Grill or bake chicken until internal temperature reaches 165°F (74°C).",
-                        "3. Steam broccoli until tender-crisp.",
-                        "4. Serve chicken over cooked brown rice with broccoli on the side.",
-                        "5. Drizzle with olive oil and season to taste."
-                    ],
-                    "macros": {"protein": 67, "carbs": 30, "fat": 22, "calories": 596}
-                },
-                {
-                    "name": "Greek Yogurt Protein Bowl",
-                    "ingredients": [
-                        {"name": "Greek Yogurt (2%)", "amount": "250g", "protein": 25, "carbs": 9, "fat": 5, "calories": 180},
-                        {"name": "Protein Powder", "amount": "1 scoop (30g)", "protein": 24, "carbs": 3, "fat": 1, "calories": 120},
-                        {"name": "Berries", "amount": "100g", "protein": 0.7, "carbs": 14, "fat": 0.3, "calories": 57},
-                        {"name": "Almonds", "amount": "15g", "protein": 3.5, "carbs": 2.5, "fat": 7.5, "calories": 90},
-                    ],
-                    "instructions": [
-                        "1. Mix greek yogurt with protein powder until smooth.",
-                        "2. Top with fresh berries and almonds.",
-                        "3. Optional: add a drizzle of honey or zero-calorie sweetener if desired."
-                    ],
-                    "macros": {"protein": 53, "carbs": 29, "fat": 14, "calories": 447}
-                }
-            ]
+        with st.spinner("Creating your personalized recipe..."):
+            # In a full implementation, this would use an AI model with preferences
+            # For now, show sample data with preference-based adjustments
+            
+            st.success("Recipe Generated Based on Your Preferences!")
+            
+            # Create a recipe name that reflects preferences
+            recipe_name = "Personalized Recipe"
+            
+            # Incorporate cuisine type
+            cuisine_prefix = ""
+            if cuisine_type != "Any":
+                cuisine_prefix = f"{cuisine_type} "
+            
+            # Incorporate dietary restrictions
+            diet_suffix = ""
+            if st.session_state.food_preferences['dietary_restrictions']:
+                diet_suffix = f" ({st.session_state.food_preferences['dietary_restrictions'][0]})"
+            
+            # Create a more personalized recipe name
+            if meal_time == "Breakfast":
+                if cuisine_type == "Mediterranean":
+                    recipe_name = f"{cuisine_prefix}Egg & Vegetable Scramble{diet_suffix}"
+                elif cuisine_type == "Mexican":
+                    recipe_name = f"{cuisine_prefix}Breakfast Burrito Bowl{diet_suffix}"
+                else:
+                    recipe_name = f"{cuisine_prefix}Protein Breakfast Bowl{diet_suffix}"
+            elif meal_time == "Lunch":
+                if cuisine_type == "Mediterranean":
+                    recipe_name = f"{cuisine_prefix}Chicken & Vegetable Bowl{diet_suffix}"
+                elif cuisine_type == "Mexican":
+                    recipe_name = f"{cuisine_prefix}Bean & Rice Bowl{diet_suffix}"
+                else:
+                    recipe_name = f"{cuisine_prefix}Power Lunch Bowl{diet_suffix}"
+            elif meal_time == "Dinner":
+                if cuisine_type == "Mediterranean":
+                    recipe_name = f"{cuisine_prefix}Herb-Roasted Protein & Vegetables{diet_suffix}"
+                elif cuisine_type == "Mexican":
+                    recipe_name = f"{cuisine_prefix}Fajita Bowl{diet_suffix}"
+                else:
+                    recipe_name = f"{cuisine_prefix}Balanced Dinner Plate{diet_suffix}"
+            else:  # Snack
+                recipe_name = f"{cuisine_prefix}Protein-Packed Snack Mix{diet_suffix}"
+                
+            st.subheader(recipe_name)
+            
+            # Create ingredients list based on preferences
+            st.markdown("#### Ingredients:")
+            
+            # Default ingredients
+            ingredients = []
+            
+            # Add protein based on preferences and dietary restrictions
+            protein_options = []
+            is_vegetarian = any(r == "Vegetarian" or r == "Vegan" for r in st.session_state.food_preferences['dietary_restrictions'])
+            is_vegan = any(r == "Vegan" for r in st.session_state.food_preferences['dietary_restrictions'])
+            
+            if is_vegan:
+                protein_options = ["tofu", "tempeh", "beans", "lentils", "chickpeas", "quinoa"]
+            elif is_vegetarian:
+                protein_options = ["tofu", "tempeh", "beans", "lentils", "chickpeas", "eggs", "greek yogurt", "cottage cheese"]
+            else:
+                protein_options = ["chicken breast", "salmon", "ground turkey", "lean beef", "eggs"]
+            
+            # Filter protein options based on liked and disliked foods
+            filtered_proteins = protein_options.copy()
+            
+            # Remove disliked proteins
+            if st.session_state.food_preferences['disliked_foods']:
+                filtered_proteins = [p for p in filtered_proteins 
+                                  if not any(d.lower() in p.lower() for d in st.session_state.food_preferences['disliked_foods'])]
+            
+            # Find preferred proteins
+            preferred_proteins = []
+            if st.session_state.food_preferences['liked_foods']:
+                preferred_proteins = [p for p in filtered_proteins 
+                                    if any(l.lower() in p.lower() for l in st.session_state.food_preferences['liked_foods'])]
+            
+            # Select the protein
+            if preferred_proteins:
+                selected_protein = preferred_proteins[0]
+            elif filtered_proteins:
+                selected_protein = filtered_proteins[0]
+            else:
+                selected_protein = protein_options[0]
+            
+            # Add the protein to ingredients
+            if meal_time in ["Breakfast", "Lunch", "Dinner"]:
+                ingredients.append(f"4 oz {selected_protein}")
+            else:
+                ingredients.append(f"2 oz {selected_protein}")
+            
+            # Add carbs based on preferences
+            carb_options = ["brown rice", "quinoa", "sweet potato", "whole grain bread", "oats"]
+            
+            # Filter carb options
+            filtered_carbs = carb_options.copy()
+            
+            # Remove disliked carbs
+            if st.session_state.food_preferences['disliked_foods']:
+                filtered_carbs = [c for c in filtered_carbs 
+                               if not any(d.lower() in c.lower() for d in st.session_state.food_preferences['disliked_foods'])]
+            
+            # Find preferred carbs
+            preferred_carbs = []
+            if st.session_state.food_preferences['liked_foods']:
+                preferred_carbs = [c for c in filtered_carbs 
+                                 if any(l.lower() in c.lower() for l in st.session_state.food_preferences['liked_foods'])]
+            
+            # Select the carb
+            if preferred_carbs:
+                selected_carb = preferred_carbs[0]
+            elif filtered_carbs:
+                selected_carb = filtered_carbs[0]
+            else:
+                selected_carb = carb_options[0]
+            
+            if meal_time in ["Breakfast", "Lunch", "Dinner"]:
+                ingredients.append(f"1/2 cup {selected_carb}")
+            
+            # Add vegetables
+            vegetable_options = ["broccoli", "spinach", "kale", "bell peppers", "zucchini", "carrots", "mixed vegetables"]
+            
+            # Filter vegetable options
+            filtered_veggies = vegetable_options.copy()
+            
+            # Remove disliked vegetables
+            if st.session_state.food_preferences['disliked_foods']:
+                filtered_veggies = [v for v in filtered_veggies 
+                                 if not any(d.lower() in v.lower() for d in st.session_state.food_preferences['disliked_foods'])]
+            
+            # Find preferred vegetables
+            preferred_veggies = []
+            if st.session_state.food_preferences['liked_foods']:
+                preferred_veggies = [v for v in filtered_veggies 
+                                   if any(l.lower() in v.lower() for l in st.session_state.food_preferences['liked_foods'])]
+            
+            # Select the vegetable
+            if preferred_veggies:
+                selected_veggie = preferred_veggies[0]
+            elif filtered_veggies:
+                selected_veggie = filtered_veggies[0]
+            else:
+                selected_veggie = "mixed vegetables"
+                
+            ingredients.append(f"1 cup {selected_veggie}")
+            
+            # Add fat source
+            fat_options = ["olive oil", "avocado", "nuts", "seeds"]
+            
+            # Select fat based on preferences
+            selected_fat = "olive oil"  # Default
+            
+            if st.session_state.food_preferences['liked_foods']:
+                for fat in fat_options:
+                    if any(fat.lower() in l.lower() for l in st.session_state.food_preferences['liked_foods']):
+                        selected_fat = fat
+                        break
+            
+            ingredients.append(f"1 tbsp {selected_fat}")
+            
+            # Add seasoning based on cuisine
+            if cuisine_type == "Mediterranean":
+                ingredients.append("1 tsp oregano, lemon juice, salt and pepper")
+            elif cuisine_type == "Mexican":
+                ingredients.append("1 tsp cumin, chili powder, lime juice, salt and pepper")
+            elif cuisine_type == "Asian":
+                ingredients.append("1 tsp ginger, garlic, soy sauce, sesame oil")
+            else:
+                ingredients.append("Herbs and spices to taste")
+            
+            # Display ingredients
+            for ingredient in ingredients:
+                st.markdown(f"- {ingredient}")
+                
+            # Sample recipe instructions based on meal type
+            st.markdown("#### Instructions:")
+            
+            if meal_time == "Breakfast":
+                st.markdown("1. Heat a non-stick pan over medium heat.")
+                st.markdown(f"2. Cook {selected_protein} until done.")
+                st.markdown(f"3. Add {selected_veggie} and sauté until tender.")
+                st.markdown("4. Season with herbs and spices.")
+                st.markdown(f"5. Serve with a side of {selected_carb}.")
+            elif meal_time in ["Lunch", "Dinner"]:
+                st.markdown(f"1. Cook {selected_carb} according to package instructions.")
+                st.markdown(f"2. Season and cook {selected_protein}.")
+                st.markdown(f"3. Sauté the {selected_veggie} with {selected_fat}.")
+                st.markdown("4. Combine all ingredients in a bowl.")
+                st.markdown("5. Add seasonings and mix well.")
+            else:  # Snack
+                st.markdown("1. Combine all ingredients in a container.")
+                st.markdown("2. Portion into small containers for easy grab-and-go snacks.")
+                st.markdown("3. Store in the refrigerator for up to 3 days.")
+            
+            # Recipe nutrition (matching target macros)
+            st.markdown("#### Nutrition Information:")
+            st.markdown(f"**Calories:** {target_recipe_cals} kcal")
+            st.markdown(f"**Protein:** {target_recipe_protein}g")
+            st.markdown(f"**Carbs:** {target_recipe_carbs}g")
+            st.markdown(f"**Fat:** {target_recipe_fat}g")
             
             high_carb_recipes = [
                 {
