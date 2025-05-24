@@ -251,7 +251,93 @@ with tab1:
             # Store the day's schedule
             st.session_state.weekly_schedule[day] = day_schedule
         
-        st.success("Default weekly schedule generated! You can now customize each day as needed.")
+        # AUTOMATIC CONFIRMATION: Store the schedule to populate the weekly overview table
+        st.session_state.confirmed_weekly_schedule = copy.deepcopy(st.session_state.weekly_schedule)
+        
+        # Also store day-specific TDEE values for meal planning
+        day_tdee_values = {}
+        for day in days_of_week:
+            day_data = st.session_state.weekly_schedule.get(day, {})
+            day_tdee_values[day] = day_data.get('estimated_tdee', base_tdee)
+        
+        st.session_state.day_tdee_values = day_tdee_values
+        
+        # Auto-generate day-specific nutrition targets based on the confirmed schedule
+        if 'day_specific_nutrition' not in st.session_state:
+            st.session_state.day_specific_nutrition = {}
+        
+        # Get user's goal type and other data from session state
+        user_info = st.session_state.get('user_info', {})
+        goal_info = st.session_state.get('goal_info', {})
+        
+        user_goal_type = goal_info.get('goal_type', 'maintain')
+        user_weight_kg = user_info.get('weight_kg', 70)  # Default if not available
+        
+        # Populate nutrition targets for each day based on goals and workout intensity
+        for day in days_of_week:
+            day_data = st.session_state.confirmed_weekly_schedule.get(day, {})
+            day_tdee = day_data.get('estimated_tdee', base_tdee)
+            workout_count = len(day_data.get("workouts", []))
+            
+            # Adjust calories based on goal and weekly deficit/surplus
+            if user_goal_type == "lose_fat":
+                # Get weekly deficit from goal_info or use default (500-700 kcal/day for fat loss)
+                weekly_deficit = goal_info.get('weekly_deficit', 3500)  # Default ~1lb/week
+                daily_deficit = weekly_deficit / 7
+                day_target_calories = round(day_tdee - daily_deficit)
+            elif user_goal_type == "gain_muscle":
+                # Get weekly surplus from goal_info or use default (250-350 kcal/day for muscle gain)
+                weekly_surplus = goal_info.get('weekly_surplus', 1750)  # Default ~0.5lb/week
+                daily_surplus = weekly_surplus / 7
+                day_target_calories = round(day_tdee + daily_surplus)
+            else:  # Maintenance
+                day_target_calories = day_tdee
+            
+            # For protein, use g/kg of bodyweight targets based on goal and workout intensity
+            if user_goal_type == "lose_fat":
+                # Higher protein for fat loss to preserve muscle
+                base_protein = round(float(user_weight_kg) * 2.0)  # 2.0g/kg for fat loss
+            elif user_goal_type == "gain_muscle":
+                # High protein for muscle gain
+                base_protein = round(float(user_weight_kg) * 1.8)  # 1.8g/kg for muscle gain
+            else:
+                # Moderate protein for maintenance
+                base_protein = round(float(user_weight_kg) * 1.6)  # 1.6g/kg for maintenance
+                
+            # Adjust for workout days - more protein on training days
+            if workout_count > 0:
+                # Check for high-intensity workouts
+                has_high_intensity = False
+                for workout in day_data.get("workouts", []):
+                    if workout.get("intensity") in ["High", "Very High"]:
+                        has_high_intensity = True
+                        break
+                
+                if has_high_intensity:
+                    day_protein = round(base_protein * 1.1)  # 10% more protein for high intensity days
+                else:
+                    day_protein = round(base_protein * 1.05)  # 5% more protein for regular workout days
+            else:
+                day_protein = base_protein
+            
+            # For fat, use minimum based on body weight
+            day_fat = round(float(user_weight_kg) * 0.8)  # 0.8g/kg as baseline
+            
+            # Calculate remaining calories for carbs
+            protein_calories = day_protein * 4
+            fat_calories = day_fat * 9
+            carb_calories = day_target_calories - protein_calories - fat_calories
+            day_carbs = max(0, round(carb_calories / 4))
+            
+            # Store in session state
+            st.session_state.day_specific_nutrition[day] = {
+                'target_calories': day_target_calories,
+                'protein': day_protein,
+                'carbs': day_carbs,
+                'fat': day_fat
+            }
+        
+        st.success("Default schedule generated with nutrition targets! You can now proceed to the Nutrition Targets tab.")
         st.rerun()  # Rerun to show the updated schedule
     
     # Set up weekly schedule tabs
