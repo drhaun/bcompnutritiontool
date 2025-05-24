@@ -1364,18 +1364,35 @@ with tab2:
                 st.write(f"{fat_per_lb}g/lb")
                 st.write(f"{fat_cal_pct}% of calories")
             
-            # Calculate remaining calories for carbs with error handling
+            # Calculate default carbs from remaining calories
             try:
                 protein_calories = float(custom_day_protein) * 4
                 fat_calories = float(custom_day_fat) * 9
                 carb_calories = float(custom_day_calories) - protein_calories - fat_calories
-                custom_day_carbs = max(0, round(carb_calories / 4))
+                default_carbs = max(0, round(carb_calories / 4))
                 
-                # Display calculated carbs with detailed information
+                # Calculate min and max values for carb slider
+                min_carbs = max(0, round((custom_day_calories * 0.2) / 4))  # Minimum 20% of calories from carbs
+                max_carbs = round((custom_day_calories * 0.7) / 4)  # Maximum 70% of calories from carbs
+                
+                # Make sure default is within range
+                if default_carbs < min_carbs:
+                    default_carbs = min_carbs
+                elif default_carbs > max_carbs:
+                    default_carbs = max_carbs
+                
+                # Add a slider for carbs instead of just displaying the calculated value
                 cols_carbs = st.columns([3, 1])
                 with cols_carbs[0]:
-                    st.write(f"**Carbohydrates:** {custom_day_carbs}g (calculated from remaining calories)")
+                    custom_day_carbs = st.slider(
+                        f"Carbohydrates for {selected_day}",
+                        min_value=min_carbs,
+                        max_value=max_carbs,
+                        value=default_carbs,
+                        help="Adjust carbs based on your preferences and activity level"
+                    )
                 
+                # Show carb metrics in different units
                 with cols_carbs[1]:
                     carbs_per_kg = round(custom_day_carbs / weight_kg, 2)
                     carbs_per_lb = round(custom_day_carbs / (weight_kg * 2.20462), 2)
@@ -1384,12 +1401,22 @@ with tab2:
                     st.write(f"{carbs_per_kg}g/kg")
                     st.write(f"{carbs_per_lb}g/lb")
                     st.write(f"{carbs_cal_pct}% of calories")
+                    
+                # Recalculate the total calories based on the adjusted macros
+                total_calories = (custom_day_protein * 4) + (custom_day_fat * 9) + (custom_day_carbs * 4)
                 
-                # Show macronutrient breakdown percentages
-                if float(custom_day_calories) > 0:
-                    protein_pct = round((protein_calories / float(custom_day_calories)) * 100)
-                    fat_pct = round((fat_calories / float(custom_day_calories)) * 100)
-                    carbs_pct = round((custom_day_carbs * 4 / float(custom_day_calories)) * 100)
+                # Calculate calorie difference from target
+                calorie_diff = total_calories - custom_day_calories
+                diff_text = f"({calorie_diff:+} from target)" if abs(calorie_diff) > 10 else "(matches target)"
+                
+                # Display adjusted calories with difference from target
+                st.write(f"**Adjusted Total Calories:** {round(total_calories)} kcal {diff_text}")
+                
+                # Show macronutrient breakdown percentages based on the adjusted total calories
+                if total_calories > 0:
+                    protein_pct = round((custom_day_protein * 4 / total_calories) * 100)
+                    fat_pct = round((custom_day_fat * 9 / total_calories) * 100)
+                    carbs_pct = round((custom_day_carbs * 4 / total_calories) * 100)
                 else:
                     protein_pct = 0
                     fat_pct = 0
