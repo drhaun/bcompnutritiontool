@@ -54,16 +54,19 @@ with tab1:
     - Getting 7-9 hours of sleep is essential for recovery and results
     """)
     
-    # Get general sleep schedule first (to use as default for all days)
-    st.subheader("General Sleep Schedule")
-    col1, col2 = st.columns(2)
+    # Default schedule setup
+    st.subheader("Quick Schedule Setup")
+    st.write("Set up your default schedule parameters and we'll create a weekly schedule for you.")
     
-    with col1:
+    # Create two column layout for sleep schedule
+    sleep_col1, sleep_col2 = st.columns(2)
+    
+    with sleep_col1:
         default_wake_time = st.session_state.get('default_wake_time', "06:00")
         default_wake_time = st.time_input("Default Wake Time", value=datetime.time.fromisoformat(default_wake_time))
         st.session_state['default_wake_time'] = default_wake_time.strftime("%H:%M")
     
-    with col2:
+    with sleep_col2:
         default_bed_time = st.session_state.get('default_bed_time', "22:00")
         default_bed_time = st.time_input("Default Bed Time", value=datetime.time.fromisoformat(default_bed_time))
         st.session_state['default_bed_time'] = default_bed_time.strftime("%H:%M")
@@ -86,6 +89,170 @@ with tab1:
         st.warning(f"You're planning {sleep_hours:.1f} hours of sleep, which is less than the recommended 7-9 hours for optimal recovery and health.")
     else:
         st.success(f"You're planning {sleep_hours:.1f} hours of sleep, which is within the recommended 7-9 hours for optimal recovery and health.")
+    
+    # Meal setup
+    st.subheader("Default Meal Schedule")
+    meals_per_day = st.slider("Number of meals per day", min_value=2, max_value=8, value=4, 
+                             help="This includes main meals and snacks.")
+    
+    # Default meal times based on number of meals
+    meal_time_suggestions = {
+        2: ["08:00", "18:00"],
+        3: ["07:00", "12:00", "18:00"],
+        4: ["07:00", "10:00", "13:00", "18:00"],
+        5: ["07:00", "10:00", "13:00", "16:00", "19:00"],
+        6: ["07:00", "10:00", "12:00", "15:00", "17:00", "20:00"],
+        7: ["07:00", "09:00", "11:00", "13:00", "15:00", "17:00", "20:00"],
+        8: ["07:00", "09:00", "11:00", "13:00", "15:00", "17:00", "19:00", "21:00"]
+    }
+    
+    # Workout setup
+    st.subheader("Workout Schedule")
+    
+    # Resistance training
+    st.write("#### Resistance Training")
+    resistance_col1, resistance_col2 = st.columns(2)
+    
+    with resistance_col1:
+        resistance_sessions = st.number_input("Resistance training sessions per week", 
+                                             min_value=0, max_value=7, value=3)
+    
+    with resistance_col2:
+        resistance_days = []
+        if resistance_sessions > 0:
+            resistance_days = st.multiselect(
+                "Preferred days for resistance training",
+                ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+                default=["Monday", "Wednesday", "Friday"][:resistance_sessions]
+            )
+            
+            # Ensure the number of selected days matches the number of sessions
+            if len(resistance_days) != resistance_sessions:
+                st.warning(f"Please select exactly {resistance_sessions} days for resistance training.")
+    
+    # Only show resistance details if sessions > 0
+    if resistance_sessions > 0:
+        resistance_col3, resistance_col4, resistance_col5 = st.columns(3)
+        
+        with resistance_col3:
+            resistance_time = st.time_input("Default resistance training time", 
+                                          value=datetime.time(18, 0))  # 6:00 PM default
+        
+        with resistance_col4:
+            resistance_duration = st.number_input("Default duration (minutes)", 
+                                               min_value=15, max_value=180, value=60, step=15)
+        
+        with resistance_col5:
+            resistance_intensity = st.selectbox("Default intensity", 
+                                             options=["Light", "Moderate", "High", "Very High"],
+                                             index=1)  # Moderate as default
+    
+    # Cardio training
+    st.write("#### Cardio Training")
+    cardio_col1, cardio_col2 = st.columns(2)
+    
+    with cardio_col1:
+        cardio_sessions = st.number_input("Cardio sessions per week", 
+                                        min_value=0, max_value=7, value=2)
+    
+    with cardio_col2:
+        cardio_days = []
+        if cardio_sessions > 0:
+            cardio_days = st.multiselect(
+                "Preferred days for cardio",
+                ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+                default=["Tuesday", "Saturday"][:cardio_sessions]
+            )
+            
+            # Ensure the number of selected days matches the number of sessions
+            if len(cardio_days) != cardio_sessions:
+                st.warning(f"Please select exactly {cardio_sessions} days for cardio training.")
+    
+    # Only show cardio details if sessions > 0
+    if cardio_sessions > 0:
+        cardio_col3, cardio_col4, cardio_col5 = st.columns(3)
+        
+        with cardio_col3:
+            cardio_time = st.time_input("Default cardio time", 
+                                      value=datetime.time(7, 0))  # 7:00 AM default
+        
+        with cardio_col4:
+            cardio_duration = st.number_input("Default cardio duration (minutes)", 
+                                           min_value=10, max_value=180, value=30, step=5)
+        
+        with cardio_col5:
+            cardio_intensity = st.selectbox("Default cardio intensity", 
+                                         options=["Light", "Moderate", "High", "Very High"],
+                                         index=1)  # Moderate as default
+    
+    # Default activity level for each day
+    st.subheader("Default Activity Level")
+    default_activity = st.selectbox("Activity level outside of workouts", 
+                                  options=["Sedentary", "Lightly Active", "Moderately Active", 
+                                           "Very Active", "Extremely Active"],
+                                  index=1)  # Lightly Active as default
+    
+    # Generate default schedule button
+    if st.button("Generate Default Weekly Schedule", type="primary"):
+        days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        
+        # Clear existing schedule if exists
+        if 'weekly_schedule' in st.session_state:
+            st.session_state.weekly_schedule = {}
+        
+        # Create default schedule for each day
+        for day in days_of_week:
+            # Initialize day's schedule
+            day_schedule = {
+                "wake_time": default_wake_time.strftime("%H:%M"),
+                "bed_time": default_bed_time.strftime("%H:%M"),
+                "meals": [],
+                "workouts": [],
+                "total_activity_level": default_activity
+            }
+            
+            # Add meals based on the number selected
+            for i in range(meals_per_day):
+                # Get suggested time from our mapping or use evenly spread times
+                meal_time = meal_time_suggestions.get(meals_per_day, [])[i] if i < len(meal_time_suggestions.get(meals_per_day, [])) else "12:00"
+                
+                if i == 0:
+                    meal_name = "Breakfast"
+                elif i == meals_per_day - 1:
+                    meal_name = "Dinner"
+                elif i == 1 and meals_per_day >= 3:
+                    meal_name = "Lunch"
+                else:
+                    meal_name = f"Snack {i}"
+                
+                day_schedule["meals"].append({
+                    "name": meal_name,
+                    "time": meal_time
+                })
+            
+            # Add resistance training if this day is selected
+            if day in resistance_days:
+                day_schedule["workouts"].append({
+                    "name": "Resistance Training",
+                    "start_time": resistance_time.strftime("%H:%M"),
+                    "duration": resistance_duration,
+                    "intensity": resistance_intensity
+                })
+            
+            # Add cardio if this day is selected
+            if day in cardio_days:
+                day_schedule["workouts"].append({
+                    "name": "Cardio",
+                    "start_time": cardio_time.strftime("%H:%M"),
+                    "duration": cardio_duration,
+                    "intensity": cardio_intensity
+                })
+            
+            # Store the day's schedule
+            st.session_state.weekly_schedule[day] = day_schedule
+        
+        st.success("Default weekly schedule generated! You can now customize each day as needed.")
+        st.rerun()  # Rerun to show the updated schedule
     
     # Set up weekly schedule tabs
     st.subheader("Weekly Activity Schedule")
