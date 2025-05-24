@@ -1404,6 +1404,64 @@ with tab2:
             
             st.write(f"**Macronutrient Ratio:** Protein: {protein_pct}% | Carbs: {carbs_pct}% | Fat: {fat_pct}%")
             
+            # Calculate Energy Availability
+            # Energy Availability = (Calorie intake - exercise energy expenditure) / kg of fat-free mass
+            try:
+                # Get body fat percentage and calculate fat-free mass
+                body_fat_pct = user_info.get('body_fat_pct', 20)  # Default to 20% if not available
+                weight_kg = user_info.get('weight_kg', 70)  # Default to 70kg if not available
+                
+                # Calculate fat-free mass in kg
+                fat_mass_kg = weight_kg * (body_fat_pct / 100)
+                fat_free_mass_kg = weight_kg - fat_mass_kg
+                
+                # Get exercise energy expenditure from workouts for this day
+                day_data = st.session_state.confirmed_weekly_schedule.get(selected_day, {})
+                workouts = day_data.get("workouts", [])
+                
+                exercise_calories = 0
+                intensity_multipliers = {
+                    "Light": 5.0,
+                    "Moderate": 7.5,
+                    "High": 10.0,
+                    "Very High": 12.5
+                }
+                
+                for workout in workouts:
+                    duration = workout.get("duration", 60)  # Default to 60 minutes if not specified
+                    intensity = workout.get("intensity", "Moderate")  # Default to Moderate if not specified
+                    calories_per_minute = intensity_multipliers.get(intensity, 7.5)
+                    workout_calories = duration * calories_per_minute
+                    exercise_calories += workout_calories
+                
+                # Calculate energy availability (kcal/kg FFM)
+                energy_availability = (custom_day_calories - exercise_calories) / fat_free_mass_kg
+                
+                # Display energy availability with interpretation
+                ea_color = "green"
+                ea_message = "Optimal energy availability"
+                
+                if energy_availability < 30:
+                    ea_color = "red"
+                    ea_message = "Low energy availability - may impair performance and health"
+                elif energy_availability < 40:
+                    ea_color = "orange"
+                    ea_message = "Moderate energy availability - adequate for most"
+                elif energy_availability > 60:
+                    ea_color = "blue"
+                    ea_message = "High energy availability - appropriate for gaining phase"
+                
+                st.markdown(f"""
+                **Energy Availability:** :{ea_color}[{round(energy_availability, 1)} kcal/kg FFM]
+                - {ea_message}
+                - Energy intake: {custom_day_calories} kcal
+                - Exercise expenditure: {round(exercise_calories)} kcal
+                - Fat-free mass: {round(fat_free_mass_kg, 1)} kg
+                """)
+                
+            except (TypeError, ValueError, ZeroDivisionError):
+                st.warning("Unable to calculate energy availability. Check your body composition data.")
+            
             # Update day-specific nutrition in session state
             if st.button(f"Save {selected_day}'s Nutrition Plan"):
                 st.session_state.day_specific_nutrition[selected_day] = {
