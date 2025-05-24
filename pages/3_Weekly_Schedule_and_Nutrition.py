@@ -485,138 +485,138 @@ with tab2:
             # Calculate body composition metrics
             ffm_kg = weight_kg * (1 - (body_fat_pct/100))  # Fat-free mass in kg
         
-        # Calculate maximum possible values for each macro
-        max_protein = round(target_calories * 0.6 / 4)  # Max 60% of calories from protein
-        max_carbs = round(target_calories * 0.8 / 4)    # Max 80% of calories from carbs
-        max_fat = round(target_calories * 0.6 / 9)      # Max 60% of calories from fat
+            # Calculate maximum possible values for each macro
+            max_protein = round(target_calories * 0.6 / 4)  # Max 60% of calories from protein
+            max_carbs = round(target_calories * 0.8 / 4)    # Max 80% of calories from carbs
+            max_fat = round(target_calories * 0.6 / 9)      # Max 60% of calories from fat
+            
+            # Calculate recommended protein ranges
+            min_recommended_protein = round(weight_kg * 1.6)  # Minimum recommended (1.6g/kg)
+            target_recommended_protein = round(weight_kg * 1.8)  # Target recommended (1.8g/kg)
+            max_recommended_protein = round(weight_kg * 2.2)  # Maximum recommended (2.2g/kg)
+            
+            # Show suggested ranges as a visual guide before the slider
+            st.markdown(f"""
+            **Suggested Protein Ranges:**
+            - Minimum: {min_recommended_protein}g ({round(min_recommended_protein/(weight_kg * 2.20462), 2)}g/lb)
+            - Target: {target_recommended_protein}g ({round(target_recommended_protein/(weight_kg * 2.20462), 2)}g/lb)
+            - Maximum: {max_recommended_protein}g ({round(max_recommended_protein/(weight_kg * 2.20462), 2)}g/lb)
+            """)
         
-        # Calculate recommended protein ranges
-        min_recommended_protein = round(weight_kg * 1.6)  # Minimum recommended (1.6g/kg)
-        target_recommended_protein = round(weight_kg * 1.8)  # Target recommended (1.8g/kg)
-        max_recommended_protein = round(weight_kg * 2.2)  # Maximum recommended (2.2g/kg)
+            # Get user input for protein with detailed feedback
+            protein_step = 10
+            custom_protein = st.slider("Protein (g)", 
+                                      min_value=50, 
+                                      max_value=max_protein, 
+                                      value=default_macros['protein'],
+                                      step=protein_step,
+                                      help="Recommended range: 1.6-2.2g per kg of body weight")
         
-        # Show suggested ranges as a visual guide before the slider
-        st.markdown(f"""
-        **Suggested Protein Ranges:**
-        - Minimum: {min_recommended_protein}g ({round(min_recommended_protein/(weight_kg * 2.20462), 2)}g/lb)
-        - Target: {target_recommended_protein}g ({round(target_recommended_protein/(weight_kg * 2.20462), 2)}g/lb)
-        - Maximum: {max_recommended_protein}g ({round(max_recommended_protein/(weight_kg * 2.20462), 2)}g/lb)
-        """)
+            # Show per-kg and per-lb metrics and guidance for protein
+            protein_per_kg = round(custom_protein / weight_kg, 2)
+            protein_per_lb = round(custom_protein / (weight_kg * 2.20462), 2)  # Convert to lb
+            protein_per_ffm_kg = round(custom_protein / ffm_kg, 2) if ffm_kg > 0 else 0
+            protein_per_ffm_lb = round(custom_protein / (ffm_kg * 2.20462), 2) if ffm_kg > 0 else 0
+            protein_pct_calories = round((custom_protein * 4 / target_calories) * 100)
+            
+            # Protein guidance text
+            if protein_per_kg < 1.2:
+                protein_guidance = "⚠️ This is below the recommended minimum for maintaining muscle mass. Consider increasing."
+            elif protein_per_kg < 1.6:
+                protein_guidance = "🟡 This is adequate for general health but may be low for your goals."
+            elif protein_per_kg <= 2.2:
+                protein_guidance = "✅ This is within the optimal range for most goals."
+            else:
+                protein_guidance = "⚠️ This is higher than typically needed. May reduce room for other nutrients."
+            
+            st.markdown(f"""
+            **Protein Metrics:**
+            - {protein_per_kg}g per kg of body weight ({protein_per_lb}g per lb)
+            - {protein_per_ffm_kg}g per kg of fat-free mass ({protein_per_ffm_lb}g per lb of fat-free mass)
+            - {protein_pct_calories}% of total calories
+            
+            {protein_guidance}
+            """)
         
-        # Get user input for protein with detailed feedback
-        protein_step = 10
-        custom_protein = st.slider("Protein (g)", 
-                                  min_value=50, 
-                                  max_value=max_protein, 
-                                  value=default_macros['protein'],
-                                  step=protein_step,
-                                  help="Recommended range: 1.6-2.2g per kg of body weight")
+            # Calculate recommended fat ranges
+            min_recommended_fat = round(weight_kg * 0.5)  # Minimum recommended (0.5g/kg)
+            min_fat_pct = round(target_calories * 0.25 / 9)  # 25% of calories
+            optimal_fat_pct = round(target_calories * 0.3 / 9)  # 30% of calories
+            max_fat_pct = round(target_calories * 0.35 / 9)  # 35% of calories
+            
+            # Show suggested ranges as a visual guide before the slider
+            st.markdown(f"""
+            **Suggested Fat Ranges:**
+            - Minimum: {min_recommended_fat}g ({round(min_recommended_fat/(weight_kg * 2.20462), 2)}g/lb)
+            - Target: {optimal_fat_pct}g (30% of calories)
+            - Maximum: {max_fat_pct}g (35% of calories)
+            """)
         
-        # Show per-kg and per-lb metrics and guidance for protein
-        protein_per_kg = round(custom_protein / weight_kg, 2)
-        protein_per_lb = round(custom_protein / (weight_kg * 2.20462), 2)  # Convert to lb
-        protein_per_ffm_kg = round(custom_protein / ffm_kg, 2) if ffm_kg > 0 else 0
-        protein_per_ffm_lb = round(custom_protein / (ffm_kg * 2.20462), 2) if ffm_kg > 0 else 0
-        protein_pct_calories = round((custom_protein * 4 / target_calories) * 100)
+            # Get user input for fat with detailed feedback
+            fat_step = 5
+            custom_fat = st.slider("Fat (g)", 
+                                  min_value=20, 
+                                  max_value=max_fat, 
+                                  value=default_macros['fat'],
+                                  step=fat_step,
+                                  help="Recommended minimum: 0.5g per kg of body weight or about 25-30% of calories")
         
-        # Protein guidance text
-        if protein_per_kg < 1.2:
-            protein_guidance = "⚠️ This is below the recommended minimum for maintaining muscle mass. Consider increasing."
-        elif protein_per_kg < 1.6:
-            protein_guidance = "🟡 This is adequate for general health but may be low for your goals."
-        elif protein_per_kg <= 2.2:
-            protein_guidance = "✅ This is within the optimal range for most goals."
-        else:
-            protein_guidance = "⚠️ This is higher than typically needed. May reduce room for other nutrients."
+            # Show per-kg and per-lb metrics and guidance for fat
+            fat_per_kg = round(custom_fat / weight_kg, 2)
+            fat_per_lb = round(custom_fat / (weight_kg * 2.20462), 2)  # Convert to lb
+            fat_pct_calories = round((custom_fat * 9 / target_calories) * 100)
+            
+            # Fat guidance text
+            if fat_per_kg < 0.5 or fat_pct_calories < 20:
+                fat_guidance = "⚠️ This is below the recommended minimum for hormone health. Consider increasing."
+            elif fat_pct_calories < 25:
+                fat_guidance = "🟡 This is adequate but may be low for optimal hormone production."
+            elif fat_pct_calories <= 35:
+                fat_guidance = "✅ This is within the optimal range for most goals."
+            else:
+                fat_guidance = "⚠️ This is higher than typically recommended. May limit carbohydrate intake."
+            
+            st.markdown(f"""
+            **Fat Metrics:**
+            - {fat_per_kg}g per kg of body weight ({fat_per_lb}g per lb)
+            - {fat_pct_calories}% of total calories
+            
+            {fat_guidance}
+            """)
         
-        st.markdown(f"""
-        **Protein Metrics:**
-        - {protein_per_kg}g per kg of body weight ({protein_per_lb}g per lb)
-        - {protein_per_ffm_kg}g per kg of fat-free mass ({protein_per_ffm_lb}g per lb of fat-free mass)
-        - {protein_pct_calories}% of total calories
+            # Calculate remaining calories for carbs
+            protein_calories = custom_protein * 4
+            fat_calories = custom_fat * 9
+            carb_calories = target_calories - protein_calories - fat_calories
+            custom_carbs = max(0, round(carb_calories / 4))
         
-        {protein_guidance}
-        """)
+            # Carb guidance text with both kg and lb metrics
+            carb_pct_calories = round((custom_carbs * 4 / target_calories) * 100)
+            carb_per_kg = round(custom_carbs / weight_kg, 2)
+            carb_per_lb = round(custom_carbs / (weight_kg * 2.20462), 2)  # Convert to lb
+            
+            if carb_pct_calories < 20:
+                carb_guidance = "⚠️ This is very low and may impact workout performance and recovery."
+            elif carb_pct_calories < 40:
+                carb_guidance = "🟡 This is moderate. Adequate for many but may be low for high-intensity training."
+            else:
+                carb_guidance = "✅ This provides ample energy for performance and glycogen replenishment."
+            
+            # Display the calculated carbs with guidance including pounds
+            st.markdown(f"""
+            **Carbohydrates: {custom_carbs}g** (calculated from remaining calories)
+            - {carb_per_kg}g per kg of body weight ({carb_per_lb}g per lb)
+            - {carb_pct_calories}% of total calories
+            
+            {carb_guidance}
+            """)
         
-        # Calculate recommended fat ranges
-        min_recommended_fat = round(weight_kg * 0.5)  # Minimum recommended (0.5g/kg)
-        min_fat_pct = round(target_calories * 0.25 / 9)  # 25% of calories
-        optimal_fat_pct = round(target_calories * 0.3 / 9)  # 30% of calories
-        max_fat_pct = round(target_calories * 0.35 / 9)  # 35% of calories
-        
-        # Show suggested ranges as a visual guide before the slider
-        st.markdown(f"""
-        **Suggested Fat Ranges:**
-        - Minimum: {min_recommended_fat}g ({round(min_recommended_fat/(weight_kg * 2.20462), 2)}g/lb)
-        - Target: {optimal_fat_pct}g (30% of calories)
-        - Maximum: {max_fat_pct}g (35% of calories)
-        """)
-        
-        # Get user input for fat with detailed feedback
-        fat_step = 5
-        custom_fat = st.slider("Fat (g)", 
-                              min_value=20, 
-                              max_value=max_fat, 
-                              value=default_macros['fat'],
-                              step=fat_step,
-                              help="Recommended minimum: 0.5g per kg of body weight or about 25-30% of calories")
-        
-        # Show per-kg and per-lb metrics and guidance for fat
-        fat_per_kg = round(custom_fat / weight_kg, 2)
-        fat_per_lb = round(custom_fat / (weight_kg * 2.20462), 2)  # Convert to lb
-        fat_pct_calories = round((custom_fat * 9 / target_calories) * 100)
-        
-        # Fat guidance text
-        if fat_per_kg < 0.5 or fat_pct_calories < 20:
-            fat_guidance = "⚠️ This is below the recommended minimum for hormone health. Consider increasing."
-        elif fat_pct_calories < 25:
-            fat_guidance = "🟡 This is adequate but may be low for optimal hormone production."
-        elif fat_pct_calories <= 35:
-            fat_guidance = "✅ This is within the optimal range for most goals."
-        else:
-            fat_guidance = "⚠️ This is higher than typically recommended. May limit carbohydrate intake."
-        
-        st.markdown(f"""
-        **Fat Metrics:**
-        - {fat_per_kg}g per kg of body weight ({fat_per_lb}g per lb)
-        - {fat_pct_calories}% of total calories
-        
-        {fat_guidance}
-        """)
-        
-        # Calculate remaining calories for carbs
-        protein_calories = custom_protein * 4
-        fat_calories = custom_fat * 9
-        carb_calories = target_calories - protein_calories - fat_calories
-        custom_carbs = max(0, round(carb_calories / 4))
-        
-        # Carb guidance text with both kg and lb metrics
-        carb_pct_calories = round((custom_carbs * 4 / target_calories) * 100)
-        carb_per_kg = round(custom_carbs / weight_kg, 2)
-        carb_per_lb = round(custom_carbs / (weight_kg * 2.20462), 2)  # Convert to lb
-        
-        if carb_pct_calories < 20:
-            carb_guidance = "⚠️ This is very low and may impact workout performance and recovery."
-        elif carb_pct_calories < 40:
-            carb_guidance = "🟡 This is moderate. Adequate for many but may be low for high-intensity training."
-        else:
-            carb_guidance = "✅ This provides ample energy for performance and glycogen replenishment."
-        
-        # Display the calculated carbs with guidance including pounds
-        st.markdown(f"""
-        **Carbohydrates: {custom_carbs}g** (calculated from remaining calories)
-        - {carb_per_kg}g per kg of body weight ({carb_per_lb}g per lb)
-        - {carb_pct_calories}% of total calories
-        
-        {carb_guidance}
-        """)
-        
-        # Update macros
-        macros = {
-            'protein': custom_protein,
-            'carbs': custom_carbs,
-            'fat': custom_fat
-        }
+            # Update macros
+            macros = {
+                'protein': custom_protein,
+                'carbs': custom_carbs,
+                'fat': custom_fat
+            }
     
     # Macro breakdown visualization
     st.subheader("Macronutrient Breakdown")
