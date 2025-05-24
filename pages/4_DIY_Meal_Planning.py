@@ -42,6 +42,14 @@ def food_search_ui(section_key="main_search"):
     """UI for searching foods in FDC database"""
     st.header("Food Search")
     
+    # Add food category filter
+    food_categories = ["All Foods", "Protein Sources", "Carb Sources", "Fat Sources", "Vegetables", "Fruits"]
+    selected_category = st.selectbox(
+        "Filter by food category:",
+        food_categories,
+        key=f"category_filter_{section_key}"
+    )
+    
     # Search form
     col1, col2 = st.columns([3, 1])
     
@@ -51,6 +59,18 @@ def food_search_ui(section_key="main_search"):
             key=f"search_query_{section_key}",
             placeholder="Enter food name (e.g., chicken breast, brown rice, avocado)"
         )
+        
+        # Add category-specific search suggestions
+        if selected_category == "Protein Sources":
+            st.info("Try searching for: chicken breast, tuna, ground beef, tofu, eggs, Greek yogurt, lentils, cottage cheese")
+        elif selected_category == "Carb Sources":
+            st.info("Try searching for: brown rice, quinoa, sweet potato, oats, pasta, bread, beans, corn")
+        elif selected_category == "Fat Sources":
+            st.info("Try searching for: avocado, olive oil, nuts, seeds, nut butter, cheese, coconut")
+        elif selected_category == "Vegetables":
+            st.info("Try searching for: broccoli, spinach, kale, carrots, bell peppers, tomatoes, zucchini")
+        elif selected_category == "Fruits":
+            st.info("Try searching for: apple, banana, berries, orange, mango, pineapple, grapes")
     
     with col2:
         search_button = st.button("Search", key=f"search_button_{section_key}")
@@ -62,8 +82,39 @@ def food_search_ui(section_key="main_search"):
             results = fdc_api.search_foods(search_query)
             
             if results:
-                st.session_state.food_search_results = results
-                st.success(f"Found {len(results)} results for '{search_query}'")
+                # Filter results by category if a specific category is selected
+                if selected_category != "All Foods":
+                    filtered_results = []
+                    for food in results:
+                        # Get detailed nutritional information
+                        try:
+                            food_details = fdc_api.get_food_details(food.get('fdcId', ''))
+                            nutrients = fdc_api.extract_nutrients(food_details)
+                            food_category = fdc_api.categorize_food(nutrients)
+                            
+                            # Categorize based on macronutrient ratio and keywords
+                            if selected_category == "Protein Sources" and (food_category == "protein" or 
+                                any(keyword in food.get('description', '').lower() for keyword in ["chicken", "beef", "fish", "turkey", "tofu", "egg", "yogurt", "protein", "whey", "cottage cheese", "tuna", "salmon", "lentil", "bean"])):
+                                filtered_results.append(food)
+                            elif selected_category == "Carb Sources" and (food_category == "carb" or 
+                                any(keyword in food.get('description', '').lower() for keyword in ["rice", "pasta", "bread", "potato", "oat", "cereal", "grain", "wheat", "quinoa", "corn", "barley"])):
+                                filtered_results.append(food)
+                            elif selected_category == "Fat Sources" and (food_category == "fat" or 
+                                any(keyword in food.get('description', '').lower() for keyword in ["oil", "butter", "nut", "seed", "avocado", "olive", "coconut", "cheese"])):
+                                filtered_results.append(food)
+                            elif selected_category == "Vegetables" and any(keyword in food.get('description', '').lower() for keyword in ["vegetable", "broccoli", "spinach", "kale", "lettuce", "carrot", "tomato", "cucumber", "pepper", "onion", "zucchini", "celery"]):
+                                filtered_results.append(food)
+                            elif selected_category == "Fruits" and any(keyword in food.get('description', '').lower() for keyword in ["fruit", "apple", "banana", "orange", "berry", "pear", "grape", "mango", "pineapple", "melon", "peach", "plum"]):
+                                filtered_results.append(food)
+                        except:
+                            # If there's an error getting details, skip categorization
+                            pass
+                    
+                    st.session_state.food_search_results = filtered_results
+                    st.success(f"Found {len(filtered_results)} {selected_category.lower()} for '{search_query}'")
+                else:
+                    st.session_state.food_search_results = results
+                    st.success(f"Found {len(results)} results for '{search_query}'")
             else:
                 st.warning(f"No results found for '{search_query}'")
     
@@ -584,16 +635,69 @@ def meal_planning_ui(section_key="meal_plan"):
             for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         }
     
+    # Check if day-specific nutrition targets exist from Weekly Schedule page
+    has_nutrition_targets = False
+    if 'day_specific_nutrition' in st.session_state and st.session_state.day_specific_nutrition:
+        has_nutrition_targets = True
+        st.success("📊 Great! You've set up day-specific nutrition targets in the Weekly Schedule. These will be used to guide your meal planning.")
+    else:
+        st.warning("⚠️ You haven't set up day-specific nutrition targets yet. For best results, go to 'Weekly Schedule and Nutrition' page first to set your targets for each day.")
+    
     # Day selection
     days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     selected_day = st.selectbox("Select Day:", days, key=f"day_select_{section_key}")
     
-    # Display current plan for the selected day
+    # Display current plan and nutrition targets for the selected day
     st.subheader(f"Meal Plan for {selected_day}")
     
     # Get meals for the day
     day_plan = st.session_state.weekly_meal_plan[selected_day]
     meals = day_plan.get('meals', [])
+    
+    # Display nutrition targets if available
+    if has_nutrition_targets and selected_day in st.session_state.day_specific_nutrition:
+        targets = st.session_state.day_specific_nutrition[selected_day]
+        
+        # Create columns for target display
+        target_cols = st.columns(4)
+        with target_cols[0]:
+            st.metric("Target Calories", f"{targets.get('target_calories', 0)} kcal")
+        with target_cols[1]:
+            st.metric("Target Protein", f"{targets.get('protein', 0)}g")
+        with target_cols[2]:
+            st.metric("Target Carbs", f"{targets.get('carbs', 0)}g")
+        with target_cols[3]:
+            st.metric("Target Fat", f"{targets.get('fat', 0)}g")
+            
+        # Calculate and display current totals and remaining targets
+        total_calories = day_plan['total_nutrition']['calories']
+        total_protein = day_plan['total_nutrition']['protein']
+        total_carbs = day_plan['total_nutrition']['carbs']
+        total_fat = day_plan['total_nutrition']['fat']
+        
+        remaining_calories = targets.get('target_calories', 0) - total_calories
+        remaining_protein = targets.get('protein', 0) - total_protein
+        remaining_carbs = targets.get('carbs', 0) - total_carbs
+        remaining_fat = targets.get('fat', 0) - total_fat
+        
+        st.subheader("Nutrition Progress")
+        progress_cols = st.columns(4)
+        with progress_cols[0]:
+            st.metric("Calories", f"{int(total_calories)} kcal", f"{int(remaining_calories)} remaining")
+            cal_progress = min(100, (total_calories / targets.get('target_calories', 1)) * 100)
+            st.progress(cal_progress / 100)
+        with progress_cols[1]:
+            st.metric("Protein", f"{total_protein:.1f}g", f"{remaining_protein:.1f}g remaining")
+            protein_progress = min(100, (total_protein / targets.get('protein', 1)) * 100)
+            st.progress(protein_progress / 100)
+        with progress_cols[2]:
+            st.metric("Carbs", f"{total_carbs:.1f}g", f"{remaining_carbs:.1f}g remaining")
+            carbs_progress = min(100, (total_carbs / targets.get('carbs', 1)) * 100)
+            st.progress(carbs_progress / 100)
+        with progress_cols[3]:
+            st.metric("Fat", f"{total_fat:.1f}g", f"{remaining_fat:.1f}g remaining")
+            fat_progress = min(100, (total_fat / targets.get('fat', 1)) * 100)
+            st.progress(fat_progress / 100)
     
     if not meals:
         st.info(f"No meals planned for {selected_day} yet. Add meals below.")
