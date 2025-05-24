@@ -6,6 +6,7 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta
+from scipy.optimize import minimize
 
 # Import custom FDC API module
 sys.path.append(os.path.abspath(os.path.dirname(__file__) + '/../'))
@@ -412,6 +413,72 @@ def selected_foods_ui(section_key="selected"):
             st.success(f"Removed {food_name} from selected foods!")
             st.rerun()
 
+# Function to calculate optimal portion sizes
+def calculate_optimal_portions(selected_foods, target_macros):
+    """
+    Calculate optimal portion sizes for selected foods to meet target macros
+    
+    Parameters:
+    - selected_foods: List of food dictionaries
+    - target_macros: Dict with keys 'calories', 'protein', 'carbs', 'fat'
+    
+    Returns:
+    - Dict with food names as keys and portion sizes as values
+    """
+    # If no foods selected or no targets, return default portions
+    if not selected_foods or not target_macros:
+        return {food['name']: 100 for food in selected_foods}
+    
+    # Extract target macros
+    target_calories = target_macros.get('target_calories', 0)
+    target_protein = target_macros.get('protein', 0)
+    target_carbs = target_macros.get('carbs', 0) 
+    target_fat = target_macros.get('fat', 0)
+    
+    # If no targets set, return default portions
+    if target_calories == 0 and target_protein == 0 and target_carbs == 0 and target_fat == 0:
+        return {food['name']: 100 for food in selected_foods}
+    
+    # Create arrays of nutrient values per 100g
+    calories_per_100g = np.array([food['calories'] for food in selected_foods])
+    protein_per_100g = np.array([food['protein'] for food in selected_foods])
+    carbs_per_100g = np.array([food['carbs'] for food in selected_foods])
+    fat_per_100g = np.array([food['fat'] for food in selected_foods])
+    
+    # Define the objective function to minimize
+    def objective(portions):
+        # Calculate total nutrients with current portions
+        total_cals = np.sum(calories_per_100g * portions / 100)
+        total_protein = np.sum(protein_per_100g * portions / 100)
+        total_carbs = np.sum(carbs_per_100g * portions / 100)
+        total_fat = np.sum(fat_per_100g * portions / 100)
+        
+        # Calculate the error (difference from targets)
+        cal_error = ((total_cals - target_calories) / max(1, target_calories)) ** 2 if target_calories > 0 else 0
+        protein_error = ((total_protein - target_protein) / max(1, target_protein)) ** 2 if target_protein > 0 else 0
+        carbs_error = ((total_carbs - target_carbs) / max(1, target_carbs)) ** 2 if target_carbs > 0 else 0
+        fat_error = ((total_fat - target_fat) / max(1, target_fat)) ** 2 if target_fat > 0 else 0
+        
+        # Weight the errors (prioritize protein, then calories, then carbs/fat)
+        return protein_error * 1.5 + cal_error * 1.0 + carbs_error * 0.8 + fat_error * 0.8
+    
+    # Initial guess: all portions at 100g
+    initial_portions = np.array([100] * len(selected_foods))
+    
+    # Constraint: portions must be positive (at least 10g per food)
+    bounds = [(10, 500) for _ in selected_foods]
+    
+    # Solve the optimization problem
+    try:
+        result = minimize(objective, initial_portions, method='SLSQP', bounds=bounds)
+        optimal_portions = result.x
+        
+        # Create a dictionary of food name to portion
+        return {food['name']: round(portion) for food, portion in zip(selected_foods, optimal_portions)}
+    except:
+        # If optimization fails, return default portions
+        return {food['name']: 100 for food in selected_foods}
+
 # Function to create a recipe
 def create_recipe_ui(section_key="recipe"):
     """UI for creating a recipe from selected foods"""
@@ -428,6 +495,55 @@ def create_recipe_ui(section_key="recipe"):
     meal_type = st.selectbox("Meal Type:", 
                             ["Breakfast", "Lunch", "Dinner", "Snack", "Any"], 
                             key=f"meal_type_{section_key}")
+    
+    # Target nutrients - Get from day-specific nutrition if available
+    has_targets = False
+    target_macros = {}
+    
+    # Check if we have day-specific targets
+    if 'day_specific_nutrition' in st.session_state and st.session_state.day_specific_nutrition:
+        days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        selected_day = st.selectbox("Select day for targets:", days, key=f"target_day_{section_key}")
+        
+        if selected_day in st.session_state.day_specific_nutrition:
+            has_targets = True
+            target_macros = st.session_state.day_specific_nutrition[selected_day]
+            
+            # Show the target macros
+            st.subheader("Nutrition Targets")
+            target_cols = st.columns(4)
+            with target_cols[0]:
+                st.metric("Target Calories", f"{target_macros.get('target_calories', 0)} kcal")
+            with target_cols[1]:
+                st.metric("Target Protein", f"{target_macros.get('protein', 0)}g")
+            with target_cols[2]:
+                st.metric("Target Carbs", f"{target_macros.get('carbs', 0)}g")
+            with target_cols[3]:
+                st.metric("Target Fat", f"{target_macros.get('fat', 0)}g")
+    
+    # Option for auto-calculated portions
+    auto_calculate = st.checkbox("Auto-calculate portion sizes to match targets", value=has_targets, key=f"auto_calc_{section_key}")
+    
+    # Meal percent - what percent of daily targets should this recipe account for
+    meal_percent = 100
+    optimal_portions = {food['name']: 100 for food in st.session_state.selected_foods}
+    
+    if has_targets and auto_calculate:
+        meal_percent = st.slider("Percentage of daily targets for this meal:", 
+                               min_value=10, max_value=100, value=33, key=f"meal_pct_{section_key}")
+        
+        # Adjust target macros based on percentage
+        adjusted_targets = {
+            'target_calories': target_macros.get('target_calories', 0) * meal_percent / 100,
+            'protein': target_macros.get('protein', 0) * meal_percent / 100,
+            'carbs': target_macros.get('carbs', 0) * meal_percent / 100,
+            'fat': target_macros.get('fat', 0) * meal_percent / 100
+        }
+        
+        # Calculate optimal portions
+        optimal_portions = calculate_optimal_portions(st.session_state.selected_foods, adjusted_targets)
+        
+        st.success(f"Portions auto-calculated to meet {meal_percent}% of daily targets")
     
     # Portion size inputs
     st.subheader("Adjust Portion Sizes")
@@ -450,7 +566,9 @@ def create_recipe_ui(section_key="recipe"):
             st.write(f"**{food['name']}**")
         
         with col2:
-            default_portion = 100
+            # Use the optimal portion as default if available
+            default_portion = int(optimal_portions.get(food['name'], 100))
+            
             portion = st.number_input(
                 f"Portion (g):", 
                 min_value=0, 
@@ -460,7 +578,11 @@ def create_recipe_ui(section_key="recipe"):
             portions[food['name']] = portion
         
         with col3:
-            st.write(f"{food['calories'] * portion / 100:.0f} kcal")
+            # Show detailed nutrition for this portion
+            st.write(f"Cal: {food['calories'] * portion / 100:.0f} kcal")
+            st.write(f"P: {food['protein'] * portion / 100:.1f}g")
+            st.write(f"C: {food['carbs'] * portion / 100:.1f}g")
+            st.write(f"F: {food['fat'] * portion / 100:.1f}g")
         
         # Update total nutrition
         total_nutrition['calories'] += food['calories'] * portion / 100
