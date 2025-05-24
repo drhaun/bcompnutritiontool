@@ -892,6 +892,10 @@ with tab2:
                 'fat': round(0.3 * day_target_calories / 9)       # Default 30% from fat
             })
             
+            # Ensure the target_calories is an integer, not a list
+            if isinstance(day_macros['target_calories'], list):
+                day_macros['target_calories'] = day_target_calories
+            
             # UI for adjusting day-specific macros
             st.subheader(f"Customize Macros for {selected_day}")
             
@@ -900,18 +904,26 @@ with tab2:
                 f"Calories for {selected_day}", 
                 min_value=int(day_tdee * 0.7),
                 max_value=int(day_tdee * 1.3),
-                value=day_macros['target_calories'],
+                value=int(day_macros['target_calories']),  # Ensure this is an integer
                 step=50
             )
             
+            # Ensure protein value is an integer
+            if isinstance(day_macros['protein'], list):
+                day_macros['protein'] = round(weight_kg * 1.8)  # Default to 1.8g/kg
+                
             # Protein adjustment
             custom_day_protein = st.slider(
                 f"Protein (g) for {selected_day}",
                 min_value=round(weight_kg * 1.2),  # Minimum 1.2g/kg
                 max_value=round(weight_kg * 2.5),  # Maximum 2.5g/kg
-                value=day_macros['protein'],
+                value=int(day_macros['protein']),  # Ensure this is an integer
                 help="Recommended: 1.6-2.2g per kg of body weight"
             )
+            
+            # Ensure fat value is an integer
+            if isinstance(day_macros['fat'], list):
+                day_macros['fat'] = round(weight_kg * 0.8)  # Default to 0.8g/kg
             
             # Fat adjustment (ensure minimum fat intake)
             min_fat = round(weight_kg * 0.5)  # Minimum 0.5g/kg
@@ -919,7 +931,7 @@ with tab2:
                 f"Fat (g) for {selected_day}",
                 min_value=min_fat,
                 max_value=round(custom_day_calories * 0.4 / 9),  # Maximum 40% of calories
-                value=day_macros['fat'],
+                value=int(day_macros['fat']),  # Ensure this is an integer
                 help="Recommended: 0.5g per kg of body weight or about 25-30% of calories"
             )
             
