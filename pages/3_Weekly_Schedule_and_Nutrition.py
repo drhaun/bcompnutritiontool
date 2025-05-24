@@ -1284,14 +1284,24 @@ with tab2:
                 max_protein = 250
                 default_protein = 150
             
-            # Protein adjustment
-            custom_day_protein = st.slider(
-                f"Protein (g) for {selected_day}",
-                min_value=min_protein,
-                max_value=max_protein,
-                value=default_protein,
-                help="Recommended: 1.6-2.2g per kg of body weight"
-            )
+            # Protein adjustment with detailed information
+            cols_protein = st.columns([3, 1])
+            with cols_protein[0]:
+                custom_day_protein = st.slider(
+                    f"Protein for {selected_day}",
+                    min_value=min_protein,
+                    max_value=max_protein,
+                    value=default_protein,
+                    help="Recommended: 1.6-2.2g per kg of body weight"
+                )
+            
+            # Calculate and display protein in different units
+            with cols_protein[1]:
+                protein_per_kg = round(custom_day_protein / weight_kg, 2)
+                protein_per_lb = round(custom_day_protein / (weight_kg * 2.20462), 2)
+                st.write(f"**{custom_day_protein}g total**")
+                st.write(f"{protein_per_kg}g/kg")
+                st.write(f"{protein_per_lb}g/lb")
             
             # Ensure fat value is an integer and follows standard coefficients
             # Standard: minimum of either 0.8g/kg or 30% of calories
@@ -1333,13 +1343,26 @@ with tab2:
                 max_fat = 120
                 default_fat = 70
                 
-            custom_day_fat = st.slider(
-                f"Fat (g) for {selected_day}",
-                min_value=min_fat,
-                max_value=max_fat,
-                value=default_fat,
-                help="Recommended: 0.5g per kg of body weight or about 25-30% of calories"
-            )
+            # Fat adjustment with detailed information
+            cols_fat = st.columns([3, 1])
+            with cols_fat[0]:
+                custom_day_fat = st.slider(
+                    f"Fat for {selected_day}",
+                    min_value=min_fat,
+                    max_value=max_fat,
+                    value=default_fat,
+                    help="Recommended: 0.5g per kg of body weight or about 25-30% of calories"
+                )
+            
+            # Calculate and display fat in different units
+            with cols_fat[1]:
+                fat_per_kg = round(custom_day_fat / weight_kg, 2)
+                fat_per_lb = round(custom_day_fat / (weight_kg * 2.20462), 2)
+                fat_cal_pct = round((custom_day_fat * 9 / custom_day_calories) * 100, 1)
+                st.write(f"**{custom_day_fat}g total**")
+                st.write(f"{fat_per_kg}g/kg")
+                st.write(f"{fat_per_lb}g/lb")
+                st.write(f"{fat_cal_pct}% of calories")
             
             # Calculate remaining calories for carbs with error handling
             try:
@@ -1348,8 +1371,19 @@ with tab2:
                 carb_calories = float(custom_day_calories) - protein_calories - fat_calories
                 custom_day_carbs = max(0, round(carb_calories / 4))
                 
-                # Display calculated carbs
-                st.write(f"**Carbohydrates:** {custom_day_carbs}g (calculated from remaining calories)")
+                # Display calculated carbs with detailed information
+                cols_carbs = st.columns([3, 1])
+                with cols_carbs[0]:
+                    st.write(f"**Carbohydrates:** {custom_day_carbs}g (calculated from remaining calories)")
+                
+                with cols_carbs[1]:
+                    carbs_per_kg = round(custom_day_carbs / weight_kg, 2)
+                    carbs_per_lb = round(custom_day_carbs / (weight_kg * 2.20462), 2)
+                    carbs_cal_pct = round((custom_day_carbs * 4 / custom_day_calories) * 100, 1)
+                    st.write(f"**{custom_day_carbs}g total**")
+                    st.write(f"{carbs_per_kg}g/kg")
+                    st.write(f"{carbs_per_lb}g/lb")
+                    st.write(f"{carbs_cal_pct}% of calories")
                 
                 # Show macronutrient breakdown percentages
                 if float(custom_day_calories) > 0:
