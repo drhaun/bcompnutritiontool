@@ -1159,6 +1159,8 @@ def generate_detailed_progress_table(current_weight_lbs, current_bf_pct, target_
             
             # Only store the initial values for week 0
             if week == 0:
+                # For Week 0, use the start date and show no changes (baseline)
+                # Also store target_energy in session state for use elsewhere
                 progress_data.append({
                     'Date': date.strftime('%m/%d/%Y'),
                     'Week': week,
