@@ -297,6 +297,24 @@ with tab1:
     df = pd.DataFrame(week_data)
     st.table(df)
     
+    # Add "Use this Schedule" button
+    if st.button("✅ Use this Schedule", type="primary"):
+        # Store the schedule in session state for use in meal planning
+        if 'confirmed_weekly_schedule' not in st.session_state:
+            st.session_state.confirmed_weekly_schedule = st.session_state.weekly_schedule
+        else:
+            st.session_state.confirmed_weekly_schedule = copy.deepcopy(st.session_state.weekly_schedule)
+        
+        # Also store day-specific TDEE values for meal planning
+        day_tdee_values = {}
+        for day in days_of_week:
+            day_data = st.session_state.weekly_schedule.get(day, {})
+            day_tdee_values[day] = day_data.get('estimated_tdee', base_tdee)
+        
+        st.session_state.day_tdee_values = day_tdee_values
+        
+        st.success("Schedule confirmed! This will be used for daily nutrition targets and meal planning.")
+    
 # -----------------------------
 # Tab 2: Nutrition Targets
 # -----------------------------
@@ -305,7 +323,10 @@ with tab2:
     st.write("Set your daily nutrition targets based on your body composition goals.")
     
     # Add disclaimer about the purpose of this section
-    st.info("**Note:** This section is for setting up your average daily nutrition targets. These are starting recommendations that you can customize here. In the upcoming meal planning steps, you'll be able to adjust and distribute these targets across your daily meals based on your preferences and specific needs.")
+    st.info("**Note:** This section is for setting up your nutrition targets. You can set general targets that apply every day, or customize targets for specific days of the week based on your schedule and activity levels.")
+    
+    # Add tabs for overall vs. day-specific nutrition targets
+    nutrition_tab1, nutrition_tab2 = st.tabs(["Overall Nutrition Targets", "Day-Specific Targets"])
     
     # Display user's stats (using session state)
     gender = st.session_state.get('gender', 'Male')
@@ -316,6 +337,10 @@ with tab2:
     activity_level = st.session_state.get('activity_level', 'Moderately active')
     workouts_per_week = st.session_state.get('workouts_per_week', 3)
     workout_calories = st.session_state.get('workout_calories', 300)
+    
+    # Initialize day-specific nutrition targets if not exist
+    if 'day_specific_nutrition' not in st.session_state:
+        st.session_state.day_specific_nutrition = {}
     
     # Get goal information
     goal_info = st.session_state.goal_info if 'goal_info' in st.session_state else {}
@@ -406,57 +431,59 @@ with tab2:
     # Calculate default macros based on goal
     default_macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
     
-    # Option to use standard or custom macros
-    macro_option = st.radio(
-        "Macronutrient Calculation Method:",
-        ["Standard Calculations", "Custom Values"],
-        help="Choose between standard macronutrient calculations based on your goal or set custom values."
-    )
+    # Wrap the overall nutrition targets in a tab
+    with nutrition_tab1:
+        # Option to use standard or custom macros
+        macro_option = st.radio(
+            "Macronutrient Calculation Method:",
+            ["Standard Calculations", "Custom Values"],
+            help="Choose between standard macronutrient calculations based on your goal or set custom values."
+        )
     
-    if macro_option == "Standard Calculations":
-        # Display the standard calculated macros with info icons explaining the logic
-        col1, col2, col3 = st.columns([2, 1, 5])
-        
-        with col1:
-            st.markdown("**Standard Macronutrient Recommendations:**")
+        if macro_option == "Standard Calculations":
+            # Display the standard calculated macros with info icons explaining the logic
+            col1, col2, col3 = st.columns([2, 1, 5])
             
-            # Protein with info icon
-            st.markdown(f"**Protein:** {default_macros['protein']}g")
-            st.markdown(f"({round(default_macros['protein'] * 4)} kcal, {round(default_macros['protein'] * 4 / target_calories * 100)}% of calories)")
+            with col1:
+                st.markdown("**Standard Macronutrient Recommendations:**")
+                
+                # Protein with info icon
+                st.markdown(f"**Protein:** {default_macros['protein']}g")
+                st.markdown(f"({round(default_macros['protein'] * 4)} kcal, {round(default_macros['protein'] * 4 / target_calories * 100)}% of calories)")
+                
+                # Carbs with values
+                st.markdown(f"**Carbs:** {default_macros['carbs']}g")
+                st.markdown(f"({round(default_macros['carbs'] * 4)} kcal, {round(default_macros['carbs'] * 4 / target_calories * 100)}% of calories)")
+                
+                # Fat with values
+                st.markdown(f"**Fat:** {default_macros['fat']}g")
+                st.markdown(f"({round(default_macros['fat'] * 9)} kcal, {round(default_macros['fat'] * 9 / target_calories * 100)}% of calories)")
             
-            # Carbs with values
-            st.markdown(f"**Carbs:** {default_macros['carbs']}g")
-            st.markdown(f"({round(default_macros['carbs'] * 4)} kcal, {round(default_macros['carbs'] * 4 / target_calories * 100)}% of calories)")
+            with col2:
+                st.write("")  # Spacing
+                st.markdown("**Protein:**")
+                st.write("")  # Spacing
+                st.markdown("**Carbs:**")
+                st.write("")  # Spacing
+                st.markdown("**Fat:**")
+                
+            with col3:
+                st.write("")  # Spacing
+                st.info("For fat loss, we target 1.8-2.2g of protein per kg of body weight to preserve muscle mass. For muscle gain, 1.6-2.0g per kg to support muscle growth. For maintenance, 1.6g per kg for general health.")
+                
+                st.write("")  # Spacing
+                st.info("Carbs are calculated as the remaining calories after protein and fat are allocated. They provide energy for workouts and daily activities. Lower for fat loss, higher for muscle gain.")
+                
+                st.write("")  # Spacing
+                st.info("We target 25-30% of total calories from fat (minimum 0.5g per kg of body weight) to support hormone production and overall health. Fat is essential and shouldn't drop below this threshold.")
             
-            # Fat with values
-            st.markdown(f"**Fat:** {default_macros['fat']}g")
-            st.markdown(f"({round(default_macros['fat'] * 9)} kcal, {round(default_macros['fat'] * 9 / target_calories * 100)}% of calories)")
-        
-        with col2:
-            st.write("")  # Spacing
-            st.markdown("**Protein:**")
-            st.write("")  # Spacing
-            st.markdown("**Carbs:**")
-            st.write("")  # Spacing
-            st.markdown("**Fat:**")
+            macros = default_macros
+        else:
+            # Allow user to set custom macros with sliders and detailed guidance
+            st.write("Set custom macronutrient targets with the sliders below:")
             
-        with col3:
-            st.write("")  # Spacing
-            st.info("For fat loss, we target 1.8-2.2g of protein per kg of body weight to preserve muscle mass. For muscle gain, 1.6-2.0g per kg to support muscle growth. For maintenance, 1.6g per kg for general health.")
-            
-            st.write("")  # Spacing
-            st.info("Carbs are calculated as the remaining calories after protein and fat are allocated. They provide energy for workouts and daily activities. Lower for fat loss, higher for muscle gain.")
-            
-            st.write("")  # Spacing
-            st.info("We target 25-30% of total calories from fat (minimum 0.5g per kg of body weight) to support hormone production and overall health. Fat is essential and shouldn't drop below this threshold.")
-        
-        macros = default_macros
-    else:
-        # Allow user to set custom macros with sliders and detailed guidance
-        st.write("Set custom macronutrient targets with the sliders below:")
-        
-        # Calculate body composition metrics
-        ffm_kg = weight_kg * (1 - (body_fat_pct/100))  # Fat-free mass in kg
+            # Calculate body composition metrics
+            ffm_kg = weight_kg * (1 - (body_fat_pct/100))  # Fat-free mass in kg
         
         # Calculate maximum possible values for each macro
         max_protein = round(target_calories * 0.6 / 4)  # Max 60% of calories from protein
