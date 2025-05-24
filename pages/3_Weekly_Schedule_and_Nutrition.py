@@ -206,8 +206,26 @@ with tab2:
         max_carbs = round(target_calories * 0.8 / 4)    # Max 80% of calories from carbs
         max_fat = round(target_calories * 0.6 / 9)      # Max 60% of calories from fat
         
+        # Calculate recommended protein ranges
+        min_recommended_protein = round(weight_kg * 1.6)  # Minimum recommended (1.6g/kg)
+        target_recommended_protein = round(weight_kg * 1.8)  # Target recommended (1.8g/kg)
+        max_recommended_protein = round(weight_kg * 2.2)  # Maximum recommended (2.2g/kg)
+        
+        # Show recommended ranges as a visual guide before the slider
+        st.markdown(f"""
+        **Recommended Protein Ranges:**
+        - Minimum: {min_recommended_protein}g ({round(min_recommended_protein/(weight_kg * 2.20462), 2)}g/lb)
+        - Target: {target_recommended_protein}g ({round(target_recommended_protein/(weight_kg * 2.20462), 2)}g/lb)
+        - Maximum: {max_recommended_protein}g ({round(max_recommended_protein/(weight_kg * 2.20462), 2)}g/lb)
+        """)
+        
         # Get user input for protein with detailed feedback
-        custom_protein = st.slider("Protein (g)", 50, max_protein, default_macros['protein'], 
+        protein_step = 10
+        custom_protein = st.slider("Protein (g)", 
+                                  min_value=50, 
+                                  max_value=max_protein, 
+                                  value=default_macros['protein'],
+                                  step=protein_step,
                                   help="Recommended range: 1.6-2.2g per kg of body weight")
         
         # Show per-kg and per-lb metrics and guidance for protein
@@ -236,8 +254,27 @@ with tab2:
         {protein_guidance}
         """)
         
+        # Calculate recommended fat ranges
+        min_recommended_fat = round(weight_kg * 0.5)  # Minimum recommended (0.5g/kg)
+        min_fat_pct = round(target_calories * 0.25 / 9)  # 25% of calories
+        optimal_fat_pct = round(target_calories * 0.3 / 9)  # 30% of calories
+        max_fat_pct = round(target_calories * 0.35 / 9)  # 35% of calories
+        
+        # Show recommended ranges as a visual guide before the slider
+        st.markdown(f"""
+        **Recommended Fat Ranges:**
+        - Minimum: {min_recommended_fat}g ({round(min_recommended_fat/(weight_kg * 2.20462), 2)}g/lb)
+        - Target: {optimal_fat_pct}g (30% of calories)
+        - Maximum: {max_fat_pct}g (35% of calories)
+        """)
+        
         # Get user input for fat with detailed feedback
-        custom_fat = st.slider("Fat (g)", 20, max_fat, default_macros['fat'],
+        fat_step = 5
+        custom_fat = st.slider("Fat (g)", 
+                              min_value=20, 
+                              max_value=max_fat, 
+                              value=default_macros['fat'],
+                              step=fat_step,
                               help="Recommended minimum: 0.5g per kg of body weight or about 25-30% of calories")
         
         # Show per-kg and per-lb metrics and guidance for fat
