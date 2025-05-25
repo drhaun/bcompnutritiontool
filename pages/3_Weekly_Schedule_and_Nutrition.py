@@ -1115,73 +1115,8 @@ with tab2:
         else:
             st.write("No day-specific nutrition plans have been set up yet.")
     
-    # Macro breakdown visualization
-    if len(day_macros) > 0 and 'protein' in day_macros and 'carbs' in day_macros and 'fat' in day_macros:
-        st.subheader("Macronutrient Breakdown")
-        
-        import matplotlib.pyplot as plt
-        
-        # Calculate calories and percentages
-        day_target_calories = day_macros.get('target_calories', 2000)
-        protein_cals = day_macros['protein'] * 4
-        carbs_cals = day_macros['carbs'] * 4
-        fat_cals = day_macros['fat'] * 9
-        
-        protein_pct = round(protein_cals / day_target_calories * 100)
-        carbs_pct = round(carbs_cals / day_target_calories * 100)
-        fat_pct = round(fat_cals / day_target_calories * 100)
-        
-        # Adjust to ensure percentages sum to 100%
-        total_pct = protein_pct + carbs_pct + fat_pct
-        if total_pct != 100:
-            # Distribute the difference
-            diff = 100 - total_pct
-            # Add to largest component
-            if protein_pct >= carbs_pct and protein_pct >= fat_pct:
-                protein_pct += diff
-            elif carbs_pct >= protein_pct and carbs_pct >= fat_pct:
-                carbs_pct += diff
-            else:
-                fat_pct += diff
-        
-        # Create a simple pie chart
-        fig, ax = plt.subplots(figsize=(6, 6))
-        labels = [f'Protein ({protein_pct}%)', f'Carbs ({carbs_pct}%)', f'Fat ({fat_pct}%)']
-        sizes = [protein_pct, carbs_pct, fat_pct]
-        colors = ['#1f77b4', '#2ca02c', '#ff7f0e']
-        
-        wedges, texts, autotexts = ax.pie(
-            sizes, 
-            labels=labels, 
-            colors=colors,
-            autopct='%1.0f%%',
-            startangle=90,
-            wedgeprops={'edgecolor': 'white', 'linewidth': 1.5}
-        )
-        
-        # Equal aspect ratio ensures the pie chart is circular
-        ax.axis('equal')  
-        
-        # Improve text appearance
-        for text in texts:
-            text.set_fontsize(12)
-        for autotext in autotexts:
-            autotext.set_fontsize(12)
-            autotext.set_color('white')
-        
-        st.pyplot(fig)
-        
-        # Show calories breakdown
-        st.markdown(f"""
-        **Calories Breakdown:**
-        - Total: {day_target_calories} calories
-        - Protein: {day_macros['protein']}g × 4 = {protein_cals} calories ({protein_pct}%)
-        - Carbs: {day_macros['carbs']}g × 4 = {carbs_cals} calories ({carbs_pct}%)
-        - Fat: {day_macros['fat']}g × 9 = {fat_cals} calories ({fat_pct}%)
-        """)
-    
-    # Add guidance on these macros
-    st.subheader("What Do These Macros Mean?")
+    # Macronutrient Guidelines section
+    st.subheader("What Do Macronutrients Mean?")
     
     # Create columns for each macronutrient explanation
     macro_cols = st.columns(3)
