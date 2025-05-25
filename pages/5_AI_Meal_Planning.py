@@ -523,54 +523,6 @@ with tab6:
     else:
         st.info("No matching recipes found. Try a different search or category.")
             
-            meal_col1, meal_col2 = st.columns(2)
-            
-            with meal_col1:
-                # Select meal
-                meal_options = ["Breakfast", "Lunch", "Dinner", "Snacks"]
-                meal_choice = st.selectbox(
-                    "Add to which meal?", 
-                    meal_options,
-                    key=f"meal_choice_recipe"
-                )
-            
-            with meal_col2:
-                # Portion size
-                portion = st.number_input(
-                    "Portion size (serving):",
-                    min_value=1,
-                    max_value=5,
-                    value=1,
-                    step=1,
-                    key=f"recipe_portion"
-                )
-            
-            # Add to meal button
-            if st.button("Add to Meal Plan", key=f"add_recipe_to_meal"):
-                # Convert recipe to food item format
-                macros = recipe.get('macros', {})
-                recipe_as_food = {
-                    'description': recipe.get('title', 'Recipe'),
-                    'fdcId': f"recipe_{recipe.get('id')}",
-                    'brandName': 'Fitomics Recipe',
-                    'isRecipe': True,
-                    'nutrients': {
-                        'calories': macros.get('calories', 0),
-                        'protein': macros.get('protein', 0),
-                        'carbs': macros.get('carbs', 0),
-                        'fat': macros.get('fat', 0),
-                        'fiber': macros.get('fiber', 0)
-                    }
-                }
-                
-                # Add to meal plan (portion is in servings, convert to grams)
-                add_to_meal(recipe_as_food, meal_choice.lower(), portion * 100)
-                st.success(f"Added {recipe.get('title')} to {meal_choice}")
-                
-                # Clear selected recipe
-                st.session_state.selected_recipe_ai = None
-                st.rerun()
-            
             # Close details button
             if st.button("Close Details", key=f"close_recipe_details"):
                 st.session_state.selected_recipe_ai = None
@@ -1150,6 +1102,25 @@ with st.expander("Generate recipe based on your macronutrient needs", expanded=F
                 }
             ]
             
+            # Define high_protein_recipes if not defined earlier
+            high_protein_recipes = [
+                {
+                    "name": "High Protein Greek Yogurt Bowl",
+                    "ingredients": [
+                        {"name": "Greek Yogurt (2% fat)", "amount": "200g", "protein": 20, "carbs": 8, "fat": 4, "calories": 150},
+                        {"name": "Protein Powder", "amount": "30g (1 scoop)", "protein": 24, "carbs": 3, "fat": 1, "calories": 120},
+                        {"name": "Berries", "amount": "50g", "protein": 0.5, "carbs": 8, "fat": 0.1, "calories": 35},
+                        {"name": "Almonds", "amount": "15g", "protein": 3, "carbs": 1.5, "fat": 8, "calories": 90},
+                    ],
+                    "instructions": [
+                        "1. Mix Greek yogurt and protein powder in a bowl.",
+                        "2. Top with berries and chopped almonds.",
+                        "3. Optional: add a small amount of honey if desired."
+                    ],
+                    "macros": {"protein": 47.5, "carbs": 20.5, "fat": 13.1, "calories": 395}
+                }
+            ]
+            
             # Determine which recipe list to use based on macronutrient needs
             if target_recipe_protein > target_recipe_carbs and target_recipe_protein > target_recipe_fat * 9 / 4:
                 recipe_list = high_protein_recipes
@@ -1161,7 +1132,9 @@ with st.expander("Generate recipe based on your macronutrient needs", expanded=F
                 recipe_list = high_fat_recipes
                 recipe_focus = "high fat"
             else:
-                recipe_list = balanced_recipes
+                # Use balanced recipes as default if not defined
+                recipe_list = high_carb_recipes  # Using high_carb_recipes as fallback since it's defined
+                recipe_focus = "balanced"
                 recipe_focus = "balanced"
             
             # Filter recipes based on dietary preferences
