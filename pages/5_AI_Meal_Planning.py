@@ -1,8 +1,14 @@
 import streamlit as st
 import pandas as pd
 import json
+import sys
+import os
 from fdc_api import search_foods, get_food_details, extract_nutrients, normalize_food_data
 import random
+
+# Import recipe database functionality
+sys.path.append(os.path.abspath(os.path.dirname(__file__) + '/../'))
+from recipe_database import get_recipe_database, display_recipe_card, load_sample_recipes
 
 st.set_page_config(page_title="Drag & Drop Meal Planner", layout="wide")
 

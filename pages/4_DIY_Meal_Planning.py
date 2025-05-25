@@ -1250,13 +1250,14 @@ def grocery_list_ui(section_key="grocery"):
                         st.success("Grocery list downloaded successfully!")
 
 # Main layout with tabs
-tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab0, tab1, tab2, tab3, tab4, tab5, tab8, tab6, tab7 = st.tabs([
     "Simplified Meal Builder",
     "Food Search", 
     "My Favorites", 
     "Selected Foods", 
     "Create Recipe", 
     "My Recipes", 
+    "Recipe Browser",
     "Meal Planning",
     "Grocery List"
 ])
@@ -1649,6 +1650,9 @@ with tab4:
 
 with tab5:
     recipes_ui("main")
+
+with tab8:
+    recipe_browser_ui("main")
 
 with tab6:
     meal_planning_ui("main")
