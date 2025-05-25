@@ -35,7 +35,7 @@ dashboard_tab, data_management_tab, photo_gallery_tab = st.tabs(["Dashboard", "D
 st.session_state.daily_records['date'] = pd.to_datetime(st.session_state.daily_records['date'])
 
 # Sort the data by date
-data_for_plotting = st.session_state.daily_records.sort_values('date').copy()
+data_for_plotting = st.session_state.daily_records.sort_values(by='date').copy()
 
 # Make sure weight_lbs exists (for backward compatibility)
 if 'weight_lbs' not in data_for_plotting.columns:
@@ -44,129 +44,130 @@ if 'weight_lbs' not in data_for_plotting.columns:
 # Add a timestamp column for easier x-axis plotting
 data_for_plotting['timestamp'] = data_for_plotting['date'].astype('int64') // 10**9
 
-# Weight trend chart
-st.subheader("Weight Trend")
+with dashboard_tab:
+    # Weight trend chart
+    st.subheader("Weight Trend")
 
-# Create a custom weight trend plot in pounds
-fig, ax = plt.subplots(figsize=(10, 6))
-
-# Plot actual weight data
-ax.plot(data_for_plotting['date'], data_for_plotting['weight_lbs'], 'o-', label='Actual Weight')
-
-# If goal info is available, plot projected weight line
-if (st.session_state.goal_info.get('start_date') and
-    st.session_state.goal_info.get('target_weight_lbs') and 
-    st.session_state.goal_info.get('timeline_weeks')):
+    # Create a custom weight trend plot in pounds
+    fig, ax = plt.subplots(figsize=(10, 6))
     
-    start_date = pd.to_datetime(st.session_state.goal_info['start_date'])
-    # Get starting weight from data or from user_info
-    if not data_for_plotting[data_for_plotting['date'] >= start_date].empty:
-        start_weight = data_for_plotting.loc[data_for_plotting['date'] >= start_date, 'weight_lbs'].iloc[0]
+    # Plot actual weight data
+    ax.plot(data_for_plotting['date'], data_for_plotting['weight_lbs'], 'o-', label='Actual Weight')
+
+    # If goal info is available, plot projected weight line
+    if (st.session_state.goal_info.get('start_date') and
+        st.session_state.goal_info.get('target_weight_lbs') and 
+        st.session_state.goal_info.get('timeline_weeks')):
+        
+        start_date = pd.to_datetime(st.session_state.goal_info['start_date'])
+        # Get starting weight from data or from user_info
+        if not data_for_plotting[data_for_plotting['date'] >= start_date].empty:
+            start_weight = data_for_plotting.loc[data_for_plotting['date'] >= start_date, 'weight_lbs'].iloc[0]
+        else:
+            start_weight = st.session_state.user_info.get('weight_lbs', 0)
+        
+        target_weight = st.session_state.goal_info.get('target_weight_lbs')
+        end_date = start_date + timedelta(days=st.session_state.goal_info['timeline_weeks'] * 7)
+        
+        # Create projected weight line
+        date_range = pd.date_range(start=start_date, end=end_date, freq='D')
+        weight_diff = target_weight - start_weight
+        daily_change = weight_diff / len(date_range)
+        projected_weights = [start_weight + (i * daily_change) for i in range(len(date_range))]
+        
+        # Plot projected weight
+        ax.plot(date_range, projected_weights, '--', label='Target Trajectory', color='green')
+        
+        # Plot target point
+        ax.plot(end_date, target_weight, 'D', label='Goal', color='green', markersize=8)
+    
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Weight (lbs)')
+    ax.set_title('Weight Trend vs. Target')
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.legend()
+    
+    # Beautify the plot
+    plt.tight_layout()
+    
+    # Show the plot
+    st.pyplot(fig)
+    
+    # Macro adherence charts
+    st.subheader("Nutrition Adherence")
+    
+    # Use the existing macro adherence function
+    macro_fig = utils.plot_macro_adherence(data_for_plotting, st.session_state.nutrition_plan)
+    if macro_fig:
+        st.pyplot(macro_fig)
     else:
-        start_weight = st.session_state.user_info.get('weight_lbs', 0)
-    
-    target_weight = st.session_state.goal_info.get('target_weight_lbs')
-    end_date = start_date + timedelta(days=st.session_state.goal_info['timeline_weeks'] * 7)
-    
-    # Create projected weight line
-    date_range = pd.date_range(start=start_date, end=end_date, freq='D')
-    weight_diff = target_weight - start_weight
-    daily_change = weight_diff / len(date_range)
-    projected_weights = [start_weight + (i * daily_change) for i in range(len(date_range))]
-    
-    # Plot projected weight
-    ax.plot(date_range, projected_weights, '--', label='Target Trajectory', color='green')
-    
-    # Plot target point
-    ax.plot(end_date, target_weight, 'D', label='Goal', color='green', markersize=8)
+        st.info("Not enough data to generate nutrition adherence charts.")
 
-ax.set_xlabel('Date')
-ax.set_ylabel('Weight (lbs)')
-ax.set_title('Weight Trend vs. Target')
-ax.grid(True, linestyle='--', alpha=0.7)
-ax.legend()
+    # Weekly Statistics
+    st.subheader("Weekly Statistics")
 
-# Beautify the plot
-plt.tight_layout()
-
-# Show the plot
-st.pyplot(fig)
-
-# Macro adherence charts
-st.subheader("Nutrition Adherence")
-
-# Use the existing macro adherence function
-macro_fig = utils.plot_macro_adherence(data_for_plotting, st.session_state.nutrition_plan)
-if macro_fig:
-    st.pyplot(macro_fig)
-else:
-    st.info("Not enough data to generate nutrition adherence charts.")
-
-# Weekly Statistics
-st.subheader("Weekly Statistics")
-
-# Create weekly statistics
-if len(data_for_plotting) >= 7:
-    # Group by week and calculate statistics
-    data_for_plotting['week'] = data_for_plotting['date'].dt.isocalendar().week
-    data_for_plotting['year'] = data_for_plotting['date'].dt.isocalendar().year
-    
-    # Create a year-week key for proper grouping across year boundaries
-    data_for_plotting['year_week'] = data_for_plotting['year'].astype(str) + "-" + data_for_plotting['week'].astype(str)
-    
-    # Use weight_lbs for statistics
-    weekly_stats = data_for_plotting.groupby('year_week').agg({
-        'date': 'min',  # First day of the week
-        'weight_lbs': ['mean', 'min', 'max', lambda x: x.iloc[-1] - x.iloc[0] if len(x) > 1 else 0],  # Weekly change
-        'calories': ['mean', 'min', 'max', 'sum'],
-        'protein': ['mean', 'min', 'max', 'sum'],
-        'carbs': ['mean', 'min', 'max', 'sum'],
-        'fat': ['mean', 'min', 'max', 'sum']
-    }).reset_index()
-    
-    # Rename columns for clarity
-    weekly_stats.columns = [
-        'year_week', 'week_start', 
-        'avg_weight', 'min_weight', 'max_weight', 'weekly_weight_change',
-        'avg_calories', 'min_calories', 'max_calories', 'total_calories',
-        'avg_protein', 'min_protein', 'max_protein', 'total_protein',
-        'avg_carbs', 'min_carbs', 'max_carbs', 'total_carbs',
-        'avg_fat', 'min_fat', 'max_fat', 'total_fat'
-    ]
-    
-    # Sort by week start date (most recent first)
-    weekly_stats = weekly_stats.sort_values('week_start', ascending=False)
-    
-    # Format dates for display
-    weekly_stats['week_of'] = weekly_stats['week_start'].dt.strftime('%b %d, %Y')
-    
-    # Format numbers for display
-    weekly_stats_display = weekly_stats.copy()
-    
-    # Format weight columns to 1 decimal place
-    for col in ['avg_weight', 'min_weight', 'max_weight', 'weekly_weight_change']:
-        weekly_stats_display[col] = weekly_stats_display[col].map('{:.1f}'.format)
-    
-    # Format nutrition columns to integers
-    for col in ['avg_calories', 'avg_protein', 'avg_carbs', 'avg_fat']:
-        weekly_stats_display[col] = weekly_stats_display[col].map('{:.0f}'.format)
-    
-    # Display columns
-    display_cols = [
-        'week_of', 'avg_weight', 'weekly_weight_change',
-        'avg_calories', 'avg_protein', 'avg_carbs', 'avg_fat'
-    ]
-    
-    # Create a display dataframe with selected columns
-    display_df = weekly_stats_display[display_cols].copy()
-    
-    # Rename columns
-    display_df.columns = [
-        'Week Of', 'Avg Weight (lbs)', 'Weight Change (lbs)',
-        'Avg Calories', 'Avg Protein (g)', 'Avg Carbs (g)', 'Avg Fat (g)'
-    ]
-    
-    st.dataframe(display_df, use_container_width=True)
+    # Create weekly statistics
+    if len(data_for_plotting) >= 7:
+        # Group by week and calculate statistics
+        data_for_plotting['week'] = data_for_plotting['date'].dt.isocalendar().week
+        data_for_plotting['year'] = data_for_plotting['date'].dt.isocalendar().year
+        
+        # Create a year-week key for proper grouping across year boundaries
+        data_for_plotting['year_week'] = data_for_plotting['year'].astype(str) + "-" + data_for_plotting['week'].astype(str)
+        
+        # Use weight_lbs for statistics
+        weekly_stats = data_for_plotting.groupby('year_week').agg({
+            'date': 'min',  # First day of the week
+            'weight_lbs': ['mean', 'min', 'max', lambda x: x.iloc[-1] - x.iloc[0] if len(x) > 1 else 0],  # Weekly change
+            'calories': ['mean', 'min', 'max', 'sum'],
+            'protein': ['mean', 'min', 'max', 'sum'],
+            'carbs': ['mean', 'min', 'max', 'sum'],
+            'fat': ['mean', 'min', 'max', 'sum']
+        }).reset_index()
+        
+        # Rename columns for clarity
+        weekly_stats.columns = [
+            'year_week', 'week_start', 
+            'avg_weight', 'min_weight', 'max_weight', 'weekly_weight_change',
+            'avg_calories', 'min_calories', 'max_calories', 'total_calories',
+            'avg_protein', 'min_protein', 'max_protein', 'total_protein',
+            'avg_carbs', 'min_carbs', 'max_carbs', 'total_carbs',
+            'avg_fat', 'min_fat', 'max_fat', 'total_fat'
+        ]
+        
+        # Sort by week start date (most recent first)
+        weekly_stats = weekly_stats.sort_values(by='week_start', ascending=False)
+        
+        # Format dates for display
+        weekly_stats['week_of'] = weekly_stats['week_start'].dt.strftime('%b %d, %Y')
+        
+        # Format numbers for display
+        weekly_stats_display = weekly_stats.copy()
+        
+        # Format weight columns to 1 decimal place
+        for col in ['avg_weight', 'min_weight', 'max_weight', 'weekly_weight_change']:
+            weekly_stats_display[col] = weekly_stats_display[col].map('{:.1f}'.format)
+        
+        # Format nutrition columns to integers
+        for col in ['avg_calories', 'avg_protein', 'avg_carbs', 'avg_fat']:
+            weekly_stats_display[col] = weekly_stats_display[col].map('{:.0f}'.format)
+        
+        # Display columns
+        display_cols = [
+            'week_of', 'avg_weight', 'weekly_weight_change',
+            'avg_calories', 'avg_protein', 'avg_carbs', 'avg_fat'
+        ]
+        
+        # Create a display dataframe with selected columns
+        display_df = weekly_stats_display[display_cols].copy()
+        
+        # Rename columns
+        display_df.columns = [
+            'Week Of', 'Avg Weight (lbs)', 'Weight Change (lbs)',
+            'Avg Calories', 'Avg Protein (g)', 'Avg Carbs (g)', 'Avg Fat (g)'
+        ]
+        
+        st.dataframe(display_df, use_container_width=True)
     
     # Display a summary of progress
     st.subheader("Progress Summary")
@@ -338,31 +339,298 @@ if len(data_for_plotting) >= 7:
         display_df.columns = new_columns
         
         st.dataframe(display_df, use_container_width=True)
-else:
-    st.info("Weekly statistics will be available once you have at least 7 days of data.")
+    else:
+        st.info("Weekly statistics will be available once you have at least 7 days of data.")
+    
+    # Data export option
+    st.subheader("Export Your Data")
+    
+    if st.button("Download data as CSV", key="dashboard_download"):
+        # Create a copy with appropriate date formatting
+        export_data = st.session_state.daily_records.copy()
+        export_data['date'] = export_data['date'].dt.strftime('%Y-%m-%d')
+        
+        # Ensure we have a weight_lbs column
+        if 'weight_lbs' not in export_data.columns:
+            export_data['weight_lbs'] = export_data['weight_kg'] * 2.20462
+        
+        # Generate CSV
+        csv = export_data.to_csv(index=False)
+        
+        # Create download button
+        st.download_button(
+            label="Download CSV file",
+            data=csv,
+            file_name="fitomics_data.csv",
+            mime="text/csv",
+            key="dashboard_download_button"
+        )
 
-# Data export option
-st.subheader("Export Your Data")
+# Data Management Tab
+with data_management_tab:
+    st.subheader("Manage Your Records")
+    st.markdown("Edit, delete, or filter your tracking data using the tools below.")
+    
+    if not st.session_state.daily_records.empty:
+        # Sort records by date in descending order (newest first)
+        display_records = st.session_state.daily_records.sort_values(by='date', ascending=False).copy()
+        
+        # Format date for display
+        display_records['date_display'] = display_records['date'].dt.strftime('%Y-%m-%d')
+        
+        # Add search/filter functionality
+        search_date = st.text_input("Filter by date (YYYY-MM-DD):", 
+                                  placeholder="Enter date to filter records",
+                                  key="dashboard_date_filter")
+        
+        # Apply filter if provided
+        if search_date:
+            filtered_records = display_records[display_records['date_display'].str.contains(search_date)]
+        else:
+            filtered_records = display_records
+            
+        # Create tabs for different data views
+        basic_tab, detailed_tab = st.tabs(["Basic View", "Detailed View"])
+        
+        with basic_tab:
+            # Select columns for basic display
+            basic_cols = ['date_display', 'weight_lbs', 'calories', 'protein', 'carbs', 'fat']
+            
+            # Check which columns actually exist in the dataframe
+            available_cols = [col for col in basic_cols if col in filtered_records.columns]
+            
+            # Create a display dataframe with available columns
+            basic_display = filtered_records[available_cols].copy()
+            
+            # Rename columns for user-friendly display
+            column_names = {
+                'date_display': 'Date',
+                'weight_lbs': 'Weight (lbs)',
+                'calories': 'Calories',
+                'protein': 'Protein (g)',
+                'carbs': 'Carbs (g)',
+                'fat': 'Fat (g)'
+            }
+            
+            # Only rename columns that exist
+            new_names = {}
+            for col in basic_display.columns:
+                if col in column_names:
+                    new_names[col] = column_names[col]
+            
+            basic_display.rename(columns=new_names, inplace=True)
+            
+            # Create an editable dataframe
+            edited_data = st.data_editor(
+                basic_display,
+                use_container_width=True,
+                hide_index=True,
+                key="basic_data_editor",
+                num_rows="dynamic"
+            )
+            
+            # Add update button to save changes
+            if st.button("Save Changes", key="save_basic_changes"):
+                try:
+                    # Get the edited rows
+                    if edited_data is not None:
+                        for i, row in edited_data.iterrows():
+                            # Find the corresponding record in the original data
+                            date_str = row['Date']
+                            # Find matching record in original data
+                            match_idx = st.session_state.daily_records[
+                                st.session_state.daily_records['date'].dt.strftime('%Y-%m-%d') == date_str
+                            ].index
+                            
+                            if not match_idx.empty:
+                                # Update weight if it was edited
+                                if 'Weight (lbs)' in row:
+                                    st.session_state.daily_records.loc[match_idx[0], 'weight_lbs'] = float(row['Weight (lbs)'])
+                                    st.session_state.daily_records.loc[match_idx[0], 'weight_kg'] = float(row['Weight (lbs)']) / 2.20462
+                                
+                                # Update other nutrition values
+                                if 'Calories' in row:
+                                    st.session_state.daily_records.loc[match_idx[0], 'calories'] = float(row['Calories'])
+                                if 'Protein (g)' in row:
+                                    st.session_state.daily_records.loc[match_idx[0], 'protein'] = float(row['Protein (g)'])
+                                if 'Carbs (g)' in row:
+                                    st.session_state.daily_records.loc[match_idx[0], 'carbs'] = float(row['Carbs (g)'])
+                                if 'Fat (g)' in row:
+                                    st.session_state.daily_records.loc[match_idx[0], 'fat'] = float(row['Fat (g)'])
+                        
+                        # Save updated data
+                        st.session_state.daily_records.to_csv('data/daily_records.csv', index=False)
+                        st.success("Changes saved successfully!")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error saving changes: {e}")
+        
+        with detailed_tab:
+            # For detailed view, show all available columns
+            st.write("Detailed view of your tracking data:")
+            st.dataframe(filtered_records.drop(columns=['date_display'], errors='ignore'), use_container_width=True)
+        
+        # Data management actions
+        st.subheader("Data Management Actions")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Delete selected records
+            st.write("Delete specific records:")
+            dates_to_delete = st.multiselect(
+                "Select dates to delete:",
+                options=filtered_records['date_display'].tolist(),
+                key="dates_to_delete"
+            )
+            
+            if st.button("Delete Selected Records", key="dashboard_delete_records"):
+                if dates_to_delete:
+                    # Remove the selected records
+                    st.session_state.daily_records = st.session_state.daily_records[
+                        ~st.session_state.daily_records['date'].dt.strftime('%Y-%m-%d').isin(dates_to_delete)
+                    ]
+                    
+                    # Save the updated records
+                    st.session_state.daily_records.to_csv('data/daily_records.csv', index=False)
+                    st.success(f"Deleted {len(dates_to_delete)} record(s)")
+                    st.rerun()
+                else:
+                    st.warning("No records selected for deletion")
+        
+        with col2:
+            # Clear all data option with confirmation
+            st.write("Clear all tracking data:")
+            if st.button("Clear All Data", key="dashboard_clear_records"):
+                # Add confirmation
+                if 'dashboard_confirm_delete_all' not in st.session_state:
+                    st.session_state.dashboard_confirm_delete_all = False
+                
+                if not st.session_state.dashboard_confirm_delete_all:
+                    st.session_state.dashboard_confirm_delete_all = True
+                    st.warning("⚠️ Are you sure you want to delete ALL data? This cannot be undone. Click again to confirm.")
+                else:
+                    # Clear the dataframe
+                    st.session_state.daily_records = pd.DataFrame(columns=st.session_state.daily_records.columns)
+                    
+                    # Save empty dataframe
+                    st.session_state.daily_records.to_csv('data/daily_records.csv', index=False)
+                    st.success("All records cleared")
+                    
+                    # Reset confirmation
+                    st.session_state.dashboard_confirm_delete_all = False
+                    st.rerun()
+    else:
+        st.info("No tracking data available yet. Start logging your daily data in the Daily Monitoring page.")
 
-if st.button("Download data as CSV"):
-    # Create a copy with appropriate date formatting
-    export_data = st.session_state.daily_records.copy()
-    export_data['date'] = export_data['date'].dt.strftime('%Y-%m-%d')
+# Progress Photos Tab
+with photo_gallery_tab:
+    st.subheader("Progress Photo Gallery")
+    st.markdown("View and manage your progress photos over time.")
     
-    # Ensure we have a weight_lbs column
-    if 'weight_lbs' not in export_data.columns:
-        export_data['weight_lbs'] = export_data['weight_kg'] * 2.20462
+    # Get the progress photos dataframe
+    photo_df = utils.get_progress_photos_df()
     
-    # Generate CSV
-    csv = export_data.to_csv(index=False)
-    
-    # Create download button
-    st.download_button(
-        label="Download CSV file",
-        data=csv,
-        file_name="fitomics_data.csv",
-        mime="text/csv"
-    )
+    if not photo_df.empty:
+        # Sort by date (newest first)
+        photo_df = photo_df.sort_values(by='date', ascending=False)
+        
+        # Date filtering
+        date_filter = st.text_input(
+            "Filter by date (YYYY-MM-DD):", 
+            placeholder="Enter date to filter photos",
+            key="gallery_date_filter"
+        )
+        
+        # Apply date filter if provided
+        if date_filter:
+            filtered_photos = photo_df[photo_df['date'].str.contains(date_filter)]
+        else:
+            filtered_photos = photo_df
+        
+        # Group photos by date
+        dates = filtered_photos['date'].unique()
+        
+        for date in dates:
+            st.markdown(f"### {date}")
+            
+            # Get photos for this date
+            date_photos = filtered_photos[filtered_photos['date'] == date]
+            
+            # Create columns for different photo types
+            cols = st.columns(3)
+            
+            # Track if we have any photos for this date
+            has_photos = False
+            
+            # Photo types we expect
+            photo_types = ['front', 'side', 'back']
+            
+            # Display photos
+            for i, photo_type in enumerate(photo_types):
+                type_photos = date_photos[date_photos['photo_type'] == photo_type]
+                
+                if not type_photos.empty:
+                    has_photos = True
+                    with cols[i]:
+                        st.markdown(f"**{photo_type.capitalize()} View**")
+                        st.image(type_photos.iloc[0]['filepath'], use_column_width=True)
+                        
+                        # Add a delete button for each photo
+                        if st.button(f"Delete {photo_type.capitalize()} Photo", key=f"delete_{date}_{photo_type}"):
+                            try:
+                                # Get the filepath
+                                filepath = type_photos.iloc[0]['filepath']
+                                
+                                # Delete the file if it exists
+                                if os.path.exists(filepath):
+                                    os.remove(filepath)
+                                
+                                # Remove from dataframe
+                                photo_df = photo_df[~((photo_df['date'] == date) & (photo_df['photo_type'] == photo_type))]
+                                
+                                # Save updated dataframe
+                                photo_df.to_csv('data/progress_photos.csv', index=False)
+                                
+                                st.success(f"Deleted {photo_type} photo for {date}")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error deleting photo: {e}")
+            
+            if not has_photos:
+                st.write("No photos found for this date")
+            
+            st.markdown("---")
+        
+        # Add option to delete all photos
+        if st.button("Delete All Photos", key="gallery_delete_all"):
+            # Add confirmation
+            if 'gallery_confirm_delete_all' not in st.session_state:
+                st.session_state.gallery_confirm_delete_all = False
+            
+            if not st.session_state.gallery_confirm_delete_all:
+                st.session_state.gallery_confirm_delete_all = True
+                st.warning("⚠️ Are you sure you want to delete ALL photos? This cannot be undone. Click again to confirm.")
+            else:
+                # Delete all photo files
+                for _, row in photo_df.iterrows():
+                    try:
+                        filepath = str(row['filepath'])
+                        if os.path.exists(filepath):
+                            os.remove(filepath)
+                    except Exception as e:
+                        st.error(f"Error deleting photo file: {e}")
+                
+                # Clear the dataframe
+                photo_df = pd.DataFrame(columns=photo_df.columns)
+                photo_df.to_csv('data/progress_photos.csv', index=False)
+                
+                # Reset confirmation
+                st.session_state.gallery_confirm_delete_all = False
+                st.success("All photos cleared")
+                st.rerun()
+    else:
+        st.info("No progress photos uploaded yet. Add photos in the Daily Monitoring page.")
 
 # Show navigation hint
 st.markdown("---")
