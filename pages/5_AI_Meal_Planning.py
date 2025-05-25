@@ -195,10 +195,10 @@ with target_tabs[0]:
         default_fat = 70
 
     # Allow user to set nutrition targets manually
-    target_calories = st.number_input("Target Calories", 1200, 5000, default_calories)
-    target_protein = st.number_input("Target Protein (g)", 50, 300, default_protein)
-    target_carbs = st.number_input("Target Carbs (g)", 50, 500, default_carbs)
-    target_fat = st.number_input("Target Fat (g)", 20, 200, default_fat)
+    target_calories = st.number_input("Target Calories", 1200, 5000, min(default_calories, 5000))
+    target_protein = st.number_input("Target Protein (g)", 50, 300, min(default_protein, 300))
+    target_carbs = st.number_input("Target Carbs (g)", 50, 600, min(default_carbs, 600))
+    target_fat = st.number_input("Target Fat (g)", 20, 200, min(default_fat, 200))
     
     # Save to session state
     st.session_state.target_calories = target_calories
