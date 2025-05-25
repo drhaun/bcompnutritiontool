@@ -1466,8 +1466,10 @@ with tab2:
                 calorie_diff = total_calories - custom_day_calories
                 diff_text = f"({calorie_diff:+} from target)" if abs(calorie_diff) > 10 else "(matches target)"
                 
-                # Display adjusted calories with difference from target
-                st.write(f"**Adjusted Total Calories:** {round(total_calories)} kcal {diff_text}")
+                # Display adjusted calories with difference from target in a more prominent way
+                st.markdown("---")
+                st.markdown(f"### Adjusted Total Calories: {round(total_calories)} kcal {diff_text}")
+                st.info("As you adjust your macros, the total calories will automatically update to reflect these changes.")
                 
                 # Show macronutrient breakdown percentages based on the adjusted total calories
                 if total_calories > 0:
@@ -1486,6 +1488,21 @@ with tab2:
                 carbs_pct = 0
                 st.warning("Unable to calculate carbs and percentages due to invalid values.")
             
+            # Display macronutrient breakdown with visual representation
+            st.markdown("### Macronutrient Breakdown")
+            
+            # Create a horizontal bar to visualize the macronutrient breakdown
+            macro_cols = st.columns([protein_pct, carbs_pct, fat_pct])
+            if protein_pct > 0:
+                with macro_cols[0]:
+                    st.markdown(f"<div style='background-color:#ff9999; height:30px; border-radius:5px 0 0 5px; text-align:center; line-height:30px; color:white;'><b>Protein {protein_pct}%</b></div>", unsafe_allow_html=True)
+            if carbs_pct > 0:
+                with macro_cols[1]:
+                    st.markdown(f"<div style='background-color:#99ff99; height:30px; text-align:center; line-height:30px; color:black;'><b>Carbs {carbs_pct}%</b></div>", unsafe_allow_html=True)
+            if fat_pct > 0:
+                with macro_cols[2]:
+                    st.markdown(f"<div style='background-color:#9999ff; height:30px; border-radius:0 5px 5px 0; text-align:center; line-height:30px; color:white;'><b>Fat {fat_pct}%</b></div>", unsafe_allow_html=True)
+                    
             st.write(f"**Macronutrient Ratio:** Protein: {protein_pct}% | Carbs: {carbs_pct}% | Fat: {fat_pct}%")
             
             # Calculate Energy Availability
