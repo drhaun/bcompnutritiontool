@@ -612,6 +612,13 @@ with tab1:
 def render_meal_tab(meal_type):
     st.subheader(f"{meal_type.title()} Items")
     
+    # Make sure the meal type exists in meal_plan
+    if 'meal_plan' not in st.session_state:
+        st.session_state.meal_plan = {}
+    
+    if meal_type.lower() not in st.session_state.meal_plan:
+        st.session_state.meal_plan[meal_type.lower()] = []
+    
     if not st.session_state.meal_plan[meal_type.lower()]:
         st.info(f"No foods added to {meal_type} yet. Search for foods and add them to your meal plan.")
     else:
