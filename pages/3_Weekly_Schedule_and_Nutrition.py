@@ -1327,13 +1327,12 @@ with tab2:
                 if typed_protein != custom_day_protein:
                     custom_day_protein = typed_protein
             
-            # Calculate and display protein in different units
-            with cols_protein[1]:
+            # Calculate and display protein in different units in a separate container
+            protein_metrics = st.container()
+            with protein_metrics:
                 protein_per_kg = round(custom_day_protein / weight_kg, 2)
                 protein_per_lb = round(custom_day_protein / (weight_kg * 2.20462), 2)
-                st.write(f"**{custom_day_protein}g total**")
-                st.write(f"{protein_per_kg}g/kg")
-                st.write(f"{protein_per_lb}g/lb")
+                st.write(f"**Protein metrics:** {custom_day_protein}g total | {protein_per_kg}g/kg | {protein_per_lb}g/lb")
             
             # Ensure fat value is an integer and follows standard coefficients
             # Standard: minimum of either 0.8g/kg or 30% of calories
@@ -1383,18 +1382,31 @@ with tab2:
                     min_value=min_fat,
                     max_value=max_fat,
                     value=default_fat,
-                    help="Recommended: 0.5g per kg of body weight or about 25-30% of calories"
+                    help="Recommended: 0.5g per kg of body weight or about 25-30% of calories",
+                    key=f"fat_slider_{selected_day}"
                 )
-            
-            # Calculate and display fat in different units
+                
             with cols_fat[1]:
+                # Add editable field for direct fat input
+                typed_fat = st.number_input(
+                    "Edit fat (g)",
+                    min_value=min_fat,
+                    max_value=max_fat,
+                    value=custom_day_fat,
+                    step=1,
+                    key=f"fat_input_{selected_day}"
+                )
+                # Use the typed value if it differs from the slider
+                if typed_fat != custom_day_fat:
+                    custom_day_fat = typed_fat
+            
+            # Calculate and display fat in different units in a separate container
+            fat_metrics = st.container()
+            with fat_metrics:
                 fat_per_kg = round(custom_day_fat / weight_kg, 2)
                 fat_per_lb = round(custom_day_fat / (weight_kg * 2.20462), 2)
                 fat_cal_pct = round((custom_day_fat * 9 / custom_day_calories) * 100, 1)
-                st.write(f"**{custom_day_fat}g total**")
-                st.write(f"{fat_per_kg}g/kg")
-                st.write(f"{fat_per_lb}g/lb")
-                st.write(f"{fat_cal_pct}% of calories")
+                st.write(f"**Fat metrics:** {custom_day_fat}g total | {fat_per_kg}g/kg | {fat_per_lb}g/lb | {fat_cal_pct}% of calories")
             
             # Calculate default carbs from remaining calories
             try:
@@ -1421,18 +1433,31 @@ with tab2:
                         min_value=min_carbs,
                         max_value=max_carbs,
                         value=default_carbs,
-                        help="Adjust carbs based on your preferences and activity level"
+                        help="Adjust carbs based on your preferences and activity level",
+                        key=f"carbs_slider_{selected_day}"
                     )
                 
-                # Show carb metrics in different units
                 with cols_carbs[1]:
+                    # Add editable field for direct carbs input
+                    typed_carbs = st.number_input(
+                        "Edit carbs (g)",
+                        min_value=min_carbs,
+                        max_value=max_carbs,
+                        value=custom_day_carbs,
+                        step=1,
+                        key=f"carbs_input_{selected_day}"
+                    )
+                    # Use the typed value if it differs from the slider
+                    if typed_carbs != custom_day_carbs:
+                        custom_day_carbs = typed_carbs
+                
+                # Show carb metrics in different units in a separate container
+                carbs_metrics = st.container()
+                with carbs_metrics:
                     carbs_per_kg = round(custom_day_carbs / weight_kg, 2)
                     carbs_per_lb = round(custom_day_carbs / (weight_kg * 2.20462), 2)
                     carbs_cal_pct = round((custom_day_carbs * 4 / custom_day_calories) * 100, 1)
-                    st.write(f"**{custom_day_carbs}g total**")
-                    st.write(f"{carbs_per_kg}g/kg")
-                    st.write(f"{carbs_per_lb}g/lb")
-                    st.write(f"{carbs_cal_pct}% of calories")
+                    st.write(f"**Carb metrics:** {custom_day_carbs}g total | {carbs_per_kg}g/kg | {carbs_per_lb}g/lb | {carbs_cal_pct}% of calories")
                     
                 # Recalculate the total calories based on the adjusted macros
                 total_calories = (custom_day_protein * 4) + (custom_day_fat * 9) + (custom_day_carbs * 4)
