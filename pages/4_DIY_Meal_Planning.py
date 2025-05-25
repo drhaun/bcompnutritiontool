@@ -5,12 +5,14 @@ import matplotlib.pyplot as plt
 import json
 import os
 import sys
+import io
 from datetime import datetime, timedelta
 from scipy.optimize import minimize
 
-# Import custom FDC API module
+# Import custom modules
 sys.path.append(os.path.abspath(os.path.dirname(__file__) + '/../'))
 import fdc_api
+from recipe_database import get_recipe_database, display_recipe_card, load_sample_recipes
 
 # Set page config
 st.set_page_config(
@@ -37,6 +39,136 @@ if 'selected_foods' not in st.session_state:
 if 'user_info' not in st.session_state or not st.session_state.user_info:
     st.warning("Please complete the Initial Setup first!")
     st.stop()
+
+# Load sample recipes if needed
+load_sample_recipes()
+
+# Function to handle recipe file uploads
+def recipe_browser_ui(section_key="recipes"):
+    """UI for browsing and managing recipes"""
+    st.header("Recipe Browser")
+    
+    # Get recipe database
+    recipe_db = get_recipe_database()
+    
+    # Upload recipes from CSV
+    upload_expander = st.expander("Upload Recipes", expanded=False)
+    with upload_expander:
+        st.write("Upload a CSV file containing recipe data. The file should have Title and Description columns.")
+        uploaded_file = st.file_uploader("Choose a CSV file", type="csv", key=f"recipe_upload_{section_key}")
+        
+        if uploaded_file is not None:
+            # Read file
+            csv_data = io.StringIO(uploaded_file.getvalue().decode("utf-8"))
+            
+            # Parse recipes
+            new_recipes = recipe_db.parse_csv_recipes(csv_data)
+            
+            # Add recipes to database
+            if new_recipes:
+                recipe_db.add_recipes(new_recipes)
+                st.success(f"Successfully imported {len(new_recipes)} recipes!")
+            else:
+                st.error("No valid recipes found in the file.")
+    
+    # Recipe search and filter
+    st.subheader("Find Recipes")
+    
+    # Create two columns for search and filter
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        search_query = st.text_input("Search recipes:", 
+                                   key=f"recipe_search_{section_key}",
+                                   placeholder="Enter recipe name or ingredient")
+    
+    with col2:
+        # Get all available categories
+        categories = list(recipe_db.recipe_categories.keys())
+        categories.insert(0, "all")
+        
+        selected_category = st.selectbox(
+            "Filter by category:",
+            options=[c.replace('_', ' ').capitalize() for c in categories],
+            key=f"recipe_category_{section_key}"
+        )
+        # Convert display category back to category key
+        filter_category = selected_category.lower().replace(' ', '_') if selected_category != "All" else None
+    
+    # Search for recipes
+    search_results = recipe_db.search_recipes(query=search_query, category=filter_category)
+    
+    if search_results:
+        st.success(f"Found {len(search_results)} matching recipes.")
+        
+        # Display recipes in a grid
+        num_cols = 2  # Number of columns in the grid
+        for i in range(0, len(search_results), num_cols):
+            # Create a row of columns
+            cols = st.columns(num_cols)
+            
+            # Fill each column with a recipe
+            for j in range(num_cols):
+                if i + j < len(search_results):
+                    recipe = search_results[i + j]
+                    with cols[j]:
+                        st.markdown(f"### {recipe.get('title')}")
+                        
+                        # Show macros
+                        macros = recipe.get('macros', {})
+                        st.write(f"Calories: {macros.get('calories', 0)} | Protein: {macros.get('protein', 0)}g")
+                        
+                        # Show ingredients snippet
+                        ingredients = recipe.get('ingredients', '')
+                        if len(ingredients) > 100:
+                            ingredients = ingredients[:97] + "..."
+                        st.write(f"Ingredients: {ingredients}")
+                        
+                        # View details button
+                        if st.button("View Details", key=f"view_{recipe.get('id')}_{i+j}"):
+                            st.session_state.selected_recipe = recipe.get('id')
+    else:
+        st.info("No matching recipes found. Try a different search or upload recipes.")
+    
+    # Show selected recipe details
+    if 'selected_recipe' in st.session_state and st.session_state.selected_recipe:
+        st.markdown("---")
+        st.subheader("Recipe Details")
+        
+        # Get recipe
+        recipe = recipe_db.get_recipe_by_id(st.session_state.selected_recipe)
+        
+        if recipe:
+            # Display recipe details
+            display_recipe_card(recipe, show_details=True)
+            
+            # Add to meal button
+            if st.button("Add to Selected Foods", key=f"add_recipe_foods_{section_key}"):
+                # Convert recipe to food items
+                macros = recipe.get('macros', {})
+                food_item = {
+                    'name': recipe.get('title', 'Recipe'),
+                    'fdcId': f"recipe_{recipe.get('id')}",
+                    'category': recipe.get('category', 'other'),
+                    'calories': macros.get('calories', 0),
+                    'protein': macros.get('protein', 0),
+                    'carbs': macros.get('carbs', 0),
+                    'fat': macros.get('fat', 0),
+                    'fiber': 0,
+                    'isRecipe': True
+                }
+                
+                # Add to selected foods
+                if food_item['name'] not in [f['name'] for f in st.session_state.selected_foods]:
+                    st.session_state.selected_foods.append(food_item)
+                    st.success(f"Added {food_item['name']} to selected foods!")
+                else:
+                    st.warning(f"{food_item['name']} is already in your selected foods.")
+            
+            # Close details button
+            if st.button("Close Details", key=f"close_details_{section_key}"):
+                st.session_state.selected_recipe = None
+                st.rerun()
 
 # Food Search UI
 def food_search_ui(section_key="main_search"):
