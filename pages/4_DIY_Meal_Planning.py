@@ -1118,7 +1118,8 @@ def grocery_list_ui(section_key="grocery"):
                         st.success("Grocery list downloaded successfully!")
 
 # Main layout with tabs
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "Simplified Meal Builder",
     "Food Search", 
     "My Favorites", 
     "Selected Foods", 
@@ -1127,6 +1128,380 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Meal Planning",
     "Grocery List"
 ])
+
+with tab0:
+    # New simplified meal builder
+    st.header("Simplified Meal Builder")
+    st.write("Quickly build a meal by selecting foods from each category. Serving sizes will adjust automatically to meet your targets.")
+    
+    # Get day's nutrition targets
+    days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    selected_day = st.selectbox("Select day for nutrition targets:", days_of_week, key="simple_day_select")
+    
+    # Show daily targets if available
+    has_targets = False
+    target_macros = {}
+    
+    if 'day_specific_nutrition' in st.session_state and st.session_state.day_specific_nutrition:
+        if selected_day in st.session_state.day_specific_nutrition:
+            has_targets = True
+            target_macros = st.session_state.day_specific_nutrition[selected_day]
+            
+            # Show the target macros
+            st.subheader("Daily Nutrition Targets")
+            target_cols = st.columns(4)
+            with target_cols[0]:
+                st.metric("Calories", f"{target_macros.get('target_calories', 0)} kcal")
+            with target_cols[1]:
+                st.metric("Protein", f"{target_macros.get('protein', 0)}g")
+            with target_cols[2]:
+                st.metric("Carbs", f"{target_macros.get('carbs', 0)}g")
+            with target_cols[3]:
+                st.metric("Fat", f"{target_macros.get('fat', 0)}g")
+    
+    if not has_targets:
+        st.warning("Please set up your day-specific nutrition targets in the Weekly Schedule and Nutrition page first.")
+        
+        # Allow user to continue with default targets
+        default_calories = 2000
+        default_protein = 150
+        default_carbs = 200
+        default_fat = 65
+        
+        st.subheader("Use Default Targets")
+        target_cols = st.columns(4)
+        with target_cols[0]:
+            default_calories = st.number_input("Calories (kcal)", value=default_calories, min_value=0, step=50)
+        with target_cols[1]:
+            default_protein = st.number_input("Protein (g)", value=default_protein, min_value=0, step=5)
+        with target_cols[2]:
+            default_carbs = st.number_input("Carbs (g)", value=default_carbs, min_value=0, step=5)
+        with target_cols[3]:
+            default_fat = st.number_input("Fat (g)", value=default_fat, min_value=0, step=5)
+        
+        target_macros = {
+            'target_calories': default_calories,
+            'protein': default_protein,
+            'carbs': default_carbs,
+            'fat': default_fat
+        }
+    
+    # Meal percentage slider
+    meal_percent = st.slider("What percentage of daily targets is this meal?", 
+                          min_value=10, max_value=100, value=33, key="simple_meal_pct")
+    
+    # Adjust target macros based on percentage
+    meal_targets = {
+        'target_calories': target_macros.get('target_calories', 0) * meal_percent / 100,
+        'protein': target_macros.get('protein', 0) * meal_percent / 100,
+        'carbs': target_macros.get('carbs', 0) * meal_percent / 100,
+        'fat': target_macros.get('fat', 0) * meal_percent / 100
+    }
+    
+    # Show meal targets
+    st.subheader(f"Meal Targets ({meal_percent}% of daily)")
+    meal_cols = st.columns(4)
+    with meal_cols[0]:
+        st.metric("Calories", f"{int(meal_targets['target_calories'])} kcal")
+    with meal_cols[1]:
+        st.metric("Protein", f"{int(meal_targets['protein'])}g")
+    with meal_cols[2]:
+        st.metric("Carbs", f"{int(meal_targets['carbs'])}g")
+    with meal_cols[3]:
+        st.metric("Fat", f"{int(meal_targets['fat'])}g")
+    
+    # Initialize session state for simple meal builder
+    if 'simple_selected_foods' not in st.session_state:
+        st.session_state.simple_selected_foods = []
+    
+    # Dictionary to map food categories to display names
+    category_display = {
+        'protein': 'Protein Sources',
+        'carb': 'Carbohydrate Sources',
+        'fat': 'Fat Sources',
+        'vegetable': 'Vegetables',
+        'fruit': 'Fruits'
+    }
+    
+    # Get all favorites for easier selection
+    all_favorites = fdc_api.get_user_favorites()
+    categorized_favorites = {}
+    
+    # Categorize favorites
+    for food in all_favorites:
+        category = food.get('category', 'other').lower()
+        if category not in categorized_favorites:
+            categorized_favorites[category] = []
+        categorized_favorites[category].append(food)
+    
+    # Add a search button if user has no favorites in a category
+    search_expander = st.expander("Search for Foods", expanded=False)
+    with search_expander:
+        st.write("Search for foods to add to your favorites, then select them in the meal builder.")
+        
+        search_query = st.text_input("Search for foods:", key="simple_search_query", 
+                                    placeholder="Enter food name (e.g., chicken breast, brown rice, avocado)")
+        
+        search_category = st.selectbox(
+            "Filter by category:",
+            list(category_display.values()),
+            key="simple_search_category"
+        )
+        
+        if st.button("Search", key="simple_search_button"):
+            if search_query:
+                with st.spinner("Searching for foods..."):
+                    # Call the FDC API to search for foods
+                    results = fdc_api.search_foods(search_query)
+                    
+                    if results:
+                        st.success(f"Found {len(results)} results for '{search_query}'")
+                        
+                        # Display up to 5 results
+                        for i, result in enumerate(results[:5]):
+                            if i > 0:
+                                st.markdown("---")
+                            
+                            food_name = result.get('description', 'Unknown Food')
+                            brand = result.get('brandName', '')
+                            
+                            if brand:
+                                display_name = f"{food_name} ({brand})"
+                            else:
+                                display_name = food_name
+                            
+                            st.subheader(f"{i+1}. {display_name}")
+                            
+                            # Get detailed info
+                            try:
+                                food_details = fdc_api.get_food_details(result['fdcId'])
+                                
+                                if food_details:
+                                    # Normalize the food data
+                                    normalized_food = fdc_api.normalize_food_data(food_details)
+                                    
+                                    # Display nutrients
+                                    cols = st.columns(5)
+                                    with cols[0]:
+                                        st.metric("Calories", f"{normalized_food['calories']:.0f} kcal")
+                                    with cols[1]:
+                                        st.metric("Protein", f"{normalized_food['protein']:.1f}g")
+                                    with cols[2]:
+                                        st.metric("Carbs", f"{normalized_food['carbs']:.1f}g")
+                                    with cols[3]:
+                                        st.metric("Fat", f"{normalized_food['fat']:.1f}g")
+                                    with cols[4]:
+                                        st.metric("Fiber", f"{normalized_food.get('fiber', 0):.1f}g")
+                                    
+                                    # Add to favorites button
+                                    if st.button("Add to Favorites", key=f"add_fav_simple_{i}"):
+                                        fdc_api.add_to_favorites(normalized_food)
+                                        st.success(f"Added {normalized_food['name']} to favorites!")
+                            except:
+                                st.error(f"Error loading details for {display_name}")
+                    else:
+                        st.warning(f"No results found for '{search_query}'")
+    
+    # Create selection sections for each food category
+    st.subheader("Select Foods by Category")
+    
+    # Function to display category selection
+    def category_selection(category, display_name):
+        st.write(f"### {display_name}")
+        
+        # Get favorites for this category
+        category_favorites = categorized_favorites.get(category, [])
+        
+        if not category_favorites:
+            st.info(f"No favorite {display_name.lower()} found. Please add some using the search above.")
+            return
+        
+        # Create two columns for food selection
+        select_cols = st.columns(2)
+        
+        # Allow selecting up to 2 foods per category
+        for i in range(2):
+            with select_cols[i]:
+                # Create a selectbox with favorites from this category
+                food_options = ["None"] + [food['name'] for food in category_favorites]
+                food_key = f"select_{category}_{i}"
+                
+                # Get previous selection if exists
+                prev_selection = st.session_state.get(food_key, "None")
+                
+                selected_food_name = st.selectbox(
+                    f"Select {display_name} #{i+1}",
+                    options=food_options,
+                    index=food_options.index(prev_selection) if prev_selection in food_options else 0,
+                    key=food_key
+                )
+                
+                # If a food was selected, add/update it in the selected foods
+                if selected_food_name != "None":
+                    # Find the food object from favorites
+                    selected_food = next((food for food in category_favorites if food['name'] == selected_food_name), None)
+                    
+                    if selected_food:
+                        # Check if this food is already in the selected foods list
+                        existing_food = next((f for f in st.session_state.simple_selected_foods if f['name'] == selected_food_name), None)
+                        
+                        if not existing_food:
+                            st.session_state.simple_selected_foods.append(selected_food)
+                else:
+                    # If "None" is selected, remove this food from selection if it was previously there
+                    if prev_selection != "None":
+                        st.session_state.simple_selected_foods = [
+                            f for f in st.session_state.simple_selected_foods 
+                            if f['name'] != prev_selection
+                        ]
+    
+    # Display category selection for each category
+    for category, display_name in category_display.items():
+        category_selection(category, display_name)
+    
+    # If foods are selected, calculate optimal portions and show nutrition
+    if st.session_state.simple_selected_foods:
+        st.markdown("---")
+        st.subheader("Selected Foods and Portions")
+        
+        # Calculate optimal portions based on meal targets
+        optimal_portions = calculate_optimal_portions(st.session_state.simple_selected_foods, meal_targets)
+        
+        # Show selected foods with adjustable portions
+        total_nutrition = {
+            'calories': 0,
+            'protein': 0,
+            'carbs': 0,
+            'fat': 0
+        }
+        
+        updated_portions = {}
+        
+        for food in st.session_state.simple_selected_foods:
+            food_cols = st.columns([2, 1, 1])
+            
+            with food_cols[0]:
+                st.write(f"**{food['name']}** ({food.get('category', 'Unknown').capitalize()})")
+            
+            with food_cols[1]:
+                # Use the optimal portion as default
+                default_portion = int(optimal_portions.get(food['name'], 100))
+                portion_key = f"portion_{food['name']}"
+                
+                portion = st.number_input(
+                    f"Portion (g):",
+                    min_value=0,
+                    max_value=500,
+                    value=default_portion,
+                    step=5,
+                    key=portion_key
+                )
+                
+                updated_portions[food['name']] = portion
+            
+            with food_cols[2]:
+                # Calculate nutrition for this food with the portion
+                food_cals = food['calories'] * portion / 100
+                food_protein = food['protein'] * portion / 100
+                food_carbs = food['carbs'] * portion / 100
+                food_fat = food['fat'] * portion / 100
+                
+                # Add to total nutrition
+                total_nutrition['calories'] += food_cals
+                total_nutrition['protein'] += food_protein
+                total_nutrition['carbs'] += food_carbs
+                total_nutrition['fat'] += food_fat
+                
+                st.write(f"{food_cals:.0f} kcal | {food_protein:.1f}g P | {food_carbs:.1f}g C | {food_fat:.1f}g F")
+        
+        # Show total nutrition
+        st.markdown("---")
+        st.subheader("Meal Nutrition Totals")
+        
+        # Create columns for the total nutrition display
+        total_cols = st.columns(4)
+        
+        with total_cols[0]:
+            st.metric("Calories", 
+                     f"{total_nutrition['calories']:.0f} / {meal_targets['target_calories']:.0f} kcal",
+                     f"{total_nutrition['calories'] - meal_targets['target_calories']:.0f}")
+            
+            # Progress bar
+            calories_pct = min(100, total_nutrition['calories'] / meal_targets['target_calories'] * 100) if meal_targets['target_calories'] > 0 else 0
+            st.progress(calories_pct / 100)
+        
+        with total_cols[1]:
+            st.metric("Protein", 
+                     f"{total_nutrition['protein']:.1f} / {meal_targets['protein']:.1f}g",
+                     f"{total_nutrition['protein'] - meal_targets['protein']:.1f}g")
+            
+            # Progress bar
+            protein_pct = min(100, total_nutrition['protein'] / meal_targets['protein'] * 100) if meal_targets['protein'] > 0 else 0
+            st.progress(protein_pct / 100)
+        
+        with total_cols[2]:
+            st.metric("Carbs", 
+                     f"{total_nutrition['carbs']:.1f} / {meal_targets['carbs']:.1f}g",
+                     f"{total_nutrition['carbs'] - meal_targets['carbs']:.1f}g")
+            
+            # Progress bar
+            carbs_pct = min(100, total_nutrition['carbs'] / meal_targets['carbs'] * 100) if meal_targets['carbs'] > 0 else 0
+            st.progress(carbs_pct / 100)
+        
+        with total_cols[3]:
+            st.metric("Fat", 
+                     f"{total_nutrition['fat']:.1f} / {meal_targets['fat']:.1f}g",
+                     f"{total_nutrition['fat'] - meal_targets['fat']:.1f}g")
+            
+            # Progress bar
+            fat_pct = min(100, total_nutrition['fat'] / meal_targets['fat'] * 100) if meal_targets['fat'] > 0 else 0
+            st.progress(fat_pct / 100)
+        
+        # Macronutrient ratio visualization
+        if total_nutrition['calories'] > 0:
+            st.subheader("Macronutrient Ratio")
+            
+            # Calculate percentages
+            protein_cal_pct = (total_nutrition['protein'] * 4 / total_nutrition['calories']) * 100
+            carbs_cal_pct = (total_nutrition['carbs'] * 4 / total_nutrition['calories']) * 100
+            fat_cal_pct = (total_nutrition['fat'] * 9 / total_nutrition['calories']) * 100
+            
+            # Create visualization
+            fig, ax = plt.subplots(figsize=(10, 1))
+            ax.barh(['Macros'], [protein_cal_pct], color='#ff9999', label=f'Protein: {protein_cal_pct:.1f}%')
+            ax.barh(['Macros'], [carbs_cal_pct], left=[protein_cal_pct], color='#99ff99', label=f'Carbs: {carbs_cal_pct:.1f}%')
+            ax.barh(['Macros'], [fat_cal_pct], left=[protein_cal_pct + carbs_cal_pct], color='#9999ff', label=f'Fat: {fat_cal_pct:.1f}%')
+            
+            ax.set_xlim(0, 100)
+            ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=3)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            
+            st.pyplot(fig)
+        
+        # Option to save as a recipe
+        st.markdown("---")
+        st.subheader("Save Meal as Recipe")
+        recipe_name = st.text_input("Recipe Name:", key="simple_recipe_name", 
+                                  placeholder="E.g., High Protein Breakfast, Post-Workout Meal")
+        
+        meal_type = st.selectbox("Meal Type:", 
+                               ["Breakfast", "Lunch", "Dinner", "Snack", "Any"], 
+                               key="simple_meal_type")
+        
+        if st.button("Save Recipe", key="save_simple_recipe"):
+            if recipe_name:
+                # Save the recipe
+                fdc_api.add_recipe(recipe_name, st.session_state.simple_selected_foods, updated_portions, meal_type)
+                st.success(f"Recipe '{recipe_name}' saved successfully!")
+            else:
+                st.error("Please enter a recipe name.")
+    
+    else:
+        st.info("Select foods from the categories above to build your meal.")
 
 with tab1:
     food_search_ui("main")
