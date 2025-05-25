@@ -623,12 +623,13 @@ def render_meal_tab(meal_type):
                 st.markdown(f"{int(cal)} kcal, {int(protein)}g protein, {int(carbs)}g carbs, {int(fat)}g fat")
             
             with col2:
-                # Portion size adjuster
+                # Portion size adjuster - ensure minimum value is respected
+                portion_value = max(10, int(item['portion']))  # Ensure minimum value is at least 10
                 new_portion = st.number_input(
                     "Portion (g)", 
                     min_value=10, 
                     max_value=1000, 
-                    value=int(item['portion']), 
+                    value=portion_value, 
                     step=10,
                     key=f"{meal_type}_{i}_portion"
                 )

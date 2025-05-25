@@ -1,9 +1,1 @@
 date,weight_kg,calories,protein,carbs,fat,weight_lbs,mood,mood_value,energy,energy_value,sleep_hours,stress,stress_value,workout_done,workout_intensity,workout_type
-2025-05-10,88.31453946711906,1964.0,195.0,137.0,71.0,194.7,🙂 Good,4.0,High,4.0,4.5,Low,2.0,False,0.0,
-2025-05-11,88.22382088523194,1964.0,195.0,137.0,71.0,194.50000000000003,😄 Excellent,5.0,High,4.0,9.0,Low,2.0,False,0.0,
-2025-05-12,88.22382088523194,1964.0,195.0,137.0,71.0,194.50000000000003,😄 Excellent,5.0,High,4.0,6.0,Low,2.0,True,3.0,Both
-2025-05-13,88.17846159428838,1864.0,190.0,132.0,66.0,194.40000000000003,😄 Excellent,5.0,High,4.0,8.5,High,4.0,True,3.0,Both
-2025-05-14,87.90630584862701,1914.0,195.0,137.0,71.0,193.80000000000007,😐 Neutral,3.0,Moderate,3.0,7.0,Moderate,3.0,True,2.0,Resistance Training
-2025-05-15,87.8155872667399,1914.0,195.0,137.0,71.0,193.60000000000008,😐 Neutral,3.0,Moderate,3.0,7.0,Moderate,3.0,True,2.0,Resistance Training
-2025-05-16,87.72486868485277,1914.0,195.0,137.0,71.0,193.4000000000001,😐 Neutral,3.0,Moderate,3.0,7.0,Moderate,3.0,True,2.0,Resistance Training
-2025-05-17,87.63415010296565,1864.0,190.0,132.0,66.0,193.2000000000001,🙂 Good,4.0,High,4.0,9.0,High,4.0,True,3.0,Cardio
