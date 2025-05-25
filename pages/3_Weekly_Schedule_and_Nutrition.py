@@ -1056,6 +1056,50 @@ with tab2:
             # Get days of week
             days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
             
+            # Add copy settings feature for efficient setup
+            copy_expander = st.expander("Copy Settings Between Days", expanded=False)
+            with copy_expander:
+                st.write("This tool allows you to quickly copy nutrition settings from one day to others.")
+                
+                copy_cols = st.columns([2, 2, 1])
+                with copy_cols[0]:
+                    source_day = st.selectbox(
+                        "Copy from:",
+                        options=days_of_week,
+                        key="copy_source_day"
+                    )
+                
+                with copy_cols[1]:
+                    target_days = st.multiselect(
+                        "Copy to:",
+                        options=[day for day in days_of_week if day != source_day],
+                        key="copy_target_days"
+                    )
+                
+                with copy_cols[2]:
+                    if st.button("Copy Settings", key="copy_settings_btn"):
+                        if source_day and target_days:
+                            # Create the weekly macros dictionary if it doesn't exist
+                            if 'weekly_macros' not in st.session_state:
+                                st.session_state['weekly_macros'] = {}
+                            
+                            # Get source day macros
+                            source_macros = st.session_state['weekly_macros'].get(source_day, {})
+                            
+                            # Copy to target days
+                            for target_day in target_days:
+                                st.session_state['weekly_macros'][target_day] = source_macros.copy()
+                            
+                            # Copy session state keys for presets and unit preferences
+                            for preset_type in ['protein_preset', 'protein_unit_pref', 'fat_preset', 'fat_unit_pref', 'carb_approach']:
+                                source_key = f"{preset_type}_{source_day}"
+                                if source_key in st.session_state:
+                                    for target_day in target_days:
+                                        target_key = f"{preset_type}_{target_day}"
+                                        st.session_state[target_key] = st.session_state[source_key]
+                            
+                            st.success(f"Settings copied from {source_day} to {', '.join(target_days)}")
+            
             # Select a day to customize
             selected_day = st.selectbox("Select day to customize:", days_of_week, key="day_specific_select")
             
