@@ -107,12 +107,12 @@ else:
     if "tdee" not in st.session_state:
         st.session_state.tdee = 2500
 
-# Load data from session state
-gender = st.session_state.gender
-age = st.session_state.age
-height_cm = st.session_state.height_cm
-weight_kg = st.session_state.weight_kg  # Use session state variables directly
-weight_lbs = weight_kg * 2.20462
+# Load data from session state with default values to prevent NoneType errors
+gender = st.session_state.get('gender', 'Male')
+age = st.session_state.get('age', 30)
+height_cm = st.session_state.get('height_cm', 175)
+weight_kg = st.session_state.get('weight_kg', 75)  # Use get with default value
+weight_lbs = weight_kg * 2.20462 if weight_kg is not None else 0
 
 # Debug weight values to troubleshoot
 if "user_info" in st.session_state:

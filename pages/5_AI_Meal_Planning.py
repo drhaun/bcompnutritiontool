@@ -124,13 +124,19 @@ def calculate_meal_nutrition(meal_items):
     }
     
     for item in meal_items:
-        if 'portion' in item and item['portion']:
-            portion_multiplier = item['portion'] / 100  # Assuming standard 100g portion
-            total['calories'] += item['nutrients'].get('calories', 0) * portion_multiplier
-            total['protein'] += item['nutrients'].get('protein', 0) * portion_multiplier
-            total['carbs'] += item['nutrients'].get('carbs', 0) * portion_multiplier
-            total['fat'] += item['nutrients'].get('fat', 0) * portion_multiplier
-            total['fiber'] += item['nutrients'].get('fiber', 0) * portion_multiplier
+        # Check if item is a dictionary before trying to access keys
+        if isinstance(item, dict):
+            # Check if portion exists and is a number
+            if 'portion' in item and item.get('portion') is not None:
+                portion_multiplier = float(item['portion']) / 100  # Assuming standard 100g portion
+                
+                # Check if nutrients is a dictionary before accessing
+                if 'nutrients' in item and isinstance(item['nutrients'], dict):
+                    total['calories'] += item['nutrients'].get('calories', 0) * portion_multiplier
+                    total['protein'] += item['nutrients'].get('protein', 0) * portion_multiplier
+                    total['carbs'] += item['nutrients'].get('carbs', 0) * portion_multiplier
+                    total['fat'] += item['nutrients'].get('fat', 0) * portion_multiplier
+                    total['fiber'] += item['nutrients'].get('fiber', 0) * portion_multiplier
     
     return total
 
