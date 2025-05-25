@@ -40,8 +40,44 @@ if 'user_info' not in st.session_state or not st.session_state.user_info:
     st.warning("Please complete the Initial Setup first!")
     st.stop()
 
-# Load sample recipes if needed
-load_sample_recipes()
+# Function to import recipes from provided CSV files
+def import_recipe_csv_files():
+    """Import recipes from the provided CSV files"""
+    recipe_db = get_recipe_database()
+    
+    # Check if we already have a decent number of recipes
+    if len(recipe_db.recipes) > 10:
+        return True
+        
+    # Try to import recipes from the CSV files in attached_assets
+    csv_files = [
+        "attached_assets/products_May-25_10-19-19AM.csv",
+        "attached_assets/products_May-25_10-19-44AM.csv",
+        "attached_assets/products_May-25_10-20-08AM.csv"
+    ]
+    
+    imported_count = 0
+    for csv_file in csv_files:
+        try:
+            if os.path.exists(csv_file):
+                with open(csv_file, 'r') as f:
+                    new_recipes = recipe_db.parse_csv_recipes(f)
+                    if new_recipes:
+                        recipe_db.add_recipes(new_recipes)
+                        imported_count += len(new_recipes)
+        except Exception as e:
+            print(f"Error importing recipes from {csv_file}: {e}")
+    
+    if imported_count > 0:
+        st.success(f"Successfully imported {imported_count} recipes from CSV files!")
+        return True
+    
+    # If no recipes were imported, load sample recipes as fallback
+    load_sample_recipes()
+    return False
+
+# Load recipes from CSV files or fallback to sample recipes
+import_recipe_csv_files()
 
 # Function to handle recipe file uploads
 def recipe_browser_ui(section_key="recipes"):

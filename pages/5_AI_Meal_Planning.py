@@ -10,7 +10,7 @@ import random
 sys.path.append(os.path.abspath(os.path.dirname(__file__) + '/../'))
 from recipe_database import get_recipe_database, display_recipe_card, load_sample_recipes
 
-st.set_page_config(page_title="Drag & Drop Meal Planner", layout="wide")
+st.set_page_config(page_title="AI-Supported Meal & Recipe Planner", layout="wide")
 
 # Apply Fitomics branding
 st.markdown(
@@ -42,7 +42,7 @@ col1, col2 = st.columns([1, 5])
 with col1:
     st.image("images/fitomics-logo.png", width=80)
 with col2:
-    st.title("Drag & Drop Meal Planner")
+    st.title("AI-Supported Meal & Recipe Planner")
 
 # Initialize session state
 if 'food_database' not in st.session_state:
@@ -64,6 +64,35 @@ if 'food_preferences' not in st.session_state:
         'cuisine_preferences': [],
         'dietary_restrictions': []
     }
+    
+# Import recipes from our recipe database
+def import_recipes_to_ai_planner():
+    """Import recipes from recipe database to AI meal planner"""
+    recipe_db = get_recipe_database()
+    
+    # Check if we already have recipes
+    if len(recipe_db.recipes) == 0:
+        # Try to import from CSV files if recipes don't exist
+        csv_files = [
+            "attached_assets/products_May-25_10-19-19AM.csv",
+            "attached_assets/products_May-25_10-19-44AM.csv",
+            "attached_assets/products_May-25_10-20-08AM.csv"
+        ]
+        
+        for csv_file in csv_files:
+            try:
+                if os.path.exists(csv_file):
+                    with open(csv_file, 'r') as f:
+                        new_recipes = recipe_db.parse_csv_recipes(f)
+                        if new_recipes:
+                            recipe_db.add_recipes(new_recipes)
+            except Exception as e:
+                print(f"Error importing recipes from {csv_file}: {e}")
+    
+    return recipe_db.recipes
+
+# Load recipes for use in the AI Meal Planner
+recipe_collection = import_recipes_to_ai_planner()
     
 # Initialize custom macro variables to prevent errors
 if 'custom_protein' not in st.session_state:
