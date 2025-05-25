@@ -29,7 +29,7 @@ st.title("Progress Dashboard")
 st.markdown("Track your progress towards your body composition and nutrition goals.")
 
 # Add tabs for different sections
-dashboard_tab, data_management_tab, photo_gallery_tab = st.tabs(["Dashboard", "Data Management", "Progress Photos"])
+dashboard_tab, historical_tab, data_management_tab, photo_gallery_tab = st.tabs(["Dashboard", "Historical Analysis", "Data Management", "Progress Photos"])
 
 # Convert date column to datetime if it's not already
 st.session_state.daily_records['date'] = pd.to_datetime(st.session_state.daily_records['date'])
@@ -365,6 +365,271 @@ with dashboard_tab:
             mime="text/csv",
             key="dashboard_download_button"
         )
+
+# Historical Analysis Tab
+with historical_tab:
+    st.subheader("Historical Data Analysis & Extended Trends")
+    st.markdown("Deep dive into your long-term progress patterns and discover insights to optimize your journey.")
+    
+    if len(data_for_plotting) < 14:
+        st.warning("Historical analysis requires at least 14 days of data. Keep tracking to unlock detailed insights!")
+        st.stop()
+    
+    # Time range selector
+    st.markdown("### Analysis Time Range")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        start_date = st.date_input(
+            "Start Date",
+            value=data_for_plotting['date'].min().date(),
+            min_value=data_for_plotting['date'].min().date(),
+            max_value=data_for_plotting['date'].max().date(),
+            key="hist_start_date"
+        )
+    
+    with col2:
+        end_date = st.date_input(
+            "End Date", 
+            value=data_for_plotting['date'].max().date(),
+            min_value=data_for_plotting['date'].min().date(),
+            max_value=data_for_plotting['date'].max().date(),
+            key="hist_end_date"
+        )
+    
+    # Filter data for selected range
+    filtered_data = data_for_plotting[
+        (data_for_plotting['date'] >= pd.to_datetime(start_date)) &
+        (data_for_plotting['date'] <= pd.to_datetime(end_date))
+    ].copy()
+    
+    if len(filtered_data) < 7:
+        st.warning("Please select a range with at least 7 days of data for meaningful analysis.")
+        st.stop()
+    
+    # Calculate advanced statistics
+    st.markdown("### Trend Analysis")
+    
+    # Moving averages
+    filtered_data['weight_7day_avg'] = filtered_data['weight_lbs'].rolling(window=7, center=True).mean()
+    filtered_data['weight_14day_avg'] = filtered_data['weight_lbs'].rolling(window=14, center=True).mean()
+    filtered_data['calories_7day_avg'] = filtered_data['calories'].rolling(window=7, center=True).mean()
+    
+    # Create comprehensive trend chart
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    
+    # Weight trends with moving averages
+    axes[0,0].plot(filtered_data['date'], filtered_data['weight_lbs'], 'o-', alpha=0.6, label='Daily Weight', markersize=4)
+    axes[0,0].plot(filtered_data['date'], filtered_data['weight_7day_avg'], '-', linewidth=2, label='7-Day Average')
+    axes[0,0].plot(filtered_data['date'], filtered_data['weight_14day_avg'], '-', linewidth=2, label='14-Day Average')
+    axes[0,0].set_title('Weight Trends with Moving Averages')
+    axes[0,0].set_ylabel('Weight (lbs)')
+    axes[0,0].legend()
+    axes[0,0].grid(True, alpha=0.3)
+    
+    # Calorie intake patterns
+    axes[0,1].plot(filtered_data['date'], filtered_data['calories'], 'o-', alpha=0.6, label='Daily Calories', markersize=4)
+    axes[0,1].plot(filtered_data['date'], filtered_data['calories_7day_avg'], '-', linewidth=2, label='7-Day Average')
+    if 'target_calories' in st.session_state.nutrition_plan:
+        axes[0,1].axhline(y=st.session_state.nutrition_plan['target_calories'], color='red', linestyle='--', label='Target')
+    axes[0,1].set_title('Calorie Intake Patterns')
+    axes[0,1].set_ylabel('Calories')
+    axes[0,1].legend()
+    axes[0,1].grid(True, alpha=0.3)
+    
+    # Weekly weight change distribution
+    if len(filtered_data) >= 14:
+        weekly_changes = []
+        for i in range(7, len(filtered_data)):
+            if i + 7 < len(filtered_data):
+                current_week_avg = filtered_data.iloc[i:i+7]['weight_lbs'].mean()
+                prev_week_avg = filtered_data.iloc[i-7:i]['weight_lbs'].mean()
+                weekly_changes.append(current_week_avg - prev_week_avg)
+        
+        if weekly_changes:
+            axes[1,0].hist(weekly_changes, bins=max(5, len(weekly_changes)//3), alpha=0.7, edgecolor='black')
+            axes[1,0].axvline(x=np.mean(weekly_changes), color='red', linestyle='--', label=f'Average: {np.mean(weekly_changes):.2f} lbs')
+            axes[1,0].set_title('Weekly Weight Change Distribution')
+            axes[1,0].set_xlabel('Weight Change (lbs)')
+            axes[1,0].set_ylabel('Frequency')
+            axes[1,0].legend()
+            axes[1,0].grid(True, alpha=0.3)
+    
+    # Macro balance over time
+    filtered_data['protein_ratio'] = filtered_data['protein'] * 4 / filtered_data['calories'] * 100
+    filtered_data['carbs_ratio'] = filtered_data['carbs'] * 4 / filtered_data['calories'] * 100
+    filtered_data['fat_ratio'] = filtered_data['fat'] * 9 / filtered_data['calories'] * 100
+    
+    axes[1,1].plot(filtered_data['date'], filtered_data['protein_ratio'], label='Protein %', alpha=0.8)
+    axes[1,1].plot(filtered_data['date'], filtered_data['carbs_ratio'], label='Carbs %', alpha=0.8)
+    axes[1,1].plot(filtered_data['date'], filtered_data['fat_ratio'], label='Fat %', alpha=0.8)
+    axes[1,1].set_title('Macronutrient Balance Over Time')
+    axes[1,1].set_ylabel('Percentage of Calories')
+    axes[1,1].legend()
+    axes[1,1].grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    st.pyplot(fig)
+    
+    # Advanced Insights Section
+    st.markdown("### Advanced Insights")
+    
+    # Calculate correlation between variables
+    insights_col1, insights_col2 = st.columns(2)
+    
+    with insights_col1:
+        st.markdown("**Weight & Calorie Correlations**")
+        
+        # Calculate correlations
+        weight_calorie_corr = filtered_data['weight_lbs'].corr(filtered_data['calories'])
+        weight_protein_corr = filtered_data['weight_lbs'].corr(filtered_data['protein'])
+        
+        st.write(f"• Weight-Calorie correlation: {weight_calorie_corr:.3f}")
+        if abs(weight_calorie_corr) > 0.3:
+            direction = "higher" if weight_calorie_corr > 0 else "lower"
+            st.write(f"  📊 Strong pattern: {direction} calories tend to correlate with weight changes")
+        
+        st.write(f"• Weight-Protein correlation: {weight_protein_corr:.3f}")
+        if abs(weight_protein_corr) > 0.3:
+            direction = "higher" if weight_protein_corr > 0 else "lower"
+            st.write(f"  📊 {direction} protein intake shows correlation with weight trends")
+    
+    with insights_col2:
+        st.markdown("**Consistency Metrics**")
+        
+        # Calculate coefficient of variation for consistency
+        calorie_cv = (filtered_data['calories'].std() / filtered_data['calories'].mean()) * 100
+        protein_cv = (filtered_data['protein'].std() / filtered_data['protein'].mean()) * 100
+        
+        st.write(f"• Calorie consistency: {100-min(calorie_cv, 100):.1f}%")
+        if calorie_cv < 15:
+            st.write("  ✅ Excellent calorie consistency!")
+        elif calorie_cv < 25:
+            st.write("  👍 Good calorie consistency")
+        else:
+            st.write("  ⚠️ Consider more consistent calorie intake")
+        
+        st.write(f"• Protein consistency: {100-min(protein_cv, 100):.1f}%")
+        if protein_cv < 15:
+            st.write("  ✅ Excellent protein consistency!")
+        elif protein_cv < 25:
+            st.write("  👍 Good protein consistency")
+        else:
+            st.write("  ⚠️ Consider more consistent protein intake")
+    
+    # Predictive Analysis
+    st.markdown("### Predictive Trends")
+    
+    if len(filtered_data) >= 21:  # Need at least 3 weeks for meaningful prediction
+        from scipy import stats
+        
+        # Linear regression for weight trend
+        days_since_start = (filtered_data['date'] - filtered_data['date'].min()).dt.days
+        slope, intercept, r_value, p_value, std_err = stats.linregress(days_since_start, filtered_data['weight_lbs'])
+        
+        # Project 30 days into the future
+        future_days = np.arange(len(filtered_data), len(filtered_data) + 30)
+        future_weights = slope * future_days + intercept
+        future_dates = [filtered_data['date'].max() + timedelta(days=i) for i in range(1, 31)]
+        
+        # Create prediction chart
+        pred_fig, pred_ax = plt.subplots(figsize=(12, 6))
+        
+        # Plot historical data
+        pred_ax.plot(filtered_data['date'], filtered_data['weight_lbs'], 'o-', label='Historical Weight', alpha=0.7)
+        pred_ax.plot(filtered_data['date'], filtered_data['weight_7day_avg'], '-', linewidth=2, label='7-Day Average')
+        
+        # Plot trend line
+        trend_weights = slope * days_since_start + intercept
+        pred_ax.plot(filtered_data['date'], trend_weights, '--', color='orange', linewidth=2, label='Trend Line')
+        
+        # Plot prediction
+        pred_ax.plot(future_dates, future_weights, 's-', color='red', alpha=0.7, label='30-Day Projection')
+        
+        pred_ax.set_title('Weight Trend Prediction (Next 30 Days)')
+        pred_ax.set_ylabel('Weight (lbs)')
+        pred_ax.legend()
+        pred_ax.grid(True, alpha=0.3)
+        
+        st.pyplot(pred_fig)
+        
+        # Prediction insights
+        st.markdown("**Prediction Insights:**")
+        
+        weekly_rate = slope * 7
+        monthly_rate = slope * 30
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Current Weekly Rate", f"{weekly_rate:.2f} lbs/week")
+        with col2:
+            st.metric("Projected 30-Day Change", f"{monthly_rate:.2f} lbs")
+        with col3:
+            confidence = max(0, min(100, (r_value**2) * 100))
+            st.metric("Trend Confidence", f"{confidence:.1f}%")
+        
+        if abs(weekly_rate) > 2:
+            st.warning("⚠️ Current rate exceeds 2 lbs/week. Consider adjusting your approach for sustainable results.")
+        elif 0.5 <= abs(weekly_rate) <= 2:
+            st.success("✅ You're in the ideal range for sustainable progress!")
+        else:
+            st.info("💡 Progress is slower than typical recommendations. Consider reviewing your plan.")
+    
+    # Pattern Recognition
+    st.markdown("### Pattern Recognition")
+    
+    if len(filtered_data) >= 28:  # Need at least 4 weeks
+        # Day of week patterns
+        filtered_data['day_of_week'] = filtered_data['date'].dt.day_name()
+        daily_patterns = filtered_data.groupby('day_of_week').agg({
+            'weight_lbs': 'mean',
+            'calories': 'mean',
+            'protein': 'mean'
+        }).round(1)
+        
+        # Reorder by day of week
+        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        daily_patterns = daily_patterns.reindex([day for day in day_order if day in daily_patterns.index])
+        
+        st.markdown("**Weekly Patterns:**")
+        
+        pattern_col1, pattern_col2 = st.columns(2)
+        
+        with pattern_col1:
+            st.write("Average by Day of Week:")
+            st.dataframe(daily_patterns)
+        
+        with pattern_col2:
+            # Find best and worst days
+            best_calorie_day = daily_patterns['calories'].idxmin()
+            worst_calorie_day = daily_patterns['calories'].idxmax()
+            
+            if 'target_calories' in st.session_state.nutrition_plan:
+                target = st.session_state.nutrition_plan['target_calories']
+                best_adherence_day = daily_patterns.iloc[(daily_patterns['calories'] - target).abs().argsort()[:1]].index[0]
+                
+                st.write("**Day-of-Week Insights:**")
+                st.write(f"• Lowest calorie day: {best_calorie_day}")
+                st.write(f"• Highest calorie day: {worst_calorie_day}")
+                st.write(f"• Best adherence day: {best_adherence_day}")
+            
+            # Weekend vs weekday comparison
+            weekend_data = filtered_data[filtered_data['date'].dt.weekday >= 5]
+            weekday_data = filtered_data[filtered_data['date'].dt.weekday < 5]
+            
+            if len(weekend_data) > 0 and len(weekday_data) > 0:
+                weekend_avg_cal = weekend_data['calories'].mean()
+                weekday_avg_cal = weekday_data['calories'].mean()
+                
+                st.write(f"• Weekend avg calories: {weekend_avg_cal:.0f}")
+                st.write(f"• Weekday avg calories: {weekday_avg_cal:.0f}")
+                
+                if weekend_avg_cal > weekday_avg_cal * 1.1:
+                    st.write("  📊 You tend to eat more on weekends")
+                elif weekday_avg_cal > weekend_avg_cal * 1.1:
+                    st.write("  📊 You tend to eat more on weekdays")
+                else:
+                    st.write("  📊 Consistent intake throughout the week")
 
 # Data Management Tab
 with data_management_tab:
