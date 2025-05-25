@@ -1417,102 +1417,102 @@ def meal_planning_ui(section_key="meal_plan"):
         if selected_foods_data:
             selected_df = pd.DataFrame(selected_foods_data)
             st.dataframe(selected_df, use_container_width=True)
-        
-        # Add options for meal number and meal timing
-    col1, col2 = st.columns(2)
-    with col1:
-        # Which meal number is this (1, 2, 3, etc.)
-        meal_number = st.number_input("Meal Number:", min_value=1, max_value=6, value=len(meals) + 1, 
-                                    help="Which meal of the day is this (1st, 2nd, etc.)")
-    
-    with col2:
-        # Total planned meals for the day
-        total_meals = st.number_input("Total Meals for Day:", min_value=1, max_value=6, 
-                                    value=max(len(meals) + 1, meal_number),
-                                    help="How many total meals do you plan to have on this day?")
-    
-    # Get meal distribution based on workout timing
-    meal_distribution = get_meal_distribution(selected_day, total_meals)
-    
-    # Display meal distribution if available
-    if meal_number in meal_distribution:
-        meal_info = meal_distribution[meal_number]
-        
-        # Display meal description and distribution info
-        st.info(f"**Meal {meal_number} ({meal_info['description']})** - Recommended distribution: "
-               f"Protein: {meal_info['protein']*100:.0f}%, "
-               f"Carbs: {meal_info['carbs']*100:.0f}%, "
-               f"Fat: {meal_info['fat']*100:.0f}%")
-    
-    # Add options for auto-calculating portions
-    optimize_col1, optimize_col2 = st.columns(2)
-    
-    with optimize_col1:
-        if st.button("Calculate Optimal Portions", key=f"optimize_portions_{selected_day}"):
-            # Get day's targets
-            if has_nutrition_targets and selected_day in st.session_state.day_specific_nutrition:
-                targets = st.session_state.day_specific_nutrition[selected_day]
+            
+            # Add options for meal number and meal timing
+            col1, col2 = st.columns(2)
+            with col1:
+                # Which meal number is this (1, 2, 3, etc.)
+                meal_number = st.number_input("Meal Number:", min_value=1, max_value=6, value=len(meals) + 1, 
+                                            help="Which meal of the day is this (1st, 2nd, etc.)")
+            
+            with col2:
+                # Total planned meals for the day
+                total_meals = st.number_input("Total Meals for Day:", min_value=1, max_value=6, 
+                                            value=max(len(meals) + 1, meal_number),
+                                            help="How many total meals do you plan to have on this day?")
+            
+            # Get meal distribution based on workout timing
+            meal_distribution = get_meal_distribution(selected_day, total_meals)
+            
+            # Display meal distribution if available
+            if meal_number in meal_distribution:
+                meal_info = meal_distribution[meal_number]
                 
-                # Apply meal-specific distribution if available
-                if meal_number in meal_distribution:
-                    meal_info = meal_distribution[meal_number]
-                    adjusted_targets = {
-                        'target_calories': targets.get('target_calories', 0) * meal_info['protein'],  # Using protein as calorie proxy
-                        'protein': targets.get('protein', 0) * meal_info['protein'],
-                        'carbs': targets.get('carbs', 0) * meal_info['carbs'],
-                        'fat': targets.get('fat', 0) * meal_info['fat']
+                # Display meal description and distribution info
+                st.info(f"**Meal {meal_number} ({meal_info['description']})** - Recommended distribution: "
+                       f"Protein: {meal_info['protein']*100:.0f}%, "
+                       f"Carbs: {meal_info['carbs']*100:.0f}%, "
+                       f"Fat: {meal_info['fat']*100:.0f}%")
+            
+            # Add options for auto-calculating portions
+            optimize_col1, optimize_col2 = st.columns(2)
+            
+            with optimize_col1:
+                if st.button("Calculate Optimal Portions", key=f"optimize_portions_{selected_day}"):
+                    # Get day's targets
+                    if has_nutrition_targets and selected_day in st.session_state.day_specific_nutrition:
+                        targets = st.session_state.day_specific_nutrition[selected_day]
+                        
+                        # Apply meal-specific distribution if available
+                        if meal_number in meal_distribution:
+                            meal_info = meal_distribution[meal_number]
+                            adjusted_targets = {
+                                'target_calories': targets.get('target_calories', 0) * meal_info['protein'],  # Using protein as calorie proxy
+                                'protein': targets.get('protein', 0) * meal_info['protein'],
+                                'carbs': targets.get('carbs', 0) * meal_info['carbs'],
+                                'fat': targets.get('fat', 0) * meal_info['fat']
+                            }
+                        else:
+                            # Default to even distribution if no specific info
+                            adjusted_targets = {
+                                'target_calories': targets.get('target_calories', 0) / total_meals,
+                                'protein': targets.get('protein', 0) / total_meals,
+                                'carbs': targets.get('carbs', 0) / total_meals,
+                                'fat': targets.get('fat', 0) / total_meals
+                            }
+                        
+                        # Calculate optimal portions
+                        optimal_portions = calculate_optimal_portions(st.session_state.selected_foods, adjusted_targets)
+                        
+                        # Update portions
+                        for food_name, portion in optimal_portions.items():
+                            portions[food_name] = portion
+                        
+                        st.success(f"Portions optimized for Meal {meal_number} based on training time and macro distribution!")
+                        st.rerun()
+            
+            with optimize_col2:
+                if st.button("Add to Meal Plan", key=f"add_to_plan_{selected_day}") and meal_name:
+                    # Create a new meal
+                    new_meal = {
+                        'name': meal_name,
+                        'foods': st.session_state.selected_foods.copy(),
+                        'portions': portions.copy(),
+                        'meal_number': meal_number,
+                        'total_meals': total_meals
                     }
-                else:
-                    # Default to even distribution if no specific info
-                    adjusted_targets = {
-                        'target_calories': targets.get('target_calories', 0) / total_meals,
-                        'protein': targets.get('protein', 0) / total_meals,
-                        'carbs': targets.get('carbs', 0) / total_meals,
-                        'fat': targets.get('fat', 0) / total_meals
-                    }
-                
-                # Calculate optimal portions
-                optimal_portions = calculate_optimal_portions(st.session_state.selected_foods, adjusted_targets)
-                
-                # Update portions
-                for food_name, portion in optimal_portions.items():
-                    portions[food_name] = portion
-                
-                st.success(f"Portions optimized for Meal {meal_number} based on training time and macro distribution!")
-                st.rerun()
-    
-    with optimize_col2:
-        if st.button("Add to Meal Plan", key=f"add_to_plan_{selected_day}") and meal_name:
-            # Create a new meal
-            new_meal = {
-                'name': meal_name,
-                'foods': st.session_state.selected_foods.copy(),
-                'portions': portions.copy(),
-                'meal_number': meal_number,
-                'total_meals': total_meals
-            }
-            
-            # Add to the day's meal plan
-            meals.append(new_meal)
-            
-            # Update total nutrition for the day
-            for food in new_meal['foods']:
-                portion = new_meal['portions'].get(food['name'], 100)
-                
-                day_plan['total_nutrition']['calories'] += food['calories'] * portion / 100
-                day_plan['total_nutrition']['protein'] += food['protein'] * portion / 100
-                day_plan['total_nutrition']['carbs'] += food['carbs'] * portion / 100
-                day_plan['total_nutrition']['fat'] += food['fat'] * portion / 100
-                day_plan['total_nutrition']['fiber'] += food.get('fiber', 0) * portion / 100
-            
-            st.success(f"Added {meal_name} to {selected_day}'s meal plan!")
-            
-            # Clear selected foods
-            if st.button("Clear Selected Foods", key=f"clear_after_add_{selected_day}"):
-                st.session_state.selected_foods = []
-                st.rerun()
-    else:
-        st.info("No foods selected. Use the 'Food Search' or 'My Favorites' tabs to select foods for this meal.")
+                    
+                    # Add to the day's meal plan
+                    meals.append(new_meal)
+                    
+                    # Update total nutrition for the day
+                    for food in new_meal['foods']:
+                        portion = new_meal['portions'].get(food['name'], 100)
+                        
+                        day_plan['total_nutrition']['calories'] += food['calories'] * portion / 100
+                        day_plan['total_nutrition']['protein'] += food['protein'] * portion / 100
+                        day_plan['total_nutrition']['carbs'] += food['carbs'] * portion / 100
+                        day_plan['total_nutrition']['fat'] += food['fat'] * portion / 100
+                        day_plan['total_nutrition']['fiber'] += food.get('fiber', 0) * portion / 100
+                    
+                    st.success(f"Added {meal_name} to {selected_day}'s meal plan!")
+                    
+                    # Clear selected foods
+                    if st.button("Clear Selected Foods", key=f"clear_after_add_{selected_day}"):
+                        st.session_state.selected_foods = []
+                        st.rerun()
+        else:
+            st.info("No foods selected. Use the 'Food Search' or 'My Favorites' tabs to select foods for this meal.")
 
 # Function for grocery list generation
 def grocery_list_ui(section_key="grocery"):
