@@ -415,7 +415,137 @@ if st.session_state.search_results:
 st.header("Your Meal Plan")
 
 # Use tabs for different meals
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Breakfast", "Lunch", "Dinner", "Snacks"])
+tab1, tab6, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Recipe Browser", "Breakfast", "Lunch", "Dinner", "Snacks"])
+
+# Recipe Browser tab
+with tab6:
+    # Create recipe browser interface
+    st.header("Recipe Browser")
+    
+    # Get recipe database
+    recipe_db = get_recipe_database()
+    
+    # Recipe search and filter
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        recipe_search = st.text_input("Search recipes:", 
+                           key="recipe_search_ai",
+                           placeholder="Enter recipe name or ingredient")
+    
+    with col2:
+        # Get all available categories
+        categories = list(recipe_db.recipe_categories.keys())
+        categories.insert(0, "all")
+        
+        selected_category = st.selectbox(
+            "Filter by category:",
+            options=[c.replace('_', ' ').capitalize() for c in categories],
+            key="recipe_category_ai"
+        )
+        # Convert display category back to category key
+        filter_category = selected_category.lower().replace(' ', '_') if selected_category.lower() != "all" else None
+    
+    # Search for recipes
+    search_results = recipe_db.search_recipes(query=recipe_search, category=filter_category)
+    
+    if search_results:
+        st.success(f"Found {len(search_results)} matching recipes.")
+        
+        # Display recipes in a grid
+        num_cols = 2  # Number of columns in the grid
+        for i in range(0, len(search_results), num_cols):
+            # Create a row of columns
+            cols = st.columns(num_cols)
+            
+            # Fill each column with a recipe
+            for j in range(num_cols):
+                if i + j < len(search_results):
+                    recipe = search_results[i + j]
+                    with cols[j]:
+                        st.markdown(f"### {recipe.get('title')}")
+                        
+                        # Show macros
+                        macros = recipe.get('macros', {})
+                        st.write(f"Calories: {macros.get('calories', 0)} | Protein: {macros.get('protein', 0)}g")
+                        
+                        # Show category
+                        category = recipe.get('category', 'other')
+                        st.write(f"Category: {category.replace('_', ' ').capitalize()}")
+                        
+                        # View details button
+                        if st.button("View Details", key=f"view_recipe_{recipe.get('id')}_{i+j}"):
+                            st.session_state.selected_recipe_ai = recipe.get('id')
+    else:
+        st.info("No matching recipes found. Try a different search or category.")
+    
+    # Show selected recipe details
+    if 'selected_recipe_ai' in st.session_state and st.session_state.selected_recipe_ai:
+        st.markdown("---")
+        st.subheader("Recipe Details")
+        
+        # Get recipe
+        recipe = recipe_db.get_recipe_by_id(st.session_state.selected_recipe_ai)
+        
+        if recipe:
+            # Display recipe details
+            display_recipe_card(recipe, show_details=True)
+            
+            # Add to meal section
+            st.subheader("Add to Meal Plan")
+            
+            meal_col1, meal_col2 = st.columns(2)
+            
+            with meal_col1:
+                # Select meal
+                meal_options = ["Breakfast", "Lunch", "Dinner", "Snacks"]
+                meal_choice = st.selectbox(
+                    "Add to which meal?", 
+                    meal_options,
+                    key=f"meal_choice_recipe"
+                )
+            
+            with meal_col2:
+                # Portion size
+                portion = st.number_input(
+                    "Portion size (serving):",
+                    min_value=1,
+                    max_value=5,
+                    value=1,
+                    step=1,
+                    key=f"recipe_portion"
+                )
+            
+            # Add to meal button
+            if st.button("Add to Meal Plan", key=f"add_recipe_to_meal"):
+                # Convert recipe to food item format
+                macros = recipe.get('macros', {})
+                recipe_as_food = {
+                    'description': recipe.get('title', 'Recipe'),
+                    'fdcId': f"recipe_{recipe.get('id')}",
+                    'brandName': 'Fitomics Recipe',
+                    'isRecipe': True,
+                    'nutrients': {
+                        'calories': macros.get('calories', 0),
+                        'protein': macros.get('protein', 0),
+                        'carbs': macros.get('carbs', 0),
+                        'fat': macros.get('fat', 0),
+                        'fiber': macros.get('fiber', 0)
+                    }
+                }
+                
+                # Add to meal plan (portion is in servings, convert to grams)
+                add_to_meal(recipe_as_food, meal_choice.lower(), portion * 100)
+                st.success(f"Added {recipe.get('title')} to {meal_choice}")
+                
+                # Clear selected recipe
+                st.session_state.selected_recipe_ai = None
+                st.rerun()
+            
+            # Close details button
+            if st.button("Close Details", key=f"close_recipe_details"):
+                st.session_state.selected_recipe_ai = None
+                st.rerun()
 
 # Overview tab - display daily nutrition totals and progress toward goals
 with tab1:
