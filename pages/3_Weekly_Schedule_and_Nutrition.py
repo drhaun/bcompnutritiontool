@@ -623,8 +623,19 @@ with tab2:
         body_fat_pct = user_info.get('body_fat_pct', 20)
         ffm_kg = weight_kg * (1 - (body_fat_pct / 100))
         
-        # Get goal type
-        user_goal_type = goal_info.get('goal_type', 'maintain')
+        # Get goal type from session state directly
+        if "goal_type" in st.session_state:
+            raw_goal_type = st.session_state.goal_type
+            # Convert to the format used in this page
+            if raw_goal_type == "Lose fat":
+                user_goal_type = "lose_fat"
+            elif raw_goal_type == "Gain muscle":
+                user_goal_type = "gain_muscle"
+            else:
+                user_goal_type = "maintain"
+        else:
+            # Fallback if not in session state
+            user_goal_type = goal_info.get('goal_type', 'maintain')
         
         # Get day's TDEE
         day_data = st.session_state.confirmed_weekly_schedule.get(selected_day, {})
@@ -661,8 +672,11 @@ with tab2:
                 # Ensure default_cal reflects body composition goals (fat loss, muscle gain)
                 # This properly uses the selected weekly rate for energy targets
                 if user_goal_type == "lose_fat":
-                    # Get weekly rate from goal_info (as percentage of body weight)
-                    weekly_weight_pct = goal_info.get('weekly_weight_pct', 0.0075)  # Default 0.75% of body weight
+                    # Get weekly rate directly from session state if available, otherwise use default
+                    if "selected_weekly_weight_pct" in st.session_state:
+                        weekly_weight_pct = abs(st.session_state.selected_weekly_weight_pct)  # Make sure it's positive
+                    else:
+                        weekly_weight_pct = goal_info.get('weekly_weight_pct', 0.0075)  # Default 0.75% of body weight
                     # Calculate daily deficit based on weekly rate and body weight
                     weekly_deficit = (weekly_weight_pct * weight_kg * 7700)  # 7700 calories per kg of fat
                     daily_deficit = weekly_deficit / 7
