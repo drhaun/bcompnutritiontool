@@ -394,51 +394,41 @@ def create_recipe_ui():
             # Check if the day exists in the schedule
             day_data = weekly_schedule.get(selected_day, {})
             
-            # Check for resistance training
-            if day_data.get('resistance_training', False):
-                workout_info['has_workout'] = True
-                workout_info['workout_type'] = 'Resistance'
-                # Convert time to appropriate category
-                time_str = day_data.get('resistance_time', '')
-                if time_str:
-                    try:
-                        time_obj = datetime.strptime(time_str, "%H:%M").time()
-                        hour = time_obj.hour
-                        
-                        if hour < 9:
-                            workout_info['workout_time'] = 'BEFORE 9AM'
-                        elif hour < 15:
-                            workout_info['workout_time'] = '9AM-3PM'
-                        elif hour < 18:
-                            workout_info['workout_time'] = '3PM-6PM'
-                        else:
-                            workout_info['workout_time'] = 'AFTER 6PM'
-                    except Exception as e:
-                        workout_info['workout_time'] = '9AM-3PM'  # Default fallback
-                        pass
-            
-            # Check for cardio training
-            elif day_data.get('cardio_training', False):
-                workout_info['has_workout'] = True
-                workout_info['workout_type'] = 'Cardio'
-                # Convert time to appropriate category
-                time_str = day_data.get('cardio_time', '')
-                if time_str:
-                    try:
-                        time_obj = datetime.strptime(time_str, "%H:%M").time()
-                        hour = time_obj.hour
-                        
-                        if hour < 9:
-                            workout_info['workout_time'] = 'BEFORE 9AM'
-                        elif hour < 15:
-                            workout_info['workout_time'] = '9AM-3PM'
-                        elif hour < 18:
-                            workout_info['workout_time'] = '3PM-6PM'
-                        else:
-                            workout_info['workout_time'] = 'AFTER 6PM'
-                    except Exception as e:
-                        workout_info['workout_time'] = '9AM-3PM'  # Default fallback
-                        pass
+            # The schedule structure has workouts as a list under each day
+            if 'workouts' in day_data and len(day_data['workouts']) > 0:
+                for workout in day_data['workouts']:
+                    workout_name = workout.get('name', '')
+                    
+                    # Found a workout
+                    workout_info['has_workout'] = True
+                    
+                    # Determine workout type
+                    if 'Resistance' in workout_name or 'Weight' in workout_name or 'Strength' in workout_name:
+                        workout_info['workout_type'] = 'Resistance'
+                    else:
+                        workout_info['workout_type'] = 'Cardio'
+                    
+                    # Get time and convert to category
+                    time_str = workout.get('start_time', '')
+                    if time_str:
+                        try:
+                            time_obj = datetime.strptime(time_str, "%H:%M").time()
+                            hour = time_obj.hour
+                            
+                            if hour < 9:
+                                workout_info['workout_time'] = 'BEFORE 9AM'
+                            elif hour < 15:
+                                workout_info['workout_time'] = '9AM-3PM'
+                            elif hour < 18:
+                                workout_info['workout_time'] = '3PM-6PM'
+                            else:
+                                workout_info['workout_time'] = 'AFTER 6PM'
+                        except Exception as e:
+                            workout_info['workout_time'] = '9AM-3PM'  # Default fallback
+                            pass
+                    
+                    # We found at least one workout, no need to check others
+                    break
         
         # Use training-based distribution if we have a workout scheduled
         if workout_info['has_workout']:
