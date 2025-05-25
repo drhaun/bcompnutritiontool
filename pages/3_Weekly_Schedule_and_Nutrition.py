@@ -589,12 +589,8 @@ with tab2:
             workouts = day_data.get('workouts', [])
             workout_summary = ", ".join([w.get('name', 'Workout') + f" ({w.get('intensity', 'Moderate')})" for w in workouts]) if workouts else "None"
             
-            # Get nutrition summary if available
-            day_nutrition = st.session_state.day_specific_nutrition.get(day, {})
-            if day_nutrition:
-                nutrition_summary = f"{day_nutrition.get('target_calories', 'N/A')} cal, {day_nutrition.get('protein', 'N/A')}g protein"
-            else:
-                nutrition_summary = "Not set"
+            # Show estimated TDEE instead of nutrition
+            estimated_tdee = day_data.get('estimated_tdee', 'N/A')
             
             # Add to data table
             schedule_data.append({
@@ -602,51 +598,11 @@ with tab2:
                 "Wake-Bed": f"{wake_time} - {bed_time}",
                 "Sleep": sleep_display,
                 "Workouts": workout_summary,
-                "Nutrition": nutrition_summary
+                "Est. TDEE": f"{estimated_tdee} cal"
             })
         
         # Display as a table
         st.table(schedule_data)
-        
-        # Day selector for nutrition targets
-        copy_cols = st.columns(3)
-        
-        with copy_cols[0]:
-            source_day = st.selectbox(
-                "Copy from:",
-                options=days_of_week,
-                key="copy_source_day"
-            )
-        
-        with copy_cols[1]:
-            target_days = st.multiselect(
-                "Copy to:",
-                options=[day for day in days_of_week if day != source_day],
-                key="copy_target_days"
-            )
-        
-        with copy_cols[2]:
-            if st.button("Copy Settings", key="copy_settings_btn"):
-                if source_day and target_days:
-                    # Create the weekly macros dictionary if it doesn't exist
-                    if 'weekly_macros' not in st.session_state:
-                        st.session_state['weekly_macros'] = {}
-                    
-                    # Check if we have day-specific nutrition data
-                    if 'day_specific_nutrition' not in st.session_state:
-                        st.session_state.day_specific_nutrition = {}
-                    
-                    # Get source day macros
-                    source_macros = st.session_state.day_specific_nutrition.get(source_day, {})
-                    
-                    if not source_macros:
-                        st.error(f"No nutrition settings found for {source_day}. Please set up that day first.")
-                    else:
-                        # Copy to target days
-                        for target_day in target_days:
-                            st.session_state.day_specific_nutrition[target_day] = copy.deepcopy(source_macros)
-                        
-                        st.success(f"Copied nutrition settings from {source_day} to {', '.join(target_days)}")
 
         
         # Day-specific nutrition targets
@@ -703,7 +659,7 @@ with tab2:
                 max_cal = int(float(day_tdee) * 1.3)
                 
                 # Ensure default_cal reflects body composition goals (fat loss, muscle gain)
-                # This is the key change to use target energy intake based on body composition goals
+                # This properly uses the selected weekly rate for energy targets
                 if user_goal_type == "lose_fat":
                     # Get weekly rate from goal_info (as percentage of body weight)
                     weekly_weight_pct = goal_info.get('weekly_weight_pct', 0.0075)  # Default 0.75% of body weight
@@ -712,8 +668,8 @@ with tab2:
                     daily_deficit = weekly_deficit / 7
                     default_cal = int(day_tdee - daily_deficit)
                     
-                    # Add explanation in the UI
-                    st.info(f"Using weekly rate of {weekly_weight_pct*100:.2f}% of body weight for fat loss. Daily deficit: {int(daily_deficit)} calories.")
+                    # Add clear explanation in the UI
+                    st.info(f"**Using your selected weekly rate of {weekly_weight_pct*100:.2f}% of body weight** for fat loss calculation. This creates a daily deficit of **{int(daily_deficit)} calories**, adjusting your target from the maintenance level of {day_tdee} calories to **{default_cal} calories**.")
                 elif user_goal_type == "gain_muscle":
                     # Get weekly rate from goal_info (as percentage of body weight)
                     weekly_weight_pct = goal_info.get('weekly_weight_pct', 0.0025)  # Default 0.25% of body weight
@@ -722,14 +678,20 @@ with tab2:
                     daily_surplus = weekly_surplus / 7
                     default_cal = int(day_tdee + daily_surplus)
                     
-                    # Add explanation in the UI
-                    st.info(f"Using weekly rate of {weekly_weight_pct*100:.2f}% of body weight for muscle gain. Daily surplus: {int(daily_surplus)} calories.")
+                    # Add clear explanation in the UI
+                    st.info(f"**Using your selected weekly rate of {weekly_weight_pct*100:.2f}% of body weight** for muscle gain calculation. This creates a daily surplus of **{int(daily_surplus)} calories**, adjusting your target from the maintenance level of {day_tdee} calories to **{default_cal} calories**.")
                 else:  # Maintenance
                     default_cal = int(day_tdee)
+                    st.info(f"Maintenance goal selected - target calories match your estimated TDEE of {day_tdee} calories.")
                     
-                # Use the calculated default_cal or the existing value in day_macros
-                if 'target_calories' in day_macros and isinstance(day_macros['target_calories'], (int, float)):
-                    default_cal = int(day_macros['target_calories'])
+                # Only use the existing value if it's been set by the user
+                if 'target_calories' in day_macros and isinstance(day_macros['target_calories'], (int, float)) and day_macros['target_calories'] > 0:
+                    # But only if we're not changing the page (i.e., when user is viewing existing values)
+                    if st.session_state.get('nutrition_calc_updated', False) == False:
+                        default_cal = int(day_macros['target_calories'])
+                
+                # Track that we've updated the calculation for this session
+                st.session_state['nutrition_calc_updated'] = True
             except Exception as e:
                 st.error(f"Error calculating calorie targets: {str(e)}")
                 default_cal = 2000
