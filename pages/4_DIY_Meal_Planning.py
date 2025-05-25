@@ -498,6 +498,9 @@ total_meals = st.number_input("How many meals do you plan to have on this day?",
 if selected_day not in st.session_state.meal_plan:
     st.session_state.meal_plan[selected_day] = {}
 
+# Temporary variable to track all nutrition for the day
+daily_nutrition = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+
 # For each meal
 for meal_num in range(1, total_meals + 1):
     # Get meal distribution for this meal
@@ -550,153 +553,526 @@ for meal_num in range(1, total_meals + 1):
     
     # Protein sources tab
     with food_category_tabs[0]:
-        st.subheader("Protein Sources")
-        
-        # Display pre-populated common protein sources with checkboxes
-        protein_cols = st.columns(3)
+        protein_tab_selection = st.radio(
+            "Protein Source Selection",
+            ["Common Protein Foods", "Search USDA Database"],
+            key=f"protein_source_selection_{selected_day}_{meal_num}"
+        )
         
         # Track selected proteins
-        selected_proteins = []
+        selected_proteins = list(meal_data['protein_sources'])
         
-        # Create checkboxes for common protein sources
-        for i, protein in enumerate(COMMON_PROTEIN_SOURCES):
-            col_idx = i % 3
-            with protein_cols[col_idx]:
-                protein_name = protein["name"]
-                is_selected = st.checkbox(
-                    f"{protein_name} ({protein['protein']}g P, {protein['carbs']}g C, {protein['fat']}g F)", 
-                    value=protein_name in meal_data['protein_sources'],
-                    key=f"protein_{selected_day}_{meal_num}_{i}"
-                )
-                
-                if is_selected:
-                    selected_proteins.append(protein_name)
-                    # Add to selected foods if not already there
-                    if not any(food['name'] == protein_name for food in st.session_state.selected_foods):
-                        st.session_state.selected_foods.append(protein)
+        if protein_tab_selection == "Common Protein Foods":
+            # Display pre-populated common protein sources with checkboxes
+            protein_cols = st.columns(3)
+            
+            # Create checkboxes for common protein sources
+            for i, protein in enumerate(COMMON_PROTEIN_SOURCES):
+                col_idx = i % 3
+                with protein_cols[col_idx]:
+                    protein_name = protein["name"]
+                    is_selected = st.checkbox(
+                        f"{protein_name} ({protein['protein']}g P, {protein['carbs']}g C, {protein['fat']}g F)", 
+                        value=protein_name in meal_data['protein_sources'],
+                        key=f"protein_{selected_day}_{meal_num}_{i}"
+                    )
+                    
+                    if is_selected and protein_name not in selected_proteins:
+                        selected_proteins.append(protein_name)
+                        # Add to selected foods if not already there
+                        if not any(food['name'] == protein_name for food in st.session_state.selected_foods):
+                            st.session_state.selected_foods.append(protein)
+                    elif not is_selected and protein_name in selected_proteins:
+                        selected_proteins.remove(protein_name)
+        else:
+            # Search for protein foods from USDA database
+            st.subheader("Search USDA Database for Protein Sources")
+            protein_search = st.text_input("Search for protein foods:", key=f"protein_search_{selected_day}_{meal_num}")
+            
+            if protein_search and st.button("Search", key=f"protein_search_btn_{selected_day}_{meal_num}"):
+                with st.spinner("Searching USDA Food Database..."):
+                    results = fdc_api.search_foods(protein_search)
+                    
+                    if results:
+                        # Filter for protein-rich foods
+                        protein_foods = []
+                        for food in results:
+                            normalized = fdc_api.normalize_food_data(food)
+                            category = fdc_api.categorize_food(normalized)
+                            if category == 'protein':
+                                protein_foods.append(normalized)
+                        
+                        if protein_foods:
+                            st.success(f"Found {len(protein_foods)} protein-rich foods.")
+                            
+                            # Display as table
+                            protein_data = []
+                            for i, food in enumerate(protein_foods[:10]):  # Limit to 10 results
+                                protein_data.append({
+                                    'Index': i + 1,
+                                    'Food': food['name'],
+                                    'Calories': f"{food['calories']:.0f} kcal",
+                                    'Protein': f"{food['protein']:.1f}g",
+                                    'Carbs': f"{food['carbs']:.1f}g",
+                                    'Fat': f"{food['fat']:.1f}g"
+                                })
+                            
+                            protein_df = pd.DataFrame(protein_data)
+                            st.dataframe(protein_df, use_container_width=True)
+                            
+                            # Allow selecting from search results
+                            search_protein_selection = st.multiselect(
+                                "Select protein sources from search results:",
+                                [food['name'] for food in protein_foods[:10]],
+                                default=[name for name in meal_data['protein_sources'] if name in [food['name'] for food in protein_foods[:10]]]
+                            )
+                            
+                            # Add selected proteins from search
+                            for protein_name in search_protein_selection:
+                                if protein_name not in selected_proteins:
+                                    selected_proteins.append(protein_name)
+                                    # Add to selected foods if not already there
+                                    selected_food = next((food for food in protein_foods if food['name'] == protein_name), None)
+                                    if selected_food and not any(food['name'] == protein_name for food in st.session_state.selected_foods):
+                                        st.session_state.selected_foods.append(selected_food)
+                            
+                            # Remove unselected proteins
+                            for protein_name in list(selected_proteins):
+                                if protein_name in [food['name'] for food in protein_foods[:10]] and protein_name not in search_protein_selection:
+                                    selected_proteins.remove(protein_name)
+                        else:
+                            st.warning("No protein-rich foods found. Try a different search term.")
+                    else:
+                        st.warning("No results found. Try a different search term.")
         
         # Update meal data with selected proteins
         meal_data['protein_sources'] = selected_proteins
+        
+        # Display currently selected protein sources
+        if selected_proteins:
+            st.write("**Selected Protein Sources:**")
+            for protein in selected_proteins:
+                st.write(f"- {protein}")
+        else:
+            st.write("No protein sources selected yet.")
     
     # Carb sources tab
     with food_category_tabs[1]:
-        st.subheader("Carbohydrate Sources")
-        
-        # Display pre-populated common carb sources with checkboxes
-        carb_cols = st.columns(3)
+        carb_tab_selection = st.radio(
+            "Carbohydrate Source Selection",
+            ["Common Carb Foods", "Search USDA Database"],
+            key=f"carb_source_selection_{selected_day}_{meal_num}"
+        )
         
         # Track selected carbs
-        selected_carbs = []
+        selected_carbs = list(meal_data['carb_sources'])
         
-        # Create checkboxes for common carb sources
-        for i, carb in enumerate(COMMON_CARB_SOURCES):
-            col_idx = i % 3
-            with carb_cols[col_idx]:
-                carb_name = carb["name"]
-                is_selected = st.checkbox(
-                    f"{carb_name} ({carb['protein']}g P, {carb['carbs']}g C, {carb['fat']}g F)", 
-                    value=carb_name in meal_data['carb_sources'],
-                    key=f"carb_{selected_day}_{meal_num}_{i}"
-                )
-                
-                if is_selected:
-                    selected_carbs.append(carb_name)
-                    # Add to selected foods if not already there
-                    if not any(food['name'] == carb_name for food in st.session_state.selected_foods):
-                        st.session_state.selected_foods.append(carb)
+        if carb_tab_selection == "Common Carb Foods":
+            # Display pre-populated common carb sources with checkboxes
+            carb_cols = st.columns(3)
+            
+            # Create checkboxes for common carb sources
+            for i, carb in enumerate(COMMON_CARB_SOURCES):
+                col_idx = i % 3
+                with carb_cols[col_idx]:
+                    carb_name = carb["name"]
+                    is_selected = st.checkbox(
+                        f"{carb_name} ({carb['protein']}g P, {carb['carbs']}g C, {carb['fat']}g F)", 
+                        value=carb_name in meal_data['carb_sources'],
+                        key=f"carb_{selected_day}_{meal_num}_{i}"
+                    )
+                    
+                    if is_selected and carb_name not in selected_carbs:
+                        selected_carbs.append(carb_name)
+                        # Add to selected foods if not already there
+                        if not any(food['name'] == carb_name for food in st.session_state.selected_foods):
+                            st.session_state.selected_foods.append(carb)
+                    elif not is_selected and carb_name in selected_carbs:
+                        selected_carbs.remove(carb_name)
+        else:
+            # Search for carb foods from USDA database
+            st.subheader("Search USDA Database for Carbohydrate Sources")
+            carb_search = st.text_input("Search for carbohydrate foods:", key=f"carb_search_{selected_day}_{meal_num}")
+            
+            if carb_search and st.button("Search", key=f"carb_search_btn_{selected_day}_{meal_num}"):
+                with st.spinner("Searching USDA Food Database..."):
+                    results = fdc_api.search_foods(carb_search)
+                    
+                    if results:
+                        # Filter for carb-rich foods
+                        carb_foods = []
+                        for food in results:
+                            normalized = fdc_api.normalize_food_data(food)
+                            category = fdc_api.categorize_food(normalized)
+                            if category == 'carb':
+                                carb_foods.append(normalized)
+                        
+                        if carb_foods:
+                            st.success(f"Found {len(carb_foods)} carb-rich foods.")
+                            
+                            # Display as table
+                            carb_data = []
+                            for i, food in enumerate(carb_foods[:10]):  # Limit to 10 results
+                                carb_data.append({
+                                    'Index': i + 1,
+                                    'Food': food['name'],
+                                    'Calories': f"{food['calories']:.0f} kcal",
+                                    'Protein': f"{food['protein']:.1f}g",
+                                    'Carbs': f"{food['carbs']:.1f}g",
+                                    'Fat': f"{food['fat']:.1f}g"
+                                })
+                            
+                            carb_df = pd.DataFrame(carb_data)
+                            st.dataframe(carb_df, use_container_width=True)
+                            
+                            # Allow selecting from search results
+                            search_carb_selection = st.multiselect(
+                                "Select carbohydrate sources from search results:",
+                                [food['name'] for food in carb_foods[:10]],
+                                default=[name for name in meal_data['carb_sources'] if name in [food['name'] for food in carb_foods[:10]]]
+                            )
+                            
+                            # Add selected carbs from search
+                            for carb_name in search_carb_selection:
+                                if carb_name not in selected_carbs:
+                                    selected_carbs.append(carb_name)
+                                    # Add to selected foods if not already there
+                                    selected_food = next((food for food in carb_foods if food['name'] == carb_name), None)
+                                    if selected_food and not any(food['name'] == carb_name for food in st.session_state.selected_foods):
+                                        st.session_state.selected_foods.append(selected_food)
+                            
+                            # Remove unselected carbs
+                            for carb_name in list(selected_carbs):
+                                if carb_name in [food['name'] for food in carb_foods[:10]] and carb_name not in search_carb_selection:
+                                    selected_carbs.remove(carb_name)
+                        else:
+                            st.warning("No carb-rich foods found. Try a different search term.")
+                    else:
+                        st.warning("No results found. Try a different search term.")
         
         # Update meal data with selected carbs
         meal_data['carb_sources'] = selected_carbs
+        
+        # Display currently selected carb sources
+        if selected_carbs:
+            st.write("**Selected Carbohydrate Sources:**")
+            for carb in selected_carbs:
+                st.write(f"- {carb}")
+        else:
+            st.write("No carbohydrate sources selected yet.")
     
     # Fat sources tab
     with food_category_tabs[2]:
-        st.subheader("Fat Sources")
-        
-        # Display pre-populated common fat sources with checkboxes
-        fat_cols = st.columns(3)
+        fat_tab_selection = st.radio(
+            "Fat Source Selection",
+            ["Common Fat Foods", "Search USDA Database"],
+            key=f"fat_source_selection_{selected_day}_{meal_num}"
+        )
         
         # Track selected fats
-        selected_fats = []
+        selected_fats = list(meal_data['fat_sources'])
         
-        # Create checkboxes for common fat sources
-        for i, fat in enumerate(COMMON_FAT_SOURCES):
-            col_idx = i % 3
-            with fat_cols[col_idx]:
-                fat_name = fat["name"]
-                is_selected = st.checkbox(
-                    f"{fat_name} ({fat['protein']}g P, {fat['carbs']}g C, {fat['fat']}g F)", 
-                    value=fat_name in meal_data['fat_sources'],
-                    key=f"fat_{selected_day}_{meal_num}_{i}"
-                )
-                
-                if is_selected:
-                    selected_fats.append(fat_name)
-                    # Add to selected foods if not already there
-                    if not any(food['name'] == fat_name for food in st.session_state.selected_foods):
-                        st.session_state.selected_foods.append(fat)
+        if fat_tab_selection == "Common Fat Foods":
+            # Display pre-populated common fat sources with checkboxes
+            fat_cols = st.columns(3)
+            
+            # Create checkboxes for common fat sources
+            for i, fat in enumerate(COMMON_FAT_SOURCES):
+                col_idx = i % 3
+                with fat_cols[col_idx]:
+                    fat_name = fat["name"]
+                    is_selected = st.checkbox(
+                        f"{fat_name} ({fat['protein']}g P, {fat['carbs']}g C, {fat['fat']}g F)", 
+                        value=fat_name in meal_data['fat_sources'],
+                        key=f"fat_{selected_day}_{meal_num}_{i}"
+                    )
+                    
+                    if is_selected and fat_name not in selected_fats:
+                        selected_fats.append(fat_name)
+                        # Add to selected foods if not already there
+                        if not any(food['name'] == fat_name for food in st.session_state.selected_foods):
+                            st.session_state.selected_foods.append(fat)
+                    elif not is_selected and fat_name in selected_fats:
+                        selected_fats.remove(fat_name)
+        else:
+            # Search for fat foods from USDA database
+            st.subheader("Search USDA Database for Fat Sources")
+            fat_search = st.text_input("Search for healthy fat foods:", key=f"fat_search_{selected_day}_{meal_num}")
+            
+            if fat_search and st.button("Search", key=f"fat_search_btn_{selected_day}_{meal_num}"):
+                with st.spinner("Searching USDA Food Database..."):
+                    results = fdc_api.search_foods(fat_search)
+                    
+                    if results:
+                        # Filter for fat-rich foods
+                        fat_foods = []
+                        for food in results:
+                            normalized = fdc_api.normalize_food_data(food)
+                            category = fdc_api.categorize_food(normalized)
+                            if category == 'fat':
+                                fat_foods.append(normalized)
+                        
+                        if fat_foods:
+                            st.success(f"Found {len(fat_foods)} fat-rich foods.")
+                            
+                            # Display as table
+                            fat_data = []
+                            for i, food in enumerate(fat_foods[:10]):  # Limit to 10 results
+                                fat_data.append({
+                                    'Index': i + 1,
+                                    'Food': food['name'],
+                                    'Calories': f"{food['calories']:.0f} kcal",
+                                    'Protein': f"{food['protein']:.1f}g",
+                                    'Carbs': f"{food['carbs']:.1f}g",
+                                    'Fat': f"{food['fat']:.1f}g"
+                                })
+                            
+                            fat_df = pd.DataFrame(fat_data)
+                            st.dataframe(fat_df, use_container_width=True)
+                            
+                            # Allow selecting from search results
+                            search_fat_selection = st.multiselect(
+                                "Select fat sources from search results:",
+                                [food['name'] for food in fat_foods[:10]],
+                                default=[name for name in meal_data['fat_sources'] if name in [food['name'] for food in fat_foods[:10]]]
+                            )
+                            
+                            # Add selected fats from search
+                            for fat_name in search_fat_selection:
+                                if fat_name not in selected_fats:
+                                    selected_fats.append(fat_name)
+                                    # Add to selected foods if not already there
+                                    selected_food = next((food for food in fat_foods if food['name'] == fat_name), None)
+                                    if selected_food and not any(food['name'] == fat_name for food in st.session_state.selected_foods):
+                                        st.session_state.selected_foods.append(selected_food)
+                            
+                            # Remove unselected fats
+                            for fat_name in list(selected_fats):
+                                if fat_name in [food['name'] for food in fat_foods[:10]] and fat_name not in search_fat_selection:
+                                    selected_fats.remove(fat_name)
+                        else:
+                            st.warning("No fat-rich foods found. Try a different search term.")
+                    else:
+                        st.warning("No results found. Try a different search term.")
         
         # Update meal data with selected fats
         meal_data['fat_sources'] = selected_fats
+        
+        # Display currently selected fat sources
+        if selected_fats:
+            st.write("**Selected Fat Sources:**")
+            for fat in selected_fats:
+                st.write(f"- {fat}")
+        else:
+            st.write("No fat sources selected yet.")
     
     # Vegetable sources tab
     with food_category_tabs[3]:
-        st.subheader("Vegetables")
-        
-        # Display pre-populated common vegetable sources with checkboxes
-        veg_cols = st.columns(3)
+        veg_tab_selection = st.radio(
+            "Vegetable Source Selection",
+            ["Common Vegetables", "Search USDA Database"],
+            key=f"veg_source_selection_{selected_day}_{meal_num}"
+        )
         
         # Track selected vegetables
-        selected_veggies = []
+        selected_veggies = list(meal_data['vegetable_sources'])
         
-        # Create checkboxes for common vegetable sources
-        for i, veg in enumerate(COMMON_VEGETABLE_SOURCES):
-            col_idx = i % 3
-            with veg_cols[col_idx]:
-                veg_name = veg["name"]
-                is_selected = st.checkbox(
-                    f"{veg_name} ({veg['protein']}g P, {veg['carbs']}g C, {veg['fat']}g F)", 
-                    value=veg_name in meal_data['vegetable_sources'],
-                    key=f"veg_{selected_day}_{meal_num}_{i}"
-                )
-                
-                if is_selected:
-                    selected_veggies.append(veg_name)
-                    # Add to selected foods if not already there
-                    if not any(food['name'] == veg_name for food in st.session_state.selected_foods):
-                        st.session_state.selected_foods.append(veg)
+        if veg_tab_selection == "Common Vegetables":
+            # Display pre-populated common vegetable sources with checkboxes
+            veg_cols = st.columns(3)
+            
+            # Create checkboxes for common vegetable sources
+            for i, veg in enumerate(COMMON_VEGETABLE_SOURCES):
+                col_idx = i % 3
+                with veg_cols[col_idx]:
+                    veg_name = veg["name"]
+                    is_selected = st.checkbox(
+                        f"{veg_name} ({veg['protein']}g P, {veg['carbs']}g C, {veg['fat']}g F)", 
+                        value=veg_name in meal_data['vegetable_sources'],
+                        key=f"veg_{selected_day}_{meal_num}_{i}"
+                    )
+                    
+                    if is_selected and veg_name not in selected_veggies:
+                        selected_veggies.append(veg_name)
+                        # Add to selected foods if not already there
+                        if not any(food['name'] == veg_name for food in st.session_state.selected_foods):
+                            st.session_state.selected_foods.append(veg)
+                    elif not is_selected and veg_name in selected_veggies:
+                        selected_veggies.remove(veg_name)
+        else:
+            # Search for vegetable foods from USDA database
+            st.subheader("Search USDA Database for Vegetables")
+            veg_search = st.text_input("Search for vegetables:", key=f"veg_search_{selected_day}_{meal_num}")
+            
+            if veg_search and st.button("Search", key=f"veg_search_btn_{selected_day}_{meal_num}"):
+                with st.spinner("Searching USDA Food Database..."):
+                    results = fdc_api.search_foods(veg_search)
+                    
+                    if results:
+                        # Display vegetables
+                        veg_foods = []
+                        for food in results:
+                            normalized = fdc_api.normalize_food_data(food)
+                            if "vegetable" in normalized['name'].lower() or any(veg in normalized['name'].lower() for veg in ["spinach", "kale", "broccoli", "lettuce", "carrot", "tomato", "cucumber", "pepper", "onion", "garlic"]):
+                                veg_foods.append(normalized)
+                        
+                        if veg_foods:
+                            st.success(f"Found {len(veg_foods)} vegetables.")
+                            
+                            # Display as table
+                            veg_data = []
+                            for i, food in enumerate(veg_foods[:10]):  # Limit to 10 results
+                                veg_data.append({
+                                    'Index': i + 1,
+                                    'Food': food['name'],
+                                    'Calories': f"{food['calories']:.0f} kcal",
+                                    'Protein': f"{food['protein']:.1f}g",
+                                    'Carbs': f"{food['carbs']:.1f}g",
+                                    'Fat': f"{food['fat']:.1f}g"
+                                })
+                            
+                            veg_df = pd.DataFrame(veg_data)
+                            st.dataframe(veg_df, use_container_width=True)
+                            
+                            # Allow selecting from search results
+                            search_veg_selection = st.multiselect(
+                                "Select vegetables from search results:",
+                                [food['name'] for food in veg_foods[:10]],
+                                default=[name for name in meal_data['vegetable_sources'] if name in [food['name'] for food in veg_foods[:10]]]
+                            )
+                            
+                            # Add selected vegetables from search
+                            for veg_name in search_veg_selection:
+                                if veg_name not in selected_veggies:
+                                    selected_veggies.append(veg_name)
+                                    # Add to selected foods if not already there
+                                    selected_food = next((food for food in veg_foods if food['name'] == veg_name), None)
+                                    if selected_food and not any(food['name'] == veg_name for food in st.session_state.selected_foods):
+                                        st.session_state.selected_foods.append(selected_food)
+                            
+                            # Remove unselected vegetables
+                            for veg_name in list(selected_veggies):
+                                if veg_name in [food['name'] for food in veg_foods[:10]] and veg_name not in search_veg_selection:
+                                    selected_veggies.remove(veg_name)
+                        else:
+                            st.warning("No vegetables found. Try a different search term.")
+                    else:
+                        st.warning("No results found. Try a different search term.")
         
         # Update meal data with selected vegetables
         meal_data['vegetable_sources'] = selected_veggies
+        
+        # Display currently selected vegetable sources
+        if selected_veggies:
+            st.write("**Selected Vegetables:**")
+            for veg in selected_veggies:
+                st.write(f"- {veg}")
+        else:
+            st.write("No vegetables selected yet.")
     
     # Fruit sources tab
     with food_category_tabs[4]:
-        st.subheader("Fruits")
-        
-        # Display pre-populated common fruit sources with checkboxes
-        fruit_cols = st.columns(3)
+        fruit_tab_selection = st.radio(
+            "Fruit Source Selection",
+            ["Common Fruits", "Search USDA Database"],
+            key=f"fruit_source_selection_{selected_day}_{meal_num}"
+        )
         
         # Track selected fruits
-        selected_fruits = []
+        selected_fruits = list(meal_data['fruit_sources'])
         
-        # Create checkboxes for common fruit sources
-        for i, fruit in enumerate(COMMON_FRUIT_SOURCES):
-            col_idx = i % 3
-            with fruit_cols[col_idx]:
-                fruit_name = fruit["name"]
-                is_selected = st.checkbox(
-                    f"{fruit_name} ({fruit['protein']}g P, {fruit['carbs']}g C, {fruit['fat']}g F)", 
-                    value=fruit_name in meal_data['fruit_sources'],
-                    key=f"fruit_{selected_day}_{meal_num}_{i}"
-                )
-                
-                if is_selected:
-                    selected_fruits.append(fruit_name)
-                    # Add to selected foods if not already there
-                    if not any(food['name'] == fruit_name for food in st.session_state.selected_foods):
-                        st.session_state.selected_foods.append(fruit)
+        if fruit_tab_selection == "Common Fruits":
+            # Display pre-populated common fruit sources with checkboxes
+            fruit_cols = st.columns(3)
+            
+            # Create checkboxes for common fruit sources
+            for i, fruit in enumerate(COMMON_FRUIT_SOURCES):
+                col_idx = i % 3
+                with fruit_cols[col_idx]:
+                    fruit_name = fruit["name"]
+                    is_selected = st.checkbox(
+                        f"{fruit_name} ({fruit['protein']}g P, {fruit['carbs']}g C, {fruit['fat']}g F)", 
+                        value=fruit_name in meal_data['fruit_sources'],
+                        key=f"fruit_{selected_day}_{meal_num}_{i}"
+                    )
+                    
+                    if is_selected and fruit_name not in selected_fruits:
+                        selected_fruits.append(fruit_name)
+                        # Add to selected foods if not already there
+                        if not any(food['name'] == fruit_name for food in st.session_state.selected_foods):
+                            st.session_state.selected_foods.append(fruit)
+                    elif not is_selected and fruit_name in selected_fruits:
+                        selected_fruits.remove(fruit_name)
+        else:
+            # Search for fruit foods from USDA database
+            st.subheader("Search USDA Database for Fruits")
+            fruit_search = st.text_input("Search for fruits:", key=f"fruit_search_{selected_day}_{meal_num}")
+            
+            if fruit_search and st.button("Search", key=f"fruit_search_btn_{selected_day}_{meal_num}"):
+                with st.spinner("Searching USDA Food Database..."):
+                    results = fdc_api.search_foods(fruit_search)
+                    
+                    if results:
+                        # Display fruits
+                        fruit_foods = []
+                        for food in results:
+                            normalized = fdc_api.normalize_food_data(food)
+                            if "fruit" in normalized['name'].lower() or any(fruit in normalized['name'].lower() for fruit in ["apple", "banana", "orange", "berry", "blueberry", "strawberry", "grape", "melon", "pineapple", "mango"]):
+                                fruit_foods.append(normalized)
+                        
+                        if fruit_foods:
+                            st.success(f"Found {len(fruit_foods)} fruits.")
+                            
+                            # Display as table
+                            fruit_data = []
+                            for i, food in enumerate(fruit_foods[:10]):  # Limit to 10 results
+                                fruit_data.append({
+                                    'Index': i + 1,
+                                    'Food': food['name'],
+                                    'Calories': f"{food['calories']:.0f} kcal",
+                                    'Protein': f"{food['protein']:.1f}g",
+                                    'Carbs': f"{food['carbs']:.1f}g",
+                                    'Fat': f"{food['fat']:.1f}g"
+                                })
+                            
+                            fruit_df = pd.DataFrame(fruit_data)
+                            st.dataframe(fruit_df, use_container_width=True)
+                            
+                            # Allow selecting from search results
+                            search_fruit_selection = st.multiselect(
+                                "Select fruits from search results:",
+                                [food['name'] for food in fruit_foods[:10]],
+                                default=[name for name in meal_data['fruit_sources'] if name in [food['name'] for food in fruit_foods[:10]]]
+                            )
+                            
+                            # Add selected fruits from search
+                            for fruit_name in search_fruit_selection:
+                                if fruit_name not in selected_fruits:
+                                    selected_fruits.append(fruit_name)
+                                    # Add to selected foods if not already there
+                                    selected_food = next((food for food in fruit_foods if food['name'] == fruit_name), None)
+                                    if selected_food and not any(food['name'] == fruit_name for food in st.session_state.selected_foods):
+                                        st.session_state.selected_foods.append(selected_food)
+                            
+                            # Remove unselected fruits
+                            for fruit_name in list(selected_fruits):
+                                if fruit_name in [food['name'] for food in fruit_foods[:10]] and fruit_name not in search_fruit_selection:
+                                    selected_fruits.remove(fruit_name)
+                        else:
+                            st.warning("No fruits found. Try a different search term.")
+                    else:
+                        st.warning("No results found. Try a different search term.")
         
         # Update meal data with selected fruits
         meal_data['fruit_sources'] = selected_fruits
+        
+        # Display currently selected fruit sources
+        if selected_fruits:
+            st.write("**Selected Fruits:**")
+            for fruit in selected_fruits:
+                st.write(f"- {fruit}")
+        else:
+            st.write("No fruits selected yet.")
     
     # Calculate and display meal nutrition
     st.subheader("Meal Nutrition Analysis")
@@ -723,13 +1099,24 @@ for meal_num in range(1, total_meals + 1):
                 'fat': targets.get('fat', 0) * meal_info['fat']
             }
             
-            # Calculate optimal portions
-            optimal_portions = calculate_optimal_portions(meal_foods, meal_targets)
-            
             # Store portions in session state if not already there
             portion_key = f"portions_{selected_day}_{meal_num}"
             if portion_key not in st.session_state:
+                # Calculate optimal portions
+                optimal_portions = calculate_optimal_portions(meal_foods, meal_targets)
                 st.session_state[portion_key] = {food['name']: optimal_portions.get(food['name'], 100) for food in meal_foods}
+            else:
+                # Update with any new foods
+                for food in meal_foods:
+                    if food['name'] not in st.session_state[portion_key]:
+                        # Calculate optimal for just this food
+                        food_portion = calculate_optimal_portions([food], meal_targets).get(food['name'], 100)
+                        st.session_state[portion_key][food['name']] = food_portion
+                
+                # Remove any foods no longer selected
+                for food_name in list(st.session_state[portion_key].keys()):
+                    if food_name not in [food['name'] for food in meal_foods]:
+                        del st.session_state[portion_key][food_name]
             
             st.write("**Adjust Portion Sizes:**")
             st.write("Drag the sliders to adjust portion sizes and see how it affects your macro budget.")
@@ -744,10 +1131,6 @@ for meal_num in range(1, total_meals + 1):
             for i, food in enumerate(meal_foods):
                 col_idx = i % 2
                 with food_cols[col_idx]:
-                    # Default to the optimal portion
-                    if food['name'] not in st.session_state[portion_key]:
-                        st.session_state[portion_key][food['name']] = optimal_portions.get(food['name'], 100)
-                    
                     # Create a slider for adjusting portion
                     portion = st.slider(
                         f"{food['name']} (g)",
@@ -827,11 +1210,17 @@ for meal_num in range(1, total_meals + 1):
             st.write("**Remaining Daily Macro Budget:**")
             remaining_cols = st.columns(4)
             
-            # Calculate remaining macros
-            remaining_calories = targets.get('target_calories', 0) - meal_nutrition['calories']
-            remaining_protein = targets.get('protein', 0) - meal_nutrition['protein']
-            remaining_carbs = targets.get('carbs', 0) - meal_nutrition['carbs']
-            remaining_fat = targets.get('fat', 0) - meal_nutrition['fat']
+            # Add to daily nutrition totals
+            daily_nutrition['calories'] += meal_nutrition['calories']
+            daily_nutrition['protein'] += meal_nutrition['protein']
+            daily_nutrition['carbs'] += meal_nutrition['carbs']
+            daily_nutrition['fat'] += meal_nutrition['fat']
+            
+            # Calculate remaining macros for this meal
+            remaining_calories = targets.get('target_calories', 0) - daily_nutrition['calories']
+            remaining_protein = targets.get('protein', 0) - daily_nutrition['protein']
+            remaining_carbs = targets.get('carbs', 0) - daily_nutrition['carbs']
+            remaining_fat = targets.get('fat', 0) - daily_nutrition['fat']
             
             with remaining_cols[0]:
                 st.metric("Calories", f"{remaining_calories:.0f} kcal")
@@ -868,9 +1257,6 @@ for meal_num in range(1, total_meals + 1):
 st.header("Daily Meal Plan Summary")
 
 if selected_day in st.session_state.meal_plan and st.session_state.meal_plan[selected_day]:
-    # Calculate total nutrition for the day
-    day_nutrition = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
-    
     # Display meals
     st.write(f"**{selected_day}'s Meal Plan:**")
     
@@ -905,14 +1291,15 @@ if selected_day in st.session_state.meal_plan and st.session_state.meal_plan[sel
                     'fat': targets.get('fat', 0) * meal_info.get('fat', 1/total_meals)
                 }
                 
-                # Calculate optimal portions
-                optimal_portions = calculate_optimal_portions(meal_foods, meal_targets)
-                
-                # Calculate meal nutrition
+                # Calculate meal nutrition using stored portions
                 meal_nutrition = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+                portion_key = f"portions_{selected_day}_{meal_num}"
                 
                 for food in meal_foods:
-                    portion = optimal_portions.get(food['name'], 100)
+                    # Get the portion from session state or use default
+                    portion = 100
+                    if portion_key in st.session_state and food['name'] in st.session_state[portion_key]:
+                        portion = st.session_state[portion_key][food['name']]
                     
                     # Calculate nutrition for this portion
                     meal_nutrition['calories'] += food['calories'] * portion / 100
@@ -920,13 +1307,7 @@ if selected_day in st.session_state.meal_plan and st.session_state.meal_plan[sel
                     meal_nutrition['carbs'] += food['carbs'] * portion / 100
                     meal_nutrition['fat'] += food['fat'] * portion / 100
                 
-                # Add to day total
-                day_nutrition['calories'] += meal_nutrition['calories']
-                day_nutrition['protein'] += meal_nutrition['protein']
-                day_nutrition['carbs'] += meal_nutrition['carbs']
-                day_nutrition['fat'] += meal_nutrition['fat']
-                
-                # Display meal sources and nutrition
+                # Display meal nutrition
                 st.write(f"**Calories:** {meal_nutrition['calories']:.0f} kcal | **Protein:** {meal_nutrition['protein']:.1f}g | **Carbs:** {meal_nutrition['carbs']:.1f}g | **Fat:** {meal_nutrition['fat']:.1f}g")
             
             # List food sources
@@ -953,32 +1334,32 @@ if selected_day in st.session_state.meal_plan and st.session_state.meal_plan[sel
         with total_cols[0]:
             cal_pct = 0
             if targets.get('target_calories', 0) > 0:
-                cal_pct = (day_nutrition['calories'] / targets['target_calories']) * 100
-            st.metric("Calories", f"{day_nutrition['calories']:.0f} kcal", f"{cal_pct:.0f}% of target")
+                cal_pct = (daily_nutrition['calories'] / targets['target_calories']) * 100
+            st.metric("Calories", f"{daily_nutrition['calories']:.0f} kcal", f"{cal_pct:.0f}% of target")
         
         with total_cols[1]:
             pro_pct = 0
             if targets.get('protein', 0) > 0:
-                pro_pct = (day_nutrition['protein'] / targets['protein']) * 100
-            st.metric("Protein", f"{day_nutrition['protein']:.1f}g", f"{pro_pct:.0f}% of target")
+                pro_pct = (daily_nutrition['protein'] / targets['protein']) * 100
+            st.metric("Protein", f"{daily_nutrition['protein']:.1f}g", f"{pro_pct:.0f}% of target")
         
         with total_cols[2]:
             carb_pct = 0
             if targets.get('carbs', 0) > 0:
-                carb_pct = (day_nutrition['carbs'] / targets['carbs']) * 100
-            st.metric("Carbs", f"{day_nutrition['carbs']:.1f}g", f"{carb_pct:.0f}% of target")
+                carb_pct = (daily_nutrition['carbs'] / targets['carbs']) * 100
+            st.metric("Carbs", f"{daily_nutrition['carbs']:.1f}g", f"{carb_pct:.0f}% of target")
         
         with total_cols[3]:
             fat_pct = 0
             if targets.get('fat', 0) > 0:
-                fat_pct = (day_nutrition['fat'] / targets['fat']) * 100
-            st.metric("Fat", f"{day_nutrition['fat']:.1f}g", f"{fat_pct:.0f}% of target")
+                fat_pct = (daily_nutrition['fat'] / targets['fat']) * 100
+            st.metric("Fat", f"{daily_nutrition['fat']:.1f}g", f"{fat_pct:.0f}% of target")
         
         # Calculate macronutrient percentages
-        if day_nutrition['calories'] > 0:
-            protein_pct = (day_nutrition['protein'] * 4 / day_nutrition['calories']) * 100
-            carbs_pct = (day_nutrition['carbs'] * 4 / day_nutrition['calories']) * 100
-            fat_pct = (day_nutrition['fat'] * 9 / day_nutrition['calories']) * 100
+        if daily_nutrition['calories'] > 0:
+            protein_pct = (daily_nutrition['protein'] * 4 / daily_nutrition['calories']) * 100
+            carbs_pct = (daily_nutrition['carbs'] * 4 / daily_nutrition['calories']) * 100
+            fat_pct = (daily_nutrition['fat'] * 9 / daily_nutrition['calories']) * 100
             
             st.write("**Macronutrient Breakdown:**")
             macro_cols = st.columns(3)
