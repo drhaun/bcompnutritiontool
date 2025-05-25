@@ -12,209 +12,28 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__) + '/../'))
 import fdc_api
 from recipe_database import get_recipe_database, display_recipe_card, load_sample_recipes
 
-# Training-based macro distribution coefficients
-def get_training_based_coefficients():
-    """
-    Get macro distribution coefficients based on training time and number of meals
-    Returns a dictionary with training time, meal count, and meal positions as keys
-    """
-    # Create DataFrame from the coefficients data
-    coefficients_data = []
-    
-    # REST DAY coefficients - equal distribution across meals
-    for meal_count in range(1, 7):
-        for meal_num in range(1, meal_count + 1):
-            meal_pct = 1.0 / meal_count
-            coefficients_data.append({
-                'training_time': 'REST DAY',
-                'total_meals': meal_count,
-                'meal_number': meal_num,
-                'meal_description': f'MEAL {meal_num}',
-                'protein': meal_pct,
-                'carbs': meal_pct,
-                'fat': meal_pct,
-                'fiber': meal_pct,
-                'sodium': meal_pct,
-                'water': meal_pct
-            })
-    
-    # Training-based coefficients for BEFORE 9AM
-    before_9am = [
-        # 1 meal
-        {'total_meals': 1, 'meal_number': 1, 'meal_description': 'ONLY MEAL', 
-         'protein': 1.0, 'carbs': 1.0, 'fat': 1.0, 'fiber': 1.0, 'sodium': 1.0, 'water': 1.0},
-        
-        # 2 meals
-        {'total_meals': 2, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
-         'protein': 0.4, 'carbs': 0.3, 'fat': 0.1, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
-        {'total_meals': 2, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
-         'protein': 0.6, 'carbs': 0.7, 'fat': 0.9, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
-        
-        # 3 meals
-        {'total_meals': 3, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
-         'protein': 0.25, 'carbs': 0.4, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33},
-        {'total_meals': 3, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
-         'protein': 0.35, 'carbs': 0.4, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33},
-        {'total_meals': 3, 'meal_number': 3, 'meal_description': 'MEAL 3', 
-         'protein': 0.4, 'carbs': 0.2, 'fat': 0.9, 'fiber': 0.8, 'sodium': 0.33, 'water': 0.33},
-        
-        # 4 meals
-        {'total_meals': 4, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
-         'protein': 0.2, 'carbs': 0.3, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.25},
-        {'total_meals': 4, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
-         'protein': 0.3, 'carbs': 0.4, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.25},
-        {'total_meals': 4, 'meal_number': 3, 'meal_description': 'MEAL 3', 
-         'protein': 0.2, 'carbs': 0.2, 'fat': 0.4, 'fiber': 0.3, 'sodium': 0.16, 'water': 0.25},
-        {'total_meals': 4, 'meal_number': 4, 'meal_description': 'MEAL 4', 
-         'protein': 0.3, 'carbs': 0.1, 'fat': 0.5, 'fiber': 0.5, 'sodium': 0.16, 'water': 0.25},
-        
-        # 5 meals
-        {'total_meals': 5, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
-         'protein': 0.15, 'carbs': 0.25, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.3, 'water': 0.2},
-        {'total_meals': 5, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
-         'protein': 0.25, 'carbs': 0.35, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.3, 'water': 0.2},
-        {'total_meals': 5, 'meal_number': 3, 'meal_description': 'MEAL 3', 
-         'protein': 0.15, 'carbs': 0.2, 'fat': 0.2, 'fiber': 0.2, 'sodium': 0.2, 'water': 0.2},
-        {'total_meals': 5, 'meal_number': 4, 'meal_description': 'MEAL 4', 
-         'protein': 0.15, 'carbs': 0.1, 'fat': 0.3, 'fiber': 0.3, 'sodium': 0.1, 'water': 0.2},
-        {'total_meals': 5, 'meal_number': 5, 'meal_description': 'MEAL 5', 
-         'protein': 0.3, 'carbs': 0.1, 'fat': 0.3, 'fiber': 0.3, 'sodium': 0.1, 'water': 0.2},
-        
-        # 6 meals
-        {'total_meals': 6, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
-         'protein': 0.15, 'carbs': 0.2, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.3, 'water': 0.165},
-        {'total_meals': 6, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
-         'protein': 0.2, 'carbs': 0.3, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.3, 'water': 0.165},
-        {'total_meals': 6, 'meal_number': 3, 'meal_description': 'MEAL 3', 
-         'protein': 0.15, 'carbs': 0.2, 'fat': 0.15, 'fiber': 0.1, 'sodium': 0.1, 'water': 0.165},
-        {'total_meals': 6, 'meal_number': 4, 'meal_description': 'MEAL 4', 
-         'protein': 0.15, 'carbs': 0.1, 'fat': 0.2, 'fiber': 0.2, 'sodium': 0.1, 'water': 0.165},
-        {'total_meals': 6, 'meal_number': 5, 'meal_description': 'MEAL 5', 
-         'protein': 0.15, 'carbs': 0.1, 'fat': 0.2, 'fiber': 0.2, 'sodium': 0.1, 'water': 0.165},
-        {'total_meals': 6, 'meal_number': 6, 'meal_description': 'MEAL 6', 
-         'protein': 0.2, 'carbs': 0.1, 'fat': 0.35, 'fiber': 0.3, 'sodium': 0.1, 'water': 0.165}
-    ]
-    
-    # Add training time to each entry
-    for entry in before_9am:
-        entry['training_time'] = 'BEFORE 9AM'
-        coefficients_data.append(entry)
-    
-    # 9AM-3PM training coefficients
-    mid_morning = [
-        # 1 meal
-        {'total_meals': 1, 'meal_number': 1, 'meal_description': 'ONLY MEAL', 
-         'protein': 1.0, 'carbs': 1.0, 'fat': 1.0, 'fiber': 1.0, 'sodium': 1.0, 'water': 1.0},
-        
-        # 2 meals
-        {'total_meals': 2, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
-         'protein': 0.5, 'carbs': 0.5, 'fat': 0.3, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
-        {'total_meals': 2, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
-         'protein': 0.5, 'carbs': 0.5, 'fat': 0.7, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
-        
-        # 3 meals
-        {'total_meals': 3, 'meal_number': 1, 'meal_description': 'MEAL 1', 
-         'protein': 0.3, 'carbs': 0.2, 'fat': 0.5, 'fiber': 0.8, 'sodium': 0.33, 'water': 0.33},
-        {'total_meals': 3, 'meal_number': 2, 'meal_description': 'PRE-TRAINING', 
-         'protein': 0.3, 'carbs': 0.3, 'fat': 0.1, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33},
-        {'total_meals': 3, 'meal_number': 3, 'meal_description': 'POST-TRAINING', 
-         'protein': 0.4, 'carbs': 0.5, 'fat': 0.4, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33},
-        
-        # 4 meals
-        {'total_meals': 4, 'meal_number': 1, 'meal_description': 'MEAL 1', 
-         'protein': 0.2, 'carbs': 0.2, 'fat': 0.4, 'fiber': 0.4, 'sodium': 0.16, 'water': 0.25},
-        {'total_meals': 4, 'meal_number': 2, 'meal_description': 'PRE-TRAINING', 
-         'protein': 0.2, 'carbs': 0.25, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.25},
-        {'total_meals': 4, 'meal_number': 3, 'meal_description': 'POST-TRAINING', 
-         'protein': 0.3, 'carbs': 0.4, 'fat': 0.1, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.25},
-        {'total_meals': 4, 'meal_number': 4, 'meal_description': 'MEAL 4', 
-         'protein': 0.3, 'carbs': 0.15, 'fat': 0.45, 'fiber': 0.4, 'sodium': 0.16, 'water': 0.25}
-    ]
-    
-    # Add training time to each entry
-    for entry in mid_morning:
-        entry['training_time'] = '9AM-3PM'
-        coefficients_data.append(entry)
-    
-    # 3PM-6PM training coefficients
-    afternoon = [
-        # 1 meal
-        {'total_meals': 1, 'meal_number': 1, 'meal_description': 'ONLY MEAL', 
-         'protein': 1.0, 'carbs': 1.0, 'fat': 1.0, 'fiber': 1.0, 'sodium': 1.0, 'water': 1.0},
-        
-        # 2 meals
-        {'total_meals': 2, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
-         'protein': 0.5, 'carbs': 0.4, 'fat': 0.6, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
-        {'total_meals': 2, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
-         'protein': 0.5, 'carbs': 0.6, 'fat': 0.4, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
-        
-        # 3 meals
-        {'total_meals': 3, 'meal_number': 1, 'meal_description': 'MEAL 1', 
-         'protein': 0.35, 'carbs': 0.3, 'fat': 0.35, 'fiber': 0.8, 'sodium': 0.33, 'water': 0.33},
-        {'total_meals': 3, 'meal_number': 2, 'meal_description': 'PRE-TRAINING', 
-         'protein': 0.3, 'carbs': 0.3, 'fat': 0.1, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33},
-        {'total_meals': 3, 'meal_number': 3, 'meal_description': 'POST-TRAINING', 
-         'protein': 0.35, 'carbs': 0.4, 'fat': 0.55, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33}
-    ]
-    
-    # Add training time to each entry
-    for entry in afternoon:
-        entry['training_time'] = '3PM-6PM'
-        coefficients_data.append(entry)
-    
-    # AFTER 6PM training coefficients
-    evening = [
-        # 1 meal
-        {'total_meals': 1, 'meal_number': 1, 'meal_description': 'ONLY MEAL', 
-         'protein': 1.0, 'carbs': 1.0, 'fat': 1.0, 'fiber': 1.0, 'sodium': 1.0, 'water': 1.0},
-        
-        # 2 meals
-        {'total_meals': 2, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
-         'protein': 0.5, 'carbs': 0.3, 'fat': 0.2, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
-        {'total_meals': 2, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
-         'protein': 0.5, 'carbs': 0.7, 'fat': 0.8, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
-        
-        # 3 meals
-        {'total_meals': 3, 'meal_number': 1, 'meal_description': 'MEAL 1', 
-         'protein': 0.3, 'carbs': 0.2, 'fat': 0.85, 'fiber': 0.8, 'sodium': 0.33, 'water': 0.33},
-        {'total_meals': 3, 'meal_number': 2, 'meal_description': 'PRE-TRAINING', 
-         'protein': 0.3, 'carbs': 0.3, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33},
-        {'total_meals': 3, 'meal_number': 3, 'meal_description': 'POST-TRAINING', 
-         'protein': 0.4, 'carbs': 0.5, 'fat': 0.1, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33}
-    ]
-    
-    # Add training time to each entry
-    for entry in evening:
-        entry['training_time'] = 'AFTER 6PM'
-        coefficients_data.append(entry)
-    
-    # Convert to DataFrame for easier filtering
-    df = pd.DataFrame(coefficients_data)
-    
-    # Create a lookup dictionary for easy access
-    coefficient_dict = {}
-    for _, row in df.iterrows():
-        training_time = row['training_time']
-        total_meals = row['total_meals']
-        meal_number = row['meal_number']
-        
-        if training_time not in coefficient_dict:
-            coefficient_dict[training_time] = {}
-        
-        if total_meals not in coefficient_dict[training_time]:
-            coefficient_dict[training_time][total_meals] = {}
-        
-        coefficient_dict[training_time][total_meals][meal_number] = {
-            'description': row['meal_description'],
-            'protein': row['protein'],
-            'carbs': row['carbs'],
-            'fat': row['fat'],
-            'fiber': row['fiber'],
-            'sodium': row['sodium'],
-            'water': row['water']
-        }
-    
-    return coefficient_dict
+# Set page config
+st.set_page_config(
+    page_title="Fitomics - DIY Meal Planning",
+    page_icon="🍽️",
+    layout="wide"
+)
+
+# Streamlit UI
+st.title("DIY Meal Planning")
+st.markdown("Create optimized meals based on your workout schedule and nutrition targets.")
+
+# Initialize session state variables
+if 'meal_plan' not in st.session_state:
+    st.session_state.meal_plan = {}
+
+if 'selected_foods' not in st.session_state:
+    st.session_state.selected_foods = []
+
+# Check if user info is set
+if 'user_info' not in st.session_state or not st.session_state.user_info:
+    st.warning("Please complete the Initial Setup first!")
+    st.stop()
 
 # Function to get workout info for a specific day
 def get_day_workout_info(day):
@@ -282,30 +101,172 @@ def get_meal_distribution(day, total_meals):
     Returns:
     dict: Dictionary with meal numbers as keys and distribution coefficients as values
     """
-    # Get training-based coefficients
-    coefficients = get_training_based_coefficients()
-    
     # Get workout info for the day
     workout_info = get_day_workout_info(day)
     
-    # Default to REST DAY if no workout or if total_meals out of range
+    # Default to REST DAY if no workout
     training_time = 'REST DAY'
     if workout_info['has_workout'] and workout_info['workout_time']:
         training_time = workout_info['workout_time']
     
-    # Limit total_meals to what we have coefficients for
-    if total_meals < 1:
-        total_meals = 1
-    elif total_meals > 6:
-        total_meals = 6
+    # Create an even distribution for rest days
+    if training_time == 'REST DAY':
+        meal_distribution = {}
+        for meal_num in range(1, total_meals + 1):
+            meal_distribution[meal_num] = {
+                'description': f'Meal {meal_num}',
+                'protein': 1.0 / total_meals,
+                'carbs': 1.0 / total_meals,
+                'fat': 1.0 / total_meals
+            }
+        return meal_distribution
     
-    # Get coefficients for this training time and meal count
-    try:
-        day_coefficients = coefficients[training_time][total_meals]
-        return day_coefficients
-    except KeyError:
-        # Fallback to REST DAY if the specific combination isn't available
-        return coefficients['REST DAY'][total_meals]
+    # For BEFORE 9AM workouts
+    if training_time == 'BEFORE 9AM':
+        meal_distribution = {}
+        for meal_num in range(1, total_meals + 1):
+            if total_meals == 1:
+                meal_distribution[meal_num] = {
+                    'description': 'All-in-one Meal',
+                    'protein': 1.0,
+                    'carbs': 1.0, 
+                    'fat': 1.0
+                }
+            elif meal_num == 1:
+                meal_distribution[meal_num] = {
+                    'description': 'Pre-Workout',
+                    'protein': 0.3,
+                    'carbs': 0.4,
+                    'fat': 0.1
+                }
+            elif meal_num == 2:
+                meal_distribution[meal_num] = {
+                    'description': 'Post-Workout',
+                    'protein': 0.4,
+                    'carbs': 0.4,
+                    'fat': 0.2
+                }
+            else:
+                meal_distribution[meal_num] = {
+                    'description': f'Meal {meal_num}',
+                    'protein': 0.3 / (total_meals - 2),
+                    'carbs': 0.2 / (total_meals - 2),
+                    'fat': 0.7 / (total_meals - 2)
+                }
+        return meal_distribution
+    
+    # For 9AM-3PM workouts
+    if training_time == '9AM-3PM':
+        meal_distribution = {}
+        for meal_num in range(1, total_meals + 1):
+            if total_meals == 1:
+                meal_distribution[meal_num] = {
+                    'description': 'All-in-one Meal',
+                    'protein': 1.0,
+                    'carbs': 1.0, 
+                    'fat': 1.0
+                }
+            elif meal_num == total_meals // 2:
+                meal_distribution[meal_num] = {
+                    'description': 'Pre-Workout',
+                    'protein': 0.3,
+                    'carbs': 0.4,
+                    'fat': 0.1
+                }
+            elif meal_num == total_meals // 2 + 1:
+                meal_distribution[meal_num] = {
+                    'description': 'Post-Workout',
+                    'protein': 0.4,
+                    'carbs': 0.4,
+                    'fat': 0.1
+                }
+            else:
+                meal_distribution[meal_num] = {
+                    'description': f'Meal {meal_num}',
+                    'protein': 0.3 / (total_meals - 2),
+                    'carbs': 0.2 / (total_meals - 2),
+                    'fat': 0.8 / (total_meals - 2)
+                }
+        return meal_distribution
+    
+    # For 3PM-6PM workouts
+    if training_time == '3PM-6PM':
+        meal_distribution = {}
+        for meal_num in range(1, total_meals + 1):
+            if total_meals == 1:
+                meal_distribution[meal_num] = {
+                    'description': 'All-in-one Meal',
+                    'protein': 1.0,
+                    'carbs': 1.0, 
+                    'fat': 1.0
+                }
+            elif meal_num == total_meals - 1:
+                meal_distribution[meal_num] = {
+                    'description': 'Pre-Workout',
+                    'protein': 0.3,
+                    'carbs': 0.4,
+                    'fat': 0.1
+                }
+            elif meal_num == total_meals:
+                meal_distribution[meal_num] = {
+                    'description': 'Post-Workout',
+                    'protein': 0.4,
+                    'carbs': 0.4,
+                    'fat': 0.1
+                }
+            else:
+                meal_distribution[meal_num] = {
+                    'description': f'Meal {meal_num}',
+                    'protein': 0.3 / (total_meals - 2),
+                    'carbs': 0.2 / (total_meals - 2),
+                    'fat': 0.8 / (total_meals - 2)
+                }
+        return meal_distribution
+    
+    # For AFTER 6PM workouts
+    if training_time == 'AFTER 6PM':
+        meal_distribution = {}
+        for meal_num in range(1, total_meals + 1):
+            if total_meals == 1:
+                meal_distribution[meal_num] = {
+                    'description': 'All-in-one Meal',
+                    'protein': 1.0,
+                    'carbs': 1.0, 
+                    'fat': 1.0
+                }
+            elif meal_num == total_meals - 1:
+                meal_distribution[meal_num] = {
+                    'description': 'Pre-Workout',
+                    'protein': 0.3,
+                    'carbs': 0.4,
+                    'fat': 0.1
+                }
+            elif meal_num == total_meals:
+                meal_distribution[meal_num] = {
+                    'description': 'Post-Workout',
+                    'protein': 0.4,
+                    'carbs': 0.4,
+                    'fat': 0.1
+                }
+            else:
+                meal_distribution[meal_num] = {
+                    'description': f'Meal {meal_num}',
+                    'protein': 0.3 / (total_meals - 2),
+                    'carbs': 0.2 / (total_meals - 2),
+                    'fat': 0.8 / (total_meals - 2)
+                }
+        return meal_distribution
+    
+    # Fallback to even distribution
+    meal_distribution = {}
+    for meal_num in range(1, total_meals + 1):
+        meal_distribution[meal_num] = {
+            'description': f'Meal {meal_num}',
+            'protein': 1.0 / total_meals,
+            'carbs': 1.0 / total_meals,
+            'fat': 1.0 / total_meals
+        }
+    return meal_distribution
 
 # Function to calculate optimal portion sizes
 def calculate_optimal_portions(selected_foods, target_macros):
@@ -369,28 +330,76 @@ def calculate_optimal_portions(selected_foods, target_macros):
         # If optimization fails, return default portions
         return {food['name']: 100 for food in selected_foods}
 
-# Set page config
-st.set_page_config(
-    page_title="Fitomics - DIY Meal Planning",
-    page_icon="🍽️",
-    layout="wide"
-)
+# Common food options for each category
+COMMON_PROTEIN_SOURCES = [
+    {"name": "Chicken Breast", "calories": 165, "protein": 31, "carbs": 0, "fat": 3.6},
+    {"name": "Turkey Breast", "calories": 135, "protein": 30, "carbs": 0, "fat": 1},
+    {"name": "Salmon", "calories": 208, "protein": 20, "carbs": 0, "fat": 13},
+    {"name": "Lean Beef", "calories": 250, "protein": 26, "carbs": 0, "fat": 17},
+    {"name": "Tuna", "calories": 130, "protein": 29, "carbs": 0, "fat": 1},
+    {"name": "Egg Whites", "calories": 52, "protein": 11, "carbs": 0.7, "fat": 0.2},
+    {"name": "Whole Eggs", "calories": 143, "protein": 12.6, "carbs": 0.7, "fat": 9.5},
+    {"name": "Greek Yogurt", "calories": 100, "protein": 17, "carbs": 6, "fat": 0.5},
+    {"name": "Cottage Cheese", "calories": 98, "protein": 11, "carbs": 3.4, "fat": 4.3},
+    {"name": "Tofu", "calories": 144, "protein": 17, "carbs": 2.8, "fat": 8.6},
+    {"name": "Tempeh", "calories": 195, "protein": 20, "carbs": 7.6, "fat": 11.4},
+    {"name": "Whey Protein", "calories": 120, "protein": 25, "carbs": 3, "fat": 2},
+    {"name": "Plant Protein", "calories": 120, "protein": 24, "carbs": 5, "fat": 2}
+]
 
-# Streamlit UI
-st.title("DIY Meal Planning")
-st.markdown("Create optimized meals based on your workout schedule and nutrition targets.")
+COMMON_CARB_SOURCES = [
+    {"name": "White Rice", "calories": 130, "protein": 2.7, "carbs": 28, "fat": 0.3},
+    {"name": "Brown Rice", "calories": 112, "protein": 2.6, "carbs": 22.9, "fat": 0.9},
+    {"name": "Sweet Potato", "calories": 86, "protein": 1.6, "carbs": 20.1, "fat": 0.1},
+    {"name": "White Potato", "calories": 77, "protein": 2, "carbs": 17, "fat": 0.1},
+    {"name": "Oats", "calories": 389, "protein": 16.9, "carbs": 66.3, "fat": 6.9},
+    {"name": "Quinoa", "calories": 120, "protein": 4.4, "carbs": 21.3, "fat": 1.9},
+    {"name": "Whole Wheat Bread", "calories": 247, "protein": 13, "carbs": 41, "fat": 3.4},
+    {"name": "Whole Wheat Pasta", "calories": 174, "protein": 7.5, "carbs": 37, "fat": 0.8},
+    {"name": "Beans", "calories": 341, "protein": 21, "carbs": 62, "fat": 1.2},
+    {"name": "Lentils", "calories": 116, "protein": 9, "carbs": 20, "fat": 0.4},
+    {"name": "Banana", "calories": 89, "protein": 1.1, "carbs": 22.8, "fat": 0.3},
+    {"name": "Rice Cakes", "calories": 35, "protein": 0.7, "carbs": 7.3, "fat": 0.3}
+]
 
-# Initialize session state variables
-if 'meal_plan' not in st.session_state:
-    st.session_state.meal_plan = {}
+COMMON_FAT_SOURCES = [
+    {"name": "Avocado", "calories": 160, "protein": 2, "carbs": 8.5, "fat": 14.7},
+    {"name": "Olive Oil", "calories": 884, "protein": 0, "carbs": 0, "fat": 100},
+    {"name": "Coconut Oil", "calories": 862, "protein": 0, "carbs": 0, "fat": 100},
+    {"name": "Almonds", "calories": 576, "protein": 21, "carbs": 22, "fat": 49},
+    {"name": "Walnuts", "calories": 654, "protein": 15, "carbs": 14, "fat": 65},
+    {"name": "Chia Seeds", "calories": 486, "protein": 17, "carbs": 42, "fat": 31},
+    {"name": "Flax Seeds", "calories": 534, "protein": 18, "carbs": 29, "fat": 42},
+    {"name": "Nut Butter", "calories": 588, "protein": 25, "carbs": 20, "fat": 50},
+    {"name": "Cheese", "calories": 402, "protein": 25, "carbs": 1.3, "fat": 33},
+    {"name": "Full Fat Yogurt", "calories": 61, "protein": 3.5, "carbs": 4.7, "fat": 3.3}
+]
 
-if 'selected_foods' not in st.session_state:
-    st.session_state.selected_foods = []
+COMMON_VEGETABLE_SOURCES = [
+    {"name": "Broccoli", "calories": 34, "protein": 2.8, "carbs": 7, "fat": 0.4},
+    {"name": "Spinach", "calories": 23, "protein": 2.9, "carbs": 3.6, "fat": 0.4},
+    {"name": "Kale", "calories": 49, "protein": 4.3, "carbs": 8.8, "fat": 0.9},
+    {"name": "Bell Peppers", "calories": 20, "protein": 0.9, "carbs": 4.6, "fat": 0.2},
+    {"name": "Carrots", "calories": 41, "protein": 0.9, "carbs": 9.6, "fat": 0.2},
+    {"name": "Cauliflower", "calories": 25, "protein": 1.9, "carbs": 5, "fat": 0.3},
+    {"name": "Zucchini", "calories": 17, "protein": 1.2, "carbs": 3.1, "fat": 0.3},
+    {"name": "Asparagus", "calories": 20, "protein": 2.2, "carbs": 3.9, "fat": 0.2},
+    {"name": "Tomatoes", "calories": 18, "protein": 0.9, "carbs": 3.9, "fat": 0.2},
+    {"name": "Mixed Greens", "calories": 17, "protein": 1.2, "carbs": 3.3, "fat": 0.2}
+]
 
-# Check if user info is set
-if 'user_info' not in st.session_state or not st.session_state.user_info:
-    st.warning("Please complete the Initial Setup first!")
-    st.stop()
+COMMON_FRUIT_SOURCES = [
+    {"name": "Apple", "calories": 52, "protein": 0.3, "carbs": 14, "fat": 0.2},
+    {"name": "Banana", "calories": 89, "protein": 1.1, "carbs": 22.8, "fat": 0.3},
+    {"name": "Blueberries", "calories": 57, "protein": 0.7, "carbs": 14.5, "fat": 0.3},
+    {"name": "Strawberries", "calories": 32, "protein": 0.7, "carbs": 7.7, "fat": 0.3},
+    {"name": "Orange", "calories": 47, "protein": 0.9, "carbs": 11.8, "fat": 0.1},
+    {"name": "Grapefruit", "calories": 32, "protein": 0.6, "carbs": 8, "fat": 0.1},
+    {"name": "Grapes", "calories": 67, "protein": 0.6, "carbs": 17.2, "fat": 0.4},
+    {"name": "Pineapple", "calories": 50, "protein": 0.5, "carbs": 13.1, "fat": 0.1},
+    {"name": "Mango", "calories": 60, "protein": 0.8, "carbs": 15, "fat": 0.4},
+    {"name": "Kiwi", "calories": 61, "protein": 1.1, "carbs": 14.7, "fat": 0.5}
+]
 
 # Main UI
 st.header("Design Meals for Your Weekly Schedule")
@@ -406,38 +415,54 @@ workout_info = get_day_workout_info(selected_day)
 if workout_info['has_workout']:
     workout_type = workout_info['workout_type']
     workout_time = workout_info['workout_time']
-    st.info(f"🏋️ {workout_type} training scheduled for {selected_day} ({workout_time}). Meal macros will be optimized around your workout time.")
+    st.info(f"🏋️ {workout_type} training scheduled for {selected_day} ({workout_time}).")
     
-    # Show training-based distribution table
-    st.subheader("Training-Based Macro Distribution")
-    st.write("The table below shows the recommended macro distribution for each meal based on your workout timing:")
+    # Show training-based nutrition guidelines
+    st.subheader("Workout-Based Nutrition Timing Guidelines")
     
-    # Get coefficients for different meal counts
-    training_time = workout_info['workout_time']
-    coefficient_data = []
+    # Training timing explanation
+    st.markdown("""
+    ### Nutrient Timing Strategy
+    Based on your workout timing, here's how to optimize your meal distribution:
     
-    # Get distribution for 2-5 meals
-    for meal_count in range(2, 6):
-        meal_distribution = get_meal_distribution(selected_day, meal_count)
-        
-        for meal_num in range(1, meal_count + 1):
-            if meal_num in meal_distribution:
-                meal_info = meal_distribution[meal_num]
-                coefficient_data.append({
-                    "Total Meals": meal_count,
-                    "Meal #": meal_num,
-                    "Description": meal_info['description'],
-                    "Protein %": f"{meal_info['protein']*100:.0f}%",
-                    "Carbs %": f"{meal_info['carbs']*100:.0f}%",
-                    "Fat %": f"{meal_info['fat']*100:.0f}%"
-                })
+    **General Principles:**
+    - **Protein:** Distribute relatively evenly throughout the day, with slight increases post-workout and before bed
+    - **Carbohydrates:** Higher around training times, lower further from training
+    - **Fats:** Lower around training times, higher further from training
+    """)
     
-    # Display coefficient table
-    if coefficient_data:
-        coeff_df = pd.DataFrame(coefficient_data)
-        st.dataframe(coeff_df, use_container_width=True)
+    # Specific recommendations based on workout time
+    if workout_time == 'BEFORE 9AM':
+        st.markdown("""
+        **For your MORNING workout:**
+        - **Pre-Workout Meal:** Low fat (10%), moderate protein (25-30%), higher carbs (60-65%)
+        - **Post-Workout Meal:** Low fat (10-15%), high protein (35-40%), high carbs (45-55%)
+        - **Later Meals:** Higher fat (30-40%), moderate protein (25-30%), lower carbs (30-35%)
+        """)
+    elif workout_time == '9AM-3PM':
+        st.markdown("""
+        **For your MIDDAY workout:**
+        - **Early Morning Meal:** Moderate fat (20-25%), moderate protein (25-30%), moderate carbs (45-50%)
+        - **Pre-Workout Meal:** Low fat (10%), moderate protein (30%), higher carbs (60%)
+        - **Post-Workout Meal:** Low fat (10-15%), high protein (35-40%), high carbs (45-55%)
+        - **Evening Meals:** Higher fat (30-40%), moderate protein (25-30%), lower carbs (30-35%)
+        """)
+    elif workout_time == '3PM-6PM':
+        st.markdown("""
+        **For your AFTERNOON workout:**
+        - **Morning Meals:** Moderate fat (25-30%), moderate protein (25-30%), moderate carbs (40-45%)
+        - **Pre-Workout Meal:** Low fat (10%), moderate protein (30%), higher carbs (60%)
+        - **Post-Workout/Dinner:** Low fat (15%), high protein (35%), high carbs (50%)
+        """)
+    else:  # AFTER 6PM
+        st.markdown("""
+        **For your EVENING workout:**
+        - **Morning/Afternoon Meals:** Moderate fat (25-30%), moderate protein (25-30%), moderate carbs (40-45%)
+        - **Pre-Workout Meal:** Low fat (10%), moderate protein (30%), higher carbs (60%)
+        - **Post-Workout/Night Meal:** Low fat (10%), high protein (40%), high carbs (50%)
+        """)
 else:
-    st.info("🍽️ No workout scheduled for this day. Macros will be distributed evenly across meals.")
+    st.info("🍽️ No workout scheduled for this day. Consider distributing macros evenly across meals, with slightly higher protein at breakfast and dinner.")
 
 # Display nutrition targets if available
 has_nutrition_targets = False
@@ -519,355 +544,160 @@ for meal_num in range(1, total_meals + 1):
     
     meal_data = st.session_state.meal_plan[selected_day][meal_num]
     
-    # Food source selection
+    # Create columns for selecting food categories
     st.write("### Select Food Sources")
+    food_category_tabs = st.tabs(["Protein", "Carbs", "Fats", "Vegetables", "Fruits"])
     
-    # Use tabs instead of expanders
-    food_tabs = st.tabs(["Protein", "Carbs", "Fats", "Vegetables", "Fruits"])
+    # Protein sources tab
+    with food_category_tabs[0]:
+        st.subheader("Protein Sources")
+        
+        # Display pre-populated common protein sources with checkboxes
+        protein_cols = st.columns(3)
+        
+        # Track selected proteins
+        selected_proteins = []
+        
+        # Create checkboxes for common protein sources
+        for i, protein in enumerate(COMMON_PROTEIN_SOURCES):
+            col_idx = i % 3
+            with protein_cols[col_idx]:
+                protein_name = protein["name"]
+                is_selected = st.checkbox(
+                    f"{protein_name} ({protein['protein']}g P, {protein['carbs']}g C, {protein['fat']}g F)", 
+                    value=protein_name in meal_data['protein_sources'],
+                    key=f"protein_{selected_day}_{meal_num}_{i}"
+                )
+                
+                if is_selected:
+                    selected_proteins.append(protein_name)
+                    # Add to selected foods if not already there
+                    if not any(food['name'] == protein_name for food in st.session_state.selected_foods):
+                        st.session_state.selected_foods.append(protein)
+        
+        # Update meal data with selected proteins
+        meal_data['protein_sources'] = selected_proteins
     
-    # Protein Sources tab
-    with food_tabs[0]:
-        # Search for protein foods
-        protein_search = st.text_input("Search for protein foods:", key=f"protein_search_{selected_day}_{meal_num}")
+    # Carb sources tab
+    with food_category_tabs[1]:
+        st.subheader("Carbohydrate Sources")
         
-        if protein_search and st.button("Search", key=f"protein_search_btn_{selected_day}_{meal_num}"):
-            with st.spinner("Searching USDA Food Database..."):
-                results = fdc_api.search_foods(protein_search)
+        # Display pre-populated common carb sources with checkboxes
+        carb_cols = st.columns(3)
+        
+        # Track selected carbs
+        selected_carbs = []
+        
+        # Create checkboxes for common carb sources
+        for i, carb in enumerate(COMMON_CARB_SOURCES):
+            col_idx = i % 3
+            with carb_cols[col_idx]:
+                carb_name = carb["name"]
+                is_selected = st.checkbox(
+                    f"{carb_name} ({carb['protein']}g P, {carb['carbs']}g C, {carb['fat']}g F)", 
+                    value=carb_name in meal_data['carb_sources'],
+                    key=f"carb_{selected_day}_{meal_num}_{i}"
+                )
                 
-                if results:
-                    # Filter for protein-rich foods
-                    protein_foods = []
-                    for food in results:
-                        normalized = fdc_api.normalize_food_data(food)
-                        category = fdc_api.categorize_food(normalized)
-                        if category == 'protein':
-                            protein_foods.append(normalized)
-                    
-                    if protein_foods:
-                        st.success(f"Found {len(protein_foods)} protein-rich foods.")
-                        
-                        # Display as table
-                        protein_data = []
-                        for i, food in enumerate(protein_foods[:10]):  # Limit to 10 results
-                            protein_data.append({
-                                'Index': i + 1,
-                                'Food': food['name'],
-                                'Calories': f"{food['calories']:.0f} kcal",
-                                'Protein': f"{food['protein']:.1f}g",
-                                'Carbs': f"{food['carbs']:.1f}g",
-                                'Fat': f"{food['fat']:.1f}g"
-                            })
-                        
-                        protein_df = pd.DataFrame(protein_data)
-                        st.dataframe(protein_df, use_container_width=True)
-                        
-                        # Allow selecting
-                        protein_selection = st.multiselect(
-                            "Select protein sources (max 2):",
-                            [food['name'] for food in protein_foods[:10]],
-                            default=meal_data['protein_sources']
-                        )
-                        
-                        # Limit to 2 selections
-                        if len(protein_selection) > 2:
-                            st.warning("Please select a maximum of 2 protein sources.")
-                            protein_selection = protein_selection[:2]
-                        
-                        # Save selected protein sources
-                        meal_data['protein_sources'] = protein_selection
-                        
-                        # Save selected foods to the meal
-                        for food_name in protein_selection:
-                            selected_food = next((food for food in protein_foods if food['name'] == food_name), None)
-                            if selected_food and selected_food not in st.session_state.selected_foods:
-                                st.session_state.selected_foods.append(selected_food)
-                    else:
-                        st.warning("No protein-rich foods found. Try a different search term.")
-                else:
-                    st.warning("No results found. Try a different search term.")
+                if is_selected:
+                    selected_carbs.append(carb_name)
+                    # Add to selected foods if not already there
+                    if not any(food['name'] == carb_name for food in st.session_state.selected_foods):
+                        st.session_state.selected_foods.append(carb)
         
-        # Display currently selected protein sources
-        if meal_data['protein_sources']:
-            st.write("**Selected Protein Sources:**")
-            for protein in meal_data['protein_sources']:
-                st.write(f"- {protein}")
-        else:
-            st.write("No protein sources selected yet.")
+        # Update meal data with selected carbs
+        meal_data['carb_sources'] = selected_carbs
     
-    # Carb Sources tab
-    with food_tabs[1]:
-        # Search for carb foods
-        carb_search = st.text_input("Search for carbohydrate foods:", key=f"carb_search_{selected_day}_{meal_num}")
+    # Fat sources tab
+    with food_category_tabs[2]:
+        st.subheader("Fat Sources")
         
-        if carb_search and st.button("Search", key=f"carb_search_btn_{selected_day}_{meal_num}"):
-            with st.spinner("Searching USDA Food Database..."):
-                results = fdc_api.search_foods(carb_search)
+        # Display pre-populated common fat sources with checkboxes
+        fat_cols = st.columns(3)
+        
+        # Track selected fats
+        selected_fats = []
+        
+        # Create checkboxes for common fat sources
+        for i, fat in enumerate(COMMON_FAT_SOURCES):
+            col_idx = i % 3
+            with fat_cols[col_idx]:
+                fat_name = fat["name"]
+                is_selected = st.checkbox(
+                    f"{fat_name} ({fat['protein']}g P, {fat['carbs']}g C, {fat['fat']}g F)", 
+                    value=fat_name in meal_data['fat_sources'],
+                    key=f"fat_{selected_day}_{meal_num}_{i}"
+                )
                 
-                if results:
-                    # Filter for carb-rich foods
-                    carb_foods = []
-                    for food in results:
-                        normalized = fdc_api.normalize_food_data(food)
-                        category = fdc_api.categorize_food(normalized)
-                        if category == 'carb':
-                            carb_foods.append(normalized)
-                    
-                    if carb_foods:
-                        st.success(f"Found {len(carb_foods)} carb-rich foods.")
-                        
-                        # Display as table
-                        carb_data = []
-                        for i, food in enumerate(carb_foods[:10]):  # Limit to 10 results
-                            carb_data.append({
-                                'Index': i + 1,
-                                'Food': food['name'],
-                                'Calories': f"{food['calories']:.0f} kcal",
-                                'Protein': f"{food['protein']:.1f}g",
-                                'Carbs': f"{food['carbs']:.1f}g",
-                                'Fat': f"{food['fat']:.1f}g"
-                            })
-                        
-                        carb_df = pd.DataFrame(carb_data)
-                        st.dataframe(carb_df, use_container_width=True)
-                        
-                        # Allow selecting
-                        carb_selection = st.multiselect(
-                            "Select carb sources (max 2):",
-                            [food['name'] for food in carb_foods[:10]],
-                            default=meal_data['carb_sources']
-                        )
-                        
-                        # Limit to 2 selections
-                        if len(carb_selection) > 2:
-                            st.warning("Please select a maximum of 2 carb sources.")
-                            carb_selection = carb_selection[:2]
-                        
-                        # Save selected carb sources
-                        meal_data['carb_sources'] = carb_selection
-                        
-                        # Save selected foods to the meal
-                        for food_name in carb_selection:
-                            selected_food = next((food for food in carb_foods if food['name'] == food_name), None)
-                            if selected_food and selected_food not in st.session_state.selected_foods:
-                                st.session_state.selected_foods.append(selected_food)
-                    else:
-                        st.warning("No carb-rich foods found. Try a different search term.")
-                else:
-                    st.warning("No results found. Try a different search term.")
+                if is_selected:
+                    selected_fats.append(fat_name)
+                    # Add to selected foods if not already there
+                    if not any(food['name'] == fat_name for food in st.session_state.selected_foods):
+                        st.session_state.selected_foods.append(fat)
         
-        # Display currently selected carb sources
-        if meal_data['carb_sources']:
-            st.write("**Selected Carb Sources:**")
-            for carb in meal_data['carb_sources']:
-                st.write(f"- {carb}")
-        else:
-            st.write("No carb sources selected yet.")
+        # Update meal data with selected fats
+        meal_data['fat_sources'] = selected_fats
     
-    # Fat Sources tab
-    with food_tabs[2]:
-        # Search for fat foods
-        fat_search = st.text_input("Search for healthy fat foods:", key=f"fat_search_{selected_day}_{meal_num}")
+    # Vegetable sources tab
+    with food_category_tabs[3]:
+        st.subheader("Vegetables")
         
-        if fat_search and st.button("Search", key=f"fat_search_btn_{selected_day}_{meal_num}"):
-            with st.spinner("Searching USDA Food Database..."):
-                results = fdc_api.search_foods(fat_search)
+        # Display pre-populated common vegetable sources with checkboxes
+        veg_cols = st.columns(3)
+        
+        # Track selected vegetables
+        selected_veggies = []
+        
+        # Create checkboxes for common vegetable sources
+        for i, veg in enumerate(COMMON_VEGETABLE_SOURCES):
+            col_idx = i % 3
+            with veg_cols[col_idx]:
+                veg_name = veg["name"]
+                is_selected = st.checkbox(
+                    f"{veg_name} ({veg['protein']}g P, {veg['carbs']}g C, {veg['fat']}g F)", 
+                    value=veg_name in meal_data['vegetable_sources'],
+                    key=f"veg_{selected_day}_{meal_num}_{i}"
+                )
                 
-                if results:
-                    # Filter for fat-rich foods
-                    fat_foods = []
-                    for food in results:
-                        normalized = fdc_api.normalize_food_data(food)
-                        category = fdc_api.categorize_food(normalized)
-                        if category == 'fat':
-                            fat_foods.append(normalized)
-                    
-                    if fat_foods:
-                        st.success(f"Found {len(fat_foods)} fat-rich foods.")
-                        
-                        # Display as table
-                        fat_data = []
-                        for i, food in enumerate(fat_foods[:10]):  # Limit to 10 results
-                            fat_data.append({
-                                'Index': i + 1,
-                                'Food': food['name'],
-                                'Calories': f"{food['calories']:.0f} kcal",
-                                'Protein': f"{food['protein']:.1f}g",
-                                'Carbs': f"{food['carbs']:.1f}g",
-                                'Fat': f"{food['fat']:.1f}g"
-                            })
-                        
-                        fat_df = pd.DataFrame(fat_data)
-                        st.dataframe(fat_df, use_container_width=True)
-                        
-                        # Allow selecting
-                        fat_selection = st.multiselect(
-                            "Select fat sources (max 2):",
-                            [food['name'] for food in fat_foods[:10]],
-                            default=meal_data['fat_sources']
-                        )
-                        
-                        # Limit to 2 selections
-                        if len(fat_selection) > 2:
-                            st.warning("Please select a maximum of 2 fat sources.")
-                            fat_selection = fat_selection[:2]
-                        
-                        # Save selected fat sources
-                        meal_data['fat_sources'] = fat_selection
-                        
-                        # Save selected foods to the meal
-                        for food_name in fat_selection:
-                            selected_food = next((food for food in fat_foods if food['name'] == food_name), None)
-                            if selected_food and selected_food not in st.session_state.selected_foods:
-                                st.session_state.selected_foods.append(selected_food)
-                    else:
-                        st.warning("No fat-rich foods found. Try a different search term.")
-                else:
-                    st.warning("No results found. Try a different search term.")
+                if is_selected:
+                    selected_veggies.append(veg_name)
+                    # Add to selected foods if not already there
+                    if not any(food['name'] == veg_name for food in st.session_state.selected_foods):
+                        st.session_state.selected_foods.append(veg)
         
-        # Display currently selected fat sources
-        if meal_data['fat_sources']:
-            st.write("**Selected Fat Sources:**")
-            for fat in meal_data['fat_sources']:
-                st.write(f"- {fat}")
-        else:
-            st.write("No fat sources selected yet.")
-        
-    # Vegetable Sources tab
-    with food_tabs[3]:
-        # Search for vegetable foods
-        veg_search = st.text_input("Search for vegetables:", key=f"veg_search_{selected_day}_{meal_num}")
-        
-        if veg_search and st.button("Search", key=f"veg_search_btn_{selected_day}_{meal_num}"):
-            with st.spinner("Searching USDA Food Database..."):
-                results = fdc_api.search_foods(veg_search)
-                
-                if results:
-                    # Display vegetables
-                    veg_foods = []
-                    for food in results:
-                        normalized = fdc_api.normalize_food_data(food)
-                        if "vegetable" in normalized['name'].lower() or any(veg in normalized['name'].lower() for veg in ["spinach", "kale", "broccoli", "lettuce", "carrot", "tomato", "cucumber", "pepper", "onion", "garlic"]):
-                            veg_foods.append(normalized)
-                    
-                    if veg_foods:
-                        st.success(f"Found {len(veg_foods)} vegetables.")
-                        
-                        # Display as table
-                        veg_data = []
-                        for i, food in enumerate(veg_foods[:10]):  # Limit to 10 results
-                            veg_data.append({
-                                'Index': i + 1,
-                                'Food': food['name'],
-                                'Calories': f"{food['calories']:.0f} kcal",
-                                'Protein': f"{food['protein']:.1f}g",
-                                'Carbs': f"{food['carbs']:.1f}g",
-                                'Fat': f"{food['fat']:.1f}g"
-                            })
-                        
-                        veg_df = pd.DataFrame(veg_data)
-                        st.dataframe(veg_df, use_container_width=True)
-                        
-                        # Allow selecting
-                        veg_selection = st.multiselect(
-                            "Select vegetables (max 2):",
-                            [food['name'] for food in veg_foods[:10]],
-                            default=meal_data['vegetable_sources']
-                        )
-                        
-                        # Limit to 2 selections
-                        if len(veg_selection) > 2:
-                            st.warning("Please select a maximum of 2 vegetables.")
-                            veg_selection = veg_selection[:2]
-                        
-                        # Save selected vegetable sources
-                        meal_data['vegetable_sources'] = veg_selection
-                        
-                        # Save selected foods to the meal
-                        for food_name in veg_selection:
-                            selected_food = next((food for food in veg_foods if food['name'] == food_name), None)
-                            if selected_food and selected_food not in st.session_state.selected_foods:
-                                st.session_state.selected_foods.append(selected_food)
-                    else:
-                        st.warning("No vegetables found. Try a different search term.")
-                else:
-                    st.warning("No results found. Try a different search term.")
-        
-        # Display currently selected vegetable sources
-        if meal_data['vegetable_sources']:
-            st.write("**Selected Vegetables:**")
-            for veg in meal_data['vegetable_sources']:
-                st.write(f"- {veg}")
-        else:
-            st.write("No vegetables selected yet.")
+        # Update meal data with selected vegetables
+        meal_data['vegetable_sources'] = selected_veggies
     
-    # Fruit Sources tab
-    with food_tabs[4]:
-        # Search for fruit foods
-        fruit_search = st.text_input("Search for fruits:", key=f"fruit_search_{selected_day}_{meal_num}")
+    # Fruit sources tab
+    with food_category_tabs[4]:
+        st.subheader("Fruits")
         
-        if fruit_search and st.button("Search", key=f"fruit_search_btn_{selected_day}_{meal_num}"):
-            with st.spinner("Searching USDA Food Database..."):
-                results = fdc_api.search_foods(fruit_search)
+        # Display pre-populated common fruit sources with checkboxes
+        fruit_cols = st.columns(3)
+        
+        # Track selected fruits
+        selected_fruits = []
+        
+        # Create checkboxes for common fruit sources
+        for i, fruit in enumerate(COMMON_FRUIT_SOURCES):
+            col_idx = i % 3
+            with fruit_cols[col_idx]:
+                fruit_name = fruit["name"]
+                is_selected = st.checkbox(
+                    f"{fruit_name} ({fruit['protein']}g P, {fruit['carbs']}g C, {fruit['fat']}g F)", 
+                    value=fruit_name in meal_data['fruit_sources'],
+                    key=f"fruit_{selected_day}_{meal_num}_{i}"
+                )
                 
-                if results:
-                    # Display fruits
-                    fruit_foods = []
-                    for food in results:
-                        normalized = fdc_api.normalize_food_data(food)
-                        if "fruit" in normalized['name'].lower() or any(fruit in normalized['name'].lower() for fruit in ["apple", "banana", "orange", "berry", "blueberry", "strawberry", "grape", "melon", "pineapple", "mango"]):
-                            fruit_foods.append(normalized)
-                    
-                    if fruit_foods:
-                        st.success(f"Found {len(fruit_foods)} fruits.")
-                        
-                        # Display as table
-                        fruit_data = []
-                        for i, food in enumerate(fruit_foods[:10]):  # Limit to 10 results
-                            fruit_data.append({
-                                'Index': i + 1,
-                                'Food': food['name'],
-                                'Calories': f"{food['calories']:.0f} kcal",
-                                'Protein': f"{food['protein']:.1f}g",
-                                'Carbs': f"{food['carbs']:.1f}g",
-                                'Fat': f"{food['fat']:.1f}g"
-                            })
-                        
-                        fruit_df = pd.DataFrame(fruit_data)
-                        st.dataframe(fruit_df, use_container_width=True)
-                        
-                        # Allow selecting
-                        fruit_selection = st.multiselect(
-                            "Select fruits (max 2):",
-                            [food['name'] for food in fruit_foods[:10]],
-                            default=meal_data['fruit_sources']
-                        )
-                        
-                        # Limit to 2 selections
-                        if len(fruit_selection) > 2:
-                            st.warning("Please select a maximum of 2 fruits.")
-                            fruit_selection = fruit_selection[:2]
-                        
-                        # Save selected fruit sources
-                        meal_data['fruit_sources'] = fruit_selection
-                        
-                        # Save selected foods to the meal
-                        for food_name in fruit_selection:
-                            selected_food = next((food for food in fruit_foods if food['name'] == food_name), None)
-                            if selected_food and selected_food not in st.session_state.selected_foods:
-                                st.session_state.selected_foods.append(selected_food)
-                    else:
-                        st.warning("No fruits found. Try a different search term.")
-                else:
-                    st.warning("No results found. Try a different search term.")
+                if is_selected:
+                    selected_fruits.append(fruit_name)
+                    # Add to selected foods if not already there
+                    if not any(food['name'] == fruit_name for food in st.session_state.selected_foods):
+                        st.session_state.selected_foods.append(fruit)
         
-        # Display currently selected fruit sources
-        if meal_data['fruit_sources']:
-            st.write("**Selected Fruits:**")
-            for fruit in meal_data['fruit_sources']:
-                st.write(f"- {fruit}")
-        else:
-            st.write("No fruits selected yet.")
-        
+        # Update meal data with selected fruits
+        meal_data['fruit_sources'] = selected_fruits
+    
     # Calculate and display meal nutrition
     st.subheader("Meal Nutrition Analysis")
     
@@ -896,17 +726,50 @@ for meal_num in range(1, total_meals + 1):
             # Calculate optimal portions
             optimal_portions = calculate_optimal_portions(meal_foods, meal_targets)
             
-            # Display portion recommendations
-            st.write("**Recommended Portions to Meet Targets:**")
+            # Store portions in session state if not already there
+            portion_key = f"portions_{selected_day}_{meal_num}"
+            if portion_key not in st.session_state:
+                st.session_state[portion_key] = {food['name']: optimal_portions.get(food['name'], 100) for food in meal_foods}
             
-            # Create table of recommended portions and nutrition
+            st.write("**Adjust Portion Sizes:**")
+            st.write("Drag the sliders to adjust portion sizes and see how it affects your macro budget.")
+            
+            # Create table of adjustable portions and nutrition
             portion_data = []
             meal_nutrition = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
             
-            for food in meal_foods:
-                portion = optimal_portions.get(food['name'], 100)
+            # Create columns for each food item to display with sliders
+            food_cols = st.columns(2)
+            
+            for i, food in enumerate(meal_foods):
+                col_idx = i % 2
+                with food_cols[col_idx]:
+                    # Default to the optimal portion
+                    if food['name'] not in st.session_state[portion_key]:
+                        st.session_state[portion_key][food['name']] = optimal_portions.get(food['name'], 100)
+                    
+                    # Create a slider for adjusting portion
+                    portion = st.slider(
+                        f"{food['name']} (g)",
+                        min_value=10,
+                        max_value=500,
+                        value=int(st.session_state[portion_key][food['name']]),
+                        key=f"portion_slider_{selected_day}_{meal_num}_{i}"
+                    )
+                    
+                    # Update session state with new portion
+                    st.session_state[portion_key][food['name']] = portion
+                    
+                    # Calculate nutrition for this portion
+                    calories = food['calories'] * portion / 100
+                    protein = food['protein'] * portion / 100
+                    carbs = food['carbs'] * portion / 100
+                    fat = food['fat'] * portion / 100
+                    
+                    # Display nutrition info
+                    st.write(f"**Nutrients:** {calories:.0f} kcal | {protein:.1f}g P | {carbs:.1f}g C | {fat:.1f}g F")
                 
-                # Calculate nutrition for this portion
+                # Calculate nutrition for this portion (for overall totals)
                 calories = food['calories'] * portion / 100
                 protein = food['protein'] * portion / 100
                 carbs = food['carbs'] * portion / 100
@@ -918,7 +781,7 @@ for meal_num in range(1, total_meals + 1):
                 meal_nutrition['carbs'] += carbs
                 meal_nutrition['fat'] += fat
                 
-                # Add to table
+                # Add to table for summary
                 portion_data.append({
                     'Food': food['name'],
                     'Portion': f"{portion:.0f}g",
@@ -959,6 +822,25 @@ for meal_num in range(1, total_meals + 1):
                 if meal_targets['fat'] > 0:
                     fat_pct = (meal_nutrition['fat'] / meal_targets['fat']) * 100
                 st.metric("Fat", f"{meal_nutrition['fat']:.1f}g", f"{fat_pct:.0f}% of target")
+            
+            # Show remaining macro budget for the day
+            st.write("**Remaining Daily Macro Budget:**")
+            remaining_cols = st.columns(4)
+            
+            # Calculate remaining macros
+            remaining_calories = targets.get('target_calories', 0) - meal_nutrition['calories']
+            remaining_protein = targets.get('protein', 0) - meal_nutrition['protein']
+            remaining_carbs = targets.get('carbs', 0) - meal_nutrition['carbs']
+            remaining_fat = targets.get('fat', 0) - meal_nutrition['fat']
+            
+            with remaining_cols[0]:
+                st.metric("Calories", f"{remaining_calories:.0f} kcal")
+            with remaining_cols[1]:
+                st.metric("Protein", f"{remaining_protein:.1f}g")
+            with remaining_cols[2]:
+                st.metric("Carbs", f"{remaining_carbs:.1f}g")
+            with remaining_cols[3]:
+                st.metric("Fat", f"{remaining_fat:.1f}g")
             
             # Calculate macronutrient percentages
             if meal_nutrition['calories'] > 0:
