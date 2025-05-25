@@ -70,38 +70,36 @@ with tracking_tab:
             else:
                 filtered_table = display_table
             
-            # Display the table
-            selection = st.data_editor(filtered_table, 
-                                     use_container_width=True,
-                                     hide_index=True,
-                                     key="daily_records_table",
-                                     num_rows="dynamic")
+            # Display the table with row selection
+            st.write("Select records to delete:")
+            
+            # Display the table (non-editable)
+            st.dataframe(filtered_table, 
+                       use_container_width=True,
+                       hide_index=True)
+            
+            # Multi-select for deletion
+            dates_to_delete = st.multiselect(
+                "Select dates to delete:",
+                options=filtered_table['Date'].tolist(),
+                key="dates_to_delete_daily"
+            )
         
         # Add action buttons
         col1, col2, col3 = st.columns(3)
         
         with col1:
             if st.button("Delete Selected Records", key="delete_records"):
-                # Get the selected rows
-                selected_rows = selection['edited_rows']
-                
-                if selected_rows:
-                    # Get the dates to delete
-                    dates_to_delete = []
-                    for row_idx, row_data in selected_rows.items():
-                        date_to_delete = filtered_table.iloc[int(row_idx)]['Date']
-                        dates_to_delete.append(date_to_delete)
-                    
+                if dates_to_delete:
                     # Remove the selected rows from the dataframe
-                    if dates_to_delete:
-                        st.session_state.daily_records = st.session_state.daily_records[
-                            ~st.session_state.daily_records['date'].astype(str).isin(dates_to_delete)
-                        ]
-                        
-                        # Save updated records
-                        st.session_state.daily_records.to_csv('data/daily_records.csv', index=False)
-                        st.success(f"Deleted {len(dates_to_delete)} record(s)")
-                        st.rerun()
+                    st.session_state.daily_records = st.session_state.daily_records[
+                        ~st.session_state.daily_records['date'].astype(str).isin(dates_to_delete)
+                    ]
+                    
+                    # Save updated records
+                    st.session_state.daily_records.to_csv('data/daily_records.csv', index=False)
+                    st.success(f"Deleted {len(dates_to_delete)} record(s)")
+                    st.rerun()
                 else:
                     st.warning("No records selected for deletion")
         

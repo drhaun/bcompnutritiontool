@@ -420,50 +420,103 @@ with data_management_tab:
             
             basic_display.rename(columns=new_names, inplace=True)
             
-            # Create an editable dataframe
-            edited_data = st.data_editor(
+            # Show editable data
+            st.dataframe(
                 basic_display,
                 use_container_width=True,
-                hide_index=True,
-                key="basic_data_editor",
-                num_rows="dynamic"
+                hide_index=True
             )
             
-            # Add update button to save changes
-            if st.button("Save Changes", key="save_basic_changes"):
-                try:
-                    # Get the edited rows
-                    if edited_data is not None:
-                        for i, row in edited_data.iterrows():
-                            # Find the corresponding record in the original data
-                            date_str = row['Date']
-                            # Find matching record in original data
-                            match_idx = st.session_state.daily_records[
-                                st.session_state.daily_records['date'].dt.strftime('%Y-%m-%d') == date_str
-                            ].index
-                            
-                            if not match_idx.empty:
-                                # Update weight if it was edited
-                                if 'Weight (lbs)' in row:
-                                    st.session_state.daily_records.loc[match_idx[0], 'weight_lbs'] = float(row['Weight (lbs)'])
-                                    st.session_state.daily_records.loc[match_idx[0], 'weight_kg'] = float(row['Weight (lbs)']) / 2.20462
-                                
-                                # Update other nutrition values
-                                if 'Calories' in row:
-                                    st.session_state.daily_records.loc[match_idx[0], 'calories'] = float(row['Calories'])
-                                if 'Protein (g)' in row:
-                                    st.session_state.daily_records.loc[match_idx[0], 'protein'] = float(row['Protein (g)'])
-                                if 'Carbs (g)' in row:
-                                    st.session_state.daily_records.loc[match_idx[0], 'carbs'] = float(row['Carbs (g)'])
-                                if 'Fat (g)' in row:
-                                    st.session_state.daily_records.loc[match_idx[0], 'fat'] = float(row['Fat (g)'])
+            # Create an edit form
+            with st.expander("Edit Record"):
+                # Select record to edit
+                date_to_edit = st.selectbox(
+                    "Select date to edit:",
+                    options=basic_display['Date'].tolist(),
+                    key="date_to_edit_dashboard"
+                )
+                
+                if date_to_edit:
+                    # Get the record to edit
+                    record_to_edit = basic_display[basic_display['Date'] == date_to_edit].iloc[0]
+                    
+                    # Create form to edit values
+                    with st.form(key="edit_record_form"):
+                        # Weight input
+                        if 'Weight (lbs)' in record_to_edit:
+                            weight_value = record_to_edit['Weight (lbs)']
+                            weight = st.number_input("Weight (lbs)", 
+                                                 value=float(weight_value) if pd.notnull(weight_value) else 0.0,
+                                                 step=0.1)
+                        else:
+                            weight = None
                         
-                        # Save updated data
-                        st.session_state.daily_records.to_csv('data/daily_records.csv', index=False)
-                        st.success("Changes saved successfully!")
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"Error saving changes: {e}")
+                        # Calories input
+                        if 'Calories' in record_to_edit:
+                            calories_value = record_to_edit['Calories']
+                            calories = st.number_input("Calories", 
+                                                    value=int(float(calories_value)) if pd.notnull(calories_value) else 0,
+                                                    step=10)
+                        else:
+                            calories = None
+                        
+                        # Macros inputs
+                        if 'Protein (g)' in record_to_edit:
+                            protein_value = record_to_edit['Protein (g)']
+                            protein = st.number_input("Protein (g)", 
+                                                  value=int(float(protein_value)) if pd.notnull(protein_value) else 0,
+                                                  step=1)
+                        else:
+                            protein = None
+                            
+                        if 'Carbs (g)' in record_to_edit:
+                            carbs_value = record_to_edit['Carbs (g)']
+                            carbs = st.number_input("Carbs (g)", 
+                                                value=int(float(carbs_value)) if pd.notnull(carbs_value) else 0,
+                                                step=1)
+                        else:
+                            carbs = None
+                            
+                        if 'Fat (g)' in record_to_edit:
+                            fat_value = record_to_edit['Fat (g)']
+                            fat = st.number_input("Fat (g)", 
+                                              value=int(float(fat_value)) if pd.notnull(fat_value) else 0,
+                                              step=1)
+                        else:
+                            fat = None
+                        
+                        # Submit button
+                        submit = st.form_submit_button("Save Changes")
+                        
+                        if submit:
+                            try:
+                                # Find matching record in original data
+                                match_idx = st.session_state.daily_records[
+                                    st.session_state.daily_records['date'].dt.strftime('%Y-%m-%d') == date_to_edit
+                                ].index
+                                
+                                if not match_idx.empty:
+                                    # Update weight if provided
+                                    if weight is not None:
+                                        st.session_state.daily_records.loc[match_idx[0], 'weight_lbs'] = weight
+                                        st.session_state.daily_records.loc[match_idx[0], 'weight_kg'] = weight / 2.20462
+                                    
+                                    # Update other nutrition values if provided
+                                    if calories is not None:
+                                        st.session_state.daily_records.loc[match_idx[0], 'calories'] = calories
+                                    if protein is not None:
+                                        st.session_state.daily_records.loc[match_idx[0], 'protein'] = protein
+                                    if carbs is not None:
+                                        st.session_state.daily_records.loc[match_idx[0], 'carbs'] = carbs
+                                    if fat is not None:
+                                        st.session_state.daily_records.loc[match_idx[0], 'fat'] = fat
+                                    
+                                    # Save updated data
+                                    st.session_state.daily_records.to_csv('data/daily_records.csv', index=False)
+                                    st.success("Changes saved successfully!")
+                                    st.rerun()
+                            except Exception as e:
+                                st.error(f"Error saving changes: {e}")
         
         with detailed_tab:
             # For detailed view, show all available columns
