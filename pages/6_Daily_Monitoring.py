@@ -321,15 +321,119 @@ with photos_tab:
     st.subheader("Progress Photos")
     st.markdown("Upload progress photos to visually track your transformation over time.")
     
-    # Select date
-    photo_date = st.date_input("Select Date", value=datetime.now().date(), key="photo_date")
-    photo_date_str = photo_date.strftime('%Y-%m-%d')
+    # Add tabs for management and uploading
+    photo_management_tab, photo_upload_tab = st.tabs(["Manage Photos", "Upload Photos"])
     
-    # Create three columns for front, side, and back photos
-    front_col, side_col, back_col = st.columns(3)
+    with photo_management_tab:
+        st.subheader("Manage Your Progress Photos")
+        
+        # Get all progress photos
+        photo_df = utils.get_progress_photos_df()
+        
+        if not photo_df.empty:
+            # Create a copy for display
+            display_photos = photo_df.copy()
+            
+            # Sort by date (newest first)
+            display_photos = display_photos.sort_values(by='date', ascending=False)
+            
+            # Add a date filter
+            date_filter = st.text_input("Filter by date (YYYY-MM-DD):", 
+                                      placeholder="Enter date to filter photos",
+                                      key="photo_date_filter")
+            
+            if date_filter:
+                display_photos = display_photos[display_photos['date'].str.contains(date_filter)]
+            
+            # Create an editable table
+            st.write("**Your Progress Photos:**")
+            edited_df = st.data_editor(
+                display_photos,
+                column_config={
+                    "date": "Date",
+                    "photo_type": "Photo Type",
+                    "filepath": st.column_config.ImageColumn(
+                        "Photo Preview", 
+                        help="Preview of your progress photo",
+                        width="medium"
+                    )
+                },
+                hide_index=True,
+                use_container_width=True,
+                key="photo_editor"
+            )
+            
+            # Add delete functionality
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("Delete Selected Photos", key="delete_photos"):
+                    # Get selected photos to delete
+                    selected_photos = st.multiselect(
+                        "Select photos to delete:",
+                        options=display_photos['filepath'].tolist(),
+                        format_func=lambda x: f"{os.path.basename(x)}"
+                    )
+                    
+                    if selected_photos:
+                        # Remove the photos from the filesystem
+                        deleted_count = 0
+                        for filepath in selected_photos:
+                            try:
+                                if os.path.exists(filepath):
+                                    os.remove(filepath)
+                                    deleted_count += 1
+                            except Exception as e:
+                                st.error(f"Error deleting photo file: {e}")
+                        
+                        # Update the dataframe to remove the deleted photos
+                        photo_df = photo_df[~photo_df['filepath'].isin(selected_photos)]
+                        photo_df.to_csv('data/progress_photos.csv', index=False)
+                        st.success(f"Deleted {deleted_count} photo(s)")
+                        st.rerun()
+            
+            with col2:
+                if st.button("Clear All Photos", key="clear_photos"):
+                    # Add confirmation
+                    if 'confirm_delete_all_photos' not in st.session_state:
+                        st.session_state.confirm_delete_all_photos = False
+                    
+                    if not st.session_state.confirm_delete_all_photos:
+                        st.session_state.confirm_delete_all_photos = True
+                        st.warning("⚠️ Are you sure you want to delete ALL photos? This cannot be undone. Click again to confirm.")
+                    else:
+                        # Delete all photo files
+                        for _, row in photo_df.iterrows():
+                            try:
+                                filepath = str(row['filepath'])
+                                if os.path.exists(filepath):
+                                    os.remove(filepath)
+                            except Exception as e:
+                                st.error(f"Error deleting photo file: {e}")
+                        
+                        # Clear the dataframe
+                        photo_df = pd.DataFrame(columns=photo_df.columns)
+                        photo_df.to_csv('data/progress_photos.csv', index=False)
+                        
+                        # Reset confirmation
+                        st.session_state.confirm_delete_all_photos = False
+                        st.success("All photos cleared")
+                        st.rerun()
+        else:
+            st.info("No progress photos uploaded yet. Use the 'Upload Photos' tab to add some.")
     
-    # Get existing photos for this date
-    existing_photos = utils.get_photos_for_date(photo_date_str)
+    with photo_upload_tab:
+        st.subheader("Upload New Photos")
+        
+        # Select date
+        photo_date = st.date_input("Select Date", value=datetime.now().date(), key="photo_upload_date")
+        photo_date_str = photo_date.strftime('%Y-%m-%d')
+        
+        # Create three columns for front, side, and back photos
+        front_col, side_col, back_col = st.columns(3)
+        
+        # Get existing photos for this date
+        existing_photos = utils.get_photos_for_date(photo_date_str)
     
     # Front photo upload and display
     with front_col:

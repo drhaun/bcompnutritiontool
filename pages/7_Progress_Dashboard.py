@@ -28,6 +28,9 @@ if st.session_state.daily_records.empty:
 st.title("Progress Dashboard")
 st.markdown("Track your progress towards your body composition and nutrition goals.")
 
+# Add tabs for different sections
+dashboard_tab, data_management_tab, photo_gallery_tab = st.tabs(["Dashboard", "Data Management", "Progress Photos"])
+
 # Convert date column to datetime if it's not already
 st.session_state.daily_records['date'] = pd.to_datetime(st.session_state.daily_records['date'])
 
