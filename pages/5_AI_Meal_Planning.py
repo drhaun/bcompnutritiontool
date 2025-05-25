@@ -469,6 +469,7 @@ with tab6:
                 if i + j < len(search_results):
                     recipe = search_results[i + j]
                     with cols[j]:
+                        recipe_id = recipe.get('id')
                         st.markdown(f"### {recipe.get('title')}")
                         
                         # Show macros
@@ -479,26 +480,48 @@ with tab6:
                         category = recipe.get('category', 'other')
                         st.write(f"Category: {category.replace('_', ' ').capitalize()}")
                         
-                        # View details button
-                        if st.button("View Details", key=f"view_recipe_{recipe.get('id')}_{i+j}"):
-                            st.session_state.selected_recipe_ai = recipe.get('id')
+                        # Create a unique key for each recipe's expander
+                        expander_key = f"recipe_details_{recipe_id}_{i+j}"
+                        
+                        # Use an expander for details - this allows collapsing/expanding
+                        with st.expander("View Recipe Details", expanded=False):
+                            # Display recipe details
+                            display_recipe_card(recipe, show_details=True)
+                            
+                            # Add to meal plan options
+                            st.markdown("### Add to Meal Plan")
+                            
+                            # Select which meal to add this to
+                            meal_options = ["Breakfast", "Lunch", "Dinner", "Snacks"]
+                            selected_meal = st.selectbox(
+                                "Select meal to add this recipe to:", 
+                                ["Select meal..."] + meal_options,
+                                key=f"meal_select_{recipe_id}_{i+j}"
+                            )
+                            
+                            # Add to meal button
+                            if selected_meal != "Select meal...":
+                                if st.button("Add to Meal Plan", key=f"add_recipe_{recipe_id}_{i+j}"):
+                                    # Create a food item from the recipe
+                                    recipe_item = {
+                                        "fdc_id": f"recipe_{recipe_id}",
+                                        "description": recipe.get('title') + " (Recipe)",
+                                        "category": "Recipe",
+                                        "nutrients": {
+                                            "protein": macros.get('protein', 0),
+                                            "carbs": macros.get('carbs', 0),
+                                            "fat": macros.get('fat', 0),
+                                            "calories": macros.get('calories', 0),
+                                            "fiber": macros.get('fiber', 0)
+                                        }
+                                    }
+                                    
+                                    # Add to meal plan
+                                    add_to_meal(recipe_item, selected_meal.lower(), 1)  # Portion is 1 for complete recipe
+                                    
+                                    st.success(f"✅ {recipe.get('title')} added to {selected_meal}!")
     else:
         st.info("No matching recipes found. Try a different search or category.")
-    
-    # Show selected recipe details
-    if 'selected_recipe_ai' in st.session_state and st.session_state.selected_recipe_ai:
-        st.markdown("---")
-        st.subheader("Recipe Details")
-        
-        # Get recipe
-        recipe = recipe_db.get_recipe_by_id(st.session_state.selected_recipe_ai)
-        
-        if recipe:
-            # Display recipe details
-            display_recipe_card(recipe, show_details=True)
-            
-            # Add to meal section
-            st.subheader("Add to Meal Plan")
             
             meal_col1, meal_col2 = st.columns(2)
             
