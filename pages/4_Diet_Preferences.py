@@ -329,6 +329,12 @@ def create_recipe_ui():
     has_targets = False
     target_macros = {}
     
+    # Initialize selected_day to ensure it's always defined
+    if 'selected_recipe_day' not in st.session_state:
+        st.session_state.selected_recipe_day = 'Monday'  # Default day
+    
+    selected_day = st.session_state.selected_recipe_day
+    
     # Check if we have day-specific targets
     if 'day_specific_nutrition' in st.session_state and st.session_state.day_specific_nutrition:
         days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -371,16 +377,265 @@ def create_recipe_ui():
                                         value=3, 
                                         help="How many total meals do you plan to have on this day?")
         
-        # Get workout info for the selected day
-        from pages.D4_DIY_Meal_Planning import get_day_workout_info, get_meal_distribution
-        workout_info = get_day_workout_info(selected_day)
+        # We need to manually call the functions instead of importing them
+        # from pages.4_DIY_Meal_Planning which won't work because module names can't start with numbers
+        
+        # Define workout info structure
+        workout_info = {
+            'has_workout': False,
+            'workout_time': None,
+            'workout_type': None
+        }
+        
+        # Check if weekly schedule exists
+        if 'confirmed_weekly_schedule' in st.session_state:
+            weekly_schedule = st.session_state.confirmed_weekly_schedule
+            
+            # Check if the day exists in the schedule
+            day_data = weekly_schedule.get(selected_day, {})
+            
+            # Check for resistance training
+            if day_data.get('resistance_training', False):
+                workout_info['has_workout'] = True
+                workout_info['workout_type'] = 'Resistance'
+                # Convert time to appropriate category
+                time_str = day_data.get('resistance_time', '')
+                if time_str:
+                    try:
+                        time_obj = datetime.strptime(time_str, "%H:%M").time()
+                        hour = time_obj.hour
+                        
+                        if hour < 9:
+                            workout_info['workout_time'] = 'BEFORE 9AM'
+                        elif hour < 15:
+                            workout_info['workout_time'] = '9AM-3PM'
+                        elif hour < 18:
+                            workout_info['workout_time'] = '3PM-6PM'
+                        else:
+                            workout_info['workout_time'] = 'AFTER 6PM'
+                    except Exception as e:
+                        workout_info['workout_time'] = '9AM-3PM'  # Default fallback
+                        pass
+            
+            # Check for cardio training
+            elif day_data.get('cardio_training', False):
+                workout_info['has_workout'] = True
+                workout_info['workout_type'] = 'Cardio'
+                # Convert time to appropriate category
+                time_str = day_data.get('cardio_time', '')
+                if time_str:
+                    try:
+                        time_obj = datetime.strptime(time_str, "%H:%M").time()
+                        hour = time_obj.hour
+                        
+                        if hour < 9:
+                            workout_info['workout_time'] = 'BEFORE 9AM'
+                        elif hour < 15:
+                            workout_info['workout_time'] = '9AM-3PM'
+                        elif hour < 18:
+                            workout_info['workout_time'] = '3PM-6PM'
+                        else:
+                            workout_info['workout_time'] = 'AFTER 6PM'
+                    except Exception as e:
+                        workout_info['workout_time'] = '9AM-3PM'  # Default fallback
+                        pass
         
         # Use training-based distribution if we have a workout scheduled
         if workout_info['has_workout']:
             workout_type = workout_info['workout_type']
             workout_time = workout_info['workout_time']
             
-            # Get meal distribution based on workout timing
+            # Create a custom meal distribution function similar to the one in DIY_Meal_Planning
+            def get_training_based_coefficients():
+                """
+                Get macro distribution coefficients based on training time and number of meals
+                Returns a dictionary with training time, meal count, and meal positions as keys
+                """
+                # Create a simpler coefficient dictionary
+                coefficient_dict = {
+                    'REST DAY': {},
+                    'BEFORE 9AM': {},
+                    '9AM-3PM': {},
+                    '3PM-6PM': {},
+                    'AFTER 6PM': {}
+                }
+                
+                # Add standard coefficients for all meal counts (1-6)
+                for meal_count in range(1, 7):
+                    # REST DAY - even distribution
+                    coefficient_dict['REST DAY'][meal_count] = {}
+                    for meal_num in range(1, meal_count + 1):
+                        coefficient_dict['REST DAY'][meal_count][meal_num] = {
+                            'description': f'MEAL {meal_num}',
+                            'protein': 1.0 / meal_count,
+                            'carbs': 1.0 / meal_count,
+                            'fat': 1.0 / meal_count
+                        }
+                    
+                    # BEFORE 9AM - early morning workout
+                    coefficient_dict['BEFORE 9AM'][meal_count] = {}
+                    for meal_num in range(1, meal_count + 1):
+                        if meal_count == 1:
+                            coefficient_dict['BEFORE 9AM'][meal_count][meal_num] = {
+                                'description': 'ONLY MEAL',
+                                'protein': 1.0,
+                                'carbs': 1.0,
+                                'fat': 1.0
+                            }
+                        elif meal_num == 1:
+                            coefficient_dict['BEFORE 9AM'][meal_count][meal_num] = {
+                                'description': 'PRE-TRAINING',
+                                'protein': 0.3,
+                                'carbs': 0.4,
+                                'fat': 0.1
+                            }
+                        elif meal_num == 2:
+                            coefficient_dict['BEFORE 9AM'][meal_count][meal_num] = {
+                                'description': 'POST-TRAINING',
+                                'protein': 0.4,
+                                'carbs': 0.4,
+                                'fat': 0.2
+                            }
+                        else:
+                            coefficient_dict['BEFORE 9AM'][meal_count][meal_num] = {
+                                'description': f'MEAL {meal_num}',
+                                'protein': 0.3 / (meal_count - 2),
+                                'carbs': 0.2 / (meal_count - 2),
+                                'fat': 0.7 / (meal_count - 2)
+                            }
+                    
+                    # 9AM-3PM - mid-day workout
+                    coefficient_dict['9AM-3PM'][meal_count] = {}
+                    for meal_num in range(1, meal_count + 1):
+                        if meal_count == 1:
+                            coefficient_dict['9AM-3PM'][meal_count][meal_num] = {
+                                'description': 'ONLY MEAL',
+                                'protein': 1.0,
+                                'carbs': 1.0,
+                                'fat': 1.0
+                            }
+                        elif meal_num == meal_count // 2:
+                            coefficient_dict['9AM-3PM'][meal_count][meal_num] = {
+                                'description': 'PRE-TRAINING',
+                                'protein': 0.3,
+                                'carbs': 0.3,
+                                'fat': 0.1
+                            }
+                        elif meal_num == meal_count // 2 + 1:
+                            coefficient_dict['9AM-3PM'][meal_count][meal_num] = {
+                                'description': 'POST-TRAINING',
+                                'protein': 0.3,
+                                'carbs': 0.4,
+                                'fat': 0.1
+                            }
+                        else:
+                            coefficient_dict['9AM-3PM'][meal_count][meal_num] = {
+                                'description': f'MEAL {meal_num}',
+                                'protein': 0.4 / (meal_count - 2),
+                                'carbs': 0.3 / (meal_count - 2),
+                                'fat': 0.8 / (meal_count - 2)
+                            }
+                    
+                    # 3PM-6PM - evening workout
+                    coefficient_dict['3PM-6PM'][meal_count] = {}
+                    for meal_num in range(1, meal_count + 1):
+                        if meal_count == 1:
+                            coefficient_dict['3PM-6PM'][meal_count][meal_num] = {
+                                'description': 'ONLY MEAL',
+                                'protein': 1.0,
+                                'carbs': 1.0,
+                                'fat': 1.0
+                            }
+                        elif meal_num == meal_count - 1:
+                            coefficient_dict['3PM-6PM'][meal_count][meal_num] = {
+                                'description': 'PRE-TRAINING',
+                                'protein': 0.3,
+                                'carbs': 0.3,
+                                'fat': 0.1
+                            }
+                        elif meal_num == meal_count:
+                            coefficient_dict['3PM-6PM'][meal_count][meal_num] = {
+                                'description': 'POST-TRAINING',
+                                'protein': 0.3,
+                                'carbs': 0.4,
+                                'fat': 0.1
+                            }
+                        else:
+                            coefficient_dict['3PM-6PM'][meal_count][meal_num] = {
+                                'description': f'MEAL {meal_num}',
+                                'protein': 0.4 / (meal_count - 2),
+                                'carbs': 0.3 / (meal_count - 2),
+                                'fat': 0.8 / (meal_count - 2)
+                            }
+                    
+                    # AFTER 6PM - late workout
+                    coefficient_dict['AFTER 6PM'][meal_count] = {}
+                    for meal_num in range(1, meal_count + 1):
+                        if meal_count == 1:
+                            coefficient_dict['AFTER 6PM'][meal_count][meal_num] = {
+                                'description': 'ONLY MEAL',
+                                'protein': 1.0,
+                                'carbs': 1.0,
+                                'fat': 1.0
+                            }
+                        elif meal_num == meal_count - 1:
+                            coefficient_dict['AFTER 6PM'][meal_count][meal_num] = {
+                                'description': 'PRE-TRAINING',
+                                'protein': 0.3,
+                                'carbs': 0.3,
+                                'fat': 0.1
+                            }
+                        elif meal_num == meal_count:
+                            coefficient_dict['AFTER 6PM'][meal_count][meal_num] = {
+                                'description': 'POST-TRAINING',
+                                'protein': 0.3,
+                                'carbs': 0.5,
+                                'fat': 0.1
+                            }
+                        else:
+                            coefficient_dict['AFTER 6PM'][meal_count][meal_num] = {
+                                'description': f'MEAL {meal_num}',
+                                'protein': 0.4 / (meal_count - 2),
+                                'carbs': 0.2 / (meal_count - 2),
+                                'fat': 0.8 / (meal_count - 2)
+                            }
+                
+                return coefficient_dict
+            
+            def get_meal_distribution(day, total_meals):
+                """
+                Get recommended meal distribution based on workout timing
+                
+                Parameters:
+                day (str): Day of the week
+                total_meals (int): Total number of meals for the day
+                
+                Returns:
+                dict: Dictionary with meal numbers as keys and distribution coefficients as values
+                """
+                # Get training-based coefficients
+                coefficients = get_training_based_coefficients()
+                
+                # Default to REST DAY if no workout
+                training_time = 'REST DAY'
+                if workout_info['has_workout'] and workout_info['workout_time']:
+                    training_time = workout_info['workout_time']
+                
+                # Limit total_meals to what we have coefficients for
+                if total_meals < 1:
+                    total_meals = 1
+                elif total_meals > 6:
+                    total_meals = 6
+                
+                # Get coefficients for this training time and meal count
+                try:
+                    day_coefficients = coefficients[training_time][total_meals]
+                    return day_coefficients
+                except KeyError:
+                    # Fallback to REST DAY if the specific combination isn't available
+                    return coefficients['REST DAY'][total_meals]
+            
+            # Now get meal distribution
             meal_distribution = get_meal_distribution(selected_day, total_meals)
             
             if meal_number in meal_distribution:
@@ -434,8 +689,70 @@ def create_recipe_ui():
                 'fat': target_macros.get('fat', 0) * meal_percent / 100
             }
         
+        # Define the optimal portions calculation function
+        def calculate_optimal_portions(selected_foods, target_macros):
+            """
+            Calculate optimal portion sizes for selected foods to meet target macros
+            
+            Parameters:
+            - selected_foods: List of food dictionaries
+            - target_macros: Dict with keys 'calories', 'protein', 'carbs', 'fat'
+            
+            Returns:
+            - Dict with food names as keys and portion sizes as values
+            """
+            # Extract target values
+            target_calories = target_macros.get('target_calories', 0)
+            target_protein = target_macros.get('protein', 0)
+            target_carbs = target_macros.get('carbs', 0) 
+            target_fat = target_macros.get('fat', 0)
+            
+            # If no targets set, return default portions
+            if target_calories == 0 and target_protein == 0 and target_carbs == 0 and target_fat == 0:
+                return {food['name']: 100 for food in selected_foods}
+            
+            # Create arrays of nutrient values per 100g
+            calories_per_100g = np.array([food['calories'] for food in selected_foods])
+            protein_per_100g = np.array([food['protein'] for food in selected_foods])
+            carbs_per_100g = np.array([food['carbs'] for food in selected_foods])
+            fat_per_100g = np.array([food['fat'] for food in selected_foods])
+            
+            # Define the objective function to minimize
+            def objective(portions):
+                # Calculate total nutrients with current portions
+                total_cals = np.sum(calories_per_100g * portions / 100)
+                total_protein = np.sum(protein_per_100g * portions / 100)
+                total_carbs = np.sum(carbs_per_100g * portions / 100)
+                total_fat = np.sum(fat_per_100g * portions / 100)
+                
+                # Calculate the error (difference from targets)
+                cal_error = ((total_cals - target_calories) / max(1, target_calories)) ** 2 if target_calories > 0 else 0
+                protein_error = ((total_protein - target_protein) / max(1, target_protein)) ** 2 if target_protein > 0 else 0
+                carbs_error = ((total_carbs - target_carbs) / max(1, target_carbs)) ** 2 if target_carbs > 0 else 0
+                fat_error = ((total_fat - target_fat) / max(1, target_fat)) ** 2 if target_fat > 0 else 0
+                
+                # Weight the errors (prioritize protein, then calories, then carbs/fat)
+                return protein_error * 1.5 + cal_error * 1.0 + carbs_error * 0.8 + fat_error * 0.8
+            
+            # Initial guess: all portions at 100g
+            initial_portions = np.array([100] * len(selected_foods))
+            
+            # Constraint: portions must be positive (at least 10g per food)
+            bounds = [(10, 500) for _ in selected_foods]
+            
+            # Solve the optimization problem
+            try:
+                from scipy.optimize import minimize
+                result = minimize(objective, initial_portions, method='SLSQP', bounds=bounds)
+                optimal_portions = result.x
+                
+                # Create a dictionary of food name to portion
+                return {food['name']: round(portion) for food, portion in zip(selected_foods, optimal_portions)}
+            except:
+                # If optimization fails, return default portions
+                return {food['name']: 100 for food in selected_foods}
+                
         # Calculate optimal portions
-        from pages.D4_DIY_Meal_Planning import calculate_optimal_portions
         optimal_portions = calculate_optimal_portions(st.session_state.selected_foods, adjusted_targets)
     
     # Portion size inputs
