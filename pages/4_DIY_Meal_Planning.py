@@ -993,16 +993,82 @@ def create_recipe_ui(section_key="recipe"):
     optimal_portions = {food['name']: 100 for food in st.session_state.selected_foods}
     
     if has_targets and auto_calculate:
-        meal_percent = st.slider("Percentage of daily targets for this meal:", 
-                               min_value=10, max_value=100, value=33, key=f"meal_pct_{section_key}")
+        # Options for meal number and meal timing
+        col1, col2 = st.columns(2)
+        with col1:
+            # Which meal number is this (1, 2, 3, etc.)
+            meal_number = st.number_input("Meal Number:", min_value=1, max_value=6, value=1, 
+                                        help="Which meal of the day is this (1st, 2nd, etc.)",
+                                        key=f"meal_num_{section_key}")
         
-        # Adjust target macros based on percentage
-        adjusted_targets = {
-            'target_calories': target_macros.get('target_calories', 0) * meal_percent / 100,
-            'protein': target_macros.get('protein', 0) * meal_percent / 100,
-            'carbs': target_macros.get('carbs', 0) * meal_percent / 100,
-            'fat': target_macros.get('fat', 0) * meal_percent / 100
-        }
+        with col2:
+            # Total planned meals for the day
+            total_meals = st.number_input("Total Meals for Day:", min_value=1, max_value=6, 
+                                        value=3, 
+                                        help="How many total meals do you plan to have on this day?",
+                                        key=f"total_meals_{section_key}")
+        
+        # Get workout info for the selected day
+        workout_info = get_day_workout_info(selected_day)
+        
+        # Use training-based distribution if we have a workout scheduled
+        if workout_info['has_workout']:
+            workout_type = workout_info['workout_type']
+            workout_time = workout_info['workout_time']
+            
+            # Get meal distribution based on workout timing
+            meal_distribution = get_meal_distribution(selected_day, total_meals)
+            
+            if meal_number in meal_distribution:
+                meal_info = meal_distribution[meal_number]
+                
+                # Display meal description and distribution info
+                st.info(f"**Meal {meal_number} ({meal_info['description']})** - Recommended distribution: "
+                       f"Protein: {meal_info['protein']*100:.0f}%, "
+                       f"Carbs: {meal_info['carbs']*100:.0f}%, "
+                       f"Fat: {meal_info['fat']*100:.0f}%")
+                
+                # Use training-based percentages
+                adjusted_targets = {
+                    'target_calories': target_macros.get('target_calories', 0) * meal_info['protein'],  # Using protein as calorie proxy
+                    'protein': target_macros.get('protein', 0) * meal_info['protein'],
+                    'carbs': target_macros.get('carbs', 0) * meal_info['carbs'],
+                    'fat': target_macros.get('fat', 0) * meal_info['fat']
+                }
+                
+                # Show adjusted targets
+                st.subheader("Training-Based Meal Targets")
+                target_cols = st.columns(4)
+                with target_cols[0]:
+                    st.metric("Calories", f"{adjusted_targets['target_calories']:.0f} kcal")
+                with target_cols[1]:
+                    st.metric("Protein", f"{adjusted_targets['protein']:.0f}g")
+                with target_cols[2]:
+                    st.metric("Carbs", f"{adjusted_targets['carbs']:.0f}g")
+                with target_cols[3]:
+                    st.metric("Fat", f"{adjusted_targets['fat']:.0f}g")
+            else:
+                meal_percent = 100 / total_meals
+                # Default to even distribution if no specific info
+                adjusted_targets = {
+                    'target_calories': target_macros.get('target_calories', 0) / total_meals,
+                    'protein': target_macros.get('protein', 0) / total_meals,
+                    'carbs': target_macros.get('carbs', 0) / total_meals,
+                    'fat': target_macros.get('fat', 0) / total_meals
+                }
+                st.info(f"Using even distribution across {total_meals} meals ({meal_percent:.0f}% per meal)")
+        else:
+            # Allow user to adjust percentage of daily targets for non-workout days
+            meal_percent = st.slider("Percentage of daily targets for this meal:", 
+                                   min_value=10, max_value=100, value=33, key=f"meal_pct_{section_key}")
+            
+            # Adjust target macros based on percentage
+            adjusted_targets = {
+                'target_calories': target_macros.get('target_calories', 0) * meal_percent / 100,
+                'protein': target_macros.get('protein', 0) * meal_percent / 100,
+                'carbs': target_macros.get('carbs', 0) * meal_percent / 100,
+                'fat': target_macros.get('fat', 0) * meal_percent / 100
+            }
         
         # Calculate optimal portions
         optimal_portions = calculate_optimal_portions(st.session_state.selected_foods, adjusted_targets)
@@ -1236,11 +1302,46 @@ def meal_planning_ui(section_key="meal_plan"):
     # Get workout info for the selected day
     workout_info = get_day_workout_info(selected_day)
     
+    # Store workout information in session state for this page
+    if 'current_workout_info' not in st.session_state:
+        st.session_state.current_workout_info = {}
+    
+    st.session_state.current_workout_info = workout_info
+    
     # Display workout information if available
     if workout_info['has_workout']:
         workout_type = workout_info['workout_type']
         workout_time = workout_info['workout_time']
         st.info(f"🏋️ {workout_type} training scheduled for {selected_day} ({workout_time}). Meal macros will be optimized around your workout time.")
+        
+        # Show training-based distribution table
+        st.subheader("Training-Based Macro Distribution")
+        st.write("The table below shows the recommended macro distribution for each meal based on your workout timing:")
+        
+        # Get coefficients for different meal counts
+        training_time = workout_info['workout_time']
+        coefficient_data = []
+        
+        # Get distribution for 2-5 meals
+        for meal_count in range(2, 6):
+            meal_distribution = get_meal_distribution(selected_day, meal_count)
+            
+            for meal_num in range(1, meal_count + 1):
+                if meal_num in meal_distribution:
+                    meal_info = meal_distribution[meal_num]
+                    coefficient_data.append({
+                        "Total Meals": meal_count,
+                        "Meal #": meal_num,
+                        "Description": meal_info['description'],
+                        "Protein %": f"{meal_info['protein']*100:.0f}%",
+                        "Carbs %": f"{meal_info['carbs']*100:.0f}%",
+                        "Fat %": f"{meal_info['fat']*100:.0f}%"
+                    })
+        
+        # Display coefficient table
+        if coefficient_data:
+            coeff_df = pd.DataFrame(coefficient_data)
+            st.dataframe(coeff_df, use_container_width=True)
     else:
         st.info("🍽️ No workout scheduled for this day. Macros will be distributed evenly across meals.")
     
