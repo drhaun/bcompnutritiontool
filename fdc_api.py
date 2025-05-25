@@ -28,7 +28,7 @@ def get_api_key():
         # Then try environment variables
         return os.environ.get("FDC_API_KEY", "DEMO_KEY")  # Using DEMO_KEY as fallback
 
-def search_foods(query, data_type="Foundation,SR Legacy,Survey (FNDDS),Branded", page_size=25):
+def search_foods(query, data_type="Foundation,SR Legacy,Survey (FNDDS),Branded", page_size=50):
     """
     Search for foods in FDC database
     
@@ -40,16 +40,29 @@ def search_foods(query, data_type="Foundation,SR Legacy,Survey (FNDDS),Branded",
     Returns:
     list: List of food items
     """
-    # Check if we have cached results
+    # Standardize the query (lowercase)
+    query = query.strip().lower()
     cache_file = os.path.join(CACHE_DIR, f"search_{query.replace(' ', '_')}.json")
     
-    if os.path.exists(cache_file):
-        with open(cache_file, 'r') as f:
-            return json.load(f)
+    # For development/testing, you can uncomment this to ignore cache
+    # if os.path.exists(cache_file):
+    #    os.remove(cache_file)
     
-    # If not in cache, fetch from API
+    # Check if we have cached results
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r') as f:
+                cached_results = json.load(f)
+            if cached_results:  # Only return if we have actual results
+                return cached_results
+        except:
+            # If cache is corrupted, continue to API search
+            pass
+    
+    # If not in cache or cache empty, fetch from API
     api_key = get_api_key()
     
+    # First try an exact match search
     params = {
         "api_key": api_key,
         "query": query,
@@ -65,12 +78,50 @@ def search_foods(query, data_type="Foundation,SR Legacy,Survey (FNDDS),Branded",
         
         results = response.json().get('foods', [])
         
-        # Cache results
-        with open(cache_file, 'w') as f:
-            json.dump(results, f)
+        # If no results, try with partial matching
+        if not results:
+            # Try with just the first word of the query
+            if ' ' in query:
+                first_word = query.split(' ')[0]
+                params["query"] = first_word
+                response = requests.get(FDC_SEARCH_URL, params=params)
+                response.raise_for_status()
+                first_word_results = response.json().get('foods', [])
+                
+                # Filter results that contain the full query in their description
+                results = [food for food in first_word_results 
+                          if query in food.get('description', '').lower()]
+                
+                # If still no results, return all first word results
+                if not results:
+                    results = first_word_results
         
-        return results
-    
+        # Enhance results with categorization and macros
+        enhanced_results = []
+        for food in results:
+            try:
+                # Normalize the food data to extract macros
+                normalized = normalize_food_data(food)
+                enhanced_results.append(normalized)
+            except:
+                # Skip foods that can't be normalized
+                pass
+        
+        # Cache enhanced results if we have any
+        if enhanced_results:
+            with open(cache_file, 'w') as f:
+                json.dump(enhanced_results, f)
+            
+            return enhanced_results
+        elif results:
+            # Cache original results if enhancement failed
+            with open(cache_file, 'w') as f:
+                json.dump(results, f)
+            
+            return results
+        else:
+            return []
+        
     except requests.exceptions.RequestException as e:
         st.error(f"Error searching foods: {e}")
         return []
