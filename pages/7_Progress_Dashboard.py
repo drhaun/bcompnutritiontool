@@ -233,7 +233,7 @@ with dashboard_tab:
     insights = []
     
     # Weight trend insights
-    if len(weekly_stats) >= 2:
+    if 'weekly_stats' in locals() and len(weekly_stats) >= 2:
         recent_weekly_change = weekly_stats.iloc[0]['weekly_weight_change']
         if goal_type == "lose_fat":
             if recent_weekly_change > 0:
