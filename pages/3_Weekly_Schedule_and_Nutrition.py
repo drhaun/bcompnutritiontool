@@ -1231,31 +1231,31 @@ with tab2:
                 max_cal = 3000
                 default_cal = 2000
                 
-            # Allow adjusting calories if needed - with slider and editable field
-            cal_cols = st.columns([3, 1])
+            # Allow adjusting calories with just an editable field
+            cal_cols = st.columns([2, 1])
             with cal_cols[0]:
-                custom_day_calories = st.slider(
-                    f"Calories for {selected_day}", 
-                    min_value=min_cal,
-                    max_value=max_cal,
-                    value=default_cal,  # Ensure this is an integer
-                    step=50,
-                    key=f"cal_slider_{selected_day}"
-                )
-            
+                st.markdown(f"### Calories for {selected_day}")
+                
+                # Calculate goal-adjusted calorie target for display
+                if user_goal_type == "lose_fat":
+                    calorie_purpose = "deficit"
+                elif user_goal_type == "gain_muscle":
+                    calorie_purpose = "surplus"
+                else:
+                    calorie_purpose = "maintenance"
+                    
+                st.markdown(f"*Recommended {calorie_purpose} target based on your goal: {default_cal} kcal*")
+                
             with cal_cols[1]:
-                # Add editable field for direct input
-                typed_calories = st.number_input(
-                    "Edit calories",
+                # Direct calorie input
+                custom_day_calories = st.number_input(
+                    "Target Calories",
                     min_value=min_cal,
                     max_value=max_cal,
-                    value=custom_day_calories,
+                    value=default_cal,
                     step=10,
                     key=f"cal_input_{selected_day}"
                 )
-                # Use the typed value if it differs from the slider
-                if typed_calories != custom_day_calories:
-                    custom_day_calories = typed_calories
             
             # Ensure protein value is an integer and follows standard coefficients
             # For fat loss: 2.0g/kg or 0.9g/lb
@@ -1301,38 +1301,92 @@ with tab2:
                 max_protein = 250
                 default_protein = 150
             
-            # Protein adjustment with detailed information
-            cols_protein = st.columns([3, 1])
-            with cols_protein[0]:
-                custom_day_protein = st.slider(
-                    f"Protein for {selected_day}",
-                    min_value=min_protein,
-                    max_value=max_protein,
-                    value=default_protein,
-                    help="Recommended: 1.6-2.2g per kg of body weight",
-                    key=f"protein_slider_{selected_day}"
-                )
+            # Protein adjustment with coefficient-based approach
+            st.markdown("### Protein")
             
-            with cols_protein[1]:
-                # Add editable field for direct protein input
-                typed_protein = st.number_input(
-                    "Edit protein (g)",
-                    min_value=min_protein,
-                    max_value=max_protein,
-                    value=custom_day_protein,
-                    step=1,
+            # Define standard protein coefficients with descriptions
+            protein_coefficients = {
+                "Fat Loss (High)": {"kg": 2.2, "lb": 1.0, "description": "Higher protein intake to preserve muscle during fat loss"},
+                "Fat Loss (Standard)": {"kg": 2.0, "lb": 0.9, "description": "Standard recommendation for fat loss"},
+                "Muscle Gain (High)": {"kg": 2.0, "lb": 0.9, "description": "Higher protein intake to support muscle growth"},
+                "Muscle Gain (Standard)": {"kg": 1.8, "lb": 0.8, "description": "Standard recommendation for muscle gain"},
+                "Maintenance (High)": {"kg": 1.8, "lb": 0.8, "description": "Higher protein intake for maintenance"},
+                "Maintenance (Standard)": {"kg": 1.6, "lb": 0.7, "description": "Standard recommendation for maintenance"},
+                "Custom": {"kg": 0, "lb": 0, "description": "Enter custom protein amount"}
+            }
+            
+            # Create columns for selection and input
+            protein_cols = st.columns([2, 1])
+            
+            # Get previous values from session state or use defaults
+            protein_preset_key = f"protein_preset_{selected_day}"
+            unit_pref_key = f"protein_unit_pref_{selected_day}"
+            
+            if protein_preset_key not in st.session_state:
+                # Set default based on goal
+                if user_goal_type == "lose_fat":
+                    st.session_state[protein_preset_key] = "Fat Loss (Standard)"
+                elif user_goal_type == "gain_muscle":
+                    st.session_state[protein_preset_key] = "Muscle Gain (Standard)"
+                else:
+                    st.session_state[protein_preset_key] = "Maintenance (Standard)"
+            
+            if unit_pref_key not in st.session_state:
+                st.session_state[unit_pref_key] = "g/kg"
+            
+            with protein_cols[0]:
+                # Allow selection of protein coefficient
+                protein_preset = st.selectbox(
+                    "Select protein target:",
+                    options=list(protein_coefficients.keys()),
+                    index=list(protein_coefficients.keys()).index(st.session_state[protein_preset_key]),
+                    key=protein_preset_key
+                )
+                
+                # Select unit preference (g/kg or g/lb)
+                unit_preference = st.radio(
+                    "Unit preference:",
+                    options=["g/kg", "g/lb"],
+                    index=0 if st.session_state[unit_pref_key] == "g/kg" else 1,
+                    horizontal=True,
+                    key=unit_pref_key
+                )
+                
+                # Calculate the protein amount based on selection
+                unit_key = "kg" if unit_preference == "g/kg" else "lb"
+                weight_value = weight_kg if unit_preference == "g/kg" else weight_kg * 2.20462
+                coefficient = protein_coefficients[protein_preset][unit_key]
+                
+                if protein_preset != "Custom":
+                    calculated_protein = int(weight_value * coefficient)
+                    st.write(f"Based on your selection: {coefficient} {unit_preference} × {weight_value:.1f} {'kg' if unit_preference == 'g/kg' else 'lb'} = {calculated_protein}g protein")
+                    # Use this as default value for the number input
+                    default_protein = calculated_protein
+                else:
+                    # If custom selected, use previous value
+                    default_protein = custom_day_protein if 'custom_day_protein' in locals() else default_protein
+                
+                # Display the description for the selected preset
+                if protein_preset != "Custom":
+                    st.info(protein_coefficients[protein_preset]["description"])
+            
+            with protein_cols[1]:
+                # Direct protein input with minimum constraint
+                custom_day_protein = st.number_input(
+                    "Protein (g)",
+                    min_value=0,
+                    max_value=500,
+                    value=default_protein,
+                    step=5,
                     key=f"protein_input_{selected_day}"
                 )
-                # Use the typed value if it differs from the slider
-                if typed_protein != custom_day_protein:
-                    custom_day_protein = typed_protein
             
-            # Calculate and display protein in different units in a separate container
-            protein_metrics = st.container()
-            with protein_metrics:
-                protein_per_kg = round(custom_day_protein / weight_kg, 2)
-                protein_per_lb = round(custom_day_protein / (weight_kg * 2.20462), 2)
-                st.write(f"**Protein metrics:** {custom_day_protein}g total | {protein_per_kg}g/kg | {protein_per_lb}g/lb")
+            # Calculate and display protein in different units
+            protein_per_kg = round(custom_day_protein / weight_kg, 2)
+            protein_per_lb = round(custom_day_protein / (weight_kg * 2.20462), 2)
+            protein_cal_pct = round((custom_day_protein * 4 / custom_day_calories) * 100, 1) if custom_day_calories > 0 else 0
+            
+            st.write(f"**Protein metrics:** {custom_day_protein}g total | {protein_per_kg}g/kg | {protein_per_lb}g/lb | {protein_cal_pct}% of calories")
             
             # Ensure fat value is an integer and follows standard coefficients
             # Standard: minimum of either 0.8g/kg or 30% of calories
@@ -1374,39 +1428,107 @@ with tab2:
                 max_fat = 120
                 default_fat = 70
                 
-            # Fat adjustment with detailed information
-            cols_fat = st.columns([3, 1])
-            with cols_fat[0]:
-                custom_day_fat = st.slider(
-                    f"Fat for {selected_day}",
-                    min_value=min_fat,
-                    max_value=max_fat,
-                    value=default_fat,
-                    help="Recommended: 0.5g per kg of body weight or about 25-30% of calories",
-                    key=f"fat_slider_{selected_day}"
+            # Fat adjustment with coefficient-based approach
+            st.markdown("### Fat")
+            
+            # Define standard fat coefficients with descriptions
+            fat_coefficients = {
+                "Higher Fat (40% calories)": {"calories_pct": 0.4, "description": "Higher fat approach - 40% of calories from fat"},
+                "Standard (30% calories)": {"calories_pct": 0.3, "description": "Standard recommendation - 30% of calories from fat"},
+                "Lower Fat (25% calories)": {"calories_pct": 0.25, "description": "Lower fat approach - 25% of calories from fat"},
+                "Minimum (0.5g/kg)": {"kg": 0.5, "lb": 0.23, "description": "Minimum fat intake based on body weight"},
+                "Essential (0.8g/kg)": {"kg": 0.8, "lb": 0.36, "description": "Essential fat intake for hormone function"},
+                "Custom": {"calories_pct": 0, "kg": 0, "lb": 0, "description": "Enter custom fat amount"}
+            }
+            
+            # Create columns for selection and input
+            fat_cols = st.columns([2, 1])
+            
+            # Get previous values from session state or use defaults
+            fat_preset_key = f"fat_preset_{selected_day}"
+            fat_unit_pref_key = f"fat_unit_pref_{selected_day}"
+            
+            if fat_preset_key not in st.session_state:
+                st.session_state[fat_preset_key] = "Standard (30% calories)"
+            
+            if fat_unit_pref_key not in st.session_state:
+                st.session_state[fat_unit_pref_key] = "% of calories"
+            
+            with fat_cols[0]:
+                # Allow selection of fat coefficient
+                fat_preset = st.selectbox(
+                    "Select fat target:",
+                    options=list(fat_coefficients.keys()),
+                    index=list(fat_coefficients.keys()).index(st.session_state[fat_preset_key]),
+                    key=fat_preset_key
                 )
                 
-            with cols_fat[1]:
-                # Add editable field for direct fat input
-                typed_fat = st.number_input(
-                    "Edit fat (g)",
-                    min_value=min_fat,
-                    max_value=max_fat,
-                    value=custom_day_fat,
-                    step=1,
+                # Display the description for the selected preset
+                if fat_preset != "Custom":
+                    st.info(fat_coefficients[fat_preset]["description"])
+                
+                # Select unit preference for fat calculation
+                fat_unit_options = ["% of calories", "g/kg", "g/lb"]
+                if "kg" not in fat_coefficients[fat_preset] and fat_preset != "Custom":
+                    # If this preset is only % based, don't offer weight-based units
+                    fat_unit_options = ["% of calories"]
+                elif "calories_pct" not in fat_coefficients[fat_preset] and fat_preset != "Custom":
+                    # If this preset is only weight based, don't offer % based units
+                    fat_unit_options = ["g/kg", "g/lb"]
+                
+                if st.session_state[fat_unit_pref_key] not in fat_unit_options:
+                    st.session_state[fat_unit_pref_key] = fat_unit_options[0]
+                
+                fat_unit_preference = st.radio(
+                    "Unit preference:",
+                    options=fat_unit_options,
+                    index=fat_unit_options.index(st.session_state[fat_unit_pref_key]),
+                    horizontal=True,
+                    key=fat_unit_pref_key
+                )
+                
+                # Calculate the fat amount based on selection
+                if fat_preset != "Custom":
+                    if fat_unit_preference == "% of calories" and "calories_pct" in fat_coefficients[fat_preset]:
+                        calorie_pct = fat_coefficients[fat_preset]["calories_pct"]
+                        calculated_fat = round((custom_day_calories * calorie_pct) / 9)
+                        st.write(f"Based on your selection: {calorie_pct*100:.0f}% of {custom_day_calories} calories = {calculated_fat}g fat")
+                    elif fat_unit_preference == "g/kg" and "kg" in fat_coefficients[fat_preset]:
+                        kg_coefficient = fat_coefficients[fat_preset]["kg"]
+                        calculated_fat = round(weight_kg * kg_coefficient)
+                        st.write(f"Based on your selection: {kg_coefficient}g/kg × {weight_kg:.1f}kg = {calculated_fat}g fat")
+                    elif fat_unit_preference == "g/lb" and "lb" in fat_coefficients[fat_preset]:
+                        lb_coefficient = fat_coefficients[fat_preset]["lb"]
+                        weight_lb = weight_kg * 2.20462
+                        calculated_fat = round(weight_lb * lb_coefficient)
+                        st.write(f"Based on your selection: {lb_coefficient}g/lb × {weight_lb:.1f}lb = {calculated_fat}g fat")
+                    else:
+                        # Fallback to 30% of calories if unit preference doesn't match preset
+                        calculated_fat = round((custom_day_calories * 0.3) / 9)
+                    
+                    # Use this as default value for the number input
+                    default_fat = calculated_fat
+                else:
+                    # If custom selected, use previous value
+                    default_fat = custom_day_fat if 'custom_day_fat' in locals() else default_fat
+            
+            with fat_cols[1]:
+                # Direct fat input with minimum constraint
+                custom_day_fat = st.number_input(
+                    "Fat (g)",
+                    min_value=0,
+                    max_value=300,
+                    value=default_fat,
+                    step=5,
                     key=f"fat_input_{selected_day}"
                 )
-                # Use the typed value if it differs from the slider
-                if typed_fat != custom_day_fat:
-                    custom_day_fat = typed_fat
             
-            # Calculate and display fat in different units in a separate container
-            fat_metrics = st.container()
-            with fat_metrics:
-                fat_per_kg = round(custom_day_fat / weight_kg, 2)
-                fat_per_lb = round(custom_day_fat / (weight_kg * 2.20462), 2)
-                fat_cal_pct = round((custom_day_fat * 9 / custom_day_calories) * 100, 1)
-                st.write(f"**Fat metrics:** {custom_day_fat}g total | {fat_per_kg}g/kg | {fat_per_lb}g/lb | {fat_cal_pct}% of calories")
+            # Calculate and display fat in different units
+            fat_per_kg = round(custom_day_fat / weight_kg, 2)
+            fat_per_lb = round(custom_day_fat / (weight_kg * 2.20462), 2)
+            fat_cal_pct = round((custom_day_fat * 9 / custom_day_calories) * 100, 1) if custom_day_calories > 0 else 0
+            
+            st.write(f"**Fat metrics:** {custom_day_fat}g total | {fat_per_kg}g/kg | {fat_per_lb}g/lb | {fat_cal_pct}% of calories")
             
             # Calculate default carbs from remaining calories
             try:
@@ -1415,41 +1537,71 @@ with tab2:
                 carb_calories = float(custom_day_calories) - protein_calories - fat_calories
                 default_carbs = max(0, round(carb_calories / 4))
                 
-                # Calculate min and max values for carb slider
-                min_carbs = max(0, round((custom_day_calories * 0.2) / 4))  # Minimum 20% of calories from carbs
+                # Calculate carbs from remaining calories
+                min_carbs = 0
                 max_carbs = round((custom_day_calories * 0.7) / 4)  # Maximum 70% of calories from carbs
                 
-                # Make sure default is within range
-                if default_carbs < min_carbs:
-                    default_carbs = min_carbs
-                elif default_carbs > max_carbs:
-                    default_carbs = max_carbs
+                # Ensure default is non-negative
+                if default_carbs < 0:
+                    default_carbs = 0
                 
-                # Add a slider for carbs instead of just displaying the calculated value
-                cols_carbs = st.columns([3, 1])
-                with cols_carbs[0]:
-                    custom_day_carbs = st.slider(
-                        f"Carbohydrates for {selected_day}",
-                        min_value=min_carbs,
-                        max_value=max_carbs,
-                        value=default_carbs,
-                        help="Adjust carbs based on your preferences and activity level",
-                        key=f"carbs_slider_{selected_day}"
+                # Carbohydrate adjustment with remaining calories approach
+                st.markdown("### Carbohydrates")
+                
+                # Define carb calculation methods
+                carb_approaches = {
+                    "Remaining Calories": {"description": "Calculate carbs from remaining calories after protein and fat"},
+                    "Higher Carb (60% calories)": {"calories_pct": 0.6, "description": "Higher carb approach - 60% of calories from carbs"},
+                    "Moderate Carb (50% calories)": {"calories_pct": 0.5, "description": "Moderate carb approach - 50% of calories from carbs"},
+                    "Lower Carb (40% calories)": {"calories_pct": 0.4, "description": "Lower carb approach - 40% of calories from carbs"},
+                    "Low Carb (25% calories)": {"calories_pct": 0.25, "description": "Low carb approach - 25% of calories from carbs"},
+                    "Custom": {"description": "Enter custom carb amount"}
+                }
+                
+                # Create columns for selection and input
+                carb_cols = st.columns([2, 1])
+                
+                # Get previous values from session state or use defaults
+                carb_approach_key = f"carb_approach_{selected_day}"
+                
+                if carb_approach_key not in st.session_state:
+                    st.session_state[carb_approach_key] = "Remaining Calories"
+                
+                with carb_cols[0]:
+                    # Allow selection of carb approach
+                    carb_approach = st.selectbox(
+                        "Select carb calculation method:",
+                        options=list(carb_approaches.keys()),
+                        index=list(carb_approaches.keys()).index(st.session_state[carb_approach_key]),
+                        key=carb_approach_key
                     )
+                    
+                    # Display the description for the selected approach
+                    st.info(carb_approaches[carb_approach]["description"])
+                    
+                    # Calculate carbs based on selected approach
+                    if carb_approach == "Remaining Calories":
+                        calculated_carbs = default_carbs
+                        remaining_calories = custom_day_calories - (custom_day_protein * 4) - (custom_day_fat * 9)
+                        st.write(f"Remaining calories for carbs: {remaining_calories:.0f} kcal ≈ {calculated_carbs}g carbs")
+                    elif carb_approach != "Custom":
+                        calorie_pct = carb_approaches[carb_approach]["calories_pct"]
+                        calculated_carbs = round((custom_day_calories * calorie_pct) / 4)
+                        st.write(f"Based on your selection: {calorie_pct*100:.0f}% of {custom_day_calories} calories = {calculated_carbs}g carbs")
+                    else:
+                        # If custom selected, use previous value
+                        calculated_carbs = custom_day_carbs if 'custom_day_carbs' in locals() else default_carbs
                 
-                with cols_carbs[1]:
-                    # Add editable field for direct carbs input
-                    typed_carbs = st.number_input(
-                        "Edit carbs (g)",
-                        min_value=min_carbs,
-                        max_value=max_carbs,
-                        value=custom_day_carbs,
-                        step=1,
+                with carb_cols[1]:
+                    # Direct carb input
+                    custom_day_carbs = st.number_input(
+                        "Carbs (g)",
+                        min_value=0,
+                        max_value=500,
+                        value=calculated_carbs,
+                        step=5,
                         key=f"carbs_input_{selected_day}"
                     )
-                    # Use the typed value if it differs from the slider
-                    if typed_carbs != custom_day_carbs:
-                        custom_day_carbs = typed_carbs
                 
                 # Show carb metrics in different units in a separate container
                 carbs_metrics = st.container()
