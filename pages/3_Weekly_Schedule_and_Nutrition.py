@@ -1873,9 +1873,41 @@ with tab2:
                 weekly_total_protein = 0
                 weekly_total_carbs = 0
                 weekly_total_fat = 0
+                weekly_total_tdee = 0
                 days_with_data = 0
                 
                 for day in days_of_week:
+                    # Get schedule info for this day
+                    day_info = st.session_state.weekly_schedule.get(day, {})
+                    
+                    # Get workout information
+                    workouts = day_info.get("workouts", [])
+                    if workouts:
+                        workout_types = [w.get("type", "") for w in workouts]
+                        workout_intensities = [w.get("intensity", "") for w in workouts]
+                        workout_summary = ", ".join([f"{t} ({i})" for t, i in zip(workout_types, workout_intensities)])
+                    else:
+                        workout_summary = "Rest day"
+                    
+                    # Calculate day TDEE
+                    day_tdee = 0
+                    try:
+                        # Get base TDEE from session state
+                        base_tdee = st.session_state.get('tdee', 2500)
+                        
+                        # Adjust based on workouts
+                        if any(w.get('intensity') == 'High' or w.get('intensity') == 'Very High' for w in workouts):
+                            day_tdee = base_tdee * 1.2  # 20% more on high intensity days
+                        elif workouts:
+                            day_tdee = base_tdee * 1.1  # 10% more on regular workout days
+                        else:
+                            day_tdee = base_tdee * 0.95  # 5% less on rest days
+                        
+                        day_tdee = round(day_tdee)
+                        weekly_total_tdee += day_tdee
+                    except:
+                        day_tdee = "Not calculated"
+                    
                     if day in st.session_state.day_specific_nutrition:
                         day_data = st.session_state.day_specific_nutrition[day]
                         day_cals = day_data['target_calories']
@@ -1893,10 +1925,25 @@ with tab2:
                             protein_pct = 0
                             carbs_pct = 0
                             fat_pct = 0
+                        
+                        # Calculate deficit or surplus
+                        try:
+                            energy_balance = day_cals - day_tdee
+                            if abs(energy_balance) < 50:
+                                energy_balance_str = "Maintenance"
+                            elif energy_balance < 0:
+                                energy_balance_str = f"{abs(energy_balance)} kcal deficit"
+                            else:
+                                energy_balance_str = f"{energy_balance} kcal surplus"
+                        except:
+                            energy_balance_str = "Unknown"
                             
                         weekly_data.append({
                             "Day": day,
-                            "Calories": f"{day_cals} kcal",
+                            "Schedule": workout_summary,
+                            "TDEE": f"{day_tdee} kcal",
+                            "Target Calories": f"{day_cals} kcal",
+                            "Energy Balance": energy_balance_str,
                             "Protein": f"{day_protein}g ({protein_pct}%)",
                             "Carbs": f"{day_carbs}g ({carbs_pct}%)",
                             "Fat": f"{day_fat}g ({fat_pct}%)"
@@ -1913,7 +1960,10 @@ with tab2:
                     else:
                         weekly_data.append({
                             "Day": day,
-                            "Calories": "Not set",
+                            "Schedule": workout_summary,
+                            "TDEE": f"{day_tdee} kcal",
+                            "Target Calories": "Not set",
+                            "Energy Balance": "Not set",
                             "Protein": "Not set",
                             "Carbs": "Not set",
                             "Fat": "Not set"
