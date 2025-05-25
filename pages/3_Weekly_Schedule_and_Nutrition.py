@@ -1231,14 +1231,31 @@ with tab2:
                 max_cal = 3000
                 default_cal = 2000
                 
-            # Allow adjusting calories if needed
-            custom_day_calories = st.slider(
-                f"Calories for {selected_day}", 
-                min_value=min_cal,
-                max_value=max_cal,
-                value=default_cal,  # Ensure this is an integer
-                step=50
-            )
+            # Allow adjusting calories if needed - with slider and editable field
+            cal_cols = st.columns([3, 1])
+            with cal_cols[0]:
+                custom_day_calories = st.slider(
+                    f"Calories for {selected_day}", 
+                    min_value=min_cal,
+                    max_value=max_cal,
+                    value=default_cal,  # Ensure this is an integer
+                    step=50,
+                    key=f"cal_slider_{selected_day}"
+                )
+            
+            with cal_cols[1]:
+                # Add editable field for direct input
+                typed_calories = st.number_input(
+                    "Edit calories",
+                    min_value=min_cal,
+                    max_value=max_cal,
+                    value=custom_day_calories,
+                    step=10,
+                    key=f"cal_input_{selected_day}"
+                )
+                # Use the typed value if it differs from the slider
+                if typed_calories != custom_day_calories:
+                    custom_day_calories = typed_calories
             
             # Ensure protein value is an integer and follows standard coefficients
             # For fat loss: 2.0g/kg or 0.9g/lb
@@ -1292,8 +1309,23 @@ with tab2:
                     min_value=min_protein,
                     max_value=max_protein,
                     value=default_protein,
-                    help="Recommended: 1.6-2.2g per kg of body weight"
+                    help="Recommended: 1.6-2.2g per kg of body weight",
+                    key=f"protein_slider_{selected_day}"
                 )
+            
+            with cols_protein[1]:
+                # Add editable field for direct protein input
+                typed_protein = st.number_input(
+                    "Edit protein (g)",
+                    min_value=min_protein,
+                    max_value=max_protein,
+                    value=custom_day_protein,
+                    step=1,
+                    key=f"protein_input_{selected_day}"
+                )
+                # Use the typed value if it differs from the slider
+                if typed_protein != custom_day_protein:
+                    custom_day_protein = typed_protein
             
             # Calculate and display protein in different units
             with cols_protein[1]:
