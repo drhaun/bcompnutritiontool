@@ -1334,13 +1334,25 @@ with tab2:
                 # Ensure default_cal reflects body composition goals (fat loss, muscle gain)
                 # This is the key change to use target energy intake based on body composition goals
                 if user_goal_type == "lose_fat":
-                    weekly_deficit = goal_info.get('weekly_deficit', 3500)  # Default ~1lb/week
+                    # Get weekly rate from goal_info (as percentage of body weight)
+                    weekly_weight_pct = goal_info.get('weekly_weight_pct', 0.0075)  # Default 0.75% of body weight
+                    # Calculate daily deficit based on weekly rate and body weight
+                    weekly_deficit = (weekly_weight_pct * weight_kg * 7700)  # 7700 calories per kg of fat
                     daily_deficit = weekly_deficit / 7
                     default_cal = int(day_tdee - daily_deficit)
+                    
+                    # Add explanation in the UI
+                    st.info(f"Using weekly rate of {weekly_weight_pct*100:.2f}% of body weight for fat loss. Daily deficit: {int(daily_deficit)} calories.")
                 elif user_goal_type == "gain_muscle":
-                    weekly_surplus = goal_info.get('weekly_surplus', 1750)  # Default ~0.5lb/week
+                    # Get weekly rate from goal_info (as percentage of body weight)
+                    weekly_weight_pct = goal_info.get('weekly_weight_pct', 0.0025)  # Default 0.25% of body weight
+                    # Calculate daily surplus based on weekly rate and body weight
+                    weekly_surplus = (weekly_weight_pct * weight_kg * 7700)  # Approximate energy surplus needed
                     daily_surplus = weekly_surplus / 7
                     default_cal = int(day_tdee + daily_surplus)
+                    
+                    # Add explanation in the UI
+                    st.info(f"Using weekly rate of {weekly_weight_pct*100:.2f}% of body weight for muscle gain. Daily surplus: {int(daily_surplus)} calories.")
                 else:  # Maintenance
                     default_cal = int(day_tdee)
                     
