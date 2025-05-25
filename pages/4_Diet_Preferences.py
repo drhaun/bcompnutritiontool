@@ -338,7 +338,7 @@ def create_recipe_ui():
     # Check if we have day-specific targets
     if 'day_specific_nutrition' in st.session_state and st.session_state.day_specific_nutrition:
         days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-        selected_day = st.selectbox("Select day for targets:", days)
+        selected_day = st.selectbox("Select day for targets:", days, index=days.index(selected_day))
         
         if selected_day in st.session_state.day_specific_nutrition:
             has_targets = True
