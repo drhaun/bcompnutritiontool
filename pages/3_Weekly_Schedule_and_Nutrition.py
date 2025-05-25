@@ -1122,22 +1122,51 @@ with tab2:
             # Calculate day-specific targets
             st.write(f"**Estimated TDEE for {selected_day}:** {day_tdee} calories")
             
-            # Get user's goal type from session state - ensure we properly use fat loss goal
-            user_goal_type = "lose_fat"  # Directly set to lose_fat as that's your selected goal
+            # Get user's goal type from session state
+            user_goal_type = st.session_state.get('goal_type', "Lose fat")
+            if user_goal_type == "Lose fat":
+                user_goal_type = "lose_fat"
+            elif user_goal_type == "Gain muscle":
+                user_goal_type = "gain_muscle"
+            else:
+                user_goal_type = "maintain"
             
             # Adjust calories based on goal and user's body composition goals
             if user_goal_type == "lose_fat":
-                # Get weekly deficit from goal_info or use default (500-700 kcal/day for fat loss)
-                weekly_deficit = goal_info.get('weekly_deficit', 3500)  # Default ~1lb/week
+                # Calculate deficit based on weekly weight change percentage
+                weekly_weight_pct = st.session_state.get('weekly_weight_pct', 0.005)  # Default 0.5% per week
+                current_weight_kg = st.session_state.get('weight_kg', 70)
+                
+                # Calculate weekly weight change in kg
+                weekly_change_kg = abs(weekly_weight_pct * current_weight_kg)
+                
+                # Convert to calories (approximately 7700 kcal per kg of body weight)
+                weekly_deficit = weekly_change_kg * 7700
                 daily_deficit = weekly_deficit / 7
+                
                 day_target_calories = round(day_tdee - daily_deficit)
                 st.write(f"**Target Calories for Fat Loss:** {day_target_calories} calories ({round(daily_deficit)} kcal deficit)")
+                
+                # Add explanation about weekly rate
+                st.write(f"*Based on your selected weekly change rate of {weekly_weight_pct*100:.2f}% of body weight per week*")
+                
             elif user_goal_type == "gain_muscle":
-                # Get weekly surplus from goal_info or use default (250-350 kcal/day for muscle gain)
-                weekly_surplus = goal_info.get('weekly_surplus', 1750)  # Default ~0.5lb/week
+                # Calculate surplus based on weekly weight change percentage
+                weekly_weight_pct = st.session_state.get('weekly_weight_pct', 0.002)  # Default 0.2% per week
+                current_weight_kg = st.session_state.get('weight_kg', 70)
+                
+                # Calculate weekly weight change in kg
+                weekly_change_kg = abs(weekly_weight_pct * current_weight_kg)
+                
+                # Convert to calories (approximately 7700 kcal per kg of body weight)
+                weekly_surplus = weekly_change_kg * 7700
                 daily_surplus = weekly_surplus / 7
+                
                 day_target_calories = round(day_tdee + daily_surplus)
                 st.write(f"**Target Calories for Muscle Gain:** {day_target_calories} calories ({round(daily_surplus)} kcal surplus)")
+                
+                # Add explanation about weekly rate
+                st.write(f"*Based on your selected weekly change rate of {weekly_weight_pct*100:.2f}% of body weight per week*")
             else:  # Maintenance
                 day_target_calories = day_tdee
                 st.write(f"**Target Calories for Maintenance:** {day_target_calories} calories")
