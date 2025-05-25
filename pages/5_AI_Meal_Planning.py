@@ -522,11 +522,6 @@ with tab6:
                                     st.success(f"✅ {recipe.get('title')} added to {selected_meal}!")
     else:
         st.info("No matching recipes found. Try a different search or category.")
-            
-            # Close details button
-            if st.button("Close Details", key=f"close_recipe_details"):
-                st.session_state.selected_recipe_ai = None
-                st.rerun()
 
 # Overview tab - display daily nutrition totals and progress toward goals
 with tab1:
@@ -1134,7 +1129,6 @@ with st.expander("Generate recipe based on your macronutrient needs", expanded=F
             else:
                 # Use balanced recipes as default if not defined
                 recipe_list = high_carb_recipes  # Using high_carb_recipes as fallback since it's defined
-                recipe_focus = "balanced"
                 recipe_focus = "balanced"
             
             # Filter recipes based on dietary preferences
