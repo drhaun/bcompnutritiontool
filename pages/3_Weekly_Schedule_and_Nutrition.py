@@ -1057,7 +1057,63 @@ with tab2:
             days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
             
             # Display weekly schedule overview at the top
-            st.subheader("Weekly Schedule Overview")
+            st.write("### Weekly Schedule Overview")
+            
+            # Create a visual representation of the weekly schedule
+            schedule_data = []
+            
+            for day in days_of_week:
+                day_info = st.session_state.weekly_schedule.get(day, {})
+                
+                # Extract key information
+                wake_time = day_info.get("wake_time", "Not set")
+                bed_time = day_info.get("bed_time", "Not set")
+                
+                # Calculate sleep duration
+                try:
+                    sleep_duration = calculate_sleep_duration(wake_time, bed_time)
+                    sleep_display = f"{sleep_duration:.1f} hrs"
+                except:
+                    sleep_display = "N/A"
+                
+                # Get workout information
+                workouts = day_info.get("workouts", [])
+                if workouts:
+                    workout_types = [w.get("type", "") for w in workouts]
+                    workout_intensities = [w.get("intensity", "") for w in workouts]
+                    
+                    # Create workout summary
+                    workout_summary = ", ".join([f"{t} ({i})" for t, i in zip(workout_types, workout_intensities)])
+                else:
+                    workout_summary = "Rest day"
+                
+                # Get nutrition info if available
+                if day in st.session_state.day_specific_nutrition:
+                    day_nutrition = st.session_state.day_specific_nutrition[day]
+                    calories = day_nutrition.get('target_calories', "Not set")
+                    protein = day_nutrition.get('protein', "Not set")
+                    carbs = day_nutrition.get('carbs', "Not set")
+                    fat = day_nutrition.get('fat', "Not set")
+                    
+                    nutrition_summary = f"{calories} kcal | P: {protein}g, C: {carbs}g, F: {fat}g"
+                else:
+                    nutrition_summary = "Not set"
+                
+                # Add to schedule data
+                schedule_data.append({
+                    "Day": day,
+                    "Wake-Bed": f"{wake_time} - {bed_time}",
+                    "Sleep": sleep_display,
+                    "Workouts": workout_summary,
+                    "Nutrition": nutrition_summary
+                })
+            
+            # Display as a table
+            st.table(schedule_data)
+            
+            # Add copy settings feature for efficient setup
+            copy_expander = st.expander("Copy Settings Between Days", expanded=False)
+            with copy_expander:
             
             # Create a visual representation of the weekly schedule
             schedule_data = []
@@ -1873,41 +1929,9 @@ with tab2:
                 weekly_total_protein = 0
                 weekly_total_carbs = 0
                 weekly_total_fat = 0
-                weekly_total_tdee = 0
                 days_with_data = 0
                 
                 for day in days_of_week:
-                    # Get schedule info for this day
-                    day_info = st.session_state.weekly_schedule.get(day, {})
-                    
-                    # Get workout information
-                    workouts = day_info.get("workouts", [])
-                    if workouts:
-                        workout_types = [w.get("type", "") for w in workouts]
-                        workout_intensities = [w.get("intensity", "") for w in workouts]
-                        workout_summary = ", ".join([f"{t} ({i})" for t, i in zip(workout_types, workout_intensities)])
-                    else:
-                        workout_summary = "Rest day"
-                    
-                    # Calculate day TDEE
-                    day_tdee = 0
-                    try:
-                        # Get base TDEE from session state
-                        base_tdee = st.session_state.get('tdee', 2500)
-                        
-                        # Adjust based on workouts
-                        if any(w.get('intensity') == 'High' or w.get('intensity') == 'Very High' for w in workouts):
-                            day_tdee = base_tdee * 1.2  # 20% more on high intensity days
-                        elif workouts:
-                            day_tdee = base_tdee * 1.1  # 10% more on regular workout days
-                        else:
-                            day_tdee = base_tdee * 0.95  # 5% less on rest days
-                        
-                        day_tdee = round(day_tdee)
-                        weekly_total_tdee += day_tdee
-                    except:
-                        day_tdee = "Not calculated"
-                    
                     if day in st.session_state.day_specific_nutrition:
                         day_data = st.session_state.day_specific_nutrition[day]
                         day_cals = day_data['target_calories']
@@ -1925,25 +1949,10 @@ with tab2:
                             protein_pct = 0
                             carbs_pct = 0
                             fat_pct = 0
-                        
-                        # Calculate deficit or surplus
-                        try:
-                            energy_balance = day_cals - day_tdee
-                            if abs(energy_balance) < 50:
-                                energy_balance_str = "Maintenance"
-                            elif energy_balance < 0:
-                                energy_balance_str = f"{abs(energy_balance)} kcal deficit"
-                            else:
-                                energy_balance_str = f"{energy_balance} kcal surplus"
-                        except:
-                            energy_balance_str = "Unknown"
                             
                         weekly_data.append({
                             "Day": day,
-                            "Schedule": workout_summary,
-                            "TDEE": f"{day_tdee} kcal",
-                            "Target Calories": f"{day_cals} kcal",
-                            "Energy Balance": energy_balance_str,
+                            "Calories": f"{day_cals} kcal",
                             "Protein": f"{day_protein}g ({protein_pct}%)",
                             "Carbs": f"{day_carbs}g ({carbs_pct}%)",
                             "Fat": f"{day_fat}g ({fat_pct}%)"
@@ -1960,10 +1969,7 @@ with tab2:
                     else:
                         weekly_data.append({
                             "Day": day,
-                            "Schedule": workout_summary,
-                            "TDEE": f"{day_tdee} kcal",
-                            "Target Calories": "Not set",
-                            "Energy Balance": "Not set",
+                            "Calories": "Not set",
                             "Protein": "Not set",
                             "Carbs": "Not set",
                             "Fat": "Not set"
