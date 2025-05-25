@@ -35,6 +35,99 @@ tracking_tab, photos_tab = st.tabs(["Daily Tracking", "Progress Photos"])
 
 # First Tab: Daily Tracking Form
 with tracking_tab:
+    # Display existing records management section
+    if not st.session_state.daily_records.empty:
+        st.subheader("Manage Existing Records")
+        
+        # Sort records by date in descending order
+        display_records = st.session_state.daily_records.sort_values('date', ascending=False).copy()
+        
+        # Convert date to datetime for display if it's not already
+        if not pd.api.types.is_datetime64_any_dtype(display_records['date']):
+            display_records['date'] = pd.to_datetime(display_records['date'])
+        
+        # Format date for display
+        display_records['date_display'] = display_records['date'].dt.strftime('%Y-%m-%d')
+        
+        # Select columns for display
+        display_cols = ['date_display', 'weight_lbs', 'calories', 'protein', 'carbs', 'fat']
+        
+        # Create a user-friendly table
+        display_table = display_records[display_cols].copy()
+        display_table.columns = ['Date', 'Weight (lbs)', 'Calories', 'Protein (g)', 'Carbs (g)', 'Fat (g)']
+        
+        # Display the table with a checkbox for selection
+        selected_indices = []
+        
+        # Use a container for better control of the table layout
+        with st.container():
+            # Add a search/filter option
+            search_date = st.text_input("Filter by date (YYYY-MM-DD):", 
+                                       placeholder="Enter date to filter records")
+            
+            if search_date:
+                filtered_table = display_table[display_table['Date'].str.contains(search_date)]
+            else:
+                filtered_table = display_table
+            
+            # Display the table
+            selection = st.data_editor(filtered_table, 
+                                     use_container_width=True,
+                                     hide_index=True,
+                                     key="daily_records_table",
+                                     num_rows="dynamic")
+        
+        # Add action buttons
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("Delete Selected Records", key="delete_records"):
+                # Get the selected rows
+                selected_rows = selection['edited_rows']
+                
+                if selected_rows:
+                    # Get the dates to delete
+                    dates_to_delete = []
+                    for row_idx, row_data in selected_rows.items():
+                        date_to_delete = filtered_table.iloc[int(row_idx)]['Date']
+                        dates_to_delete.append(date_to_delete)
+                    
+                    # Remove the selected rows from the dataframe
+                    if dates_to_delete:
+                        st.session_state.daily_records = st.session_state.daily_records[
+                            ~st.session_state.daily_records['date'].astype(str).isin(dates_to_delete)
+                        ]
+                        
+                        # Save updated records
+                        st.session_state.daily_records.to_csv('data/daily_records.csv', index=False)
+                        st.success(f"Deleted {len(dates_to_delete)} record(s)")
+                        st.rerun()
+                else:
+                    st.warning("No records selected for deletion")
+        
+        with col2:
+            if st.button("Clear All Records", key="clear_records"):
+                # Add a confirmation step
+                if 'confirm_delete_all' not in st.session_state:
+                    st.session_state.confirm_delete_all = False
+                
+                if not st.session_state.confirm_delete_all:
+                    st.session_state.confirm_delete_all = True
+                    st.warning("⚠️ Are you sure you want to delete all records? This cannot be undone. Click the button again to confirm.")
+                else:
+                    # Clear the dataframe
+                    st.session_state.daily_records = pd.DataFrame(columns=st.session_state.daily_records.columns)
+                    
+                    # Save empty dataframe
+                    st.session_state.daily_records.to_csv('data/daily_records.csv', index=False)
+                    st.success("All records cleared")
+                    
+                    # Reset confirmation
+                    st.session_state.confirm_delete_all = False
+                    st.rerun()
+        
+        st.markdown("---")
+    
     # Form for daily tracking
     with st.form("daily_tracking_form"):
         st.subheader("Log Today's Data")
