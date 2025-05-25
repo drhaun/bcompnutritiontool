@@ -14,6 +14,302 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__) + '/../'))
 import fdc_api
 from recipe_database import get_recipe_database, display_recipe_card, load_sample_recipes
 
+# Training-based macro distribution coefficients
+def get_training_based_coefficients():
+    """
+    Get macro distribution coefficients based on training time and number of meals
+    Returns a dictionary with training time, meal count, and meal positions as keys
+    """
+    # Create DataFrame from the coefficients data
+    coefficients_data = []
+    
+    # REST DAY coefficients - equal distribution across meals
+    for meal_count in range(1, 7):
+        for meal_num in range(1, meal_count + 1):
+            meal_pct = 1.0 / meal_count
+            coefficients_data.append({
+                'training_time': 'REST DAY',
+                'total_meals': meal_count,
+                'meal_number': meal_num,
+                'meal_description': f'MEAL {meal_num}',
+                'protein': meal_pct,
+                'carbs': meal_pct,
+                'fat': meal_pct,
+                'fiber': meal_pct,
+                'sodium': meal_pct,
+                'water': meal_pct
+            })
+    
+    # Training-based coefficients for BEFORE 9AM
+    before_9am = [
+        # 1 meal
+        {'total_meals': 1, 'meal_number': 1, 'meal_description': 'ONLY MEAL', 
+         'protein': 1.0, 'carbs': 1.0, 'fat': 1.0, 'fiber': 1.0, 'sodium': 1.0, 'water': 1.0},
+        
+        # 2 meals
+        {'total_meals': 2, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
+         'protein': 0.4, 'carbs': 0.3, 'fat': 0.1, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
+        {'total_meals': 2, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
+         'protein': 0.6, 'carbs': 0.7, 'fat': 0.9, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
+        
+        # 3 meals
+        {'total_meals': 3, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
+         'protein': 0.25, 'carbs': 0.4, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33},
+        {'total_meals': 3, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
+         'protein': 0.35, 'carbs': 0.4, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33},
+        {'total_meals': 3, 'meal_number': 3, 'meal_description': 'MEAL 3', 
+         'protein': 0.4, 'carbs': 0.2, 'fat': 0.9, 'fiber': 0.8, 'sodium': 0.33, 'water': 0.33},
+        
+        # 4 meals
+        {'total_meals': 4, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
+         'protein': 0.2, 'carbs': 0.3, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.25},
+        {'total_meals': 4, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
+         'protein': 0.3, 'carbs': 0.4, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.25},
+        {'total_meals': 4, 'meal_number': 3, 'meal_description': 'MEAL 3', 
+         'protein': 0.2, 'carbs': 0.2, 'fat': 0.4, 'fiber': 0.3, 'sodium': 0.16, 'water': 0.25},
+        {'total_meals': 4, 'meal_number': 4, 'meal_description': 'MEAL 4', 
+         'protein': 0.3, 'carbs': 0.1, 'fat': 0.5, 'fiber': 0.5, 'sodium': 0.16, 'water': 0.25},
+        
+        # 5 meals
+        {'total_meals': 5, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
+         'protein': 0.15, 'carbs': 0.25, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.3, 'water': 0.2},
+        {'total_meals': 5, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
+         'protein': 0.25, 'carbs': 0.35, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.3, 'water': 0.2},
+        {'total_meals': 5, 'meal_number': 3, 'meal_description': 'MEAL 3', 
+         'protein': 0.15, 'carbs': 0.2, 'fat': 0.2, 'fiber': 0.2, 'sodium': 0.2, 'water': 0.2},
+        {'total_meals': 5, 'meal_number': 4, 'meal_description': 'MEAL 4', 
+         'protein': 0.15, 'carbs': 0.1, 'fat': 0.3, 'fiber': 0.3, 'sodium': 0.1, 'water': 0.2},
+        {'total_meals': 5, 'meal_number': 5, 'meal_description': 'MEAL 5', 
+         'protein': 0.3, 'carbs': 0.1, 'fat': 0.3, 'fiber': 0.3, 'sodium': 0.1, 'water': 0.2},
+        
+        # 6 meals
+        {'total_meals': 6, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
+         'protein': 0.15, 'carbs': 0.2, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.3, 'water': 0.165},
+        {'total_meals': 6, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
+         'protein': 0.2, 'carbs': 0.3, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.3, 'water': 0.165},
+        {'total_meals': 6, 'meal_number': 3, 'meal_description': 'MEAL 3', 
+         'protein': 0.15, 'carbs': 0.2, 'fat': 0.15, 'fiber': 0.1, 'sodium': 0.1, 'water': 0.165},
+        {'total_meals': 6, 'meal_number': 4, 'meal_description': 'MEAL 4', 
+         'protein': 0.15, 'carbs': 0.1, 'fat': 0.2, 'fiber': 0.2, 'sodium': 0.1, 'water': 0.165},
+        {'total_meals': 6, 'meal_number': 5, 'meal_description': 'MEAL 5', 
+         'protein': 0.15, 'carbs': 0.1, 'fat': 0.2, 'fiber': 0.2, 'sodium': 0.1, 'water': 0.165},
+        {'total_meals': 6, 'meal_number': 6, 'meal_description': 'MEAL 6', 
+         'protein': 0.2, 'carbs': 0.1, 'fat': 0.35, 'fiber': 0.3, 'sodium': 0.1, 'water': 0.165}
+    ]
+    
+    # Add training time to each entry
+    for entry in before_9am:
+        entry['training_time'] = 'BEFORE 9AM'
+        coefficients_data.append(entry)
+    
+    # 9AM-3PM training coefficients
+    mid_morning = [
+        # 1 meal
+        {'total_meals': 1, 'meal_number': 1, 'meal_description': 'ONLY MEAL', 
+         'protein': 1.0, 'carbs': 1.0, 'fat': 1.0, 'fiber': 1.0, 'sodium': 1.0, 'water': 1.0},
+        
+        # 2 meals
+        {'total_meals': 2, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
+         'protein': 0.5, 'carbs': 0.5, 'fat': 0.3, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
+        {'total_meals': 2, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
+         'protein': 0.5, 'carbs': 0.5, 'fat': 0.7, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
+        
+        # 3 meals
+        {'total_meals': 3, 'meal_number': 1, 'meal_description': 'MEAL 1', 
+         'protein': 0.3, 'carbs': 0.2, 'fat': 0.5, 'fiber': 0.8, 'sodium': 0.33, 'water': 0.33},
+        {'total_meals': 3, 'meal_number': 2, 'meal_description': 'PRE-TRAINING', 
+         'protein': 0.3, 'carbs': 0.3, 'fat': 0.1, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33},
+        {'total_meals': 3, 'meal_number': 3, 'meal_description': 'POST-TRAINING', 
+         'protein': 0.4, 'carbs': 0.5, 'fat': 0.4, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33},
+        
+        # 4 meals
+        {'total_meals': 4, 'meal_number': 1, 'meal_description': 'MEAL 1', 
+         'protein': 0.2, 'carbs': 0.2, 'fat': 0.4, 'fiber': 0.4, 'sodium': 0.16, 'water': 0.25},
+        {'total_meals': 4, 'meal_number': 2, 'meal_description': 'PRE-TRAINING', 
+         'protein': 0.2, 'carbs': 0.25, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.25},
+        {'total_meals': 4, 'meal_number': 3, 'meal_description': 'POST-TRAINING', 
+         'protein': 0.3, 'carbs': 0.4, 'fat': 0.1, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.25},
+        {'total_meals': 4, 'meal_number': 4, 'meal_description': 'MEAL 4', 
+         'protein': 0.3, 'carbs': 0.15, 'fat': 0.45, 'fiber': 0.4, 'sodium': 0.16, 'water': 0.25}
+    ]
+    
+    # Add training time to each entry
+    for entry in mid_morning:
+        entry['training_time'] = '9AM-3PM'
+        coefficients_data.append(entry)
+    
+    # 3PM-6PM training coefficients
+    afternoon = [
+        # 1 meal
+        {'total_meals': 1, 'meal_number': 1, 'meal_description': 'ONLY MEAL', 
+         'protein': 1.0, 'carbs': 1.0, 'fat': 1.0, 'fiber': 1.0, 'sodium': 1.0, 'water': 1.0},
+        
+        # 2 meals
+        {'total_meals': 2, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
+         'protein': 0.5, 'carbs': 0.4, 'fat': 0.6, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
+        {'total_meals': 2, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
+         'protein': 0.5, 'carbs': 0.6, 'fat': 0.4, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
+        
+        # 3 meals
+        {'total_meals': 3, 'meal_number': 1, 'meal_description': 'MEAL 1', 
+         'protein': 0.35, 'carbs': 0.3, 'fat': 0.35, 'fiber': 0.8, 'sodium': 0.33, 'water': 0.33},
+        {'total_meals': 3, 'meal_number': 2, 'meal_description': 'PRE-TRAINING', 
+         'protein': 0.3, 'carbs': 0.3, 'fat': 0.1, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33},
+        {'total_meals': 3, 'meal_number': 3, 'meal_description': 'POST-TRAINING', 
+         'protein': 0.35, 'carbs': 0.4, 'fat': 0.55, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33}
+    ]
+    
+    # Add training time to each entry
+    for entry in afternoon:
+        entry['training_time'] = '3PM-6PM'
+        coefficients_data.append(entry)
+    
+    # AFTER 6PM training coefficients
+    evening = [
+        # 1 meal
+        {'total_meals': 1, 'meal_number': 1, 'meal_description': 'ONLY MEAL', 
+         'protein': 1.0, 'carbs': 1.0, 'fat': 1.0, 'fiber': 1.0, 'sodium': 1.0, 'water': 1.0},
+        
+        # 2 meals
+        {'total_meals': 2, 'meal_number': 1, 'meal_description': 'PRE-TRAINING', 
+         'protein': 0.5, 'carbs': 0.3, 'fat': 0.2, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
+        {'total_meals': 2, 'meal_number': 2, 'meal_description': 'POST-TRAINING', 
+         'protein': 0.5, 'carbs': 0.7, 'fat': 0.8, 'fiber': 0.5, 'sodium': 0.5, 'water': 0.5},
+        
+        # 3 meals
+        {'total_meals': 3, 'meal_number': 1, 'meal_description': 'MEAL 1', 
+         'protein': 0.3, 'carbs': 0.2, 'fat': 0.85, 'fiber': 0.8, 'sodium': 0.33, 'water': 0.33},
+        {'total_meals': 3, 'meal_number': 2, 'meal_description': 'PRE-TRAINING', 
+         'protein': 0.3, 'carbs': 0.3, 'fat': 0.05, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33},
+        {'total_meals': 3, 'meal_number': 3, 'meal_description': 'POST-TRAINING', 
+         'protein': 0.4, 'carbs': 0.5, 'fat': 0.1, 'fiber': 0.1, 'sodium': 0.33, 'water': 0.33}
+    ]
+    
+    # Add training time to each entry
+    for entry in evening:
+        entry['training_time'] = 'AFTER 6PM'
+        coefficients_data.append(entry)
+    
+    # Convert to DataFrame for easier filtering
+    df = pd.DataFrame(coefficients_data)
+    
+    # Create a lookup dictionary for easy access
+    coefficient_dict = {}
+    for _, row in df.iterrows():
+        training_time = row['training_time']
+        total_meals = row['total_meals']
+        meal_number = row['meal_number']
+        
+        if training_time not in coefficient_dict:
+            coefficient_dict[training_time] = {}
+        
+        if total_meals not in coefficient_dict[training_time]:
+            coefficient_dict[training_time][total_meals] = {}
+        
+        coefficient_dict[training_time][total_meals][meal_number] = {
+            'description': row['meal_description'],
+            'protein': row['protein'],
+            'carbs': row['carbs'],
+            'fat': row['fat'],
+            'fiber': row['fiber'],
+            'sodium': row['sodium'],
+            'water': row['water']
+        }
+    
+    return coefficient_dict
+
+# Function to get workout info for a specific day
+def get_day_workout_info(day):
+    """Get workout information for a specific day"""
+    workout_info = {
+        'has_workout': False,
+        'workout_time': None,
+        'workout_type': None
+    }
+    
+    # Check if weekly schedule exists
+    if 'confirmed_weekly_schedule' not in st.session_state:
+        return workout_info
+    
+    day_data = st.session_state.confirmed_weekly_schedule.get(day, {})
+    
+    # Check for resistance training
+    if day_data.get('resistance_training', False):
+        workout_info['has_workout'] = True
+        workout_info['workout_type'] = 'Resistance'
+        # Convert time to appropriate category
+        time_str = day_data.get('resistance_time', '')
+        if time_str:
+            time_obj = datetime.strptime(time_str, "%H:%M").time()
+            hour = time_obj.hour
+            
+            if hour < 9:
+                workout_info['workout_time'] = 'BEFORE 9AM'
+            elif hour < 15:
+                workout_info['workout_time'] = '9AM-3PM'
+            elif hour < 18:
+                workout_info['workout_time'] = '3PM-6PM'
+            else:
+                workout_info['workout_time'] = 'AFTER 6PM'
+    
+    # Check for cardio training
+    elif day_data.get('cardio_training', False):
+        workout_info['has_workout'] = True
+        workout_info['workout_type'] = 'Cardio'
+        # Convert time to appropriate category
+        time_str = day_data.get('cardio_time', '')
+        if time_str:
+            time_obj = datetime.strptime(time_str, "%H:%M").time()
+            hour = time_obj.hour
+            
+            if hour < 9:
+                workout_info['workout_time'] = 'BEFORE 9AM'
+            elif hour < 15:
+                workout_info['workout_time'] = '9AM-3PM'
+            elif hour < 18:
+                workout_info['workout_time'] = '3PM-6PM'
+            else:
+                workout_info['workout_time'] = 'AFTER 6PM'
+    
+    return workout_info
+
+# Function to get recommended meal distribution based on workout time
+def get_meal_distribution(day, total_meals):
+    """
+    Get recommended meal distribution based on workout timing
+    
+    Parameters:
+    day (str): Day of the week
+    total_meals (int): Total number of meals for the day
+    
+    Returns:
+    dict: Dictionary with meal numbers as keys and distribution coefficients as values
+    """
+    # Get training-based coefficients
+    coefficients = get_training_based_coefficients()
+    
+    # Get workout info for the day
+    workout_info = get_day_workout_info(day)
+    
+    # Default to REST DAY if no workout or if total_meals out of range
+    training_time = 'REST DAY'
+    if workout_info['has_workout'] and workout_info['workout_time']:
+        training_time = workout_info['workout_time']
+    
+    # Limit total_meals to what we have coefficients for
+    if total_meals < 1:
+        total_meals = 1
+    elif total_meals > 6:
+        total_meals = 6
+    
+    # Get coefficients for this training time and meal count
+    try:
+        day_coefficients = coefficients[training_time][total_meals]
+        return day_coefficients
+    except KeyError:
+        # Fallback to REST DAY if the specific combination isn't available
+        return coefficients['REST DAY'][total_meals]
+
 # Set page config
 st.set_page_config(
     page_title="Fitomics - DIY Meal & Recipe Planner",
@@ -936,6 +1232,17 @@ def meal_planning_ui(section_key="meal_plan"):
     # Day selection
     days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     selected_day = st.selectbox("Select Day:", days, key=f"day_select_{section_key}")
+    
+    # Get workout info for the selected day
+    workout_info = get_day_workout_info(selected_day)
+    
+    # Display workout information if available
+    if workout_info['has_workout']:
+        workout_type = workout_info['workout_type']
+        workout_time = workout_info['workout_time']
+        st.info(f"🏋️ {workout_type} training scheduled for {selected_day} ({workout_time}). Meal macros will be optimized around your workout time.")
+    else:
+        st.info("🍽️ No workout scheduled for this day. Macros will be distributed evenly across meals.")
     
     # Display current plan and nutrition targets for the selected day
     st.subheader(f"Meal Plan for {selected_day}")
