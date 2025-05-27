@@ -133,54 +133,7 @@ with st.form("user_info_form"):
             )
         
         with bf_col2:
-            if st.button("📷 View Reference Photos", key="bf_photos_btn", help="Click to see body fat percentage examples"):
-                st.session_state.show_bf_photos = not st.session_state.get('show_bf_photos', False)
-        
-        # Body Fat Reference Photos Modal/Collapsible Section
-        if st.session_state.get('show_bf_photos', False):
-            st.markdown("---")
-            st.markdown("### 📷 Body Fat Percentage Reference Guide")
-            
-            # Check if reference photo exists
-            ref_photo_path = "attached_assets/ref_photos.jpg"
-            if os.path.exists(ref_photo_path):
-                # Display the reference photo
-                st.image(ref_photo_path, caption="Body Fat Percentage Visual Reference - Men (top) and Women (bottom)", use_column_width=True)
-            else:
-                st.warning("Reference photos not found. Please add the reference image to see visual examples.")
-            
-            # Add detailed descriptions
-            ref_col1, ref_col2 = st.columns(2)
-            
-            with ref_col1:
-                st.markdown("**Men - Body Fat Ranges:**")
-                st.markdown("""
-                - **3-4%**: Competition bodybuilder level. Extremely lean with visible striations. Not sustainable long-term.
-                - **6-7%**: Fitness model level. Very visible muscle definition and vascularity. Difficult to maintain.
-                - **10-12%**: Athletic with visible abs. Good balance of definition while being sustainable.
-                - **15-17%**: Lean with some muscle definition. Healthy range for most active men.
-                - **18-20%**: Fit appearance with less muscle definition. Still healthy for general population.
-                - **25%+**: Higher body fat levels. May benefit from focused fat loss approach.
-                """)
-            
-            with ref_col2:
-                st.markdown("**Women - Body Fat Ranges:**")
-                st.markdown("""
-                - **10-12%**: Competition level. Very lean, defined abs. Essential fat only.
-                - **16-19%**: Athletic/fitness model level. Visible muscle definition.
-                - **21-24%**: Fit and healthy appearance. Some muscle definition visible.
-                - **25-28%**: Average range for healthy women. Curves maintained.
-                - **29-32%**: Above average but still within healthy range for many.
-                - **35%+**: Higher body fat levels. May benefit from focused approach.
-                """)
-            
-            st.markdown("---")
-            st.info("💡 **Tip**: These are visual estimates. For the most accurate measurement, consider using DEXA scans, BodPod, or other professional methods.")
-            
-            # Close button
-            if st.button("✖️ Close Reference Photos", key="close_bf_photos"):
-                st.session_state.show_bf_photos = False
-                st.rerun()
+            st.markdown("📷 See reference photos below")
         
         # Define activity level options
         activity_options = [
@@ -421,6 +374,57 @@ with st.form("user_info_form"):
         
         These are the calories you need to maintain your current weight. Based on your goal to {goal_message}
         """)
+
+# Body Fat Reference Photos Section (outside of form)
+st.markdown("---")
+st.markdown("### 📷 Body Fat Percentage Reference Guide")
+st.markdown("Use these visual examples to help estimate your current body fat percentage more accurately.")
+
+# Toggle button for showing/hiding reference photos
+if st.button("📷 View Reference Photos", key="bf_photos_toggle", help="Click to see body fat percentage examples"):
+    st.session_state.show_bf_photos = not st.session_state.get('show_bf_photos', False)
+
+# Display reference photos if toggled on
+if st.session_state.get('show_bf_photos', False):
+    # Check if reference photo exists
+    ref_photo_path = "attached_assets/ref_photos.jpg"
+    if os.path.exists(ref_photo_path):
+        # Display the reference photo
+        st.image(ref_photo_path, caption="Body Fat Percentage Visual Reference - Men (top) and Women (bottom)", use_column_width=True)
+    else:
+        st.warning("Reference photos not found. Please add the reference image to see visual examples.")
+    
+    # Add detailed descriptions
+    ref_col1, ref_col2 = st.columns(2)
+    
+    with ref_col1:
+        st.markdown("**Men - Body Fat Ranges:**")
+        st.markdown("""
+        - **3-4%**: Competition bodybuilder level. Extremely lean with visible striations. Not sustainable long-term.
+        - **6-7%**: Fitness model level. Very visible muscle definition and vascularity. Difficult to maintain.
+        - **10-12%**: Athletic with visible abs. Good balance of definition while being sustainable.
+        - **15-17%**: Lean with some muscle definition. Healthy range for most active men.
+        - **18-20%**: Fit appearance with less muscle definition. Still healthy for general population.
+        - **25%+**: Higher body fat levels. May benefit from focused fat loss approach.
+        """)
+    
+    with ref_col2:
+        st.markdown("**Women - Body Fat Ranges:**")
+        st.markdown("""
+        - **10-12%**: Competition level. Very lean, defined abs. Essential fat only.
+        - **16-19%**: Athletic/fitness model level. Visible muscle definition.
+        - **21-24%**: Fit and healthy appearance. Some muscle definition visible.
+        - **25-28%**: Average range for healthy women. Curves maintained.
+        - **29-32%**: Above average but still within healthy range for many.
+        - **35%+**: Higher body fat levels. May benefit from focused approach.
+        """)
+    
+    st.info("💡 **Tip**: These are visual estimates. For the most accurate measurement, consider using DEXA scans, BodPod, or other professional methods.")
+    
+    # Close button
+    if st.button("✖️ Close Reference Photos", key="close_bf_photos"):
+        st.session_state.show_bf_photos = False
+        st.rerun()
 
 # Show navigation hint
 st.markdown("---")
