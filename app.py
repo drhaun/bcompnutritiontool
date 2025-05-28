@@ -129,13 +129,15 @@ st.markdown("""
 st.markdown("""
 This application helps you plan and track your body composition and nutrition goals. Navigate through the steps using the sidebar menu:
 
-1. **Initial Setup**: Enter your personal information
+1. **Initial Setup**: Enter your personal information and goals
 2. **Body Composition Goals**: Define your body composition targets
-3. **Nutrition Plan**: Review your personalized nutrition recommendations
-4. **Daily Monitoring**: Track your daily weight and nutrition intake
-5. **Progress Dashboard**: Visualize your journey and get weekly adjustments
-6. **Advanced Meal Planning**: Create and plan meals with accurate nutrition data
-7. **Reference Photos**: View body fat percentage examples
+3. **Diet Preferences**: Set your food preferences and dietary restrictions
+4. **Weekly Schedule and Nutrition**: Plan your workout schedule and nutrition targets
+5. **DIY Meal Planning**: Create custom meal plans with precise nutrition
+6. **AI Meal Planning**: Get AI-powered meal suggestions and recipes
+7. **Daily Monitoring**: Track your daily weight and nutrition intake
+8. **Progress Dashboard**: Visualize your journey and get insights
+9. **Grocery List**: Generate shopping lists from your meal plans
 
 Get started by selecting "Initial Setup" from the sidebar!
 """)
