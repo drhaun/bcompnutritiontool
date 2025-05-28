@@ -26,5 +26,13 @@
   "allergies": [],
   "meal_frequency": 2,
   "cooking_time_preference": "Quick (15-30 min)",
-  "budget_preference": "Budget-Friendly"
+  "budget_preference": "Budget-Friendly",
+  "wants_home_cooking": "Rarely",
+  "home_cooking_percentage": 0,
+  "grocery_method": "Delivery",
+  "grocery_delivery_percentage": 100,
+  "wants_meal_delivery": "Sometimes",
+  "meal_delivery_percentage": 70,
+  "primary_zip_code": "35124",
+  "travel_frequency": "Constantly"
 }

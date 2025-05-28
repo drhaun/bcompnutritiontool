@@ -730,12 +730,13 @@ with tab2:
                     custom_day_calories = default_cal
                 
             with cal_cols[1]:
-                # Direct calorie input
+                # Direct calorie input - ensure value is within bounds
+                safe_value = max(min_cal, min(max_cal, default_cal))
                 custom_day_calories = st.number_input(
                     "Target Calories",
                     min_value=min_cal,
                     max_value=max_cal,
-                    value=default_cal,
+                    value=safe_value,
                     step=10,
                     key=f"cal_input_{selected_day}"
                 )
