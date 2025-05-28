@@ -1,0 +1,30 @@
+{
+  "dietary_restrictions": [
+    "None"
+  ],
+  "cuisine_preferences": [],
+  "preferred_proteins": [
+    "Lean Beef",
+    "Chicken Thighs",
+    "Salmon",
+    "Shrimp",
+    "Eggs",
+    "Greek Yogurt",
+    "Cottage Cheese",
+    "Beans",
+    "Protein Powder",
+    "White Fish",
+    "Tuna",
+    "Ground Beef",
+    "Turkey",
+    "Chicken Breast"
+  ],
+  "preferred_carbs": [],
+  "preferred_fats": [],
+  "preferred_vegetables": [],
+  "disliked_foods": [],
+  "allergies": [],
+  "meal_frequency": 2,
+  "cooking_time_preference": "Quick (15-30 min)",
+  "budget_preference": "Budget-Friendly"
+}
