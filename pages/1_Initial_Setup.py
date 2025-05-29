@@ -28,6 +28,8 @@ if 'daily_tracking' not in st.session_state:
     st.session_state.daily_tracking = {}
 if 'progress_photos' not in st.session_state:
     st.session_state.progress_photos = {}
+if 'daily_records' not in st.session_state:
+    st.session_state.daily_records = pd.DataFrame()
 
 # Add imperial/metric toggle at the top
 imperial_selected = st.toggle("Use Imperial Units (lbs, ft/in)", value=st.session_state.user_info.get('use_imperial', True))
