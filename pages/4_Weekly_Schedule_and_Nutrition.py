@@ -614,8 +614,38 @@ with tab2:
         # Day-specific nutrition targets
         st.subheader("Day-Specific Nutrition Targets")
         
+        # Copy options at the top
+        st.markdown("##### Copy Settings")
+        copy_col1, copy_col2, copy_col3 = st.columns([2, 2, 1])
+        
+        with copy_col1:
+            copy_from_day = st.selectbox("Copy from:", days_of_week, key="copy_from_day")
+        
+        with copy_col2:
+            copy_to_days = st.multiselect("Copy to:", 
+                                        [day for day in days_of_week if day != copy_from_day], 
+                                        key="copy_to_days")
+        
+        with copy_col3:
+            if st.button("Copy Settings", type="secondary", use_container_width=True):
+                if copy_to_days:
+                    # Get the source day's nutrition data
+                    source_data = st.session_state.day_specific_nutrition.get(copy_from_day, {})
+                    if source_data:
+                        # Copy to selected days
+                        for day in copy_to_days:
+                            st.session_state.day_specific_nutrition[day] = source_data.copy()
+                        st.success(f"Copied nutrition settings from {copy_from_day} to {', '.join(copy_to_days)}")
+                        st.rerun()
+                    else:
+                        st.warning(f"No nutrition settings found for {copy_from_day}")
+                else:
+                    st.warning("Please select at least one day to copy to")
+        
+        st.markdown("---")
+        
         # Day selector
-        selected_day = st.selectbox("Select day:", days_of_week, key="nutrition_day_selector")
+        selected_day = st.selectbox("Select day to edit:", days_of_week, key="nutrition_day_selector")
         
         # Get user information
         user_info = st.session_state.get('user_info', {})
@@ -665,9 +695,19 @@ with tab2:
                 "carbs": 0
             }
         
-        # Create nutrition sections
+        # Create condensed nutrition layout
         with st.container(border=True):
-            st.subheader("Calorie Target")
+            # Compact header with key info
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown(f"#### Nutrition Targets for {selected_day}")
+            with col2:
+                with st.expander("ℹ️ Details"):
+                    st.write(f"**TDEE:** {day_tdee} calories")
+                    st.write(f"**Workouts:** {workout_summary}")
+                    st.write(f"**Goal:** {user_goal_type.replace('_', ' ').title()}")
+            
+            # Condensed calorie target section
             
             # Calculate target calories based on goal and day's activity
             try:
@@ -718,28 +758,14 @@ with tab2:
                 min_cal = 1200
                 max_cal = 4000
             
-            # Create two column layout for calorie selection
-            cal_cols = st.columns(2)
+            # Condensed calorie and macro input
+            macro_cols = st.columns(4)
             
-            with cal_cols[0]:
-                # Choose preset or custom
-                calorie_method = st.radio(
-                    "Calorie target method:",
-                    ["Based on goal", "Custom"],
-                    horizontal=True,
-                    key=f"cal_method_{selected_day}"
-                )
-                
-                if calorie_method == "Based on goal":
-                    # Use calculated target from goal type
-                    st.write(f"Target calories: {default_cal}")
-                    custom_day_calories = default_cal
-                
-            with cal_cols[1]:
+            with macro_cols[0]:
                 # Direct calorie input - ensure value is within bounds
                 safe_value = max(min_cal, min(max_cal, default_cal))
                 custom_day_calories = st.number_input(
-                    "Target Calories",
+                    f"Calories (Goal: {default_cal})",
                     min_value=min_cal,
                     max_value=max_cal,
                     value=safe_value,
@@ -747,41 +773,93 @@ with tab2:
                     key=f"cal_input_{selected_day}"
                 )
             
-            # Ensure protein value is an integer and follows standard coefficients
-            # For fat loss: 2.0g/kg or 0.9g/lb
-            # For muscle gain: 1.8g/kg or 0.8g/lb
-            # For maintenance: 1.6g/kg or 0.7g/lb
-            if not isinstance(day_macros['protein'], (int, float)) or day_macros['protein'] <= 0:
-                if user_goal_type == "lose_fat":
-                    day_macros['protein'] = round(weight_kg * 2.0)  # Higher for fat loss to preserve muscle
-                elif user_goal_type == "gain_muscle":
-                    day_macros['protein'] = round(weight_kg * 1.8)  # High for muscle gain
-                else:
-                    day_macros['protein'] = round(weight_kg * 1.6)  # Moderate for maintenance
+            # Calculate default macro values
+            if user_goal_type == "lose_fat":
+                default_protein = round(weight_kg * 2.0)  # Higher for fat loss
+                default_fat = round(weight_kg * 0.8)  # 0.8g/kg
+            elif user_goal_type == "gain_muscle":
+                default_protein = round(weight_kg * 1.8)  # High for muscle gain
+                default_fat = round(weight_kg * 1.0)  # 1.0g/kg
+            else:
+                default_protein = round(weight_kg * 1.6)  # Moderate for maintenance
+                default_fat = round(weight_kg * 0.9)  # 0.9g/kg
             
-            # Calculate macronutrient targets
-            target_calories = custom_day_calories
-        
-        # Protein section
-        with st.container(border=True):
-            st.subheader("Protein Target")
+            # Get existing values or use defaults
+            current_protein = day_macros.get('protein', default_protein) if day_macros.get('protein', 0) > 0 else default_protein
+            current_fat = day_macros.get('fat', default_fat) if day_macros.get('fat', 0) > 0 else default_fat
             
-            # Create columns for protein input method and value
-            protein_cols = st.columns(2)
+            # Calculate remaining calories for carbs
+            protein_calories = current_protein * 4
+            fat_calories = current_fat * 9
+            remaining_calories = custom_day_calories - protein_calories - fat_calories
+            default_carbs = max(0, round(remaining_calories / 4))
+            current_carbs = day_macros.get('carbs', default_carbs) if day_macros.get('carbs', 0) > 0 else default_carbs
             
-            with protein_cols[0]:
-                # Choose preset or custom
-                protein_method = st.radio(
-                    "Protein target method:",
-                    ["g/kg", "g/lb", "% of calories", "Custom"],
-                    horizontal=True,
-                    key=f"protein_method_{selected_day}"
+            with macro_cols[1]:
+                custom_day_protein = st.number_input(
+                    f"Protein (g) [Goal: {default_protein}g]",
+                    min_value=50,
+                    max_value=int(custom_day_calories / 4),
+                    value=current_protein,
+                    step=5,
+                    key=f"protein_input_{selected_day}"
                 )
+            
+            with macro_cols[2]:
+                custom_day_carbs = st.number_input(
+                    f"Carbs (g) [Auto: {default_carbs}g]",
+                    min_value=0,
+                    max_value=int(custom_day_calories / 4),
+                    value=current_carbs,
+                    step=5,
+                    key=f"carbs_input_{selected_day}"
+                )
+            
+            with macro_cols[3]:
+                custom_day_fat = st.number_input(
+                    f"Fat (g) [Goal: {default_fat}g]",
+                    min_value=20,
+                    max_value=int(custom_day_calories / 9),
+                    value=current_fat,
+                    step=1,
+                    key=f"fat_input_{selected_day}"
+                )
+            
+            # Compact macro summary and save
+            total_macro_calories = (custom_day_protein * 4) + (custom_day_carbs * 4) + (custom_day_fat * 9)
+            calorie_difference = total_macro_calories - custom_day_calories
+            
+            st.markdown(f"**Total:** {total_macro_calories} calories (P: {custom_day_protein}g, C: {custom_day_carbs}g, F: {custom_day_fat}g)")
+            
+            if abs(calorie_difference) > 50:
+                if calorie_difference > 0:
+                    st.warning(f"Macros exceed target by {calorie_difference} calories")
+                else:
+                    st.info(f"Macros are {abs(calorie_difference)} calories under target")
+            
+            # Advanced settings in an expander to keep UI clean
+            with st.expander("⚙️ Advanced Macro Settings"):
+                st.markdown("**Protein Coefficients by Goal:**")
+                st.write("• Fat Loss: 2.0g/kg (muscle preservation)")
+                st.write("• Muscle Gain: 1.8g/kg (muscle synthesis)")
+                st.write("• Maintenance: 1.6g/kg (general health)")
                 
-                # Calculate protein based on method
-                max_protein = int(target_calories / 4)  # Max possible protein from all calories
+                st.markdown("**Fat Guidelines:**")
+                st.write("• Minimum: 0.8g/kg (hormone production)")
+                st.write("• Optimal: 1.0g/kg (satiety and absorption)")
                 
-                if protein_method == "g/kg":
+                st.markdown("**Carbohydrate Strategy:**")
+                st.write("• Filled automatically from remaining calories")
+                st.write("• Higher on training days for performance")
+                st.write("• Lower on rest days if fat loss goal")
+            
+            # Save the nutrition targets
+            st.session_state.day_specific_nutrition[selected_day] = {
+                "target_calories": custom_day_calories,
+                "protein": custom_day_protein,
+                "carbs": custom_day_carbs,
+                "fat": custom_day_fat
+            }
                     # Preset g/kg values based on goal
                     kg_options = {
                         "lose_fat": {"options": [1.6, 1.8, 2.0, 2.2, 2.4, 2.6], "default": 2.0},
