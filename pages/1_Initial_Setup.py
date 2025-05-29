@@ -109,7 +109,8 @@ with col2:
         min_value=0,
         max_value=2000,
         value=300,
-        step=50
+        step=50,
+        help="Simple estimates: Light workout (walking, yoga) = 150-250 calories • Moderate workout (jogging, cycling) = 250-400 calories • Intense workout (HIIT, heavy lifting) = 400-600 calories • Very intense workout (CrossFit, long runs) = 600+ calories"
     )
 
 # Goals and Preferences Section
