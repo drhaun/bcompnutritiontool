@@ -56,7 +56,7 @@ if 'meal_plan' not in st.session_state:
         'snacks': []
     }
     
-# Initialize user preferences if not present
+# Initialize user preferences if not present, but pre-populate from diet preferences page
 if 'food_preferences' not in st.session_state:
     st.session_state.food_preferences = {
         'liked_foods': [],
@@ -64,6 +64,36 @@ if 'food_preferences' not in st.session_state:
         'cuisine_preferences': [],
         'dietary_restrictions': []
     }
+
+# Pre-populate from diet preferences if available
+if 'diet_preferences' in st.session_state and st.session_state.diet_preferences:
+    diet_prefs = st.session_state.diet_preferences
+    
+    # Pre-populate liked foods from diet preferences
+    if 'liked_foods' in diet_prefs and diet_prefs['liked_foods']:
+        if not st.session_state.food_preferences['liked_foods']:
+            st.session_state.food_preferences['liked_foods'] = diet_prefs['liked_foods'].split(', ') if isinstance(diet_prefs['liked_foods'], str) else diet_prefs['liked_foods']
+    
+    # Pre-populate disliked foods
+    if 'disliked_foods' in diet_prefs and diet_prefs['disliked_foods']:
+        if not st.session_state.food_preferences['disliked_foods']:
+            st.session_state.food_preferences['disliked_foods'] = diet_prefs['disliked_foods'].split(', ') if isinstance(diet_prefs['disliked_foods'], str) else diet_prefs['disliked_foods']
+    
+    # Pre-populate cuisine preferences
+    if 'cuisine_preferences' in diet_prefs and diet_prefs['cuisine_preferences']:
+        if not st.session_state.food_preferences['cuisine_preferences']:
+            st.session_state.food_preferences['cuisine_preferences'] = diet_prefs['cuisine_preferences'] if isinstance(diet_prefs['cuisine_preferences'], list) else [diet_prefs['cuisine_preferences']]
+    
+    # Pre-populate dietary restrictions
+    if 'dietary_restrictions' in diet_prefs and diet_prefs['dietary_restrictions']:
+        if not st.session_state.food_preferences['dietary_restrictions']:
+            st.session_state.food_preferences['dietary_restrictions'] = diet_prefs['dietary_restrictions'] if isinstance(diet_prefs['dietary_restrictions'], list) else [diet_prefs['dietary_restrictions']]
+
+# Pre-populate meal frequency from diet preferences
+default_meal_frequency = 3
+if 'diet_preferences' in st.session_state and st.session_state.diet_preferences:
+    if 'meal_frequency' in st.session_state.diet_preferences:
+        default_meal_frequency = st.session_state.diet_preferences['meal_frequency']
     
 # Import recipes from our recipe database
 def import_recipes_to_ai_planner():
