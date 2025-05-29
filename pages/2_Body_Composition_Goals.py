@@ -33,15 +33,17 @@ fmi_categories = [
 
 # FFMI categories with rate recommendations
 ffmi_categories = [
-    {"name": "Undermuscled", "lower": 8, "upper": 16, 
+    {"name": "Undermuscled", "lower": 0, "upper": 16, 
      "gain_rate": 0.0075, "gain_fat_pct": 0.10, "loss_rate": None, "loss_fat_pct": None},
-    {"name": "Moderately Undermuscled", "lower": 16.1, "upper": 17.8, 
+    {"name": "Moderately Undermuscled", "lower": 16.01, "upper": 18, 
      "gain_rate": 0.0050, "gain_fat_pct": 0.10, "loss_rate": 0.0, "loss_fat_pct": 0.50},
-    {"name": "Considered Healthy", "lower": 17.9, "upper": 22, 
+    {"name": "Normal/Healthy", "lower": 18.01, "upper": 22, 
      "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80},
-    {"name": "Muscular", "lower": 22.1, "upper": 25, 
+    {"name": "Muscular", "lower": 22.01, "upper": 25, 
      "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80},
-    {"name": "High", "lower": 25.1, "upper": 35, 
+    {"name": "Very Muscular", "lower": 25.01, "upper": 27, 
+     "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80},
+    {"name": "Extremely Muscular", "lower": 27.01, "upper": 50, 
      "gain_rate": 0.0025, "gain_fat_pct": 0.50, "loss_rate": 0.01, "loss_fat_pct": 0.80}
 ]
 
