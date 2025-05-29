@@ -338,7 +338,7 @@ with col2:
         if goal_type == "Lose fat":
             fat_mass_min = max(5.0, current_fat_mass_lbs * 0.5)
             fat_mass_max = max(fat_mass_min + 1.0, current_fat_mass_lbs * 0.99)
-        elif goal_type == "Gain muscle":
+        elif goal_type == "Build muscle":
             fat_mass_min = max(5.0, current_fat_mass_lbs * 0.8)
             fat_mass_max = max(fat_mass_min + 1.0, current_fat_mass_lbs * 1.2)
         else:  # Maintain
@@ -374,7 +374,7 @@ with col2:
         if goal_type == "Lose fat":
             ffm_min = max(70.0, current_fat_free_mass_lbs * 0.95)
             ffm_max = max(ffm_min + 1.0, current_fat_free_mass_lbs * 1.05)
-        elif goal_type == "Gain muscle":
+        elif goal_type == "Build muscle":
             ffm_min = max(70.0, current_fat_free_mass_lbs * 0.99)
             ffm_max = max(ffm_min + 1.0, current_fat_free_mass_lbs * 1.2)
         else:  # Maintain
@@ -587,7 +587,7 @@ with col1:
             # Recommended text
             recommended_text = f"The recommended rate for your goal is approximately {rec_weekly_pct*100:.2f}% of body weight per week, with about {rec_fat_pct*100:.0f}% of that loss coming from fat."
         
-        elif goal_type == "Gain muscle":
+        elif goal_type == "Build muscle":
             recommendation_data = utils.calculate_recommended_rate(
                 {
                     "fmi_category": current_fmi_category,
@@ -666,7 +666,7 @@ with col1:
                 st.success("Target change rate has been set! The projected weekly progress table will now be generated.")
                 st.rerun()
             
-        elif goal_type == "Gain muscle":
+        elif goal_type == "Build muscle":
             # Predefined rates for muscle gain
             rate_options = {
                 "Gradual (0.12% per week)": 0.00125,
