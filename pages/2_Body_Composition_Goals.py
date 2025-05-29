@@ -768,7 +768,7 @@ with col1:
         if goal_type == "Lose fat":
             weekly_fat_pct = float(rec_fat_pct)  # Default to 85% for fat loss
             st.info(f"Based on your targets, approximately {weekly_fat_pct*100:.0f}% of your weekly weight change will be fat tissue, with the rest being lean tissue.")
-        elif goal_type == "Gain muscle":
+        elif goal_type == "Build muscle":
             weekly_fat_pct = float(rec_fat_pct)  # Default to 25% for muscle gain
             st.info(f"Based on your targets, approximately {weekly_fat_pct*100:.0f}% of your weekly weight gain will be fat tissue, with {(1-weekly_fat_pct)*100:.0f}% being muscle.")
         else:  # Maintenance
