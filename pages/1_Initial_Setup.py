@@ -216,13 +216,6 @@ with st.form("user_info_form"):
         key="primary_goal_selection"
     )
     
-    # Force page refresh when goal changes to show conditional questions immediately
-    if "last_goal_type" not in st.session_state:
-        st.session_state.last_goal_type = goal_type
-    elif st.session_state.last_goal_type != goal_type:
-        st.session_state.last_goal_type = goal_type
-        st.rerun()
-    
     # Show performance preference only if not in maintenance mode
     if goal_type != "Maintain body composition/Support performance":
         performance_preference = st.radio(
@@ -231,40 +224,35 @@ with st.form("user_info_form"):
                 "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal.",
                 "I want to maximally support my performance and recovery from training as this matters more to me than my body composition goal."
             ],
-            index=0 if st.session_state.user_info.get('performance_preference') == "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal." else 
-                  1 if st.session_state.user_info.get('performance_preference') == "I want to maximally support my performance and recovery from training as this matters more to me than my body composition goal." else 0,
-            key="performance_pref"
+            index=0,
+            key=f"performance_pref_{goal_type}"
         )
     else:
         # Default value for maintenance mode
         performance_preference = "I want to maximally support my performance and recovery from training as this matters more to me than my body composition goal."
     
-    # Show body composition preference conditionally - using containers to force proper rendering
-    body_comp_container = st.container()
-    
+    # Create dynamic body composition questions based on goal type
     if goal_type == "Lose fat":
-        with body_comp_container:
-            body_comp_preference = st.radio(
-                "Regarding your body composition, choose one of the following options:",
-                options=[
-                    "I don't want to lose any muscle mass while losing body fat.",
-                    "I'm ok with losing a little muscle mass while losing body fat."
-                ],
-                index=0,
-                key=f"body_comp_fat_loss_{goal_type}"
-            )
+        body_comp_preference = st.radio(
+            "Regarding your body composition, choose one of the following options:",
+            options=[
+                "I don't want to lose any muscle mass while losing body fat.",
+                "I'm ok with losing a little muscle mass while losing body fat."
+            ],
+            index=0,
+            key="body_comp_lose_fat"
+        )
     elif goal_type == "Build muscle":
-        with body_comp_container:
-            body_comp_preference = st.radio(
-                "Regarding your body composition, choose one of the following options:",
-                options=[
-                    "I want to maximize muscle growth and am ok with gaining some body fat.",
-                    "I don't want to gain any body fat while focusing on building muscle."
-                ],
-                index=0,
-                key=f"body_comp_muscle_gain_{goal_type}"
-            )
-    else:  # Maintenance mode doesn't need body comp preferences
+        body_comp_preference = st.radio(
+            "Regarding your body composition, choose one of the following options:",
+            options=[
+                "I want to maximize muscle growth and am ok with gaining some body fat.",
+                "I don't want to gain any body fat while focusing on building muscle."
+            ],
+            index=0,
+            key="body_comp_build_muscle"
+        )
+    else:  # Maintenance mode
         body_comp_preference = "Maintain current body composition"
     
     commitment_level = st.radio(
