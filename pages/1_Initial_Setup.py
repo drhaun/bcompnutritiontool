@@ -287,7 +287,11 @@ if st.session_state.user_info:
             st.write(f"**Weight:** {st.session_state.user_info.get('weight_kg', 0):.1f} kg")
     
     with col2:
-        st.write(f"**Body Fat:** {st.session_state.user_info.get('body_fat_percentage', 0):.1f}%")
+        body_fat = st.session_state.user_info.get('body_fat_percentage', 0)
+        tdee = st.session_state.user_info.get('tdee', 0)
+        workouts = st.session_state.user_info.get('workouts_per_week', 0)
+        
+        st.write(f"**Body Fat:** {body_fat:.1f}%" if body_fat else "**Body Fat:** Not set")
         st.write(f"**Activity Level:** {st.session_state.user_info.get('raw_activity_level', 'Not set')}")
-        st.write(f"**Workouts/Week:** {st.session_state.user_info.get('workouts_per_week', 0)}")
-        st.write(f"**TDEE:** {st.session_state.user_info.get('tdee', 0):.0f} calories")
+        st.write(f"**Workouts/Week:** {workouts}" if workouts is not None else "**Workouts/Week:** Not set")
+        st.write(f"**TDEE:** {tdee:.0f} calories" if tdee else "**TDEE:** Not calculated")
