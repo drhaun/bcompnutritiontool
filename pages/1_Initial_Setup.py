@@ -26,152 +26,149 @@ if 'user_info' not in st.session_state:
 # Add imperial/metric toggle at the top
 imperial_selected = st.toggle("Use Imperial Units (lbs, ft/in)", value=st.session_state.user_info.get('use_imperial', True))
 
-with st.form("user_info_form"):
-    # Personal Information Section
-    st.subheader("Personal Information")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        name = st.text_input("Full Name", value=st.session_state.user_info.get('name', ''))
-        
-        gender = st.selectbox(
-            "Gender",
-            options=["Male", "Female"],
-            index=0 if st.session_state.user_info.get('gender') == "Male" else 1
-        )
-        
-        dob = st.date_input(
-            "Date of Birth",
-            value=datetime.strptime(st.session_state.user_info.get('dob', '1990-01-01'), '%Y-%m-%d').date() if st.session_state.user_info.get('dob') else date(1990, 1, 1),
-            max_value=date.today()
-        )
-        age = (date.today() - dob).days // 365
-        st.write(f"Age: {age} years")
-        
-        # Height input based on unit preference
-        if imperial_selected:
-            height_feet = st.number_input("Height (feet)", min_value=3, max_value=8, value=5, step=1)
-            height_inches = st.number_input("Height (inches)", min_value=0, max_value=11, value=8, step=1)
-            height_cm = (height_feet * 12 + height_inches) * 2.54
-            st.write(f"Height: {height_cm:.1f} cm")
-        else:
-            height_cm = st.number_input("Height (cm)", min_value=120.0, max_value=250.0, value=175.0, step=0.5)
-            height_inches = height_cm / 2.54
-            st.write(f"Height: {height_inches:.1f} inches")
-        
-        # Weight input based on unit preference
-        if imperial_selected:
-            weight_lbs = st.number_input("Weight (lbs)", min_value=80.0, max_value=500.0, value=165.0, step=0.5)
-            weight_kg = weight_lbs / 2.20462
-            st.write(f"Weight: {weight_kg:.1f} kg")
-        else:
-            weight_kg = st.number_input("Weight (kg)", min_value=35.0, max_value=225.0, value=75.0, step=0.1)
-            weight_lbs = weight_kg * 2.20462
-            st.write(f"Weight: {weight_lbs:.1f} lbs")
+# Personal Information Section
+st.subheader("Personal Information")
 
-    with col2:
-        st.write("Enter Current Estimated Body Fat %")
-        body_fat = st.number_input(
-            "Body Fat Percentage",
-            min_value=3.0,
-            max_value=50.0,
-            value=15.0,
-            step=0.1,
-            format="%.1f"
-        )
-        
-        activity_level = st.selectbox(
-            "Select Physical Activity Level Outside of Workouts",
-            options=[
-                "Sedentary (0-5k steps/day)",
-                "Light Active (5-10k steps/day)",
-                "Active (10-15k steps/day)",
-                "Labor Intensive (>15k steps/day)"
-            ]
-        )
-        
-        workouts_per_week = st.number_input(
-            "Enter Average Number of Workouts Per Week",
-            min_value=0,
-            max_value=14,
-            value=3,
-            step=1
-        )
-        
-        workout_calories = st.number_input(
-            "Enter Average Calories Expended During a Workout",
-            min_value=0,
-            max_value=2000,
-            value=300,
-            step=50
-        )
+col1, col2 = st.columns(2)
 
-    # Goals and Preferences Section
-    st.subheader("Goals and Preferences")
+with col1:
+    name = st.text_input("Full Name", value=st.session_state.user_info.get('name', ''))
     
-    # Primary goal selection
-    goal_type = st.radio(
-        "What body composition goal do you want to focus on over the next 8-12 weeks?",
-        options=["Lose fat", "Build muscle", "Maintain body composition/Support performance"],
-        horizontal=True
+    gender = st.selectbox(
+        "Gender",
+        options=["Male", "Female"],
+        index=0 if st.session_state.user_info.get('gender') == "Male" else 1
     )
     
-    # Performance preference (not for maintenance)
-    if goal_type != "Maintain body composition/Support performance":
-        performance_preference = st.radio(
-            "Regarding your performance and recovery, choose one of the following options:",
-            options=[
-                "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal.",
-                "I want to maximally support my performance and recovery from training as this matters more to me than my body composition goal."
-            ]
-        )
-    else:
-        performance_preference = "I want to maximally support my performance and recovery from training as this matters more to me than my body composition goal."
+    dob = st.date_input(
+        "Date of Birth",
+        value=datetime.strptime(st.session_state.user_info.get('dob', '1990-01-01'), '%Y-%m-%d').date() if st.session_state.user_info.get('dob') else date(1990, 1, 1),
+        max_value=date.today()
+    )
+    age = (date.today() - dob).days // 365
+    st.write(f"Age: {age} years")
     
-    # Body composition preferences - dynamic based on goal
-    if goal_type == "Lose fat":
-        body_comp_preference = st.radio(
-            "Regarding your body composition, choose one of the following options:",
-            options=[
-                "I don't want to lose any muscle mass while losing body fat.",
-                "I'm ok with losing a little muscle mass while losing body fat."
-            ]
-        )
-    elif goal_type == "Build muscle":
-        body_comp_preference = st.radio(
-            "Regarding your body composition, choose one of the following options:",
-            options=[
-                "I want to maximize muscle growth and am ok with gaining some body fat.",
-                "I don't want to gain any body fat while focusing on building muscle."
-            ]
-        )
+    # Height input based on unit preference
+    if imperial_selected:
+        height_feet = st.number_input("Height (feet)", min_value=3, max_value=8, value=5, step=1)
+        height_inches = st.number_input("Height (inches)", min_value=0, max_value=11, value=8, step=1)
+        height_cm = (height_feet * 12 + height_inches) * 2.54
+        st.write(f"Height: {height_cm:.1f} cm")
     else:
-        body_comp_preference = "Maintain current body composition"
+        height_cm = st.number_input("Height (cm)", min_value=120.0, max_value=250.0, value=175.0, step=0.5)
+        height_inches = height_cm / 2.54
+        st.write(f"Height: {height_inches:.1f} inches")
     
-    # Lifestyle commitment
-    lifestyle_commitment = st.radio(
-        "As of today, choose what you believe you can commit to regarding your lifestyle:",
+    # Weight input based on unit preference
+    if imperial_selected:
+        weight_lbs = st.number_input("Weight (lbs)", min_value=80.0, max_value=500.0, value=165.0, step=0.5)
+        weight_kg = weight_lbs / 2.20462
+        st.write(f"Weight: {weight_kg:.1f} kg")
+    else:
+        weight_kg = st.number_input("Weight (kg)", min_value=35.0, max_value=225.0, value=75.0, step=0.1)
+        weight_lbs = weight_kg * 2.20462
+        st.write(f"Weight: {weight_lbs:.1f} lbs")
+
+with col2:
+    st.write("Enter Current Estimated Body Fat %")
+    body_fat = st.number_input(
+        "Body Fat Percentage",
+        min_value=3.0,
+        max_value=50.0,
+        value=15.0,
+        step=0.1,
+        format="%.1f"
+    )
+    
+    activity_level = st.selectbox(
+        "Select Physical Activity Level Outside of Workouts",
         options=[
-            "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase.",
-            "I can commit to at least a few workouts per week and will try to ensure I prioritize sufficient sleep. I will also try to eat mindfully according to my goals, but I'm not certain I'll be able to do all that's required to maximize my progress during this phase.",
-            "I can't commit to consistently perform 3 or more workouts per week or achieve adequate sleep levels."
+            "Sedentary (0-5k steps/day)",
+            "Light Active (5-10k steps/day)",
+            "Active (10-15k steps/day)",
+            "Labor Intensive (>15k steps/day)"
         ]
     )
     
-    # Tracking commitment
-    tracking_commitment = st.radio(
-        "Regarding tracking your progress:",
-        options=[
-            "I am committed to tracking regularly",
-            "I'm not committed to tracking regularly"
-        ]
+    workouts_per_week = st.number_input(
+        "Enter Average Number of Workouts Per Week",
+        min_value=0,
+        max_value=14,
+        value=3,
+        step=1
     )
     
-    # Submit button
-    submitted = st.form_submit_button("Save and Continue", use_container_width=True)
-    
-    if submitted:
+    workout_calories = st.number_input(
+        "Enter Average Calories Expended During a Workout",
+        min_value=0,
+        max_value=2000,
+        value=300,
+        step=50
+    )
+
+# Goals and Preferences Section
+st.subheader("Goals and Preferences")
+
+# Primary goal selection
+goal_type = st.radio(
+    "What body composition goal do you want to focus on over the next 8-12 weeks?",
+    options=["Lose fat", "Build muscle", "Maintain body composition/Support performance"],
+    horizontal=True
+)
+
+# Performance preference (not for maintenance)
+if goal_type != "Maintain body composition/Support performance":
+    performance_preference = st.radio(
+        "Regarding your performance and recovery, choose one of the following options:",
+        options=[
+            "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal.",
+            "I want to maximally support my performance and recovery from training as this matters more to me than my body composition goal."
+        ]
+    )
+else:
+    performance_preference = "I want to maximally support my performance and recovery from training as this matters more to me than my body composition goal."
+
+# Body composition preferences - dynamic based on goal
+if goal_type == "Lose fat":
+    body_comp_preference = st.radio(
+        "Regarding your body composition, choose one of the following options:",
+        options=[
+            "I don't want to lose any muscle mass while losing body fat.",
+            "I'm ok with losing a little muscle mass while losing body fat."
+        ]
+    )
+elif goal_type == "Build muscle":
+    body_comp_preference = st.radio(
+        "Regarding your body composition, choose one of the following options:",
+        options=[
+            "I want to maximize muscle growth and am ok with gaining some body fat.",
+            "I don't want to gain any body fat while focusing on building muscle."
+        ]
+    )
+else:
+    body_comp_preference = "Maintain current body composition"
+
+# Lifestyle commitment
+lifestyle_commitment = st.radio(
+    "As of today, choose what you believe you can commit to regarding your lifestyle:",
+    options=[
+        "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase.",
+        "I can commit to at least a few workouts per week and will try to ensure I prioritize sufficient sleep. I will also try to eat mindfully according to my goals, but I'm not certain I'll be able to do all that's required to maximize my progress during this phase.",
+        "I can't commit to consistently perform 3 or more workouts per week or achieve adequate sleep levels."
+    ]
+)
+
+# Tracking commitment
+tracking_commitment = st.radio(
+    "Regarding tracking your progress:",
+    options=[
+        "I am committed to tracking regularly",
+        "I'm not committed to tracking regularly"
+    ]
+)
+
+# Submit button
+if st.button("Save and Continue", use_container_width=True, type="primary"):
         # Map activity level for TDEE calculation
         activity_map = {
             "Sedentary (0-5k steps/day)": "Sedentary (office job, <2 hours exercise per week)",
@@ -236,6 +233,14 @@ with st.form("user_info_form"):
         
         goal_type_code = "lose_fat" if goal_type == "Lose fat" else "gain_muscle" if goal_type == "Build muscle" else "maintain"
         st.session_state.goal_info['goal_type'] = goal_type_code
+        
+        # Initialize missing session state variables for save_data function
+        if 'nutrition_plan' not in st.session_state:
+            st.session_state.nutrition_plan = {}
+        if 'daily_tracking' not in st.session_state:
+            st.session_state.daily_tracking = {}
+        if 'progress_photos' not in st.session_state:
+            st.session_state.progress_photos = {}
         
         # Mark setup as complete
         st.session_state.setup_complete = True
