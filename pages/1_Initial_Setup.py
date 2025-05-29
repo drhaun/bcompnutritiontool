@@ -31,6 +31,30 @@ if 'progress_photos' not in st.session_state:
 if 'daily_records' not in st.session_state:
     st.session_state.daily_records = pd.DataFrame()
 
+# Development shortcuts for faster testing
+if st.sidebar.button("🚀 Quick Fill Test Data"):
+    st.session_state.user_info = {
+        'use_imperial': True,
+        'gender': 'Male',
+        'age': 30,
+        'height_cm': 175,
+        'height_ft': 5,
+        'height_in': 9,
+        'weight_kg': 75,
+        'weight_lbs': 165,
+        'body_fat_percentage': 18,
+        'goal_focus': 'Build muscle',
+        'activity_level': 'Moderately active',
+        'workout_frequency': 4,
+        'workout_calories': 350,
+        'lifestyle_commitment': 'High - I am very motivated and can stick to detailed plans',
+        'tracking_commitment': 'Medium - I can track most days but may miss some',
+        'tdee': 2650
+    }
+    st.session_state.setup_complete = True
+    st.success("Test data loaded! You can now navigate to other pages.")
+    st.rerun()
+
 # Add imperial/metric toggle at the top
 imperial_selected = st.toggle("Use Imperial Units (lbs, ft/in)", value=st.session_state.user_info.get('use_imperial', True))
 
