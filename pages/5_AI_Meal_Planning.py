@@ -468,17 +468,17 @@ with meal_freq_col2:
     else:
         st.success(f"✓ Using your preferred {meal_frequency} meals per day")
 
-# Display current targets being used
-st.subheader("Current Nutrition Targets")
+# Display current targets being used - compact format
+st.markdown("**Current Nutrition Targets**")
 target_display_cols = st.columns(4)
 with target_display_cols[0]:
-    st.metric("Calories", f"{st.session_state.get('target_calories', 2000)} kcal")
+    st.markdown(f"**Calories**<br>{st.session_state.get('target_calories', 2000)} kcal", unsafe_allow_html=True)
 with target_display_cols[1]:
-    st.metric("Protein", f"{st.session_state.get('custom_protein', 150)}g")
+    st.markdown(f"**Protein**<br>{st.session_state.get('custom_protein', 150)}g", unsafe_allow_html=True)
 with target_display_cols[2]:
-    st.metric("Carbs", f"{st.session_state.get('custom_carbs', 200)}g")
+    st.markdown(f"**Carbs**<br>{st.session_state.get('custom_carbs', 200)}g", unsafe_allow_html=True)
 with target_display_cols[3]:
-    st.metric("Fat", f"{st.session_state.get('custom_fat', 70)}g")
+    st.markdown(f"**Fat**<br>{st.session_state.get('custom_fat', 70)}g", unsafe_allow_html=True)
 
 st.header("Your Meal Plan")
 
