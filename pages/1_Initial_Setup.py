@@ -82,22 +82,27 @@ with col1:
     
     # Height input based on unit preference
     if imperial_selected:
-        height_feet = st.number_input("Height (feet)", min_value=3, max_value=8, value=5, step=1)
-        height_inches = st.number_input("Height (inches)", min_value=0, max_value=11, value=8, step=1)
+        height_feet = st.number_input("Height (feet)", min_value=3, max_value=8, 
+                                    value=st.session_state.user_info.get('height_ft', 5), step=1)
+        height_inches = st.number_input("Height (inches)", min_value=0, max_value=11, 
+                                      value=st.session_state.user_info.get('height_in', 8), step=1)
         height_cm = (height_feet * 12 + height_inches) * 2.54
         st.write(f"Height: {height_cm:.1f} cm")
     else:
-        height_cm = st.number_input("Height (cm)", min_value=120.0, max_value=250.0, value=175.0, step=0.5)
+        height_cm = st.number_input("Height (cm)", min_value=120.0, max_value=250.0, 
+                                   value=st.session_state.user_info.get('height_cm', 175.0), step=0.5)
         height_inches = height_cm / 2.54
         st.write(f"Height: {height_inches:.1f} inches")
     
     # Weight input based on unit preference
     if imperial_selected:
-        weight_lbs = st.number_input("Weight (lbs)", min_value=80.0, max_value=500.0, value=165.0, step=0.5)
+        weight_lbs = st.number_input("Weight (lbs)", min_value=80.0, max_value=500.0, 
+                                   value=st.session_state.user_info.get('weight_lbs', 165.0), step=0.5)
         weight_kg = weight_lbs / 2.20462
         st.write(f"Weight: {weight_kg:.1f} kg")
     else:
-        weight_kg = st.number_input("Weight (kg)", min_value=35.0, max_value=225.0, value=75.0, step=0.1)
+        weight_kg = st.number_input("Weight (kg)", min_value=35.0, max_value=225.0, 
+                                  value=st.session_state.user_info.get('weight_kg', 75.0), step=0.1)
         weight_lbs = weight_kg * 2.20462
         st.write(f"Weight: {weight_lbs:.1f} lbs")
 
@@ -277,6 +282,7 @@ if st.button("Save and Continue", use_container_width=True, type="primary"):
         
         st.success("✅ Setup complete! Please proceed to 'Body Composition Goals' to set your targets.")
         st.info("👈 Use the sidebar navigation to continue to the next step.")
+        st.info("💡 You can return to this page at any time to update your information. All changes will be saved automatically.")
 
 # Body fat reference photos
 with st.expander("📷 Body Fat Reference Photos (Click to view)"):
