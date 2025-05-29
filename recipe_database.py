@@ -285,43 +285,114 @@ def get_recipe_database():
 # Function to display a recipe card
 def display_recipe_card(recipe, show_details=False):
     # Display recipe in a card format
-    st.subheader(recipe.get('title', 'Recipe'))
+    st.markdown(f"**{recipe.get('title', 'Recipe')}**")
     
-    # Show macros in a horizontal layout
+    # Show macros in a compact horizontal layout
     macros = recipe.get('macros', {})
-    macro_cols = st.columns(4)
-    with macro_cols[0]:
-        st.metric("Calories", f"{macros.get('calories', 0)} kcal")
-    with macro_cols[1]:
-        st.metric("Protein", f"{macros.get('protein', 0)}g")
-    with macro_cols[2]:
-        st.metric("Carbs", f"{macros.get('carbs', 0)}g")
-    with macro_cols[3]:
-        st.metric("Fat", f"{macros.get('fat', 0)}g")
+    st.markdown(f"**{macros.get('calories', 0)} kcal** | **{macros.get('protein', 0)}g protein** | **{macros.get('carbs', 0)}g carbs** | **{macros.get('fat', 0)}g fat**")
     
     if show_details:
         # Display ingredients
-        st.markdown("### Ingredients")
+        st.markdown("**Ingredients:**")
         ingredients = recipe.get('ingredients', '')
         if ingredients:
-            # Clean up and format ingredients list
-            ingredients_clean = re.sub(r'\s+', ' ', ingredients).strip()
-            ingredients_list = [item.strip() for item in ingredients_clean.split(',') if item.strip()]
+            # Clean up ingredients - remove random characters and format properly
+            ingredients_clean = clean_recipe_text(ingredients)
+            ingredients_list = parse_ingredients_list(ingredients_clean)
+            
             for item in ingredients_list:
-                st.markdown(f"- {item}")
+                if item and len(item.strip()) > 2:  # Only show meaningful ingredients
+                    st.markdown(f"• {item}")
+        else:
+            st.markdown("*No ingredients listed*")
         
         # Display directions
-        st.markdown("### Directions")
+        st.markdown("**Directions:**")
         directions = recipe.get('directions', '')
         if directions:
-            # Clean up and format directions
-            directions_clean = re.sub(r'\s+', ' ', directions).strip()
-            directions_list = [step.strip() for step in directions_clean.split('.') if step.strip()]
+            # Clean up directions
+            directions_clean = clean_recipe_text(directions)
+            directions_list = parse_directions_list(directions_clean)
+            
             for i, step in enumerate(directions_list):
-                st.markdown(f"{i+1}. {step}")
-    
-    return True
+                if step and len(step.strip()) > 5:  # Only show meaningful steps
+                    st.markdown(f"{i+1}. {step}")
+        else:
+            st.markdown("*No directions provided*")
 
+def clean_recipe_text(text):
+    """Clean up recipe text by removing random characters and formatting issues"""
+    if not text:
+        return ""
+    
+    # Remove HTML entities and tags
+    import re
+    text = re.sub(r'&[a-zA-Z]+;', '', text)
+    text = re.sub(r'<[^>]+>', '', text)
+    
+    # Remove random single characters and fragments
+    text = re.sub(r'\b[a-zA-Z]\b', '', text)  # Remove single letters
+    text = re.sub(r'\s+', ' ', text)  # Normalize whitespace
+    text = re.sub(r'[^\w\s\.,\-\/\(\):]', '', text)  # Keep only meaningful characters
+    
+    # Remove common parsing artifacts
+    text = re.sub(r'\s*:\s*$', '', text)  # Remove trailing colons
+    text = re.sub(r'^\s*:\s*', '', text)  # Remove leading colons
+    
+    return text.strip()
+
+def parse_ingredients_list(ingredients_text):
+    """Parse ingredients text into a clean list"""
+    if not ingredients_text:
+        return []
+    
+    # Try different splitting methods
+    if '•' in ingredients_text:
+        items = ingredients_text.split('•')
+    elif '\n' in ingredients_text:
+        items = ingredients_text.split('\n')
+    else:
+        # Split by common patterns
+        items = re.split(r'(?<!\d)\s+(?=\d)', ingredients_text)  # Split before measurements
+        if len(items) == 1:
+            items = ingredients_text.split(',')
+    
+    # Clean each item
+    cleaned_items = []
+    for item in items:
+        item = item.strip()
+        if len(item) > 2 and not item.isdigit():
+            # Remove common prefixes
+            item = re.sub(r'^[-•\d\.\s]*', '', item)
+            item = item.strip()
+            if item:
+                cleaned_items.append(item)
+    
+    return cleaned_items
+
+def parse_directions_list(directions_text):
+    """Parse directions text into a clean list of steps"""
+    if not directions_text:
+        return []
+    
+    # Split by numbered steps first
+    steps = re.split(r'\d+\.', directions_text)
+    if len(steps) > 1:
+        steps = steps[1:]  # Remove empty first element
+    else:
+        # Split by sentences
+        steps = re.split(r'[.!?]+', directions_text)
+    
+    # Clean each step
+    cleaned_steps = []
+    for step in steps:
+        step = step.strip()
+        if len(step) > 5:  # Only meaningful steps
+            # Capitalize first letter
+            step = step[0].upper() + step[1:] if step else ""
+            cleaned_steps.append(step)
+    
+    return cleaned_steps
 
 # Function to load the sample recipes
 def load_sample_recipes():

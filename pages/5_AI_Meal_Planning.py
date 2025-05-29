@@ -530,68 +530,108 @@ with tabs[1]:
     if search_results:
         st.success(f"Found {len(search_results)} matching recipes.")
         
-        # Display recipes in a grid
-        num_cols = 2  # Number of columns in the grid
-        for i in range(0, len(search_results), num_cols):
-            # Create a row of columns
-            cols = st.columns(num_cols)
+# Display recipes in a more compact format
+        for i, recipe in enumerate(search_results):
+            recipe_id = recipe.get('id')
+            macros = recipe.get('macros', {})
             
-            # Fill each column with a recipe
-            for j in range(num_cols):
-                if i + j < len(search_results):
-                    recipe = search_results[i + j]
-                    with cols[j]:
-                        recipe_id = recipe.get('id')
-                        st.markdown(f"### {recipe.get('title')}")
-                        
-                        # Show macros
-                        macros = recipe.get('macros', {})
-                        st.write(f"Calories: {macros.get('calories', 0)} | Protein: {macros.get('protein', 0)}g")
-                        
-                        # Show category
-                        category = recipe.get('category', 'other')
-                        st.write(f"Category: {category.replace('_', ' ').capitalize()}")
-                        
-                        # Create a unique key for each recipe's expander
-                        expander_key = f"recipe_details_{recipe_id}_{i+j}"
-                        
-                        # Use an expander for details - this allows collapsing/expanding
-                        with st.expander("View Recipe Details", expanded=False):
-                            # Display recipe details
-                            display_recipe_card(recipe, show_details=True)
+            # Compact recipe card in expandable format
+            with st.expander(f"**{recipe.get('title')}** | {macros.get('calories', 0)} kcal | {macros.get('protein', 0)}g protein", expanded=False):
+                
+                # Show detailed macros and category
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    st.markdown(f"**Macros:** {macros.get('calories', 0)} kcal | {macros.get('protein', 0)}g protein | {macros.get('carbs', 0)}g carbs | {macros.get('fat', 0)}g fat")
+                    category = recipe.get('category', 'other')
+                    st.markdown(f"**Category:** {category.replace('_', ' ').capitalize()}")
+                
+                with col2:
+                    # Calculate daily nutrition to show what's needed
+                    daily_nutrition = calculate_daily_nutrition()
+                    remaining_cals = max(0, st.session_state.get('target_calories', 2000) - daily_nutrition['calories'])
+                    
+                    if remaining_cals > 0:
+                        # Calculate smart portion recommendation
+                        recipe_cals = macros.get('calories', 0)
+                        if recipe_cals > 0:
+                            # Suggest portion based on remaining calories for the day
+                            if remaining_cals >= recipe_cals:
+                                suggested_portion = 1.0
+                                st.success("Perfect fit!")
+                            else:
+                                suggested_portion = round(remaining_cals / recipe_cals, 2)
+                                st.warning(f"Try {suggested_portion}x portion")
+                        else:
+                            suggested_portion = 1.0
+                    else:
+                        suggested_portion = 0.5
+                        st.info("Consider half portion")
+                
+                # Display cleaned recipe details
+                display_recipe_card(recipe, show_details=True)
+                
+                # Smart Add to Meal Plan section
+                st.markdown("---")
+                col1, col2, col3 = st.columns([1, 1, 1])
+                
+                with col1:
+                    # Dynamic meal options based on meal frequency
+                    meal_options = [m.replace("_", " ").title() for m in meal_types]
+                    selected_meal = st.selectbox(
+                        "Add to meal:", 
+                        ["Select..."] + meal_options,
+                        key=f"meal_select_{recipe_id}_{i}"
+                    )
+                
+                with col2:
+                    # Portion size input with smart default
+                    portion_size = st.number_input(
+                        "Portion size:",
+                        min_value=0.1,
+                        max_value=5.0,
+                        value=suggested_portion,
+                        step=0.1,
+                        key=f"portion_{recipe_id}_{i}",
+                        help="1.0 = full recipe serving"
+                    )
+                
+                with col3:
+                    # Add button with clear feedback
+                    if selected_meal != "Select...":
+                        button_text = f"Add {portion_size}x to {selected_meal}"
+                        if st.button(button_text, key=f"add_recipe_{recipe_id}_{i}", type="primary"):
+                            # Calculate scaled macros
+                            scaled_macros = {
+                                "protein": macros.get('protein', 0) * portion_size,
+                                "carbs": macros.get('carbs', 0) * portion_size,
+                                "fat": macros.get('fat', 0) * portion_size,
+                                "calories": macros.get('calories', 0) * portion_size,
+                                "fiber": macros.get('fiber', 0) * portion_size
+                            }
                             
-                            # Add to meal plan options
-                            st.markdown("### Add to Meal Plan")
+                            # Create recipe item with scaled nutrition
+                            recipe_item = {
+                                "fdc_id": f"recipe_{recipe_id}",
+                                "description": f"{recipe.get('title')} ({portion_size}x serving)",
+                                "category": "Recipe",
+                                "nutrients": scaled_macros
+                            }
                             
-                            # Select which meal to add this to
-                            meal_options = ["Breakfast", "Lunch", "Dinner", "Snacks"]
-                            selected_meal = st.selectbox(
-                                "Select meal to add this recipe to:", 
-                                ["Select meal..."] + meal_options,
-                                key=f"meal_select_{recipe_id}_{i+j}"
-                            )
+                            # Convert meal name back to session state format
+                            meal_key = selected_meal.lower().replace(" ", "_")
+                            add_to_meal(recipe_item, meal_key, 1)
                             
-                            # Add to meal button
-                            if selected_meal != "Select meal...":
-                                if st.button("Add to Meal Plan", key=f"add_recipe_{recipe_id}_{i+j}"):
-                                    # Create a food item from the recipe
-                                    recipe_item = {
-                                        "fdc_id": f"recipe_{recipe_id}",
-                                        "description": recipe.get('title') + " (Recipe)",
-                                        "category": "Recipe",
-                                        "nutrients": {
-                                            "protein": macros.get('protein', 0),
-                                            "carbs": macros.get('carbs', 0),
-                                            "fat": macros.get('fat', 0),
-                                            "calories": macros.get('calories', 0),
-                                            "fiber": macros.get('fiber', 0)
-                                        }
-                                    }
-                                    
-                                    # Add to meal plan
-                                    add_to_meal(recipe_item, selected_meal.lower(), 1)  # Portion is 1 for complete recipe
-                                    
-                                    st.success(f"✅ {recipe.get('title')} added to {selected_meal}!")
+                            # Show success with actual macro contribution
+                            st.success(f"Added {recipe.get('title')} ({portion_size}x) to {selected_meal}!")
+                            st.info(f"Contributes: {int(scaled_macros['calories'])} kcal, {int(scaled_macros['protein'])}g protein")
+                
+                # Optional: Show food preference match
+                if st.session_state.food_preferences.get('liked_foods'):
+                    recipe_text = f"{recipe.get('title', '')} {recipe.get('ingredients', '')}".lower()
+                    liked_foods = [food.lower() for food in st.session_state.food_preferences['liked_foods']]
+                    matches = [food for food in liked_foods if food in recipe_text]
+                    if matches:
+                        st.markdown(f"🎯 **Matches your preferences:** {', '.join(matches)}")
     else:
         st.info("No matching recipes found. Try a different search or category.")
 
