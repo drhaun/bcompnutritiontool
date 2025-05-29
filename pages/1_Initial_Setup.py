@@ -22,6 +22,12 @@ st.markdown("Enter your personal information and goals to get started.")
 # Initialize session state
 if 'user_info' not in st.session_state:
     st.session_state.user_info = {}
+if 'nutrition_plan' not in st.session_state:
+    st.session_state.nutrition_plan = {}
+if 'daily_tracking' not in st.session_state:
+    st.session_state.daily_tracking = {}
+if 'progress_photos' not in st.session_state:
+    st.session_state.progress_photos = {}
 
 # Add imperial/metric toggle at the top
 imperial_selected = st.toggle("Use Imperial Units (lbs, ft/in)", value=st.session_state.user_info.get('use_imperial', True))
@@ -234,13 +240,7 @@ if st.button("Save and Continue", use_container_width=True, type="primary"):
         goal_type_code = "lose_fat" if goal_type == "Lose fat" else "gain_muscle" if goal_type == "Build muscle" else "maintain"
         st.session_state.goal_info['goal_type'] = goal_type_code
         
-        # Initialize missing session state variables for save_data function
-        if 'nutrition_plan' not in st.session_state:
-            st.session_state.nutrition_plan = {}
-        if 'daily_tracking' not in st.session_state:
-            st.session_state.daily_tracking = {}
-        if 'progress_photos' not in st.session_state:
-            st.session_state.progress_photos = {}
+
         
         # Mark setup as complete
         st.session_state.setup_complete = True
