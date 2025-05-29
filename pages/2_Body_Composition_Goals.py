@@ -133,10 +133,14 @@ weight_lbs = weight_kg * 2.20462 if weight_kg is not None else 0
 
 # Debug weight values to troubleshoot
 if "user_info" in st.session_state:
+    weight_kg = st.session_state.user_info.get('weight_kg', 0) or 0
+    weight_lbs = st.session_state.user_info.get('weight_lbs', 0) or 0
+    session_weight = getattr(st.session_state, 'weight_kg', 0) or 0
+    
     st.sidebar.write("#### Debug User Info")
-    st.sidebar.write(f"User Info Weight: {st.session_state.user_info.get('weight_kg', 0):.2f} kg = {st.session_state.user_info.get('weight_kg', 0) * 2.20462:.2f} lbs")
-    st.sidebar.write(f"User Info Weight (lbs): {st.session_state.user_info.get('weight_lbs', 0):.2f} lbs")
-    st.sidebar.write(f"Session state weight: {st.session_state.weight_kg:.2f} kg = {st.session_state.weight_kg * 2.20462:.2f} lbs")
+    st.sidebar.write(f"User Info Weight: {weight_kg:.2f} kg = {weight_kg * 2.20462:.2f} lbs")
+    st.sidebar.write(f"User Info Weight (lbs): {weight_lbs:.2f} lbs")
+    st.sidebar.write(f"Session state weight: {session_weight:.2f} kg = {session_weight * 2.20462:.2f} lbs")
 
 body_fat_pct = st.session_state.body_fat_pct
 goal_type = st.session_state.goal_type
