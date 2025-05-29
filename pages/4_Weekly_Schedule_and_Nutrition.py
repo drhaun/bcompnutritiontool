@@ -92,7 +92,13 @@ with tab1:
     
     # Meal setup
     st.subheader("Default Meal Schedule")
-    meals_per_day = st.slider("Number of meals per day", min_value=2, max_value=8, value=4, 
+    
+    # Get default value from diet preferences if available
+    default_meals = 4  # fallback default
+    if 'diet_preferences' in st.session_state and 'meal_frequency' in st.session_state.diet_preferences:
+        default_meals = st.session_state.diet_preferences['meal_frequency']
+    
+    meals_per_day = st.slider("Number of meals per day", min_value=2, max_value=8, value=default_meals, 
                              help="This includes main meals and snacks.")
     
     # Default meal times based on number of meals
