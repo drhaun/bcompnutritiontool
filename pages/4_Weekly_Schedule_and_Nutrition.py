@@ -832,12 +832,92 @@ with tab2:
                     key=f"fat_input_{selected_day}"
                 )
             
-            # Compact macro summary and save
+            # Comprehensive macro analysis and display
             total_macro_calories = (custom_day_protein * 4) + (custom_day_carbs * 4) + (custom_day_fat * 9)
             calorie_difference = total_macro_calories - custom_day_calories
             
+            # Calculate ratios and percentages
+            protein_per_kg = round(custom_day_protein / weight_kg, 2)
+            protein_per_lb = round(custom_day_protein / weight_lb, 2)
+            fat_per_kg = round(custom_day_fat / weight_kg, 2)
+            fat_per_lb = round(custom_day_fat / weight_lb, 2)
+            carb_per_kg = round(custom_day_carbs / weight_kg, 2)
+            carb_per_lb = round(custom_day_carbs / weight_lb, 2)
+            
+            # Calculate percentages of total calories
+            if total_macro_calories > 0:
+                protein_pct = round((custom_day_protein * 4 / total_macro_calories) * 100)
+                carbs_pct = round((custom_day_carbs * 4 / total_macro_calories) * 100)
+                fat_pct = round((custom_day_fat * 9 / total_macro_calories) * 100)
+            else:
+                protein_pct = carbs_pct = fat_pct = 0
+            
+            # Calculate fat-free mass ratios if available
+            if 'body_fat_percentage' in st.session_state and st.session_state.body_fat_percentage:
+                bf_pct = st.session_state.body_fat_percentage / 100
+                ffm_kg = weight_kg * (1 - bf_pct)
+                ffm_lb = weight_lb * (1 - bf_pct)
+                protein_per_ffm_kg = round(custom_day_protein / ffm_kg, 2) if ffm_kg > 0 else 0
+                protein_per_ffm_lb = round(custom_day_protein / ffm_lb, 2) if ffm_lb > 0 else 0
+                ffm_display = f" | {protein_per_ffm_kg}g/kg FFM ({protein_per_ffm_lb}g/lb FFM)"
+            else:
+                ffm_display = ""
+            
+            # Display comprehensive macro summary
             st.markdown(f"**Total:** {total_macro_calories} calories (P: {custom_day_protein}g, C: {custom_day_carbs}g, F: {custom_day_fat}g)")
             
+            # Detailed ratio display
+            st.markdown(f"""
+            **Macro Ratios:**
+            • **Protein:** {protein_pct}% | {protein_per_kg}g/kg ({protein_per_lb}g/lb){ffm_display}
+            • **Carbs:** {carbs_pct}% | {carb_per_kg}g/kg ({carb_per_lb}g/lb)
+            • **Fat:** {fat_pct}% | {fat_per_kg}g/kg ({fat_per_lb}g/lb)
+            """)
+            
+            # Energy availability calculation
+            try:
+                # Get workout data for energy expenditure estimation
+                workout_calories = 0
+                if selected_day in st.session_state.weekly_schedule:
+                    day_workouts = st.session_state.weekly_schedule[selected_day].get('workouts', [])
+                    for workout in day_workouts:
+                        if 'duration' in workout and 'intensity' in workout:
+                            # Rough estimation: moderate intensity = 8-12 cal/min
+                            duration_min = workout.get('duration', 0)
+                            intensity = workout.get('intensity', 'Moderate')
+                            if intensity == 'Light':
+                                cal_per_min = 6
+                            elif intensity == 'Vigorous':
+                                cal_per_min = 12
+                            else:  # Moderate
+                                cal_per_min = 9
+                            workout_calories += duration_min * cal_per_min
+                
+                # Calculate energy availability (EA = Energy Intake - Exercise Energy Expenditure / Fat-Free Mass)
+                if 'body_fat_percentage' in st.session_state and st.session_state.body_fat_percentage:
+                    bf_pct = st.session_state.body_fat_percentage / 100
+                    ffm_kg = weight_kg * (1 - bf_pct)
+                    energy_availability = (total_macro_calories - workout_calories) / ffm_kg if ffm_kg > 0 else 0
+                    
+                    # Energy availability guidance
+                    if energy_availability < 30:
+                        ea_status = "⚠️ Low EA - Risk of metabolic and hormonal issues"
+                        ea_color = "🔴"
+                    elif energy_availability < 35:
+                        ea_status = "🟡 Moderate EA - Monitor for fatigue and performance"
+                        ea_color = "🟡"
+                    else:
+                        ea_status = "✅ Adequate EA - Supporting metabolic health"
+                        ea_color = "🟢"
+                    
+                    st.markdown(f"**Energy Availability:** {energy_availability:.0f} kcal/kg FFM | {ea_status}")
+                else:
+                    st.info("Set body fat percentage in Body Composition Goals for energy availability calculation")
+                    
+            except Exception:
+                pass  # Skip energy availability if calculation fails
+            
+            # Calorie difference warning
             if abs(calorie_difference) > 50:
                 if calorie_difference > 0:
                     st.warning(f"Macros exceed target by {calorie_difference} calories")
@@ -845,20 +925,119 @@ with tab2:
                     st.info(f"Macros are {abs(calorie_difference)} calories under target")
             
             # Advanced settings in an expander to keep UI clean
-            with st.expander("⚙️ Advanced Macro Settings"):
+            with st.expander("⚙️ Advanced Macro Settings & Alternative Input Methods"):
+                st.markdown("### Quick Set by Ratios")
+                
+                # Option to set macros by different methods
+                macro_method = st.radio(
+                    "Set macros using:",
+                    ["Manual (above)", "g/kg ratios", "g/lb ratios", "% of calories"],
+                    horizontal=True,
+                    key=f"macro_method_{selected_day}"
+                )
+                
+                if macro_method != "Manual (above)":
+                    st.markdown("---")
+                    
+                    if macro_method == "g/kg ratios":
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            protein_gkg = st.number_input("Protein (g/kg)", min_value=0.8, max_value=4.0, 
+                                                        value=2.0 if user_goal_type == "lose_fat" else 1.8, 
+                                                        step=0.1, key=f"prot_gkg_{selected_day}")
+                        with col2:
+                            fat_gkg = st.number_input("Fat (g/kg)", min_value=0.5, max_value=2.0, 
+                                                    value=0.8, step=0.1, key=f"fat_gkg_{selected_day}")
+                        with col3:
+                            carb_gkg = st.number_input("Carbs (g/kg)", min_value=0.0, max_value=8.0, 
+                                                     value=3.0, step=0.1, key=f"carb_gkg_{selected_day}")
+                        
+                        # Calculate macros from ratios
+                        calc_protein = round(protein_gkg * weight_kg)
+                        calc_fat = round(fat_gkg * weight_kg)
+                        calc_carbs = round(carb_gkg * weight_kg)
+                        calc_calories = (calc_protein * 4) + (calc_fat * 9) + (calc_carbs * 4)
+                        
+                    elif macro_method == "g/lb ratios":
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            protein_glb = st.number_input("Protein (g/lb)", min_value=0.4, max_value=1.8, 
+                                                        value=0.9 if user_goal_type == "lose_fat" else 0.8, 
+                                                        step=0.1, key=f"prot_glb_{selected_day}")
+                        with col2:
+                            fat_glb = st.number_input("Fat (g/lb)", min_value=0.2, max_value=1.0, 
+                                                    value=0.4, step=0.1, key=f"fat_glb_{selected_day}")
+                        with col3:
+                            carb_glb = st.number_input("Carbs (g/lb)", min_value=0.0, max_value=3.5, 
+                                                     value=1.4, step=0.1, key=f"carb_glb_{selected_day}")
+                        
+                        # Calculate macros from ratios
+                        calc_protein = round(protein_glb * weight_lb)
+                        calc_fat = round(fat_glb * weight_lb)
+                        calc_carbs = round(carb_glb * weight_lb)
+                        calc_calories = (calc_protein * 4) + (calc_fat * 9) + (calc_carbs * 4)
+                        
+                    elif macro_method == "% of calories":
+                        # Set target calories first
+                        target_cal = st.number_input("Target Calories", min_value=1200, max_value=4000, 
+                                                   value=custom_day_calories, step=25, 
+                                                   key=f"target_cal_{selected_day}")
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            protein_pct = st.number_input("Protein (%)", min_value=10, max_value=50, 
+                                                        value=25, step=1, key=f"prot_pct_{selected_day}")
+                        with col2:
+                            fat_pct = st.number_input("Fat (%)", min_value=15, max_value=50, 
+                                                    value=25, step=1, key=f"fat_pct_{selected_day}")
+                        with col3:
+                            carb_pct = st.number_input("Carbs (%)", min_value=10, max_value=70, 
+                                                     value=50, step=1, key=f"carb_pct_{selected_day}")
+                        
+                        # Check if percentages add up to 100
+                        total_pct = protein_pct + fat_pct + carb_pct
+                        if total_pct != 100:
+                            st.warning(f"Percentages total {total_pct}% - adjust to equal 100%")
+                        
+                        # Calculate macros from percentages
+                        calc_protein = round((target_cal * protein_pct / 100) / 4)
+                        calc_fat = round((target_cal * fat_pct / 100) / 9)
+                        calc_carbs = round((target_cal * carb_pct / 100) / 4)
+                        calc_calories = target_cal
+                    
+                    # Show calculated values and apply button
+                    st.markdown("**Calculated Values:**")
+                    st.write(f"Calories: {calc_calories} | Protein: {calc_protein}g | Carbs: {calc_carbs}g | Fat: {calc_fat}g")
+                    
+                    if st.button("Apply These Values", key=f"apply_calc_{selected_day}"):
+                        # Update the session state to trigger recalculation
+                        st.session_state[f"cal_input_{selected_day}"] = calc_calories
+                        st.session_state[f"protein_input_{selected_day}"] = calc_protein
+                        st.session_state[f"carbs_input_{selected_day}"] = calc_carbs
+                        st.session_state[f"fat_input_{selected_day}"] = calc_fat
+                        st.success("Values applied! Refresh to see changes in the inputs above.")
+                        st.rerun()
+                
+                st.markdown("---")
+                st.markdown("### Reference Guidelines")
                 st.markdown("**Protein Coefficients by Goal:**")
-                st.write("• Fat Loss: 2.0g/kg (muscle preservation)")
-                st.write("• Muscle Gain: 1.8g/kg (muscle synthesis)")
-                st.write("• Maintenance: 1.6g/kg (general health)")
+                st.write("• Fat Loss: 2.0g/kg (0.9g/lb) - muscle preservation")
+                st.write("• Muscle Gain: 1.8g/kg (0.8g/lb) - muscle synthesis")
+                st.write("• Maintenance: 1.6g/kg (0.7g/lb) - general health")
                 
                 st.markdown("**Fat Guidelines:**")
-                st.write("• Minimum: 0.8g/kg (hormone production)")
-                st.write("• Optimal: 1.0g/kg (satiety and absorption)")
+                st.write("• Minimum: 0.8g/kg (0.4g/lb) - hormone production")
+                st.write("• Optimal: 1.0g/kg (0.45g/lb) - satiety and absorption")
                 
                 st.markdown("**Carbohydrate Strategy:**")
-                st.write("• Filled automatically from remaining calories")
-                st.write("• Higher on training days for performance")
-                st.write("• Lower on rest days if fat loss goal")
+                st.write("• Low: 1-2g/kg (0.5-1g/lb) - ketogenic/low-carb")
+                st.write("• Moderate: 3-5g/kg (1.4-2.3g/lb) - general health")
+                st.write("• High: 6-8g/kg (2.7-3.6g/lb) - endurance/high activity")
+                
+                st.markdown("**Energy Availability Guidelines:**")
+                st.write("• >45 kcal/kg FFM: Optimal for performance and health")
+                st.write("• 35-45 kcal/kg FFM: Adequate for most people")
+                st.write("• <30 kcal/kg FFM: Risk of metabolic issues")
             
             # Save the nutrition targets
             st.session_state.day_specific_nutrition[selected_day] = {
