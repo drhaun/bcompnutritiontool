@@ -212,8 +212,16 @@ with st.form("user_info_form"):
         options=["Lose fat", "Build muscle", "Maintain body composition/Support performance"],
         index=0 if st.session_state.user_info.get('goal_focus') == "Lose fat" else 
               1 if st.session_state.user_info.get('goal_focus') == "Build muscle" else
-              2 if st.session_state.user_info.get('goal_focus') == "Maintain body composition/Support performance" else 0
+              2 if st.session_state.user_info.get('goal_focus') == "Maintain body composition/Support performance" else 0,
+        key="primary_goal_selection"
     )
+    
+    # Force page refresh when goal changes to show conditional questions immediately
+    if "last_goal_type" not in st.session_state:
+        st.session_state.last_goal_type = goal_type
+    elif st.session_state.last_goal_type != goal_type:
+        st.session_state.last_goal_type = goal_type
+        st.rerun()
     
     # Show performance preference only if not in maintenance mode
     if goal_type != "Maintain body composition/Support performance":
