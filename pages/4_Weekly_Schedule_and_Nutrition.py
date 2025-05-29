@@ -32,6 +32,13 @@ if 'weekly_schedule' not in st.session_state:
     # Initialize weekly schedule with empty days
     st.session_state.weekly_schedule = {day: copy.deepcopy(day_template) for day in days_of_week}
 
+# Initialize nutrition tracking if needed
+if 'day_specific_nutrition' not in st.session_state:
+    st.session_state.day_specific_nutrition = {}
+
+# Define days of the week for consistent use
+days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
 # Setup page header with Fitomics branding
 st.title("Weekly Schedule & Nutrition Planner")
 

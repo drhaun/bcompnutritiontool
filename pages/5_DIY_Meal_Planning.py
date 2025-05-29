@@ -510,18 +510,20 @@ for meal_num in range(1, total_meals + 1):
     # Create a section for this meal
     st.subheader(f"Meal {meal_num}: {meal_info['description']}")
     
-    # Display macro distribution info
-    st.info(f"**Recommended distribution:** Protein: {meal_info['protein']*100:.0f}%, Carbs: {meal_info['carbs']*100:.0f}%, Fat: {meal_info['fat']*100:.0f}%")
-    
-    # Calculate meal-specific targets
+    # Calculate meal-specific targets first to show both percentages and grams
     if has_nutrition_targets and selected_day in st.session_state.day_specific_nutrition:
         targets = st.session_state.day_specific_nutrition[selected_day]
         meal_targets = {
-            'target_calories': targets.get('target_calories', 0) * meal_info['protein'],  # Using protein as proxy for calories
+            'target_calories': targets.get('target_calories', 0) / total_meals,  # Equal calorie distribution
             'protein': targets.get('protein', 0) * meal_info['protein'],
             'carbs': targets.get('carbs', 0) * meal_info['carbs'],
             'fat': targets.get('fat', 0) * meal_info['fat']
         }
+        
+        # Display comprehensive meal distribution with both percentages and gram targets
+        st.info(f"""**Recommended distribution:** Protein: {meal_info['protein']*100:.0f}% ({meal_targets['protein']:.0f}g), 
+Carbs: {meal_info['carbs']*100:.0f}% ({meal_targets['carbs']:.0f}g), 
+Fat: {meal_info['fat']*100:.0f}% ({meal_targets['fat']:.0f}g)""")
         
         # Display meal targets
         st.write("**Meal-Specific Targets:**")
@@ -534,6 +536,9 @@ for meal_num in range(1, total_meals + 1):
             st.metric("Carbs", f"{meal_targets['carbs']:.0f}g")
         with meal_target_cols[3]:
             st.metric("Fat", f"{meal_targets['fat']:.0f}g")
+    else:
+        # Show just percentages if no nutrition targets are set
+        st.info(f"**Recommended distribution:** Protein: {meal_info['protein']*100:.0f}%, Carbs: {meal_info['carbs']*100:.0f}%, Fat: {meal_info['fat']*100:.0f}%")
     
     # Initialize food sources for this meal
     if meal_num not in st.session_state.meal_plan[selected_day]:
