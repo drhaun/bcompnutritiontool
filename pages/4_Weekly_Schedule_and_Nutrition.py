@@ -860,306 +860,67 @@ with tab2:
                 "carbs": custom_day_carbs,
                 "fat": custom_day_fat
             }
-                    # Preset g/kg values based on goal
-                    kg_options = {
-                        "lose_fat": {"options": [1.6, 1.8, 2.0, 2.2, 2.4, 2.6], "default": 2.0},
-                        "gain_muscle": {"options": [1.6, 1.8, 2.0, 2.2, 2.4], "default": 1.8},
-                        "maintain": {"options": [1.4, 1.6, 1.8, 2.0], "default": 1.6}
-                    }
-                    
-                    goal_presets = kg_options.get(user_goal_type, kg_options["maintain"])
-                    
-                    kg_coefficient = st.select_slider(
-                        "Protein (g/kg of bodyweight):",
-                        options=goal_presets["options"],
-                        value=goal_presets["default"],
-                        key=f"protein_kg_coef_{selected_day}"
-                    )
-                    
-                    calculated_protein = round(weight_kg * kg_coefficient)
-                    st.write(f"Based on your selection: {kg_coefficient}g/kg × {weight_kg:.1f}kg = {calculated_protein}g protein")
-                    
-                    # Use this as default value for the number input
-                    default_protein = calculated_protein
-                    
-                elif protein_method == "g/lb":
-                    # Preset g/lb values based on goal (converted from g/kg)
-                    lb_options = {
-                        "lose_fat": {"options": [0.7, 0.8, 0.9, 1.0, 1.1, 1.2], "default": 0.9},
-                        "gain_muscle": {"options": [0.7, 0.8, 0.9, 1.0, 1.1], "default": 0.8},
-                        "maintain": {"options": [0.6, 0.7, 0.8, 0.9], "default": 0.7}
-                    }
-                    
-                    goal_presets = lb_options.get(user_goal_type, lb_options["maintain"])
-                    
-                    lb_coefficient = st.select_slider(
-                        "Protein (g/lb of bodyweight):",
-                        options=goal_presets["options"],
-                        value=goal_presets["default"],
-                        key=f"protein_lb_coef_{selected_day}"
-                    )
-                    
-                    calculated_protein = round(weight_lb * lb_coefficient)
-                    st.write(f"Based on your selection: {lb_coefficient}g/lb × {weight_lb:.1f}lb = {calculated_protein}g protein")
-                    
-                    # Use this as default value for the number input
-                    default_protein = calculated_protein
-                    
-                elif protein_method == "% of calories":
-                    # Preset % of calories options
-                    pct_options = [20, 25, 30, 35, 40, 45, 50]
-                    protein_pct = st.select_slider(
-                        "Protein (% of calories):",
-                        options=pct_options,
-                        value=30,
-                        key=f"protein_pct_{selected_day}"
-                    )
-                    
-                    calculated_protein = round((target_calories * (protein_pct / 100)) / 4)
-                    st.write(f"Based on your selection: {protein_pct}% of {target_calories} calories = {calculated_protein}g protein")
-                    
-                    # Use this as default value for the number input
-                    default_protein = calculated_protein
+    
+    # Weekly summary table
+    if st.session_state.day_specific_nutrition:
+        st.subheader("Weekly Nutrition Summary")
+        
+        # Create a table showing all days
+        weekly_data = []
+        total_calories = 0
+        total_protein = 0
+        total_carbs = 0
+        total_fat = 0
+        
+        for day in days_of_week:
+            day_data = st.session_state.day_specific_nutrition.get(day, {})
+            if day_data:
+                calories = day_data.get('target_calories', 0)
+                protein = day_data.get('protein', 0)
+                carbs = day_data.get('carbs', 0)
+                fat = day_data.get('fat', 0)
+                
+                # Calculate percentages
+                if calories > 0:
+                    protein_pct = round((protein * 4 / calories) * 100)
+                    carbs_pct = round((carbs * 4 / calories) * 100)
+                    fat_pct = round((fat * 9 / calories) * 100)
                 else:
-                    # If custom selected, use previous value
-                    default_protein = day_macros['protein'] if day_macros['protein'] > 0 else round(weight_kg * 1.8)
-            
-            with protein_cols[1]:
-                # Set reasonable min/max values
-                min_protein = 50
+                    protein_pct = carbs_pct = fat_pct = 0
                 
-                # Custom protein input with step size of 10g
-                protein_step = 10
-                custom_protein = st.slider("Protein (g)", 
-                                          min_value=50, 
-                                          max_value=max_protein, 
-                                          value=default_protein,
-                                          step=protein_step,
-                                          help="Recommended range: 1.6-2.2g per kg of body weight")
-            
-            # Show per-kg and per-lb metrics and guidance for protein
-            protein_per_kg = round(custom_protein / weight_kg, 2)
-            protein_per_lb = round(custom_protein / (weight_kg * 2.20462), 2)  # Convert to lb
-            protein_per_ffm_kg = round(custom_protein / ffm_kg, 2) if ffm_kg > 0 else 0
-            protein_per_ffm_lb = round(custom_protein / (ffm_kg * 2.20462), 2) if ffm_kg > 0 else 0
-            protein_pct_calories = round((custom_protein * 4 / target_calories) * 100)
-            
-            # Protein guidance text
-            st.markdown(f"""
-            **Selected protein: {custom_protein}g** ({protein_pct_calories}% of calories)
-            - {protein_per_kg}g/kg of bodyweight ({protein_per_lb}g/lb)
-            - {protein_per_ffm_kg}g/kg of fat-free mass ({protein_per_ffm_lb}g/lb of FFM)
-            """)
-            
-            if protein_per_kg < 1.6:
-                st.warning("⚠️ This is below the recommended minimum of 1.6g/kg for maintaining muscle mass.")
-            elif protein_per_kg > 2.8:
-                st.warning("⚠️ This is very high. Intakes above 2.8g/kg typically don't provide additional benefits.")
-            elif protein_per_kg >= 2.2:
-                st.info("ℹ️ This is in the higher range, which can be beneficial during calorie restriction or intense training.")
-            else:
-                st.success("✅ This is within the recommended range of 1.6-2.2g/kg for most people.")
-        
-        # Fat section
-        with st.container(border=True):
-            st.subheader("Fat Target")
-            
-            # Create columns for fat input method and value
-            fat_cols = st.columns(2)
-            
-            with fat_cols[0]:
-                # Choose preset or custom
-                fat_method = st.radio(
-                    "Fat target method:",
-                    ["g/kg", "g/lb", "% of calories", "Custom"],
-                    horizontal=True,
-                    key=f"fat_method_{selected_day}"
-                )
+                weekly_data.append({
+                    "Day": day,
+                    "Calories": calories,
+                    "Protein": f"{protein}g ({protein_pct}%)",
+                    "Carbs": f"{carbs}g ({carbs_pct}%)",
+                    "Fat": f"{fat}g ({fat_pct}%)"
+                })
                 
-                # Calculate fat based on method
-                max_fat = int(target_calories / 9)  # Max possible fat from all calories
-                
-                if fat_method == "g/kg":
-                    # Preset g/kg values
-                    kg_options = [0.6, 0.8, 1.0, 1.2, 1.4, 1.6]
-                    kg_coefficient = st.select_slider(
-                        "Fat (g/kg of bodyweight):",
-                        options=kg_options,
-                        value=0.8,
-                        key=f"fat_kg_coef_{selected_day}"
-                    )
-                    
-                    calculated_fat = round(weight_kg * kg_coefficient)
-                    st.write(f"Based on your selection: {kg_coefficient}g/kg × {weight_kg:.1f}kg = {calculated_fat}g fat")
-                    
-                    # Use this as default value for the number input
-                    default_fat = calculated_fat
-                    
-                elif fat_method == "g/lb":
-                    # Preset g/lb values (converted from g/kg)
-                    lb_options = [0.3, 0.4, 0.5, 0.6, 0.7]
-                    lb_coefficient = st.select_slider(
-                        "Fat (g/lb of bodyweight):",
-                        options=lb_options,
-                        value=0.4,
-                        key=f"fat_lb_coef_{selected_day}"
-                    )
-                    
-                    calculated_fat = round(weight_lb * lb_coefficient)
-                    st.write(f"Based on your selection: {lb_coefficient}g/lb × {weight_lb:.1f}lb = {calculated_fat}g fat")
-                    
-                    # Use this as default value for the number input
-                    default_fat = calculated_fat
-                    
-                elif fat_method == "% of calories":
-                    # Preset % of calories options
-                    pct_options = [20, 25, 30, 35, 40]
-                    fat_pct = st.select_slider(
-                        "Fat (% of calories):",
-                        options=pct_options,
-                        value=30,
-                        key=f"fat_pct_{selected_day}"
-                    )
-                    
-                    calculated_fat = round((target_calories * (fat_pct / 100)) / 9)
-                    st.write(f"Based on your selection: {fat_pct}% of {target_calories} calories = {calculated_fat}g fat")
-                    
-                    # Use this as default value for the number input
-                    default_fat = calculated_fat
-                else:
-                    # If custom selected, use previous value
-                    default_fat = custom_day_fat if 'custom_day_fat' in locals() else default_fat
-            
-            with fat_cols[1]:
-                # Direct fat input with minimum constraint
-                custom_day_fat = st.number_input(
-                    "Fat (g)",
-                    min_value=0,
-                    max_value=300,
-                    value=default_fat,
-                    step=5,
-                    key=f"fat_input_{selected_day}"
-                )
-            
-            # Show per-kg and per-lb metrics and guidance for fat
-            fat_per_kg = round(custom_day_fat / weight_kg, 2)
-            fat_per_lb = round(custom_day_fat / (weight_kg * 2.20462), 2)  # Convert to lb
-            fat_pct_calories = round((custom_day_fat * 9 / target_calories) * 100)
-            
-            # Fat guidance text
-            st.markdown(f"""
-            **Selected fat: {custom_day_fat}g** ({fat_pct_calories}% of calories)
-            - {fat_per_kg}g/kg of bodyweight ({fat_per_lb}g/lb)
-            """)
-            
-            if fat_per_kg < 0.6:
-                st.warning("⚠️ This is very low. Fat intake below 0.6g/kg may affect hormone production.")
-            elif fat_pct_calories < 20:
-                st.warning("⚠️ This is low. Fat below 20% of calories may impact health and hormone function.")
-            elif fat_pct_calories > 40:
-                st.info("ℹ️ This is higher fat. Suitable for low-carb approaches, but limits carbohydrates for exercise.")
-            else:
-                st.success("✅ This is within the healthy range (20-40% of calories).")
+                # Add to totals for weekly average
+                total_calories += calories
+                total_protein += protein
+                total_carbs += carbs
+                total_fat += fat
         
-        # Automatically calculate carbs based on remaining calories
-        protein_calories = custom_protein * 4
-        fat_calories = custom_day_fat * 9
-        remaining_calories = target_calories - protein_calories - fat_calories
-        custom_day_carbs = max(0, round(remaining_calories / 4))
-        
-        # Carbs section
-        with st.container(border=True):
-            st.subheader("Carbohydrate Target")
-            
-            # Carb guidance text with both kg and lb metrics
-            carb_pct_calories = round((custom_day_carbs * 4 / target_calories) * 100)
-            carb_per_kg = round(custom_day_carbs / weight_kg, 2)
-            carb_per_lb = round(custom_day_carbs / (weight_kg * 2.20462), 2)  # Convert to lb
-            
-            if carb_pct_calories < 20:
-                carb_guidance = "⚠️ This is very low and may impact workout performance and recovery."
-            elif carb_pct_calories < 40:
-                carb_guidance = "🟡 This is moderate. Adequate for many but may be low for high-intensity training."
-            else:
-                carb_guidance = "✅ This is a moderate to high carbohydrate intake, good for fueling workouts."
-            
-            st.markdown(f"""
-            **Calculated carbs: {custom_day_carbs}g** ({carb_pct_calories}% of calories)
-            - {carb_per_kg}g/kg of bodyweight ({carb_per_lb}g/lb)
-            - {carb_guidance}
-            """)
-            
-            # Carb adjustment if needed
-            carb_adjustment = st.checkbox("Adjust carbs manually?", key=f"carb_adjust_{selected_day}")
-            
-            if carb_adjustment:
-                custom_day_carbs = st.slider("Carbohydrates (g)", 
-                                            min_value=0, 
-                                            max_value=int(target_calories/4),  # Max possible carbs
-                                            value=custom_day_carbs,
-                                            step=10,
-                                            key=f"carb_input_{selected_day}")
-                
-                # Recalculate total calories if carbs are adjusted
-                adjusted_calories = protein_calories + fat_calories + (custom_day_carbs * 4)
-                st.write(f"Adjusted total calories: {adjusted_calories} ({adjusted_calories - target_calories:+} from target)")
-        
-        # Save this day's nutrition targets
-        if st.button("Save Nutrition Targets", type="primary", key=f"save_nutrition_{selected_day}"):
-            # Update day's nutrition data
-            st.session_state.day_specific_nutrition[selected_day] = {
-                "target_calories": target_calories,
-                "protein": custom_protein,
-                "fat": custom_day_fat,
-                "carbs": custom_day_carbs
-            }
-            
-            st.success(f"Saved nutrition targets for {selected_day}!")
-        
-        # Display weekly overview if all days have been set up
-        if len(st.session_state.day_specific_nutrition) == 7:
-            st.subheader("Weekly Nutrition Overview")
-            
+        if weekly_data:
             # Calculate weekly averages
-            weekly_data = []
-            
-            # Calculate averages
-            total_calories = 0
-            total_protein = 0
-            total_fat = 0
-            total_carbs = 0
-            
-            for day in days_of_week:
-                day_nutrition = st.session_state.day_specific_nutrition.get(day, {})
-                if day_nutrition:
-                    weekly_data.append({
-                        "Day": day,
-                        "Calories": day_nutrition.get('target_calories', 0),
-                        "Protein": f"{day_nutrition.get('protein', 0)}g",
-                        "Carbs": f"{day_nutrition.get('carbs', 0)}g",
-                        "Fat": f"{day_nutrition.get('fat', 0)}g"
-                    })
-                    
-                    total_calories += day_nutrition.get('target_calories', 0)
-                    total_protein += day_nutrition.get('protein', 0)
-                    total_fat += day_nutrition.get('fat', 0)
-                    total_carbs += day_nutrition.get('carbs', 0)
-            
-            # Calculate averages
             avg_calories = round(total_calories / 7)
             avg_protein = round(total_protein / 7)
-            avg_fat = round(total_fat / 7)
             avg_carbs = round(total_carbs / 7)
+            avg_fat = round(total_fat / 7)
             
-            # Calculate percentages of total calories
+            # Calculate average percentages
             avg_protein_calories = avg_protein * 4
             avg_fat_calories = avg_fat * 9
             avg_carb_calories = avg_carbs * 4
             avg_total_calories = avg_protein_calories + avg_fat_calories + avg_carb_calories
             
-            avg_protein_pct = round((avg_protein_calories / avg_total_calories) * 100)
-            avg_fat_pct = round((avg_fat_calories / avg_total_calories) * 100)
-            avg_carbs_pct = round((avg_carb_calories / avg_total_calories) * 100)
+            if avg_total_calories > 0:
+                avg_protein_pct = round((avg_protein_calories / avg_total_calories) * 100)
+                avg_fat_pct = round((avg_fat_calories / avg_total_calories) * 100)
+                avg_carbs_pct = round((avg_carb_calories / avg_total_calories) * 100)
+            else:
+                avg_protein_pct = avg_fat_pct = avg_carbs_pct = 0
             
             # Add weekly average row
             weekly_data.append({
