@@ -255,17 +255,38 @@ with st.form("user_info_form"):
     else:  # Maintenance mode
         body_comp_preference = "Maintain current body composition"
     
-    commitment_level = st.radio(
-        "As of today, choose what you believe you can commit to:",
+    # Split commitment into lifestyle and tracking components
+    lifestyle_commitment = st.radio(
+        "As of today, choose what you believe you can commit to regarding your lifestyle:",
         options=[
-            "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently.",
+            "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase.",
             "I can commit to at least a few workouts per week and will try to ensure I prioritize sufficient sleep. I will also try to eat mindfully according to my goals, but I'm not certain I'll be able to do all that's required to maximize my progress during this phase.",
-            "I can't commit to consistently perform 3 or more workouts per week or achieve adequate sleep levels. I'm also not willing to regularly track my nutrition and bodyweight."
+            "I can't commit to consistently perform 3 or more workouts per week or achieve adequate sleep levels."
         ],
-        index=0 if st.session_state.user_info.get('commitment_level') == "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently." else 
-              1 if st.session_state.user_info.get('commitment_level') == "I can commit to at least a few workouts per week and will try to ensure I prioritize sufficient sleep. I will also try to eat mindfully according to my goals, but I'm not certain I'll be able to do all that's required to maximize my progress during this phase." else 
-              2 if st.session_state.user_info.get('commitment_level') == "I can't commit to consistently perform 3 or more workouts per week or achieve adequate sleep levels. I'm also not willing to regularly track my nutrition and bodyweight." else 0
+        index=0 if st.session_state.user_info.get('lifestyle_commitment') == "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase." else 
+              1 if st.session_state.user_info.get('lifestyle_commitment') == "I can commit to at least a few workouts per week and will try to ensure I prioritize sufficient sleep. I will also try to eat mindfully according to my goals, but I'm not certain I'll be able to do all that's required to maximize my progress during this phase." else 
+              2 if st.session_state.user_info.get('lifestyle_commitment') == "I can't commit to consistently perform 3 or more workouts per week or achieve adequate sleep levels." else 0,
+        key="lifestyle_commitment"
     )
+    
+    tracking_commitment = st.radio(
+        "Regarding tracking your progress:",
+        options=[
+            "I am committed to tracking regularly",
+            "I'm not committed to tracking regularly"
+        ],
+        index=0 if st.session_state.user_info.get('tracking_commitment') == "I am committed to tracking regularly" else 
+              1 if st.session_state.user_info.get('tracking_commitment') == "I'm not committed to tracking regularly" else 0,
+        key="tracking_commitment"
+    )
+    
+    # Combine for backend logic compatibility (map to original commitment_level format)
+    if lifestyle_commitment == "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase." and tracking_commitment == "I am committed to tracking regularly":
+        commitment_level = "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently."
+    elif lifestyle_commitment == "I can't commit to consistently perform 3 or more workouts per week or achieve adequate sleep levels." or tracking_commitment == "I'm not committed to tracking regularly":
+        commitment_level = "I can't commit to consistently perform 3 or more workouts per week or achieve adequate sleep levels. I'm also not willing to regularly track my nutrition and bodyweight."
+    else:
+        commitment_level = "I can commit to at least a few workouts per week and will try to ensure I prioritize sufficient sleep. I will also try to eat mindfully according to my goals, but I'm not certain I'll be able to do all that's required to maximize my progress during this phase."
     
     submit_button = st.form_submit_button("Save and Continue")
     
@@ -317,6 +338,8 @@ with st.form("user_info_form"):
             'goal_focus': goal_type,
             'performance_preference': performance_preference,
             'body_comp_preference': body_comp_preference,
+            'lifestyle_commitment': lifestyle_commitment,
+            'tracking_commitment': tracking_commitment,
             'commitment_level': commitment_level,
             'tdee': tdee  # Store the calculated TDEE in user_info
         }
