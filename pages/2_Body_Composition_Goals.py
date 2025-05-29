@@ -435,9 +435,70 @@ with col2:
     resulting_fmi = resulting_fat_kg / (height_m * height_m)
     resulting_ffmi = resulting_ffm_kg / (height_m * height_m)
     
-    # Show resulting indices
-    st.write(f"FMI: **{resulting_fmi:.1f} kg/m²**")
-    st.write(f"FFMI: **{resulting_ffmi:.1f} kg/m²**")
+    # Show resulting indices with category descriptors
+    
+    # Determine FMI category
+    fmi_category = "Unknown"
+    fmi_color = "gray"
+    for category in fmi_categories:
+        if category["lower"] <= resulting_fmi <= category["upper"]:
+            fmi_category = category["name"]
+            # Set colors based on category for visual guidance
+            if "Lean" in fmi_category or "Healthy" in fmi_category:
+                fmi_color = "green"
+            elif "Slightly" in fmi_category:
+                fmi_color = "orange"
+            elif "Overfat" in fmi_category:
+                fmi_color = "red"
+            elif "Extremely" in fmi_category:
+                fmi_color = "violet"
+            break
+    
+    # Determine FFMI category
+    ffmi_category = "Unknown"
+    ffmi_color = "gray"
+    for category in ffmi_categories:
+        if category["lower"] <= resulting_ffmi <= category["upper"]:
+            ffmi_category = category["name"]
+            # Set colors based on category for visual guidance
+            if "Normal" in ffmi_category or "Muscular" in ffmi_category:
+                ffmi_color = "green"
+            elif "Moderately" in ffmi_category:
+                ffmi_color = "orange"
+            elif "Under" in ffmi_category:
+                ffmi_color = "red"
+            elif "Very" in ffmi_category or "Extremely" in ffmi_category:
+                ffmi_color = "blue"
+            break
+    
+    # Display with category indicators and visual guidance
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write(f"**FMI:** {resulting_fmi:.1f} kg/m²")
+        st.markdown(f":{fmi_color}[**{fmi_category}**]")
+        # Add a simple visual guide
+        if fmi_color == "green":
+            st.success("Healthy range")
+        elif fmi_color == "orange":
+            st.warning("Moderate range")
+        elif fmi_color == "red":
+            st.error("High range")
+        elif fmi_color == "violet":
+            st.error("Very high range")
+    
+    with col2:
+        st.write(f"**FFMI:** {resulting_ffmi:.1f} kg/m²")
+        st.markdown(f":{ffmi_color}[**{ffmi_category}**]")
+        # Add a simple visual guide
+        if ffmi_color == "green":
+            st.success("Good muscle mass")
+        elif ffmi_color == "orange":
+            st.warning("Below average")
+        elif ffmi_color == "red":
+            st.error("Low muscle mass")
+        elif ffmi_color == "blue":
+            st.info("High muscle mass")
     
     # Apply button - uses the updated st.rerun() approach for seamless updates
     if st.button("Set Body Composition Targets"):
