@@ -97,12 +97,12 @@ with col1:
     # Weight input based on unit preference
     if imperial_selected:
         weight_lbs = st.number_input("Weight (lbs)", min_value=80.0, max_value=500.0, 
-                                   value=st.session_state.user_info.get('weight_lbs', 165.0), step=0.5)
+                                   value=float(st.session_state.user_info.get('weight_lbs', 165.0)), step=0.5)
         weight_kg = weight_lbs / 2.20462
         st.write(f"Weight: {weight_kg:.1f} kg")
     else:
         weight_kg = st.number_input("Weight (kg)", min_value=35.0, max_value=225.0, 
-                                  value=st.session_state.user_info.get('weight_kg', 75.0), step=0.1)
+                                  value=float(st.session_state.user_info.get('weight_kg', 75.0)), step=0.1)
         weight_lbs = weight_kg * 2.20462
         st.write(f"Weight: {weight_lbs:.1f} lbs")
 
