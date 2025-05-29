@@ -177,7 +177,7 @@ with st.form("diet_preferences_form"):
             "Preferred Number of Meals per Day",
             options=[2, 3, 4, 5, 6],
             index=[2, 3, 4, 5, 6].index(st.session_state.diet_preferences.get('meal_frequency', 3)),
-            help="How many meals do you prefer to eat per day?"
+            help="This includes main meals and small snacks. You'll be able to customize meal timing and sizes further in the meal planning steps."
         )
     
     with meal_col2:
