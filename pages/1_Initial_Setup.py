@@ -239,29 +239,31 @@ with st.form("user_info_form"):
         # Default value for maintenance mode
         performance_preference = "I want to maximally support my performance and recovery from training as this matters more to me than my body composition goal."
     
-    # Show body composition preference conditionally
+    # Show body composition preference conditionally - using containers to force proper rendering
+    body_comp_container = st.container()
+    
     if goal_type == "Lose fat":
-        body_comp_preference = st.radio(
-            "Regarding your body composition, choose one of the following options:",
-            options=[
-                "I don't want to lose any muscle mass while losing body fat.",
-                "I'm ok with losing a little muscle mass while losing body fat."
-            ],
-            index=0 if st.session_state.user_info.get('body_comp_preference') == "I don't want to lose any muscle mass while losing body fat." else
-                  1 if st.session_state.user_info.get('body_comp_preference') == "I'm ok with losing a little muscle mass while losing body fat." else 0,
-            key="body_comp_fat_loss"
-        )
+        with body_comp_container:
+            body_comp_preference = st.radio(
+                "Regarding your body composition, choose one of the following options:",
+                options=[
+                    "I don't want to lose any muscle mass while losing body fat.",
+                    "I'm ok with losing a little muscle mass while losing body fat."
+                ],
+                index=0,
+                key=f"body_comp_fat_loss_{goal_type}"
+            )
     elif goal_type == "Build muscle":
-        body_comp_preference = st.radio(
-            "Regarding your body composition, choose one of the following options:",
-            options=[
-                "I want to maximize muscle growth and am ok with gaining some body fat.",
-                "I don't want to gain any body fat while focusing on building muscle."
-            ],
-            index=0 if st.session_state.user_info.get('body_comp_preference') == "I want to maximize muscle growth and am ok with gaining some body fat." else
-                  1 if st.session_state.user_info.get('body_comp_preference') == "I don't want to gain any body fat while focusing on building muscle." else 0,
-            key="body_comp_muscle_gain"
-        )
+        with body_comp_container:
+            body_comp_preference = st.radio(
+                "Regarding your body composition, choose one of the following options:",
+                options=[
+                    "I want to maximize muscle growth and am ok with gaining some body fat.",
+                    "I don't want to gain any body fat while focusing on building muscle."
+                ],
+                index=0,
+                key=f"body_comp_muscle_gain_{goal_type}"
+            )
     else:  # Maintenance mode doesn't need body comp preferences
         body_comp_preference = "Maintain current body composition"
     
