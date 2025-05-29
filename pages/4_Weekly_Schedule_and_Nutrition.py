@@ -798,9 +798,21 @@ with tab2:
                                     cal_per_min = 9
                                 workout_calories += duration_min * cal_per_min
                     
-                    # Calculate energy availability
+                    # Calculate energy availability - check multiple possible sources for body fat data
+                    body_fat_pct = None
+                    
+                    # Check various possible locations for body fat percentage
                     if 'body_fat_percentage' in st.session_state and st.session_state.body_fat_percentage:
-                        bf_pct = st.session_state.body_fat_percentage / 100
+                        body_fat_pct = st.session_state.body_fat_percentage
+                    elif 'user_info' in st.session_state and st.session_state.user_info.get('body_fat_percentage'):
+                        body_fat_pct = st.session_state.user_info.get('body_fat_percentage')
+                    elif 'current_bf_pct' in st.session_state and st.session_state.current_bf_pct:
+                        body_fat_pct = st.session_state.current_bf_pct
+                    elif hasattr(st.session_state, 'body_fat_pct') and st.session_state.body_fat_pct:
+                        body_fat_pct = st.session_state.body_fat_pct
+                    
+                    if body_fat_pct and body_fat_pct > 0:
+                        bf_pct = body_fat_pct / 100 if body_fat_pct > 1 else body_fat_pct
                         ffm_kg = weight_kg * (1 - bf_pct)
                         energy_availability = (custom_day_calories - workout_calories) / ffm_kg if ffm_kg > 0 else 0
                         
