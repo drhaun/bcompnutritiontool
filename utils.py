@@ -1355,34 +1355,54 @@ def load_data():
     try:
         # Load user info
         if os.path.exists('data/user_info.csv'):
-            user_info_df = pd.read_csv('data/user_info.csv')
-            if not user_info_df.empty:
-                st.session_state.user_info = user_info_df.iloc[0].to_dict()
+            try:
+                user_info_df = pd.read_csv('data/user_info.csv')
+                if not user_info_df.empty:
+                    st.session_state.user_info = user_info_df.iloc[0].to_dict()
+            except pd.errors.EmptyDataError:
+                pass  # File exists but is empty
         
         # Load goal info
         if os.path.exists('data/goal_info.csv'):
-            goal_info_df = pd.read_csv('data/goal_info.csv')
-            if not goal_info_df.empty:
-                st.session_state.goal_info = goal_info_df.iloc[0].to_dict()
+            try:
+                goal_info_df = pd.read_csv('data/goal_info.csv')
+                if not goal_info_df.empty:
+                    st.session_state.goal_info = goal_info_df.iloc[0].to_dict()
+            except pd.errors.EmptyDataError:
+                pass  # File exists but is empty
         
         # Load nutrition plan
         if os.path.exists('data/nutrition_plan.csv'):
-            nutrition_plan_df = pd.read_csv('data/nutrition_plan.csv')
-            if not nutrition_plan_df.empty:
-                st.session_state.nutrition_plan = nutrition_plan_df.iloc[0].to_dict()
+            try:
+                nutrition_plan_df = pd.read_csv('data/nutrition_plan.csv')
+                if not nutrition_plan_df.empty:
+                    st.session_state.nutrition_plan = nutrition_plan_df.iloc[0].to_dict()
+            except pd.errors.EmptyDataError:
+                pass  # File exists but is empty
         
         # Load weekly adjustments
         if os.path.exists('data/weekly_adjustments.csv'):
-            adjustments_df = pd.read_csv('data/weekly_adjustments.csv')
-            st.session_state.nutrition_plan['weekly_adjustments'] = adjustments_df.to_dict('records')
+            try:
+                adjustments_df = pd.read_csv('data/weekly_adjustments.csv')
+                if not adjustments_df.empty:
+                    if 'nutrition_plan' not in st.session_state:
+                        st.session_state.nutrition_plan = {}
+                    st.session_state.nutrition_plan['weekly_adjustments'] = adjustments_df.to_dict('records')
+            except pd.errors.EmptyDataError:
+                pass  # File exists but is empty
         
         # Load daily records
         if os.path.exists('data/daily_records.csv'):
-            st.session_state.daily_records = pd.read_csv('data/daily_records.csv')
+            try:
+                st.session_state.daily_records = pd.read_csv('data/daily_records.csv')
+            except pd.errors.EmptyDataError:
+                st.session_state.daily_records = pd.DataFrame()  # Initialize as empty DataFrame
+        else:
+            st.session_state.daily_records = pd.DataFrame()  # Initialize as empty DataFrame
         
         # Initialize progress photos tracking
         if not os.path.exists('data/progress_photos.csv'):
             get_progress_photos_df()
     
     except Exception as e:
-        st.error(f"Error loading data: {e}")
+        print(f"Error loading data: {e}")  # Use print instead of st.error to avoid UI issues
