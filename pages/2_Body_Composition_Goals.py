@@ -75,7 +75,14 @@ if "user_info" in st.session_state:
     height_cm = st.session_state.user_info.get('height_cm', 175)
     weight_kg = st.session_state.user_info.get('weight_kg', 75)
     body_fat_pct = st.session_state.user_info.get('body_fat_percentage', 15)
-    goal_type = st.session_state.user_info.get('goal_focus', "Lose fat")
+    # Allow user to change goal type on this page
+    goal_type = st.selectbox(
+        "Select your body composition goal:",
+        options=["Lose fat", "Build muscle", "Maintain body composition/Support performance"],
+        index=0 if st.session_state.user_info.get('goal_focus') == "Lose fat" else 
+              1 if st.session_state.user_info.get('goal_focus') == "Build muscle" else
+              2 if st.session_state.user_info.get('goal_focus') == "Maintain body composition/Support performance" else 0
+    )
     activity_level = st.session_state.user_info.get('activity_level', "Moderately active")
     tdee = st.session_state.user_info.get('tdee', 2500)
     
