@@ -779,6 +779,45 @@ with tab2:
                     step=10,
                     key=f"cal_input_{selected_day}"
                 )
+                
+                # Energy availability calculation and display
+                try:
+                    # Get workout data for energy expenditure estimation
+                    workout_calories = 0
+                    if selected_day in st.session_state.weekly_schedule:
+                        day_workouts = st.session_state.weekly_schedule[selected_day].get('workouts', [])
+                        for workout in day_workouts:
+                            if 'duration' in workout and 'intensity' in workout:
+                                duration_min = workout.get('duration', 0)
+                                intensity = workout.get('intensity', 'Moderate')
+                                if intensity == 'Light':
+                                    cal_per_min = 6
+                                elif intensity == 'Vigorous':
+                                    cal_per_min = 12
+                                else:  # Moderate
+                                    cal_per_min = 9
+                                workout_calories += duration_min * cal_per_min
+                    
+                    # Calculate energy availability
+                    if 'body_fat_percentage' in st.session_state and st.session_state.body_fat_percentage:
+                        bf_pct = st.session_state.body_fat_percentage / 100
+                        ffm_kg = weight_kg * (1 - bf_pct)
+                        energy_availability = (custom_day_calories - workout_calories) / ffm_kg if ffm_kg > 0 else 0
+                        
+                        # Energy availability color coding
+                        if energy_availability < 30:
+                            ea_color = "🔴"  # Low EA
+                        elif energy_availability < 35:
+                            ea_color = "🟡"  # Moderate EA
+                        else:
+                            ea_color = "🟢"  # Adequate EA
+                        
+                        st.markdown(f"{ea_color} EA: {energy_availability:.0f} kcal/kg FFM")
+                    else:
+                        st.markdown("🔵 Set body fat % for EA calc")
+                        
+                except Exception:
+                    pass  # Skip energy availability if calculation fails
             
             # Calculate default macro values
             if user_goal_type == "lose_fat":
@@ -811,6 +850,24 @@ with tab2:
                     step=5,
                     key=f"protein_input_{selected_day}"
                 )
+                
+                # Calculate and display protein ratios with color coding
+                protein_per_kg = round(custom_day_protein / weight_kg, 2)
+                protein_per_lb = round(custom_day_protein / weight_lb, 2)
+                if custom_day_calories > 0:
+                    protein_pct = round((custom_day_protein * 4 / custom_day_calories) * 100)
+                else:
+                    protein_pct = 0
+                
+                # Color coding for protein adequacy
+                if protein_per_kg < 1.2:
+                    protein_color = "🔴"  # Low
+                elif protein_per_kg < 1.6:
+                    protein_color = "🟡"  # Moderate
+                else:
+                    protein_color = "🟢"  # Adequate
+                
+                st.markdown(f"{protein_color} {protein_per_kg}g/kg ({protein_per_lb}g/lb) | {protein_pct}%")
             
             with macro_cols[2]:
                 custom_day_carbs = st.number_input(
@@ -821,6 +878,24 @@ with tab2:
                     step=5,
                     key=f"carbs_input_{selected_day}"
                 )
+                
+                # Calculate and display carb ratios with color coding
+                carb_per_kg = round(custom_day_carbs / weight_kg, 2)
+                carb_per_lb = round(custom_day_carbs / weight_lb, 2)
+                if custom_day_calories > 0:
+                    carbs_pct = round((custom_day_carbs * 4 / custom_day_calories) * 100)
+                else:
+                    carbs_pct = 0
+                
+                # Color coding for carb adequacy (context-dependent)
+                if carb_per_kg < 2.0:
+                    carb_color = "🟡"  # Low-moderate (fine for some goals)
+                elif carb_per_kg < 5.0:
+                    carb_color = "🟢"  # Moderate-adequate
+                else:
+                    carb_color = "🟡"  # High (may be appropriate for athletes)
+                
+                st.markdown(f"{carb_color} {carb_per_kg}g/kg ({carb_per_lb}g/lb) | {carbs_pct}%")
             
             with macro_cols[3]:
                 custom_day_fat = st.number_input(
@@ -831,91 +906,30 @@ with tab2:
                     step=1,
                     key=f"fat_input_{selected_day}"
                 )
+                
+                # Calculate and display fat ratios with color coding
+                fat_per_kg = round(custom_day_fat / weight_kg, 2)
+                fat_per_lb = round(custom_day_fat / weight_lb, 2)
+                if custom_day_calories > 0:
+                    fat_pct = round((custom_day_fat * 9 / custom_day_calories) * 100)
+                else:
+                    fat_pct = 0
+                
+                # Color coding for fat adequacy
+                if fat_per_kg < 0.6 or fat_pct < 15:
+                    fat_color = "🔴"  # Too low
+                elif fat_per_kg < 0.8 or fat_pct < 20:
+                    fat_color = "🟡"  # Low-moderate
+                else:
+                    fat_color = "🟢"  # Adequate
+                
+                st.markdown(f"{fat_color} {fat_per_kg}g/kg ({fat_per_lb}g/lb) | {fat_pct}%")
             
-            # Comprehensive macro analysis and display
+            # Simplified macro summary
             total_macro_calories = (custom_day_protein * 4) + (custom_day_carbs * 4) + (custom_day_fat * 9)
             calorie_difference = total_macro_calories - custom_day_calories
             
-            # Calculate ratios and percentages
-            protein_per_kg = round(custom_day_protein / weight_kg, 2)
-            protein_per_lb = round(custom_day_protein / weight_lb, 2)
-            fat_per_kg = round(custom_day_fat / weight_kg, 2)
-            fat_per_lb = round(custom_day_fat / weight_lb, 2)
-            carb_per_kg = round(custom_day_carbs / weight_kg, 2)
-            carb_per_lb = round(custom_day_carbs / weight_lb, 2)
-            
-            # Calculate percentages of total calories
-            if total_macro_calories > 0:
-                protein_pct = round((custom_day_protein * 4 / total_macro_calories) * 100)
-                carbs_pct = round((custom_day_carbs * 4 / total_macro_calories) * 100)
-                fat_pct = round((custom_day_fat * 9 / total_macro_calories) * 100)
-            else:
-                protein_pct = carbs_pct = fat_pct = 0
-            
-            # Calculate fat-free mass ratios if available
-            if 'body_fat_percentage' in st.session_state and st.session_state.body_fat_percentage:
-                bf_pct = st.session_state.body_fat_percentage / 100
-                ffm_kg = weight_kg * (1 - bf_pct)
-                ffm_lb = weight_lb * (1 - bf_pct)
-                protein_per_ffm_kg = round(custom_day_protein / ffm_kg, 2) if ffm_kg > 0 else 0
-                protein_per_ffm_lb = round(custom_day_protein / ffm_lb, 2) if ffm_lb > 0 else 0
-                ffm_display = f" | {protein_per_ffm_kg}g/kg FFM ({protein_per_ffm_lb}g/lb FFM)"
-            else:
-                ffm_display = ""
-            
-            # Display comprehensive macro summary
             st.markdown(f"**Total:** {total_macro_calories} calories (P: {custom_day_protein}g, C: {custom_day_carbs}g, F: {custom_day_fat}g)")
-            
-            # Detailed ratio display
-            st.markdown(f"""
-            **Macro Ratios:**
-            • **Protein:** {protein_pct}% | {protein_per_kg}g/kg ({protein_per_lb}g/lb){ffm_display}
-            • **Carbs:** {carbs_pct}% | {carb_per_kg}g/kg ({carb_per_lb}g/lb)
-            • **Fat:** {fat_pct}% | {fat_per_kg}g/kg ({fat_per_lb}g/lb)
-            """)
-            
-            # Energy availability calculation
-            try:
-                # Get workout data for energy expenditure estimation
-                workout_calories = 0
-                if selected_day in st.session_state.weekly_schedule:
-                    day_workouts = st.session_state.weekly_schedule[selected_day].get('workouts', [])
-                    for workout in day_workouts:
-                        if 'duration' in workout and 'intensity' in workout:
-                            # Rough estimation: moderate intensity = 8-12 cal/min
-                            duration_min = workout.get('duration', 0)
-                            intensity = workout.get('intensity', 'Moderate')
-                            if intensity == 'Light':
-                                cal_per_min = 6
-                            elif intensity == 'Vigorous':
-                                cal_per_min = 12
-                            else:  # Moderate
-                                cal_per_min = 9
-                            workout_calories += duration_min * cal_per_min
-                
-                # Calculate energy availability (EA = Energy Intake - Exercise Energy Expenditure / Fat-Free Mass)
-                if 'body_fat_percentage' in st.session_state and st.session_state.body_fat_percentage:
-                    bf_pct = st.session_state.body_fat_percentage / 100
-                    ffm_kg = weight_kg * (1 - bf_pct)
-                    energy_availability = (total_macro_calories - workout_calories) / ffm_kg if ffm_kg > 0 else 0
-                    
-                    # Energy availability guidance
-                    if energy_availability < 30:
-                        ea_status = "⚠️ Low EA - Risk of metabolic and hormonal issues"
-                        ea_color = "🔴"
-                    elif energy_availability < 35:
-                        ea_status = "🟡 Moderate EA - Monitor for fatigue and performance"
-                        ea_color = "🟡"
-                    else:
-                        ea_status = "✅ Adequate EA - Supporting metabolic health"
-                        ea_color = "🟢"
-                    
-                    st.markdown(f"**Energy Availability:** {energy_availability:.0f} kcal/kg FFM | {ea_status}")
-                else:
-                    st.info("Set body fat percentage in Body Composition Goals for energy availability calculation")
-                    
-            except Exception:
-                pass  # Skip energy availability if calculation fails
             
             # Calorie difference warning
             if abs(calorie_difference) > 50:
