@@ -718,8 +718,8 @@ with col1:
             # For maintenance, offer body recomposition options
             rate_options = {
                 "Pure maintenance (0% per week)": 0.0,
-                "Slight deficit (0.1% per week)": 0.001,
-                "Slight surplus (0.1% per week)": -0.001
+                "Slight deficit (0.1% per week)": -0.001,
+                "Slight surplus (0.1% per week)": 0.001
             }
             
             selected_rate = st.radio(
@@ -730,6 +730,27 @@ with col1:
             )
             
             weekly_weight_pct = rate_options[selected_rate]
+            
+            # Add a button to confirm this rate selection for maintenance
+            if st.button("Set Target Change Rate", key="set_maintenance_rate"):
+                # Save the selected weekly rate to session state
+                st.session_state.selected_weekly_weight_pct = weekly_weight_pct
+                st.session_state.selected_weekly_fat_pct = 0.5  # 50/50 for maintenance
+                st.session_state.rate_set = True
+                
+                # Save to goal_info for persistence
+                if "goal_info" not in st.session_state:
+                    st.session_state.goal_info = {}
+                
+                st.session_state.goal_info["weekly_weight_pct"] = weekly_weight_pct
+                st.session_state.goal_info["weekly_fat_pct"] = 0.5
+                
+                # Save data to ensure it persists
+                utils.save_data()
+                
+                # Success message
+                st.success("Target change rate has been set! The projected weekly progress table will now be generated.")
+                st.rerun()
         
         # Display the weekly change in absolute terms
         weekly_weight_change_lbs = weekly_weight_pct * current_weight_lbs
@@ -764,7 +785,7 @@ with col2:
     # Only show timeline settings if targets are set
     if st.session_state.targets_set:
         # Handle different goal types for timeline calculation
-        if goal_type == "Maintain":
+        if goal_type == "Maintain body composition/Support performance":
             # For maintenance, suggest a standard timeline
             timeline_weeks = 12
             st.write("#### Timeline for Maintenance")
