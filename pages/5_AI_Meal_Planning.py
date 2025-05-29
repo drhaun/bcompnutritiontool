@@ -53,7 +53,9 @@ if 'meal_plan' not in st.session_state:
         'breakfast': [],
         'lunch': [],
         'dinner': [],
-        'snacks': []
+        'snack_1': [],
+        'snack_2': [],
+        'snack_3': []
     }
     
 # Initialize user preferences if not present, but pre-populate from diet preferences page
@@ -447,14 +449,54 @@ if st.session_state.search_results:
             
             st.markdown("---")
 
-# Display meal plan
+# Meal frequency selection with pre-populated value
+st.header("Meal Planning")
+
+# Add meal frequency selector
+meal_freq_col1, meal_freq_col2 = st.columns([2, 3])
+with meal_freq_col1:
+    meal_frequency = st.selectbox(
+        "Number of meals per day:",
+        options=[3, 4, 5, 6],
+        index=[3, 4, 5, 6].index(default_meal_frequency) if default_meal_frequency in [3, 4, 5, 6] else 0,
+        help="This value is pre-populated from your diet preferences"
+    )
+    
+with meal_freq_col2:
+    if default_meal_frequency != meal_frequency:
+        st.info(f"📝 Updated from diet preferences (was {default_meal_frequency} meals/day)")
+    else:
+        st.success(f"✓ Using your preferred {meal_frequency} meals per day")
+
+# Display current targets being used
+st.subheader("Current Nutrition Targets")
+target_display_cols = st.columns(4)
+with target_display_cols[0]:
+    st.metric("Calories", f"{st.session_state.get('target_calories', 2000)} kcal")
+with target_display_cols[1]:
+    st.metric("Protein", f"{st.session_state.get('custom_protein', 150)}g")
+with target_display_cols[2]:
+    st.metric("Carbs", f"{st.session_state.get('custom_carbs', 200)}g")
+with target_display_cols[3]:
+    st.metric("Fat", f"{st.session_state.get('custom_fat', 70)}g")
+
 st.header("Your Meal Plan")
 
-# Use tabs for different meals
-tab1, tab6, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Recipe Browser", "Breakfast", "Lunch", "Dinner", "Snacks"])
+# Determine meal types based on frequency
+meal_types = ["Breakfast", "Lunch", "Dinner"]
+if meal_frequency >= 4:
+    meal_types.append("Snack 1")
+if meal_frequency >= 5:
+    meal_types.append("Snack 2")
+if meal_frequency >= 6:
+    meal_types.append("Snack 3")
+
+# Use tabs for different meals - dynamically create based on frequency
+tab_names = ["Overview", "Recipe Browser"] + meal_types
+tabs = st.tabs(tab_names)
 
 # Recipe Browser tab
-with tab6:
+with tabs[1]:
     # Create recipe browser interface
     st.header("Recipe Browser")
     
@@ -554,7 +596,7 @@ with tab6:
         st.info("No matching recipes found. Try a different search or category.")
 
 # Overview tab - display daily nutrition totals and progress toward goals
-with tab1:
+with tabs[0]:
     daily_nutrition = calculate_daily_nutrition()
     
     st.subheader("Daily Nutrition Totals")
@@ -675,18 +717,10 @@ def render_meal_tab(meal_type):
             
             st.markdown("---")
 
-# Render each meal tab
-with tab2:
-    render_meal_tab("breakfast")
-
-with tab3:
-    render_meal_tab("lunch")
-
-with tab4:
-    render_meal_tab("dinner")
-
-with tab5:
-    render_meal_tab("snacks")
+# Render each meal tab dynamically based on meal frequency
+for i, meal_type in enumerate(meal_types):
+    with tabs[i + 2]:  # +2 because Overview and Recipe Browser are first two tabs
+        render_meal_tab(meal_type.lower().replace(" ", "_"))
 
 # Recipe Generator
 st.header("Recipe Generator")
