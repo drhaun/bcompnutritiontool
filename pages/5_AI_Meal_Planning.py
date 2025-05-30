@@ -96,6 +96,21 @@ default_meal_frequency = 3
 if 'diet_preferences' in st.session_state and st.session_state.diet_preferences:
     if 'meal_frequency' in st.session_state.diet_preferences:
         default_meal_frequency = st.session_state.diet_preferences['meal_frequency']
+
+# Also check if the preferences were updated recently by checking if they exist in session state
+preferences_file = 'data/diet_preferences.json'
+if os.path.exists(preferences_file):
+    try:
+        with open(preferences_file, 'r') as f:
+            saved_prefs = json.load(f)
+            if 'meal_frequency' in saved_prefs:
+                default_meal_frequency = saved_prefs['meal_frequency']
+                # Update session state to reflect saved preferences
+                if 'diet_preferences' not in st.session_state:
+                    st.session_state.diet_preferences = {}
+                st.session_state.diet_preferences['meal_frequency'] = saved_prefs['meal_frequency']
+    except:
+        pass  # If file can't be read, use default
     
 # Import recipes from our recipe database
 def import_recipes_to_ai_planner():
