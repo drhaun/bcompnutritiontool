@@ -87,12 +87,14 @@ with col1:
         height_inches = st.number_input("Height (inches)", min_value=0, max_value=11, 
                                       value=st.session_state.user_info.get('height_in', 8), step=1)
         height_cm = (height_feet * 12 + height_inches) * 2.54
-        st.write(f"Height: {height_cm:.1f} cm")
+        st.write(f"Height: {height_feet}'{height_inches}\" ({height_cm:.1f} cm)")
     else:
         height_cm = st.number_input("Height (cm)", min_value=120.0, max_value=250.0, 
                                    value=st.session_state.user_info.get('height_cm', 175.0), step=0.5)
         height_inches = height_cm / 2.54
-        st.write(f"Height: {height_inches:.1f} inches")
+        height_feet = int(height_inches // 12)
+        height_in_remainder = int(height_inches % 12)
+        st.write(f"Height: {height_feet}'{height_in_remainder}\" ({height_cm:.1f} cm)")
     
     # Weight input based on unit preference
     if imperial_selected:
