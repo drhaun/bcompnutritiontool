@@ -848,26 +848,10 @@ with tab2:
             remaining_calories = custom_day_calories - protein_calories - fat_calories
             default_carbs = max(0, round(remaining_calories / 4))
             
-            # Use goal values as defaults, but allow override if user has specifically set values
+            # Always use calculated goal values to ensure consistency with displayed targets
             current_protein = default_protein
             current_fat = default_fat
             current_carbs = default_carbs
-            
-            # Only use stored values if they exist and are reasonable (within 20% of calculated goals)
-            if day_macros.get('protein', 0) > 0:
-                stored_protein = day_macros.get('protein')
-                if abs(stored_protein - default_protein) / default_protein <= 0.2:
-                    current_protein = stored_protein
-                    
-            if day_macros.get('fat', 0) > 0:
-                stored_fat = day_macros.get('fat')
-                if abs(stored_fat - default_fat) / default_fat <= 0.2:
-                    current_fat = stored_fat
-                    
-            if day_macros.get('carbs', 0) > 0:
-                stored_carbs = day_macros.get('carbs')
-                if abs(stored_carbs - default_carbs) / max(default_carbs, 1) <= 0.2:
-                    current_carbs = stored_carbs
             
             with macro_cols[1]:
                 custom_day_protein = st.number_input(
