@@ -207,6 +207,16 @@ for category in fmi_categories:
     if category["lower"] <= current_fmi <= category["upper"]:
         current_fmi_category = category["name"]
         break
+
+# Debug: If still unknown, show the actual FMI value and category ranges
+if current_fmi_category == "Unknown":
+    st.write(f"Debug: FMI value is {current_fmi:.2f}")
+    for i, category in enumerate(fmi_categories):
+        st.write(f"Category {i+1}: {category['name']} - Range: {category['lower']} to {category['upper']}")
+        if category["lower"] <= current_fmi <= category["upper"]:
+            current_fmi_category = category["name"]
+            st.write(f"✓ Found match: {current_fmi_category}")
+            break
         
 current_ffmi_category = "Unknown"
 for category in ffmi_categories:
