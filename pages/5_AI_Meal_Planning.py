@@ -18,20 +18,20 @@ st.title("🤖 AI Meal Planner")
 st.markdown("*Intelligent meal planning with real nutritional data from USDA database*")
 
 # Check for required data
-if 'user_data' not in st.session_state:
+if 'user_info' not in st.session_state or not st.session_state.user_info.get('gender'):
     st.warning("Please complete your setup in Initial Setup first.")
     st.stop()
 
-if 'nutrition_plan' not in st.session_state:
+if 'nutrition_plan' not in st.session_state or not st.session_state.nutrition_plan.get('target_calories'):
     st.warning("Please complete your nutrition goals in Weekly Schedule and Nutrition first.")
     st.stop()
 
-if 'diet_prefs' not in st.session_state:
+if 'diet_preferences' not in st.session_state:
     st.warning("Please complete your diet preferences first.")
     st.stop()
 
 # Get user preferences and targets
-diet_prefs = st.session_state.diet_prefs
+diet_prefs = st.session_state.diet_preferences
 nutrition_plan = st.session_state.nutrition_plan
 target_calories = nutrition_plan.get('target_calories', 2000)
 target_protein = nutrition_plan.get('target_protein', 150)
