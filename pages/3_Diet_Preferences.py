@@ -275,29 +275,20 @@ with st.form("diet_preferences_form"):
     meal_delivery_pref = "Yes" if wants_meal_delivery == "Yes, for convenience" else \
                         "Sometimes" if wants_meal_delivery == "Sometimes, when busy" else "No"
     
-    # Meal delivery percentage - always show but conditionally enable
-    if wants_meal_delivery == "Yes, for convenience":
-        default_value = st.session_state.diet_preferences.get('meal_delivery_percentage', 50)
+    # Meal delivery percentage - show for Yes and Sometimes options
+    meal_delivery_percentage = 0
+    if wants_meal_delivery in ["Yes, for convenience", "Sometimes, when busy"]:
+        default_value = st.session_state.diet_preferences.get('meal_delivery_percentage', 
+                       50 if wants_meal_delivery == "Yes, for convenience" else 20)
         meal_delivery_percentage = st.slider(
             "What percentage of meals would you want delivered?",
             min_value=0,
             max_value=100,
             value=default_value,
             step=5,
-            help="This includes restaurants and meal kit deliveries"
+            help="This includes restaurants and meal kit deliveries",
+            key="meal_delivery_slider"
         )
-    elif wants_meal_delivery == "Sometimes, when busy":
-        default_value = st.session_state.diet_preferences.get('meal_delivery_percentage', 20)
-        meal_delivery_percentage = st.slider(
-            "What percentage of meals would you want delivered?",
-            min_value=0,
-            max_value=100,
-            value=default_value,
-            step=5,
-            help="This includes restaurants and meal kit deliveries"
-        )
-    else:
-        meal_delivery_percentage = 0
     
     # Location and travel preferences
     st.markdown("**Travel & Location Preferences**")
