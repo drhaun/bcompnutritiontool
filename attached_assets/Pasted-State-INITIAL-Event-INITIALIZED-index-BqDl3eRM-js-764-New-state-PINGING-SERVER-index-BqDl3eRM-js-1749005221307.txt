@@ -1,0 +1,78 @@
+State: INITIAL; Event: INITIALIZED
+index.BqDl3eRM.js:764 New state: PINGING_SERVER
+index.BqDl3eRM.js:764 Attempting to connect to https://2b1b3e78-07f4-4231-99f3-b0008d577b1d.janeway.prod.repl.run:/AI_Meal_Planning/_stcore/health.
+index.BqDl3eRM.js:779 Connection state changed from INITIAL to PINGING_SERVER
+index.BqDl3eRM.js:759 
+            
+            
+           GET https://2b1b3e78-07f4-4231-99f3-b0008d577b1d.janeway.prod.repl.run/AI_Meal_Planning/_stcore/host-config 404 (Not Found)
+(anonymous) @ index.BqDl3eRM.js:759
+xhr @ index.BqDl3eRM.js:759
+dispatchRequest @ index.BqDl3eRM.js:761
+_request @ index.BqDl3eRM.js:762
+request @ index.BqDl3eRM.js:761
+Axios$1.<computed> @ index.BqDl3eRM.js:762
+(anonymous) @ index.BqDl3eRM.js:757
+Te @ index.BqDl3eRM.js:764
+doInitPings @ index.BqDl3eRM.js:764
+pingServer @ index.BqDl3eRM.js:766
+setFsmState @ index.BqDl3eRM.js:764
+stepFsm @ index.BqDl3eRM.js:764
+WebsocketConnection @ index.BqDl3eRM.js:764
+connectToRunningServer @ index.BqDl3eRM.js:766
+connect @ index.BqDl3eRM.js:766
+ConnectionManager @ index.BqDl3eRM.js:766
+initializeConnectionManager @ index.BqDl3eRM.js:779
+componentDidMount @ index.BqDl3eRM.js:779
+Tu @ index.BqDl3eRM.js:48
+wu @ index.BqDl3eRM.js:48
+Ap @ index.BqDl3eRM.js:48
+wp @ index.BqDl3eRM.js:48
+Ma @ index.BqDl3eRM.js:48
+Cu @ index.BqDl3eRM.js:48
+Ge @ index.BqDl3eRM.js:33
+at @ index.BqDl3eRM.js:33Understand this error
+index.BqDl3eRM.js:759 
+            
+            
+           GET https://2b1b3e78-07f4-4231-99f3-b0008d577b1d.janeway.prod.repl.run/AI_Meal_Planning/_stcore/health 404 (Not Found)
+(anonymous) @ index.BqDl3eRM.js:759
+xhr @ index.BqDl3eRM.js:759
+dispatchRequest @ index.BqDl3eRM.js:761
+_request @ index.BqDl3eRM.js:762
+request @ index.BqDl3eRM.js:761
+Axios$1.<computed> @ index.BqDl3eRM.js:762
+(anonymous) @ index.BqDl3eRM.js:757
+Te @ index.BqDl3eRM.js:764
+doInitPings @ index.BqDl3eRM.js:764
+pingServer @ index.BqDl3eRM.js:766
+setFsmState @ index.BqDl3eRM.js:764
+stepFsm @ index.BqDl3eRM.js:764
+WebsocketConnection @ index.BqDl3eRM.js:764
+connectToRunningServer @ index.BqDl3eRM.js:766
+connect @ index.BqDl3eRM.js:766
+ConnectionManager @ index.BqDl3eRM.js:766
+initializeConnectionManager @ index.BqDl3eRM.js:779
+componentDidMount @ index.BqDl3eRM.js:779
+Tu @ index.BqDl3eRM.js:48
+wu @ index.BqDl3eRM.js:48
+Ap @ index.BqDl3eRM.js:48
+wp @ index.BqDl3eRM.js:48
+Ma @ index.BqDl3eRM.js:48
+Cu @ index.BqDl3eRM.js:48
+Ge @ index.BqDl3eRM.js:33
+at @ index.BqDl3eRM.js:33Understand this error
+index.BqDl3eRM.js:764 Attempting to connect to https://2b1b3e78-07f4-4231-99f3-b0008d577b1d.janeway.prod.repl.run:/_stcore/health.
+index.BqDl3eRM.js:764 State: PINGING_SERVER; Event: SERVER_PING_SUCCEEDED
+index.BqDl3eRM.js:764 New state: CONNECTING
+index.BqDl3eRM.js:779 Connection state changed from PINGING_SERVER to CONNECTING
+index.BqDl3eRM.js:766 creating WebSocket
+index.BqDl3eRM.js:766 Set WS timeout 20
+index.BqDl3eRM.js:766 WebSocket onopen
+index.BqDl3eRM.js:764 State: CONNECTING; Event: CONNECTION_SUCCEEDED
+index.BqDl3eRM.js:764 New state: CONNECTED
+index.BqDl3eRM.js:779 Connection state changed from CONNECTING to CONNECTED
+index.BqDl3eRM.js:779 Reconnected to server.
+index.BqDl3eRM.js:779 Requesting a script run.
+index.BqDl3eRM.js:779 ye {rerunScript: {…}}
+index.BqDl3eRM.js:779 Gather usage stats:  true
