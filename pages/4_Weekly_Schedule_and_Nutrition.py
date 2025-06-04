@@ -1076,6 +1076,44 @@ with tab2:
                 "carbs": custom_day_carbs,
                 "fat": custom_day_fat
             }
+
+# Confirm nutrition targets section
+st.markdown("---")
+st.markdown("### Confirm Nutrition Targets")
+
+if st.session_state.day_specific_nutrition:
+    st.info("Your nutrition targets have been set up. Click the button below to confirm and sync with the AI Meal Planner.")
+    
+    if st.button("✅ Confirm Nutrition Targets for AI Meal Planner", type="primary", use_container_width=True):
+        # Set a flag to indicate nutrition targets are confirmed
+        st.session_state.nutrition_targets_confirmed = True
+        st.session_state.nutrition_targets_last_updated = datetime.datetime.now().isoformat()
+        
+        # Clear any existing meal plans to force regeneration with new targets
+        if 'meal_plans' in st.session_state:
+            st.session_state.meal_plans = {}
+        
+        st.success("Nutrition targets confirmed! You can now proceed to the AI Meal Planner to create your personalized meal plan.")
+        
+        # Show summary of confirmed targets
+        with st.expander("View Confirmed Targets Summary", expanded=True):
+            summary_data = []
+            for day in days_of_week:
+                day_data = st.session_state.day_specific_nutrition.get(day, {})
+                if day_data:
+                    summary_data.append({
+                        "Day": day,
+                        "Calories": day_data.get('target_calories', 0),
+                        "Protein (g)": day_data.get('protein', 0),
+                        "Carbs (g)": day_data.get('carbs', 0),
+                        "Fat (g)": day_data.get('fat', 0)
+                    })
+            
+            if summary_data:
+                summary_df = pd.DataFrame(summary_data)
+                st.table(summary_df)
+else:
+    st.warning("Please set up nutrition targets for at least one day before confirming.")
     
     # Weekly summary table
     if st.session_state.day_specific_nutrition:

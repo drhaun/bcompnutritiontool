@@ -133,8 +133,8 @@ if 'day_specific_nutrition' not in st.session_state or not st.session_state.day_
     st.warning("Please set up your day-specific nutrition targets in Weekly Schedule and Nutrition first.")
     
     # Add button to sync nutrition targets
-    if st.button("🔗 Go to Nutrition Targets", type="primary"):
-        st.switch_page("pages/4_Weekly_Schedule_and_Nutrition.py")
+    if st.button("Sync Nutrition Targets", type="primary"):
+        st.info("Please go to Weekly Schedule and Nutrition to set up your daily nutrition targets first.")
     st.stop()
 
 # Load recipes
@@ -408,3 +408,131 @@ if any(st.session_state.meal_plans.get(day, {}).get(meal, {}).get('recipes', [])
     with col2:
         if st.button("📄 Export PDF Meal Plan", type="primary"):
             st.info("PDF export with branded meal plan coming soon!")
+
+
+
+# Display meal plan
+if date_key in st.session_state.ai_meal_plans and st.session_state.ai_meal_plans[date_key]:
+    st.subheader(f"🍽️ Your Fitomics Meal Plan for {selected_date.strftime('%B %d, %Y')}")
+    
+    total_calories = 0
+    total_protein = 0
+    total_carbs = 0
+    total_fat = 0
+    grocery_list = []
+    
+    for meal_name, meal_data in st.session_state.ai_meal_plans[date_key].items():
+        recipe = meal_data.get('recipe')
+        portion_multiplier = meal_data.get('portion_multiplier', 1.0)
+        target_cal = meal_data.get('target_calories', 0)
+        
+        with st.expander(f"🍴 {meal_name} - Target: {target_cal} calories", expanded=True):
+            if recipe and recipe.get('nutrition'):
+                st.markdown(f"**{recipe['title']}**")
+                st.markdown(f"*Portion: {portion_multiplier:.1f}x serving*")
+                
+                # Calculate actual nutrition
+                nutrition = recipe['nutrition']
+                actual_calories = int(nutrition['calories'] * portion_multiplier)
+                actual_protein = int(nutrition['protein'] * portion_multiplier)
+                actual_carbs = int(nutrition['carbs'] * portion_multiplier)
+                actual_fat = int(nutrition['fat'] * portion_multiplier)
+                
+                # Display nutrition
+                nutrition_cols = st.columns(4)
+                with nutrition_cols[0]:
+                    st.metric("Calories", f"{actual_calories}")
+                with nutrition_cols[1]:
+                    st.metric("Protein", f"{actual_protein}g")
+                with nutrition_cols[2]:
+                    st.metric("Carbs", f"{actual_carbs}g")
+                with nutrition_cols[3]:
+                    st.metric("Fat", f"{actual_fat}g")
+                
+                # Add to totals
+                total_calories += actual_calories
+                total_protein += actual_protein
+                total_carbs += actual_carbs
+                total_fat += actual_fat
+                
+                # Show ingredients for grocery list
+                if recipe.get('ingredients'):
+                    st.markdown("**Ingredients needed:**")
+                    for ingredient in recipe['ingredients'][:5]:  # Show first 5
+                        st.markdown(f"• {ingredient}")
+                        grocery_list.append(f"{ingredient} (for {recipe['title']})")
+                    
+                    if len(recipe['ingredients']) > 5:
+                        st.markdown(f"*... and {len(recipe['ingredients']) - 5} more ingredients*")
+                
+                # Show recipe details
+                if recipe.get('directions'):
+                    with st.expander(f"📖 {recipe['title']} Recipe"):
+                        st.markdown("**Directions:**")
+                        for i, direction in enumerate(recipe['directions'], 1):
+                            st.markdown(f"{i}. {direction}")
+                        
+                        st.markdown(f"**Servings:** {recipe.get('servings', 1)}")
+            else:
+                st.warning("No recipe selected for this meal. Please adjust your selections and regenerate.")
+    
+    # Daily summary
+    st.markdown("---")
+    st.subheader("📈 Daily Summary")
+    summary_cols = st.columns(4)
+    
+    with summary_cols[0]:
+        diff_cal = total_calories - target_calories
+        st.metric("Total Calories", f"{total_calories}", f"{diff_cal:+d}")
+    with summary_cols[1]:
+        diff_protein = total_protein - target_protein
+        st.metric("Total Protein", f"{total_protein}g", f"{diff_protein:+d}g")
+    with summary_cols[2]:
+        diff_carbs = total_carbs - target_carbs
+        st.metric("Total Carbs", f"{total_carbs}g", f"{diff_carbs:+d}g")
+    with summary_cols[3]:
+        diff_fat = total_fat - target_fat
+        st.metric("Total Fat", f"{total_fat}g", f"{diff_fat:+d}g")
+    
+    # Grocery list
+    if grocery_list:
+        st.markdown("---")
+        st.subheader("🛒 Grocery List")
+        
+        # Create downloadable grocery list
+        grocery_text = f"Fitomics Grocery List for {selected_date.strftime('%B %d, %Y')}\n\n"
+        for item in grocery_list:
+            grocery_text += f"• {item}\n"
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            for item in grocery_list:
+                st.markdown(f"• {item}")
+        
+        with col2:
+            st.download_button(
+                label="📋 Download List",
+                data=grocery_text,
+                file_name=f"fitomics_grocery_list_{date_key}.txt",
+                mime="text/plain"
+            )
+
+else:
+    st.info("Select your preferred Fitomics recipes above and click 'Generate Fitomics Meal Plan' to create your personalized nutrition plan.")
+
+# Recipe library info
+with st.expander("ℹ️ Your Recipe Library"):
+    st.markdown(f"""
+    **Available Fitomics Recipes:**
+    - Breakfast: {len(breakfast_recipes)} recipes
+    - Dinner: {len(dinner_recipes)} recipes (also available for lunch)
+    - Snacks: {len(snack_recipes)} recipes
+    - Desserts: {len(dessert_recipes)} recipes
+    
+    **Your Settings:**
+    - Meal frequency: {meal_frequency} meals per day
+    - Daily targets: {target_calories} cal, {target_protein}g protein, {target_carbs}g carbs, {target_fat}g fat
+    - Dietary restrictions: {", ".join(dietary_restrictions) if dietary_restrictions else "None"}
+    
+    **Total recipes available:** {len(recipes)}
+    """)
