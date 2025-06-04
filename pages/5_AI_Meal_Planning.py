@@ -36,10 +36,10 @@ if 'nutrition_plan' in st.session_state:
         has_valid_nutrition = True
 
 if not has_valid_nutrition:
-    st.warning("⚠️ Your nutrition targets haven't been calculated yet. Please complete the Nutrition Targets tab in Weekly Schedule and Nutrition first.")
+    st.warning("Your nutrition targets haven't been calculated yet. Please complete the Nutrition Targets tab in Weekly Schedule and Nutrition first.")
     
     # Provide quick calculation option
-    if st.button("🔄 Calculate My Nutrition Targets Now"):
+    if st.button("Calculate My Nutrition Targets Now"):
         # Get user data for calculations
         user_info = st.session_state.user_info
         goal_info = st.session_state.goal_info
@@ -65,7 +65,7 @@ if not has_valid_nutrition:
                 'target_fat': macros['fat']
             })
             
-            st.success("✅ Nutrition targets calculated successfully!")
+            st.success("Nutrition targets calculated successfully!")
             st.rerun()
             
         except Exception as e:
@@ -84,7 +84,6 @@ target_carbs = nutrition_plan.get('target_carbs', 200)
 target_fat = nutrition_plan.get('target_fat', 70)
 
 # Handle NaN values by providing defaults
-import math
 def safe_value(value, default):
     try:
         if value is None or (isinstance(value, float) and math.isnan(value)):
@@ -128,7 +127,6 @@ date_key = selected_date.isoformat()
 # Get meal frequency
 meal_frequency = diet_prefs.get('meal_frequency', 3)
 preferred_proteins = diet_prefs.get('preferred_proteins', [])
-cuisine_preferences = diet_prefs.get('cuisine_preferences', [])
 
 # Define meal structure based on frequency
 def get_meal_structure(frequency):
@@ -152,100 +150,107 @@ if 'ai_meal_plans' not in st.session_state:
 if date_key not in st.session_state.ai_meal_plans:
     st.session_state.ai_meal_plans[date_key] = {}
 
-# Function to search for real foods
-def find_meal_foods(meal_type, target_calories, preferences):
-    """Find real foods from USDA database for a meal"""
+# Simplified food search function
+def create_meal_plan(meal_type, target_calories):
+    """Create a meal plan using specific foods from USDA database"""
+    
+    # Define specific food combinations for each meal type
+    meal_combinations = {
+        "breakfast": [
+            {"protein": "egg", "carb": "oatmeal", "fat": "almonds"},
+            {"protein": "greek yogurt", "carb": "banana", "fat": "walnuts"},
+            {"protein": "cottage cheese", "carb": "bread whole wheat", "fat": "peanut butter"}
+        ],
+        "lunch": [
+            {"protein": "chicken breast", "carb": "quinoa", "fat": "olive oil"},
+            {"protein": "salmon", "carb": "brown rice", "fat": "avocado"},
+            {"protein": "turkey", "carb": "sweet potato", "fat": "almonds"}
+        ],
+        "dinner": [
+            {"protein": "chicken breast", "carb": "brown rice", "fat": "olive oil"},
+            {"protein": "salmon", "carb": "quinoa", "fat": "avocado"},
+            {"protein": "lean beef", "carb": "sweet potato", "fat": "nuts"}
+        ],
+        "snack": [
+            {"protein": "greek yogurt", "carb": "berries", "fat": "almonds"},
+            {"protein": "cottage cheese", "carb": "apple", "fat": "walnuts"}
+        ]
+    }
+    
+    # Get meal type category
+    meal_category = "breakfast" if "breakfast" in meal_type.lower() else \
+                   "snack" if "snack" in meal_type.lower() else \
+                   "lunch" if "lunch" in meal_type.lower() else "dinner"
+    
+    # Select random combination
+    combination = random.choice(meal_combinations[meal_category])
+    
+    # Calculate target calories for each macronutrient
+    protein_calories = int(target_calories * 0.30)  # 30% protein
+    carb_calories = int(target_calories * 0.45)     # 45% carbs
+    fat_calories = int(target_calories * 0.25)      # 25% fat
+    
+    meal_foods = []
+    
     try:
-        meal_foods = []
-        remaining_calories = target_calories
-        
-        # Define meal-appropriate foods
-        if meal_type.lower() == "breakfast":
-            protein_searches = ["eggs", "greek yogurt", "cottage cheese"]
-            carb_searches = ["oatmeal", "whole wheat bread", "banana"]
-            fat_searches = ["almonds", "avocado"]
-        elif "snack" in meal_type.lower():
-            protein_searches = ["greek yogurt", "string cheese", "almonds"]
-            carb_searches = ["apple", "berries", "whole grain crackers"]
-            fat_searches = ["almonds", "walnuts"]
-        else:  # lunch/dinner
-            if preferred_proteins:
-                protein_searches = [p.lower() for p in preferred_proteins]
-            else:
-                protein_searches = ["chicken breast", "salmon", "lean beef", "tofu"]
-            carb_searches = ["brown rice", "quinoa", "sweet potato", "pasta"]
-            fat_searches = ["olive oil", "avocado", "nuts"]
-        
-        # Search for protein (40% of calories)
-        protein_calories = int(target_calories * 0.4)
-        protein_search = random.choice(protein_searches)
-        foods = fdc_api.search_foods(protein_search, page_size=5)
-        
-        if foods:
-            food = foods[0]
-            food_details = fdc_api.get_food_details(food['fdcId'])
-            nutrients = fdc_api.extract_nutrients(food_details)
-            
-            # Calculate serving size for target calories
-            if nutrients.get('calories', 0) > 0:
-                serving_size = protein_calories / nutrients['calories'] * 100  # grams
-                meal_foods.append({
-                    'name': food['description'],
-                    'serving_size': round(serving_size),
-                    'calories': protein_calories,
-                    'protein': round(nutrients['protein'] * serving_size / 100),
-                    'carbs': round(nutrients['carbs'] * serving_size / 100),
-                    'fat': round(nutrients['fat'] * serving_size / 100)
-                })
-                remaining_calories -= protein_calories
-        
-        # Search for carbs (35% of calories)
-        carb_calories = int(target_calories * 0.35)
-        carb_search = random.choice(carb_searches)
-        foods = fdc_api.search_foods(carb_search, page_size=5)
-        
-        if foods:
-            food = foods[0]
+        # Search for protein food
+        protein_foods = fdc_api.search_foods(combination["protein"], page_size=3)
+        if protein_foods:
+            food = protein_foods[0]
             food_details = fdc_api.get_food_details(food['fdcId'])
             nutrients = fdc_api.extract_nutrients(food_details)
             
             if nutrients.get('calories', 0) > 0:
-                serving_size = carb_calories / nutrients['calories'] * 100
+                serving_size = (protein_calories / nutrients['calories']) * 100
                 meal_foods.append({
                     'name': food['description'],
                     'serving_size': round(serving_size),
-                    'calories': carb_calories,
-                    'protein': round(nutrients['protein'] * serving_size / 100),
-                    'carbs': round(nutrients['carbs'] * serving_size / 100),
-                    'fat': round(nutrients['fat'] * serving_size / 100)
+                    'calories': round(nutrients['calories'] * serving_size / 100),
+                    'protein': round(nutrients.get('protein', 0) * serving_size / 100),
+                    'carbs': round(nutrients.get('carbs', 0) * serving_size / 100),
+                    'fat': round(nutrients.get('fat', 0) * serving_size / 100)
                 })
-                remaining_calories -= carb_calories
         
-        # Add fat source (remaining calories)
-        if remaining_calories > 50:
-            fat_search = random.choice(fat_searches)
-            foods = fdc_api.search_foods(fat_search, page_size=5)
+        # Search for carb food
+        carb_foods = fdc_api.search_foods(combination["carb"], page_size=3)
+        if carb_foods:
+            food = carb_foods[0]
+            food_details = fdc_api.get_food_details(food['fdcId'])
+            nutrients = fdc_api.extract_nutrients(food_details)
             
-            if foods:
-                food = foods[0]
-                food_details = fdc_api.get_food_details(food['fdcId'])
-                nutrients = fdc_api.extract_nutrients(food_details)
-                
-                if nutrients.get('calories', 0) > 0:
-                    serving_size = remaining_calories / nutrients['calories'] * 100
-                    meal_foods.append({
-                        'name': food['description'],
-                        'serving_size': round(serving_size),
-                        'calories': remaining_calories,
-                        'protein': round(nutrients['protein'] * serving_size / 100),
-                        'carbs': round(nutrients['carbs'] * serving_size / 100),
-                        'fat': round(nutrients['fat'] * serving_size / 100)
-                    })
+            if nutrients.get('calories', 0) > 0:
+                serving_size = (carb_calories / nutrients['calories']) * 100
+                meal_foods.append({
+                    'name': food['description'],
+                    'serving_size': round(serving_size),
+                    'calories': round(nutrients['calories'] * serving_size / 100),
+                    'protein': round(nutrients.get('protein', 0) * serving_size / 100),
+                    'carbs': round(nutrients.get('carbs', 0) * serving_size / 100),
+                    'fat': round(nutrients.get('fat', 0) * serving_size / 100)
+                })
+        
+        # Search for fat food
+        fat_foods = fdc_api.search_foods(combination["fat"], page_size=3)
+        if fat_foods:
+            food = fat_foods[0]
+            food_details = fdc_api.get_food_details(food['fdcId'])
+            nutrients = fdc_api.extract_nutrients(food_details)
+            
+            if nutrients.get('calories', 0) > 0:
+                serving_size = (fat_calories / nutrients['calories']) * 100
+                meal_foods.append({
+                    'name': food['description'],
+                    'serving_size': round(serving_size),
+                    'calories': round(nutrients['calories'] * serving_size / 100),
+                    'protein': round(nutrients.get('protein', 0) * serving_size / 100),
+                    'carbs': round(nutrients.get('carbs', 0) * serving_size / 100),
+                    'fat': round(nutrients.get('fat', 0) * serving_size / 100)
+                })
         
         return meal_foods
         
     except Exception as e:
-        st.error(f"Unable to access USDA food database. Error: {str(e)}")
+        st.error(f"Error accessing USDA database: {str(e)}")
         return []
 
 # Generate meal plan button
@@ -256,15 +261,15 @@ if st.button("🎯 Generate Smart Meal Plan", type="primary", use_container_widt
         for meal_name, calorie_percentage in meal_structure.items():
             target_meal_calories = int(target_calories * calorie_percentage)
             
-            # Find foods for this meal
-            meal_foods = find_meal_foods(meal_name, target_meal_calories, preferred_proteins)
+            # Create meal plan for this meal
+            meal_foods = create_meal_plan(meal_name, target_meal_calories)
             meal_plan[meal_name] = {
                 'foods': meal_foods,
                 'target_calories': target_meal_calories
             }
         
         st.session_state.ai_meal_plans[date_key] = meal_plan
-        st.success("✨ Meal plan generated using real USDA food data!")
+        st.success("Meal plan generated using real USDA food data!")
         st.rerun()
 
 # Display meal plan if it exists
@@ -371,28 +376,21 @@ if date_key in st.session_state.ai_meal_plans and st.session_state.ai_meal_plans
             )
 
 else:
-    st.info("👆 Click 'Generate Smart Meal Plan' to create your personalized meal plan using real USDA food data.")
+    st.info("Click 'Generate Smart Meal Plan' to create your personalized meal plan using real USDA food data.")
 
 # Help section
 with st.expander("ℹ️ How it works"):
-    st.markdown("""
+    st.markdown(f"""
     **The AI Meal Planner uses real USDA food database to:**
     
-    - Search for actual foods based on your protein preferences
+    - Search for actual foods based on meal type and nutritional needs
     - Calculate precise portions to hit your calorie targets
     - Distribute macronutrients optimally across meals
     - Generate accurate grocery lists with specific amounts
-    - Provide meal-appropriate food suggestions (breakfast vs dinner)
+    - Provide meal-appropriate food suggestions
     
-    **Your preferences considered:**
-    - Preferred proteins: {prefs}
-    - Meal frequency: {freq} meals per day
-    - Daily targets: {cal} cal, {pro}g protein, {carb}g carbs, {fat}g fat
-    """.format(
-        prefs=", ".join(preferred_proteins) if preferred_proteins else "All proteins",
-        freq=meal_frequency,
-        cal=target_calories,
-        pro=target_protein,
-        carb=target_carbs,
-        fat=target_fat
-    ))
+    **Your current settings:**
+    - Meal frequency: {meal_frequency} meals per day
+    - Daily targets: {target_calories} cal, {target_protein}g protein, {target_carbs}g carbs, {target_fat}g fat
+    - Preferred proteins: {", ".join(preferred_proteins) if preferred_proteins else "All proteins"}
+    """)
