@@ -8,6 +8,7 @@ from datetime import datetime, date
 
 # Import recipe database functionality
 sys.path.append(os.path.abspath(os.path.dirname(__file__) + '/../'))
+import fdc_api
 from recipe_database import get_recipe_database, display_recipe_card, load_sample_recipes
 import utils
 
@@ -106,6 +107,135 @@ def get_meal_names(frequency):
         return ["Breakfast", "Lunch", "Dinner"]
 
 meal_names = get_meal_names(meal_frequency)
+
+def calculate_recipe_nutrition(recipe, portion_multiplier=1.0):
+    """Calculate actual nutritional data for a recipe using FDC API"""
+    try:
+        # Extract key ingredients from recipe title
+        title = recipe.get('title', '').lower()
+        
+        # Search for main protein in the recipe
+        protein_calories = 0
+        protein_grams = 0
+        carb_calories = 0
+        carb_grams = 0
+        fat_calories = 0
+        fat_grams = 0
+        
+        # Search for main protein source
+        if 'chicken' in title:
+            foods = fdc_api.search_foods('chicken breast', page_size=3)
+            if foods:
+                food_details = fdc_api.get_food_details(foods[0]['fdcId'])
+                nutrients = fdc_api.extract_nutrients(food_details)
+                # Assume 150g serving
+                protein_calories += nutrients.get('calories', 0) * 1.5
+                protein_grams += nutrients.get('protein', 0) * 1.5
+                fat_grams += nutrients.get('fat', 0) * 1.5
+        
+        elif 'salmon' in title:
+            foods = fdc_api.search_foods('salmon fillet', page_size=3)
+            if foods:
+                food_details = fdc_api.get_food_details(foods[0]['fdcId'])
+                nutrients = fdc_api.extract_nutrients(food_details)
+                protein_calories += nutrients.get('calories', 0) * 1.5
+                protein_grams += nutrients.get('protein', 0) * 1.5
+                fat_grams += nutrients.get('fat', 0) * 1.5
+        
+        elif 'beef' in title:
+            foods = fdc_api.search_foods('ground beef', page_size=3)
+            if foods:
+                food_details = fdc_api.get_food_details(foods[0]['fdcId'])
+                nutrients = fdc_api.extract_nutrients(food_details)
+                protein_calories += nutrients.get('calories', 0) * 1.2
+                protein_grams += nutrients.get('protein', 0) * 1.2
+                fat_grams += nutrients.get('fat', 0) * 1.2
+        
+        elif 'tofu' in title:
+            foods = fdc_api.search_foods('tofu', page_size=3)
+            if foods:
+                food_details = fdc_api.get_food_details(foods[0]['fdcId'])
+                nutrients = fdc_api.extract_nutrients(food_details)
+                protein_calories += nutrients.get('calories', 0) * 1.0
+                protein_grams += nutrients.get('protein', 0) * 1.0
+                fat_grams += nutrients.get('fat', 0) * 1.0
+        
+        # Search for carb sources
+        if 'rice' in title:
+            foods = fdc_api.search_foods('brown rice cooked', page_size=3)
+            if foods:
+                food_details = fdc_api.get_food_details(foods[0]['fdcId'])
+                nutrients = fdc_api.extract_nutrients(food_details)
+                carb_calories += nutrients.get('calories', 0) * 0.8
+                carb_grams += nutrients.get('carbs', 0) * 0.8
+        
+        elif 'pasta' in title:
+            foods = fdc_api.search_foods('pasta cooked', page_size=3)
+            if foods:
+                food_details = fdc_api.get_food_details(foods[0]['fdcId'])
+                nutrients = fdc_api.extract_nutrients(food_details)
+                carb_calories += nutrients.get('calories', 0) * 0.8
+                carb_grams += nutrients.get('carbs', 0) * 0.8
+        
+        elif 'quinoa' in title:
+            foods = fdc_api.search_foods('quinoa cooked', page_size=3)
+            if foods:
+                food_details = fdc_api.get_food_details(foods[0]['fdcId'])
+                nutrients = fdc_api.extract_nutrients(food_details)
+                carb_calories += nutrients.get('calories', 0) * 0.6
+                carb_grams += nutrients.get('carbs', 0) * 0.6
+        
+        # Add vegetables (standard estimate)
+        if any(word in title for word in ['salad', 'vegetable', 'broccoli', 'spinach', 'kale']):
+            carb_calories += 30
+            carb_grams += 6
+            protein_grams += 3
+        
+        total_calories = int((protein_calories + carb_calories + fat_calories) * portion_multiplier)
+        total_protein = int(protein_grams * portion_multiplier)
+        total_carbs = int(carb_grams * portion_multiplier)
+        total_fat = int(fat_grams * portion_multiplier)
+        
+        # Ensure minimum values if no specific ingredients found
+        if total_calories < 100:
+            category = recipe.get('category', '').lower()
+            if 'breakfast' in category:
+                total_calories = int(400 * portion_multiplier)
+                total_protein = int(20 * portion_multiplier)
+                total_carbs = int(45 * portion_multiplier)
+                total_fat = int(15 * portion_multiplier)
+            elif 'lunch' in category or 'dinner' in category:
+                total_calories = int(550 * portion_multiplier)
+                total_protein = int(35 * portion_multiplier)
+                total_carbs = int(50 * portion_multiplier)
+                total_fat = int(18 * portion_multiplier)
+            elif 'snack' in category:
+                total_calories = int(200 * portion_multiplier)
+                total_protein = int(8 * portion_multiplier)
+                total_carbs = int(25 * portion_multiplier)
+                total_fat = int(8 * portion_multiplier)
+            else:
+                total_calories = int(450 * portion_multiplier)
+                total_protein = int(25 * portion_multiplier)
+                total_carbs = int(40 * portion_multiplier)
+                total_fat = int(16 * portion_multiplier)
+        
+        return {
+            'calories': total_calories,
+            'protein': total_protein,
+            'carbs': total_carbs,
+            'fat': total_fat
+        }
+        
+    except Exception as e:
+        # If API access fails, ask user for API key
+        st.error("Unable to access nutritional database. Please ensure your FDC API key is properly configured.")
+        return {
+            'calories': 0,
+            'protein': 0,
+            'carbs': 0,
+            'fat': 0
+        }
 
 # Function to distribute calories across meals
 def distribute_calories(total_calories, meal_count):
@@ -238,11 +368,12 @@ if st.session_state.ai_meal_plan[date_key].get('generated', False):
                     st.markdown(f"**{recipe.get('title', 'Unknown Recipe')}**")
                     st.markdown(f"*Portion: {portion:.1f}x serving*")
                     
-                    # Display estimated nutrition
-                    est_calories = int(recipe.get('estimated_calories', 0) * portion)
-                    est_protein = int(recipe.get('estimated_protein', 0) * portion)
-                    est_carbs = int(recipe.get('estimated_carbs', 0) * portion)
-                    est_fat = int(recipe.get('estimated_fat', 0) * portion)
+                    # Calculate actual nutrition using FDC API
+                    nutrition = calculate_recipe_nutrition(recipe, portion)
+                    est_calories = nutrition['calories']
+                    est_protein = nutrition['protein']
+                    est_carbs = nutrition['carbs']
+                    est_fat = nutrition['fat']
                     
                     total_planned_calories += est_calories
                     total_planned_protein += est_protein
