@@ -104,50 +104,54 @@ def ai_analyze_recipes_for_meal(recipes, meal_type, target_macros, diet_prefs, o
         if diet_prefs.get('gluten_free'):
             diet_restrictions.append('gluten-free')
         
-        prompt = f"""
-        Analyze these Fitomics recipes for a {meal_type} meal targeting:
-        - {target_macros['calories']} calories
-        - {target_macros['protein']}g protein
-        - {target_macros['carbs']}g carbs
-        - {target_macros['fat']}g fat
-        
-        Dietary restrictions: {', '.join(diet_restrictions) if diet_restrictions else 'None'}
-        
-        Recipes: {json.dumps(recipe_summaries)}
-        
-        Return the top 3 recipe indices that best match the nutrition targets and dietary preferences, considering:
-        1. Macro alignment (especially protein and calories)
-        2. Meal type appropriateness
-        3. Dietary restrictions compliance
-        4. Ingredient quality and variety
-        
-        Respond with JSON: {{"recommendations": [{"index": 0, "reason": "explanation"}, ...]}}
-        """
+        prompt = f"""Analyze these Fitomics recipes for a {meal_type} meal targeting {target_macros['calories']} calories, {target_macros['protein']}g protein, {target_macros['carbs']}g carbs, {target_macros['fat']}g fat.
+
+Dietary restrictions: {', '.join(diet_restrictions) if diet_restrictions else 'None'}
+
+Recipes: {json.dumps(recipe_summaries)}
+
+Return the top 3 recipe indices that best match the nutrition targets and dietary preferences, considering:
+1. Macro alignment (especially protein and calories)
+2. Meal type appropriateness
+3. Dietary restrictions compliance
+4. Ingredient quality and variety
+
+Respond with JSON format: {{"recommendations": [{{"index": 0, "reason": "Brief explanation"}}, {{"index": 1, "reason": "Brief explanation"}}, {{"index": 2, "reason": "Brief explanation"}}]}}"""
         
         response = openai_client.chat.completions.create(
             model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": "You are a nutrition expert analyzing Fitomics recipes for meal planning. Always respond with valid JSON format exactly as requested."},
+                {"role": "user", "content": prompt}
+            ],
             response_format={"type": "json_object"},
-            max_tokens=500
+            max_tokens=1000,
+            temperature=0.3
         )
         
-        result = json.loads(response.choices[0].message.content)
-        recommendations = result.get('recommendations', [])
-        
-        # Convert AI recommendations to recipe objects
-        ai_recipes = []
-        for rec in recommendations[:3]:
-            index = rec.get('index')
-            if index is not None and 0 <= index < len(recipes):
-                recipe = recipes[index]
-                ai_recipes.append({
-                    'recipe': recipe,
-                    'match_score': 1000 - len(ai_recipes) * 100,  # Higher score for higher rank
-                    'macros': recipe.get('estimated_macros', {}),
-                    'ai_reason': rec.get('reason', 'AI recommended')
-                })
-        
-        return ai_recipes
+        try:
+            result = json.loads(response.choices[0].message.content)
+            recommendations = result.get('recommendations', [])
+            
+            # Convert AI recommendations to recipe objects
+            ai_recipes = []
+            for i, rec in enumerate(recommendations[:3]):
+                index = rec.get('index')
+                if index is not None and 0 <= index < len(recipes):
+                    recipe = recipes[index]
+                    ai_recipes.append({
+                        'recipe': recipe,
+                        'match_score': 1000 - i * 100,  # Higher score for higher rank
+                        'macros': recipe.get('estimated_macros', {}),
+                        'ai_reason': rec.get('reason', 'AI recommended for nutritional alignment'),
+                        'ai_rank': i + 1
+                    })
+            
+            return ai_recipes
+            
+        except (json.JSONDecodeError, KeyError) as json_error:
+            print(f"AI JSON parsing failed: {json_error}")
+            return []
         
     except Exception as e:
         st.error(f"AI analysis failed: {str(e)}. Using fallback matching.")
@@ -450,17 +454,30 @@ for i, (meal_type, tab) in enumerate(zip(['breakfast', 'lunch', 'dinner', 'snack
         recommended_recipes = find_best_recipes_for_meal(recipes, meal_type, meal_target, diet_prefs)
         
         if recommended_recipes:
-            st.markdown("#### Recommended Recipes")
+            # Check if recipes came from AI analysis
+            ai_powered = any(rec.get('ai_reason') for rec in recommended_recipes)
+            
+            if ai_powered:
+                st.markdown("#### 🤖 AI-Powered Recipe Recommendations")
+                st.success("These recipes were intelligently selected by AI based on your nutrition targets and dietary preferences.")
+            else:
+                st.markdown("#### Recommended Recipes")
+                st.info("Using nutritional matching algorithm to find suitable recipes.")
             
             # Display recipe options
             for j, rec_data in enumerate(recommended_recipes):
                 recipe = rec_data['recipe']
                 recipe_macros = rec_data['macros']
                 ai_reason = rec_data.get('ai_reason', '')
+                ai_rank = rec_data.get('ai_rank', j+1)
                 
-                with st.expander(f"Option {j+1}: {recipe.get('title', 'Untitled Recipe')}", expanded=(j==0)):
+                # Enhanced title with AI ranking
+                title_prefix = f"🥇 AI Top Choice" if ai_rank == 1 else f"#{ai_rank} AI Pick" if ai_reason else f"Option {j+1}"
+                
+                with st.expander(f"{title_prefix}: {recipe.get('title', 'Untitled Recipe')}", expanded=(j==0)):
                     if ai_reason:
-                        st.info(f"AI Recommendation: {ai_reason}")
+                        st.markdown(f"**🤖 AI Analysis:** {ai_reason}")
+                        st.markdown("---")
                     
                     col1, col2 = st.columns([2, 1])
                     
