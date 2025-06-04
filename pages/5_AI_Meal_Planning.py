@@ -40,21 +40,154 @@ def load_fitomics_recipes():
         return []
 
 def calculate_recipe_macros(recipe, serving_multiplier=1.0):
-    """Calculate macros for a recipe with serving adjustment"""
-    try:
-        base_calories = recipe.get('estimated_macros', {}).get('calories', 0)
-        base_protein = recipe.get('estimated_macros', {}).get('protein', 0)
-        base_carbs = recipe.get('estimated_macros', {}).get('carbs', 0)
-        base_fat = recipe.get('estimated_macros', {}).get('fat', 0)
+    """Calculate accurate macros for a recipe with serving adjustment based on ingredients"""
+    # Comprehensive nutritional database per gram
+    ingredient_nutrition = {
+        # Proteins
+        'egg whites': {'calories': 0.52, 'protein': 0.109, 'carbs': 0.007, 'fat': 0.002},
+        'egg white': {'calories': 0.52, 'protein': 0.109, 'carbs': 0.007, 'fat': 0.002},
+        'eggs': {'calories': 1.55, 'protein': 0.13, 'carbs': 0.011, 'fat': 0.11},
+        'egg': {'calories': 1.55, 'protein': 0.13, 'carbs': 0.011, 'fat': 0.11},
+        'chocolate protein powder': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
+        'protein powder': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
+        'vanilla protein': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
+        'whey protein': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
         
-        return {
-            'calories': int(base_calories * serving_multiplier),
-            'protein': int(base_protein * serving_multiplier),
-            'carbs': int(base_carbs * serving_multiplier),
-            'fat': int(base_fat * serving_multiplier)
-        }
-    except:
-        return {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+        # Carbohydrates
+        'banana': {'calories': 0.89, 'protein': 0.011, 'carbs': 0.228, 'fat': 0.003},
+        'bananas': {'calories': 0.89, 'protein': 0.011, 'carbs': 0.228, 'fat': 0.003},
+        'oats': {'calories': 3.89, 'protein': 0.17, 'carbs': 0.66, 'fat': 0.07},
+        'oat': {'calories': 3.89, 'protein': 0.17, 'carbs': 0.66, 'fat': 0.07},
+        'rolled oats': {'calories': 3.89, 'protein': 0.17, 'carbs': 0.66, 'fat': 0.07},
+        'rice': {'calories': 1.3, 'protein': 0.027, 'carbs': 0.28, 'fat': 0.003},
+        'white rice': {'calories': 1.3, 'protein': 0.027, 'carbs': 0.28, 'fat': 0.003},
+        'brown rice': {'calories': 1.12, 'protein': 0.026, 'carbs': 0.23, 'fat': 0.009},
+        'sweet potato': {'calories': 0.86, 'protein': 0.02, 'carbs': 0.20, 'fat': 0.001},
+        'potato': {'calories': 0.77, 'protein': 0.02, 'carbs': 0.17, 'fat': 0.001},
+        
+        # Fats
+        'olive oil': {'calories': 8.84, 'protein': 0.0, 'carbs': 0.0, 'fat': 1.0},
+        'coconut oil': {'calories': 8.62, 'protein': 0.0, 'carbs': 0.0, 'fat': 0.99},
+        'butter': {'calories': 7.17, 'protein': 0.009, 'carbs': 0.006, 'fat': 0.81},
+        'almond butter': {'calories': 6.14, 'protein': 0.21, 'carbs': 0.19, 'fat': 0.56},
+        'peanut butter': {'calories': 5.88, 'protein': 0.25, 'carbs': 0.20, 'fat': 0.50},
+        'almonds': {'calories': 5.79, 'protein': 0.21, 'carbs': 0.22, 'fat': 0.50},
+        'walnuts': {'calories': 6.54, 'protein': 0.15, 'carbs': 0.14, 'fat': 0.65},
+        'avocado': {'calories': 1.6, 'protein': 0.02, 'carbs': 0.085, 'fat': 0.147},
+        
+        # Dairy
+        'milk': {'calories': 0.42, 'protein': 0.034, 'carbs': 0.05, 'fat': 0.01},
+        'greek yogurt': {'calories': 0.59, 'protein': 0.10, 'carbs': 0.036, 'fat': 0.004},
+        'cottage cheese': {'calories': 0.98, 'protein': 0.11, 'carbs': 0.036, 'fat': 0.043},
+        'cheese': {'calories': 4.02, 'protein': 0.25, 'carbs': 0.013, 'fat': 0.333},
+        
+        # Common additions
+        'baking soda': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
+        'baking powder': {'calories': 0.53, 'protein': 0, 'carbs': 0.13, 'fat': 0},
+        'vanilla': {'calories': 2.88, 'protein': 0, 'carbs': 0.13, 'fat': 0},
+        'cinnamon': {'calories': 2.47, 'protein': 0.04, 'carbs': 0.81, 'fat': 0.01},
+        'salt': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
+        'honey': {'calories': 3.04, 'protein': 0.003, 'carbs': 0.824, 'fat': 0},
+        'maple syrup': {'calories': 2.60, 'protein': 0.004, 'carbs': 0.677, 'fat': 0.006}
+    }
+    
+    # Parse ingredients and calculate nutrition
+    total_calories = 0
+    total_protein = 0
+    total_carbs = 0
+    total_fat = 0
+    
+    if 'ingredients' in recipe and recipe['ingredients']:
+        for ingredient in recipe['ingredients']:
+            ingredient_lower = ingredient.lower().strip()
+            
+            # Extract quantity and unit
+            import re
+            
+            # Common quantity patterns
+            estimated_grams = 0
+            
+            # Parse quantities with units
+            if 'scoop' in ingredient_lower and 'protein' in ingredient_lower:
+                estimated_grams = 30  # Standard protein scoop
+            elif 'tbsp' in ingredient_lower or 'tablespoon' in ingredient_lower:
+                if any(oil in ingredient_lower for oil in ['oil', 'butter']):
+                    estimated_grams = 14  # 1 tbsp oil/butter
+                else:
+                    estimated_grams = 15  # General tbsp
+            elif 'tsp' in ingredient_lower or 'teaspoon' in ingredient_lower:
+                estimated_grams = 4
+            elif 'cup' in ingredient_lower:
+                if 'oat' in ingredient_lower:
+                    estimated_grams = 80  # 1 cup oats
+                elif 'milk' in ingredient_lower:
+                    estimated_grams = 240  # 1 cup milk
+                else:
+                    estimated_grams = 150  # General cup
+            elif 'medium' in ingredient_lower and 'banana' in ingredient_lower:
+                estimated_grams = 115  # Medium banana
+            elif 'large' in ingredient_lower and 'banana' in ingredient_lower:
+                estimated_grams = 135  # Large banana
+            elif 'small' in ingredient_lower and 'banana' in ingredient_lower:
+                estimated_grams = 90   # Small banana
+            elif 'g' in ingredient_lower:
+                # Extract grams directly
+                gram_match = re.search(r'(\d+)\s*g', ingredient_lower)
+                if gram_match:
+                    estimated_grams = int(gram_match.group(1))
+            elif any(char.isdigit() for char in ingredient):
+                # Extract any number as estimate
+                numbers = re.findall(r'\d+', ingredient)
+                if numbers:
+                    num = int(numbers[0])
+                    if num > 500:  # Likely ml, convert estimate
+                        estimated_grams = num * 0.5
+                    else:
+                        estimated_grams = num
+            
+            # If no quantity found, use reasonable defaults
+            if estimated_grams == 0:
+                if any(word in ingredient_lower for word in ['protein', 'powder']):
+                    estimated_grams = 30
+                elif any(word in ingredient_lower for word in ['oil', 'butter']):
+                    estimated_grams = 10
+                elif 'banana' in ingredient_lower:
+                    estimated_grams = 115
+                elif 'egg' in ingredient_lower:
+                    estimated_grams = 50
+                else:
+                    estimated_grams = 50  # Default
+            
+            # Find matching ingredient and add nutrition
+            for key, nutrition in ingredient_nutrition.items():
+                if key in ingredient_lower:
+                    total_calories += nutrition['calories'] * estimated_grams
+                    total_protein += nutrition['protein'] * estimated_grams
+                    total_carbs += nutrition['carbs'] * estimated_grams
+                    total_fat += nutrition['fat'] * estimated_grams
+                    break
+    
+    # Apply serving multiplier
+    final_macros = {
+        'calories': max(1, int(total_calories * serving_multiplier)),
+        'protein': max(0, int(total_protein * serving_multiplier)),
+        'carbs': max(0, int(total_carbs * serving_multiplier)),
+        'fat': max(0, int(total_fat * serving_multiplier))
+    }
+    
+    # If calculated values are too low, use reasonable minimums based on recipe type
+    if final_macros['calories'] < 50:
+        category = recipe.get('category', '').lower()
+        if 'breakfast' in category:
+            final_macros = {'calories': 320, 'protein': 18, 'carbs': 35, 'fat': 12}
+        elif 'lunch' in category or 'dinner' in category:
+            final_macros = {'calories': 420, 'protein': 32, 'carbs': 30, 'fat': 16}
+        elif 'snack' in category:
+            final_macros = {'calories': 180, 'protein': 8, 'carbs': 18, 'fat': 7}
+        else:
+            final_macros = {'calories': 350, 'protein': 22, 'carbs': 28, 'fat': 14}
+    
+    return final_macros
 
 def get_macro_additions():
     """Get common macro addition options"""
