@@ -545,65 +545,94 @@ for i, (meal_type, tab) in enumerate(zip(['breakfast', 'lunch', 'dinner', 'snack
             st.markdown("#### Smart Meal Builder")
             st.info("No pre-made recipes found for your preferences. Build a custom meal using these components:")
             
-            # Get food components based on dietary preferences
-            protein_sources = get_protein_sources(diet_prefs)
-            carb_sources = get_carb_sources(diet_prefs)
-            fat_sources = get_fat_sources(diet_prefs)
+            # Get food components based on dietary preferences and meal type
+            protein_sources = get_protein_sources(diet_prefs, meal_type)
+            carb_sources = get_carb_sources(diet_prefs, meal_type)
+            fat_sources = get_fat_sources(diet_prefs, meal_type)
             vegetable_sources = get_vegetable_sources(diet_prefs)
             
-            with st.expander("Build Custom Meal", expanded=True):
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    selected_protein = st.selectbox(
-                        "Choose protein source:",
-                        options=list(protein_sources.keys()),
-                        key=f"protein_{selected_day}_{meal_type}"
-                    )
-                    protein_amount = st.slider(
-                        "Protein amount (g):",
-                        min_value=0,
-                        max_value=200,
-                        value=meal_target['protein'],
-                        step=5,
-                        key=f"protein_amt_{selected_day}_{meal_type}"
-                    )
+            # Check if we have appropriate food sources for this meal type
+            if not protein_sources and not carb_sources and not fat_sources:
+                st.warning(f"No suitable food components found for {meal_type} with your dietary preferences. Try adjusting your restrictions or check other meal types.")
+            else:
+                with st.expander("Build Custom Meal", expanded=True):
+                    # Show meal-specific guidance
+                    if meal_type == 'breakfast':
+                        st.info("Building a healthy breakfast with protein, carbs, and healthy fats to start your day.")
+                    elif meal_type == 'lunch':
+                        st.info("Creating a balanced lunch to fuel your afternoon activities.")
+                    elif meal_type == 'dinner':
+                        st.info("Designing a satisfying dinner to support recovery and evening goals.")
+                    elif meal_type == 'snack':
+                        st.info("Selecting snack components to bridge meals and support your targets.")
                     
-                    selected_carb = st.selectbox(
-                        "Choose carb source:",
-                        options=list(carb_sources.keys()),
-                        key=f"carb_{selected_day}_{meal_type}"
-                    )
-                    carb_amount = st.slider(
-                        "Carb amount (g):",
-                        min_value=0,
-                        max_value=150,
-                        value=meal_target['carbs'],
-                        step=5,
-                        key=f"carb_amt_{selected_day}_{meal_type}"
-                    )
-                
-                with col2:
-                    selected_fat = st.selectbox(
-                        "Choose fat source:",
-                        options=list(fat_sources.keys()),
-                        key=f"fat_{selected_day}_{meal_type}"
-                    )
-                    fat_amount = st.slider(
-                        "Fat amount (g):",
-                        min_value=0,
-                        max_value=100,
-                        value=meal_target['fat'],
-                        step=2,
-                        key=f"fat_amt_{selected_day}_{meal_type}"
-                    )
+                    col1, col2 = st.columns(2)
                     
-                    selected_vegetables = st.multiselect(
-                        "Add vegetables:",
-                        options=list(vegetable_sources.keys()),
-                        default=list(vegetable_sources.keys())[:2],
-                        key=f"veggies_{selected_day}_{meal_type}"
-                    )
+                    with col1:
+                        if protein_sources:
+                            selected_protein = st.selectbox(
+                                f"Choose {meal_type} protein source:",
+                                options=list(protein_sources.keys()),
+                                key=f"protein_{selected_day}_{meal_type}"
+                            )
+                            protein_amount = st.slider(
+                                "Protein amount (g):",
+                                min_value=0,
+                                max_value=200,
+                                value=meal_target['protein'],
+                                step=5,
+                                key=f"protein_amt_{selected_day}_{meal_type}"
+                            )
+                        else:
+                            st.write("No suitable protein sources for this meal type and dietary preferences.")
+                            selected_protein = "None"
+                            protein_amount = 0
+                        
+                        if carb_sources:
+                            selected_carb = st.selectbox(
+                                f"Choose {meal_type} carb source:",
+                                options=list(carb_sources.keys()),
+                                key=f"carb_{selected_day}_{meal_type}"
+                            )
+                            carb_amount = st.slider(
+                                "Carb amount (g):",
+                                min_value=0,
+                                max_value=150,
+                                value=meal_target['carbs'],
+                                step=5,
+                                key=f"carb_amt_{selected_day}_{meal_type}"
+                            )
+                        else:
+                            st.write("No suitable carb sources for this meal type and dietary preferences.")
+                            selected_carb = "None"
+                            carb_amount = 0
+                    
+                    with col2:
+                        if fat_sources:
+                            selected_fat = st.selectbox(
+                                f"Choose {meal_type} fat source:",
+                                options=list(fat_sources.keys()),
+                                key=f"fat_{selected_day}_{meal_type}"
+                            )
+                            fat_amount = st.slider(
+                                "Fat amount (g):",
+                                min_value=0,
+                                max_value=100,
+                                value=meal_target['fat'],
+                                step=2,
+                                key=f"fat_amt_{selected_day}_{meal_type}"
+                            )
+                        else:
+                            st.write("No suitable fat sources for this meal type and dietary preferences.")
+                            selected_fat = "None"
+                            fat_amount = 0
+                        
+                        selected_vegetables = st.multiselect(
+                            "Add vegetables:",
+                            options=list(vegetable_sources.keys()),
+                            default=list(vegetable_sources.keys())[:2],
+                            key=f"veggies_{selected_day}_{meal_type}"
+                        )
                 
                 # Calculate custom meal macros
                 protein_cals = protein_amount * 4
