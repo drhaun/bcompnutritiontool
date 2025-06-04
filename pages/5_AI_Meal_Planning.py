@@ -176,6 +176,12 @@ recipe_categories = {
     'dessert': [r for r in available_recipes if r['category'] == 'dessert']
 }
 
+# Debug: Show category counts
+for cat, recipes_list in recipe_categories.items():
+    st.write(f"Debug: {cat} has {len(recipes_list)} recipes")
+    if recipes_list:
+        st.write(f"  Sample {cat} recipes:", [r['title'] for r in recipes_list[:3]])
+
 # Recipe selection interface
 st.subheader("🍽️ Select Your Preferred Recipes")
 
