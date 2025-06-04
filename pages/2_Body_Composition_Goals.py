@@ -201,17 +201,13 @@ st.dataframe(comp_df, use_container_width=True)
 # Display category information - simplified version without recommendations
 st.write("#### Body Composition Categories")
 
-# Find categories for current values with debug output
+# Find categories for current values
 current_fmi_category = "Unknown"
-st.write(f"FMI Value: {current_fmi:.3f}")
-for i, category in enumerate(fmi_categories):
-    st.write(f"Category {i+1}: {category['name']} - Range: {category['lower']} to {category['upper']}")
-    if category["lower"] <= current_fmi <= category["upper"]:
+for category in fmi_categories:
+    # Use precise floating point comparison with small tolerance
+    if (current_fmi >= category["lower"] - 0.001) and (current_fmi <= category["upper"] + 0.001):
         current_fmi_category = category["name"]
-        st.write(f"✅ MATCH: {current_fmi_category}")
         break
-    else:
-        st.write(f"❌ No match (FMI {current_fmi:.3f} not in range {category['lower']}-{category['upper']})")
         
 current_ffmi_category = "Unknown"
 for category in ffmi_categories:

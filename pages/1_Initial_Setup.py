@@ -241,6 +241,16 @@ if st.button("Save and Continue", use_container_width=True, type="primary"):
             gender, weight_kg, height_cm, age, mapped_activity, workouts_per_week, workout_calories
         )
         
+        # Calculate total height in inches and store height components
+        if imperial_selected:
+            total_height_inches = height_feet * 12 + height_inches
+            height_ft_store = height_feet
+            height_in_store = height_inches
+        else:
+            total_height_inches = height_cm / 2.54
+            height_ft_store = int(total_height_inches // 12)
+            height_in_store = int(total_height_inches % 12)
+        
         # Save all data to session state
         st.session_state.user_info = {
             'name': name,
@@ -248,7 +258,9 @@ if st.button("Save and Continue", use_container_width=True, type="primary"):
             'dob': dob.strftime('%Y-%m-%d'),
             'age': age,
             'height_cm': height_cm,
-            'height_inches': height_inches,
+            'height_inches': total_height_inches,
+            'height_ft': height_ft_store,
+            'height_in': height_in_store,
             'weight_kg': weight_kg,
             'weight_lbs': weight_lbs,
             'body_fat_percentage': body_fat,
@@ -313,18 +325,16 @@ if st.session_state.user_info:
             st.write(f"**Name:** {st.session_state.user_info['name']}")
         st.write(f"**Goal:** {st.session_state.user_info.get('goal_focus', 'Not set')}")
         st.write(f"**Age:** {st.session_state.user_info.get('age', 'Not set')} years")
+        # Get height components from stored data
+        height_ft = st.session_state.user_info.get('height_ft', 5)
+        height_in = st.session_state.user_info.get('height_in', 8)
+        height_cm = st.session_state.user_info.get('height_cm', 175)
+        
         if imperial_selected:
-            height_inches_total = st.session_state.user_info.get('height_inches', 0)
-            height_feet = int(height_inches_total // 12)
-            height_inches_remainder = int(height_inches_total % 12)
-            st.write(f"**Height:** {height_feet}'{height_inches_remainder}\"")
+            st.write(f"**Height:** {height_ft}'{height_in}\"")
             st.write(f"**Weight:** {st.session_state.user_info.get('weight_lbs', 0):.1f} lbs")
         else:
-            height_cm = st.session_state.user_info.get('height_cm', 0)
-            height_inches_total = height_cm / 2.54
-            height_feet = int(height_inches_total // 12)
-            height_inches_remainder = int(height_inches_total % 12)
-            st.write(f"**Height:** {height_feet}'{height_inches_remainder}\" ({height_cm:.1f} cm)")
+            st.write(f"**Height:** {height_ft}'{height_in}\" ({height_cm:.1f} cm)")
             st.write(f"**Weight:** {st.session_state.user_info.get('weight_kg', 0):.1f} kg")
     
     with col2:
