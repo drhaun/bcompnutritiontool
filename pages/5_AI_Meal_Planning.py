@@ -14,13 +14,18 @@ import utils
 st.set_page_config(page_title="AI Meal Planner", page_icon="🤖", layout="wide")
 
 # Load Fitomics recipes
-@st.cache_data
 def load_fitomics_recipes():
     try:
         with open('data/fitomics_recipes.json', 'r') as f:
-            return json.load(f)
+            recipes = json.load(f)
+            # Debug: Show recipe count
+            st.write(f"Debug: Loaded {len(recipes)} recipes from database")
+            return recipes
     except FileNotFoundError:
         st.error("Recipe database not found. Please contact support.")
+        return []
+    except Exception as e:
+        st.error(f"Error loading recipes: {str(e)}")
         return []
 
 # Header
@@ -116,6 +121,9 @@ recipes = load_fitomics_recipes()
 if not recipes:
     st.error("No recipes available. Please contact support.")
     st.stop()
+
+# Debug: Show first few recipe titles
+st.write("Debug: Sample recipe titles:", [r['title'] for r in recipes[:5]])
 
 # Get user preferences
 dietary_restrictions = diet_prefs.get('dietary_restrictions', [])
