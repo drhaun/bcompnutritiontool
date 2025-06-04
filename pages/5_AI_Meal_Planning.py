@@ -339,12 +339,53 @@ def get_vegetable_sources(diet_prefs):
     # All vegetables are suitable for all dietary preferences
     return sources
 
+def ai_generate_meal_insights(meal_type, target_macros, diet_prefs, openai_client):
+    """Generate AI insights for meal planning"""
+    try:
+        diet_restrictions = []
+        if diet_prefs.get('vegetarian'):
+            diet_restrictions.append('vegetarian')
+        if diet_prefs.get('vegan'):
+            diet_restrictions.append('vegan')
+        if diet_prefs.get('gluten_free'):
+            diet_restrictions.append('gluten-free')
+        
+        prompt = f"""Provide brief meal planning insights for a {meal_type} targeting {target_macros['calories']} calories, {target_macros['protein']}g protein, {target_macros['carbs']}g carbs, {target_macros['fat']}g fat.
+
+Dietary restrictions: {', '.join(diet_restrictions) if diet_restrictions else 'None'}
+
+Provide 3 specific, actionable tips for this meal type and nutrition targets. Focus on food combinations, timing, and optimization strategies.
+
+Respond with JSON: {{"insights": ["tip 1", "tip 2", "tip 3"]}}"""
+        
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a nutrition expert providing meal planning insights. Always respond with valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=500,
+            temperature=0.4
+        )
+        
+        result = json.loads(response.choices[0].message.content)
+        return result.get('insights', [])
+        
+    except Exception as e:
+        print(f"AI insights generation failed: {e}")
+        return []
+
 def find_best_recipes_for_meal(recipes, meal_type, target_macros, diet_prefs):
     """Main function to find best recipes, with AI enhancement if available"""
     openai_client = get_openai_client()
     
     if openai_client:
-        return ai_analyze_recipes_for_meal(recipes, meal_type, target_macros, diet_prefs, openai_client)
+        try:
+            return ai_analyze_recipes_for_meal(recipes, meal_type, target_macros, diet_prefs, openai_client)
+        except Exception as e:
+            print(f"AI analysis failed, using fallback: {e}")
+            return find_best_recipes_for_meal_fallback(recipes, meal_type, target_macros, diet_prefs)
     else:
         return find_best_recipes_for_meal_fallback(recipes, meal_type, target_macros, diet_prefs)
 
@@ -449,6 +490,18 @@ for i, (meal_type, tab) in enumerate(zip(['breakfast', 'lunch', 'dinner', 'snack
         }
         
         st.markdown(f"**Target for {meal_type.title()}:** {meal_target['calories']} cal | {meal_target['protein']}g protein | {meal_target['carbs']}g carbs | {meal_target['fat']}g fat")
+        
+        # Add AI insights for meal planning
+        openai_client = get_openai_client()
+        if openai_client:
+            with st.expander("🧠 AI Meal Planning Insights", expanded=False):
+                insights = ai_generate_meal_insights(meal_type, meal_target, diet_prefs, openai_client)
+                if insights:
+                    st.markdown("**AI-Powered Tips for Your Meal:**")
+                    for i, insight in enumerate(insights, 1):
+                        st.write(f"{i}. {insight}")
+                else:
+                    st.info("AI insights temporarily unavailable")
         
         # Find recommended recipes
         recommended_recipes = find_best_recipes_for_meal(recipes, meal_type, meal_target, diet_prefs)
