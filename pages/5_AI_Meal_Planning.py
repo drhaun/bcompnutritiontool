@@ -194,11 +194,16 @@ def create_meal_plan(meal_type, target_calories):
     
     try:
         # Search for protein food
+        st.write(f"Debug: Searching for protein: {combination['protein']}")
         protein_foods = fdc_api.search_foods(combination["protein"], page_size=3)
-        if protein_foods:
+        st.write(f"Debug: Found {len(protein_foods) if protein_foods else 0} protein foods")
+        
+        if protein_foods and len(protein_foods) > 0:
             food = protein_foods[0]
+            st.write(f"Debug: Selected protein: {food.get('description', 'Unknown')}")
             food_details = fdc_api.get_food_details(food['fdcId'])
             nutrients = fdc_api.extract_nutrients(food_details)
+            st.write(f"Debug: Protein nutrients - Calories: {nutrients.get('calories', 0)}")
             
             if nutrients.get('calories', 0) > 0:
                 serving_size = (protein_calories / nutrients['calories']) * 100
@@ -210,6 +215,9 @@ def create_meal_plan(meal_type, target_calories):
                     'carbs': round(nutrients.get('carbs', 0) * serving_size / 100),
                     'fat': round(nutrients.get('fat', 0) * serving_size / 100)
                 })
+                st.write(f"Debug: Added protein food to meal")
+        else:
+            st.write(f"Debug: No protein foods found for {combination['protein']}")
         
         # Search for carb food
         carb_foods = fdc_api.search_foods(combination["carb"], page_size=3)
