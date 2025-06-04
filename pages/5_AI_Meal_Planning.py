@@ -18,8 +18,6 @@ def load_fitomics_recipes():
     try:
         with open('data/fitomics_recipes.json', 'r') as f:
             recipes = json.load(f)
-            # Debug: Show recipe count
-            st.write(f"Debug: Loaded {len(recipes)} recipes from database")
             return recipes
     except FileNotFoundError:
         st.error("Recipe database not found. Please contact support.")
@@ -122,9 +120,6 @@ if not recipes:
     st.error("No recipes available. Please contact support.")
     st.stop()
 
-# Debug: Show first few recipe titles
-st.write("Debug: Sample recipe titles:", [r['title'] for r in recipes[:5]])
-
 # Get user preferences
 dietary_restrictions = diet_prefs.get('dietary_restrictions', [])
 meal_frequency = diet_prefs.get('meal_frequency', 3)
@@ -176,12 +171,6 @@ recipe_categories = {
     'dessert': [r for r in available_recipes if r['category'] == 'dessert']
 }
 
-# Debug: Show category counts
-for cat, recipes_list in recipe_categories.items():
-    st.write(f"Debug: {cat} has {len(recipes_list)} recipes")
-    if recipes_list:
-        st.write(f"  Sample {cat} recipes:", [r['title'] for r in recipes_list[:3]])
-
 # Recipe selection interface
 st.subheader("🍽️ Select Your Preferred Recipes")
 
@@ -189,35 +178,40 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("**Breakfast Options:**")
+    breakfast_options = [r['title'] for r in recipe_categories['breakfast']]
     selected_breakfast = st.multiselect(
         "Choose breakfast recipes",
-        options=[r['title'] for r in recipe_categories['breakfast']],
-        default=[r['title'] for r in recipe_categories['breakfast'][:2]],
+        options=breakfast_options,
+        default=breakfast_options[:2] if breakfast_options else [],
         key="breakfast_selection"
     )
     
-    st.markdown("**Lunch Options:**")
+    st.markdown("**Lunch Options (can use dinner recipes):**")
+    # Since no lunch recipes exist, allow selection from dinner recipes
+    lunch_options = [r['title'] for r in recipe_categories['dinner']]
     selected_lunch = st.multiselect(
-        "Choose lunch recipes",
-        options=[r['title'] for r in recipe_categories['lunch']],
-        default=[r['title'] for r in recipe_categories['lunch'][:2]],
+        "Choose recipes for lunch",
+        options=lunch_options,
+        default=lunch_options[:2] if lunch_options else [],
         key="lunch_selection"
     )
 
 with col2:
     st.markdown("**Dinner Options:**")
+    dinner_options = [r['title'] for r in recipe_categories['dinner']]
     selected_dinner = st.multiselect(
         "Choose dinner recipes",
-        options=[r['title'] for r in recipe_categories['dinner']],
-        default=[r['title'] for r in recipe_categories['dinner'][:3]],
+        options=dinner_options,
+        default=dinner_options[:3] if dinner_options else [],
         key="dinner_selection"
     )
     
     st.markdown("**Snack Options:**")
+    snack_options = [r['title'] for r in recipe_categories['snack']]
     selected_snacks = st.multiselect(
         "Choose snack recipes",
-        options=[r['title'] for r in recipe_categories['snack']],
-        default=[r['title'] for r in recipe_categories['snack'][:2]],
+        options=snack_options,
+        default=snack_options[:2] if snack_options else [],
         key="snack_selection"
     )
 
@@ -273,20 +267,20 @@ def create_fitomics_meal_plan(meal_structure, selected_recipes):
         
         # Select appropriate recipes based on meal type
         if "breakfast" in meal_name.lower():
-            available = [find_recipe_by_title(title, available_recipes) 
-                        for title in selected_breakfast if find_recipe_by_title(title, available_recipes)]
+            available = [find_recipe_by_title(title, recipes) 
+                        for title in selected_breakfast if find_recipe_by_title(title, recipes)]
         elif "lunch" in meal_name.lower():
-            available = [find_recipe_by_title(title, available_recipes) 
-                        for title in selected_lunch if find_recipe_by_title(title, available_recipes)]
+            available = [find_recipe_by_title(title, recipes) 
+                        for title in selected_lunch if find_recipe_by_title(title, recipes)]
         elif "dinner" in meal_name.lower():
-            available = [find_recipe_by_title(title, available_recipes) 
-                        for title in selected_dinner if find_recipe_by_title(title, available_recipes)]
+            available = [find_recipe_by_title(title, recipes) 
+                        for title in selected_dinner if find_recipe_by_title(title, recipes)]
         elif "snack" in meal_name.lower():
-            available = [find_recipe_by_title(title, available_recipes) 
-                        for title in selected_snacks if find_recipe_by_title(title, available_recipes)]
+            available = [find_recipe_by_title(title, recipes) 
+                        for title in selected_snacks if find_recipe_by_title(title, recipes)]
         else:
             # Fallback to any available recipe
-            available = available_recipes
+            available = recipes
         
         # Remove None values
         available = [r for r in available if r is not None]
