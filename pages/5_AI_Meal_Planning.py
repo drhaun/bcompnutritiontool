@@ -528,10 +528,55 @@ if standalone_mode:
     
     with col1:
         st.markdown("**Daily Nutrition Targets**")
-        manual_calories = st.number_input("Target Calories", min_value=1000, max_value=5000, value=2000, step=50)
-        manual_protein = st.number_input("Target Protein (g)", min_value=50, max_value=300, value=150, step=5)
-        manual_carbs = st.number_input("Target Carbs (g)", min_value=50, max_value=500, value=200, step=10)
-        manual_fat = st.number_input("Target Fat (g)", min_value=30, max_value=200, value=70, step=5)
+        
+        # Use session state to store macro values for auto-calculation
+        if 'standalone_protein' not in st.session_state:
+            st.session_state.standalone_protein = 150
+        if 'standalone_carbs' not in st.session_state:
+            st.session_state.standalone_carbs = 200
+        if 'standalone_fat' not in st.session_state:
+            st.session_state.standalone_fat = 70
+        
+        manual_protein = st.number_input(
+            "Target Protein (g)", 
+            min_value=50, 
+            max_value=300, 
+            value=st.session_state.standalone_protein, 
+            step=5,
+            key="protein_input"
+        )
+        
+        manual_carbs = st.number_input(
+            "Target Carbs (g)", 
+            min_value=50, 
+            max_value=500, 
+            value=st.session_state.standalone_carbs, 
+            step=10,
+            key="carbs_input"
+        )
+        
+        manual_fat = st.number_input(
+            "Target Fat (g)", 
+            min_value=30, 
+            max_value=200, 
+            value=st.session_state.standalone_fat, 
+            step=5,
+            key="fat_input"
+        )
+        
+        # Auto-calculate calories based on macros
+        calculated_calories = (manual_protein * 4) + (manual_carbs * 4) + (manual_fat * 9)
+        
+        # Display calculated calories (read-only)
+        st.markdown("**Calculated Calories**")
+        st.markdown(f"**{calculated_calories} kcal** *(4×{manual_protein}g protein + 4×{manual_carbs}g carbs + 9×{manual_fat}g fat)*")
+        
+        # Update session state
+        st.session_state.standalone_protein = manual_protein
+        st.session_state.standalone_carbs = manual_carbs
+        st.session_state.standalone_fat = manual_fat
+        
+        manual_calories = calculated_calories
     
     with col2:
         st.markdown("**Meal Structure**")
@@ -1041,7 +1086,9 @@ if st.session_state.meal_plans.get(selected_day, {}) and any(meal_data.get('reci
                 )
                 
                 # Save PDF to bytes
-                pdf_output = pdf.output(dest='S').encode('latin-1')
+                pdf_output = pdf.output(dest='S')
+                if isinstance(pdf_output, str):
+                    pdf_output = pdf_output.encode('latin-1')
                 
                 st.download_button(
                     label="Download PDF",
@@ -1116,7 +1163,9 @@ if standalone_mode:
             if st.button("📄 Export Full Week PDF", type="primary"):
                 try:
                     pdf = create_meal_plan_pdf(st.session_state.meal_plans, day_nutrition, diet_prefs)
-                    pdf_output = pdf.output(dest='S').encode('latin-1')
+                    pdf_output = pdf.output(dest='S')
+                    if isinstance(pdf_output, str):
+                        pdf_output = pdf_output.encode('latin-1')
                     
                     st.download_button(
                         label="Download Weekly PDF",
