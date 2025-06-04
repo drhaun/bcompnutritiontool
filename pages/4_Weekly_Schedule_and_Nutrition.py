@@ -621,34 +621,6 @@ with tab2:
         # Day-specific nutrition targets
         st.subheader("Day-Specific Nutrition Targets")
         
-        # Copy options at the top
-        st.markdown("##### Copy Settings")
-        copy_col1, copy_col2, copy_col3 = st.columns([2, 2, 1])
-        
-        with copy_col1:
-            copy_from_day = st.selectbox("Copy from:", days_of_week, key="copy_from_day")
-        
-        with copy_col2:
-            copy_to_days = st.multiselect("Copy to:", 
-                                        [day for day in days_of_week if day != copy_from_day], 
-                                        key="copy_to_days")
-        
-        with copy_col3:
-            if st.button("Copy Settings", type="secondary", use_container_width=True):
-                if copy_to_days:
-                    # Get the source day's nutrition data
-                    source_data = st.session_state.day_specific_nutrition.get(copy_from_day, {})
-                    if source_data:
-                        # Copy to selected days
-                        for day in copy_to_days:
-                            st.session_state.day_specific_nutrition[day] = source_data.copy()
-                        st.success(f"Copied nutrition settings from {copy_from_day} to {', '.join(copy_to_days)}")
-                        st.rerun()
-                    else:
-                        st.warning(f"No nutrition settings found for {copy_from_day}")
-                else:
-                    st.warning("Please select at least one day to copy to")
-        
         st.markdown("---")
         
         # Day selector
@@ -1065,6 +1037,38 @@ with tab2:
                 st.write("• 35-45 kcal/kg FFM: Adequate for most people")
                 st.write("• <30 kcal/kg FFM: Risk of metabolic issues")
             
+            # Copy settings section embedded within the day's nutrition targets
+            st.markdown("---")
+            st.markdown("#### Copy These Settings to Other Days")
+            copy_col1, copy_col2 = st.columns([3, 1])
+            
+            with copy_col1:
+                copy_to_days = st.multiselect(
+                    f"Copy {selected_day}'s nutrition targets to:", 
+                    [day for day in days_of_week if day != selected_day], 
+                    key=f"copy_from_{selected_day}"
+                )
+            
+            with copy_col2:
+                if st.button("Copy Settings", type="secondary", use_container_width=True, key=f"copy_btn_{selected_day}"):
+                    if copy_to_days:
+                        # Get current day's nutrition data
+                        current_data = {
+                            "target_calories": custom_day_calories,
+                            "protein": custom_day_protein,
+                            "carbs": custom_day_carbs,
+                            "fat": custom_day_fat
+                        }
+                        
+                        # Copy to selected days
+                        for day in copy_to_days:
+                            st.session_state.day_specific_nutrition[day] = current_data.copy()
+                        
+                        st.success(f"Copied nutrition settings from {selected_day} to {', '.join(copy_to_days)}")
+                        st.rerun()
+                    else:
+                        st.warning("Please select at least one day to copy to")
+
             # Save the nutrition targets
             st.session_state.day_specific_nutrition[selected_day] = {
                 "target_calories": custom_day_calories,
