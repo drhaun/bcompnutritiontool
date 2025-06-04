@@ -4,6 +4,7 @@ import json
 import sys
 import os
 import random
+import math
 from datetime import datetime, date
 
 # Import FDC API for real nutritional data
@@ -22,21 +23,86 @@ if 'user_info' not in st.session_state or not st.session_state.user_info.get('ge
     st.warning("Please complete your setup in Initial Setup first.")
     st.stop()
 
-if 'nutrition_plan' not in st.session_state or not st.session_state.nutrition_plan.get('target_calories'):
-    st.warning("Please complete your nutrition goals in Weekly Schedule and Nutrition first.")
-    st.stop()
-
 if 'diet_preferences' not in st.session_state:
     st.warning("Please complete your diet preferences first.")
+    st.stop()
+
+# Check if nutrition targets are properly calculated
+has_valid_nutrition = False
+if 'nutrition_plan' in st.session_state:
+    nutrition_plan = st.session_state.nutrition_plan
+    target_calories = nutrition_plan.get('target_calories')
+    if target_calories and not (isinstance(target_calories, float) and math.isnan(target_calories)):
+        has_valid_nutrition = True
+
+if not has_valid_nutrition:
+    st.warning("⚠️ Your nutrition targets haven't been calculated yet. Please complete the Nutrition Targets tab in Weekly Schedule and Nutrition first.")
+    
+    # Provide quick calculation option
+    if st.button("🔄 Calculate My Nutrition Targets Now"):
+        # Get user data for calculations
+        user_info = st.session_state.user_info
+        goal_info = st.session_state.goal_info
+        
+        # Calculate TDEE and macros
+        try:
+            tdee = utils.calculate_tdee(
+                user_info['gender'],
+                user_info['weight_kg'],
+                user_info['height_cm'],
+                user_info['age'],
+                user_info['activity_level']
+            )
+            
+            target_calories = utils.calculate_target_calories(tdee, goal_info.get('goal_type', 'maintain'))
+            macros = utils.calculate_macros(target_calories, user_info['weight_kg'], goal_info.get('goal_type', 'maintain'))
+            
+            # Save to nutrition plan
+            st.session_state.nutrition_plan.update({
+                'target_calories': target_calories,
+                'target_protein': macros['protein'],
+                'target_carbs': macros['carbs'],
+                'target_fat': macros['fat']
+            })
+            
+            st.success("✅ Nutrition targets calculated successfully!")
+            st.rerun()
+            
+        except Exception as e:
+            st.error("Unable to calculate nutrition targets. Please complete all setup steps first.")
+    
     st.stop()
 
 # Get user preferences and targets
 diet_prefs = st.session_state.diet_preferences
 nutrition_plan = st.session_state.nutrition_plan
+
+# Safely get nutrition targets with proper defaults
 target_calories = nutrition_plan.get('target_calories', 2000)
 target_protein = nutrition_plan.get('target_protein', 150)
 target_carbs = nutrition_plan.get('target_carbs', 200)
 target_fat = nutrition_plan.get('target_fat', 70)
+
+# Handle NaN values by providing defaults
+import math
+def safe_value(value, default):
+    try:
+        if value is None or (isinstance(value, float) and math.isnan(value)):
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+target_calories = safe_value(target_calories, 2000)
+target_protein = safe_value(target_protein, 150)
+target_carbs = safe_value(target_carbs, 200)
+target_fat = safe_value(target_fat, 70)
+
+# Convert to integers
+target_calories = int(target_calories)
+target_protein = int(target_protein)
+target_carbs = int(target_carbs)
+target_fat = int(target_fat)
 
 # Display nutrition targets
 st.subheader("📊 Your Daily Nutrition Targets")
