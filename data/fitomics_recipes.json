@@ -185,7 +185,7 @@
   {
     "id": "6773e6a79d79be40f0b841b5",
     "title": "Sugar Cookie Protein Balls",
-    "category": "snack",
+    "category": "dessert",
     "servings": 1,
     "ingredients": [
       "2 serving collagen powder",
@@ -243,7 +243,7 @@
   {
     "id": "67744e05dbf530080f283fa1",
     "title": "Sugar Cookie Whip Dip",
-    "category": "snack",
+    "category": "dessert",
     "servings": 1,
     "ingredients": [
       "1/2 cup Coconut Whipped Topping",
@@ -270,7 +270,7 @@
   {
     "id": "67744ed0fe5d8014be06f1b3",
     "title": "Strawberry Santa Hats",
-    "category": "snack",
+    "category": "dessert",
     "servings": 1,
     "ingredients": [
       "Strawberries",
@@ -921,6 +921,2162 @@
     "categories": [
       "/seasonal",
       "/desserts"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a8caff5a0a972a9c5b12f",
+    "title": "Broccoli Cheddar Egg Muffins",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 cup broccoli, chopped",
+      "1/4 cup diced onion",
+      "5 slices of turkey bacon",
+      "8 eggs",
+      "1/2 cup low fat shredded cheese",
+      "1 tbsp olive oil",
+      "1/2 tsp garlic powder",
+      "1/4 tsp salt",
+      "1/4 tsp pepper"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/easy-meals"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a8dd67dfdf95e57d907d8",
+    "title": "Tater Tot Breakfast Casserole",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 lb. turkey sausage",
+      "1.5 cups egg whites",
+      "1.5 cup low fat cottage cheese",
+      "6 servings of tater tots (504 g)",
+      "1/2 cup shredded cheddar cheese",
+      "1/2 tsp salt",
+      "1/2 tsp pepper",
+      "1/2 tsp garlic powder"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/easy-meals"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a8f2c30da9777e243354b",
+    "title": "Shrimp and Broccoli Stir Fry",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 lb. shrimp, peeled and deveined",
+      "2 tbsp olive oil",
+      "2 tbsp agave or honey",
+      "2 tbsp reduced sodium soy sauce",
+      "1/2 tsp ginger",
+      "1 tbsp minced garlic",
+      "2 cups broccoli",
+      "2 cups brown rice"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a9029740cc74a2e8a392e",
+    "title": "Buffalo Chicken Casserole",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "30 oz. chicken (cooked)",
+      "30 oz. frozen riced cauliflower",
+      "1/3 cup Primal Kitchen buffalo sauce",
+      "1 packet ranch seasoning",
+      "2 cups shredded cheese",
+      "8 oz reduced fat cream cheese"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a918a6aa643149026f5f0",
+    "title": "Southwest Chicken Salad",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "24 oz. chicken tenderloins",
+      "1 cup black beans",
+      "1 cup red bell peppers",
+      "1 cup chickpeas",
+      "1 cup corn",
+      "1 cup cucumber, chopped",
+      "1 cup cooked shallot",
+      "1 cup jalapeno peppers, chopped",
+      "1 tbsp cilantro",
+      "1 cup low-fat shredded cheese",
+      "2 tbsp Primal Kitchen cilantro lime dressing",
+      "2 cups lettuce"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a935ce5d7fa7996e0b622",
+    "title": "Cheeseburger Wrap",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 lb. 90% lean ground beef",
+      "1 tbsp Worcestershire sauce",
+      "2 tbsp sugar free ketchup",
+      "2 tbsp mustard",
+      "1 tsp minced onion",
+      "1 dash of salt and pepper",
+      "4 Joseph's Lavash bread sheets",
+      "1 cup shredded cheddar cheese",
+      "2 cups lettuce",
+      "1 cup tomatoes, chopped",
+      "1 red onion, chopped"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a98a3fb164a4a4700a09f",
+    "title": "Creamy Butternut Squash Pasta",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "2 cups butternut squash",
+      "3 tbsp olive oil",
+      "1/4 tsp salt",
+      "1/4 tsp black pepper",
+      "1/2 lb. turkey sausage, crumbled",
+      "4 garlic cloves, minced",
+      "6 oz. spinach",
+      "1 cup heavy cream",
+      "1/3 cup shredded parmesan cheese",
+      "8 oz. Banza bow tie pasta"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671f8e003cd8c723b6b2ef75",
+    "title": "Foil Baked Salmon and Asparagus",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "2 salmon fillet (around 1 lb)",
+      "2 tbsps reduced sodium bone broth",
+      "2 tsp minced garlic",
+      "1.5 tbsp lemon juice",
+      "\u00bd tsp salt",
+      "\u00bd tsp pepper",
+      "2 tbsp avocado oil butter",
+      "2 tbsp parsley",
+      "1 lb asparagus (450 g)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671f8f148ac1473e3a5c0241",
+    "title": "Protein Oreo Dip",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "1 cup of plain, nonfat Greek yogurt",
+      "1 cup light Cool Whip",
+      "2 tbsp sugar free instant vanilla pudding mix",
+      "4 Oreo thins"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/desserts"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671f931d972d0056560d5d54",
+    "title": "Fruity Chia Seed Smoothie",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 cup of frozen strawberries",
+      "1 medium frozen banana",
+      "1/2 cup plain non-fat Greek yogurt",
+      "1 cup unsweetened plain almond milk",
+      "1/2 tsp vanilla extract",
+      "2 tbsp chia seeds",
+      "1 cup frozen mango",
+      "100 g frozen blueberries",
+      "1 scoop vanilla protein powder"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/drinks-smoothies"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671f9486a023e60e8f1d53f8",
+    "title": "Sweet Potato Hash",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "2 medium sweet potatoes, cut into cubes (3 cups)",
+      "2 tbsp olive oil",
+      "\u00bd tsp ground cumin",
+      "\u00bd tsp chili powder",
+      "\u00bc tsp sea salt",
+      "1 can of black beans, drained and rinsed",
+      "2 tsp  lime juice",
+      "1 tsp pepper",
+      "\u00bc cup chopped cilantro"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/apps-sides"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671f99746acd2952241016cf",
+    "title": "Black Beans and Rice",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "2 cups brown rice",
+      "1 tbsp olive oil",
+      "\u00bd cup diced onion",
+      "1 medium diced bell pepper",
+      "1 \u00bd tsp minced garlic",
+      "3 cups reduced-sodium bone broth",
+      "1 can diced tomatoes",
+      "1 tbsp fresh chopped cilantro",
+      "2 tsp ground cumin",
+      "1 tsp chili powder",
+      "\u00bc tsp sea salt",
+      "2 can black beans, drained and rinsed",
+      "2 tbsp lime juice"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/apps-sides",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671f9aa24cae162e91adf78a",
+    "title": "Healthier Egg Salad",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "4 large hard-boiled eggs",
+      "4 tsp Primal Kitchen Mayonaise",
+      "1/2 tsp Dijon mustard",
+      "2 tbsp chives or scallions",
+      "1/2 tsp sea salt",
+      "1/2 tsp pepper"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/apps-sides"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671f9ba44cae162e91ae4e91",
+    "title": "Homemade Sweet Potato Fries",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "32 oz sweet potato",
+      "1 tbsp olive oil",
+      "1 tsp garlic powder",
+      "1 tsp sea salt",
+      "1 tsp pepper"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/apps-sides"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671f9c314377251cbfac8be8",
+    "title": "Banana Oat Cookies",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "2 cup oats",
+      "1/2 tsp cinnamon",
+      "1/4 tsp salt",
+      "1/2 cup creamy peanut butter (or other nut butter)",
+      "1/2 tsp vanilla extract",
+      "2 large ripe bananas",
+      "1/4 cup dark chocolate chips",
+      "1 tbsp chia seeds"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/desserts"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671f9dc92238d40e5e4706c7",
+    "title": "Iced Coffee Protein Shake",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 cup unsweetened almond milk",
+      "2 cups ice",
+      "1 cup cold coffee or cold brew",
+      "1 scoop protein powder (chocolate or vanilla)",
+      "1 frozen banana"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/drinks-smoothies"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671f9e92972d0056561143c4",
+    "title": "Healthy Cinnamon Apples",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "3 apples (about 3 cups, chopped)",
+      "2 tbsp water",
+      "1 tbsp coconut oil",
+      "1 tbsp honey (sub maple syrup)",
+      "\u00bd tsp ground cinnamon",
+      "\u215b tsp sea salt",
+      "\u00bc tsp pure vanilla extract"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/apps-sides",
+      "/desserts"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671f9fa0fde28b5c62607911",
+    "title": "Peanut Butter Chia Pudding",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "2 tbsp chia seeds",
+      "1 cup cashew milk",
+      "2 tbsp powdered peanut butter",
+      "1/2 scoop vanilla protein powder"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/easy-meals"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671fa0c43cd8c723b6b94061",
+    "title": "Healthier Baked Ziti",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "8 oz ziti noodles (100% whole wheat)",
+      "1.5 lbs. ground beef",
+      "3 cups Primal Kitchen Marinara sauce",
+      "1/2 cup cottage cheese (low fat)",
+      "4 oz reduced fat mozzarella cheese",
+      "1 egg",
+      "1 tbsp olive oil",
+      "1 tbsp Italian seasoning",
+      "1 tsp minced garlic, salt, and pepper"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67213f37356f8939d0aada5b",
+    "title": "Green Protein Smoothie",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 banana",
+      "1 cup spinach",
+      "\u00bd cup non-fat Greek yogurt",
+      "1 scoop protein powder",
+      "\u00bd cup unsweetened almond milk",
+      "1 T honey or maple syrup (optional, for added sweetness)",
+      "Ice cubes",
+      "Toppings: coconut flakes, sliced kiwi, muesli (optional)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/drinks-smoothies"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67314281cb2f703290f4f7c9",
+    "title": "Sweet Potato Nachos",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6733657390952d64c3856f78",
+    "title": "Berry Blast Smoothie",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "\u00bd banana",
+      "\u00bd frozen mixed berries",
+      "\u00bd cup spinach",
+      "\u00bd cup non-fat Greek yogurt",
+      "1 scoop protein powder",
+      "\u00bd cup unsweetened almond milk",
+      "1 T honey or maple syrup (optional, for added sweetness)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/drinks-smoothies"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67338c006522897e3512798e",
+    "title": "Pumpkin Patch Protein Balls",
+    "category": "snack",
+    "servings": 1,
+    "ingredients": [
+      "1/3 c pumpkin puree",
+      "1/4 c peanut butter or nut butter",
+      "1 tsp vanilla",
+      "1 TBSP maple syrup (or honey)",
+      "1 serving of vanilla or unflavored protein powder",
+      "1/3 c oat flour",
+      "2 tsp pumpkin spice",
+      "1 TBSP oat milk (add additional if needed)",
+      "large dark chocolate chips (for pumpkin stem)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67339747901ed647bb3bdfef",
+    "title": "Frozen Greek Yogurt Bark",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "\u00bd cup non-fat Plain Greek Yogurt",
+      "\u00bc cup strawberries, sliced",
+      "1.5 Tbsp granola"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/desserts",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67339977ca5692403d72d2c2",
+    "title": "Strawberry Overnight Oats",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/easy-meals"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6733ab54bdf92b6343913a92",
+    "title": "Chipotle Chicken Pasta",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67376bc4ee18a17ac4e6d5cc",
+    "title": "Roasted Sausage & Veggie Medley",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67412ff4dd2b075c5744fc6c",
+    "title": "High Protein Chocolate Pudding",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "5 oz tofu",
+      "1/4 c unsweetened almond milk",
+      "1 TBSP Cacao",
+      "1 TBSP PB powder",
+      "1/2 serving vanilla protein of choice",
+      "1 tsp maple syrup or date syrup",
+      "dark chocolate shavings (for topping)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/desserts",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "674131b9189710215da6ba73",
+    "title": "Caramel Apple Bites",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "9 Pitted dates",
+      "1 Green apple (diced)",
+      "1 oz Dark chocolate (melted)",
+      "2 Tbsp Almond butter",
+      "1 tsp Himalayan sea salt"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67413482585d7048611e4ae7",
+    "title": "Homemade Peanut Butter Cups",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "1 cup dark chocolate",
+      "1 tsp coconut oil",
+      "1/4 c natural PB",
+      "1/4 c oat flour",
+      "1 tsp vanilla",
+      "1 TBSP maple syrup"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6741ce5f10e46d1419712b29",
+    "title": "Pumpkin Spice Yogurt Parfait",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 single serving of nonfat vanilla Greek yogurt yogurt",
+      "3 TBSP pumpkin",
+      "1 tsp pumpkin spice",
+      "1/3 cup granola",
+      "1 TBSP hemp seeds (for toppings)",
+      "1/2 TBSP almond butter (for toppings)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/seasonal",
+      "/ibs-friendly",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67423dbb3451365d324d623d",
+    "title": "High Protein Peanut Butter Cookie Dough",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 container nonfat vanilla Greek yogurt (~4-5oz) (can opt for dairy free yogurt)",
+      "1/4 c PB Fit powder",
+      "1/4-1/2 c oat flour (add additional depending on consistency)",
+      "1-2 servings of protein powder or collagen (add additional depending on consistency)",
+      "2 TBSP dairy free chocolate chips"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6742575c864ce56c1c7ff472",
+    "title": "3 ingredient baked tacos",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "12 Corn tortillas",
+      "1lb Ground turkey or beef",
+      "6 oz Shredded cheese (Opt for dairy free if desire)",
+      "Optional: Green onion topping"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67433f07bd2a08017d3a8cc3",
+    "title": "Egg Roll in a Bowl",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1lb ground turkey",
+      "1 packet raw cole slaw",
+      "2 TBSP coconut amino (sub soy sauce &amp; maple syrup)",
+      "1 TBSP olive oil"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/ibs-friendly",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "674d2756538d2a6a09754de5",
+    "title": "Bone Broth Hot Chocolate",
+    "category": "snack",
+    "servings": 1,
+    "ingredients": [
+      "1 cup bone broth",
+      "2 TBSP unsweetened cocoa",
+      "1 TBSP maple syrup (sub two packets stevia)",
+      "1/2 cup soy milk (sub fat free milk)",
+      "1/2 tsp cinnamon",
+      "2 oz marshmallows (optional)",
+      "peppermint stick (optional)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/drinks-smoothies",
+      "/ibs-friendly",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "674e032bd616f449d03820f8",
+    "title": "Peppermint Chocolate Mousse Parfait",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "1 container vanilla yogurt (sub high protein dairy free yogurt)",
+      "1 scoop chocolate protein powder (sub cocoa powder)",
+      "1/8 tsp peppermint extractToppings",
+      "Gluten Free peppermint Joe Joes (Trader Joes)",
+      "Smashed peppermintInstructions:"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts",
+      "/ibs-friendly",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "674f20193ea64a54556c637b",
+    "title": "Snow Globe Mocktail",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 rosemary leaf",
+      "Approx. 1/2 c or 1 handful of whole cranberries",
+      "water",
+      "Probiotic soda or beverage of choice"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/drinks-smoothies"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6750718a557b15543b77f295",
+    "title": "Sugar Cookie Overnight Oats",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "\u00bd cup oats",
+      "1 cup soy milk (unsweetened)",
+      "1 scoop vanilla protein (Kion clean protein)",
+      "1 serving collagen (optional, included in Cronometer recipe)",
+      "1/8 tsp vanilla extract",
+      "1/8 almond extract",
+      "1 dash of salt",
+      "1 tsp maple syrup",
+      "As many sprinkles as the hear desires (1 tsp added in Cronometer recipe)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/seasonal",
+      "/easy-meals"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67520e9a664de650edca0624",
+    "title": "Salted Peppermint Mocha",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "Mint Double espresso (sub for regular espresso with 1/8 tsp peppermint extract)",
+      "Drink LMNT chocolate salt (sub for 1/4 tsp salt &amp; chocolate protein powder)",
+      "1/2 c choice of milk (Cronomter recipe uses fairlife ultrafiltered skim milk)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/drinks-smoothies"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "675741f1d52e241947ff8664",
+    "title": "Candy Cane Crunch Cake",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "1 Rice cake",
+      "1 Tbsp Nut butter of choice",
+      "2 tsp hemp seeds",
+      "11g dark chocolate",
+      "1 crushed peppermint"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts",
+      "/ibs-friendly"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "675745fead49685c1ad25d28",
+    "title": "Egg Nog Latte",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "Double espresso of choice",
+      "1/2 c egg nog of choice (Almond Malk Holiday Nog used in Cronometer recipe)",
+      "As much nutmeg as the heart desires"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/drinks-smoothies",
+      "/ibs-friendly"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "675747751b44df1fb7b3d111",
+    "title": "Oat Nog Ninja Creami",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "1 1/2 c Chobani oat nog + 3 TBSP for mix in",
+      "1 serving collagen",
+      "1 scoop vanilla protein",
+      "1/2 tsp nutmeg"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "675777f5a0b4f82fb333d981",
+    "title": "Spiced Orange Cran Mocktail",
+    "category": "snack",
+    "servings": 1,
+    "ingredients": [
+      "1 orange",
+      "1 pack of cranberries",
+      "2 oz orange sparkling beverage (Orange Poppi Prebiotic soda was used in the Cronometer recipe)",
+      "6 oz cranberry juice",
+      "1 cinnamon stick"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/drinks-smoothies",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "675999b2dd986b13f3766eba",
+    "title": "Winter Spiced Overnight Oats",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "\u00bd cup oats",
+      "\u00be cup unsweetened almond milk",
+      "1 scoop vanilla protein (Kion clean protein)",
+      "1 TBSP collagen (optional, included in Cronometer recipe)",
+      "1 tsp maple syrup",
+      "\u00bc tsp nutmeg",
+      "\u00bd tsp cinnamon",
+      "1 TBSP dried cranberries",
+      "1 TBSP chopped pecans"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/seasonal",
+      "/easy-meals"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "675a1b749045e814087c2962",
+    "title": "Winter Chicken Bowl",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "2 c kale",
+      "1 cooked chicken breast (4 oz)",
+      "3 oz cooked sweet potato (diced)",
+      "3 oz cooked broccoli",
+      "1/4 c pomegranate seeds",
+      "1-2 TBSP crushed almonds",
+      "2 TBSP balsamic glaze"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "675a1e9d8c4fee71a92a88bb",
+    "title": "Gingerbread Shaken Espresso",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1/8 tsp ground ginger",
+      "1/8 tsp all spice",
+      "1 tsp coconut sugar",
+      "Double espresso",
+      "Dairy free Ginger bread creamer (as much as the heart desires)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/drinks-smoothies"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "675f84fdef7a185351acc810",
+    "title": "High Protein \u201cSnickers Salad\u201d",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "1 single serve container of vanilla greek yogurt (dairy free optional)",
+      "1 caramel chocolate protein bar of choice (gluten &amp; dairy free optional)",
+      "1 green apple",
+      "2 TBSP date syrup"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "675f8a69ef4418097634740f",
+    "title": "Gingerbread Protein Pancakes",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 (115g) banana",
+      "110g egg white",
+      "1 scoop vanilla protein powder",
+      "2 TBSP oat flour",
+      "1 tsp all spice",
+      "1 tsp nutmeg",
+      "1/2 tsp ginger",
+      "1/8 tsp baking powder"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/seasonal",
+      "/ibs-friendly"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67684ce922d2f137d6bd8f4e",
+    "title": "Sweet Potato Toast",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 large sweet potato",
+      "Avocado Spray cooking oil",
+      "Toppings of choice"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/seasonal",
+      "/ibs-friendly"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "676df20441e1da20f3caeea7",
+    "title": "Peppermint Mocha Smoothie",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 banana frozen",
+      "1/3 c frozen cauliflower",
+      "1 cup soy milk",
+      "1 scoop collagen, unflavored",
+      "1/8 tsp peppermint",
+      "2 TBSP Cocoa powder, unsweetened (sub chocolate protein)",
+      "1 tsp maple syrup",
+      "4-5 small ice cubes (or 2 large)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/seasonal",
+      "/ibs-friendly"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "670fe0ce3ee9f70713754887",
+    "title": "Almond Joy Overnight Oats",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "670fe49951592f74d1b4a050",
+    "title": "Healthier Breakfast Burrito",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 whole wheat tortilla",
+      "2 scrambled eggs",
+      "1/4 cup turkey sausage",
+      "1/4 cup shredded cheddar cheese",
+      "1/2 cup spinach"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a6c3dfa68bb6871901443",
+    "title": "Healthier Breakfast Sandwich",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 Multigrain English Muffin",
+      "3 tbsp egg whites, cooked",
+      "1 light Laughing Cow cheese wedge",
+      "1 Turkey Sausage patty"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a6d57a1b4411b8077af64",
+    "title": "Spinach & Cheese Egg Muffins",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 cup egg whites",
+      "1/2 cup spinach, chopped",
+      "1/2 cup shredded mozzarella cheese",
+      "Dash of sea salt and pepper"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a6dfa09a73b6316bfaa59",
+    "title": "Chicken Avocado Melt",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "2 slices Dave's multigrain bread",
+      "1/2 avocado",
+      "3 oz grilled chicken breast",
+      "1 slice mozzarella cheese",
+      "1 dash sea salt",
+      "1 dash pepper"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a6fe7fbef337c00acc8b6",
+    "title": "Greek Turkey Burgers",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "24 oz ground turkey",
+      "1/2 cup reduced-fat feta cheese",
+      "4 tsp minced garlic",
+      "1 small red onion, diced",
+      "1 cup spinach",
+      "1/2 tsp oregano",
+      "1 tsp sea salt",
+      "1/2 tsp pepper",
+      "1/4 cup fat-free Greek yogurt",
+      "1/2 tsp lemon juice",
+      "1 large sprig of dill",
+      "3-4 sliced pickles, diced"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a76f5b84df063894df6c6",
+    "title": "Taco Chicken",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "2 lb raw chicken breast",
+      "2 packets fajita or taco seasoning",
+      "1 packet of ranch seasoning"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a76f5f1f98b4ffb86af42",
+    "title": "Salmon Burger",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 salmon fillet",
+      "2 tbsp dijon mustard",
+      "1 tbsp cilantro",
+      "1 tbsp parsley",
+      "1/2 tsp salt",
+      "1/2 tsp pepper",
+      "1/2 tsp paprika",
+      "1/4 cup breadcrumbs",
+      "1/2 tbsp olive oil"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a7824627a3a6727d2adc4",
+    "title": "Crockpot BBQ Chicken",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "2 lb boneless skinless chicken breast",
+      "1.5 cups Primal Kitchen BBQ sauce",
+      "1/4 cup apple cider vinegar",
+      "1/2 tsp onion powder",
+      "1/2 tsp garlic powder"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a78c80270cf4c7d371e94",
+    "title": "Mediterranean Wrap",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 Joseph's Lavash Wrap",
+      "4 oz grilled chicken",
+      "10 g onion",
+      "30 g hummus",
+      "60 g tomatoes",
+      "30 g reduced-fat feta cheese",
+      "40 g cucumber",
+      "20 g pickles",
+      "40 g spinach",
+      "60 g homemade tzatziki sauce",
+      "60 g fat-free Greek yogurt",
+      "1 g lemon juice",
+      "1 large sprig of dill",
+      "25 g diced pickles"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a79af210b270fc64758f6",
+    "title": "Ground Turkey Sweet Potato Bake",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 lb ground turkey",
+      "2 medium sweet potatoes, peeled and diced",
+      "2 zucchini, diced",
+      "2/3 cup shredded parmesan cheese",
+      "1 tsp garlic powder",
+      "1 tsp rosemary",
+      "5 tbsp olive oil",
+      "1/4 tsp salt and pepper"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a7db73975d320de6a3bbf",
+    "title": "Crockpot Sante Fe Chicken",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "20 oz chicken",
+      "1 can (14 oz) diced tomatoes",
+      "1 can (15 oz) black beans",
+      "8 oz frozen corn",
+      "1/4 cup cilantro",
+      "14 oz chicken broth",
+      "1 tsp garlic powder, onion powder, ground cumin, and sea salt",
+      "1/2 avocado, sliced (for topping)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a7e458e78834f3dbd762b",
+    "title": "Blueberry Coconut Chia Seed Pudding",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 cup unsweetened coconut milk",
+      "1/4 cup water",
+      "1 tsp vanilla extract",
+      "6 tbsp chia seeds",
+      "1.5 cup frozen blueberries",
+      "2 tbsp water"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/desserts",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a7ed526ce9354e2ba50e0",
+    "title": "Lightened Up Green Bean Casserole",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 lb fresh green beans, trimmed and cut into bite-sized pieces",
+      "2bsp olive oil",
+      "1 small onion, finely chopped",
+      "2 cloves garlic, minced",
+      "8 ounces mushrooms, sliced",
+      "2 tbsp whole wheat flour",
+      "1 cup low-sodium vegetable broth",
+      "1 cup unsweetened almond milk (or any other milk alternative)",
+      "Salt and pepper to taste",
+      "1 tsp dried thyme",
+      "1 cup whole grain breadcrumbs",
+      "2 tbsp grated Parmesan cheese (optional)",
+      "Cooking spray"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/apps-sides"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a7f3d48582c7dd3420462",
+    "title": "Roasted Brussels Sprouts with Balsamic Glaze",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 lb Brussels sprouts, trimmed and halved",
+      "2 tbsp olive oil",
+      "Salt and black pepper to taste",
+      "2 tbsp balsamic vinegar",
+      "1 tbsp honey or maple syrup (optional, for sweetness)",
+      "1-2 cloves garlic, minced (optional, for added flavor)",
+      "2 tbsp chopped fresh parsley (for garnish, optional)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/apps-sides"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a8252f3c7c9218394a859",
+    "title": "Thanksgiving Kale Salad with Roasted Butternut Squash",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 bunch kale, stems removed and leaves thinly sliced",
+      "2 cups butternut squash, peeled and diced into bite-sized pieces",
+      "1/2 cup pumpkin seeds (pepitas), toasted",
+      "1/3 cup dried cranberries",
+      "1/4 cup feta cheese, crumbled (optional)",
+      "Salt and black pepper to taste",
+      "3 tbsp olive oil",
+      "2 tbsp balsamic vinegar",
+      "1 tbsp maple syrup or honey",
+      "1 tsp Dijon mustard",
+      "Salt and black pepper to taste"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/apps-sides"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a82c7b84df06389521851",
+    "title": "Sweet Potato Casserole with Pecan Topping",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "4 medium sweet potatoes, peeled and cubed",
+      "2 tbsp coconut oil or olive oil",
+      "1 egg",
+      "1/4 cup pure maple syrup or honey",
+      "1 tsp  ground cinnamon",
+      "1/2 tsp nutmeg",
+      "1/4 cup unsweetened almond milk (or any milk alternative)",
+      "1 tsp vanilla extract",
+      "Pinch of salt",
+      "1 cup pecans, chopped",
+      "1/4 cup whole wheat flour (or other flour alternative)",
+      "2 tbsp coconut oil, melted",
+      "2 tbsp pure maple syrup or honey",
+      "1/2 tsp cinnamon",
+      "Pinch of salt"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/apps-sides"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a836d6c3dbc11dcf3f49c",
+    "title": "Apple Crisp Crumble",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "6 apples",
+      "1 tbsp cinnamon",
+      "dash of salt",
+      "2 tsp coconut oil",
+      "2/3 cup oats",
+      "2/3 cup pecans",
+      "1 tbsp coconut oil",
+      "2 tsp honey"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/desserts"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "671a8bd7fb164a4a47fc12a4",
+    "title": "Blueberry Breakfast Bake",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "2 cups old fashioned oats",
+      "1/2 cup almond butter",
+      "2 large bananas",
+      "1/2 cup blueberries",
+      "1/4 cup hazelnuts",
+      "1/2 cup Swerve sweetener",
+      "2 tbsp coconut milk"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/desserts"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6728275e5d817503e89fba37",
+    "title": "Pumpkin Smoothie",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1/3 frozen banana",
+      "1 cup unsweetened oat milk",
+      "1/3 cup frozen riced cauliflower",
+      "\u00bc cup pumpkin pure",
+      "1 serving vanilla protein powder",
+      "2 dates (soaked in hot water for 15 minutes)",
+      "1 tsp pumpkin spice",
+      "1 TBSP date syrup (for glass)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/seasonal",
+      "/drinks-smoothies",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "673367b85e834a657680db44",
+    "title": "Peanut Butter Banana Smoothie",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 banana",
+      "2 Tbsp natural peanut butter",
+      "\u00bd cup non-fat Greek yogurt",
+      "1 scoop protein powder (Kion protein)",
+      "\u00bd cup unsweetened almond milk",
+      "1t Cinnamon (optional)",
+      "1 tsp honey or maple syrup (optional, for added sweetness) (not included in Cronometer calculation)",
+      "For additional calories: add \u00bc cup to \u00bd cup oats (not included in Cronometer calculation)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/drinks-smoothies"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "673374216c1a1808a50a6007",
+    "title": "Tropical Paradise Smoothie",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "\u00bd cup frozen mango",
+      "\u00bd cup frozen pineapple",
+      "\u00bd banana",
+      "\u00bd cup non-fat Greek yogurt",
+      "1 scoop protein powder (Kion protein)",
+      "\u00bd cup unsweetened coconut milk",
+      "1 tsp honey or maple syrup (optional, for added sweetness) (not included in Cronometer calculation)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/drinks-smoothies"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6733751d0e06e441e5090d6b",
+    "title": "Chocolate Banana Protein Smoothie",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 banana",
+      "1 Tbsp unsweetened cocoa powder",
+      "\u00bd cup non-fat Greek yogurt",
+      "1 scoop protein powder (Kion protein)",
+      "\u00bd cup unsweetened almond milk",
+      "1 tsp honey or maple syrup (optional, for added sweetness) (not included in Cronometer calculation)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/drinks-smoothies"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67337a6dcca7572d7d86fa94",
+    "title": "Greek Crockpot Chicken",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 cup Greek yogurt",
+      "Zest and juice of 1 lemon",
+      "1 tsp salt",
+      "1 Tbsp minced garlic",
+      "Optional: 1 Tbsp dill",
+      "2 lb boneless skinless chicken breast"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6733804eb7d41c5a31b071b2",
+    "title": "High-Protein Spinach Artichoke Dip",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "16oz cottage cheese",
+      "5.3oz plain fat-free Greek yogurt",
+      "5oz frozen spinach (thawed &amp; drained well)",
+      "6oz can artichokes (drained &amp; chopped)",
+      "\u00bd-\u00be cup mozzarella cheese",
+      "\u00bc cup parmesan cheese",
+      "1 tsp onion powder",
+      "1 tsp garlic powder",
+      "\u00bd tsp pepper"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/apps-sides"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6733949d36d24c18d25b6f39",
+    "title": "Healthy Chicken Salad",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1.5 lbs boneless skinless chicken breast",
+      "\u00bd cup non-fat plain Greek yogurt",
+      "\u00bd cup light mayo",
+      "1 cup celery, chopped",
+      "1 cup grapes, halved",
+      "\u00bc cup slivered almonds"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "674129555d5bec25d614fbbf",
+    "title": "Buffalo Chicken Meatballs",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 lb ground chicken",
+      "2 TBSP chopped parsley",
+      "2 TBSP chopped green onion (green portion only)",
+      "1 tsp salt",
+      "1/2 tsp pepper",
+      "1/4 c finely diced celery",
+      "1 slice finely crumbled bread or 1/3 c bread crumbs (can opt for gluten free)",
+      "1/4 c buffalo sauce",
+      "chopped green onion (for garnish)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/ibs-friendly",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67412e020c59f53ba44ad890",
+    "title": "Breakfast Quesadilla",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 tortilla (can opt for gluten free if needed)",
+      "2 eggs and 1/4 c egg white",
+      "Cheese (can opt for dairy free if needed)",
+      "2 breakfast maple chicken sausage links",
+      "green onions (garnish)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/ibs-friendly",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6741c94ef50079330b1181a8",
+    "title": "Chocolate Chip Pumpkin Bread",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "1 cup organic pumpkin pur\u00e9e",
+      "1/3 cup maple syrup",
+      "1/4 cup coconut oil",
+      "1 tsp vanilla extract",
+      "3 eggs",
+      "1/3 cup creamy almond butter (or cashew butter for sweeter taste)",
+      "1 tbsp pumpkin spice",
+      "1/4 cup almond flour",
+      "3 tbsp oat flour",
+      "1 tsp baking soda",
+      "1/2 tsp salt",
+      "1 scoop unflavored collagen",
+      "1/4 cup chocolate chips"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "674231c51435b762a129c1ef",
+    "title": "8-minute Air fryer Dumplings",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 lb ground chicken (or turkey)",
+      "1 egg",
+      "1 tsp cayenne",
+      "1/4 c coconut amino (or soy sauce)",
+      "salt and pepper",
+      "2 stalks green onion chopped",
+      "12 Rice paper wrappers cut in half"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/ibs-friendly",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "674236b503d30c10162652d3",
+    "title": "Salted Maple Butter Matcha",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "35-40g hot water",
+      "2 overflowing tsp of matcha",
+      "1-2 tsp maple butter",
+      "1 tsp salt",
+      "1/4 c soy milk",
+      "1/4 c almond or oat milk"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/drinks-smoothies",
+      "/ibs-friendly"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6742389d82f8de7a5175b72e",
+    "title": "Harvest Grain Bowl",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 cup Tricolored Quinoa",
+      "2 cups Bone broth",
+      "4 Chicken sausage links",
+      "1 cup Broccoli, chopped",
+      "1 large Sweet potato",
+      "2 Green onion stalks, chopped",
+      "1/2 oz Almonds",
+      "1 TBSP Olive oil",
+      "Salt &amp; pepper to taste"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/seasonal",
+      "/ibs-friendly",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67425367d9e5a2196bb9ea19",
+    "title": "3 Ingredient Fish Tacos",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "24oz Tilapia (6oz per serving)",
+      "1 bag tri-color cole slaw",
+      "12 small tortillas",
+      "Optional: squeeze of lime",
+      "2 tsp cumin",
+      "2 TBSP coconut sugar",
+      "1 tsp salt",
+      "1 tsp black pepper",
+      "1/4 tsp cayenne",
+      "1 1/2 tsp paprika",
+      "1 tsp oregano"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/ibs-friendly",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "674322e3f667ab6a16bc3688",
+    "title": "Jack-O-Lantern Stuffed Peppers",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "4 large bell peppers (any color)",
+      "1 cup cooked rice (white, brown, or your choice)",
+      "1 lb ground beef",
+      "1 medium onion, diced",
+      "1 small bell pepper (any color), diced",
+      "2 cloves garlic, minced",
+      "1 tsp smoked paprika",
+      "1 tsp dried oregano",
+      "1/2 tsp chili powder (optional, for a kick)",
+      "Salt and pepper to taste",
+      "1 cup shredded cheese (cheddar, mozzarella, or your choice)",
+      "1 can (14 oz) diced tomatoes (drained)",
+      "2 tbsp olive oil"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67433a5f0be60558631a3e66",
+    "title": "Korean BBQ Rice Bowl",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1.5 pounds shaved steak",
+      "1 cups brown rice uncooked",
+      "1 small egg plant, diced or cut as desired",
+      "1 onion, sliced",
+      "2 heads of broccoli",
+      "1 TBSP Olive oil",
+      "2 tsp garlic powder",
+      "salt and pepper to taste",
+      "1 bunch green onions, chopped (optional topping)",
+      "1 avocado, sliced (optional topping)",
+      "1/2 coconut aminos",
+      "1 TBSP honey",
+      "2 TBSP olive oil"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "674342f2864ce56c1ca56731",
+    "title": "Green Goddess Chicken Wrap",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 tortilla (can opt for gluten free)",
+      "1/2 avocado",
+      "1/4 cucumber",
+      "4 oz chicken",
+      "1/2 cup spinach",
+      "oregano to taste",
+      "salt to taste"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/ibs-friendly",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6743451182f8de7a51a3e090",
+    "title": "Coffee Date Smoothie",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 small frozen banana",
+      "2 dates",
+      "1 scoop of ice cubes",
+      "1 cup unsweetened almond milk",
+      "1 double espresso shot",
+      "1 TBSP date syrup (mixed into espresso shot)",
+      "2 spoonfuls of coconut yogurt",
+      "1 serving collagen powder",
+      "Cinnamon",
+      "1 tsp vanilla",
+      "Optional: 1 TBSP white miso paste"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/drinks-smoothies"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "674346fa8f6d70252188f19b",
+    "title": "Chicken Pad Thai",
+    "category": "dinner",
+    "servings": 4,
+    "ingredients": [
+      "olive oil for cooking",
+      "12oz chicken breasts (seasoned with S&amp;P)",
+      "1 egg",
+      "2 cups mixed veggies (I used water chestnuts, bell peppers, and broccoli)",
+      "1 cup edamame",
+      "4 oz pad Thai noodles",
+      "1 avocado (optional topping)",
+      "3 TBSP coconut aminos (sub soy sauce &amp; maple syrup)",
+      "1 tsp minced ginger",
+      "1 TBSP lime juice"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "674347a2585d7048617ae763",
+    "title": "Tofu Scramble Wrap",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "4oz tofu",
+      "1oz dairy free shredded cheese (or sub regular cheese)",
+      "1 tortilla (gluten free or regular)",
+      "salt to taste",
+      "pepper to taste",
+      "cumin to taste",
+      "paprika to taste",
+      "oregano to taste",
+      "Olive oil"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/ibs-friendly",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6743483b8f3d255e88fb8b03",
+    "title": "Baked Spaghetti Squash",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 whole spaghetti squash",
+      "1 package chicken sausage",
+      "marinara sauce",
+      "parmesan cheese"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/ibs-friendly",
+      "/dinner"
     ],
     "nutrition": {}
   }
