@@ -341,6 +341,84 @@ def get_vegetable_sources(diet_prefs):
     # All vegetables are suitable for all dietary preferences
     return sources
 
+def calculate_intelligent_meal_distribution(total_calories, total_protein, total_carbs, total_fat, 
+                                          num_meals, num_snacks, is_training_day=False, workout_time=None):
+    """Calculate intelligent meal distribution based on training status and timing"""
+    
+    # Define base distributions for different scenarios
+    if num_meals == 2:  # 2 main meals
+        if is_training_day and workout_time in ['Morning', 'Lunch']:
+            meal_distributions = {
+                'breakfast': {'calories': 0.45, 'protein': 0.4, 'carbs': 0.5, 'fat': 0.35},
+                'dinner': {'calories': 0.55, 'protein': 0.6, 'carbs': 0.5, 'fat': 0.65}
+            }
+        else:
+            meal_distributions = {
+                'breakfast': {'calories': 0.4, 'protein': 0.4, 'carbs': 0.45, 'fat': 0.4},
+                'dinner': {'calories': 0.6, 'protein': 0.6, 'carbs': 0.55, 'fat': 0.6}
+            }
+    elif num_meals == 3:  # 3 main meals
+        if is_training_day and workout_time == 'Lunch':
+            meal_distributions = {
+                'breakfast': {'calories': 0.25, 'protein': 0.3, 'carbs': 0.3, 'fat': 0.35},
+                'lunch': {'calories': 0.45, 'protein': 0.4, 'carbs': 0.5, 'fat': 0.3},
+                'dinner': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.2, 'fat': 0.35}
+            }
+        else:
+            meal_distributions = {
+                'breakfast': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.35, 'fat': 0.35},
+                'lunch': {'calories': 0.35, 'protein': 0.35, 'carbs': 0.35, 'fat': 0.3},
+                'dinner': {'calories': 0.35, 'protein': 0.35, 'carbs': 0.3, 'fat': 0.35}
+            }
+    else:  # 4 main meals
+        meal_distributions = {
+            'breakfast': {'calories': 0.2, 'protein': 0.25, 'carbs': 0.25, 'fat': 0.25},
+            'lunch': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.35, 'fat': 0.25},
+            'dinner': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.25, 'fat': 0.35},
+            'evening_meal': {'calories': 0.2, 'protein': 0.15, 'carbs': 0.15, 'fat': 0.15}
+        }
+    
+    # Add snacks distribution
+    snack_calories_per = 0.1 if num_snacks > 0 else 0
+    snack_protein_per = 0.08 if num_snacks > 0 else 0
+    snack_carbs_per = 0.1 if num_snacks > 0 else 0
+    snack_fat_per = 0.05 if num_snacks > 0 else 0
+    
+    # Adjust main meals to account for snacks
+    if num_snacks > 0:
+        total_snack_allocation = {
+            'calories': snack_calories_per * num_snacks,
+            'protein': snack_protein_per * num_snacks,
+            'carbs': snack_carbs_per * num_snacks,
+            'fat': snack_fat_per * num_snacks
+        }
+        
+        # Reduce main meals proportionally
+        for meal in meal_distributions:
+            for macro in ['calories', 'protein', 'carbs', 'fat']:
+                meal_distributions[meal][macro] *= (1 - total_snack_allocation[macro])
+        
+        # Add snacks
+        for i in range(num_snacks):
+            meal_distributions[f'snack'] = {
+                'calories': snack_calories_per,
+                'protein': snack_protein_per,
+                'carbs': snack_carbs_per,
+                'fat': snack_fat_per
+            }
+    
+    # Convert to actual values
+    meal_targets = {}
+    for meal, ratios in meal_distributions.items():
+        meal_targets[meal] = {
+            'calories': int(total_calories * ratios['calories']),
+            'protein': int(total_protein * ratios['protein']),
+            'carbs': int(total_carbs * ratios['carbs']),
+            'fat': int(total_fat * ratios['fat'])
+        }
+    
+    return meal_targets
+
 def generate_grocery_list(meal_plans):
     """Generate a consolidated grocery list from meal plans"""
     grocery_items = defaultdict(float)
@@ -579,6 +657,14 @@ if standalone_mode:
         manual_calories = calculated_calories
     
     with col2:
+        st.markdown("**Training & Timing**")
+        is_training_day = st.checkbox("Training Day", value=False, help="Adjusts meal timing and macro distribution around workouts")
+        
+        if is_training_day:
+            workout_time = st.selectbox("Workout Time", ["Early Morning", "Morning", "Lunch", "Afternoon", "Evening"], index=2)
+        else:
+            workout_time = None
+        
         st.markdown("**Meal Structure**")
         num_meals = st.selectbox("Number of main meals", [2, 3, 4], index=1)
         num_snacks = st.selectbox("Number of snacks", [0, 1, 2, 3], index=1)
@@ -613,12 +699,19 @@ if standalone_mode:
     for i in range(num_snacks):
         meal_types.append('snack')
     
+    # Calculate intelligent meal distribution
+    meal_targets = calculate_intelligent_meal_distribution(
+        manual_calories, manual_protein, manual_carbs, manual_fat,
+        num_meals, num_snacks, is_training_day, workout_time
+    )
+    
     # Create nutrition targets
     day_nutrition = {
         'target_calories': manual_calories,
         'protein': manual_protein,
         'carbs': manual_carbs,
-        'fat': manual_fat
+        'fat': manual_fat,
+        'meal_targets': meal_targets
     }
     
     selected_day = "Custom Meal Plan"
@@ -635,6 +728,95 @@ if standalone_mode:
         st.metric("Carbs", f"{manual_carbs}g")
     with target_cols[3]:
         st.metric("Fat", f"{manual_fat}g")
+    
+    # Show intelligent meal distribution
+    if is_training_day:
+        st.info(f"🏋️ Training day distribution optimized for {workout_time} workout")
+    
+    st.markdown("### Per-Meal Targets")
+    
+    # Allow users to adjust per-meal targets like DIY page
+    st.markdown("**Adjust meal targets below or use the intelligent defaults:**")
+    
+    adjusted_meal_targets = {}
+    for meal_type in meal_types:
+        if meal_type in meal_targets:
+            target = meal_targets[meal_type]
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                meal_calories = st.number_input(
+                    f"{meal_type.title()} Cal", 
+                    min_value=50, 
+                    max_value=1500, 
+                    value=target['calories'],
+                    key=f"meal_cal_{meal_type}"
+                )
+            with col2:
+                meal_protein = st.number_input(
+                    f"{meal_type.title()} Protein", 
+                    min_value=5, 
+                    max_value=100, 
+                    value=target['protein'],
+                    key=f"meal_protein_{meal_type}"
+                )
+            with col3:
+                meal_carbs = st.number_input(
+                    f"{meal_type.title()} Carbs", 
+                    min_value=5, 
+                    max_value=150, 
+                    value=target['carbs'],
+                    key=f"meal_carbs_{meal_type}"
+                )
+            with col4:
+                meal_fat = st.number_input(
+                    f"{meal_type.title()} Fat", 
+                    min_value=2, 
+                    max_value=80, 
+                    value=target['fat'],
+                    key=f"meal_fat_{meal_type}"
+                )
+            
+            adjusted_meal_targets[meal_type] = {
+                'calories': meal_calories,
+                'protein': meal_protein,
+                'carbs': meal_carbs,
+                'fat': meal_fat
+            }
+    
+    # Update meal targets with user adjustments
+    day_nutrition['meal_targets'] = adjusted_meal_targets
+    
+    # Show daily total vs targets
+    total_from_meals = {
+        'calories': sum(target['calories'] for target in adjusted_meal_targets.values()),
+        'protein': sum(target['protein'] for target in adjusted_meal_targets.values()),
+        'carbs': sum(target['carbs'] for target in adjusted_meal_targets.values()),
+        'fat': sum(target['fat'] for target in adjusted_meal_targets.values())
+    }
+    
+    st.markdown("### Daily Total Check")
+    check_cols = st.columns(4)
+    
+    with check_cols[0]:
+        cal_diff = total_from_meals['calories'] - manual_calories
+        color = "🟢" if abs(cal_diff) <= 50 else "🟡" if abs(cal_diff) <= 100 else "🔴"
+        st.write(f"{color} {total_from_meals['calories']}/{manual_calories} cal ({cal_diff:+d})")
+    
+    with check_cols[1]:
+        protein_diff = total_from_meals['protein'] - manual_protein
+        color = "🟢" if abs(protein_diff) <= 10 else "🟡" if abs(protein_diff) <= 20 else "🔴"
+        st.write(f"{color} {total_from_meals['protein']}/{manual_protein}g protein ({protein_diff:+d}g)")
+    
+    with check_cols[2]:
+        carb_diff = total_from_meals['carbs'] - manual_carbs
+        color = "🟢" if abs(carb_diff) <= 20 else "🟡" if abs(carb_diff) <= 40 else "🔴"
+        st.write(f"{color} {total_from_meals['carbs']}/{manual_carbs}g carbs ({carb_diff:+d}g)")
+    
+    with check_cols[3]:
+        fat_diff = total_from_meals['fat'] - manual_fat
+        color = "🟢" if abs(fat_diff) <= 10 else "🟡" if abs(fat_diff) <= 20 else "🔴"
+        st.write(f"{color} {total_from_meals['fat']}/{manual_fat}g fat ({fat_diff:+d}g)")
     
 else:
     # Use existing day-specific nutrition
