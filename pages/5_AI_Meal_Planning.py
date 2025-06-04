@@ -216,73 +216,105 @@ def find_best_recipes_for_meal_fallback(recipes, meal_type, target_macros, diet_
     suitable_recipes.sort(key=lambda x: x['match_score'], reverse=True)
     return suitable_recipes[:3]
 
-def get_protein_sources(diet_prefs):
-    """Get protein sources based on dietary preferences"""
-    sources = {
-        'Chicken Breast': {'protein': 31, 'calories_per_g': 1.65},
-        'Lean Ground Turkey': {'protein': 29, 'calories_per_g': 1.89},
-        'Salmon': {'protein': 25, 'calories_per_g': 2.08},
-        'Tuna': {'protein': 30, 'calories_per_g': 1.32},
-        'Eggs': {'protein': 13, 'calories_per_g': 1.55},
-        'Greek Yogurt': {'protein': 10, 'calories_per_g': 0.59},
-        'Cottage Cheese': {'protein': 11, 'calories_per_g': 0.98},
-        'Protein Powder': {'protein': 25, 'calories_per_g': 4.0},
-        'Tofu': {'protein': 8, 'calories_per_g': 0.76},
-        'Tempeh': {'protein': 19, 'calories_per_g': 1.93},
-        'Lentils': {'protein': 9, 'calories_per_g': 1.16},
-        'Black Beans': {'protein': 9, 'calories_per_g': 1.32},
-        'Quinoa': {'protein': 4.4, 'calories_per_g': 1.2}
+def get_protein_sources(diet_prefs, meal_type='general'):
+    """Get protein sources based on dietary preferences and meal type"""
+    all_sources = {
+        'Chicken Breast': {'protein': 31, 'calories_per_g': 1.65, 'meals': ['lunch', 'dinner']},
+        'Lean Ground Turkey': {'protein': 29, 'calories_per_g': 1.89, 'meals': ['lunch', 'dinner']},
+        'Salmon': {'protein': 25, 'calories_per_g': 2.08, 'meals': ['breakfast', 'lunch', 'dinner']},
+        'Tuna': {'protein': 30, 'calories_per_g': 1.32, 'meals': ['lunch', 'dinner']},
+        'Eggs': {'protein': 13, 'calories_per_g': 1.55, 'meals': ['breakfast', 'lunch']},
+        'Greek Yogurt': {'protein': 10, 'calories_per_g': 0.59, 'meals': ['breakfast', 'snack']},
+        'Cottage Cheese': {'protein': 11, 'calories_per_g': 0.98, 'meals': ['breakfast', 'snack']},
+        'Protein Powder': {'protein': 25, 'calories_per_g': 4.0, 'meals': ['breakfast', 'snack']},
+        'Tofu': {'protein': 8, 'calories_per_g': 0.76, 'meals': ['lunch', 'dinner']},
+        'Tempeh': {'protein': 19, 'calories_per_g': 1.93, 'meals': ['lunch', 'dinner']},
+        'Lentils': {'protein': 9, 'calories_per_g': 1.16, 'meals': ['lunch', 'dinner']},
+        'Black Beans': {'protein': 9, 'calories_per_g': 1.32, 'meals': ['lunch', 'dinner']},
+        'Quinoa': {'protein': 4.4, 'calories_per_g': 1.2, 'meals': ['breakfast', 'lunch', 'dinner']},
+        'Smoked Salmon': {'protein': 25, 'calories_per_g': 1.42, 'meals': ['breakfast']},
+        'Turkey Sausage': {'protein': 14, 'calories_per_g': 1.96, 'meals': ['breakfast']},
+        'Nut Butter': {'protein': 8, 'calories_per_g': 6.0, 'meals': ['breakfast', 'snack']}
     }
     
+    # Filter by meal type appropriateness
+    if meal_type != 'general':
+        sources = {k: v for k, v in all_sources.items() if meal_type in v['meals']}
+    else:
+        sources = all_sources
+    
+    # Apply dietary restrictions
     if diet_prefs.get('vegan'):
-        # Remove all animal products
-        vegan_sources = {k: v for k, v in sources.items() if k in ['Protein Powder', 'Tofu', 'Tempeh', 'Lentils', 'Black Beans', 'Quinoa']}
+        vegan_sources = {k: v for k, v in sources.items() if k in ['Protein Powder', 'Tofu', 'Tempeh', 'Lentils', 'Black Beans', 'Quinoa', 'Nut Butter']}
         return vegan_sources
     elif diet_prefs.get('vegetarian'):
-        # Remove meat and fish
-        vegetarian_sources = {k: v for k, v in sources.items() if k not in ['Chicken Breast', 'Lean Ground Turkey', 'Salmon', 'Tuna']}
+        vegetarian_sources = {k: v for k, v in sources.items() if k not in ['Chicken Breast', 'Lean Ground Turkey', 'Salmon', 'Tuna', 'Smoked Salmon', 'Turkey Sausage']}
         return vegetarian_sources
     
     return sources
 
-def get_carb_sources(diet_prefs):
-    """Get carbohydrate sources based on dietary preferences"""
-    sources = {
-        'White Rice': {'carbs': 28, 'calories_per_g': 1.3},
-        'Brown Rice': {'carbs': 23, 'calories_per_g': 1.12},
-        'Quinoa': {'carbs': 22, 'calories_per_g': 1.2},
-        'Sweet Potato': {'carbs': 20, 'calories_per_g': 0.86},
-        'Oats': {'carbs': 66, 'calories_per_g': 3.89},
-        'Banana': {'carbs': 23, 'calories_per_g': 0.89},
-        'Apple': {'carbs': 14, 'calories_per_g': 0.52},
-        'Whole Wheat Pasta': {'carbs': 31, 'calories_per_g': 1.31},
-        'Whole Wheat Bread': {'carbs': 49, 'calories_per_g': 2.47},
-        'Potatoes': {'carbs': 17, 'calories_per_g': 0.77}
+def get_carb_sources(diet_prefs, meal_type='general'):
+    """Get carbohydrate sources based on dietary preferences and meal type"""
+    all_sources = {
+        'Oats': {'carbs': 66, 'calories_per_g': 3.89, 'meals': ['breakfast']},
+        'Banana': {'carbs': 23, 'calories_per_g': 0.89, 'meals': ['breakfast', 'snack']},
+        'Berries': {'carbs': 12, 'calories_per_g': 0.57, 'meals': ['breakfast', 'snack']},
+        'Whole Grain Toast': {'carbs': 49, 'calories_per_g': 2.47, 'meals': ['breakfast']},
+        'English Muffin': {'carbs': 46, 'calories_per_g': 2.34, 'meals': ['breakfast']},
+        'White Rice': {'carbs': 28, 'calories_per_g': 1.3, 'meals': ['lunch', 'dinner']},
+        'Brown Rice': {'carbs': 23, 'calories_per_g': 1.12, 'meals': ['lunch', 'dinner']},
+        'Quinoa': {'carbs': 22, 'calories_per_g': 1.2, 'meals': ['breakfast', 'lunch', 'dinner']},
+        'Sweet Potato': {'carbs': 20, 'calories_per_g': 0.86, 'meals': ['lunch', 'dinner']},
+        'Regular Potato': {'carbs': 17, 'calories_per_g': 0.77, 'meals': ['lunch', 'dinner']},
+        'Whole Wheat Pasta': {'carbs': 31, 'calories_per_g': 1.31, 'meals': ['lunch', 'dinner']},
+        'Apple': {'carbs': 14, 'calories_per_g': 0.52, 'meals': ['snack']},
+        'Dates': {'carbs': 75, 'calories_per_g': 2.77, 'meals': ['snack']},
+        'Rice Cakes': {'carbs': 82, 'calories_per_g': 3.87, 'meals': ['snack']}
     }
     
+    # Filter by meal type appropriateness
+    if meal_type != 'general':
+        sources = {k: v for k, v in all_sources.items() if meal_type in v['meals']}
+    else:
+        sources = all_sources
+    
     if diet_prefs.get('gluten_free'):
-        # Remove gluten-containing items
-        gluten_free_sources = {k: v for k, v in sources.items() if k not in ['Whole Wheat Pasta', 'Whole Wheat Bread']}
+        gluten_free_sources = {k: v for k, v in sources.items() if k not in ['Whole Grain Toast', 'English Muffin', 'Whole Wheat Pasta']}
         return gluten_free_sources
     
     return sources
 
-def get_fat_sources(diet_prefs):
-    """Get fat sources based on dietary preferences"""
-    sources = {
-        'Olive Oil': {'fat': 100, 'calories_per_g': 9.0},
-        'Avocado': {'fat': 15, 'calories_per_g': 1.6},
-        'Almonds': {'fat': 50, 'calories_per_g': 5.79},
-        'Walnuts': {'fat': 65, 'calories_per_g': 6.54},
-        'Peanut Butter': {'fat': 50, 'calories_per_g': 5.88},
-        'Almond Butter': {'fat': 56, 'calories_per_g': 6.14},
-        'Coconut Oil': {'fat': 100, 'calories_per_g': 8.62},
-        'Chia Seeds': {'fat': 31, 'calories_per_g': 4.86},
-        'Flax Seeds': {'fat': 42, 'calories_per_g': 5.34},
-        'Tahini': {'fat': 60, 'calories_per_g': 5.95}
+def get_fat_sources(diet_prefs, meal_type='general'):
+    """Get fat sources based on dietary preferences and meal type"""
+    all_sources = {
+        'Butter': {'fat': 81, 'calories_per_g': 7.17, 'meals': ['breakfast']},
+        'Coconut Oil': {'fat': 100, 'calories_per_g': 8.62, 'meals': ['breakfast']},
+        'Nut Butter': {'fat': 50, 'calories_per_g': 5.88, 'meals': ['breakfast', 'snack']},
+        'Almond Butter': {'fat': 56, 'calories_per_g': 6.14, 'meals': ['breakfast', 'snack']},
+        'Avocado': {'fat': 15, 'calories_per_g': 1.6, 'meals': ['breakfast', 'lunch']},
+        'Olive Oil': {'fat': 100, 'calories_per_g': 9.0, 'meals': ['lunch', 'dinner']},
+        'Almonds': {'fat': 50, 'calories_per_g': 5.79, 'meals': ['snack']},
+        'Walnuts': {'fat': 65, 'calories_per_g': 6.54, 'meals': ['snack']},
+        'Chia Seeds': {'fat': 31, 'calories_per_g': 4.86, 'meals': ['breakfast', 'snack']},
+        'Flax Seeds': {'fat': 42, 'calories_per_g': 5.34, 'meals': ['breakfast']},
+        'Tahini': {'fat': 60, 'calories_per_g': 5.95, 'meals': ['lunch', 'dinner']},
+        'Cheese': {'fat': 33, 'calories_per_g': 4.02, 'meals': ['breakfast', 'lunch', 'snack']}
     }
     
-    # All fat sources are generally suitable for all dietary preferences
+    # Filter by meal type appropriateness
+    if meal_type != 'general':
+        sources = {k: v for k, v in all_sources.items() if meal_type in v['meals']}
+    else:
+        sources = all_sources
+    
+    # Apply dietary restrictions
+    if diet_prefs.get('vegan'):
+        vegan_sources = {k: v for k, v in sources.items() if k not in ['Butter', 'Cheese']}
+        return vegan_sources
+    elif diet_prefs.get('vegetarian'):
+        # All sources are suitable for vegetarians
+        return sources
+    
     return sources
 
 def get_vegetable_sources(diet_prefs):
