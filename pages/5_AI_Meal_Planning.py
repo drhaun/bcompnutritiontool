@@ -138,7 +138,7 @@ def suggest_recipes_for_meal(meal_name, target_cal, preferred_proteins=None, cui
     
     suitable_recipes = []
     
-    for recipe_id, recipe in recipe_db.recipes.items():
+    for recipe in recipe_db.recipes:
         recipe_title = recipe.get('title', '').lower()
         recipe_category = recipe.get('category', '').lower()
         
@@ -177,7 +177,7 @@ def suggest_recipes_for_meal(meal_name, target_cal, preferred_proteins=None, cui
         return random.sample(suitable_recipes, min(3, len(suitable_recipes)))
     else:
         # Fallback: return any 3 recipes
-        all_recipes = list(recipe_db.recipes.values())
+        all_recipes = recipe_db.recipes
         return random.sample(all_recipes, min(3, len(all_recipes))) if all_recipes else []
 
 # Auto-generate meal plan button
