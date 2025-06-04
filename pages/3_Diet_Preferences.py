@@ -57,7 +57,42 @@ if os.path.exists(preferences_file):
     except Exception as e:
         st.error(f"Error loading saved preferences: {e}")
 
-# Create a streamlined form for diet preferences
+# Create sections for diet preferences
+# First, handle meal sourcing preferences outside form for real-time updates
+st.markdown("### 🍽️ Meal Sourcing Preferences")
+st.markdown("Tell us how you prefer to get your meals and groceries. This helps us provide the best recommendations and delivery options.")
+
+# Ready-to-eat meal delivery (outside form for real-time updates)
+st.markdown("**Ready-to-Eat Meal Delivery**")
+wants_meal_delivery = st.radio(
+    "Are you interested in ready-to-eat meal delivery services?",
+    options=["Yes, for convenience", "Sometimes, when busy", "No, I prefer cooking"],
+    index=0 if st.session_state.diet_preferences.get('wants_meal_delivery', 'Sometimes') == 'Yes' else 
+          1 if st.session_state.diet_preferences.get('wants_meal_delivery', 'Sometimes') == 'Sometimes' else 2,
+    help="Services like DoorDash, Uber Eats can be integrated for meal plan adherence"
+)
+
+# Convert to simple format
+meal_delivery_pref = "Yes" if wants_meal_delivery == "Yes, for convenience" else \
+                    "Sometimes" if wants_meal_delivery == "Sometimes, when busy" else "No"
+
+# Meal delivery percentage - show for Yes and Sometimes options
+meal_delivery_percentage = 0
+if wants_meal_delivery in ["Yes, for convenience", "Sometimes, when busy"]:
+    default_value = st.session_state.diet_preferences.get('meal_delivery_percentage', 
+                   50 if wants_meal_delivery == "Yes, for convenience" else 20)
+    meal_delivery_percentage = st.slider(
+        "What percentage of meals would you want delivered?",
+        min_value=0,
+        max_value=100,
+        value=default_value,
+        step=5,
+        help="This includes restaurants and meal kit deliveries"
+    )
+
+st.markdown("---")
+
+# Create a streamlined form for other diet preferences
 with st.form("diet_preferences_form"):
     st.markdown("### 🚫 Dietary Restrictions & Allergies")
     
@@ -261,33 +296,7 @@ with st.form("diet_preferences_form"):
     else:
         grocery_delivery_percentage = 100 if grocery_pref == "Delivery" else 0
     
-    # Ready-to-eat meal delivery
-    st.markdown("**Ready-to-Eat Meal Delivery**")
-    wants_meal_delivery = st.radio(
-        "Are you interested in ready-to-eat meal delivery services?",
-        options=["Yes, for convenience", "Sometimes, when busy", "No, I prefer cooking"],
-        index=0 if st.session_state.diet_preferences.get('wants_meal_delivery', 'Sometimes') == 'Yes' else 
-              1 if st.session_state.diet_preferences.get('wants_meal_delivery', 'Sometimes') == 'Sometimes' else 2,
-        help="Services like DoorDash, Uber Eats can be integrated for meal plan adherence"
-    )
-    
-    # Convert to simple format
-    meal_delivery_pref = "Yes" if wants_meal_delivery == "Yes, for convenience" else \
-                        "Sometimes" if wants_meal_delivery == "Sometimes, when busy" else "No"
-    
-    # Meal delivery percentage - show for Yes and Sometimes options
-    meal_delivery_percentage = 0
-    if wants_meal_delivery in ["Yes, for convenience", "Sometimes, when busy"]:
-        default_value = st.session_state.diet_preferences.get('meal_delivery_percentage', 
-                       50 if wants_meal_delivery == "Yes, for convenience" else 20)
-        meal_delivery_percentage = st.slider(
-            "What percentage of meals would you want delivered?",
-            min_value=0,
-            max_value=100,
-            value=default_value,
-            step=5,
-            help="This includes restaurants and meal kit deliveries"
-        )
+
     
     # Location and travel preferences
     st.markdown("**Travel & Location Preferences**")
