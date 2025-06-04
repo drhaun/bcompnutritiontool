@@ -201,22 +201,17 @@ st.dataframe(comp_df, use_container_width=True)
 # Display category information - simplified version without recommendations
 st.write("#### Body Composition Categories")
 
-# Find categories for current values
+# Find categories for current values with debug output
 current_fmi_category = "Unknown"
-for category in fmi_categories:
+st.write(f"FMI Value: {current_fmi:.3f}")
+for i, category in enumerate(fmi_categories):
+    st.write(f"Category {i+1}: {category['name']} - Range: {category['lower']} to {category['upper']}")
     if category["lower"] <= current_fmi <= category["upper"]:
         current_fmi_category = category["name"]
+        st.write(f"✅ MATCH: {current_fmi_category}")
         break
-
-# Debug: If still unknown, show the actual FMI value and category ranges
-if current_fmi_category == "Unknown":
-    st.write(f"Debug: FMI value is {current_fmi:.2f}")
-    for i, category in enumerate(fmi_categories):
-        st.write(f"Category {i+1}: {category['name']} - Range: {category['lower']} to {category['upper']}")
-        if category["lower"] <= current_fmi <= category["upper"]:
-            current_fmi_category = category["name"]
-            st.write(f"✓ Found match: {current_fmi_category}")
-            break
+    else:
+        st.write(f"❌ No match (FMI {current_fmi:.3f} not in range {category['lower']}-{category['upper']})")
         
 current_ffmi_category = "Unknown"
 for category in ffmi_categories:
