@@ -286,8 +286,7 @@ with st.form("diet_preferences_form"):
             max_value=100,
             value=default_value,
             step=5,
-            help="This includes restaurants and meal kit deliveries",
-            key="meal_delivery_slider"
+            help="This includes restaurants and meal kit deliveries"
         )
     
     # Location and travel preferences

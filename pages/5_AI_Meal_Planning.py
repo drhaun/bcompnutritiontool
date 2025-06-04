@@ -14,14 +14,12 @@ import utils
 st.set_page_config(page_title="AI Meal Planner", page_icon="🤖", layout="wide")
 
 # Load Fitomics recipes
+@st.cache_data
 def load_fitomics_recipes():
     try:
         with open('data/fitomics_recipes.json', 'r') as f:
             recipes = json.load(f)
             return recipes
-    except FileNotFoundError:
-        st.error("Recipe database not found. Please contact support.")
-        return []
     except Exception as e:
         st.error(f"Error loading recipes: {str(e)}")
         return []
@@ -124,52 +122,11 @@ if not recipes:
 dietary_restrictions = diet_prefs.get('dietary_restrictions', [])
 meal_frequency = diet_prefs.get('meal_frequency', 3)
 
-# Filter recipes by dietary restrictions
-def filter_recipes_by_restrictions(recipes, restrictions):
-    filtered = []
-    for recipe in recipes:
-        include = True
-        
-        # Check dietary restrictions against tags and ingredients
-        if 'Vegetarian' in restrictions:
-            meat_keywords = ['chicken', 'beef', 'turkey', 'salmon', 'tuna', 'cod', 'fish', 'meat']
-            if any(keyword in recipe['title'].lower() or 
-                   any(keyword in ing.lower() for ing in recipe.get('ingredients', [])) 
-                   for keyword in meat_keywords):
-                include = False
-        
-        if 'Vegan' in restrictions:
-            animal_keywords = ['chicken', 'beef', 'turkey', 'salmon', 'tuna', 'cod', 'fish', 'meat', 
-                              'egg', 'cheese', 'yogurt', 'milk', 'butter', 'cream']
-            if any(keyword in recipe['title'].lower() or 
-                   any(keyword in ing.lower() for ing in recipe.get('ingredients', [])) 
-                   for keyword in animal_keywords):
-                include = False
-        
-        if 'Gluten-Free' in restrictions:
-            if not any('#glutenfree' in tag for tag in recipe.get('tags', [])):
-                include = False
-        
-        if 'Dairy-Free' in restrictions:
-            if not any('#dairyfree' in tag for tag in recipe.get('tags', [])):
-                include = False
-        
-        if include:
-            filtered.append(recipe)
-    
-    return filtered
-
-# Filter recipes
-available_recipes = filter_recipes_by_restrictions(recipes, dietary_restrictions)
-
-# Categorize recipes
-recipe_categories = {
-    'breakfast': [r for r in available_recipes if r['category'] == 'breakfast'],
-    'lunch': [r for r in available_recipes if r['category'] == 'lunch'],
-    'dinner': [r for r in available_recipes if r['category'] == 'dinner'],
-    'snack': [r for r in available_recipes if r['category'] == 'snack'],
-    'dessert': [r for r in available_recipes if r['category'] == 'dessert']
-}
+# Separate recipes by category
+breakfast_recipes = [r for r in recipes if r.get('category') == 'breakfast']
+dinner_recipes = [r for r in recipes if r.get('category') == 'dinner'] 
+snack_recipes = [r for r in recipes if r.get('category') == 'snack']
+dessert_recipes = [r for r in recipes if r.get('category') == 'dessert']
 
 # Recipe selection interface
 st.subheader("🍽️ Select Your Preferred Recipes")
@@ -178,40 +135,39 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("**Breakfast Options:**")
-    breakfast_options = [r['title'] for r in recipe_categories['breakfast']]
+    breakfast_titles = [r['title'] for r in breakfast_recipes]
     selected_breakfast = st.multiselect(
         "Choose breakfast recipes",
-        options=breakfast_options,
-        default=breakfast_options[:2] if breakfast_options else [],
+        options=breakfast_titles,
+        default=breakfast_titles[:2] if len(breakfast_titles) >= 2 else breakfast_titles,
         key="breakfast_selection"
     )
     
-    st.markdown("**Lunch Options (can use dinner recipes):**")
-    # Since no lunch recipes exist, allow selection from dinner recipes
-    lunch_options = [r['title'] for r in recipe_categories['dinner']]
+    st.markdown("**Lunch Options (using dinner recipes):**")
+    lunch_titles = [r['title'] for r in dinner_recipes]
     selected_lunch = st.multiselect(
         "Choose recipes for lunch",
-        options=lunch_options,
-        default=lunch_options[:2] if lunch_options else [],
+        options=lunch_titles,
+        default=lunch_titles[:2] if len(lunch_titles) >= 2 else lunch_titles,
         key="lunch_selection"
     )
 
 with col2:
     st.markdown("**Dinner Options:**")
-    dinner_options = [r['title'] for r in recipe_categories['dinner']]
+    dinner_titles = [r['title'] for r in dinner_recipes]
     selected_dinner = st.multiselect(
         "Choose dinner recipes",
-        options=dinner_options,
-        default=dinner_options[:3] if dinner_options else [],
+        options=dinner_titles,
+        default=dinner_titles[:3] if len(dinner_titles) >= 3 else dinner_titles,
         key="dinner_selection"
     )
     
     st.markdown("**Snack Options:**")
-    snack_options = [r['title'] for r in recipe_categories['snack']]
+    snack_titles = [r['title'] for r in snack_recipes]
     selected_snacks = st.multiselect(
         "Choose snack recipes",
-        options=snack_options,
-        default=snack_options[:2] if snack_options else [],
+        options=snack_titles,
+        default=snack_titles[:2] if len(snack_titles) >= 2 else snack_titles,
         key="snack_selection"
     )
 
@@ -243,8 +199,8 @@ if date_key not in st.session_state.ai_meal_plans:
     st.session_state.ai_meal_plans[date_key] = {}
 
 # Function to find recipe by title
-def find_recipe_by_title(title, recipes):
-    for recipe in recipes:
+def find_recipe_by_title(title, recipe_list):
+    for recipe in recipe_list:
         if recipe['title'] == title:
             return recipe
     return None
@@ -267,26 +223,30 @@ def create_fitomics_meal_plan(meal_structure, selected_recipes):
         
         # Select appropriate recipes based on meal type
         if "breakfast" in meal_name.lower():
-            available = [find_recipe_by_title(title, recipes) 
-                        for title in selected_breakfast if find_recipe_by_title(title, recipes)]
+            available_titles = selected_breakfast
+            recipe_pool = breakfast_recipes
         elif "lunch" in meal_name.lower():
-            available = [find_recipe_by_title(title, recipes) 
-                        for title in selected_lunch if find_recipe_by_title(title, recipes)]
+            available_titles = selected_lunch
+            recipe_pool = dinner_recipes  # Use dinner recipes for lunch
         elif "dinner" in meal_name.lower():
-            available = [find_recipe_by_title(title, recipes) 
-                        for title in selected_dinner if find_recipe_by_title(title, recipes)]
+            available_titles = selected_dinner
+            recipe_pool = dinner_recipes
         elif "snack" in meal_name.lower():
-            available = [find_recipe_by_title(title, recipes) 
-                        for title in selected_snacks if find_recipe_by_title(title, recipes)]
+            available_titles = selected_snacks
+            recipe_pool = snack_recipes
         else:
-            # Fallback to any available recipe
-            available = recipes
+            available_titles = selected_breakfast + selected_lunch + selected_dinner + selected_snacks
+            recipe_pool = recipes
         
-        # Remove None values
-        available = [r for r in available if r is not None]
+        # Find actual recipe objects
+        available_recipes = []
+        for title in available_titles:
+            recipe = find_recipe_by_title(title, recipe_pool)
+            if recipe:
+                available_recipes.append(recipe)
         
-        if available:
-            selected_recipe = random.choice(available)
+        if available_recipes:
+            selected_recipe = random.choice(available_recipes)
             portion_multiplier = calculate_portion_multiplier(selected_recipe, target_meal_calories)
             
             meal_plan[meal_name] = {
@@ -375,18 +335,14 @@ if date_key in st.session_state.ai_meal_plans and st.session_state.ai_meal_plans
                     if len(recipe['ingredients']) > 5:
                         st.markdown(f"*... and {len(recipe['ingredients']) - 5} more ingredients*")
                 
-                # Show recipe details in expander
-                if st.button(f"View {recipe['title']} Recipe", key=f"recipe_{meal_name}"):
-                    with st.expander(f"📖 {recipe['title']} Recipe", expanded=True):
-                        if recipe.get('directions'):
-                            st.markdown("**Directions:**")
-                            for i, direction in enumerate(recipe['directions'], 1):
-                                st.markdown(f"{i}. {direction}")
+                # Show recipe details
+                if recipe.get('directions'):
+                    with st.expander(f"📖 {recipe['title']} Recipe"):
+                        st.markdown("**Directions:**")
+                        for i, direction in enumerate(recipe['directions'], 1):
+                            st.markdown(f"{i}. {direction}")
                         
                         st.markdown(f"**Servings:** {recipe.get('servings', 1)}")
-                        
-                        if recipe.get('tags'):
-                            st.markdown(f"**Tags:** {' '.join(recipe['tags'])}")
             else:
                 st.warning("No recipe selected for this meal. Please adjust your selections and regenerate.")
     
@@ -438,16 +394,15 @@ else:
 with st.expander("ℹ️ Your Recipe Library"):
     st.markdown(f"""
     **Available Fitomics Recipes:**
-    - Breakfast: {len(recipe_categories['breakfast'])} recipes
-    - Lunch: {len(recipe_categories['lunch'])} recipes
-    - Dinner: {len(recipe_categories['dinner'])} recipes
-    - Snacks: {len(recipe_categories['snack'])} recipes
-    - Desserts: {len(recipe_categories['dessert'])} recipes
+    - Breakfast: {len(breakfast_recipes)} recipes
+    - Dinner: {len(dinner_recipes)} recipes (also available for lunch)
+    - Snacks: {len(snack_recipes)} recipes
+    - Desserts: {len(dessert_recipes)} recipes
     
     **Your Settings:**
     - Meal frequency: {meal_frequency} meals per day
     - Daily targets: {target_calories} cal, {target_protein}g protein, {target_carbs}g carbs, {target_fat}g fat
     - Dietary restrictions: {", ".join(dietary_restrictions) if dietary_restrictions else "None"}
     
-    **Total recipes available:** {len(available_recipes)} (filtered by your dietary restrictions)
+    **Total recipes available:** {len(recipes)}
     """)
