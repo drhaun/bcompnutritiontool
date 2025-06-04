@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
+    "anthropic>=0.52.2",
     "fpdf>=1.7.2",
     "fuzzywuzzy>=0.18.0",
     "matplotlib>=3.10.1",

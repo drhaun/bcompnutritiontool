@@ -1,0 +1,927 @@
+[
+  {
+    "id": "67282bf843745626ae1771a7",
+    "title": "Protein Bites",
+    "category": "snack",
+    "servings": 1,
+    "ingredients": [
+      "1 cup oats",
+      "1/3 cup coconut flakes",
+      "1/2 cup ground flaxseed",
+      "1/2 cup chocolate chips",
+      "2 scoop protein powder",
+      "1/2 cup peanut butter",
+      "1/3 cup honey",
+      "1 teaspoon vanilla extractOther fun add ins: chia seeds, dried cherries, m&amp;ms, cinnamon, pumpkin, sunflower seeds, raisins, cocoa powder"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67424dcd4806e80a7abe0816",
+    "title": "Maple Dijon Chicken",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1/4 cup low sodium soy sauce (gf or regular)",
+      "3 tbsp coconut aminos",
+      "3 tbsp Dijon mustard",
+      "1 tbsp maple syrup",
+      "1 TBSP Olive oil",
+      "Salt and Pepper to taste",
+      "1 bag (24oz) Baby potatoes",
+      "1 bag (12oz) Green beans",
+      "20 oz or 5 Chicken thighs (sub chicken breasts if desire)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/easy-meals",
+      "/ibs-friendly",
+      "/meal-prep"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "676df42bb017e94a8536ad4c",
+    "title": "Butternut Squash Mac",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 butternut squash",
+      "1/2 c nutritional yeast",
+      "1/4 c bone broth",
+      "6 stalks of green onion",
+      "1 tsp pepper",
+      "1 tsp salt",
+      "(for non-IBS individuals) 1 head of garlic",
+      "150g of gluten free pasta",
+      "1 lb. 97% lean ground beef"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/ibs-friendly",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "676f497158b82e752b9143dc",
+    "title": "Candied Cranberries",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "1 bag of fresh cranberries",
+      "sparkling lemon or lime beverage of choice",
+      "3/4 c coconut sugar"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "676f4ef7ce70df2eea39f89c",
+    "title": "Gingerbread Baked Oats",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1/3 c oat milk (sub almond)",
+      "1 scoop vanilla protein or collagen",
+      "1/2 c oats",
+      "1 egg",
+      "1/2 tsp baking powder",
+      "1/2 tsp vanilla",
+      "2 TBSP maple syrup",
+      "1/2 tsp ginger",
+      "1 tsp all spice",
+      "1/2 tsp nutmeg",
+      "1/2 tsp salt"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/seasonal",
+      "/ibs-friendly"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "676f529ea934c9553beee9a5",
+    "title": "Sugar Cookie Matcha Latte",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "2 tsp (approx 3 g) matcha powder mixed with 35g hot water",
+      "140 mL (approx 2/3 c)almond milk",
+      "1/2 tsp Almond extract",
+      "1/2 tsp vanilla extract",
+      "2 tsp Maple syrup",
+      "Sprinkles (optional for rim)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/drinks-smoothies",
+      "/ibs-friendly"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6773e18176b1b81d441e4a26",
+    "title": "Roasted Maple Carrots",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 bag of large carrots",
+      "3 TBSP Olive oil",
+      "3 TBSP Maple syrup",
+      "1 TBSP oregano",
+      "2 tsp Salt",
+      "1 tsp cinnamon",
+      "1 tsp thyme",
+      "1/2 tsp ginger"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/apps-sides",
+      "/ibs-friendly"
+    ],
+    "nutrition": {
+      "calories": 120,
+      "fat": 7,
+      "carbs": 15,
+      "protein": 1
+    }
+  },
+  {
+    "id": "6773e6a79d79be40f0b841b5",
+    "title": "Sugar Cookie Protein Balls",
+    "category": "snack",
+    "servings": 1,
+    "ingredients": [
+      "2 serving collagen powder",
+      "1 serving vanilla protein powder",
+      "1/2 tsp all spice",
+      "1/2 tsp salt",
+      "1/4 c almond flour",
+      "1 tsp vanilla extract",
+      "1 tsp almond extract",
+      "1/4 c almond butter",
+      "1 TBSP maple syrup",
+      "2 TBSP soy milk",
+      "Topping: Sprinkles"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "6774002d0f1dd043b4aaeb4e",
+    "title": "Egg Nog French Toast",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "3 slices bread (Dave's Killer Powerseed used in Cronometer; opt for Gluten free bread if needed)",
+      "1/2cup oat nog",
+      "1/3 cup egg whites",
+      "1 serving collagen",
+      "1 tsp nutmeg",
+      "1 Stevia packet",
+      "1/2 tsp Cinnamon"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/seasonal"
+    ],
+    "nutrition": {
+      "calories": 253,
+      "fat": 5,
+      "carbs": 35,
+      "protein": 21
+    }
+  },
+  {
+    "id": "67744e05dbf530080f283fa1",
+    "title": "Sugar Cookie Whip Dip",
+    "category": "snack",
+    "servings": 1,
+    "ingredients": [
+      "1/2 cup Coconut Whipped Topping",
+      "1 serving plant based vanilla protein powder",
+      "1 tsp almond extract",
+      "Topping: as many sprinkles as the heart desires"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts",
+      "/snacks"
+    ],
+    "nutrition": {
+      "calories": 255,
+      "fat": 8,
+      "carbs": 25,
+      "protein": 20
+    }
+  },
+  {
+    "id": "67744ed0fe5d8014be06f1b3",
+    "title": "Strawberry Santa Hats",
+    "category": "snack",
+    "servings": 1,
+    "ingredients": [
+      "Strawberries",
+      "Oreo sandwich cookies or Trader Joe Joe\u2019s if Gluten Free",
+      "White chocolate",
+      "Powdered sugar"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts",
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67744f8789df4e73758bec96",
+    "title": "Single Serve Hot Cocoa Protein Pancakes",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "1 banana (115g)",
+      "3 TSBP Oats",
+      "110 g egg whites",
+      "1 scoop chocolate protein powder",
+      "1/4 tsp baking soda",
+      "1/4 tsp salt",
+      "Marshmallows",
+      "Maple syrup"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/seasonal",
+      "/ibs-friendly"
+    ],
+    "nutrition": {
+      "calories": 312,
+      "fat": 2,
+      "carbs": 42,
+      "protein": 35
+    }
+  },
+  {
+    "id": "6776e155c6828404bfb6a607",
+    "title": "Instant Pot Chili",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 yellow onion, chopped&nbsp;",
+      "3 cloves garlic, finely chopped&nbsp;",
+      "2 Tbsp tomato paste",
+      "2 lbs lean ground beef",
+      "2 cups beef bone broth",
+      "1 (15-oz.) can black beans, rinsed, drained",
+      "1 (15-oz.) can fire-roasted diced tomatoes",
+      "1 (15-oz.) can kidney beans, rinsed, drained",
+      "1 (15-oz.) can black eyed peas, rinsed, drained",
+      "1.5 Tbsp chili powder",
+      "1 tsp. dried oregano&nbsp;",
+      "1 tsp. ground cumin&nbsp;",
+      "1/2 tsp. cayenne",
+      "Kosher salt",
+      "Freshly ground black pepper",
+      "Shredded cheddar cheese",
+      "Sour cream or Greek yogurt for a high protein/low fat sub",
+      "Fritos or corn chips",
+      "Chopped green onions"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/meal-prep",
+      "/dinner"
+    ],
+    "nutrition": {
+      "calories": 430,
+      "fat": 11,
+      "carbs": 38,
+      "protein": 45
+    }
+  },
+  {
+    "id": "6786d2f7bf52fe710e1b5694",
+    "title": "Meal Prep Breakfast Burritos",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "6 large tortillas (whole wheat or low-carb options for extra fiber)",
+      "6 large eggs",
+      "1 cup egg whites",
+      "1 cup shredded cheese (cheddar, Monterey Jack, Mozzarella, or your favorite variety)",
+      "1 lb ground turkey sausage",
+      "1/2 tsp salt",
+      "1/2 tsp black pepper",
+      "1/2 tsp paprika",
+      "1/4 tsp garlic powder",
+      "Cooking spray or 1 tsp olive oil"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/easy-meals",
+      "/meal-prep"
+    ],
+    "nutrition": {
+      "calories": 400,
+      "fat": 20,
+      "carbs": 25,
+      "protein": 33
+    }
+  },
+  {
+    "id": "679250f91b90be6ae23eb1fa",
+    "title": "Pomegranate Raspberry Fizz",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "2 oz pomegranate juice",
+      "2 oz soda water",
+      "3 raspberries (plus extra for garnish)",
+      "1 sprig rosemary",
+      "Ice"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/drinks-smoothies"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "679a79b5eb43e94cdd6ef650",
+    "title": "Valentine's Protein Bites",
+    "category": "snack",
+    "servings": 1,
+    "ingredients": [
+      "\u00bd cup quick oats",
+      "1/4 cup ground flaxseed",
+      "1 scoop protein powder",
+      "1 scoop collagen",
+      "1/2 cup peanut butter",
+      "1/4 cup honey",
+      "1 TBSP unsweetened almond milk (see note)",
+      "42g Valentine\u2019s colored M&amp;Ms"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/snacks"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "679ce23b73d25c617a51e6e1",
+    "title": "Chocolate Covered Strawberries",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "1 pint fresh strawberries, washed and dried thoroughly",
+      "6-8 oz dark chocolate melting wafers",
+      "Optional toppings: crushed nuts, shredded coconut"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "679d1dedebf2aa6b1de6d8b3",
+    "title": "Mediterranean Chicken Shawarma Bowls",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 Tbsp. extra-virgin olive oil",
+      "1 Tbsp. smoked paprika",
+      "2 tsp. ground coriander",
+      "1 \u00bd tsp. kosher salt",
+      "1 tsp. ground cumin",
+      "\u00bd tsp. ground turmeric",
+      "\u00bc tsp. cayenne pepper",
+      "\u00bc tsp. ground cinnamon",
+      "Freshly ground black pepper (to taste)",
+      "2 lb. boneless, skinless chicken thighs",
+      "1.5 cup long-grain white rice",
+      "Kosher salt",
+      "2 tsp. extra-virgin olive oil",
+      "2 medium cucumbers, sliced into halves",
+      "2 bell peppers, chopped",
+      "\u00bd red onion, thinly sliced",
+      "1 cup cherry tomatoes, halved",
+      "\u00bd cup crumbled feta cheese",
+      "Pinch of crushed red pepper flakes",
+      "Juice of 1 lemon",
+      "Store-bought or homemade tzatziki sauce",
+      "Store-bought or homemade hummus",
+      "Pita bread"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/meal-prep",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "679d1eabffb21e4ef5af76da",
+    "title": "Slow-Cooker Korean Beef Rice Bowls",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 (2-inch) piece ginger, peeled and finely chopped",
+      "4 cloves garlic, finely chopped",
+      "\u00be cup low-sodium beef broth",
+      "\u00bd cup packed light brown sugar",
+      "\u2153 cup reduced-sodium soy sauce",
+      "\u00bc cup gochujang",
+      "2 Tbsp. toasted sesame oil",
+      "2 Tbsp. unseasoned rice vinegar",
+      "1 Tbsp. cornstarch",
+      "3 lb. beef top round, excess fat trimmed, cut into 1 \u00bd-inch pieces",
+      "2 cup white rice",
+      "Kosher salt",
+      "Chopped scallions",
+      "Chopped fresh cilantro",
+      "Toasted sesame seeds",
+      "Optional: Roasted broccoli for added fiber and nutrients"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/meal-prep"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "679d368c11bec651ddcb4df2",
+    "title": "Deconstructed Burger Bowls",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 lb (93% lean) ground beef",
+      "\u00bd tsp. onion powder",
+      "\u00bd tsp. garlic powder",
+      "1 tsp. paprika",
+      "1 tsp. salt",
+      "\u00bd tsp. black pepper",
+      "Romaine lettuce",
+      "Cherry tomates, halved",
+      "Pickles",
+      "Red Onion, chopped",
+      "\u00bc cup light mayo",
+      "\u00bc cup plain non-fat Greek yogurt",
+      "1 TBSP ketchup",
+      "1 tsp. yellow mustard",
+      "\u00bd tsp. garlic powder",
+      "\u00bd tsp. onion powder",
+      "\u00bd tsp. paprika"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/meal-prep"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67ab628eebcbb403ed0d02de",
+    "title": "Sheet Pan BBQ Chicken with Roasted Veggies",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 \u00bd lbs boneless, skinless chicken thighs (or breasts)",
+      "\u00bd cup no-sugar-added BBQ sauce",
+      "1 tbsp olive oil",
+      "1 tsp smoked paprika",
+      "\u00bd tsp garlic powder",
+      "\u00bd tsp onion powder",
+      "\u00bd tsp sea salt",
+      "\u00bc tsp black pepper",
+      "2 medium sweet potatoes, diced",
+      "2 cups broccoli florets",
+      "1 red bell pepper, sliced",
+      "1 tbsp olive oil",
+      "\u00bd tsp sea salt",
+      "\u00bd tsp garlic powder",
+      "\u00bc tsp black pepper",
+      "Fresh parsley or green onions",
+      "Extra BBQ sauce for serving",
+      "Lemon wedge"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/meal-prep"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67ab65395dc8a56df6fc5431",
+    "title": "Avocado Cucumber Salad",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "2 avocados, chopped",
+      "2 small cucumbers, diced",
+      "1/2 cup crumbled feta cheese",
+      "1/2 cup fresh cilantro, chopped",
+      "2 green onions thinly, sliced",
+      "1 TBSP olive oil",
+      "juice from 1 lemon",
+      "1 tsp salt"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/apps-sides"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67b34fd549a09458d51e677b",
+    "title": "Slow-Roasted Salmon Quinoa Bowl",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1.25lb salmon fillet (5, 4oz fillets)",
+      "2 tbsp olive oil",
+      "1 tsp sea salt",
+      "\u00bd tsp black pepper",
+      "1 tsp garlic powder",
+      "1 tsp smoked paprika (optional)",
+      "1 lemon, sliced",
+      "3 cups cooked quinoa",
+      "2 avocados, sliced",
+      "1 small red onion, thinly sliced",
+      "1 cup pickled cucumbers",
+      "1 English cucumber (or 2 smaller cucumbers), thinly sliced",
+      "\u00bd cup rice vinegar (or apple cider vinegar)",
+      "1 tsp salt",
+      "1 tsp sugar",
+      "1 cup Greek yogurt",
+      "\u00bc cup fresh dill, chopped (or 2 tsp dried)",
+      "1 lemon, juiced",
+      "2 garlic cloves, minced",
+      "2 tbsp olive oil",
+      "2 tbsp water (to thin, if needed)",
+      "Salt &amp; pepper to taste"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/meal-prep",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67b750547d6e2c08347da2f1",
+    "title": "Sheet Pan Garlic Shrimp and Roasted Veggies",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 lb shrimp, peeled and deveined",
+      "2 yellow onions, peeled and sliced",
+      "2 cups broccoli florets",
+      "2 red bell peppers, thinly sliced",
+      "Lemon (for serving)",
+      "1/4 cup avocado oil",
+      "2 TBSP minced garlic",
+      "1 tsp. crushed red pepper flakes",
+      "Salt to taste",
+      "Ground black pepper to taste"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/meal-prep"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67c5f57354b52f4c45d08c9c",
+    "title": "Grilled BBQ Chicken Bowls",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1.5 lbs boneless, skinless chicken breasts",
+      "\u00bd cup BBQ sauce (plus extra for topping)",
+      "1 tbsp olive oil",
+      "1 tsp garlic powder",
+      "1 tsp smoked paprika",
+      "\u00bd tsp salt",
+      "\u00bd tsp black pepper",
+      "3 cups shredded cabbage (or coleslaw mix)",
+      "\u00bd cup plain Greek yogurt",
+      "1 tbsp apple cider vinegar",
+      "1 tsp Dijon mustard",
+      "\u00bd tsp salt",
+      "\u00bd tsp black pepper",
+      "2.5 cups cooked rice (white or brown)",
+      "\u00bd cup sliced pickles (or more to taste)"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/meal-prep",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67d18ee4aa74ea1ca1d57104",
+    "title": "Harissa Roasted Chicken & Sweet Potatoes",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "2 lb. boneless skinless chicken thighs",
+      "Kosher salt &amp; black pepper",
+      "3 Tbsp. harissa",
+      "Juice of \u00bd lemon",
+      "2 cloves garlic, minced",
+      "3 large sweet potatoes, sliced",
+      "1 red onion, sliced",
+      "2 Tbsp. olive oil",
+      "1 tbsp. ground cumin",
+      "Fresh cilantro &amp; lemon wedges for serving"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/meal-prep",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67d871e857ca2672c59159a9",
+    "title": "Lemon Chicken Orzo Salad",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1/4 cup extra-virgin olive oil",
+      "1/2 cup lemon juice + 2 tbsp zest",
+      "1 tbsp Dijon mustard",
+      "1 tbsp honey",
+      "1/2 tsp kosher salt &amp; 1/2 tsp black pepper",
+      "2 lbs skinless boneless chicken breasts",
+      "1/2 tbsp olive oil",
+      "1 tsp kosher salt",
+      "1/2 tsp black pepper",
+      "16oz orzo pasta",
+      "2 cups sliced cucumbers",
+      "2 cups halved cherry tomatoes",
+      "1/4 cup diced red onion",
+      "1 cup halved kalamata olives",
+      "8 oz feta, crumbled",
+      "1/2 cup fresh herbs (basil, thyme, rosemary, etc.)",
+      "Lemon wedges for serving"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/meal-prep",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67e6abde31e1636b51eb181a",
+    "title": "Sheet Pan Chicken Fajitas",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 lb chicken breast, cut into strips",
+      "3 bell peppers (any color), cut into strips",
+      "1 red onion, cut into strips",
+      "Avocado oil (spray or drizzle)",
+      "1 tsp salt",
+      "\u00bd tsp black pepper",
+      "1 tsp paprika",
+      "1 tsp onion powder",
+      "1 tsp garlic powder"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/meal-prep",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67f415fa86dbec59bcf5fcb8",
+    "title": "Tropical Grill Kabobs",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "1 lb chicken breast, cut into 1.5-inch chunks",
+      "1 lb steak (sirloin or flank), cut into 1.5-inch chunks",
+      "1 red bell pepper, cut into 1.5-inch pieces",
+      "1 yellow bell pepper, cut into 1.5-inch pieces",
+      "1 red onion, cut into 1.5-inch wedges",
+      "1 \u00bd cups pineapple chunks (fresh or canned in juice)",
+      "Wooden skewers (about 10\u201312)",
+      "\u00bc cup soy sauce",
+      "2 tbsp honey or maple syrup",
+      "2 tbsp lime juice",
+      "2 cloves garlic, minced",
+      "1 tsp smoked paprika",
+      "\u00bd tsp black pepper",
+      "Optional: \u00bd tsp red pepper flakes for a kick"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/meal-prep",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "67fd416fe836cd766f950c6a",
+    "title": "Hashbrown Egg Casserole with Feta, Spinach & Sundried Tomatoes",
+    "category": "breakfast",
+    "servings": 1,
+    "ingredients": [
+      "12 large eggs",
+      "3 cups frozen hashbrowns, thawed",
+      "1 block feta cheese, cubed",
+      "2 cups fresh spinach, chopped",
+      "\u00bd cup sundried tomatoes, chopped (drained if oil-packed)",
+      "1 small onion, diced",
+      "Salt and pepper, to taste",
+      "Olive oil or cooking spray, for greasing"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/breakfast",
+      "/easy-meals",
+      "/meal-prep"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "680bc9cb6bb6837ac0abc7b1",
+    "title": "Slow Cooker Pork Carnitas",
+    "category": "dinner",
+    "servings": 1,
+    "ingredients": [
+      "2 pounds pork tenderloin or pork loin",
+      "1 tablespoon dried oregano",
+      "2 teaspoons ground cumin",
+      "1 tablespoon avocado oil",
+      "\u00bd onion, chopped",
+      "3 garlic cloves, smashed",
+      "1 medium jalape\u00f1o, sliced (remove seeds for less heat)",
+      "2 teaspoons salt",
+      "2 tablespoons fresh lime juice",
+      "\u00bc cup orange juice"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/easy-meals",
+      "/meal-prep",
+      "/dinner"
+    ],
+    "nutrition": {}
+  },
+  {
+    "id": "682c978992d64461b5f10edf",
+    "title": "High Protein Chocolate Mousse",
+    "category": "dessert",
+    "servings": 1,
+    "ingredients": [
+      "1 container (16oz) cottage cheese 2% fat",
+      "1 scoop chocolate protein powder",
+      "2 TBSP unsweetened cocoa powder",
+      "\u00bc cup semi sweet chocolate chips, melted"
+    ],
+    "directions": [],
+    "tags": [
+      "recipe"
+    ],
+    "categories": [
+      "/seasonal",
+      "/desserts"
+    ],
+    "nutrition": {}
+  }
+]
