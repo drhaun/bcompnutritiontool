@@ -197,14 +197,28 @@ def calculate_updated_macros(ingredient_details, updated_amounts):
     
     for ing in ingredient_details:
         ing_name = ing['name']
-        original_amount = ing['amount']
-        new_amount = updated_amounts.get(ing_name, original_amount)
+        new_amount = updated_amounts.get(ing_name, ing['amount'])
         
+        # Get nutritional data per 100g
+        calories_per_100g = float(ing.get('calories_per_100g', 0))
+        protein_per_100g = float(ing.get('protein_per_100g', 0))
+        carbs_per_100g = float(ing.get('carbs_per_100g', 0))
+        fat_per_100g = float(ing.get('fat_per_100g', 0))
+        
+        # If nutritional data is missing, get authentic data
+        if calories_per_100g == 0 and protein_per_100g == 0:
+            fallback_data = get_fallback_nutrition(ing_name.lower(), ing.get('category', 'protein'))
+            calories_per_100g = fallback_data['calories_per_100g']
+            protein_per_100g = fallback_data['protein_per_100g']
+            carbs_per_100g = fallback_data['carbs_per_100g']
+            fat_per_100g = fallback_data['fat_per_100g']
+        
+        # Calculate contribution based on actual amount
         multiplier = new_amount / 100
-        total_macros['calories'] += int(ing.get('calories_per_100g', 0) * multiplier)
-        total_macros['protein'] += round(ing.get('protein_per_100g', 0) * multiplier, 1)
-        total_macros['carbs'] += round(ing.get('carbs_per_100g', 0) * multiplier, 1)
-        total_macros['fat'] += round(ing.get('fat_per_100g', 0) * multiplier, 1)
+        total_macros['calories'] += int(calories_per_100g * multiplier)
+        total_macros['protein'] += round(protein_per_100g * multiplier, 1)
+        total_macros['carbs'] += round(carbs_per_100g * multiplier, 1)
+        total_macros['fat'] += round(fat_per_100g * multiplier, 1)
     
     return total_macros
 
@@ -396,37 +410,37 @@ for meal_type, meal_target in meal_targets.items():
                 
                 # Add ingredient interface
                 if st.session_state.get(f"show_add_ingredient_{meal_type}", False):
-                    with st.expander("Add New Ingredient", expanded=True):
-                        search_term = st.text_input("Search for ingredient:", key=f"search_{meal_type}")
-                        if search_term:
-                            try:
-                                from fdc_api import search_foods, get_food_details, normalize_food_data
-                                foods = search_foods(search_term, page_size=5)
-                                if foods:
-                                    food_options = [f"{food['description']} (ID: {food['fdcId']})" for food in foods]
-                                    selected_food = st.selectbox("Select ingredient:", food_options, key=f"select_{meal_type}")
+                    st.markdown("**Add New Ingredient:**")
+                    search_term = st.text_input("Search for ingredient:", key=f"search_{meal_type}")
+                    if search_term:
+                        try:
+                            from fdc_api import search_foods, get_food_details, normalize_food_data
+                            foods = search_foods(search_term, page_size=5)
+                            if foods:
+                                food_options = [f"{food['description']} (ID: {food['fdcId']})" for food in foods]
+                                selected_food = st.selectbox("Select ingredient:", food_options, key=f"select_{meal_type}")
+                                
+                                if selected_food and st.button(f"Add {search_term}", key=f"add_confirm_{meal_type}"):
+                                    # Extract FDC ID and add ingredient
+                                    fdc_id = selected_food.split("ID: ")[1].rstrip(")")
+                                    food_details = get_food_details(fdc_id)
+                                    normalized_food = normalize_food_data(food_details, 100)
                                     
-                                    if selected_food and st.button(f"Add {search_term}", key=f"add_confirm_{meal_type}"):
-                                        # Extract FDC ID and add ingredient
-                                        fdc_id = selected_food.split("ID: ")[1].rstrip(")")
-                                        food_details = get_food_details(fdc_id)
-                                        normalized_food = normalize_food_data(food_details, 100)
-                                        
-                                        # Add to ingredient list
-                                        new_ingredient = {
-                                            'name': normalized_food['name'],
-                                            'amount': 50,
-                                            'category': 'added',
-                                            'calories_per_100g': normalized_food['calories'],
-                                            'protein_per_100g': normalized_food['protein'],
-                                            'carbs_per_100g': normalized_food['carbs'],
-                                            'fat_per_100g': normalized_food['fat']
-                                        }
-                                        ingredient_details.append(new_ingredient)
-                                        st.success(f"Added {normalized_food['name']} to meal!")
-                                        st.rerun()
-                            except Exception as e:
-                                st.error("Unable to search ingredients. Please check FDC API configuration.")
+                                    # Add to ingredient list
+                                    new_ingredient = {
+                                        'name': normalized_food['name'],
+                                        'amount': 50,
+                                        'category': 'added',
+                                        'calories_per_100g': normalized_food['calories'],
+                                        'protein_per_100g': normalized_food['protein'],
+                                        'carbs_per_100g': normalized_food['carbs'],
+                                        'fat_per_100g': normalized_food['fat']
+                                    }
+                                    ingredient_details.append(new_ingredient)
+                                    st.success(f"Added {normalized_food['name']} to meal!")
+                                    st.rerun()
+                        except Exception as e:
+                            st.error("Unable to search ingredients. Please check FDC API configuration.")
                 
                 # Display existing ingredients with detailed breakdown
                 for idx, ing in enumerate(ingredient_details):
