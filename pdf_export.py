@@ -93,7 +93,7 @@ class FitomicsPDF(FPDF):
             if diet_prefs.get('dairy_free'): prefs.append('Dairy-Free')
             
             for pref in prefs:
-                self.cell(0, 6, f"• {pref}", 0, 1, 'L')
+                self.cell(0, 6, f"- {pref}", 0, 1, 'L')
                 
     def add_meal_section(self, meal_type, recipe, macros, ingredients):
         """Add a meal section with recipe and ingredients"""
