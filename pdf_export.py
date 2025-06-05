@@ -13,15 +13,30 @@ class FitomicsPDF(FPDF):
         
     def header(self):
         """Add Fitomics branded header"""
-        # Logo (if available)
-        logo_path = "attached_assets/Fitomics Logomark – Dark Blue.png"
-        if os.path.exists(logo_path):
-            self.image(logo_path, 10, 8, 33)
-            
-        # Fitomics branding
-        self.set_font('Arial', 'B', 24)
-        self.set_text_color(41, 84, 144)  # Fitomics blue
-        self.cell(0, 15, 'FITOMICS', 0, 1, 'C')
+        # Try multiple logo paths
+        logo_paths = [
+            "attached_assets/fitomicshorizontalgold.png",
+            "attached_assets/Fitomics Logomark – Dark Blue.png",
+            "attached_assets/Fitomics Logomark – Dark Gold.png"
+        ]
+        
+        logo_added = False
+        for logo_path in logo_paths:
+            if os.path.exists(logo_path):
+                try:
+                    self.image(logo_path, 10, 8, 40)
+                    logo_added = True
+                    break
+                except:
+                    continue
+        
+        # Fitomics branding text
+        if not logo_added:
+            self.set_font('Arial', 'B', 24)
+            self.set_text_color(193, 153, 98)  # Fitomics gold
+            self.cell(0, 15, 'FITOMICS', 0, 1, 'C')
+        else:
+            self.ln(20)
         
         self.set_font('Arial', '', 12)
         self.set_text_color(100, 100, 100)
@@ -100,13 +115,20 @@ class FitomicsPDF(FPDF):
         y_pos = self.get_y() + 5
         self.set_xy(15, y_pos)
         self.set_font('Arial', 'B', 10)
-        self.cell(45, 5, f"Calories: {macros.get('calories', 0)}", 0, 0, 'L')
+        
+        # Format macro values properly
+        calories = int(macros.get('calories', 0)) if macros.get('calories') else 0
+        protein = round(float(macros.get('protein', 0)), 1) if macros.get('protein') else 0
+        carbs = round(float(macros.get('carbs', 0)), 1) if macros.get('carbs') else 0
+        fat = round(float(macros.get('fat', 0)), 1) if macros.get('fat') else 0
+        
+        self.cell(45, 5, f"Calories: {calories}", 0, 0, 'L')
         self.set_x(60)
-        self.cell(45, 5, f"Protein: {macros.get('protein', 0)}g", 0, 0, 'L')
+        self.cell(45, 5, f"Protein: {protein}g", 0, 0, 'L')
         self.set_x(105)
-        self.cell(45, 5, f"Carbs: {macros.get('carbs', 0)}g", 0, 0, 'L')
+        self.cell(45, 5, f"Carbs: {carbs}g", 0, 0, 'L')
         self.set_x(150)
-        self.cell(45, 5, f"Fat: {macros.get('fat', 0)}g", 0, 1, 'L')
+        self.cell(45, 5, f"Fat: {fat}g", 0, 1, 'L')
         
         self.ln(15)
         
@@ -165,26 +187,38 @@ class FitomicsPDF(FPDF):
                 self.cell(0, 6, f"• {total_amount:.0f}g {name.title()}", 0, 1, 'L')
 
 def export_meal_plan_pdf(meal_data, user_preferences=None):
-    """Export complete meal plan to branded PDF"""
+    """Export complete meal plan with grocery list to branded PDF"""
     try:
         pdf = FitomicsPDF()
         
-        # Extract plan info
+        # Safely extract plan info with error handling
+        total_calories = 0
+        total_protein = 0
+        total_carbs = 0
+        total_fat = 0
+        
+        for meal in meal_data.values():
+            macros = meal.get('macros', {})
+            total_calories += float(macros.get('calories', 0))
+            total_protein += float(macros.get('protein', 0))
+            total_carbs += float(macros.get('carbs', 0))
+            total_fat += float(macros.get('fat', 0))
+        
         plan_info = {
-            'total_calories': sum(meal.get('macros', {}).get('calories', 0) for meal in meal_data.values()),
-            'total_protein': sum(meal.get('macros', {}).get('protein', 0) for meal in meal_data.values()),
-            'total_carbs': sum(meal.get('macros', {}).get('carbs', 0) for meal in meal_data.values()),
-            'total_fat': sum(meal.get('macros', {}).get('fat', 0) for meal in meal_data.values()),
+            'total_calories': int(total_calories),
+            'total_protein': round(total_protein, 1),
+            'total_carbs': round(total_carbs, 1),
+            'total_fat': round(total_fat, 1),
             'diet_preferences': user_preferences or {}
         }
         
         # Add title page
         pdf.add_title_page({}, plan_info)
         
-        # Add meals
+        # Add meals page
         pdf.add_page()
         pdf.set_font('Arial', 'B', 20)
-        pdf.set_text_color(41, 84, 144)
+        pdf.set_text_color(193, 153, 98)  # Fitomics gold
         pdf.cell(0, 12, 'DAILY MEAL PLAN', 0, 1, 'L')
         pdf.ln(5)
         
@@ -195,18 +229,28 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
             macros = meal_info.get('macros', {})
             ingredients = meal_info.get('ingredient_details', [])
             
-            all_ingredients.extend(ingredients)
+            if ingredients:
+                all_ingredients.extend(ingredients)
+            
             pdf.add_meal_section(meal_type, recipe, macros, ingredients)
         
-        # Add grocery list
-        pdf.add_grocery_list(all_ingredients)
+        # Add grocery list on new page
+        if all_ingredients:
+            pdf.add_grocery_list(all_ingredients)
         
-        # Save PDF
+        # Save PDF with error handling
         filename = f"fitomics_meal_plan_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
-        pdf.output(filename)
         
-        return filename
+        try:
+            pdf.output(filename)
+            return filename
+        except Exception as output_error:
+            # Try alternative filename if there's an issue
+            filename = f"meal_plan_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+            pdf.output(filename)
+            return filename
         
     except Exception as e:
         print(f"Error creating PDF: {e}")
+        # Return None to indicate failure
         return None

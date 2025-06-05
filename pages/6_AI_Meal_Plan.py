@@ -694,7 +694,32 @@ if st.session_state.confirmed_meals:
     col1, col2 = st.columns(2)
     with col1:
         if st.button("📋 Generate Grocery List"):
-            st.success("Grocery list functionality coming soon!")
+            with st.spinner("Creating consolidated grocery list..."):
+                # Consolidate all ingredients
+                all_ingredients = []
+                for meal_data in st.session_state.confirmed_meals.values():
+                    ingredients = meal_data.get('ingredient_details', [])
+                    all_ingredients.extend(ingredients)
+                
+                # Group by ingredient name and sum amounts
+                grocery_list = {}
+                for ingredient in all_ingredients:
+                    if isinstance(ingredient, dict):
+                        name = ingredient.get('name', '').lower()
+                        amount = float(ingredient.get('amount', 0))
+                        
+                        if name in grocery_list:
+                            grocery_list[name] += amount
+                        else:
+                            grocery_list[name] = amount
+                
+                # Display grocery list
+                st.markdown("### 🛒 Consolidated Grocery List")
+                for name, total_amount in sorted(grocery_list.items()):
+                    if name and total_amount > 0:
+                        st.write(f"• {total_amount:.0f}g {name.title()}")
+                
+                st.success("Grocery list generated successfully!")
     
     with col2:
         if st.button("📄 Export PDF Meal Plan"):
