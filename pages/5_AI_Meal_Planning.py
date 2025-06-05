@@ -938,6 +938,75 @@ Respond with JSON: {{"insights": ["tip 1", "tip 2", "tip 3"]}}"""
         print(f"AI insights generation failed: {e}")
         return []
 
+def create_basic_meal_suggestions(meal_type, target_macros, diet_prefs):
+    """Create basic meal suggestions using authentic nutritional data when no recipes are found"""
+    suggestions = []
+    
+    # Get appropriate protein sources for meal type and diet preferences
+    protein_sources = get_protein_sources(diet_prefs, meal_type)
+    carb_sources = get_carb_sources(diet_prefs, meal_type)
+    fat_sources = get_fat_sources(diet_prefs, meal_type)
+    
+    # Create 3 basic meal suggestions
+    for i in range(3):
+        if i < len(protein_sources):
+            protein_name = list(protein_sources.keys())[i]
+            protein_data = protein_sources[protein_name]
+            
+            # Calculate portions to meet targets
+            protein_needed = target_macros['protein']
+            protein_grams = int(protein_needed / (protein_data['protein'] / 100) * 100)
+            protein_calories = int(protein_grams * protein_data['calories_per_g'])
+            
+            # Get complementary carb source
+            if i < len(carb_sources):
+                carb_name = list(carb_sources.keys())[i % len(carb_sources)]
+                carb_data = carb_sources[carb_name]
+                remaining_calories = target_macros['calories'] - protein_calories
+                carb_calories = min(remaining_calories * 0.6, target_macros['carbs'] * 4)
+                carb_grams = int(carb_calories / carb_data['calories_per_g'])
+            
+            # Get fat source
+            if i < len(fat_sources):
+                fat_name = list(fat_sources.keys())[i % len(fat_sources)]
+                fat_data = fat_sources[fat_name]
+                remaining_calories = target_macros['calories'] - protein_calories - carb_calories
+                fat_calories = min(remaining_calories, target_macros['fat'] * 9)
+                fat_grams = int(fat_calories / fat_data['calories_per_g'])
+            
+            # Create meal suggestion
+            meal_title = f"{meal_type.title()} with {protein_name}"
+            ingredients = [
+                f"{protein_grams}g {protein_name}",
+                f"{carb_grams}g {carb_name}" if 'carb_name' in locals() else "",
+                f"{fat_grams}g {fat_name}" if 'fat_name' in locals() else ""
+            ]
+            ingredients = [ing for ing in ingredients if ing]
+            
+            total_calories = protein_calories + (carb_calories if 'carb_calories' in locals() else 0) + (fat_calories if 'fat_calories' in locals() else 0)
+            total_protein = int(protein_grams * protein_data['protein'] / 100)
+            total_carbs = int(carb_grams * carb_data['carbs'] / 100) if 'carb_data' in locals() else 0
+            total_fat = int(fat_grams * fat_data['fat'] / 100) if 'fat_data' in locals() else 0
+            
+            suggestion = {
+                'recipe': {
+                    'title': meal_title,
+                    'category': meal_type,
+                    'ingredients': ingredients,
+                    'directions': [f"Prepare {protein_name} as desired", "Serve with accompaniments"]
+                },
+                'macros': {
+                    'calories': total_calories,
+                    'protein': total_protein,
+                    'carbs': total_carbs,
+                    'fat': total_fat
+                },
+                'match_score': 100 - i * 10
+            }
+            suggestions.append(suggestion)
+    
+    return suggestions
+
 def find_best_recipes_for_meal(recipes, meal_type, target_macros, diet_prefs):
     """Main function to find best recipes, with AI enhancement if available"""
     openai_client = get_openai_client()
@@ -1416,54 +1485,213 @@ if standalone_mode:
         st.info("👆 Please confirm your nutrition targets above to proceed with AI meal planning.")
         st.stop()
     
-    adjusted_meal_targets = {}
-    for meal_type in meal_types:
-        if meal_type in meal_targets:
-            target = meal_targets[meal_type]
-            
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                meal_calories = st.number_input(
-                    f"{meal_type.title()} Cal", 
-                    min_value=50, 
-                    max_value=1500, 
-                    value=target['calories'],
-                    key=f"meal_cal_{meal_type}"
-                )
-            with col2:
-                meal_protein = st.number_input(
-                    f"{meal_type.title()} Protein", 
-                    min_value=5, 
-                    max_value=100, 
-                    value=target['protein'],
-                    key=f"meal_protein_{meal_type}"
-                )
-            with col3:
-                meal_carbs = st.number_input(
-                    f"{meal_type.title()} Carbs", 
-                    min_value=5, 
-                    max_value=150, 
-                    value=target['carbs'],
-                    key=f"meal_carbs_{meal_type}"
-                )
-            with col4:
-                meal_fat = st.number_input(
-                    f"{meal_type.title()} Fat", 
-                    min_value=2, 
-                    max_value=80, 
-                    value=target['fat'],
-                    key=f"meal_fat_{meal_type}"
-                )
-            
-            adjusted_meal_targets[meal_type] = {
-                'calories': meal_calories,
-                'protein': meal_protein,
-                'carbs': meal_carbs,
-                'fat': meal_fat
-            }
+    # Use the customized meal targets for meal planning
+    adjusted_meal_targets = meal_targets.copy()
     
     # Update meal targets with user adjustments
     day_nutrition['meal_targets'] = adjusted_meal_targets
+    
+    # AI Meal Planning Section
+    st.markdown("---")
+    st.markdown("## 🤖 AI-Powered Meal Recommendations")
+    st.markdown("*Based on your customized nutrition targets and dietary preferences*")
+    
+    # Initialize meal plan storage
+    if 'meal_plans' not in st.session_state:
+        st.session_state.meal_plans = {}
+    
+    if selected_day not in st.session_state.meal_plans:
+        st.session_state.meal_plans[selected_day] = {
+            'breakfast': {'recipes': [], 'additions': []},
+            'lunch': {'recipes': [], 'additions': []},
+            'dinner': {'recipes': [], 'additions': []},
+            'snack': {'recipes': [], 'additions': []},
+            'evening_meal': {'recipes': [], 'additions': []}
+        }
+    
+    # Create tabs for each meal type
+    available_meals = [meal for meal in ['breakfast', 'lunch', 'dinner', 'evening_meal', 'snack'] if meal in adjusted_meal_targets]
+    meal_tab_names = [f"🍳 {meal.title().replace('_', ' ')}" for meal in available_meals]
+    meal_tabs = st.tabs(meal_tab_names)
+    
+    for i, (meal_type, tab) in enumerate(zip(available_meals, meal_tabs)):
+        with tab:
+            meal_target = adjusted_meal_targets[meal_type]
+            
+            st.markdown(f"**Target for {meal_type.title().replace('_', ' ')}:** {meal_target['calories']} cal | {meal_target['protein']}g protein | {meal_target['carbs']}g carbs | {meal_target['fat']}g fat")
+            
+            # Add AI insights for meal planning
+            openai_client = get_openai_client()
+            if openai_client:
+                with st.expander("🧠 AI Meal Planning Insights", expanded=False):
+                    insights = ai_generate_meal_insights(meal_type, meal_target, diet_prefs, openai_client)
+                    if insights:
+                        st.markdown("**AI-Powered Tips for Your Meal:**")
+                        for j, insight in enumerate(insights, 1):
+                            st.write(f"{j}. {insight}")
+                    else:
+                        st.info("AI insights temporarily unavailable")
+            
+            # Find recommended recipes
+            recommended_recipes = find_best_recipes_for_meal(recipes, meal_type, meal_target, diet_prefs)
+            
+            # Always show recommendations if no recipes found, using authentic FDC data
+            if not recommended_recipes:
+                # Use FDC API to get authentic food recommendations
+                recommended_recipes = get_fdc_meal_recommendations(meal_type, meal_target, diet_prefs)
+            
+            if recommended_recipes:
+                # Check if recipes came from AI analysis
+                ai_powered = any(rec.get('ai_reason') for rec in recommended_recipes)
+                
+                if ai_powered:
+                    st.markdown("#### 🤖 AI-Powered Recipe Recommendations")
+                    st.success("These recipes were intelligently selected by AI based on your nutrition targets and dietary preferences.")
+                else:
+                    st.markdown("#### Recommended Recipes")
+                    st.info("Using nutritional matching algorithm to find suitable recipes.")
+                
+                # Display recipe options
+                for j, rec_data in enumerate(recommended_recipes):
+                    recipe = rec_data['recipe']
+                    recipe_macros = rec_data['macros']
+                    ai_reason = rec_data.get('ai_reason', '')
+                    ai_rank = rec_data.get('ai_rank', j+1)
+                    
+                    # Enhanced title with AI ranking
+                    title_prefix = f"🥇 AI Top Choice" if ai_rank == 1 else f"#{ai_rank} AI Pick" if ai_reason else f"Option {j+1}"
+                    
+                    with st.expander(f"{title_prefix}: {recipe.get('title', 'Untitled Recipe')}", expanded=(j==0)):
+                        if ai_reason:
+                            st.markdown(f"**🤖 AI Analysis:** {ai_reason}")
+                            st.markdown("---")
+                        
+                        col1, col2 = st.columns([2, 1])
+                        
+                        with col1:
+                            # Recipe details
+                            st.write(f"**Category:** {recipe.get('category', 'N/A')}")
+                            
+                            # Individual ingredient manipulation
+                            if recipe.get('ingredients'):
+                                st.markdown("**Customize Ingredients:**")
+                                
+                                # Initialize ingredient adjustments in session state
+                                ingredient_key = f"ingredients_{meal_type}_{j}"
+                                if ingredient_key not in st.session_state:
+                                    st.session_state[ingredient_key] = {}
+                                    for ingredient in recipe['ingredients']:
+                                        st.session_state[ingredient_key][ingredient] = 1.0
+                                
+                                adjusted_ingredients = {}
+                                
+                                # Display each ingredient with individual controls
+                                for ingredient in recipe['ingredients']:
+                                    col_ing1, col_ing2, col_ing3 = st.columns([3, 1, 1])
+                                    
+                                    with col_ing1:
+                                        st.write(f"• {ingredient}")
+                                    
+                                    with col_ing2:
+                                        multiplier = st.number_input(
+                                            "Amount",
+                                            min_value=0.0,
+                                            max_value=5.0,
+                                            value=st.session_state[ingredient_key].get(ingredient, 1.0),
+                                            step=0.25,
+                                            key=f"ing_{meal_type}_{j}_{ingredient}",
+                                            label_visibility="collapsed"
+                                        )
+                                        st.session_state[ingredient_key][ingredient] = multiplier
+                                        adjusted_ingredients[ingredient] = multiplier
+                                    
+                                    with col_ing3:
+                                        if st.button("Remove", key=f"remove_{meal_type}_{j}_{ingredient}"):
+                                            st.session_state[ingredient_key][ingredient] = 0.0
+                                            st.rerun()
+                                
+                                # Option to add custom ingredients
+                                with st.expander("➕ Add Custom Ingredients"):
+                                    custom_ingredient = st.text_input(
+                                        "Add ingredient (e.g., '1 tbsp olive oil', '50g chicken breast')",
+                                        key=f"custom_ing_{meal_type}_{j}"
+                                    )
+                                    if st.button("Add Ingredient", key=f"add_custom_{meal_type}_{j}"):
+                                        if custom_ingredient:
+                                            st.session_state[ingredient_key][custom_ingredient] = 1.0
+                                            st.rerun()
+                                
+                                # Calculate total macros from adjusted ingredients
+                                total_recipe_macros = calculate_recipe_macros_from_ingredients(
+                                    recipe, adjusted_ingredients
+                                )
+                            else:
+                                # Fallback if no ingredients
+                                total_recipe_macros = calculate_recipe_macros(recipe, 1.0)
+                                adjusted_ingredients = {}
+                        
+                        with col2:
+                            st.markdown("**Customized Nutrition:**")
+                            st.write(f"**{total_recipe_macros['calories']} cal** | **{total_recipe_macros['protein']}g protein**")
+                            st.write(f"**{total_recipe_macros['carbs']}g carbs** | **{total_recipe_macros['fat']}g fat**")
+                            
+                            # Enhanced macro gap analysis
+                            calorie_gap = meal_target['calories'] - total_recipe_macros['calories']
+                            protein_gap = meal_target['protein'] - total_recipe_macros['protein']
+                            carb_gap = meal_target['carbs'] - total_recipe_macros['carbs']
+                            fat_gap = meal_target['fat'] - total_recipe_macros['fat']
+                            
+                            st.markdown("**Target vs Actual:**")
+                            
+                            # Color-coded gap indicators
+                            gap_color = lambda gap, threshold: "🟢" if abs(gap) <= threshold else "🟡" if abs(gap) <= threshold*2 else "🔴"
+                            
+                            st.write(f"{gap_color(calorie_gap, 50)} Calories: {calorie_gap:+d}")
+                            st.write(f"{gap_color(protein_gap, 5)} Protein: {protein_gap:+d}g")
+                            st.write(f"{gap_color(carb_gap, 10)} Carbs: {carb_gap:+d}g")
+                            st.write(f"{gap_color(fat_gap, 5)} Fat: {fat_gap:+d}g")
+                            
+                            # Smart ingredient suggestions
+                            if abs(calorie_gap) > 50 or abs(protein_gap) > 5:
+                                st.markdown("**Smart Additions:**")
+                                additions = get_macro_additions()
+                                
+                                if protein_gap > 10:
+                                    st.write("🥩 **For more protein:**")
+                                    for addition in additions['protein'][:2]:
+                                        st.write(f"  • {addition['name']}")
+                                
+                                if carb_gap > 15:
+                                    st.write("🍞 **For more carbs:**")
+                                    for addition in additions['carbs'][:2]:
+                                        st.write(f"  • {addition['name']}")
+                                
+                                if fat_gap > 8:
+                                    st.write("🥑 **For healthy fats:**")
+                                    for addition in additions['fat'][:2]:
+                                        st.write(f"  • {addition['name']}")
+                            
+                            # Accuracy score
+                            accuracy = 100 - (abs(calorie_gap)/meal_target['calories'] * 50 + abs(protein_gap)/meal_target['protein'] * 50)
+                            accuracy = max(0, min(100, accuracy))
+                            st.metric("Target Accuracy", f"{accuracy:.0f}%")
+                        
+                        # Add to meal plan button with validation
+                        button_text = f"Add to {meal_type.title().replace('_', ' ')}"
+                        button_type = "primary" if accuracy > 80 else "secondary"
+                        
+                        if st.button(button_text, key=f"add_{meal_type}_{j}", type=button_type):
+                            recipe_with_ingredients = {
+                                'recipe': recipe,
+                                'ingredient_adjustments': adjusted_ingredients if 'adjusted_ingredients' in locals() else {},
+                                'final_macros': total_recipe_macros,
+                                'accuracy_score': accuracy
+                            }
+                            st.session_state.meal_plans[selected_day][meal_type]['recipes'].append(recipe_with_ingredients)
+                            st.success(f"Added customized {recipe.get('title', 'Recipe')} to {meal_type.replace('_', ' ')}!")
+                            st.rerun()
+            else:
+                st.warning(f"No suitable recipes found for {meal_type}. Try adjusting your dietary preferences or nutrition targets.")
     
     # Show daily total vs targets
     total_from_meals = {
