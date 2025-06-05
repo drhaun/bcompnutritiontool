@@ -825,43 +825,39 @@ if st.session_state.confirmed_meals:
         if st.button("📄 Export PDF Meal Plan"):
             with st.spinner("Creating branded PDF meal plan..."):
                 try:
-                    # Debug information
-                    st.write("Debug: Meal data structure")
-                    for meal_type, meal_data in st.session_state.confirmed_meals.items():
-                        st.write(f"{meal_type}: {list(meal_data.keys()) if isinstance(meal_data, dict) else type(meal_data)}")
+                    # Get diet preferences
+                    diet_prefs = st.session_state.get('confirmed_diet_prefs', {})
                     
-                    # Get diet preferences from session state
-                    diet_prefs = st.session_state.get('diet_preferences', {})
-                    
-                    # Export to PDF with enhanced debugging
-                    st.write("Starting PDF export...")
+                    # Create PDF with validated meal data
                     pdf_filename = export_meal_plan_pdf(st.session_state.confirmed_meals, diet_prefs)
-                    st.write(f"PDF export returned: {pdf_filename}")
                     
                     if pdf_filename and os.path.exists(pdf_filename):
-                        st.write(f"PDF file exists: {pdf_filename}")
-                        # Provide download link
+                        # Read PDF file
                         with open(pdf_filename, "rb") as pdf_file:
-                            st.download_button(
-                                label="Download Fitomics Meal Plan PDF",
-                                data=pdf_file.read(),
-                                file_name=pdf_filename,
-                                mime="application/pdf"
-                            )
+                            pdf_data = pdf_file.read()
                         
-                        # Clean up temporary file
+                        # Provide download
+                        st.download_button(
+                            label="Download Fitomics Meal Plan PDF",
+                            data=pdf_data,
+                            file_name=f"fitomics_meal_plan_{datetime.now().strftime('%Y%m%d')}.pdf",
+                            mime="application/pdf",
+                            type="primary"
+                        )
+                        
+                        # Clean up
                         try:
                             os.remove(pdf_filename)
                         except:
                             pass
-                        st.success("PDF meal plan created successfully!")
+                        
+                        st.success("PDF created successfully! Click the download button above.")
                     else:
-                        st.error("Error creating PDF. Check console for details.")
+                        st.error("PDF creation failed. Please ensure all meals are confirmed.")
                         
                 except Exception as e:
-                    import traceback
-                    st.error(f"Error exporting PDF: {str(e)}")
-                    st.text(traceback.format_exc())
+                    st.error("PDF creation failed. Please try again.")
+                    print(f"PDF Error: {e}")
 
 # Daily meal plan management
 if len(st.session_state.confirmed_meals) == len(meal_targets):
