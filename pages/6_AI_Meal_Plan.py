@@ -358,6 +358,39 @@ with col4:
 # Generate and display meal recommendations
 st.markdown("## 🤖 AI Meal Recommendations")
 
+# Quick actions for testing
+col1, col2, col3 = st.columns([2, 1, 1])
+with col2:
+    if st.button("✅ Confirm All Meals", type="primary"):
+        with st.spinner("Generating all meals..."):
+            for meal_type, target_macros in meal_targets.items():
+                if meal_type not in st.session_state.confirmed_meals:
+                    # Generate simple meal structure for testing
+                    meal_data = {
+                        'recipe': {
+                            'title': f"Quick {meal_type}",
+                            'ingredients': ['Main protein source', 'Complex carbs', 'Healthy fats', 'Vegetables'],
+                            'directions': ['Prepare ingredients', 'Combine for balanced meal']
+                        },
+                        'macros': target_macros,
+                        'ingredient_details': [
+                            {'name': 'protein source', 'amount': 100, 'category': 'protein'},
+                            {'name': 'carb source', 'amount': 80, 'category': 'carbs'},
+                            {'name': 'fat source', 'amount': 15, 'category': 'fat'}
+                        ]
+                    }
+                    st.session_state.confirmed_meals[meal_type] = meal_data
+            st.success("All meals confirmed! You can now export to PDF.")
+            st.rerun()
+
+with col3:
+    if st.button("🔄 Clear All"):
+        st.session_state.confirmed_meals = {}
+        st.rerun()
+
+# Compact view toggle
+compact_view = st.toggle("Compact View", value=True, help="Toggle between detailed and compact meal display")
+
 # Initialize confirmed meals in session state
 if 'confirmed_meals' not in st.session_state:
     st.session_state.confirmed_meals = {}
@@ -367,17 +400,24 @@ if 'ingredient_updates' not in st.session_state:
     st.session_state.ingredient_updates = {}
 
 for meal_type, meal_target in meal_targets.items():
-    with st.expander(f"🍽️ {meal_type}", expanded=True):
-        # Display meal target summary
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Target Calories", f"{meal_target['calories']}")
-        with col2:
-            st.metric("Target Protein", f"{meal_target['protein']}g")
-        with col3:
-            st.metric("Target Carbs", f"{meal_target['carbs']}g")
-        with col4:
-            st.metric("Target Fat", f"{meal_target['fat']}g")
+    # Use compact display by default
+    expanded_state = not compact_view if meal_type not in st.session_state.confirmed_meals else False
+    
+    with st.expander(f"🍽️ {meal_type}", expanded=expanded_state):
+        # Compact target summary
+        if compact_view:
+            st.write(f"**Target:** {meal_target['calories']} cal | {meal_target['protein']}g protein | {meal_target['carbs']}g carbs | {meal_target['fat']}g fat")
+        else:
+            # Full target display
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Target Calories", f"{meal_target['calories']}")
+            with col2:
+                st.metric("Target Protein", f"{meal_target['protein']}g")
+            with col3:
+                st.metric("Target Carbs", f"{meal_target['carbs']}g")
+            with col4:
+                st.metric("Target Fat", f"{meal_target['fat']}g")
         
         # Generate meal recommendation with caching
         meal_recommendation = None
