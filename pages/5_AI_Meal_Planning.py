@@ -1275,8 +1275,8 @@ def find_best_recipes_for_meal(recipes, meal_type, target_macros, diet_prefs):
         return find_best_recipes_for_meal_fallback(recipes, meal_type, target_macros, diet_prefs)
 
 # Header
-st.title("🤖 AI Meal Planner")
-st.markdown("*Intelligent meal planning using authentic Fitomics recipes*")
+st.title("🤖 AI Meal Plan Configuration")
+st.markdown("*Configure your meal planning preferences and nutritional targets*")
 
 # Initialize default values for standalone use
 if 'diet_preferences' not in st.session_state:
@@ -1734,6 +1734,25 @@ if standalone_mode:
     
     # Nutrition targets confirmation
     targets_confirmed = st.button("✅ Confirm Nutrition Targets", type="primary", use_container_width=True)
+    
+    if targets_confirmed:
+        # Save configuration to session state
+        st.session_state.meal_planning_confirmed = True
+        st.session_state.confirmed_meal_targets = meal_targets
+        st.session_state.confirmed_diet_prefs = diet_prefs
+        st.session_state.confirmed_meal_config = {
+            'wake_time': wake_time,
+            'sleep_time': sleep_time,
+            'workout_time': workout_time,
+            'num_meals': num_meals,
+            'num_snacks': num_snacks,
+            'is_training_day': is_training_day
+        }
+        
+        st.success("Configuration saved successfully!")
+        st.info("Navigate to the 'AI Meal Plan' page to view your personalized meal recommendations with customizable ingredients.")
+        st.markdown("**Next Step:** Go to the AI Meal Plan page to see your meal recommendations.")
+        st.stop()
     
     if not targets_confirmed:
         st.info("👆 Please confirm your nutrition targets above to proceed with AI meal planning.")
