@@ -364,9 +364,16 @@ for meal_type, meal_target in meal_targets.items():
                     ingredient['carbs_per_100g'] = cached_nutrition['carbs_per_100g']
                     ingredient['fat_per_100g'] = cached_nutrition['fat_per_100g']
             
-            # Recalculate accurate macros based on authentic ingredient data
-            accurate_macros = calculate_updated_macros(ingredient_details, {})
-            recipe_macros = accurate_macros
+            # Validate and correct macros using authentic ingredient data
+            authentic_macros = validate_ingredient_macros(ingredient_details)
+            
+            # Check if there's a significant discrepancy (>20% error)
+            cal_error = abs(authentic_macros['calories'] - recipe_macros['calories']) / recipe_macros['calories']
+            
+            if cal_error > 0.2:
+                # Use authentic calculations when AI estimates are inaccurate
+                recipe_macros = authentic_macros
+                st.info("Macros corrected using authentic nutritional data for accuracy")
             
             if ai_reason:
                 st.info(f"AI Recommendation: {ai_reason}")
