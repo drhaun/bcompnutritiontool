@@ -37,31 +37,36 @@ def generate_ai_meal_recipe(api_key_hash, meal_type, target_macros, diet_prefs):
         
         restrictions_text = f"dietary restrictions: {', '.join(restrictions)}" if restrictions else "no dietary restrictions"
         
-        # Enhanced prompt for accurate macro targeting
-        prompt = f"""Create a {meal_type.lower()} recipe that precisely hits these targets: {target_macros['calories']} calories, {target_macros['protein']}g protein, {target_macros['carbs']}g carbohydrates, {target_macros['fat']}g fat. {restrictions_text}.
+        # Calculate realistic ingredient amounts based on macro targets
+        protein_grams_needed = target_macros['protein']
+        carb_grams_needed = target_macros['carbs'] 
+        fat_grams_needed = target_macros['fat']
+        
+        # Calculate precise ingredient amounts for accuracy
+        chicken_amount = max(50, int((protein_grams_needed * 100) / 31))  # 31g protein per 100g chicken
+        rice_amount = max(30, int((carb_grams_needed * 100) / 28))  # 28g carbs per 100g rice
+        oil_amount = max(5, min(15, int((fat_grams_needed * 100) / 100)))  # 100g fat per 100g oil
+        
+        prompt = f"""Create a {meal_type.lower()} recipe for {target_macros['calories']} calories, {target_macros['protein']}g protein, {target_macros['carbs']}g carbs, {target_macros['fat']}g fat. {restrictions_text}.
 
-CRITICAL: Use realistic ingredient amounts that add up to the exact macro targets. Consider these nutrition values per 100g:
-- Chicken breast: 165 cal, 31g protein, 0g carbs, 3.6g fat
-- Rice (cooked): 130 cal, 2.7g protein, 28g carbs, 0.3g fat  
-- Olive oil: 884 cal, 0g protein, 0g carbs, 100g fat
-- Sweet potato: 86 cal, 1.6g protein, 20g carbs, 0.1g fat
+Use approximately these amounts: {chicken_amount}g chicken breast, {rice_amount}g rice, {oil_amount}g olive oil (adjust as needed).
 
 JSON format:
 {{
     "title": "Recipe name",
     "ingredients": [
-        {{"name": "chicken breast", "amount": 150, "category": "protein"}},
-        {{"name": "rice", "amount": 80, "category": "carbs"}},
-        {{"name": "olive oil", "amount": 10, "category": "fat"}}
+        {{"name": "chicken breast", "amount": {chicken_amount}, "category": "protein"}},
+        {{"name": "rice", "amount": {rice_amount}, "category": "carbs"}},
+        {{"name": "olive oil", "amount": {oil_amount}, "category": "fat"}}
     ],
-    "directions": ["Step 1", "Step 2", "Step 3"],
+    "directions": ["Step 1", "Step 2"],
     "nutrition": {{
         "calories": {target_macros['calories']},
         "protein": {target_macros['protein']},
         "carbs": {target_macros['carbs']},
         "fat": {target_macros['fat']}
     }},
-    "reason": "Why this combination hits the targets"
+    "reason": "Calculated amounts to match targets"
 }}"""
 
         response = openai_client.chat.completions.create(
@@ -215,20 +220,20 @@ def build_structured_meal(meal_type, target_macros, diet_prefs):
         return None
 
 def calculate_updated_macros(ingredient_details, updated_amounts):
-    """Fast macro calculation using cached nutrition data"""
-    total_macros = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+    """Accurate macro calculation with proper rounding"""
+    total_macros = {'calories': 0.0, 'protein': 0.0, 'carbs': 0.0, 'fat': 0.0}
     
     for ing in ingredient_details:
         ing_name = ing['name']
-        new_amount = updated_amounts.get(ing_name, ing['amount'])
+        new_amount = float(updated_amounts.get(ing_name, ing['amount']))
         
-        # Use pre-calculated or cached nutrition data for speed
+        # Get authentic nutrition data
         calories_per_100g = float(ing.get('calories_per_100g', 0))
         protein_per_100g = float(ing.get('protein_per_100g', 0))
         carbs_per_100g = float(ing.get('carbs_per_100g', 0))
         fat_per_100g = float(ing.get('fat_per_100g', 0))
         
-        # Only calculate fallback if absolutely necessary
+        # Get fallback data if needed
         if calories_per_100g == 0:
             cached_data = nutrition_cache.get_fallback_nutrition(ing_name.lower(), ing.get('category', 'protein'))
             calories_per_100g = cached_data['calories_per_100g']
@@ -236,14 +241,20 @@ def calculate_updated_macros(ingredient_details, updated_amounts):
             carbs_per_100g = cached_data['carbs_per_100g']
             fat_per_100g = cached_data['fat_per_100g']
         
-        # Fast multiplication and accumulation
-        multiplier = new_amount * 0.01  # Optimize division by 100
-        total_macros['calories'] += int(calories_per_100g * multiplier)
-        total_macros['protein'] += round(protein_per_100g * multiplier, 1)
-        total_macros['carbs'] += round(carbs_per_100g * multiplier, 1)
-        total_macros['fat'] += round(fat_per_100g * multiplier, 1)
+        # Calculate contribution per ingredient
+        multiplier = new_amount / 100.0
+        total_macros['calories'] += calories_per_100g * multiplier
+        total_macros['protein'] += protein_per_100g * multiplier
+        total_macros['carbs'] += carbs_per_100g * multiplier
+        total_macros['fat'] += fat_per_100g * multiplier
     
-    return total_macros
+    # Return properly rounded values
+    return {
+        'calories': int(round(total_macros['calories'])),
+        'protein': round(total_macros['protein'], 1),
+        'carbs': round(total_macros['carbs'], 1),
+        'fat': round(total_macros['fat'], 1)
+    }
 
 def save_ingredient_modifications(meal_type, ingredient_details, updated_amounts):
     """Save ingredient modifications to session state"""
@@ -364,16 +375,31 @@ for meal_type, meal_target in meal_targets.items():
                     ingredient['carbs_per_100g'] = cached_nutrition['carbs_per_100g']
                     ingredient['fat_per_100g'] = cached_nutrition['fat_per_100g']
             
-            # Validate and correct macros using authentic ingredient data
+            # Always use authentic macro calculations for accuracy
             authentic_macros = validate_ingredient_macros(ingredient_details)
+            recipe_macros = authentic_macros
             
-            # Check if there's a significant discrepancy (>20% error)
-            cal_error = abs(authentic_macros['calories'] - recipe_macros['calories']) / recipe_macros['calories']
+            # Check if ingredients need adjustment to better hit targets
+            cal_diff = authentic_macros['calories'] - meal_target['calories']
+            protein_diff = authentic_macros['protein'] - meal_target['protein']
+            carb_diff = authentic_macros['carbs'] - meal_target['carbs']
+            fat_diff = authentic_macros['fat'] - meal_target['fat']
             
-            if cal_error > 0.2:
-                # Use authentic calculations when AI estimates are inaccurate
-                recipe_macros = authentic_macros
-                st.info("Macros corrected using authentic nutritional data for accuracy")
+            # Auto-adjust ingredient amounts if significantly off target
+            if abs(cal_diff) > 100 or abs(protein_diff) > 10 or abs(carb_diff) > 15 or abs(fat_diff) > 5:
+                adjusted_ingredients = []
+                for ing in ingredient_details:
+                    adjusted_ing = ing.copy()
+                    # Scale down overly large amounts
+                    if adjusted_ing['amount'] > 200:
+                        adjusted_ing['amount'] = min(200, adjusted_ing['amount'] * 0.7)
+                    elif adjusted_ing['amount'] > 100:
+                        adjusted_ing['amount'] = adjusted_ing['amount'] * 0.8
+                    adjusted_ingredients.append(adjusted_ing)
+                
+                ingredient_details = adjusted_ingredients
+                recipe_macros = validate_ingredient_macros(ingredient_details)
+                st.info("Ingredient amounts automatically adjusted for target accuracy")
             
             if ai_reason:
                 st.info(f"AI Recommendation: {ai_reason}")
