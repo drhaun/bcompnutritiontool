@@ -496,41 +496,139 @@ def get_vegetable_sources(diet_prefs):
     return sources
 
 def calculate_intelligent_meal_distribution(total_calories, total_protein, total_carbs, total_fat, 
-                                          num_meals, num_snacks, is_training_day=False, workout_time=None):
-    """Calculate intelligent meal distribution based on training status and timing"""
+                                          num_meals, num_snacks, is_training_day=False, workout_time=None, 
+                                          meal_times=None, wake_time=None, sleep_time=None):
+    """Calculate intelligent meal distribution based on training status, timing, and circadian optimization"""
     
-    # Define base distributions for different scenarios
+    # Enhanced workout timing parsing
+    workout_period = None
+    if workout_time:
+        if "Early Morning" in workout_time or "6-8 AM" in workout_time:
+            workout_period = "early_morning"
+        elif "Morning" in workout_time or "8-10 AM" in workout_time:
+            workout_period = "morning"
+        elif "Lunch" in workout_time or "11 AM-1 PM" in workout_time:
+            workout_period = "lunch"
+        elif "Afternoon" in workout_time or "2-5 PM" in workout_time:
+            workout_period = "afternoon"
+        elif "Evening" in workout_time or "6-8 PM" in workout_time:
+            workout_period = "evening"
+    
+    # Define base distributions with enhanced timing considerations
     if num_meals == 2:  # 2 main meals
-        if is_training_day and workout_time in ['Morning', 'Lunch']:
-            meal_distributions = {
-                'breakfast': {'calories': 0.45, 'protein': 0.4, 'carbs': 0.5, 'fat': 0.35},
-                'dinner': {'calories': 0.55, 'protein': 0.6, 'carbs': 0.5, 'fat': 0.65}
-            }
+        if is_training_day and workout_period:
+            if workout_period in ['early_morning', 'morning']:
+                # Pre-workout fuel, post-workout recovery
+                meal_distributions = {
+                    'breakfast': {'calories': 0.45, 'protein': 0.4, 'carbs': 0.55, 'fat': 0.3},
+                    'dinner': {'calories': 0.55, 'protein': 0.6, 'carbs': 0.45, 'fat': 0.7}
+                }
+            elif workout_period == 'lunch':
+                # Balanced morning, post-workout evening
+                meal_distributions = {
+                    'breakfast': {'calories': 0.4, 'protein': 0.4, 'carbs': 0.5, 'fat': 0.35},
+                    'dinner': {'calories': 0.6, 'protein': 0.6, 'carbs': 0.5, 'fat': 0.65}
+                }
+            else:  # afternoon/evening workout
+                # Fuel throughout day, post-workout dinner
+                meal_distributions = {
+                    'breakfast': {'calories': 0.35, 'protein': 0.35, 'carbs': 0.4, 'fat': 0.4},
+                    'dinner': {'calories': 0.65, 'protein': 0.65, 'carbs': 0.6, 'fat': 0.6}
+                }
         else:
+            # Standard distribution with circadian consideration
             meal_distributions = {
-                'breakfast': {'calories': 0.4, 'protein': 0.4, 'carbs': 0.45, 'fat': 0.4},
-                'dinner': {'calories': 0.6, 'protein': 0.6, 'carbs': 0.55, 'fat': 0.6}
+                'breakfast': {'calories': 0.4, 'protein': 0.4, 'carbs': 0.45, 'fat': 0.35},
+                'dinner': {'calories': 0.6, 'protein': 0.6, 'carbs': 0.55, 'fat': 0.65}
             }
     elif num_meals == 3:  # 3 main meals
-        if is_training_day and workout_time == 'Lunch':
+        if is_training_day and workout_period:
+            if workout_period in ['early_morning', 'morning']:
+                # Pre-workout breakfast, recovery lunch, lighter dinner
+                meal_distributions = {
+                    'breakfast': {'calories': 0.4, 'protein': 0.35, 'carbs': 0.5, 'fat': 0.25},
+                    'lunch': {'calories': 0.35, 'protein': 0.4, 'carbs': 0.3, 'fat': 0.4},
+                    'dinner': {'calories': 0.25, 'protein': 0.25, 'carbs': 0.2, 'fat': 0.35}
+                }
+            elif workout_period == 'lunch':
+                # Light breakfast, workout lunch, balanced dinner
+                meal_distributions = {
+                    'breakfast': {'calories': 0.25, 'protein': 0.25, 'carbs': 0.3, 'fat': 0.3},
+                    'lunch': {'calories': 0.45, 'protein': 0.4, 'carbs': 0.5, 'fat': 0.3},
+                    'dinner': {'calories': 0.3, 'protein': 0.35, 'carbs': 0.2, 'fat': 0.4}
+                }
+            elif workout_period == 'afternoon':
+                # Balanced breakfast/lunch, post-workout dinner
+                meal_distributions = {
+                    'breakfast': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.35, 'fat': 0.3},
+                    'lunch': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.35, 'fat': 0.3},
+                    'dinner': {'calories': 0.4, 'protein': 0.4, 'carbs': 0.3, 'fat': 0.4}
+                }
+            else:  # evening workout
+                # Standard day, pre/post workout dinner
+                meal_distributions = {
+                    'breakfast': {'calories': 0.25, 'protein': 0.25, 'carbs': 0.3, 'fat': 0.3},
+                    'lunch': {'calories': 0.35, 'protein': 0.35, 'carbs': 0.35, 'fat': 0.35},
+                    'dinner': {'calories': 0.4, 'protein': 0.4, 'carbs': 0.35, 'fat': 0.35}
+                }
+        else:
+            # Optimized for natural circadian rhythm
             meal_distributions = {
-                'breakfast': {'calories': 0.25, 'protein': 0.3, 'carbs': 0.3, 'fat': 0.35},
-                'lunch': {'calories': 0.45, 'protein': 0.4, 'carbs': 0.5, 'fat': 0.3},
-                'dinner': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.2, 'fat': 0.35}
+                'breakfast': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.4, 'fat': 0.3},
+                'lunch': {'calories': 0.35, 'protein': 0.35, 'carbs': 0.35, 'fat': 0.3},
+                'dinner': {'calories': 0.35, 'protein': 0.35, 'carbs': 0.25, 'fat': 0.4}
             }
+    else:  # 4 main meals - frequent feeding
+        if is_training_day and workout_period:
+            if workout_period in ['early_morning', 'morning']:
+                meal_distributions = {
+                    'breakfast': {'calories': 0.25, 'protein': 0.25, 'carbs': 0.3, 'fat': 0.2},
+                    'lunch': {'calories': 0.3, 'protein': 0.35, 'carbs': 0.3, 'fat': 0.3},
+                    'dinner': {'calories': 0.25, 'protein': 0.25, 'carbs': 0.25, 'fat': 0.3},
+                    'evening_meal': {'calories': 0.2, 'protein': 0.15, 'carbs': 0.15, 'fat': 0.2}
+                }
+            else:
+                meal_distributions = {
+                    'breakfast': {'calories': 0.2, 'protein': 0.25, 'carbs': 0.25, 'fat': 0.2},
+                    'lunch': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.35, 'fat': 0.25},
+                    'dinner': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.25, 'fat': 0.35},
+                    'evening_meal': {'calories': 0.2, 'protein': 0.15, 'carbs': 0.15, 'fat': 0.2}
+                }
         else:
             meal_distributions = {
-                'breakfast': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.35, 'fat': 0.35},
-                'lunch': {'calories': 0.35, 'protein': 0.35, 'carbs': 0.35, 'fat': 0.3},
-                'dinner': {'calories': 0.35, 'protein': 0.35, 'carbs': 0.3, 'fat': 0.35}
+                'breakfast': {'calories': 0.2, 'protein': 0.25, 'carbs': 0.25, 'fat': 0.2},
+                'lunch': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.35, 'fat': 0.25},
+                'dinner': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.25, 'fat': 0.35},
+                'evening_meal': {'calories': 0.2, 'protein': 0.15, 'carbs': 0.15, 'fat': 0.2}
             }
-    else:  # 4 main meals
-        meal_distributions = {
-            'breakfast': {'calories': 0.2, 'protein': 0.25, 'carbs': 0.25, 'fat': 0.25},
-            'lunch': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.35, 'fat': 0.25},
-            'dinner': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.25, 'fat': 0.35},
-            'evening_meal': {'calories': 0.2, 'protein': 0.15, 'carbs': 0.15, 'fat': 0.15}
-        }
+    
+    # Apply timing-based adjustments if meal times are provided
+    if meal_times and wake_time and sleep_time:
+        # Calculate circadian adjustments
+        wake_datetime = datetime.combine(datetime.today(), wake_time)
+        sleep_datetime = datetime.combine(datetime.today(), sleep_time)
+        if sleep_datetime < wake_datetime:
+            sleep_datetime += timedelta(days=1)
+        
+        hours_awake = (sleep_datetime - wake_datetime).seconds / 3600
+        
+        # Adjust distributions based on meal timing
+        for meal_name, meal_time in meal_times.items():
+            if meal_name in meal_distributions:
+                meal_datetime = datetime.combine(datetime.today(), meal_time)
+                if meal_datetime < wake_datetime:
+                    meal_datetime += timedelta(days=1)
+                
+                hours_since_wake = (meal_datetime - wake_datetime).seconds / 3600
+                time_ratio = hours_since_wake / hours_awake
+                
+                # Early meals: higher carbs, moderate fat
+                # Later meals: lower carbs, higher fat (better for sleep)
+                carb_factor = max(0.7, 1.3 - time_ratio)
+                fat_factor = min(1.4, 0.7 + time_ratio)
+                
+                meal_distributions[meal_name]['carbs'] *= carb_factor
+                meal_distributions[meal_name]['fat'] *= fat_factor
     
     # Add snacks distribution
     snack_calories_per = 0.1 if num_snacks > 0 else 0
@@ -847,17 +945,44 @@ if standalone_mode:
         manual_calories = calculated_calories
     
     with col2:
-        st.markdown("**Training & Timing**")
+        st.markdown("**Daily Schedule & Timing**")
+        
+        # Basic schedule settings
+        wake_time = st.time_input("Wake Time", value=datetime.strptime("07:00", "%H:%M").time())
+        sleep_time = st.time_input("Sleep Time", value=datetime.strptime("23:00", "%H:%M").time())
+        
         is_training_day = st.checkbox("Training Day", value=False, help="Adjusts meal timing and macro distribution around workouts")
         
         if is_training_day:
-            workout_time = st.selectbox("Workout Time", ["Early Morning", "Morning", "Lunch", "Afternoon", "Evening"], index=2)
+            workout_time_options = ["Early Morning (6-8 AM)", "Morning (8-10 AM)", "Lunch (11 AM-1 PM)", "Afternoon (2-5 PM)", "Evening (6-8 PM)"]
+            workout_time = st.selectbox("Workout Time", workout_time_options, index=2)
         else:
             workout_time = None
         
         st.markdown("**Meal Structure**")
         num_meals = st.selectbox("Number of main meals", [2, 3, 4], index=1)
         num_snacks = st.selectbox("Number of snacks", [0, 1, 2, 3], index=1)
+        
+        # Optional meal timing customization
+        with st.expander("⏰ Customize Meal Times (Optional)"):
+            st.markdown("Set approximate meal times for better macro distribution:")
+            
+            meal_times = {}
+            if num_meals >= 1:
+                meal_times['breakfast'] = st.time_input("Breakfast", value=datetime.strptime("08:00", "%H:%M").time())
+            if num_meals >= 2:
+                meal_times['lunch'] = st.time_input("Lunch", value=datetime.strptime("12:30", "%H:%M").time())
+            if num_meals >= 3:
+                meal_times['dinner'] = st.time_input("Dinner", value=datetime.strptime("18:30", "%H:%M").time())
+            if num_meals >= 4:
+                meal_times['evening_meal'] = st.time_input("Evening Meal", value=datetime.strptime("21:00", "%H:%M").time())
+            
+            if num_snacks > 0:
+                snack_times = []
+                for i in range(num_snacks):
+                    default_time = "10:00" if i == 0 else "15:30" if i == 1 else "20:00"
+                    snack_time = st.time_input(f"Snack {i+1}", value=datetime.strptime(default_time, "%H:%M").time())
+                    snack_times.append(snack_time)
         
         st.markdown("**Basic Dietary Preferences**")
         vegetarian = st.checkbox("Vegetarian", value=st.session_state.diet_preferences.get('vegetarian', False))
@@ -952,10 +1077,12 @@ if standalone_mode:
     for i in range(num_snacks):
         meal_types.append('snack')
     
-    # Calculate intelligent meal distribution
+    # Calculate intelligent meal distribution with timing considerations
     meal_targets = calculate_intelligent_meal_distribution(
         manual_calories, manual_protein, manual_carbs, manual_fat,
-        num_meals, num_snacks, is_training_day, workout_time
+        num_meals, num_snacks, is_training_day, workout_time,
+        meal_times if 'meal_times' in locals() else None,
+        wake_time, sleep_time
     )
     
     # Create nutrition targets
