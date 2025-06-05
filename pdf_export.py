@@ -5,6 +5,7 @@ from fpdf import FPDF
 import os
 from datetime import datetime
 import json
+import traceback
 
 class FitomicsPDF(FPDF):
     def __init__(self):
@@ -189,6 +190,7 @@ class FitomicsPDF(FPDF):
 def export_meal_plan_pdf(meal_data, user_preferences=None):
     """Export complete meal plan with grocery list to branded PDF"""
     try:
+        print("Starting PDF creation...")
         pdf = FitomicsPDF()
         
         # Safely extract plan info with error handling
@@ -197,12 +199,13 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
         total_carbs = 0
         total_fat = 0
         
+        print(f"Processing {len(meal_data)} meals...")
         for meal in meal_data.values():
             macros = meal.get('macros', {})
-            total_calories += float(macros.get('calories', 0))
-            total_protein += float(macros.get('protein', 0))
-            total_carbs += float(macros.get('carbs', 0))
-            total_fat += float(macros.get('fat', 0))
+            total_calories += float(macros.get('calories', 0) or 0)
+            total_protein += float(macros.get('protein', 0) or 0)
+            total_carbs += float(macros.get('carbs', 0) or 0)
+            total_fat += float(macros.get('fat', 0) or 0)
         
         plan_info = {
             'total_calories': int(total_calories),
@@ -212,9 +215,11 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
             'diet_preferences': user_preferences or {}
         }
         
+        print("Adding title page...")
         # Add title page
         pdf.add_title_page({}, plan_info)
         
+        print("Adding meals page...")
         # Add meals page
         pdf.add_page()
         pdf.set_font('Arial', 'B', 20)
@@ -225,6 +230,7 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
         all_ingredients = []
         
         for meal_type, meal_info in meal_data.items():
+            print(f"Processing meal: {meal_type}")
             recipe = meal_info.get('recipe', {})
             macros = meal_info.get('macros', {})
             ingredients = meal_info.get('ingredient_details', [])
@@ -234,6 +240,7 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
             
             pdf.add_meal_section(meal_type, recipe, macros, ingredients)
         
+        print(f"Adding grocery list with {len(all_ingredients)} ingredients...")
         # Add grocery list on new page
         if all_ingredients:
             pdf.add_grocery_list(all_ingredients)
@@ -241,16 +248,12 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
         # Save PDF with error handling
         filename = f"fitomics_meal_plan_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
         
-        try:
-            pdf.output(filename)
-            return filename
-        except Exception as output_error:
-            # Try alternative filename if there's an issue
-            filename = f"meal_plan_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
-            pdf.output(filename)
-            return filename
+        print(f"Saving PDF as {filename}...")
+        pdf.output(filename)
+        print("PDF created successfully!")
+        return filename
         
     except Exception as e:
         print(f"Error creating PDF: {e}")
-        # Return None to indicate failure
+        print(f"Full traceback: {traceback.format_exc()}")
         return None

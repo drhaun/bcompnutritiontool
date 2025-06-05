@@ -725,13 +725,21 @@ if st.session_state.confirmed_meals:
         if st.button("📄 Export PDF Meal Plan"):
             with st.spinner("Creating branded PDF meal plan..."):
                 try:
+                    # Debug information
+                    st.write("Debug: Meal data structure")
+                    for meal_type, meal_data in st.session_state.confirmed_meals.items():
+                        st.write(f"{meal_type}: {list(meal_data.keys()) if isinstance(meal_data, dict) else type(meal_data)}")
+                    
                     # Get diet preferences from session state
                     diet_prefs = st.session_state.get('diet_preferences', {})
                     
-                    # Export to PDF
+                    # Export to PDF with enhanced debugging
+                    st.write("Starting PDF export...")
                     pdf_filename = export_meal_plan_pdf(st.session_state.confirmed_meals, diet_prefs)
+                    st.write(f"PDF export returned: {pdf_filename}")
                     
                     if pdf_filename and os.path.exists(pdf_filename):
+                        st.write(f"PDF file exists: {pdf_filename}")
                         # Provide download link
                         with open(pdf_filename, "rb") as pdf_file:
                             st.download_button(
@@ -742,13 +750,18 @@ if st.session_state.confirmed_meals:
                             )
                         
                         # Clean up temporary file
-                        os.remove(pdf_filename)
+                        try:
+                            os.remove(pdf_filename)
+                        except:
+                            pass
                         st.success("PDF meal plan created successfully!")
                     else:
-                        st.error("Error creating PDF. Please try again.")
+                        st.error("Error creating PDF. Check console for details.")
                         
                 except Exception as e:
+                    import traceback
                     st.error(f"Error exporting PDF: {str(e)}")
+                    st.text(traceback.format_exc())
 
 # Daily meal plan management
 if len(st.session_state.confirmed_meals) == len(meal_targets):
