@@ -735,6 +735,10 @@ if 'diet_preferences' not in st.session_state:
         'nut_free': False
     }
 
+# Initialize day_specific_nutrition if not exists
+if 'day_specific_nutrition' not in st.session_state:
+    st.session_state.day_specific_nutrition = {}
+
 # Mode Selection Toggle
 st.subheader("🔧 Planning Mode")
 
