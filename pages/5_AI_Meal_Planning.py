@@ -1265,57 +1265,147 @@ if standalone_mode:
     # Show meal targets with timing context
     st.markdown("**Intelligent meal distribution with timing considerations:**")
     
+    # Initialize adjustable meal targets in session state
+    if 'adjustable_meal_targets' not in st.session_state:
+        st.session_state.adjustable_meal_targets = meal_targets.copy()
+    
     for meal_name, targets in meal_targets.items():
         with st.expander(f"📍 {meal_name.title().replace('_', ' ')} - {targets['calories']} cal | {targets['protein']}g protein | {targets['carbs']}g carbs | {targets['fat']}g fat"):
-            # Show timing context
-            timing_context = []
+            col1, col2 = st.columns([2, 1])
             
-            # Check if meal time is defined
-            meal_time_key = meal_name if meal_name in ['breakfast', 'lunch', 'dinner', 'evening_meal'] else None
-            if meal_time_key and 'meal_times' in locals() and meal_times.get(meal_time_key):
-                meal_time = meal_times[meal_time_key]
-                meal_datetime = datetime.combine(datetime.today(), meal_time)
-                if meal_datetime < wake_datetime:
-                    meal_datetime += timedelta(days=1)
+            with col1:
+                # Show timing context
+                timing_context = []
                 
-                hours_since_wake = (meal_datetime - wake_datetime).seconds / 3600
-                hours_until_sleep = (sleep_datetime - meal_datetime).seconds / 3600
+                # Check if meal time is defined
+                meal_time_key = meal_name if meal_name in ['breakfast', 'lunch', 'dinner', 'evening_meal'] else None
+                if meal_time_key and 'meal_times' in locals() and meal_times.get(meal_time_key):
+                    meal_time = meal_times[meal_time_key]
+                    meal_datetime = datetime.combine(datetime.today(), meal_time)
+                    if meal_datetime < wake_datetime:
+                        meal_datetime += timedelta(days=1)
+                    
+                    hours_since_wake = (meal_datetime - wake_datetime).seconds / 3600
+                    hours_until_sleep = (sleep_datetime - meal_datetime).seconds / 3600
+                    
+                    timing_context.append(f"⏰ Scheduled for {meal_time.strftime('%I:%M %p')}")
+                    timing_context.append(f"📈 {hours_since_wake:.1f} hours after wake time")
+                    timing_context.append(f"😴 {hours_until_sleep:.1f} hours before sleep")
+                    
+                    # Training context
+                    if is_training_day and workout_time:
+                        workout_relation = "around workout time"
+                        if "Morning" in workout_time and meal_name == 'breakfast':
+                            workout_relation = "pre-workout fuel"
+                        elif "Lunch" in workout_time and meal_name == 'lunch':
+                            workout_relation = "workout meal"
+                        elif ("Afternoon" in workout_time or "Evening" in workout_time) and meal_name == 'dinner':
+                            workout_relation = "post-workout recovery"
+                        timing_context.append(f"🏋️ {workout_relation}")
+                else:
+                    # Default timing descriptions
+                    if meal_name == 'breakfast':
+                        timing_context.append("🌅 Morning energy and metabolism boost")
+                    elif meal_name == 'lunch':
+                        timing_context.append("☀️ Midday fuel and productivity support")
+                    elif meal_name == 'dinner':
+                        timing_context.append("🌆 Evening nutrition and recovery")
+                    elif meal_name == 'evening_meal':
+                        timing_context.append("🌙 Light evening meal before sleep")
+                    elif 'snack' in meal_name:
+                        timing_context.append("🍎 Strategic snack for sustained energy")
                 
-                timing_context.append(f"⏰ Scheduled for {meal_time.strftime('%I:%M %p')}")
-                timing_context.append(f"📈 {hours_since_wake:.1f} hours after wake time")
-                timing_context.append(f"😴 {hours_until_sleep:.1f} hours before sleep")
+                # Circadian optimization notes
+                if 'hours_since_wake' in locals() and hours_since_wake < 4:
+                    timing_context.append("🔥 Higher carbs for morning energy")
+                elif 'hours_until_sleep' in locals() and hours_until_sleep < 4:
+                    timing_context.append("🧈 Higher fats to support sleep quality")
                 
-                # Training context
-                if is_training_day and workout_time:
-                    workout_relation = "around workout time"
-                    if "Morning" in workout_time and meal_name == 'breakfast':
-                        workout_relation = "pre-workout fuel"
-                    elif "Lunch" in workout_time and meal_name == 'lunch':
-                        workout_relation = "workout meal"
-                    elif ("Afternoon" in workout_time or "Evening" in workout_time) and meal_name == 'dinner':
-                        workout_relation = "post-workout recovery"
-                    timing_context.append(f"🏋️ {workout_relation}")
-            else:
-                # Default timing descriptions
-                if meal_name == 'breakfast':
-                    timing_context.append("🌅 Morning energy and metabolism boost")
-                elif meal_name == 'lunch':
-                    timing_context.append("☀️ Midday fuel and productivity support")
-                elif meal_name == 'dinner':
-                    timing_context.append("🌆 Evening nutrition and recovery")
-                elif meal_name == 'evening_meal':
-                    timing_context.append("🌙 Light evening meal before sleep")
-                elif 'snack' in meal_name:
-                    timing_context.append("🍎 Strategic snack for sustained energy")
+                st.markdown("**Timing Context & AI Optimization:**")
+                for context in timing_context:
+                    st.markdown(f"  {context}")
             
-            # Circadian optimization notes
-            if 'hours_since_wake' in locals() and hours_since_wake < 4:
-                timing_context.append("🔥 Higher carbs for morning energy")
-            elif 'hours_until_sleep' in locals() and hours_until_sleep < 4:
-                timing_context.append("🧈 Higher fats to support sleep quality")
-            
-            for context in timing_context:
-                st.markdown(f"  {context}")
+            with col2:
+                st.markdown("**Customize Targets:**")
+                
+                # Initialize if not exists
+                if meal_name not in st.session_state.adjustable_meal_targets:
+                    st.session_state.adjustable_meal_targets[meal_name] = targets.copy()
+                
+                # Customizable inputs
+                custom_calories = st.number_input(
+                    "Calories", 
+                    min_value=50, 
+                    max_value=1500, 
+                    value=st.session_state.adjustable_meal_targets[meal_name]['calories'],
+                    step=25,
+                    key=f"cal_{meal_name}"
+                )
+                
+                custom_protein = st.number_input(
+                    "Protein (g)", 
+                    min_value=5, 
+                    max_value=100, 
+                    value=st.session_state.adjustable_meal_targets[meal_name]['protein'],
+                    step=5,
+                    key=f"pro_{meal_name}"
+                )
+                
+                custom_carbs = st.number_input(
+                    "Carbs (g)", 
+                    min_value=5, 
+                    max_value=150, 
+                    value=st.session_state.adjustable_meal_targets[meal_name]['carbs'],
+                    step=5,
+                    key=f"carb_{meal_name}"
+                )
+                
+                custom_fat = st.number_input(
+                    "Fat (g)", 
+                    min_value=2, 
+                    max_value=80, 
+                    value=st.session_state.adjustable_meal_targets[meal_name]['fat'],
+                    step=2,
+                    key=f"fat_{meal_name}"
+                )
+                
+                # Update session state
+                st.session_state.adjustable_meal_targets[meal_name] = {
+                    'calories': custom_calories,
+                    'protein': custom_protein,
+                    'carbs': custom_carbs,
+                    'fat': custom_fat
+                }
+                
+                # Reset to AI recommendation button
+                if st.button(f"Reset to AI", key=f"reset_{meal_name}"):
+                    st.session_state.adjustable_meal_targets[meal_name] = targets.copy()
+                    st.rerun()
+    
+    # Update meal targets with customized values
+    meal_targets = st.session_state.adjustable_meal_targets.copy()
+    
+    # Show daily totals with customized values
+    total_custom_calories = sum(targets['calories'] for targets in meal_targets.values())
+    total_custom_protein = sum(targets['protein'] for targets in meal_targets.values())
+    total_custom_carbs = sum(targets['carbs'] for targets in meal_targets.values())
+    total_custom_fat = sum(targets['fat'] for targets in meal_targets.values())
+    
+    st.markdown("### Daily Totals (Customized)")
+    total_cols = st.columns(4)
+    
+    with total_cols[0]:
+        variance_cal = total_custom_calories - manual_calories
+        st.metric("Calories", f"{total_custom_calories}", delta=f"{variance_cal:+d}" if variance_cal != 0 else None)
+    with total_cols[1]:
+        variance_pro = total_custom_protein - manual_protein
+        st.metric("Protein", f"{total_custom_protein}g", delta=f"{variance_pro:+d}g" if variance_pro != 0 else None)
+    with total_cols[2]:
+        variance_carb = total_custom_carbs - manual_carbs
+        st.metric("Carbs", f"{total_custom_carbs}g", delta=f"{variance_carb:+d}g" if variance_carb != 0 else None)
+    with total_cols[3]:
+        variance_fat = total_custom_fat - manual_fat
+        st.metric("Fat", f"{total_custom_fat}g", delta=f"{variance_fat:+d}g" if variance_fat != 0 else None)
     
     st.markdown("---")
     
