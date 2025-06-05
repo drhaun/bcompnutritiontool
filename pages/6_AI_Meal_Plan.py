@@ -168,11 +168,24 @@ def calculate_updated_macros(ingredient_details, updated_amounts):
         
         multiplier = new_amount / 100
         total_macros['calories'] += int(ing.get('calories_per_100g', 0) * multiplier)
-        total_macros['protein'] += int(ing.get('protein_per_100g', 0) * multiplier)
-        total_macros['carbs'] += int(ing.get('carbs_per_100g', 0) * multiplier)
-        total_macros['fat'] += int(ing.get('fat_per_100g', 0) * multiplier)
+        total_macros['protein'] += round(ing.get('protein_per_100g', 0) * multiplier, 1)
+        total_macros['carbs'] += round(ing.get('carbs_per_100g', 0) * multiplier, 1)
+        total_macros['fat'] += round(ing.get('fat_per_100g', 0) * multiplier, 1)
     
     return total_macros
+
+def save_ingredient_modifications(meal_type, ingredient_details, updated_amounts):
+    """Save ingredient modifications to session state"""
+    meal_key = f"modified_ingredients_{meal_type}"
+    st.session_state[meal_key] = {
+        'ingredients': ingredient_details,
+        'amounts': updated_amounts
+    }
+
+def load_ingredient_modifications(meal_type):
+    """Load ingredient modifications from session state"""
+    meal_key = f"modified_ingredients_{meal_type}"
+    return st.session_state.get(meal_key, None)
 
 # Page Header
 st.title("🍽️ AI Meal Plan")
@@ -297,35 +310,115 @@ for meal_type, meal_target in meal_targets.items():
                 if fat_diff != 0:
                     st.markdown(f"<span style='color:{fat_color}'>{'+'if fat_diff > 0 else ''}{fat_diff}g</span>", unsafe_allow_html=True)
             
-            # Customizable ingredients section
+            # Enhanced ingredients section with detailed nutritional breakdown
             st.markdown("#### Customize Ingredients")
             
             if ingredient_details:
-                for ing in ingredient_details:
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.write(f"• **{ing['name']}** ({ing.get('category', 'ingredient')})")
-                    with col2:
-                        current_amount = current_updates.get(ing['name'], ing['amount'])
-                        new_amount = st.number_input(
-                            "grams",
-                            value=current_amount,
-                            min_value=0,
-                            step=5,
-                            key=f"{meal_type}_{ing['name']}_amount",
-                            label_visibility="collapsed"
-                        )
+                # Ingredient management buttons
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button(f"➕ Add Ingredient", key=f"add_ing_{meal_type}"):
+                        if f"show_add_ingredient_{meal_type}" not in st.session_state:
+                            st.session_state[f"show_add_ingredient_{meal_type}"] = True
+                        else:
+                            st.session_state[f"show_add_ingredient_{meal_type}"] = not st.session_state[f"show_add_ingredient_{meal_type}"]
+                
+                # Add ingredient interface
+                if st.session_state.get(f"show_add_ingredient_{meal_type}", False):
+                    with st.expander("Add New Ingredient", expanded=True):
+                        search_term = st.text_input("Search for ingredient:", key=f"search_{meal_type}")
+                        if search_term:
+                            try:
+                                from fdc_api import search_foods, get_food_details, normalize_food_data
+                                foods = search_foods(search_term, page_size=5)
+                                if foods:
+                                    food_options = [f"{food['description']} (ID: {food['fdcId']})" for food in foods]
+                                    selected_food = st.selectbox("Select ingredient:", food_options, key=f"select_{meal_type}")
+                                    
+                                    if selected_food and st.button(f"Add {search_term}", key=f"add_confirm_{meal_type}"):
+                                        # Extract FDC ID and add ingredient
+                                        fdc_id = selected_food.split("ID: ")[1].rstrip(")")
+                                        food_details = get_food_details(fdc_id)
+                                        normalized_food = normalize_food_data(food_details, 100)
+                                        
+                                        # Add to ingredient list
+                                        new_ingredient = {
+                                            'name': normalized_food['name'],
+                                            'amount': 50,
+                                            'category': 'added',
+                                            'calories_per_100g': normalized_food['calories'],
+                                            'protein_per_100g': normalized_food['protein'],
+                                            'carbs_per_100g': normalized_food['carbs'],
+                                            'fat_per_100g': normalized_food['fat']
+                                        }
+                                        ingredient_details.append(new_ingredient)
+                                        st.success(f"Added {normalized_food['name']} to meal!")
+                                        st.rerun()
+                            except Exception as e:
+                                st.error("Unable to search ingredients. Please check FDC API configuration.")
+                
+                # Display existing ingredients with detailed breakdown
+                for idx, ing in enumerate(ingredient_details):
+                    with st.container():
+                        st.markdown("---")
                         
-                        # Update session state with new amount
-                        if new_amount != current_amount:
-                            if meal_key not in st.session_state.ingredient_updates:
-                                st.session_state.ingredient_updates[meal_key] = {}
-                            st.session_state.ingredient_updates[meal_key][ing['name']] = new_amount
-                            st.rerun()
+                        # Ingredient header with remove button
+                        col1, col2 = st.columns([4, 1])
+                        with col1:
+                            st.markdown(f"**🥘 {ing['name']}** ({ing.get('category', 'ingredient')})")
+                        with col2:
+                            if st.button("🗑️", key=f"remove_{meal_type}_{idx}", help="Remove ingredient"):
+                                ingredient_details.pop(idx)
+                                st.rerun()
+                        
+                        # Amount input and nutritional display
+                        col1, col2 = st.columns([1, 2])
+                        
+                        with col1:
+                            current_amount = current_updates.get(ing['name'], ing['amount'])
+                            new_amount = st.number_input(
+                                f"Amount (grams)",
+                                value=int(current_amount),
+                                min_value=0,
+                                step=5,
+                                key=f"{meal_type}_{ing['name']}_amount_{idx}"
+                            )
+                            
+                            # Update session state with new amount
+                            if new_amount != current_amount:
+                                if meal_key not in st.session_state.ingredient_updates:
+                                    st.session_state.ingredient_updates[meal_key] = {}
+                                st.session_state.ingredient_updates[meal_key][ing['name']] = new_amount
+                                st.rerun()
+                        
+                        with col2:
+                            # Calculate nutrition for current amount
+                            multiplier = new_amount / 100
+                            ing_calories = int(ing.get('calories_per_100g', 0) * multiplier)
+                            ing_protein = round(ing.get('protein_per_100g', 0) * multiplier, 1)
+                            ing_carbs = round(ing.get('carbs_per_100g', 0) * multiplier, 1)
+                            ing_fat = round(ing.get('fat_per_100g', 0) * multiplier, 1)
+                            
+                            # Display nutrition contribution
+                            st.markdown("**Nutritional Contribution:**")
+                            nutr_col1, nutr_col2, nutr_col3, nutr_col4 = st.columns(4)
+                            
+                            with nutr_col1:
+                                st.metric("Calories", f"{ing_calories}")
+                            with nutr_col2:
+                                st.metric("Protein", f"{ing_protein}g")
+                            with nutr_col3:
+                                st.metric("Carbs", f"{ing_carbs}g")
+                            with nutr_col4:
+                                st.metric("Fat", f"{ing_fat}g")
             else:
                 st.markdown("**Ingredients:**")
                 for ingredient in recipe.get('ingredients', []):
                     st.write(f"• {ingredient}")
+                
+                # Add ingredient option for simple recipes
+                if st.button(f"➕ Add Ingredient to {meal_type}", key=f"add_simple_{meal_type}"):
+                    st.info("Enhanced ingredient management requires authentic food data. Please use the structured meal recommendations.")
             
             # Recipe instructions
             if recipe.get('directions'):
