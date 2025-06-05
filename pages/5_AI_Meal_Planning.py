@@ -1498,10 +1498,17 @@ if standalone_mode:
     
     st.markdown("---")
     
-    # Configuration confirmation button
+    # Configuration confirmation - use session state to persist
+    if 'config_confirmed' not in st.session_state:
+        st.session_state.config_confirmed = False
+    
     config_confirmed = st.button("✅ Confirm Meal Plan Configuration", type="primary", use_container_width=True)
     
-    if not config_confirmed:
+    if config_confirmed:
+        st.session_state.config_confirmed = True
+        st.success("Configuration confirmed! Proceeding to nutrition targets...")
+    
+    if not st.session_state.config_confirmed:
         st.info("👆 Please confirm your meal plan configuration above to proceed with target calculation.")
         st.stop()
     
