@@ -213,12 +213,12 @@ def get_macro_additions():
     }
 
 def ai_analyze_recipes_for_meal(recipes, meal_type, target_macros, diet_prefs, openai_client):
-    """Use AI to intelligently find the best recipe matches"""
+    """Use AI to intelligently find the best recipe matches with comprehensive dietary preferences"""
     try:
         # Prepare recipe data for AI analysis
         recipe_summaries = []
         for i, recipe in enumerate(recipes[:20]):  # Limit to avoid token limits
-            macros = recipe.get('estimated_macros', {})
+            macros = calculate_recipe_macros(recipe, 1.0)  # Use accurate macro calculation
             recipe_summaries.append({
                 'index': i,
                 'title': recipe.get('title', ''),
@@ -227,31 +227,52 @@ def ai_analyze_recipes_for_meal(recipes, meal_type, target_macros, diet_prefs, o
                 'protein': macros.get('protein', 0),
                 'carbs': macros.get('carbs', 0),
                 'fat': macros.get('fat', 0),
-                'ingredients': recipe.get('ingredients', [])[:5]  # First 5 ingredients
+                'ingredients': recipe.get('ingredients', [])[:8]  # More ingredients for better analysis
             })
         
-        # Create AI prompt
-        diet_restrictions = []
-        if diet_prefs.get('vegetarian'):
-            diet_restrictions.append('vegetarian')
-        if diet_prefs.get('vegan'):
-            diet_restrictions.append('vegan')
-        if diet_prefs.get('gluten_free'):
-            diet_restrictions.append('gluten-free')
+        # Build comprehensive dietary restrictions and preferences
+        restrictions = []
+        if diet_prefs.get('vegetarian'): restrictions.append('vegetarian')
+        if diet_prefs.get('vegan'): restrictions.append('vegan')
+        if diet_prefs.get('gluten_free'): restrictions.append('gluten-free')
+        if diet_prefs.get('dairy_free'): restrictions.append('dairy-free')
+        if diet_prefs.get('nut_free'): restrictions.append('nut-free')
+        if diet_prefs.get('shellfish_free'): restrictions.append('shellfish-free')
+        if diet_prefs.get('soy_free'): restrictions.append('soy-free')
+        if diet_prefs.get('egg_free'): restrictions.append('egg-free')
+        
+        preferred_proteins = diet_prefs.get('preferred_proteins', [])
+        preferred_carbs = diet_prefs.get('preferred_carbs', [])
+        preferred_fats = diet_prefs.get('preferred_fats', [])
+        disliked_foods = diet_prefs.get('disliked_foods', [])
+        max_prep_time = diet_prefs.get('max_prep_time', '30 minutes')
+        cooking_skill = diet_prefs.get('cooking_skill', 'Intermediate')
+        budget_preference = diet_prefs.get('budget_preference', 'Moderate budget')
         
         prompt = f"""Analyze these Fitomics recipes for a {meal_type} meal targeting {target_macros['calories']} calories, {target_macros['protein']}g protein, {target_macros['carbs']}g carbs, {target_macros['fat']}g fat.
 
-Dietary restrictions: {', '.join(diet_restrictions) if diet_restrictions else 'None'}
+DIETARY REQUIREMENTS:
+- Restrictions: {', '.join(restrictions) if restrictions else 'None'}
+- Preferred proteins: {', '.join(preferred_proteins) if preferred_proteins else 'Any'}
+- Preferred carbs: {', '.join(preferred_carbs) if preferred_carbs else 'Any'}
+- Preferred fats: {', '.join(preferred_fats) if preferred_fats else 'Any'}
+- Foods to avoid: {', '.join(disliked_foods) if disliked_foods else 'None'}
+- Max prep time: {max_prep_time}
+- Cooking skill: {cooking_skill}
+- Budget preference: {budget_preference}
 
-Recipes: {json.dumps(recipe_summaries)}
+RECIPES: {json.dumps(recipe_summaries)}
 
-Return the top 3 recipe indices that best match the nutrition targets and dietary preferences, considering:
-1. Macro alignment (especially protein and calories)
-2. Meal type appropriateness
-3. Dietary restrictions compliance
-4. Ingredient quality and variety
+Analyze and rank the top 3 recipes considering:
+1. Macro alignment (protein and calories are most important)
+2. Meal type appropriateness ({meal_type} should have suitable ingredients)
+3. Dietary restrictions compliance (MUST avoid restricted foods)
+4. Preferred ingredient matching (bonus for preferred proteins/carbs/fats)
+5. Avoidance of disliked foods
+6. Cooking complexity matching skill level
+7. Budget-appropriate ingredients
 
-Respond with JSON format: {{"recommendations": [{{"index": 0, "reason": "Brief explanation"}}, {{"index": 1, "reason": "Brief explanation"}}, {{"index": 2, "reason": "Brief explanation"}}]}}"""
+Respond with JSON format: {{"recommendations": [{{"index": 0, "reason": "Brief explanation of why this recipe matches"}}, {{"index": 1, "reason": "Brief explanation"}}, {{"index": 2, "reason": "Brief explanation"}}]}}"""
         
         response = openai_client.chat.completions.create(
             model="gpt-4o",
@@ -714,16 +735,48 @@ if 'diet_preferences' not in st.session_state:
         'nut_free': False
     }
 
-# Check if day-specific nutrition targets exist, otherwise allow manual input
-standalone_mode = False
-if 'day_specific_nutrition' not in st.session_state or not st.session_state.day_specific_nutrition:
+# Mode Selection Toggle
+st.subheader("🔧 Planning Mode")
+
+# Initialize mode in session state
+if 'meal_planner_mode' not in st.session_state:
+    st.session_state.meal_planner_mode = 'standalone'
+
+# Mode toggle
+mode_options = ['Standalone Mode', 'Sync Profile Mode']
+selected_mode = st.radio(
+    "Choose your planning approach:",
+    mode_options,
+    index=0 if st.session_state.meal_planner_mode == 'standalone' else 1,
+    horizontal=True,
+    help="Standalone: Complete manual setup | Sync Profile: Use data from previous steps"
+)
+
+# Update session state
+st.session_state.meal_planner_mode = 'standalone' if selected_mode == 'Standalone Mode' else 'sync'
+
+if st.session_state.meal_planner_mode == 'standalone':
+    st.info("🎯 **Standalone Mode:** Complete customization with manual input for nutrition targets and dietary preferences.")
     standalone_mode = True
-    st.info("📝 Standalone Mode: Enter your nutrition targets manually or sync from Weekly Schedule page.")
-    
-    col1, col2 = st.columns([2, 1])
+else:
+    st.info("🔗 **Sync Profile Mode:** Automatically use your data from Body Composition Planning, Diet Preferences, and Weekly Schedule.")
+    standalone_mode = False
+    col1, col2 = st.columns([3, 1])
     with col2:
-        if st.button("🔗 Sync from Weekly Schedule", type="secondary"):
-            st.switch_page("pages/4_Weekly_Schedule_and_Nutrition.py")
+        if st.button("🔄 Sync All Data", use_container_width=True):
+            # Sync nutrition targets from weekly schedule
+            if 'day_specific_nutrition' in st.session_state and st.session_state.day_specific_nutrition:
+                first_day_data = list(st.session_state.day_specific_nutrition.values())[0]
+                st.session_state.standalone_protein = first_day_data.get('protein', 150)
+                st.session_state.standalone_carbs = first_day_data.get('carbs', 200)
+                st.session_state.standalone_fat = first_day_data.get('fat', 70)
+                st.success("Nutrition targets synced from Weekly Schedule!")
+            
+            # Sync dietary preferences
+            if 'diet_preferences' in st.session_state:
+                st.success("Dietary preferences synced!")
+            else:
+                st.warning("No dietary preferences found. Please configure in Diet Preferences page first.")
 
 # Load recipes
 recipes = load_fitomics_recipes()
@@ -802,19 +855,82 @@ if standalone_mode:
         num_meals = st.selectbox("Number of main meals", [2, 3, 4], index=1)
         num_snacks = st.selectbox("Number of snacks", [0, 1, 2, 3], index=1)
         
-        st.markdown("**Dietary Preferences**")
+        st.markdown("**Basic Dietary Preferences**")
         vegetarian = st.checkbox("Vegetarian", value=st.session_state.diet_preferences.get('vegetarian', False))
         vegan = st.checkbox("Vegan", value=st.session_state.diet_preferences.get('vegan', False))
         gluten_free = st.checkbox("Gluten-Free", value=st.session_state.diet_preferences.get('gluten_free', False))
         dairy_free = st.checkbox("Dairy-Free", value=st.session_state.diet_preferences.get('dairy_free', False))
     
-    # Update diet preferences
+    # Enhanced dietary preferences section for standalone mode
+    st.subheader("🍽️ Advanced Meal Planning Preferences")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("**Food Allergies & Restrictions**")
+        nut_free = st.checkbox("Nut-Free", value=st.session_state.diet_preferences.get('nut_free', False))
+        shellfish_free = st.checkbox("Shellfish-Free", value=False)
+        soy_free = st.checkbox("Soy-Free", value=False)
+        egg_free = st.checkbox("Egg-Free", value=False)
+        
+        st.markdown("**Cooking Preferences**")
+        max_prep_time = st.selectbox("Max Prep Time", ["15 minutes", "30 minutes", "45 minutes", "60+ minutes"], index=1)
+        cooking_skill = st.selectbox("Cooking Skill Level", ["Beginner", "Intermediate", "Advanced"], index=1)
+    
+    with col2:
+        st.markdown("**Preferred Ingredients**")
+        preferred_proteins = st.multiselect(
+            "Favorite Proteins",
+            ["Chicken", "Turkey", "Beef", "Fish", "Salmon", "Eggs", "Greek Yogurt", "Protein Powder", "Tofu", "Tempeh", "Lentils", "Beans"],
+            default=["Chicken", "Eggs", "Greek Yogurt"]
+        )
+        
+        preferred_carbs = st.multiselect(
+            "Favorite Carbs",
+            ["Rice", "Oats", "Quinoa", "Sweet Potato", "Pasta", "Bread", "Fruits", "Vegetables"],
+            default=["Rice", "Oats", "Sweet Potato"]
+        )
+        
+        preferred_fats = st.multiselect(
+            "Favorite Fats",
+            ["Olive Oil", "Avocado", "Nuts", "Seeds", "Nut Butter", "Coconut Oil", "Butter"],
+            default=["Olive Oil", "Avocado", "Nuts"]
+        )
+    
+    with col3:
+        st.markdown("**Meal Planning Style**")
+        meal_variety = st.selectbox("Meal Variety Preference", ["High variety (different each day)", "Moderate variety", "Consistent (similar meals)"], index=1)
+        
+        budget_preference = st.selectbox("Budget Priority", ["Budget-friendly", "Moderate budget", "Premium ingredients"], index=1)
+        
+        convenience_preference = st.selectbox("Convenience Priority", ["Maximum convenience", "Balanced", "Fresh cooking preferred"], index=1)
+        
+        st.markdown("**Disliked Foods**")
+        disliked_foods = st.text_area(
+            "Foods to avoid (comma-separated)",
+            placeholder="e.g., mushrooms, cilantro, spicy foods",
+            help="List any foods you want to avoid in your meal plan"
+        )
+    
+    # Update comprehensive diet preferences
     diet_prefs = {
         'vegetarian': vegetarian,
         'vegan': vegan,
         'gluten_free': gluten_free,
         'dairy_free': dairy_free,
-        'nut_free': st.session_state.diet_preferences.get('nut_free', False)
+        'nut_free': nut_free,
+        'shellfish_free': shellfish_free,
+        'soy_free': soy_free,
+        'egg_free': egg_free,
+        'preferred_proteins': preferred_proteins,
+        'preferred_carbs': preferred_carbs,
+        'preferred_fats': preferred_fats,
+        'max_prep_time': max_prep_time,
+        'cooking_skill': cooking_skill,
+        'meal_variety': meal_variety,
+        'budget_preference': budget_preference,
+        'convenience_preference': convenience_preference,
+        'disliked_foods': [food.strip() for food in disliked_foods.split(',') if food.strip()] if disliked_foods else []
     }
     
     # Create meal structure for standalone mode
