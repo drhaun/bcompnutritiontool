@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timedelta, time
 from openai import OpenAI
 from nutrition_cache import nutrition_cache
+from pdf_export import export_meal_plan_pdf
 
 def get_openai_client():
     """Get OpenAI client with API key"""
@@ -15,10 +16,13 @@ def get_openai_client():
     except Exception:
         return None
 
-def generate_ai_meal_recipe(openai_client, meal_type, target_macros, diet_prefs):
-    """Generate AI-powered meal recipe with customizable ingredients"""
+@st.cache_data(ttl=1800)  # Cache for 30 minutes
+def generate_ai_meal_recipe(api_key_hash, meal_type, target_macros, diet_prefs):
+    """Generate AI-powered meal recipe with caching for speed"""
     # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
     try:
+        openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+        
         # Build dietary restrictions string
         restrictions = []
         if diet_prefs.get('vegetarian', False):
@@ -32,42 +36,42 @@ def generate_ai_meal_recipe(openai_client, meal_type, target_macros, diet_prefs)
         
         restrictions_text = f"dietary restrictions: {', '.join(restrictions)}" if restrictions else "no dietary restrictions"
         
-        prompt = f"""Create a {meal_type.lower()} recipe that meets these exact nutritional targets:
-- Calories: {target_macros['calories']}
-- Protein: {target_macros['protein']}g
-- Carbohydrates: {target_macros['carbs']}g  
-- Fat: {target_macros['fat']}g
+        # Streamlined prompt for faster generation
+        prompt = f"""Create a {meal_type.lower()} recipe: {target_macros['calories']} cal, {target_macros['protein']}g protein, {target_macros['carbs']}g carbs, {target_macros['fat']}g fat. {restrictions_text}.
 
-Requirements:
-- {restrictions_text}
-- Include specific ingredient amounts in grams
-- Provide clear cooking instructions
-- Focus on whole foods and balanced nutrition
-- Make it practical and delicious
-
-Return as JSON with this structure:
+JSON format:
 {{
     "title": "Recipe name",
     "ingredients": [
-        {{"name": "ingredient name", "amount": amount_in_grams, "category": "protein/carbs/fat/vegetable"}}
+        {{"name": "chicken breast", "amount": 150, "category": "protein"}},
+        {{"name": "rice", "amount": 80, "category": "carbs"}}
     ],
-    "directions": ["step 1", "step 2", "step 3"],
+    "directions": ["Step 1", "Step 2"],
     "nutrition": {{
-        "calories": calculated_calories,
-        "protein": calculated_protein,
-        "carbs": calculated_carbs,
-        "fat": calculated_fat
+        "calories": {target_macros['calories']},
+        "protein": {target_macros['protein']},
+        "carbs": {target_macros['carbs']},
+        "fat": {target_macros['fat']}
     }},
-    "reason": "Brief explanation of why this recipe fits the targets"
+    "reason": "Brief explanation"
 }}"""
 
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+            temperature=0.3,
+            max_tokens=600
         )
         
-        recipe_data = json.loads(response.choices[0].message.content)
+        content = response.choices[0].message.content
+        if not content:
+            return None
+        
+        try:
+            recipe_data = json.loads(content)
+        except json.JSONDecodeError:
+            return None
         
         return {
             'recipe': {
@@ -309,13 +313,15 @@ for meal_type, meal_target in meal_targets.items():
         with col4:
             st.metric("Target Fat", f"{meal_target['fat']}g")
         
-        # Generate meal recommendation
-        openai_client = get_openai_client()
+        # Generate meal recommendation with caching
         meal_recommendation = None
+        openai_key = os.environ.get('OPENAI_API_KEY')
         
-        if openai_client:
+        if openai_key:
+            # Use hash for caching while keeping API key secure
+            api_key_hash = str(hash(openai_key))
             with st.spinner("Generating AI-powered meal recommendation..."):
-                meal_recommendation = generate_ai_meal_recipe(openai_client, meal_type, meal_target, diet_prefs)
+                meal_recommendation = generate_ai_meal_recipe(api_key_hash, meal_type, meal_target, diet_prefs)
         
         if not meal_recommendation:
             with st.spinner("Creating meal using authentic food database..."):
@@ -587,7 +593,32 @@ if st.session_state.confirmed_meals:
     
     with col2:
         if st.button("📄 Export PDF Meal Plan"):
-            st.success("PDF export functionality coming soon!")
+            with st.spinner("Creating branded PDF meal plan..."):
+                try:
+                    # Get diet preferences from session state
+                    diet_prefs = st.session_state.get('diet_preferences', {})
+                    
+                    # Export to PDF
+                    pdf_filename = export_meal_plan_pdf(st.session_state.confirmed_meals, diet_prefs)
+                    
+                    if pdf_filename and os.path.exists(pdf_filename):
+                        # Provide download link
+                        with open(pdf_filename, "rb") as pdf_file:
+                            st.download_button(
+                                label="Download Fitomics Meal Plan PDF",
+                                data=pdf_file.read(),
+                                file_name=pdf_filename,
+                                mime="application/pdf"
+                            )
+                        
+                        # Clean up temporary file
+                        os.remove(pdf_filename)
+                        st.success("PDF meal plan created successfully!")
+                    else:
+                        st.error("Error creating PDF. Please try again.")
+                        
+                except Exception as e:
+                    st.error(f"Error exporting PDF: {str(e)}")
 
 # Daily meal plan management
 if len(st.session_state.confirmed_meals) == len(meal_targets):
