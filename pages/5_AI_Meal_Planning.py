@@ -5,7 +5,7 @@ import sys
 import os
 import random
 import math
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from openai import OpenAI
 from fpdf import FPDF
 from collections import defaultdict
@@ -38,6 +38,138 @@ def load_fitomics_recipes():
     except Exception as e:
         st.error(f"Error loading recipes: {str(e)}")
         return []
+
+def calculate_recipe_macros_from_ingredients(recipe, ingredient_adjustments):
+    """Calculate macros based on individual ingredient adjustments"""
+    # Comprehensive nutritional database per gram
+    ingredient_nutrition = {
+        # Proteins
+        'egg whites': {'calories': 0.52, 'protein': 0.109, 'carbs': 0.007, 'fat': 0.002},
+        'egg white': {'calories': 0.52, 'protein': 0.109, 'carbs': 0.007, 'fat': 0.002},
+        'eggs': {'calories': 1.55, 'protein': 0.13, 'carbs': 0.011, 'fat': 0.11},
+        'egg': {'calories': 1.55, 'protein': 0.13, 'carbs': 0.011, 'fat': 0.11},
+        'chocolate protein powder': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
+        'protein powder': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
+        'vanilla protein': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
+        'whey protein': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
+        
+        # Carbohydrates
+        'banana': {'calories': 0.89, 'protein': 0.011, 'carbs': 0.228, 'fat': 0.003},
+        'bananas': {'calories': 0.89, 'protein': 0.011, 'carbs': 0.228, 'fat': 0.003},
+        'oats': {'calories': 3.89, 'protein': 0.17, 'carbs': 0.66, 'fat': 0.07},
+        'oat': {'calories': 3.89, 'protein': 0.17, 'carbs': 0.66, 'fat': 0.07},
+        'rolled oats': {'calories': 3.89, 'protein': 0.17, 'carbs': 0.66, 'fat': 0.07},
+        'rice': {'calories': 1.3, 'protein': 0.027, 'carbs': 0.28, 'fat': 0.003},
+        'white rice': {'calories': 1.3, 'protein': 0.027, 'carbs': 0.28, 'fat': 0.003},
+        'brown rice': {'calories': 1.12, 'protein': 0.026, 'carbs': 0.23, 'fat': 0.009},
+        'sweet potato': {'calories': 0.86, 'protein': 0.02, 'carbs': 0.20, 'fat': 0.001},
+        'potato': {'calories': 0.77, 'protein': 0.02, 'carbs': 0.17, 'fat': 0.001},
+        
+        # Fats
+        'olive oil': {'calories': 8.84, 'protein': 0.0, 'carbs': 0.0, 'fat': 1.0},
+        'coconut oil': {'calories': 8.62, 'protein': 0.0, 'carbs': 0.0, 'fat': 0.99},
+        'butter': {'calories': 7.17, 'protein': 0.009, 'carbs': 0.006, 'fat': 0.81},
+        'almond butter': {'calories': 6.14, 'protein': 0.21, 'carbs': 0.19, 'fat': 0.56},
+        'peanut butter': {'calories': 5.88, 'protein': 0.25, 'carbs': 0.20, 'fat': 0.50},
+        'almonds': {'calories': 5.79, 'protein': 0.21, 'carbs': 0.22, 'fat': 0.50},
+        'walnuts': {'calories': 6.54, 'protein': 0.15, 'carbs': 0.14, 'fat': 0.65},
+        'avocado': {'calories': 1.6, 'protein': 0.02, 'carbs': 0.085, 'fat': 0.147},
+        
+        # Dairy
+        'milk': {'calories': 0.42, 'protein': 0.034, 'carbs': 0.05, 'fat': 0.01},
+        'greek yogurt': {'calories': 0.59, 'protein': 0.10, 'carbs': 0.036, 'fat': 0.004},
+        'cottage cheese': {'calories': 0.98, 'protein': 0.11, 'carbs': 0.036, 'fat': 0.043},
+        'cheese': {'calories': 4.02, 'protein': 0.25, 'carbs': 0.013, 'fat': 0.333},
+        
+        # Common additions
+        'baking soda': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
+        'baking powder': {'calories': 0.53, 'protein': 0, 'carbs': 0.13, 'fat': 0},
+        'vanilla': {'calories': 2.88, 'protein': 0, 'carbs': 0.13, 'fat': 0},
+        'cinnamon': {'calories': 2.47, 'protein': 0.04, 'carbs': 0.81, 'fat': 0.01},
+        'salt': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
+        'honey': {'calories': 3.04, 'protein': 0.003, 'carbs': 0.824, 'fat': 0},
+        'maple syrup': {'calories': 2.60, 'protein': 0.004, 'carbs': 0.677, 'fat': 0.006}
+    }
+    
+    total_calories = 0
+    total_protein = 0
+    total_carbs = 0
+    total_fat = 0
+    
+    for ingredient, multiplier in ingredient_adjustments.items():
+        if multiplier <= 0:
+            continue
+            
+        ingredient_lower = ingredient.lower().strip()
+        
+        # Extract quantity and unit
+        import re
+        estimated_grams = 0
+        
+        # Parse quantities with units
+        if 'scoop' in ingredient_lower and 'protein' in ingredient_lower:
+            estimated_grams = 30 * multiplier
+        elif 'tbsp' in ingredient_lower or 'tablespoon' in ingredient_lower:
+            if any(oil in ingredient_lower for oil in ['oil', 'butter']):
+                estimated_grams = 14 * multiplier
+            else:
+                estimated_grams = 15 * multiplier
+        elif 'tsp' in ingredient_lower or 'teaspoon' in ingredient_lower:
+            estimated_grams = 4 * multiplier
+        elif 'cup' in ingredient_lower:
+            if 'oat' in ingredient_lower:
+                estimated_grams = 80 * multiplier
+            elif 'milk' in ingredient_lower:
+                estimated_grams = 240 * multiplier
+            else:
+                estimated_grams = 150 * multiplier
+        elif 'medium' in ingredient_lower and 'banana' in ingredient_lower:
+            estimated_grams = 115 * multiplier
+        elif 'large' in ingredient_lower and 'banana' in ingredient_lower:
+            estimated_grams = 135 * multiplier
+        elif 'small' in ingredient_lower and 'banana' in ingredient_lower:
+            estimated_grams = 90 * multiplier
+        elif 'g' in ingredient_lower:
+            gram_match = re.search(r'(\d+)\s*g', ingredient_lower)
+            if gram_match:
+                estimated_grams = int(gram_match.group(1)) * multiplier
+        elif any(char.isdigit() for char in ingredient):
+            numbers = re.findall(r'\d+', ingredient)
+            if numbers:
+                num = int(numbers[0])
+                if num > 500:
+                    estimated_grams = num * 0.5 * multiplier
+                else:
+                    estimated_grams = num * multiplier
+        
+        # Default estimates if no quantity found
+        if estimated_grams == 0:
+            if any(word in ingredient_lower for word in ['protein', 'powder']):
+                estimated_grams = 30 * multiplier
+            elif any(word in ingredient_lower for word in ['oil', 'butter']):
+                estimated_grams = 10 * multiplier
+            elif 'banana' in ingredient_lower:
+                estimated_grams = 115 * multiplier
+            elif 'egg' in ingredient_lower:
+                estimated_grams = 50 * multiplier
+            else:
+                estimated_grams = 50 * multiplier
+        
+        # Find matching ingredient and add nutrition
+        for key, nutrition in ingredient_nutrition.items():
+            if key in ingredient_lower:
+                total_calories += nutrition['calories'] * estimated_grams
+                total_protein += nutrition['protein'] * estimated_grams
+                total_carbs += nutrition['carbs'] * estimated_grams
+                total_fat += nutrition['fat'] * estimated_grams
+                break
+    
+    return {
+        'calories': max(1, int(total_calories)),
+        'protein': max(0, int(total_protein)),
+        'carbs': max(0, int(total_carbs)),
+        'fat': max(0, int(total_fat))
+    }
 
 def calculate_recipe_macros(recipe, serving_multiplier=1.0):
     """Calculate accurate macros for a recipe with serving adjustment based on ingredients"""
@@ -1041,6 +1173,15 @@ if standalone_mode:
             help="List any foods you want to avoid in your meal plan"
         )
     
+    st.markdown("---")
+    
+    # Configuration confirmation button
+    config_confirmed = st.button("✅ Confirm Meal Plan Configuration", type="primary", use_container_width=True)
+    
+    if not config_confirmed:
+        st.info("👆 Please confirm your meal plan configuration above to proceed with target calculation.")
+        st.stop()
+    
     # Update comprehensive diet preferences
     diet_prefs = {
         'vegetarian': vegetarian,
@@ -1109,14 +1250,81 @@ if standalone_mode:
     with target_cols[3]:
         st.metric("Fat", f"{manual_fat}g")
     
-    # Show intelligent meal distribution
+    # Show intelligent meal distribution with timing context
     if is_training_day:
         st.info(f"🏋️ Training day distribution optimized for {workout_time} workout")
     
-    st.markdown("### Per-Meal Targets")
+    st.markdown("### Per-Meal Targets with Timing Context")
     
-    # Allow users to adjust per-meal targets like DIY page
-    st.markdown("**Adjust meal targets below or use the intelligent defaults:**")
+    # Calculate timing context for each meal
+    wake_datetime = datetime.combine(datetime.today(), wake_time)
+    sleep_datetime = datetime.combine(datetime.today(), sleep_time)
+    if sleep_datetime < wake_datetime:
+        sleep_datetime += timedelta(days=1)
+    
+    # Show meal targets with timing context
+    st.markdown("**Intelligent meal distribution with timing considerations:**")
+    
+    for meal_name, targets in meal_targets.items():
+        with st.expander(f"📍 {meal_name.title().replace('_', ' ')} - {targets['calories']} cal | {targets['protein']}g protein | {targets['carbs']}g carbs | {targets['fat']}g fat"):
+            # Show timing context
+            timing_context = []
+            
+            # Check if meal time is defined
+            meal_time_key = meal_name if meal_name in ['breakfast', 'lunch', 'dinner', 'evening_meal'] else None
+            if meal_time_key and 'meal_times' in locals() and meal_times.get(meal_time_key):
+                meal_time = meal_times[meal_time_key]
+                meal_datetime = datetime.combine(datetime.today(), meal_time)
+                if meal_datetime < wake_datetime:
+                    meal_datetime += timedelta(days=1)
+                
+                hours_since_wake = (meal_datetime - wake_datetime).seconds / 3600
+                hours_until_sleep = (sleep_datetime - meal_datetime).seconds / 3600
+                
+                timing_context.append(f"⏰ Scheduled for {meal_time.strftime('%I:%M %p')}")
+                timing_context.append(f"📈 {hours_since_wake:.1f} hours after wake time")
+                timing_context.append(f"😴 {hours_until_sleep:.1f} hours before sleep")
+                
+                # Training context
+                if is_training_day and workout_time:
+                    workout_relation = "around workout time"
+                    if "Morning" in workout_time and meal_name == 'breakfast':
+                        workout_relation = "pre-workout fuel"
+                    elif "Lunch" in workout_time and meal_name == 'lunch':
+                        workout_relation = "workout meal"
+                    elif ("Afternoon" in workout_time or "Evening" in workout_time) and meal_name == 'dinner':
+                        workout_relation = "post-workout recovery"
+                    timing_context.append(f"🏋️ {workout_relation}")
+            else:
+                # Default timing descriptions
+                if meal_name == 'breakfast':
+                    timing_context.append("🌅 Morning energy and metabolism boost")
+                elif meal_name == 'lunch':
+                    timing_context.append("☀️ Midday fuel and productivity support")
+                elif meal_name == 'dinner':
+                    timing_context.append("🌆 Evening nutrition and recovery")
+                elif meal_name == 'evening_meal':
+                    timing_context.append("🌙 Light evening meal before sleep")
+                elif 'snack' in meal_name:
+                    timing_context.append("🍎 Strategic snack for sustained energy")
+            
+            # Circadian optimization notes
+            if 'hours_since_wake' in locals() and hours_since_wake < 4:
+                timing_context.append("🔥 Higher carbs for morning energy")
+            elif 'hours_until_sleep' in locals() and hours_until_sleep < 4:
+                timing_context.append("🧈 Higher fats to support sleep quality")
+            
+            for context in timing_context:
+                st.markdown(f"  {context}")
+    
+    st.markdown("---")
+    
+    # Nutrition targets confirmation
+    targets_confirmed = st.button("✅ Confirm Nutrition Targets", type="primary", use_container_width=True)
+    
+    if not targets_confirmed:
+        st.info("👆 Please confirm your nutrition targets above to proceed with AI meal planning.")
+        st.stop()
     
     adjusted_meal_targets = {}
     for meal_type in meal_types:
