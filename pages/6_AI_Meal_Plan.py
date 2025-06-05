@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, time
 from openai import OpenAI
 from nutrition_cache import nutrition_cache
 from pdf_export import export_meal_plan_pdf
+from macro_validator import validate_ingredient_macros, create_accurate_meal
 
 def get_openai_client():
     """Get OpenAI client with API key"""
@@ -36,24 +37,31 @@ def generate_ai_meal_recipe(api_key_hash, meal_type, target_macros, diet_prefs):
         
         restrictions_text = f"dietary restrictions: {', '.join(restrictions)}" if restrictions else "no dietary restrictions"
         
-        # Streamlined prompt for faster generation
-        prompt = f"""Create a {meal_type.lower()} recipe: {target_macros['calories']} cal, {target_macros['protein']}g protein, {target_macros['carbs']}g carbs, {target_macros['fat']}g fat. {restrictions_text}.
+        # Enhanced prompt for accurate macro targeting
+        prompt = f"""Create a {meal_type.lower()} recipe that precisely hits these targets: {target_macros['calories']} calories, {target_macros['protein']}g protein, {target_macros['carbs']}g carbohydrates, {target_macros['fat']}g fat. {restrictions_text}.
+
+CRITICAL: Use realistic ingredient amounts that add up to the exact macro targets. Consider these nutrition values per 100g:
+- Chicken breast: 165 cal, 31g protein, 0g carbs, 3.6g fat
+- Rice (cooked): 130 cal, 2.7g protein, 28g carbs, 0.3g fat  
+- Olive oil: 884 cal, 0g protein, 0g carbs, 100g fat
+- Sweet potato: 86 cal, 1.6g protein, 20g carbs, 0.1g fat
 
 JSON format:
 {{
     "title": "Recipe name",
     "ingredients": [
         {{"name": "chicken breast", "amount": 150, "category": "protein"}},
-        {{"name": "rice", "amount": 80, "category": "carbs"}}
+        {{"name": "rice", "amount": 80, "category": "carbs"}},
+        {{"name": "olive oil", "amount": 10, "category": "fat"}}
     ],
-    "directions": ["Step 1", "Step 2"],
+    "directions": ["Step 1", "Step 2", "Step 3"],
     "nutrition": {{
         "calories": {target_macros['calories']},
         "protein": {target_macros['protein']},
         "carbs": {target_macros['carbs']},
         "fat": {target_macros['fat']}
     }},
-    "reason": "Brief explanation"
+    "reason": "Why this combination hits the targets"
 }}"""
 
         response = openai_client.chat.completions.create(
@@ -82,7 +90,17 @@ JSON format:
             },
             'macros': recipe_data['nutrition'],
             'ai_reason': recipe_data['reason'],
-            'ingredient_details': recipe_data['ingredients']
+            'ingredient_details': [
+                {
+                    'name': ing['name'],
+                    'amount': float(ing['amount']),
+                    'category': ing.get('category', 'protein'),
+                    'calories_per_100g': 0,
+                    'protein_per_100g': 0,
+                    'carbs_per_100g': 0,
+                    'fat_per_100g': 0
+                } for ing in recipe_data['ingredients']
+            ]
         }
         
     except Exception as e:
@@ -325,13 +343,30 @@ for meal_type, meal_target in meal_targets.items():
         
         if not meal_recommendation:
             with st.spinner("Creating meal using authentic food database..."):
-                meal_recommendation = build_structured_meal(meal_type, meal_target, diet_prefs)
+                meal_recommendation = create_accurate_meal(meal_type, meal_target, diet_prefs)
         
         if meal_recommendation:
             recipe = meal_recommendation['recipe']
             recipe_macros = meal_recommendation['macros']
             ingredient_details = meal_recommendation.get('ingredient_details', [])
             ai_reason = meal_recommendation.get('ai_reason', '')
+            
+            # Populate authentic nutritional data for all ingredients
+            for ingredient in ingredient_details:
+                if ingredient['calories_per_100g'] == 0:
+                    # Get authentic nutrition data
+                    cached_nutrition = nutrition_cache.get_fallback_nutrition(
+                        ingredient['name'], 
+                        ingredient.get('category', 'protein')
+                    )
+                    ingredient['calories_per_100g'] = cached_nutrition['calories_per_100g']
+                    ingredient['protein_per_100g'] = cached_nutrition['protein_per_100g'] 
+                    ingredient['carbs_per_100g'] = cached_nutrition['carbs_per_100g']
+                    ingredient['fat_per_100g'] = cached_nutrition['fat_per_100g']
+            
+            # Recalculate accurate macros based on authentic ingredient data
+            accurate_macros = calculate_updated_macros(ingredient_details, {})
+            recipe_macros = accurate_macros
             
             if ai_reason:
                 st.info(f"AI Recommendation: {ai_reason}")
