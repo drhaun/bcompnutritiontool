@@ -37,36 +37,73 @@ def generate_ai_meal_recipe(api_key_hash, meal_type, target_macros, diet_prefs):
         
         restrictions_text = f"dietary restrictions: {', '.join(restrictions)}" if restrictions else "no dietary restrictions"
         
-        # Calculate realistic ingredient amounts based on macro targets
-        protein_grams_needed = target_macros['protein']
-        carb_grams_needed = target_macros['carbs'] 
-        fat_grams_needed = target_macros['fat']
+        # Create meal-specific ingredient suggestions
+        meal_ingredients = {
+            'Breakfast': {
+                'proteins': ['eggs', 'greek yogurt', 'cottage cheese', 'protein powder', 'turkey sausage'],
+                'carbs': ['oatmeal', 'whole grain toast', 'banana', 'berries', 'sweet potato hash'],
+                'fats': ['avocado', 'nuts', 'nut butter', 'olive oil', 'chia seeds'],
+                'extras': ['spinach', 'mushrooms', 'tomatoes', 'cinnamon', 'vanilla']
+            },
+            'Lunch': {
+                'proteins': ['chicken breast', 'salmon', 'turkey', 'tofu', 'beans', 'tuna'],
+                'carbs': ['quinoa', 'brown rice', 'sweet potato', 'whole grain wrap', 'lentils'],
+                'fats': ['olive oil', 'avocado', 'nuts', 'tahini', 'hemp seeds'],
+                'extras': ['mixed greens', 'bell peppers', 'cucumber', 'carrots', 'herbs']
+            },
+            'Dinner': {
+                'proteins': ['salmon', 'chicken thigh', 'lean beef', 'cod', 'tempeh', 'shrimp'],
+                'carbs': ['roasted vegetables', 'wild rice', 'quinoa', 'cauliflower rice', 'pasta'],
+                'fats': ['olive oil', 'coconut oil', 'nuts', 'cheese', 'olives'],
+                'extras': ['broccoli', 'asparagus', 'zucchini', 'garlic', 'herbs']
+            },
+            'Snack': {
+                'proteins': ['greek yogurt', 'hummus', 'cheese', 'hard boiled eggs', 'protein bar'],
+                'carbs': ['apple', 'berries', 'crackers', 'dates', 'rice cakes'],
+                'fats': ['almonds', 'walnuts', 'nut butter', 'seeds', 'dark chocolate'],
+                'extras': ['celery', 'carrots', 'cucumber', 'bell peppers']
+            }
+        }
         
-        # Calculate precise ingredient amounts for accuracy
-        chicken_amount = max(50, int((protein_grams_needed * 100) / 31))  # 31g protein per 100g chicken
-        rice_amount = max(30, int((carb_grams_needed * 100) / 28))  # 28g carbs per 100g rice
-        oil_amount = max(5, min(15, int((fat_grams_needed * 100) / 100)))  # 100g fat per 100g oil
+        ingredients = meal_ingredients.get(meal_type, meal_ingredients['Lunch'])
         
-        prompt = f"""Create a {meal_type.lower()} recipe for {target_macros['calories']} calories, {target_macros['protein']}g protein, {target_macros['carbs']}g carbs, {target_macros['fat']}g fat. {restrictions_text}.
+        # Apply dietary restrictions
+        if diet_prefs.get('vegetarian'):
+            ingredients['proteins'] = [p for p in ingredients['proteins'] if p not in ['chicken breast', 'salmon', 'turkey', 'tuna', 'lean beef', 'cod', 'shrimp', 'turkey sausage']]
+            if not ingredients['proteins']:
+                ingredients['proteins'] = ['tofu', 'tempeh', 'beans', 'lentils', 'eggs', 'greek yogurt']
+                
+        if diet_prefs.get('vegan'):
+            ingredients['proteins'] = [p for p in ingredients['proteins'] if p not in ['eggs', 'greek yogurt', 'cottage cheese', 'cheese', 'protein powder']]
+            if not ingredients['proteins']:
+                ingredients['proteins'] = ['tofu', 'tempeh', 'beans', 'lentils', 'nuts']
+        
+        prompt = f"""Create a delicious, creative {meal_type.lower()} recipe that hits these exact targets: {target_macros['calories']} calories, {target_macros['protein']}g protein, {target_macros['carbs']}g carbs, {target_macros['fat']}g fat. {restrictions_text}.
 
-Use approximately these amounts: {chicken_amount}g chicken breast, {rice_amount}g rice, {oil_amount}g olive oil (adjust as needed).
+Use ingredients typical for {meal_type.lower()} from these options:
+- Proteins: {', '.join(ingredients['proteins'][:5])}
+- Carbs: {', '.join(ingredients['carbs'][:5])}
+- Fats: {', '.join(ingredients['fats'][:5])}
+- Extras: {', '.join(ingredients['extras'][:5])}
+
+Make it appetizing and practical. Use realistic portions that add up to the macro targets.
 
 JSON format:
 {{
-    "title": "Recipe name",
+    "title": "Creative recipe name",
     "ingredients": [
-        {{"name": "chicken breast", "amount": {chicken_amount}, "category": "protein"}},
-        {{"name": "rice", "amount": {rice_amount}, "category": "carbs"}},
-        {{"name": "olive oil", "amount": {oil_amount}, "category": "fat"}}
+        {{"name": "ingredient1", "amount": 120, "category": "protein"}},
+        {{"name": "ingredient2", "amount": 80, "category": "carbs"}},
+        {{"name": "ingredient3", "amount": 10, "category": "fat"}}
     ],
-    "directions": ["Step 1", "Step 2"],
+    "directions": ["Detailed step 1", "Detailed step 2", "Detailed step 3"],
     "nutrition": {{
         "calories": {target_macros['calories']},
         "protein": {target_macros['protein']},
         "carbs": {target_macros['carbs']},
         "fat": {target_macros['fat']}
     }},
-    "reason": "Calculated amounts to match targets"
+    "reason": "Why this combination is perfect for {meal_type.lower()}"
 }}"""
 
         response = openai_client.chat.completions.create(

@@ -78,74 +78,199 @@ def adjust_ingredients_to_targets(ingredients, target_macros, tolerance=0.15):
         return ingredients, current_macros
 
 def create_accurate_meal(meal_type, target_macros, dietary_restrictions=None):
-    """Create a meal with accurate macro calculations"""
-    # Base ingredient templates for different meal types
+    """Create a meal with accurate macro calculations and variety"""
+    # Diverse meal templates for different meal types
     meal_templates = {
         'Breakfast': [
-            {'name': 'eggs', 'amount': 120, 'category': 'protein'},
-            {'name': 'oats', 'amount': 40, 'category': 'carbs'},
-            {'name': 'olive oil', 'amount': 8, 'category': 'fat'}
+            {
+                'template': [
+                    {'name': 'eggs', 'amount': 100, 'category': 'protein'},
+                    {'name': 'whole grain toast', 'amount': 60, 'category': 'carbs'},
+                    {'name': 'avocado', 'amount': 40, 'category': 'fat'},
+                    {'name': 'spinach', 'amount': 50, 'category': 'vegetable'}
+                ],
+                'title': 'Avocado Toast with Scrambled Eggs'
+            },
+            {
+                'template': [
+                    {'name': 'greek yogurt', 'amount': 150, 'category': 'protein'},
+                    {'name': 'berries', 'amount': 80, 'category': 'carbs'},
+                    {'name': 'nuts', 'amount': 20, 'category': 'fat'},
+                    {'name': 'oats', 'amount': 30, 'category': 'carbs'}
+                ],
+                'title': 'Greek Yogurt Berry Bowl'
+            },
+            {
+                'template': [
+                    {'name': 'cottage cheese', 'amount': 120, 'category': 'protein'},
+                    {'name': 'banana', 'amount': 100, 'category': 'carbs'},
+                    {'name': 'nut butter', 'amount': 15, 'category': 'fat'}
+                ],
+                'title': 'Cottage Cheese Banana Bowl'
+            }
         ],
         'Lunch': [
-            {'name': 'chicken breast', 'amount': 150, 'category': 'protein'},
-            {'name': 'rice', 'amount': 80, 'category': 'carbs'},
-            {'name': 'olive oil', 'amount': 10, 'category': 'fat'},
-            {'name': 'broccoli', 'amount': 100, 'category': 'vegetable'}
+            {
+                'template': [
+                    {'name': 'chicken breast', 'amount': 120, 'category': 'protein'},
+                    {'name': 'quinoa', 'amount': 70, 'category': 'carbs'},
+                    {'name': 'olive oil', 'amount': 10, 'category': 'fat'},
+                    {'name': 'mixed greens', 'amount': 80, 'category': 'vegetable'}
+                ],
+                'title': 'Mediterranean Chicken Quinoa Bowl'
+            },
+            {
+                'template': [
+                    {'name': 'salmon', 'amount': 110, 'category': 'protein'},
+                    {'name': 'sweet potato', 'amount': 100, 'category': 'carbs'},
+                    {'name': 'tahini', 'amount': 12, 'category': 'fat'},
+                    {'name': 'bell peppers', 'amount': 70, 'category': 'vegetable'}
+                ],
+                'title': 'Roasted Salmon with Sweet Potato'
+            },
+            {
+                'template': [
+                    {'name': 'tofu', 'amount': 150, 'category': 'protein'},
+                    {'name': 'brown rice', 'amount': 80, 'category': 'carbs'},
+                    {'name': 'sesame oil', 'amount': 8, 'category': 'fat'},
+                    {'name': 'broccoli', 'amount': 100, 'category': 'vegetable'}
+                ],
+                'title': 'Asian-Style Tofu Stir Fry'
+            }
         ],
         'Dinner': [
-            {'name': 'salmon', 'amount': 140, 'category': 'protein'},
-            {'name': 'sweet potato', 'amount': 120, 'category': 'carbs'},
-            {'name': 'avocado', 'amount': 60, 'category': 'fat'}
+            {
+                'template': [
+                    {'name': 'lean beef', 'amount': 120, 'category': 'protein'},
+                    {'name': 'roasted vegetables', 'amount': 150, 'category': 'carbs'},
+                    {'name': 'olive oil', 'amount': 12, 'category': 'fat'},
+                    {'name': 'asparagus', 'amount': 80, 'category': 'vegetable'}
+                ],
+                'title': 'Herb-Crusted Beef with Roasted Vegetables'
+            },
+            {
+                'template': [
+                    {'name': 'cod', 'amount': 140, 'category': 'protein'},
+                    {'name': 'wild rice', 'amount': 70, 'category': 'carbs'},
+                    {'name': 'coconut oil', 'amount': 10, 'category': 'fat'},
+                    {'name': 'zucchini', 'amount': 100, 'category': 'vegetable'}
+                ],
+                'title': 'Pan-Seared Cod with Wild Rice'
+            },
+            {
+                'template': [
+                    {'name': 'tempeh', 'amount': 130, 'category': 'protein'},
+                    {'name': 'cauliflower rice', 'amount': 120, 'category': 'carbs'},
+                    {'name': 'nuts', 'amount': 18, 'category': 'fat'},
+                    {'name': 'mushrooms', 'amount': 80, 'category': 'vegetable'}
+                ],
+                'title': 'Tempeh Cauliflower Rice Bowl'
+            }
         ],
         'Snack': [
-            {'name': 'greek yogurt', 'amount': 150, 'category': 'protein'},
-            {'name': 'banana', 'amount': 100, 'category': 'carbs'},
-            {'name': 'almonds', 'amount': 15, 'category': 'fat'}
+            {
+                'template': [
+                    {'name': 'hummus', 'amount': 60, 'category': 'protein'},
+                    {'name': 'apple', 'amount': 120, 'category': 'carbs'},
+                    {'name': 'walnuts', 'amount': 15, 'category': 'fat'}
+                ],
+                'title': 'Apple with Hummus and Walnuts'
+            },
+            {
+                'template': [
+                    {'name': 'hard boiled eggs', 'amount': 100, 'category': 'protein'},
+                    {'name': 'crackers', 'amount': 30, 'category': 'carbs'},
+                    {'name': 'cheese', 'amount': 20, 'category': 'fat'}
+                ],
+                'title': 'Protein-Rich Egg and Cheese Snack'
+            },
+            {
+                'template': [
+                    {'name': 'protein bar', 'amount': 40, 'category': 'protein'},
+                    {'name': 'dates', 'amount': 30, 'category': 'carbs'},
+                    {'name': 'dark chocolate', 'amount': 15, 'category': 'fat'}
+                ],
+                'title': 'Energy Protein Bar with Dark Chocolate'
+            }
         ]
     }
     
-    # Apply dietary restrictions
-    base_ingredients = meal_templates.get(meal_type, meal_templates['Lunch']).copy()
+    # Select a diverse meal option (rotate through available templates)
+    import random
+    available_templates = meal_templates.get(meal_type, meal_templates['Lunch'])
+    selected_meal = random.choice(available_templates)
     
+    base_ingredients = selected_meal['template'].copy()
+    meal_title = selected_meal['title']
+    
+    # Apply dietary restrictions
     if dietary_restrictions:
         if dietary_restrictions.get('vegetarian'):
-            # Replace meat with plant proteins
             for ingredient in base_ingredients:
-                if ingredient['name'] in ['chicken breast', 'salmon']:
-                    ingredient['name'] = 'tofu'
-                    ingredient['amount'] = ingredient['amount'] * 1.3  # Account for lower protein density
-        
-        if dietary_restrictions.get('vegan'):
-            # Replace all animal products
-            for ingredient in base_ingredients:
-                if ingredient['name'] in ['eggs', 'greek yogurt']:
-                    ingredient['name'] = 'tofu'
-                    ingredient['amount'] = 100
-                elif ingredient['name'] in ['chicken breast', 'salmon']:
+                if ingredient['name'] in ['chicken breast', 'salmon', 'lean beef', 'cod']:
                     ingredient['name'] = 'tofu'
                     ingredient['amount'] = ingredient['amount'] * 1.2
+                elif ingredient['name'] == 'hard boiled eggs':
+                    ingredient['name'] = 'hummus'
+                    ingredient['amount'] = ingredient['amount'] * 0.8
+        
+        if dietary_restrictions.get('vegan'):
+            for ingredient in base_ingredients:
+                if ingredient['name'] in ['eggs', 'greek yogurt', 'cottage cheese', 'cheese']:
+                    ingredient['name'] = 'tofu'
+                    ingredient['amount'] = 100
+                elif ingredient['name'] in ['chicken breast', 'salmon', 'lean beef', 'cod']:
+                    ingredient['name'] = 'tempeh'
+                    ingredient['amount'] = ingredient['amount'] * 1.1
+                elif ingredient['name'] == 'hard boiled eggs':
+                    ingredient['name'] = 'hummus'
+                    ingredient['amount'] = ingredient['amount'] * 0.8
     
     # Adjust ingredients to hit targets
     adjusted_ingredients, final_macros = adjust_ingredients_to_targets(base_ingredients, target_macros)
     
-    # Create directions
-    ingredient_list = ", ".join([f"{ing['amount']:.0f}g {ing['name']}" for ing in adjusted_ingredients])
-    directions = [
-        f"Prepare all ingredients: {ingredient_list}",
-        "Cook protein source according to preference (grill, bake, or pan-fry)",
-        "Prepare carbohydrate source (cook rice, steam potato, etc.)",
-        "Add healthy fats and vegetables",
-        "Season to taste and serve"
-    ]
+    # Create meal-specific directions
+    directions_map = {
+        'Breakfast': [
+            "Prepare all fresh ingredients and measure portions",
+            "If cooking eggs or protein, heat pan with minimal oil",
+            "Cook protein components to desired doneness",
+            "Assemble breakfast bowl or plate with all components",
+            "Add fresh toppings and seasonings to taste"
+        ],
+        'Lunch': [
+            "Prep and wash all vegetables and greens",
+            "Cook grains or starches according to package directions",
+            "Season and cook protein source until fully cooked",
+            "Assemble bowl with base of grains and greens",
+            "Top with protein, vegetables, and healthy fats"
+        ],
+        'Dinner': [
+            "Preheat oven or prepare cooking surface",
+            "Season protein and prepare vegetables for cooking",
+            "Cook protein and vegetables using preferred method",
+            "Prepare any grains or starches as side dishes",
+            "Plate elegantly and garnish with herbs or seasonings"
+        ],
+        'Snack': [
+            "Gather all snack components",
+            "Wash and prepare any fresh fruits or vegetables",
+            "Portion out nuts, seeds, or other toppings",
+            "Arrange attractively on plate or in bowl",
+            "Enjoy mindfully as a satisfying snack"
+        ]
+    }
+    
+    directions = directions_map.get(meal_type, directions_map['Lunch'])
     
     return {
         'recipe': {
-            'title': f"Balanced {meal_type}",
+            'title': meal_title,
             'category': meal_type,
             'ingredients': [f"{ing['amount']:.0f}g {ing['name']}" for ing in adjusted_ingredients],
             'directions': directions
         },
         'macros': final_macros,
         'ingredient_details': adjusted_ingredients,
-        'ai_reason': f"Precisely calculated to hit {target_macros['calories']} calories with balanced macronutrients"
+        'ai_reason': f"Balanced {meal_type.lower()} designed for optimal nutrition and satisfaction"
     }
