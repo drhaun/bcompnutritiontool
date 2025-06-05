@@ -1007,6 +1007,79 @@ def create_basic_meal_suggestions(meal_type, target_macros, diet_prefs):
     
     return suggestions
 
+def get_fdc_meal_recommendations(meal_type, target_macros, diet_prefs):
+    """Get authentic meal recommendations using FDC API data"""
+    from fdc_api import search_foods, get_food_details, normalize_food_data
+    
+    recommendations = []
+    
+    # Define search terms based on meal type and dietary preferences
+    search_terms = {
+        'Breakfast': ['eggs', 'oatmeal', 'greek yogurt', 'whole grain bread'],
+        'Lunch': ['chicken breast', 'salmon', 'quinoa', 'sweet potato'],
+        'Dinner': ['lean beef', 'turkey', 'brown rice', 'vegetables'],
+        'Snack': ['nuts', 'protein bar', 'fruit', 'cottage cheese']
+    }
+    
+    # Adjust search terms based on dietary preferences
+    if diet_prefs.get('vegetarian', False):
+        protein_terms = ['tofu', 'beans', 'lentils', 'quinoa']
+    elif diet_prefs.get('vegan', False):
+        protein_terms = ['tofu', 'tempeh', 'beans', 'nuts']
+    else:
+        protein_terms = ['chicken', 'fish', 'lean beef', 'eggs']
+    
+    try:
+        # Search for foods based on meal type
+        meal_terms = search_terms.get(meal_type, ['chicken', 'rice', 'vegetables'])
+        
+        for term in meal_terms[:3]:  # Get top 3 recommendations
+            foods = search_foods(term, page_size=5)
+            
+            if foods:
+                # Get the first suitable food item
+                for food in foods[:2]:
+                    try:
+                        food_details = get_food_details(food['fdcId'])
+                        normalized_food = normalize_food_data(food_details, 100)
+                        
+                        if normalized_food['calories'] > 0:
+                            # Calculate serving size to meet macro targets
+                            target_calories = target_macros['calories']
+                            serving_multiplier = min(target_calories / normalized_food['calories'], 3.0)
+                            
+                            # Create meal recommendation
+                            recommendation = {
+                                'recipe': {
+                                    'title': f"{meal_type} with {normalized_food['name']}",
+                                    'category': meal_type,
+                                    'ingredients': [f"{int(100 * serving_multiplier)}g {normalized_food['name']}"],
+                                    'directions': [f"Prepare {normalized_food['name']} as desired"]
+                                },
+                                'macros': {
+                                    'calories': int(normalized_food['calories'] * serving_multiplier),
+                                    'protein': int(normalized_food['protein'] * serving_multiplier),
+                                    'carbs': int(normalized_food['carbs'] * serving_multiplier),
+                                    'fat': int(normalized_food['fat'] * serving_multiplier)
+                                },
+                                'match_score': 85,
+                                'fdc_id': food['fdcId']
+                            }
+                            recommendations.append(recommendation)
+                            break
+                    except Exception as e:
+                        continue
+                
+                if len(recommendations) >= 3:
+                    break
+                    
+    except Exception as e:
+        # If FDC API fails, create basic suggestions
+        st.error("Unable to load food recommendations. Please check your FDC API key.")
+        return []
+    
+    return recommendations
+
 def find_best_recipes_for_meal(recipes, meal_type, target_macros, diet_prefs):
     """Main function to find best recipes, with AI enhancement if available"""
     openai_client = get_openai_client()
@@ -1535,10 +1608,58 @@ if standalone_mode:
             # Find recommended recipes
             recommended_recipes = find_best_recipes_for_meal(recipes, meal_type, meal_target, diet_prefs)
             
-            # Always show recommendations if no recipes found, using authentic FDC data
+            # Always show recommendations if no recipes found
             if not recommended_recipes:
-                # Use FDC API to get authentic food recommendations
-                recommended_recipes = get_fdc_meal_recommendations(meal_type, meal_target, diet_prefs)
+                st.info("No recipes found in database. Searching authentic food database for recommendations...")
+                # Import FDC functions for authentic food data
+                try:
+                    from fdc_api import search_foods, get_food_details, normalize_food_data
+                    
+                    # Define search terms based on meal type
+                    search_terms = {
+                        'Breakfast': ['eggs', 'oatmeal', 'greek yogurt'],
+                        'Lunch': ['chicken breast', 'salmon', 'quinoa'],
+                        'Dinner': ['lean beef', 'turkey', 'brown rice'],
+                        'Snack': ['nuts', 'protein bar', 'cottage cheese']
+                    }
+                    
+                    meal_terms = search_terms.get(meal_type, ['chicken', 'rice'])
+                    fdc_recommendations = []
+                    
+                    for term in meal_terms[:2]:
+                        foods = search_foods(term, page_size=3)
+                        if foods:
+                            for food in foods[:1]:
+                                try:
+                                    food_details = get_food_details(food['fdcId'])
+                                    normalized_food = normalize_food_data(food_details, 100)
+                                    
+                                    if normalized_food['calories'] > 0:
+                                        recommendation = {
+                                            'recipe': {
+                                                'title': f"{meal_type} with {normalized_food['name']}",
+                                                'category': meal_type,
+                                                'ingredients': [f"100g {normalized_food['name']}"],
+                                                'directions': [f"Prepare {normalized_food['name']} as desired"]
+                                            },
+                                            'macros': {
+                                                'calories': normalized_food['calories'],
+                                                'protein': normalized_food['protein'],
+                                                'carbs': normalized_food['carbs'],
+                                                'fat': normalized_food['fat']
+                                            },
+                                            'match_score': 85
+                                        }
+                                        fdc_recommendations.append(recommendation)
+                                        break
+                                except:
+                                    continue
+                    
+                    recommended_recipes = fdc_recommendations
+                    
+                except Exception as e:
+                    st.error("Unable to load food recommendations. Please ensure FDC API access is configured.")
+                    recommended_recipes = []
             
             if recommended_recipes:
                 # Check if recipes came from AI analysis
