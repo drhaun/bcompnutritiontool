@@ -30,10 +30,25 @@ if st.session_state.workflow_step >= 1:
     
     with col1:
         st.markdown("### Personal Information")
+        
+        # Unit system selection
+        unit_system = st.radio("Unit System", ["Metric", "Imperial"], horizontal=True)
+        
         gender = st.selectbox("Gender", ["Male", "Female"], index=0)
         age = st.number_input("Age", min_value=18, max_value=80, value=30)
-        height_cm = st.number_input("Height (cm)", min_value=140, max_value=220, value=180)
-        weight_kg = st.number_input("Weight (kg)", min_value=40, max_value=200, value=80)
+        
+        if unit_system == "Metric":
+            height_cm = st.number_input("Height (cm)", min_value=140, max_value=220, value=180)
+            weight_kg = st.number_input("Weight (kg)", min_value=40, max_value=200, value=80)
+        else:  # Imperial
+            height_feet = st.number_input("Height (feet)", min_value=4, max_value=7, value=5)
+            height_inches = st.number_input("Height (inches)", min_value=0, max_value=11, value=11)
+            weight_lbs = st.number_input("Weight (lbs)", min_value=90, max_value=440, value=176)
+            
+            # Convert to metric for calculations
+            height_cm = (height_feet * 12 + height_inches) * 2.54
+            weight_kg = weight_lbs * 0.453592
+        
         activity_level = st.selectbox("Activity Level", [
             "Sedentary", "Lightly active", "Moderately active", "Very active", "Extremely active"
         ], index=2)
@@ -42,7 +57,13 @@ if st.session_state.workflow_step >= 1:
     with col2:
         st.markdown("### Goals")
         goal_type = st.selectbox("Primary Goal", ["Muscle Gain", "Fat Loss", "Maintenance"], index=0)
-        target_weight = st.number_input("Target Weight (kg)", min_value=40, max_value=200, value=85)
+        
+        if unit_system == "Metric":
+            target_weight_kg = st.number_input("Target Weight (kg)", min_value=40, max_value=200, value=85)
+        else:  # Imperial
+            target_weight_lbs = st.number_input("Target Weight (lbs)", min_value=90, max_value=440, value=187)
+            target_weight_kg = target_weight_lbs * 0.453592
+            
         timeline_weeks = st.number_input("Timeline (weeks)", min_value=4, max_value=52, value=16)
         
         st.markdown("### Dietary Preferences")
@@ -66,8 +87,9 @@ if st.session_state.workflow_step >= 1:
             'activity_level': activity_level,
             'body_fat': body_fat,
             'goal_type': goal_type,
-            'target_weight': target_weight,
-            'timeline_weeks': timeline_weeks
+            'target_weight': target_weight_kg,
+            'timeline_weeks': timeline_weeks,
+            'unit_system': unit_system
         }
         
         st.session_state.nutrition_targets = {
@@ -94,9 +116,36 @@ if st.session_state.workflow_step >= 2:
     
     nutrition = st.session_state.nutrition_targets
     profile = st.session_state.profile_data
+    unit_system = profile.get('unit_system', 'Metric')
     
     st.success(f"Targets calculated for {profile['goal_type']} goal")
     
+    # Display profile summary with chosen units
+    st.markdown("### Profile Summary")
+    summary_col1, summary_col2 = st.columns(2)
+    
+    with summary_col1:
+        if unit_system == "Metric":
+            st.write(f"**Current Weight:** {profile['weight_kg']:.1f} kg")
+            st.write(f"**Height:** {profile['height_cm']:.0f} cm")
+            st.write(f"**Target Weight:** {profile['target_weight']:.1f} kg")
+        else:
+            current_weight_lbs = profile['weight_kg'] / 0.453592
+            target_weight_lbs = profile['target_weight'] / 0.453592
+            height_total_inches = profile['height_cm'] / 2.54
+            height_feet = int(height_total_inches // 12)
+            height_inches = int(height_total_inches % 12)
+            st.write(f"**Current Weight:** {current_weight_lbs:.1f} lbs")
+            st.write(f"**Height:** {height_feet}'{height_inches}\"")
+            st.write(f"**Target Weight:** {target_weight_lbs:.1f} lbs")
+    
+    with summary_col2:
+        st.write(f"**Age:** {profile['age']} years")
+        st.write(f"**Body Fat:** {profile['body_fat']}%")
+        st.write(f"**Activity Level:** {profile['activity_level']}")
+    
+    # Nutrition targets
+    st.markdown("### Daily Nutrition Targets")
     target_col1, target_col2, target_col3, target_col4, target_col5 = st.columns(5)
     
     with target_col1:
@@ -298,9 +347,13 @@ if st.session_state.workflow_step >= 5:
                 
                 # Reset workflow
                 if st.button("Start New Workflow"):
-                    for key in list(st.session_state.keys()):
-                        if key.startswith(('workflow_', 'profile_', 'nutrition_', 'generated_', 'diet_')):
-                            del st.session_state[key]
+                    keys_to_delete = []
+                    for key in st.session_state.keys():
+                        if isinstance(key, str) and any(key.startswith(prefix) for prefix in ['workflow_', 'profile_', 'nutrition_', 'generated_', 'diet_']):
+                            keys_to_delete.append(key)
+                    
+                    for key in keys_to_delete:
+                        del st.session_state[key]
                     st.session_state.workflow_step = 1
                     st.rerun()
             else:
