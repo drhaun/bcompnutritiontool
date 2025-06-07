@@ -67,16 +67,30 @@ def generate_ai_meal_recipe(api_key_hash, meal_type, target_macros, diet_prefs):
         
         ingredients = meal_ingredients.get(meal_type, meal_ingredients['Lunch'])
         
-        # Apply dietary restrictions
+        # Apply dietary restrictions comprehensively
         if diet_prefs.get('vegetarian'):
-            ingredients['proteins'] = [p for p in ingredients['proteins'] if p not in ['chicken breast', 'salmon', 'turkey', 'tuna', 'lean beef', 'cod', 'shrimp', 'turkey sausage']]
+            meat_items = ['chicken breast', 'salmon', 'turkey', 'tuna', 'lean beef', 'cod', 'shrimp', 'turkey sausage', 'chicken thigh']
+            ingredients['proteins'] = [p for p in ingredients['proteins'] if p not in meat_items]
             if not ingredients['proteins']:
-                ingredients['proteins'] = ['tofu', 'tempeh', 'beans', 'lentils', 'eggs', 'greek yogurt']
+                ingredients['proteins'] = ['tofu', 'tempeh', 'beans', 'lentils', 'eggs', 'greek yogurt', 'cottage cheese']
                 
         if diet_prefs.get('vegan'):
-            ingredients['proteins'] = [p for p in ingredients['proteins'] if p not in ['eggs', 'greek yogurt', 'cottage cheese', 'cheese', 'protein powder']]
+            animal_products = ['eggs', 'greek yogurt', 'cottage cheese', 'cheese', 'protein powder', 'milk', 'butter']
+            ingredients['proteins'] = [p for p in ingredients['proteins'] if p not in animal_products]
+            ingredients['fats'] = [f for f in ingredients['fats'] if f not in animal_products]
             if not ingredients['proteins']:
-                ingredients['proteins'] = ['tofu', 'tempeh', 'beans', 'lentils', 'nuts']
+                ingredients['proteins'] = ['tofu', 'tempeh', 'beans', 'lentils', 'nuts', 'quinoa']
+                
+        if diet_prefs.get('gluten_free'):
+            gluten_items = ['whole grain wrap', 'pasta', 'crackers', 'oats']
+            ingredients['carbs'] = [c for c in ingredients['carbs'] if c not in gluten_items]
+            if not ingredients['carbs']:
+                ingredients['carbs'] = ['quinoa', 'brown rice', 'sweet potato', 'rice cakes']
+                
+        if diet_prefs.get('dairy_free'):
+            dairy_items = ['cheese', 'greek yogurt', 'cottage cheese', 'milk', 'butter']
+            ingredients['proteins'] = [p for p in ingredients['proteins'] if p not in dairy_items]
+            ingredients['fats'] = [f for f in ingredients['fats'] if f not in dairy_items]
         
         prompt = f"""Create a delicious, creative {meal_type.lower()} recipe that hits these exact targets: {target_macros['calories']} calories, {target_macros['protein']}g protein, {target_macros['carbs']}g carbs, {target_macros['fat']}g fat. {restrictions_text}.
 
@@ -323,16 +337,103 @@ def get_fallback_nutrition(food_name, category):
 st.title("🍽️ AI Meal Plan")
 st.markdown("*Your personalized meal recommendations with customizable ingredients*")
 
-# Check if configuration exists
-if not st.session_state.get('meal_planning_confirmed', False):
-    st.warning("Please complete your meal planning configuration first.")
-    st.info("Go to the 'AI Meal Plan Configuration' page to set your preferences and nutrition targets.")
-    st.stop()
+# Mode selection
+st.markdown("## Planning Mode")
+mode_col1, mode_col2 = st.columns(2)
 
-# Get configuration from session state
-meal_targets = st.session_state.get('confirmed_meal_targets', {})
-diet_prefs = st.session_state.get('confirmed_diet_prefs', {})
-meal_config = st.session_state.get('confirmed_meal_config', {})
+with mode_col1:
+    standalone_mode = st.button("🔧 Standalone Mode", help="Set targets manually for quick testing")
+
+with mode_col2:
+    sync_mode = st.button("🔄 Sync Profile Mode", help="Use targets from your body composition plan")
+
+# Initialize mode in session state
+if 'meal_plan_mode' not in st.session_state:
+    st.session_state.meal_plan_mode = 'none'
+
+if standalone_mode:
+    st.session_state.meal_plan_mode = 'standalone'
+elif sync_mode:
+    st.session_state.meal_plan_mode = 'sync'
+
+# Handle different modes
+if st.session_state.meal_plan_mode == 'standalone':
+    st.info("Standalone Mode: Set your nutrition targets and dietary preferences manually")
+    
+    # Quick target setting for standalone mode
+    st.markdown("### Quick Target Setup")
+    target_col1, target_col2, target_col3, target_col4 = st.columns(4)
+    
+    with target_col1:
+        target_calories = st.number_input("Daily Calories", min_value=1200, max_value=4000, value=2000, step=50)
+    with target_col2:
+        target_protein = st.number_input("Protein (g)", min_value=50, max_value=300, value=150, step=5)
+    with target_col3:
+        target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=400, value=200, step=10)
+    with target_col4:
+        target_fat = st.number_input("Fat (g)", min_value=30, max_value=200, value=67, step=5)
+    
+    # Quick dietary preferences
+    st.markdown("### Dietary Preferences")
+    diet_col1, diet_col2, diet_col3, diet_col4 = st.columns(4)
+    
+    with diet_col1:
+        vegetarian = st.checkbox("Vegetarian")
+    with diet_col2:
+        vegan = st.checkbox("Vegan")
+    with diet_col3:
+        gluten_free = st.checkbox("Gluten Free")
+    with diet_col4:
+        dairy_free = st.checkbox("Dairy Free")
+    
+    # Set targets and preferences for standalone mode
+    meal_targets = {
+        'Breakfast': {'calories': int(target_calories * 0.25), 'protein': int(target_protein * 0.25), 'carbs': int(target_carbs * 0.25), 'fat': int(target_fat * 0.25)},
+        'Lunch': {'calories': int(target_calories * 0.35), 'protein': int(target_protein * 0.35), 'carbs': int(target_carbs * 0.35), 'fat': int(target_fat * 0.35)},
+        'Dinner': {'calories': int(target_calories * 0.30), 'protein': int(target_protein * 0.30), 'carbs': int(target_carbs * 0.30), 'fat': int(target_fat * 0.30)},
+        'Snack': {'calories': int(target_calories * 0.10), 'protein': int(target_protein * 0.10), 'carbs': int(target_carbs * 0.10), 'fat': int(target_fat * 0.10)}
+    }
+    
+    diet_prefs = {
+        'vegetarian': vegetarian,
+        'vegan': vegan,
+        'gluten_free': gluten_free,
+        'dairy_free': dairy_free
+    }
+    
+    meal_config = {'meals_per_day': 4}
+
+elif st.session_state.meal_plan_mode == 'sync':
+    st.info("Sync Mode: Using targets from your body composition plan")
+    
+    # Check if body comp data exists
+    if st.session_state.get('meal_planning_confirmed', False):
+        # Get configuration from session state (from body comp plan)
+        meal_targets = st.session_state.get('confirmed_meal_targets', {})
+        diet_prefs = st.session_state.get('confirmed_diet_prefs', {})
+        meal_config = st.session_state.get('confirmed_meal_config', {})
+        
+        # Display synced targets
+        st.markdown("### Synced Nutrition Targets")
+        for meal_type, targets in meal_targets.items():
+            st.write(f"**{meal_type}:** {targets['calories']} cal, {targets['protein']}g protein, {targets['carbs']}g carbs, {targets['fat']}g fat")
+        
+        # Display synced preferences
+        if diet_prefs:
+            st.markdown("### Synced Dietary Preferences")
+            active_prefs = [pref.replace('_', ' ').title() for pref, value in diet_prefs.items() if value]
+            if active_prefs:
+                st.write(", ".join(active_prefs))
+            else:
+                st.write("No dietary restrictions")
+    else:
+        st.warning("No body composition plan found. Please complete your profile setup first.")
+        st.info("Go to the 'AI Meal Plan Configuration' page to set your preferences and nutrition targets.")
+        st.stop()
+
+else:
+    st.info("Please select a planning mode above to continue")
+    st.stop()
 
 if not meal_targets:
     st.error("No meal targets found. Please return to configuration page.")
@@ -781,6 +882,33 @@ for meal_type, meal_target in meal_targets.items():
                 st.rerun()
         else:
             st.error("Unable to generate meal recommendation. Please check your API configurations.")
+
+# Quick confirmation for streamlined testing
+if len(st.session_state.confirmed_meals) < len(meal_targets):
+    st.markdown("## Quick Actions")
+    if st.button("⚡ Confirm All Meals (Quick Test)", type="primary"):
+        with st.spinner("Confirming all meals with authentic ingredients..."):
+            # Confirm all remaining meals with current recipes and ingredients
+            for meal_type in meal_targets.keys():
+                if meal_type not in st.session_state.confirmed_meals:
+                    # Get current recipe for this meal type
+                    current_recipe = st.session_state.get(f'current_recipe_{meal_type}')
+                    current_ingredients = st.session_state.get(f'ingredient_details_{meal_type}', [])
+                    current_macros = st.session_state.get(f'current_macros_{meal_type}', meal_targets[meal_type])
+                    
+                    if current_recipe:
+                        # Use current amounts or default amounts
+                        ingredient_amounts = {ing['name']: ing['amount'] for ing in current_ingredients if isinstance(ing, dict)}
+                        
+                        st.session_state.confirmed_meals[meal_type] = {
+                            'recipe': current_recipe,
+                            'macros': current_macros,
+                            'ingredient_details': current_ingredients,
+                            'ingredient_amounts': ingredient_amounts
+                        }
+            
+            st.success("All meals confirmed! Ready for export.")
+            st.rerun()
 
 # Show confirmed meals summary
 if st.session_state.confirmed_meals:

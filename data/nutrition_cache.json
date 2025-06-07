@@ -1,0 +1,80 @@
+{
+  "salmon fillet": {
+    "calories_per_100g": 208,
+    "protein_per_100g": 25.4,
+    "carbs_per_100g": 0,
+    "fat_per_100g": 12.4
+  },
+  "quinoa": {
+    "calories_per_100g": 120,
+    "protein_per_100g": 4.4,
+    "carbs_per_100g": 22,
+    "fat_per_100g": 1.9
+  },
+  "avocado": {
+    "calories_per_100g": 160,
+    "protein_per_100g": 2,
+    "carbs_per_100g": 8.5,
+    "fat_per_100g": 14.7
+  },
+  "mixed greens": {
+    "calories_per_100g": 15,
+    "protein_per_100g": 1.4,
+    "carbs_per_100g": 2.9,
+    "fat_per_100g": 0.2
+  },
+  "bell pepper": {
+    "calories_per_100g": 31,
+    "protein_per_100g": 1,
+    "carbs_per_100g": 7,
+    "fat_per_100g": 0.3
+  },
+  "olive oil": {
+    "calories_per_100g": 884,
+    "protein_per_100g": 0,
+    "carbs_per_100g": 0,
+    "fat_per_100g": 100
+  },
+  "chicken breast": {
+    "calories_per_100g": 165,
+    "protein_per_100g": 31,
+    "carbs_per_100g": 0,
+    "fat_per_100g": 3.6
+  },
+  "bell peppers": {
+    "calories_per_100g": 31,
+    "protein_per_100g": 1,
+    "carbs_per_100g": 7,
+    "fat_per_100g": 0.3
+  },
+  "cucumber": {
+    "calories_per_100g": 16,
+    "protein_per_100g": 0.7,
+    "carbs_per_100g": 4,
+    "fat_per_100g": 0.1
+  },
+  "tahini": {
+    "calories_per_100g": 595,
+    "protein_per_100g": 17,
+    "carbs_per_100g": 21,
+    "fat_per_100g": 54
+  },
+  "cooked quinoa": {
+    "calories_per_100g": 120,
+    "protein_per_100g": 4.4,
+    "carbs_per_100g": 22,
+    "fat_per_100g": 1.9
+  },
+  "ground turkey breast": {
+    "calories_per_100g": 135,
+    "protein_per_100g": 30,
+    "carbs_per_100g": 0,
+    "fat_per_100g": 1
+  },
+  "hemp seeds": {
+    "calories_per_100g": 553,
+    "protein_per_100g": 31,
+    "carbs_per_100g": 8.7,
+    "fat_per_100g": 49
+  }
+}
