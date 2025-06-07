@@ -22,11 +22,11 @@ args = "Streamlit Server"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Test Meal Plan"
+args = "Sync Integration Test"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Sync Integration Test"
+args = "Complete Workflow Test"
 
 [[workflows.workflow]]
 name = "Streamlit Server"
@@ -38,21 +38,21 @@ args = "streamlit run app_simple.py --server.port 5000 --server.headless true"
 waitForPort = 5000
 
 [[workflows.workflow]]
-name = "Test Meal Plan"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "streamlit run test_meal_plan.py --server.port 5000 --server.headless true"
-waitForPort = 5000
-
-[[workflows.workflow]]
 name = "Sync Integration Test"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "streamlit run test_sync_integration.py --server.port 5000 --server.headless true"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Complete Workflow Test"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "streamlit run test_complete_workflow.py --server.port 5000 --server.headless true"
 waitForPort = 5000
 
 [[ports]]
