@@ -76,5 +76,65 @@
     "protein_per_100g": 31,
     "carbs_per_100g": 8.7,
     "fat_per_100g": 49
+  },
+  "eggs": {
+    "calories_per_100g": 155,
+    "protein_per_100g": 13,
+    "carbs_per_100g": 1.1,
+    "fat_per_100g": 11
+  },
+  "oats": {
+    "calories_per_100g": 389,
+    "protein_per_100g": 16.9,
+    "carbs_per_100g": 66.3,
+    "fat_per_100g": 6.9
+  },
+  "banana": {
+    "calories_per_100g": 89,
+    "protein_per_100g": 1.1,
+    "carbs_per_100g": 22.8,
+    "fat_per_100g": 0.3
+  },
+  "almonds": {
+    "calories_per_100g": 579,
+    "protein_per_100g": 21.2,
+    "carbs_per_100g": 21.6,
+    "fat_per_100g": 49.9
+  },
+  "salmon": {
+    "calories_per_100g": 208,
+    "protein_per_100g": 25.4,
+    "carbs_per_100g": 0,
+    "fat_per_100g": 12.4
+  },
+  "sweet potato": {
+    "calories_per_100g": 86,
+    "protein_per_100g": 1.6,
+    "carbs_per_100g": 20.1,
+    "fat_per_100g": 0.1
+  },
+  "broccoli": {
+    "calories_per_100g": 34,
+    "protein_per_100g": 2.8,
+    "carbs_per_100g": 7,
+    "fat_per_100g": 0.4
+  },
+  "greek yogurt": {
+    "calories_per_100g": 59,
+    "protein_per_100g": 10,
+    "carbs_per_100g": 3.6,
+    "fat_per_100g": 0.4
+  },
+  "berries": {
+    "calories_per_100g": 57,
+    "protein_per_100g": 0.7,
+    "carbs_per_100g": 14.5,
+    "fat_per_100g": 0.3
+  },
+  "walnuts": {
+    "calories_per_100g": 607,
+    "protein_per_100g": 20.2,
+    "carbs_per_100g": 21.7,
+    "fat_per_100g": 50.6
   }
 }
