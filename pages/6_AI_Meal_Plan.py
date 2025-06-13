@@ -978,29 +978,103 @@ for meal_type, meal_target in meal_targets.items():
 # Quick confirmation for streamlined testing
 if len(st.session_state.confirmed_meals) < len(meal_targets):
     st.markdown("## Quick Actions")
-    if st.button("⚡ Confirm All Meals (Quick Test)", type="primary"):
-        with st.spinner("Confirming all meals with authentic ingredients..."):
-            # Confirm all remaining meals with current recipes and ingredients
-            for meal_type in meal_targets.keys():
-                if meal_type not in st.session_state.confirmed_meals:
-                    # Get current recipe for this meal type
-                    current_recipe = st.session_state.get(f'current_recipe_{meal_type}')
-                    current_ingredients = st.session_state.get(f'ingredient_details_{meal_type}', [])
-                    current_macros = st.session_state.get(f'current_macros_{meal_type}', meal_targets[meal_type])
-                    
-                    if current_recipe:
-                        # Use current amounts or default amounts
-                        ingredient_amounts = {ing['name']: ing['amount'] for ing in current_ingredients if isinstance(ing, dict)}
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("⚡ Confirm All Meals (Quick Test)", type="primary"):
+            with st.spinner("Confirming all meals with authentic ingredients..."):
+                # Confirm all remaining meals with current recipes and ingredients
+                for meal_type in meal_targets.keys():
+                    if meal_type not in st.session_state.confirmed_meals:
+                        # Get current recipe for this meal type
+                        current_recipe = st.session_state.get(f'current_recipe_{meal_type}')
+                        current_ingredients = st.session_state.get(f'ingredient_details_{meal_type}', [])
+                        current_macros = st.session_state.get(f'current_macros_{meal_type}', meal_targets[meal_type])
                         
-                        st.session_state.confirmed_meals[meal_type] = {
-                            'recipe': current_recipe,
-                            'macros': current_macros,
-                            'ingredient_details': current_ingredients,
-                            'ingredient_amounts': ingredient_amounts
-                        }
-            
-            st.success("All meals confirmed! Ready for export.")
-            st.rerun()
+                        if current_recipe:
+                            # Use current amounts or default amounts
+                            ingredient_amounts = {ing['name']: ing['amount'] for ing in current_ingredients if isinstance(ing, dict)}
+                            
+                            st.session_state.confirmed_meals[meal_type] = {
+                                'recipe': current_recipe,
+                                'macros': current_macros,
+                                'ingredient_details': current_ingredients,
+                                'ingredient_amounts': ingredient_amounts
+                            }
+                
+                st.success("All meals confirmed! Ready for export.")
+                st.rerun()
+    
+    with col2:
+        if st.button("🎯 Generate Sample Meals", help="Create sample meals for testing PDF export"):
+            with st.spinner("Generating sample meals with authentic nutritional data..."):
+                from nutrition_cache import nutrition_cache
+                
+                # Generate sample meals with authentic ingredients
+                sample_meals = {}
+                
+                for meal_type, targets in meal_targets.items():
+                    if meal_type == 'Breakfast':
+                        ingredients = [
+                            {'name': 'eggs', 'amount': 120, 'category': 'protein'},
+                            {'name': 'oats', 'amount': 40, 'category': 'carbs'},
+                            {'name': 'banana', 'amount': 100, 'category': 'carbs'},
+                            {'name': 'almonds', 'amount': 15, 'category': 'fat'}
+                        ]
+                        recipe_title = "Protein Breakfast Bowl"
+                        directions = ["Cook oats with water", "Scramble eggs", "Slice banana", "Top with almonds"]
+                    elif meal_type == 'Lunch':
+                        ingredients = [
+                            {'name': 'chicken breast', 'amount': 150, 'category': 'protein'},
+                            {'name': 'quinoa', 'amount': 80, 'category': 'carbs'},
+                            {'name': 'mixed vegetables', 'amount': 120, 'category': 'carbs'},
+                            {'name': 'olive oil', 'amount': 15, 'category': 'fat'}
+                        ]
+                        recipe_title = "Mediterranean Chicken Bowl"
+                        directions = ["Grill chicken breast", "Cook quinoa", "Steam vegetables", "Drizzle with olive oil"]
+                    elif meal_type == 'Dinner':
+                        ingredients = [
+                            {'name': 'salmon', 'amount': 140, 'category': 'protein'},
+                            {'name': 'sweet potato', 'amount': 150, 'category': 'carbs'},
+                            {'name': 'broccoli', 'amount': 100, 'category': 'carbs'},
+                            {'name': 'avocado', 'amount': 50, 'category': 'fat'}
+                        ]
+                        recipe_title = "Omega-Rich Salmon Dinner"
+                        directions = ["Bake salmon with herbs", "Roast sweet potato", "Steam broccoli", "Add sliced avocado"]
+                    else:  # Snack
+                        ingredients = [
+                            {'name': 'greek yogurt', 'amount': 100, 'category': 'protein'},
+                            {'name': 'berries', 'amount': 80, 'category': 'carbs'},
+                            {'name': 'walnuts', 'amount': 15, 'category': 'fat'}
+                        ]
+                        recipe_title = "Antioxidant Berry Snack"
+                        directions = ["Mix greek yogurt with berries", "Top with chopped walnuts"]
+                    
+                    # Add nutritional data to ingredients
+                    for ingredient in ingredients:
+                        cached_nutrition = nutrition_cache.get_fallback_nutrition(ingredient['name'], ingredient['category'])
+                        ingredient.update({
+                            'calories_per_100g': cached_nutrition['calories_per_100g'],
+                            'protein_per_100g': cached_nutrition['protein_per_100g'],
+                            'carbs_per_100g': cached_nutrition['carbs_per_100g'],
+                            'fat_per_100g': cached_nutrition['fat_per_100g']
+                        })
+                    
+                    sample_meals[meal_type] = {
+                        'recipe': {
+                            'title': recipe_title,
+                            'ingredients': [f"{ing['amount']}g {ing['name']}" for ing in ingredients],
+                            'directions': directions
+                        },
+                        'macros': targets,
+                        'ingredient_details': ingredients,
+                        'ingredient_amounts': {ing['name']: ing['amount'] for ing in ingredients}
+                    }
+                
+                st.session_state.confirmed_meals = sample_meals
+                st.success("Sample meals generated! Ready for PDF export.")
+                st.rerun()
 
 # Show confirmed meals summary
 if st.session_state.confirmed_meals:
@@ -1045,13 +1119,60 @@ if st.session_state.confirmed_meals:
         if st.button("📄 Export PDF Meal Plan"):
             with st.spinner("Creating branded PDF meal plan..."):
                 try:
+                    # Debug: Check meal data structure
+                    st.write("**Debug: Checking meal data...**")
+                    if not st.session_state.confirmed_meals:
+                        st.error("No confirmed meals found. Please generate and confirm meals first.")
+                        st.stop()
+                    
+                    st.write(f"Found {len(st.session_state.confirmed_meals)} confirmed meals")
+                    
+                    # Validate meal data structure
+                    valid_meals = {}
+                    for meal_type, meal_data in st.session_state.confirmed_meals.items():
+                        st.write(f"Validating {meal_type}...")
+                        
+                        if not isinstance(meal_data, dict):
+                            st.error(f"{meal_type} data is not a dictionary: {type(meal_data)}")
+                            continue
+                            
+                        # Ensure required keys exist
+                        if 'recipe' not in meal_data:
+                            st.warning(f"{meal_type} missing recipe data")
+                            meal_data['recipe'] = {
+                                'title': f'Generated {meal_type}',
+                                'ingredients': [],
+                                'directions': []
+                            }
+                        
+                        if 'macros' not in meal_data:
+                            st.warning(f"{meal_type} missing macro data")
+                            meal_data['macros'] = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+                        
+                        if 'ingredient_details' not in meal_data:
+                            st.warning(f"{meal_type} missing ingredient details")
+                            meal_data['ingredient_details'] = []
+                        
+                        valid_meals[meal_type] = meal_data
+                        st.write(f"✓ {meal_type} validated")
+                    
+                    if not valid_meals:
+                        st.error("No valid meal data found after validation.")
+                        st.stop()
+                    
                     # Get diet preferences
                     diet_prefs = st.session_state.get('confirmed_diet_prefs', {})
+                    st.write(f"Diet preferences: {diet_prefs}")
                     
                     # Create PDF with validated meal data
-                    pdf_filename = export_meal_plan_pdf(st.session_state.confirmed_meals, diet_prefs)
+                    st.write("Creating PDF...")
+                    pdf_filename = export_meal_plan_pdf(valid_meals, diet_prefs)
+                    st.write(f"PDF export returned: {pdf_filename}")
                     
                     if pdf_filename and os.path.exists(pdf_filename):
+                        file_size = os.path.getsize(pdf_filename)
+                        st.write(f"PDF file created: {pdf_filename} ({file_size} bytes)")
+                        
                         # Read PDF file
                         with open(pdf_filename, "rb") as pdf_file:
                             pdf_data = pdf_file.read()
@@ -1073,11 +1194,16 @@ if st.session_state.confirmed_meals:
                         
                         st.success("PDF created successfully! Click the download button above.")
                     else:
-                        st.error("PDF creation failed. Please ensure all meals are confirmed.")
+                        st.error("PDF creation failed. The export function returned None or file doesn't exist.")
+                        if pdf_filename:
+                            st.write(f"Expected file: {pdf_filename}")
+                            st.write(f"File exists: {os.path.exists(pdf_filename) if pdf_filename else 'N/A'}")
                         
                 except Exception as e:
-                    st.error("PDF creation failed. Please try again.")
-                    print(f"PDF Error: {e}")
+                    st.error(f"PDF creation failed: {str(e)}")
+                    import traceback
+                    st.text("Full error details:")
+                    st.code(traceback.format_exc())
 
 # Daily meal plan management
 if len(st.session_state.confirmed_meals) == len(meal_targets):
