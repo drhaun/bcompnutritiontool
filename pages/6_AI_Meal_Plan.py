@@ -360,31 +360,73 @@ elif sync_mode:
 if st.session_state.meal_plan_mode == 'standalone':
     st.info("Standalone Mode: Set your nutrition targets and dietary preferences manually")
     
+    # Initialize standalone values in session state if not present
+    if 'standalone_calories' not in st.session_state:
+        st.session_state.standalone_calories = 2000
+    if 'standalone_protein' not in st.session_state:
+        st.session_state.standalone_protein = 150
+    if 'standalone_carbs' not in st.session_state:
+        st.session_state.standalone_carbs = 200
+    if 'standalone_fat' not in st.session_state:
+        st.session_state.standalone_fat = 67
+    if 'standalone_vegetarian' not in st.session_state:
+        st.session_state.standalone_vegetarian = False
+    if 'standalone_vegan' not in st.session_state:
+        st.session_state.standalone_vegan = False
+    if 'standalone_gluten_free' not in st.session_state:
+        st.session_state.standalone_gluten_free = False
+    if 'standalone_dairy_free' not in st.session_state:
+        st.session_state.standalone_dairy_free = False
+    
     # Quick target setting for standalone mode
     st.markdown("### Quick Target Setup")
     target_col1, target_col2, target_col3, target_col4 = st.columns(4)
     
     with target_col1:
-        target_calories = st.number_input("Daily Calories", min_value=1200, max_value=4000, value=2000, step=50)
+        target_calories = st.number_input("Daily Calories", min_value=1200, max_value=4000, 
+                                        value=st.session_state.standalone_calories, step=50, 
+                                        key="standalone_calories_input")
     with target_col2:
-        target_protein = st.number_input("Protein (g)", min_value=50, max_value=300, value=150, step=5)
+        target_protein = st.number_input("Protein (g)", min_value=50, max_value=300, 
+                                       value=st.session_state.standalone_protein, step=5,
+                                       key="standalone_protein_input")
     with target_col3:
-        target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=400, value=200, step=10)
+        target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=400, 
+                                     value=st.session_state.standalone_carbs, step=10,
+                                     key="standalone_carbs_input")
     with target_col4:
-        target_fat = st.number_input("Fat (g)", min_value=30, max_value=200, value=67, step=5)
+        target_fat = st.number_input("Fat (g)", min_value=30, max_value=200, 
+                                   value=st.session_state.standalone_fat, step=5,
+                                   key="standalone_fat_input")
+    
+    # Update session state with current values
+    st.session_state.standalone_calories = target_calories
+    st.session_state.standalone_protein = target_protein
+    st.session_state.standalone_carbs = target_carbs
+    st.session_state.standalone_fat = target_fat
     
     # Quick dietary preferences
     st.markdown("### Dietary Preferences")
     diet_col1, diet_col2, diet_col3, diet_col4 = st.columns(4)
     
     with diet_col1:
-        vegetarian = st.checkbox("Vegetarian")
+        vegetarian = st.checkbox("Vegetarian", value=st.session_state.standalone_vegetarian,
+                               key="standalone_vegetarian_input")
     with diet_col2:
-        vegan = st.checkbox("Vegan")
+        vegan = st.checkbox("Vegan", value=st.session_state.standalone_vegan,
+                          key="standalone_vegan_input")
     with diet_col3:
-        gluten_free = st.checkbox("Gluten Free")
+        gluten_free = st.checkbox("Gluten Free", value=st.session_state.standalone_gluten_free,
+                                key="standalone_gluten_free_input")
     with diet_col4:
-        dairy_free = st.checkbox("Dairy Free")
+        dairy_free = st.checkbox("Dairy Free", value=st.session_state.standalone_dairy_free,
+                                key="standalone_dairy_free_input")
+    
+    # Update session state with current dietary preferences
+    st.session_state.standalone_vegetarian = vegetarian
+    st.session_state.standalone_vegan = vegan
+    st.session_state.standalone_gluten_free = gluten_free
+    st.session_state.standalone_dairy_free = dairy_free
     
     # Set targets and preferences for standalone mode
     meal_targets = {
@@ -402,6 +444,56 @@ if st.session_state.meal_plan_mode == 'standalone':
     }
     
     meal_config = {'meals_per_day': 4}
+    
+    # Store in session state for meal generation
+    st.session_state.confirmed_meal_targets = meal_targets
+    st.session_state.confirmed_diet_prefs = diet_prefs
+    st.session_state.confirmed_meal_config = meal_config
+    
+    # Display current meal distribution
+    st.markdown("### Current Meal Distribution")
+    dist_col1, dist_col2, dist_col3, dist_col4 = st.columns(4)
+    
+    with dist_col1:
+        st.markdown("**Breakfast (25%)**")
+        breakfast = meal_targets['Breakfast']
+        st.write(f"• {breakfast['calories']} calories")
+        st.write(f"• {breakfast['protein']}g protein")
+        st.write(f"• {breakfast['carbs']}g carbs")
+        st.write(f"• {breakfast['fat']}g fat")
+    
+    with dist_col2:
+        st.markdown("**Lunch (35%)**")
+        lunch = meal_targets['Lunch']
+        st.write(f"• {lunch['calories']} calories")
+        st.write(f"• {lunch['protein']}g protein")
+        st.write(f"• {lunch['carbs']}g carbs")
+        st.write(f"• {lunch['fat']}g fat")
+    
+    with dist_col3:
+        st.markdown("**Dinner (30%)**")
+        dinner = meal_targets['Dinner']
+        st.write(f"• {dinner['calories']} calories")
+        st.write(f"• {dinner['protein']}g protein")
+        st.write(f"• {dinner['carbs']}g carbs")
+        st.write(f"• {dinner['fat']}g fat")
+    
+    with dist_col4:
+        st.markdown("**Snack (10%)**")
+        snack = meal_targets['Snack']
+        st.write(f"• {snack['calories']} calories")
+        st.write(f"• {snack['protein']}g protein")
+        st.write(f"• {snack['carbs']}g carbs")
+        st.write(f"• {snack['fat']}g fat")
+    
+    # Show active dietary preferences
+    if any(diet_prefs.values()):
+        st.markdown("### Active Dietary Preferences")
+        active_prefs = [pref.replace('_', ' ').title() for pref, value in diet_prefs.items() if value]
+        st.write(", ".join(active_prefs))
+    else:
+        st.markdown("### Dietary Preferences")
+        st.write("No dietary restrictions selected")
 
 elif st.session_state.meal_plan_mode == 'sync':
     st.info("Sync Mode: Using targets from your body composition plan")
