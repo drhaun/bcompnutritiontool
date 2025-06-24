@@ -551,182 +551,189 @@ with sleep_col2:
                 
                 st.success("Weekly schedule confirmed! Now you can set up your nutrition targets.")
 
-        # Enhanced daily schedule customization - show regardless of confirmation status
-        st.markdown("---")
-        st.subheader("Daily Activity Customization")
-        st.markdown("Add specific activities to each day to better plan meal contexts.")
+    # Enhanced daily schedule customization - show outside of expander
+    st.markdown("---")
+    st.subheader("Daily Activity Customization")
+    st.markdown("Add specific activities to each day to better plan meal contexts.")
+    
+    # Check if we have any schedule data to work with
+    if 'weekly_schedule' not in st.session_state or not st.session_state.weekly_schedule:
+        st.info("Generate your basic weekly schedule above to enable detailed daily customization.")
+    else:
+        # Get days of week
+        days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
         
-        # Check if we have any schedule data to work with
-        if 'weekly_schedule' not in st.session_state or not st.session_state.weekly_schedule:
-            st.info("Generate your basic weekly schedule above to enable detailed daily customization.")
-        else:
-            # Day selector for detailed customization
-            selected_day = st.selectbox("Select day to customize:", days_of_week, key="day_detail_selector")
-                
-            with st.expander(f"📋 {selected_day} Activities", expanded=True):
-                # Get day data from either confirmed or current schedule
-                schedule_data = st.session_state.get('confirmed_weekly_schedule', st.session_state.weekly_schedule)
-                day_data = schedule_data.get(selected_day, {})
-                
-                # Work schedule
-                st.markdown("**🏢 Work Schedule**")
-                
-                with work_col1:
-                    work_type = st.selectbox(
-                        "Work Type",
-                        options=["Office Work", "Remote Work", "Field Work", "No Work", "Mixed"],
-                        index=0,
-                        key=f"work_type_{selected_day}"
+        # Day selector for detailed customization
+        selected_day = st.selectbox("Select day to customize:", days_of_week, key="day_detail_selector")
+            
+        # Use container instead of expander to avoid nesting
+        with st.container():
+            st.markdown(f"### 📋 {selected_day} Activities")
+            
+            # Get day data from either confirmed or current schedule
+            schedule_data = st.session_state.get('confirmed_weekly_schedule', st.session_state.weekly_schedule)
+            day_data = schedule_data.get(selected_day, {})
+            
+            # Work schedule
+            st.markdown("**🏢 Work Schedule**")
+            work_col1, work_col2, work_col3 = st.columns(3)
+            
+            with work_col1:
+                work_type = st.selectbox(
+                    "Work Type",
+                    options=["Office Work", "Remote Work", "Field Work", "No Work", "Mixed"],
+                    index=0,
+                    key=f"work_type_{selected_day}"
+                )
+            
+            with work_col2:
+                if work_type != "No Work":
+                    work_start = st.time_input(
+                        "Work Start",
+                        value=datetime.time(9, 0),
+                        key=f"work_start_{selected_day}"
                     )
-                
-                with work_col2:
-                    if work_type != "No Work":
-                        work_start = st.time_input(
-                            "Work Start",
-                            value=datetime.time(9, 0),
-                            key=f"work_start_{selected_day}"
-                        )
-                
-                with work_col3:
-                    if work_type != "No Work":
-                        work_end = st.time_input(
-                            "Work End",
-                            value=datetime.time(17, 0),
-                            key=f"work_end_{selected_day}"
-                        )
-                
-                # Dining out plans
-                st.markdown("**🍽️ Dining Out Plans**")
-                dining_col1, dining_col2 = st.columns(2)
-                
-                with dining_col1:
-                    dining_occasions = st.multiselect(
-                        "Planned Restaurant/Dining Out",
-                        options=["Breakfast out", "Lunch meeting", "Dinner date", "Family dinner", "Coffee meeting", "Happy hour"],
-                        key=f"dining_out_{selected_day}"
+            
+            with work_col3:
+                if work_type != "No Work":
+                    work_end = st.time_input(
+                        "Work End",
+                        value=datetime.time(17, 0),
+                        key=f"work_end_{selected_day}"
                     )
-                
-                with dining_col2:
-                    if dining_occasions:
-                        dining_time = st.time_input(
-                            "Primary dining time",
-                            value=datetime.time(19, 0),
-                            key=f"dining_time_{selected_day}"
-                        )
-                
-                # Recreation and leisure
-                st.markdown("**🎯 Recreation & Leisure**")
-                recreation_col1, recreation_col2 = st.columns(2)
-                
-                with recreation_col1:
-                    recreation_activities = st.multiselect(
-                        "Recreational Activities",
-                        options=["Sports/Games", "Shopping", "Movie/Entertainment", "Hobbies", "Social gathering", "Outdoor activities"],
-                        key=f"recreation_{selected_day}"
-                    )
-                
-                with recreation_col2:
-                    if recreation_activities:
-                        recreation_duration = st.selectbox(
-                            "Duration",
-                            options=["1-2 hours", "2-4 hours", "4+ hours", "All day"],
-                            key=f"recreation_duration_{selected_day}"
-                        )
-                
-                # Travel plans
-                st.markdown("**✈️ Travel Plans**")
-                travel_col1, travel_col2 = st.columns(2)
-                
-                with travel_col1:
-                    travel_type = st.selectbox(
-                        "Travel Type",
-                        options=["No travel", "Local errands", "Day trip", "Business travel", "Vacation"],
-                        key=f"travel_type_{selected_day}"
-                    )
-                
-                with travel_col2:
-                    if travel_type != "No travel":
-                        travel_meals = st.multiselect(
-                            "Meals affected by travel",
-                            options=["Breakfast", "Lunch", "Dinner", "Snacks"],
-                            key=f"travel_meals_{selected_day}"
-                        )
-                
-                # Meal context insights
-                st.markdown("**🥘 Meal Context Insights**")
-                
-                # Calculate meal contexts based on activities
-                meal_contexts = {}
-                
-                # Breakfast context
-                if work_type == "Remote Work":
-                    breakfast_context = "Home-prepared (flexible timing)"
-                elif work_type == "Office Work" and work_start <= datetime.time(8, 0):
-                    breakfast_context = "Quick/On-the-go"
-                elif "Breakfast out" in dining_occasions:
-                    breakfast_context = "Restaurant/Cafe"
-                else:
-                    breakfast_context = "Home-prepared"
-                
-                # Lunch context
-                if work_type == "Office Work":
-                    lunch_context = "Meal prep/Delivered to office"
-                elif work_type == "Remote Work":
-                    lunch_context = "Home-prepared"
-                elif "Lunch meeting" in dining_occasions:
-                    lunch_context = "Restaurant/Business meal"
-                elif travel_type in ["Day trip", "Business travel"]:
-                    lunch_context = "Travel/On-the-go"
-                else:
-                    lunch_context = "Home-prepared"
-                
-                # Dinner context
+            
+            # Dining out plans
+            st.markdown("**🍽️ Dining Out Plans**")
+            dining_col1, dining_col2 = st.columns(2)
+            
+            with dining_col1:
+                dining_occasions = st.multiselect(
+                    "Planned Restaurant/Dining Out",
+                    options=["Breakfast out", "Lunch meeting", "Dinner date", "Family dinner", "Coffee meeting", "Happy hour"],
+                    key=f"dining_out_{selected_day}"
+                )
+            
+            with dining_col2:
                 if dining_occasions:
-                    dinner_context = "Restaurant/Dining out"
-                elif work_end >= datetime.time(18, 0):
-                    dinner_context = "Quick home prep/Delivery"
-                elif recreation_activities:
-                    dinner_context = "Flexible timing/Prep ahead"
-                else:
-                    dinner_context = "Home-prepared"
+                    dining_time = st.time_input(
+                        "Primary dining time",
+                        value=datetime.time(19, 0),
+                        key=f"dining_time_{selected_day}"
+                    )
+            
+            # Recreation and leisure
+            st.markdown("**🎯 Recreation & Leisure**")
+            recreation_col1, recreation_col2 = st.columns(2)
+            
+            with recreation_col1:
+                recreation_activities = st.multiselect(
+                    "Recreational Activities",
+                    options=["Sports/Games", "Shopping", "Movie/Entertainment", "Hobbies", "Social gathering", "Outdoor activities"],
+                    key=f"recreation_{selected_day}"
+                )
+            
+            with recreation_col2:
+                if recreation_activities:
+                    recreation_duration = st.selectbox(
+                        "Duration",
+                        options=["1-2 hours", "2-4 hours", "4+ hours", "All day"],
+                        key=f"recreation_duration_{selected_day}"
+                    )
+            
+            # Travel plans
+            st.markdown("**✈️ Travel Plans**")
+            travel_col1, travel_col2 = st.columns(2)
+            
+            with travel_col1:
+                travel_type = st.selectbox(
+                    "Travel Type",
+                    options=["No travel", "Local errands", "Day trip", "Business travel", "Vacation"],
+                    key=f"travel_type_{selected_day}"
+                )
+            
+            with travel_col2:
+                if travel_type != "No travel":
+                    travel_meals = st.multiselect(
+                        "Meals affected by travel",
+                        options=["Breakfast", "Lunch", "Dinner", "Snacks"],
+                        key=f"travel_meals_{selected_day}"
+                    )
+            
+            # Meal context insights
+            st.markdown("**🥘 Meal Context Insights**")
+            
+            # Calculate meal contexts based on activities
+            meal_contexts = {}
+            
+            # Breakfast context
+            if work_type == "Remote Work":
+                breakfast_context = "Home-prepared (flexible timing)"
+            elif work_type == "Office Work" and work_start <= datetime.time(8, 0):
+                breakfast_context = "Quick/On-the-go"
+            elif "Breakfast out" in dining_occasions:
+                breakfast_context = "Restaurant/Cafe"
+            else:
+                breakfast_context = "Home-prepared"
+            
+            # Lunch context
+            if work_type == "Office Work":
+                lunch_context = "Meal prep/Delivered to office"
+            elif work_type == "Remote Work":
+                lunch_context = "Home-prepared"
+            elif "Lunch meeting" in dining_occasions:
+                lunch_context = "Restaurant/Business meal"
+            elif travel_type in ["Day trip", "Business travel"]:
+                lunch_context = "Travel/On-the-go"
+            else:
+                lunch_context = "Home-prepared"
+            
+            # Dinner context
+            if dining_occasions:
+                dinner_context = "Restaurant/Dining out"
+            elif work_end >= datetime.time(18, 0):
+                dinner_context = "Quick home prep/Delivery"
+            elif recreation_activities:
+                dinner_context = "Flexible timing/Prep ahead"
+            else:
+                dinner_context = "Home-prepared"
+            
+            meal_contexts = {
+                "Breakfast": breakfast_context,
+                "Lunch": lunch_context,
+                "Dinner": dinner_context
+            }
+            
+            # Display meal context recommendations
+            context_df = pd.DataFrame([
+                {"Meal": "Breakfast", "Recommended Context": meal_contexts["Breakfast"]},
+                {"Meal": "Lunch", "Recommended Context": meal_contexts["Lunch"]},
+                {"Meal": "Dinner", "Recommended Context": meal_contexts["Dinner"]}
+            ])
+            
+            st.dataframe(context_df, use_container_width=True)
+            
+            # Save detailed day data
+            if st.button(f"Save {selected_day} Details", key=f"save_day_{selected_day}"):
+                # Ensure we have a schedule to update
+                if 'confirmed_weekly_schedule' not in st.session_state:
+                    st.session_state.confirmed_weekly_schedule = copy.deepcopy(st.session_state.weekly_schedule)
                 
-                meal_contexts = {
-                    "Breakfast": breakfast_context,
-                    "Lunch": lunch_context,
-                    "Dinner": dinner_context
-                }
-                
-                # Display meal context recommendations
-                context_df = pd.DataFrame([
-                    {"Meal": "Breakfast", "Recommended Context": meal_contexts["Breakfast"]},
-                    {"Meal": "Lunch", "Recommended Context": meal_contexts["Lunch"]},
-                    {"Meal": "Dinner", "Recommended Context": meal_contexts["Dinner"]}
-                ])
-                
-                st.dataframe(context_df, use_container_width=True)
-                
-                # Save detailed day data
-                if st.button(f"Save {selected_day} Details", key=f"save_day_{selected_day}"):
-                    # Ensure we have a schedule to update
-                    if 'confirmed_weekly_schedule' not in st.session_state:
-                        st.session_state.confirmed_weekly_schedule = copy.deepcopy(st.session_state.weekly_schedule)
-                    
-                    st.session_state.confirmed_weekly_schedule[selected_day].update({
-                        'work_schedule': {
-                            'type': work_type,
-                            'start_time': work_start.strftime("%H:%M") if work_type != "No Work" else None,
-                            'end_time': work_end.strftime("%H:%M") if work_type != "No Work" else None
-                        },
-                        'dining_out': dining_occasions,
-                        'recreation': recreation_activities,
-                        'travel': {
-                            'type': travel_type,
-                            'affected_meals': travel_meals if travel_type != "No travel" else []
-                        },
-                        'meal_context': meal_contexts
-                    })
-                    st.success(f"{selected_day} activities saved!")
-                    st.rerun()
+                st.session_state.confirmed_weekly_schedule[selected_day].update({
+                    'work_schedule': {
+                        'type': work_type,
+                        'start_time': work_start.strftime("%H:%M") if work_type != "No Work" else None,
+                        'end_time': work_end.strftime("%H:%M") if work_type != "No Work" else None
+                    },
+                    'dining_out': dining_occasions,
+                    'recreation': recreation_activities,
+                    'travel': {
+                        'type': travel_type,
+                        'affected_meals': travel_meals if travel_type != "No travel" else []
+                    },
+                    'meal_context': meal_contexts
+                })
+                st.success(f"{selected_day} activities saved!")
+                st.rerun()
 
 # End of Weekly Schedule page
 # Nutrition Targets functionality moved to separate page: pages/5_Nutrition_Targets.py
