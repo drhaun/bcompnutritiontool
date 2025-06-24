@@ -401,7 +401,7 @@ with tab1:
                 "carbs": day_carbs
             }
         
-        st.success("Generated weekly schedule and nutrition targets!")
+        st.success("Generated weekly schedule! Please review your schedule below, then proceed to the Nutrition Targets page to review and confirm your nutrition goals.")
     
     # Weekly schedule overview expander
     with st.expander("Weekly Schedule Overview", expanded=True):

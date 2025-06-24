@@ -61,87 +61,143 @@ if os.path.exists(preferences_file):
 st.markdown("### 🍽️ Meal Sourcing Preferences")
 st.markdown("Tell us how you prefer to get your meals and groceries.")
 
-# Consolidated meal sourcing options
-sourcing_col1, sourcing_col2, sourcing_col3 = st.columns(3)
+# Initialize sourcing preferences if not exists
+if 'meal_delivery_interest' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['meal_delivery_interest'] = 'Moderate'
+if 'home_cooking_interest' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['home_cooking_interest'] = 'High'
+if 'grocery_shopping_interest' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['grocery_shopping_interest'] = 'High'
 
-with sourcing_col1:
-    st.markdown("**Ready-to-Eat Meal Delivery**")
-    meal_delivery_interest = st.selectbox(
-        "Interest Level",
-        options=["High", "Moderate", "Low", "None"],
-        index=0 if st.session_state.diet_preferences.get('meal_delivery_interest', 'Moderate') == 'High' else
-              1 if st.session_state.diet_preferences.get('meal_delivery_interest', 'Moderate') == 'Moderate' else
-              2 if st.session_state.diet_preferences.get('meal_delivery_interest', 'Moderate') == 'Low' else 3,
-        help="Services like DoorDash, meal kit subscriptions"
-    )
+# Consolidated meal sourcing options - use form to prevent refresh
+with st.form("sourcing_preferences_form", clear_on_submit=False):
+    sourcing_col1, sourcing_col2, sourcing_col3 = st.columns(3)
 
-with sourcing_col2:
-    st.markdown("**Home Cooking/DIY Meal Prep**")
-    home_cooking_interest = st.selectbox(
-        "Interest Level",
-        options=["High", "Moderate", "Low", "None"],
-        index=1 if st.session_state.diet_preferences.get('home_cooking_interest', 'Moderate') == 'High' else
-              0 if st.session_state.diet_preferences.get('home_cooking_interest', 'Moderate') == 'Moderate' else
-              2 if st.session_state.diet_preferences.get('home_cooking_interest', 'Moderate') == 'Low' else 3,
-        help="Preparing meals from scratch at home"
-    )
+    with sourcing_col1:
+        st.markdown("**Ready-to-Eat Meal Delivery**")
+        meal_delivery_interest = st.selectbox(
+            "Interest Level",
+            options=["High", "Moderate", "Low", "None"],
+            index=["High", "Moderate", "Low", "None"].index(st.session_state.diet_preferences.get('meal_delivery_interest', 'Moderate')),
+            help="Services like DoorDash, meal kit subscriptions",
+            key="meal_delivery_select"
+        )
 
-with sourcing_col3:
-    st.markdown("**Grocery Shopping**")
-    grocery_shopping_interest = st.selectbox(
-        "Interest Level",
-        options=["High", "Moderate", "Low", "None"],
-        index=1 if st.session_state.diet_preferences.get('grocery_shopping_interest', 'Moderate') == 'High' else
-              0 if st.session_state.diet_preferences.get('grocery_shopping_interest', 'Moderate') == 'Moderate' else
-              2 if st.session_state.diet_preferences.get('grocery_shopping_interest', 'Moderate') == 'Low' else 3,
-        help="Shopping for ingredients and meal components"
-    )
+    with sourcing_col2:
+        st.markdown("**Home Cooking/DIY Meal Prep**")
+        home_cooking_interest = st.selectbox(
+            "Interest Level",
+            options=["High", "Moderate", "Low", "None"],
+            index=["High", "Moderate", "Low", "None"].index(st.session_state.diet_preferences.get('home_cooking_interest', 'High')),
+            help="Preparing meals from scratch at home",
+            key="home_cooking_select"
+        )
+
+    with sourcing_col3:
+        st.markdown("**Grocery Shopping**")
+        grocery_shopping_interest = st.selectbox(
+            "Interest Level",
+            options=["High", "Moderate", "Low", "None"],
+            index=["High", "Moderate", "Low", "None"].index(st.session_state.diet_preferences.get('grocery_shopping_interest', 'High')),
+            help="Shopping for ingredients and meal components",
+            key="grocery_shopping_select"
+        )
+    
+    # Submit button for sourcing preferences
+    sourcing_submitted = st.form_submit_button("Update Meal Sourcing Preferences")
+    
+    if sourcing_submitted:
+        st.session_state.diet_preferences.update({
+            'meal_delivery_interest': meal_delivery_interest,
+            'home_cooking_interest': home_cooking_interest,
+            'grocery_shopping_interest': grocery_shopping_interest
+        })
+        st.success("Meal sourcing preferences updated!")
 
 st.markdown("---")
 
 st.markdown("### 🎯 Meal Planning Preferences")
 st.markdown("Configure your meal planning approach for optimal results.")
 
-# Meal planning preferences outside form for real-time updates
-planning_col1, planning_col2 = st.columns(2)
+# Initialize meal planning preferences if not exists
+if 'meal_frequency' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['meal_frequency'] = 3
+if 'cooking_time_preference' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['cooking_time_preference'] = 'Medium (30-60 min)'
+if 'budget_preference' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['budget_preference'] = 'Moderate'
+if 'cooking_for' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['cooking_for'] = 'Just myself'
+if 'leftovers_preference' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['leftovers_preference'] = 'Okay with leftovers occasionally'
 
-with planning_col1:
-    meals_per_day = st.selectbox(
-        "Preferred number of meals per day",
-        options=[2, 3, 4, 5, 6],
-        index=1,  # Default to 3 meals
-        help="Choose how many meals you prefer to eat daily"
+# Meal planning preferences in form to prevent refresh
+with st.form("planning_preferences_form", clear_on_submit=False):
+    planning_col1, planning_col2 = st.columns(2)
+
+    with planning_col1:
+        meals_per_day = st.selectbox(
+            "Preferred number of meals per day",
+            options=[2, 3, 4, 5, 6],
+            index=[2, 3, 4, 5, 6].index(st.session_state.diet_preferences.get('meal_frequency', 3)),
+            help="Choose how many meals you prefer to eat daily",
+            key="meals_per_day_select"
+        )
+        
+        cooking_time_preference = st.selectbox(
+            "Cooking time preference",
+            options=["Quick (under 30 min)", "Medium (30-60 min)", "Long (60+ min)", "No preference"],
+            index=["Quick (under 30 min)", "Medium (30-60 min)", "Long (60+ min)", "No preference"].index(
+                st.session_state.diet_preferences.get('cooking_time_preference', 'Medium (30-60 min)')
+            ),
+            help="How much time do you prefer to spend cooking?",
+            key="cooking_time_select"
+        )
+
+    with planning_col2:
+        budget_preference = st.selectbox(
+            "Budget preference",
+            options=["Budget-friendly", "Moderate", "Premium", "No preference"],
+            index=["Budget-friendly", "Moderate", "Premium", "No preference"].index(
+                st.session_state.diet_preferences.get('budget_preference', 'Moderate')
+            ),
+            help="What's your preferred price range for ingredients?",
+            key="budget_select"
+        )
+        
+        cooking_for = st.selectbox(
+            "Who are you cooking for?",
+            options=["Just myself", "Myself + partner (2 people)", "Small family (3-4 people)", "Large family (5+ people)"],
+            index=["Just myself", "Myself + partner (2 people)", "Small family (3-4 people)", "Large family (5+ people)"].index(
+                st.session_state.diet_preferences.get('cooking_for', 'Just myself')
+            ),
+            help="This affects portion sizes and meal planning",
+            key="cooking_for_select"
+        )
+
+    # Leftovers preference
+    leftovers_preference = st.radio(
+        "How do you feel about leftovers?",
+        options=["Love leftovers - helps with meal prep", "Okay with leftovers occasionally", "Prefer fresh meals each time"],
+        index=["Love leftovers - helps with meal prep", "Okay with leftovers occasionally", "Prefer fresh meals each time"].index(
+            st.session_state.diet_preferences.get('leftovers_preference', 'Okay with leftovers occasionally')
+        ),
+        help="This affects how we plan your meal variety and portions",
+        key="leftovers_radio"
     )
     
-    cooking_time_preference = st.selectbox(
-        "Cooking time preference",
-        options=["Quick (under 30 min)", "Medium (30-60 min)", "Long (60+ min)", "No preference"],
-        index=1,  # Default to medium
-        help="How much time do you prefer to spend cooking?"
-    )
-
-with planning_col2:
-    budget_preference = st.selectbox(
-        "Budget preference",
-        options=["Budget-friendly", "Moderate", "Premium", "No preference"],
-        index=1,  # Default to moderate
-        help="What's your preferred price range for ingredients?"
-    )
+    # Submit button for planning preferences
+    planning_submitted = st.form_submit_button("Update Meal Planning Preferences")
     
-    cooking_for = st.selectbox(
-        "Who are you cooking for?",
-        options=["Just myself", "Myself + partner (2 people)", "Small family (3-4 people)", "Large family (5+ people)"],
-        index=0,  # Default to just myself
-        help="This affects portion sizes and meal planning"
-    )
-
-# Leftovers preference
-leftovers_preference = st.radio(
-    "How do you feel about leftovers?",
-    options=["Love leftovers - helps with meal prep", "Okay with leftovers occasionally", "Prefer fresh meals each time"],
-    index=1,  # Default to okay occasionally
-    help="This affects how we plan your meal variety and portions"
-)
+    if planning_submitted:
+        st.session_state.diet_preferences.update({
+            'meal_frequency': meals_per_day,
+            'cooking_time_preference': cooking_time_preference,
+            'budget_preference': budget_preference,
+            'cooking_for': cooking_for,
+            'leftovers_preference': leftovers_preference
+        })
+        st.success("Meal planning preferences updated!")
 
 st.markdown("---")
 
@@ -271,16 +327,7 @@ with st.form("diet_preferences_form"):
             'preferred_vegetables': preferred_vegetables,
             'cuisine_preferences': cuisine_preferences,
             'disliked_foods': disliked_foods,
-            # Meal sourcing preferences from outside form
-            'meal_delivery_interest': meal_delivery_interest,
-            'home_cooking_interest': home_cooking_interest,
-            'grocery_shopping_interest': grocery_shopping_interest,
-            # Meal planning preferences from outside form
-            'meal_frequency': meals_per_day,
-            'cooking_time_preference': cooking_time_preference,
-            'budget_preference': budget_preference,
-            'cooking_for': cooking_for,
-            'leftovers_preference': leftovers_preference
+            # Meal sourcing and planning preferences are updated through their respective forms
         })
         
         # Save to file
@@ -304,33 +351,23 @@ with st.form("diet_preferences_form"):
                     st.write(f"**Preferred Proteins:** {', '.join(preferred_proteins[:3])}{'...' if len(preferred_proteins) > 3 else ''}")
                 if cuisine_preferences:
                     st.write(f"**Cuisines:** {', '.join(cuisine_preferences[:3])}{'...' if len(cuisine_preferences) > 3 else ''}")
-                st.write(f"**Meal Delivery:** {meal_delivery_interest}")
-                st.write(f"**Home Cooking:** {home_cooking_interest}")
+                st.write(f"**Meal Delivery:** {st.session_state.diet_preferences.get('meal_delivery_interest', 'Not set')}")
+                st.write(f"**Home Cooking:** {st.session_state.diet_preferences.get('home_cooking_interest', 'Not set')}")
             
             with summary_col2:
-                st.write(f"**Meals per Day:** {meals_per_day}")
-                st.write(f"**Cooking Time:** {cooking_time_preference}")
-                st.write(f"**Budget:** {budget_preference}")
-                st.write(f"**Cooking For:** {cooking_for}")
-                st.write(f"**Grocery Shopping:** {grocery_shopping_interest}")
-                st.write(f"**Leftovers:** {leftovers_preference}")
+                st.write(f"**Meals per Day:** {st.session_state.diet_preferences.get('meal_frequency', 'Not set')}")
+                st.write(f"**Cooking Time:** {st.session_state.diet_preferences.get('cooking_time_preference', 'Not set')}")
+                st.write(f"**Budget:** {st.session_state.diet_preferences.get('budget_preference', 'Not set')}")
+                st.write(f"**Cooking For:** {st.session_state.diet_preferences.get('cooking_for', 'Not set')}")
+                st.write(f"**Grocery Shopping:** {st.session_state.diet_preferences.get('grocery_shopping_interest', 'Not set')}")
+                st.write(f"**Leftovers:** {st.session_state.diet_preferences.get('leftovers_preference', 'Not set')}")
                 if disliked_foods:
                     st.write(f"**Foods to Avoid:** {len(disliked_foods)} items")
             
         except Exception as e:
             st.error(f"Error saving preferences: {e}")
 
-# Update session state with preferences from outside form
-st.session_state.diet_preferences.update({
-    'meal_delivery_interest': meal_delivery_interest,
-    'home_cooking_interest': home_cooking_interest,
-    'grocery_shopping_interest': grocery_shopping_interest,
-    'meal_frequency': meals_per_day,
-    'cooking_time_preference': cooking_time_preference,
-    'budget_preference': budget_preference,
-    'cooking_for': cooking_for,
-    'leftovers_preference': leftovers_preference
-})
+# Preferences are now updated through individual form submissions above
 
 # Information section outside the form
 st.markdown("---")
@@ -363,4 +400,4 @@ if st.session_state.diet_preferences.get('allergies') or st.session_state.diet_p
     st.info("**Safety First**: Your allergies and dietary restrictions are prioritized in all meal suggestions to keep you safe and aligned with your lifestyle.")
 
 st.markdown("---")
-st.markdown("Use the sidebar to navigate to **DIY Meal Planning** or **AI Meal Planning** to see your preferences in action!")
+st.markdown("**Next Step:** Navigate to **Weekly Schedule** to set up your daily routine and meal timing preferences before proceeding to meal planning.")
