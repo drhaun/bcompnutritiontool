@@ -42,13 +42,10 @@ days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturda
 # Setup page header with Fitomics branding
 st.title("Weekly Schedule & Nutrition Planner")
 
-# Tabs for schedule and nutrition
-tab1, tab2 = st.tabs(["Weekly Schedule", "Nutrition Targets"])
+# Focus on weekly schedule only - nutrition targets moved to separate page
+st.markdown("Create your weekly schedule to calculate your daily energy needs. Your activity levels and workout schedule will be used to determine your personalized nutrition targets.")
 
-# -----------------------------
-# Tab 1: Weekly Schedule Planner
-# -----------------------------
-with tab1:
+# Weekly Schedule Planner
     st.header("Weekly Schedule Planner")
     st.write("Plan your weekly activities including meals, workouts, and sleep schedule.")
     
