@@ -112,31 +112,64 @@ fat_pct = (macros['fat'] * 9 / target_calories) * 100
 
 st.markdown(f"**Macro Distribution:** Protein {protein_pct:.0f}% • Carbs {carbs_pct:.0f}% • Fat {fat_pct:.0f}%")
 
-# Day-specific targets if available
-if 'day_specific_nutrition' in st.session_state and st.session_state.day_specific_nutrition:
-    st.markdown("#### Day-Specific Targets")
-    st.markdown("Your targets vary by day based on your activity schedule:")
+# Day-specific targets based on weekly schedule and TDEE variations
+st.markdown("#### Day-Specific Targets")
+st.markdown("Your targets vary by day based on your activity schedule:")
+
+# Create DataFrame for day-specific targets using proper calculations
+days_data = []
+days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+# Get user info for calculations
+user_info = st.session_state.get('user_info', {})
+weight_kg = user_info.get('weight_kg', 70)
+
+# Get goal type
+goal_type = "maintain"  # default
+if "goal_type" in st.session_state:
+    raw_goal_type = st.session_state.goal_type
+    if raw_goal_type == "Lose fat":
+        goal_type = "lose_fat"
+    elif raw_goal_type == "Gain muscle":
+        goal_type = "gain_muscle"
+
+for day in days_of_week:
+    # Get day's TDEE from weekly schedule
+    day_schedule = st.session_state.confirmed_weekly_schedule.get(day, {})
+    day_tdee = day_schedule.get('estimated_tdee', target_calories)
     
-    # Create DataFrame for day-specific targets
-    days_data = []
-    days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    # Calculate day-specific targets using the same base ratios but adjusted for TDEE
+    day_target_calories = day_tdee
     
-    for day in days_of_week:
-        if day in st.session_state.day_specific_nutrition:
-            day_nutrition = st.session_state.day_specific_nutrition[day]
-            days_data.append({
-                "Day": day,
-                "Calories": f"{day_nutrition['target_calories']:,.0f}",
-                "Protein": f"{day_nutrition['protein']:.0f}g",
-                "Carbs": f"{day_nutrition['carbs']:.0f}g", 
-                "Fat": f"{day_nutrition['fat']:.0f}g"
-            })
+    # Use the same macro calculation logic from utils.py
+    day_macros = utils.calculate_macros(day_target_calories, weight_kg, goal_type)
     
-    if days_data:
-        df = pd.DataFrame(days_data)
-        st.dataframe(df, use_container_width=True)
-else:
-    st.info("Day-specific targets will be generated based on your weekly schedule. The base targets above will be used for all days.")
+    days_data.append({
+        "Day": day,
+        "Calories": f"{day_target_calories:,.0f}",
+        "Protein": f"{day_macros['protein']:.0f}g",
+        "Carbs": f"{day_macros['carbs']:.0f}g", 
+        "Fat": f"{day_macros['fat']:.0f}g"
+    })
+
+df = pd.DataFrame(days_data)
+st.dataframe(df, use_container_width=True)
+
+# Store the corrected day-specific nutrition in session state
+if 'day_specific_nutrition' not in st.session_state:
+    st.session_state.day_specific_nutrition = {}
+
+for i, day in enumerate(days_of_week):
+    day_schedule = st.session_state.confirmed_weekly_schedule.get(day, {})
+    day_tdee = day_schedule.get('estimated_tdee', target_calories)
+    day_macros = utils.calculate_macros(day_tdee, weight_kg, goal_type)
+    
+    st.session_state.day_specific_nutrition[day] = {
+        'target_calories': day_tdee,
+        'protein': day_macros['protein'],
+        'carbs': day_macros['carbs'],
+        'fat': day_macros['fat']
+    }
 
 st.markdown("---")
 
