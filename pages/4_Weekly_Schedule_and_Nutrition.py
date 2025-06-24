@@ -94,14 +94,13 @@ with sleep_col2:
     # Meal setup
     st.subheader("Default Meal Schedule")
     
-    # Get default value from diet preferences if available
-    default_meals = 4  # fallback default
+    # Get meal count from diet preferences - no longer ask for it here
     if 'diet_preferences' in st.session_state and 'meal_frequency' in st.session_state.diet_preferences:
-        default_meals = st.session_state.diet_preferences['meal_frequency']
-    
-    # Meal count will be set in Diet Preferences and customized in Nutrition Targets
-    # Use the value from diet preferences
-    meals_per_day = st.session_state.diet_preferences.get('meal_frequency', 3)
+        meals_per_day = st.session_state.diet_preferences['meal_frequency']
+        st.info(f"Using {meals_per_day} meals per day from your Diet Preferences. You can customize this per day in the Nutrition Targets page.")
+    else:
+        meals_per_day = 3  # fallback
+        st.warning("Please complete Diet Preferences first to set your meal frequency.")
     
     # Default meal times based on number of meals
     meal_time_suggestions = {

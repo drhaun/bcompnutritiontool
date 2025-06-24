@@ -236,7 +236,11 @@ else:
 st.write(f"🔥 Estimated TDEE: {day_tdee:.0f} calories")
 
 # Get default meal settings from diet preferences
-default_meal_count = st.session_state.diet_preferences.get('meal_frequency', 3)
+if 'diet_preferences' in st.session_state and 'meal_frequency' in st.session_state.diet_preferences:
+    default_meal_count = st.session_state.diet_preferences['meal_frequency']
+else:
+    default_meal_count = 3
+    st.warning("Diet preferences not found. Using default of 3 meals per day.")
 
 # Get existing settings for this day or use defaults
 day_meal_settings = st.session_state.day_specific_meals.get(customize_day, {
@@ -346,8 +350,14 @@ st.markdown("Based on your meal preferences and day-specific customizations:")
 # Show weekly meal distribution summary
 weekly_meal_summary = []
 for day in days_of_week:
+    # Get default meal count from diet preferences
+    if 'diet_preferences' in st.session_state and 'meal_frequency' in st.session_state.diet_preferences:
+        default_meal_freq = st.session_state.diet_preferences['meal_frequency']
+    else:
+        default_meal_freq = 3
+    
     day_settings = st.session_state.day_specific_meals.get(day, {
-        'meal_count': st.session_state.diet_preferences.get('meal_frequency', 3),
+        'meal_count': default_meal_freq,
         'meal_times': []
     })
     
@@ -372,7 +382,7 @@ st.dataframe(weekly_df, use_container_width=True)
 
 # Example meal distribution for the selected day
 selected_day_settings = st.session_state.day_specific_meals.get(customize_day, {
-    'meal_count': st.session_state.diet_preferences.get('meal_frequency', 3)
+    'meal_count': default_meal_count
 })
 
 example_meal_count = selected_day_settings['meal_count']
