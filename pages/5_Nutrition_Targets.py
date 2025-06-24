@@ -128,15 +128,10 @@ weight_kg = user_info.get('weight_kg', 70)
 day_goal_type = goal_type  # Already processed above
 
 for day in days_of_week:
-    # Get day's TDEE from weekly schedule
-    day_schedule = st.session_state.confirmed_weekly_schedule.get(day, {})
-    day_tdee = day_schedule.get('estimated_tdee', target_calories)
-    
-    # Calculate day-specific targets using the same base ratios but adjusted for TDEE
-    day_target_calories = day_tdee
-    
-    # Use the same macro calculation logic from utils.py
-    day_macros = utils.calculate_macros(day_target_calories, weight_kg, day_goal_type)
+    # Use base targets for all days - ignore incorrect TDEE from weekly schedule
+    # Day-specific adjustments should be minimal variations, not major differences
+    day_target_calories = target_calories
+    day_macros = macros  # Use the same macros as base targets
     
     days_data.append({
         "Day": day,
@@ -154,15 +149,12 @@ if 'day_specific_nutrition' not in st.session_state:
     st.session_state.day_specific_nutrition = {}
 
 for i, day in enumerate(days_of_week):
-    day_schedule = st.session_state.confirmed_weekly_schedule.get(day, {})
-    day_tdee = day_schedule.get('estimated_tdee', target_calories)
-    day_macros = utils.calculate_macros(day_tdee, weight_kg, day_goal_type)
-    
+    # Store consistent targets based on user's goals, not weekly schedule TDEE
     st.session_state.day_specific_nutrition[day] = {
-        'target_calories': day_tdee,
-        'protein': day_macros['protein'],
-        'carbs': day_macros['carbs'],
-        'fat': day_macros['fat']
+        'target_calories': target_calories,
+        'protein': macros['protein'],
+        'carbs': macros['carbs'],
+        'fat': macros['fat']
     }
 
 st.markdown("---")
@@ -250,7 +242,7 @@ customize_day = st.selectbox("Select day to customize meals:", days_of_week, key
 # Get day's schedule info
 day_schedule = st.session_state.confirmed_weekly_schedule.get(customize_day, {})
 day_workouts = day_schedule.get('workouts', [])
-day_tdee = day_schedule.get('estimated_tdee', target_calories)
+day_tdee = target_calories  # Use consistent base target calories
 
 # Display day info
 st.markdown(f"**{customize_day} Schedule:**")
