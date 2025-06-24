@@ -221,8 +221,12 @@ comp_data = {
 comp_df = pd.DataFrame(comp_data)
 st.dataframe(comp_df, use_container_width=True)
 
-# SECTION 2: Reference photos in collapsible section
-with st.expander("📷 View Body Fat Percentage Reference Photos"):
+# SECTION 2: Target Body Composition Planning
+st.write("### Target Body Composition Planning")
+st.write("Set your goals for body composition changes. Use the reference information below to guide your target selection.")
+
+# Reference sections moved here to help guide target setting
+with st.expander("View Body Fat Percentage Reference Photos"):
     ref_photo_path = "images/ref_photos.jpg"
     if os.path.exists(ref_photo_path):
         st.image(ref_photo_path, caption="Body Fat Percentage Reference - Men (top) and Women (bottom)", use_container_width=True)
@@ -235,8 +239,7 @@ with st.expander("📷 View Body Fat Percentage Reference Photos"):
             st.warning("Reference photos not available. Visit the Reference Photos page for examples.")
             st.link_button("Go to Reference Photos", url="Reference_Photos")
 
-# SECTION 2.5: Fat Mass and Fat-Free Mass Index information
-with st.expander("📊 View Detailed Information on Fat Mass Index and Fat-Free Mass Index"):
+with st.expander("View Detailed Information on Fat Mass Index and Fat-Free Mass Index"):
     st.subheader("Body Composition Indices Explained")
     
     # Fat Mass Index explanation

@@ -362,31 +362,5 @@ with info_col2:
 if st.session_state.diet_preferences.get('allergies') or st.session_state.diet_preferences.get('dietary_restrictions'):
     st.info("**Safety First**: Your allergies and dietary restrictions are prioritized in all meal suggestions to keep you safe and aligned with your lifestyle.")
 
-with delivery_col1:
-    st.markdown("""
-    **Grocery Delivery Services:**
-    - 🛒 **Instacart**: Wide selection from local stores
-    - 🛍️ **Shipt**: Same-day delivery from Target and more
-    - 📦 **Amazon Fresh**: Fast delivery with Prime
-    
-    *Integration based on your ZIP code and preferences*
-    """)
-
-with delivery_col2:
-    st.markdown("""
-    **Meal Delivery Services:**
-    - 🍔 **DoorDash**: Restaurant meals that fit your macros
-    - 🚗 **Uber Eats**: Quick delivery from local restaurants
-    - 🍽️ **Grubhub**: Wide variety of cuisine options
-    
-    *Filtered by your dietary restrictions and goals*
-    """)
-
-# Show integration status based on preferences
-if st.session_state.diet_preferences.get('primary_zip_code'):
-    st.success(f"✅ Ready for delivery integration in {st.session_state.diet_preferences['primary_zip_code']}")
-else:
-    st.info("💡 Add your ZIP code above to enable delivery service integration")
-
 st.markdown("---")
-st.markdown("👈 Use the sidebar to navigate to **DIY Meal Planning** or **AI Meal Planning** to see your preferences in action!")
+st.markdown("Use the sidebar to navigate to **DIY Meal Planning** or **AI Meal Planning** to see your preferences in action!")
