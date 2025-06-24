@@ -207,28 +207,196 @@ else:
 
 st.markdown("---")
 
+# Day-specific meal customization
+st.markdown("### Day-Specific Meal Customization")
+st.markdown("Customize meal count and timing for each day based on your training schedule and preferences.")
+
+# Initialize day-specific meal settings if not exists
+if 'day_specific_meals' not in st.session_state:
+    st.session_state.day_specific_meals = {}
+
+days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+# Day selector for customization
+customize_day = st.selectbox("Select day to customize meals:", days_of_week, key="meal_customize_day")
+
+# Get day's schedule info
+day_schedule = st.session_state.confirmed_weekly_schedule.get(customize_day, {})
+day_workouts = day_schedule.get('workouts', [])
+day_tdee = day_schedule.get('estimated_tdee', target_calories)
+
+# Display day info
+st.markdown(f"**{customize_day} Schedule:**")
+if day_workouts:
+    workout_info = ", ".join([f"{w.get('name', 'Workout')} ({w.get('intensity', 'Moderate')})" for w in day_workouts])
+    st.write(f"🏋️ Workouts: {workout_info}")
+else:
+    st.write("🏋️ Rest Day")
+
+st.write(f"🔥 Estimated TDEE: {day_tdee:.0f} calories")
+
+# Get default meal settings from diet preferences
+default_meal_count = st.session_state.diet_preferences.get('meal_frequency', 3)
+
+# Get existing settings for this day or use defaults
+day_meal_settings = st.session_state.day_specific_meals.get(customize_day, {
+    'meal_count': default_meal_count,
+    'use_custom_timing': False,
+    'meal_times': []
+})
+
+meal_col1, meal_col2 = st.columns(2)
+
+with meal_col1:
+    # Meal count for this day
+    day_meal_count = st.number_input(
+        f"Number of meals on {customize_day}",
+        min_value=2,
+        max_value=8,
+        value=day_meal_settings['meal_count'],
+        key=f"meal_count_{customize_day}",
+        help="Adjust based on your schedule and preferences for this day"
+    )
+
+with meal_col2:
+    # Custom timing option
+    use_custom_timing = st.checkbox(
+        f"Custom meal timing for {customize_day}",
+        value=day_meal_settings['use_custom_timing'],
+        key=f"custom_timing_{customize_day}",
+        help="Set specific meal times for this day"
+    )
+
+# Default meal time suggestions based on count
+default_meal_times = {
+    2: ["08:00", "18:00"],
+    3: ["07:00", "12:00", "18:00"],
+    4: ["07:00", "10:00", "13:00", "18:00"],
+    5: ["07:00", "10:00", "13:00", "16:00", "19:00"],
+    6: ["07:00", "10:00", "12:00", "15:00", "17:00", "20:00"],
+    7: ["07:00", "09:00", "11:00", "13:00", "15:00", "17:00", "20:00"],
+    8: ["07:00", "09:00", "11:00", "13:00", "15:00", "17:00", "19:00", "21:00"]
+}
+
+meal_times = default_meal_times.get(day_meal_count, ["07:00", "12:00", "18:00"])
+
+if use_custom_timing:
+    st.markdown(f"**Set meal times for {customize_day}:**")
+    custom_times = []
+    
+    for i in range(day_meal_count):
+        default_time = meal_times[i] if i < len(meal_times) else "12:00"
+        if i < len(day_meal_settings.get('meal_times', [])):
+            default_time = day_meal_settings['meal_times'][i]
+            
+        meal_time = st.time_input(
+            f"Meal {i+1} time",
+            value=pd.to_datetime(default_time).time(),
+            key=f"meal_time_{customize_day}_{i}"
+        )
+        custom_times.append(meal_time.strftime("%H:%M"))
+    
+    meal_times = custom_times
+
+# Update day-specific settings
+st.session_state.day_specific_meals[customize_day] = {
+    'meal_count': day_meal_count,
+    'use_custom_timing': use_custom_timing,
+    'meal_times': meal_times
+}
+
+# Show meal schedule preview for this day
+st.markdown(f"**{customize_day} Meal Schedule Preview:**")
+meal_names = ["Breakfast", "Mid-Morning", "Lunch", "Afternoon", "Dinner", "Evening", "Late Evening", "Night"]
+
+day_meal_preview = []
+for i, meal_time in enumerate(meal_times):
+    meal_name = meal_names[i] if i < len(meal_names) else f"Meal {i+1}"
+    day_meal_preview.append(f"{meal_time} - {meal_name}")
+
+st.write(" • ".join(day_meal_preview))
+
+if st.button(f"Apply to All Similar Days", key=f"apply_similar_{customize_day}"):
+    # Apply to days with similar workout patterns
+    similar_days = []
+    current_workout_count = len(day_workouts)
+    
+    for day in days_of_week:
+        if day != customize_day:
+            day_data = st.session_state.confirmed_weekly_schedule.get(day, {})
+            if len(day_data.get('workouts', [])) == current_workout_count:
+                similar_days.append(day)
+                st.session_state.day_specific_meals[day] = {
+                    'meal_count': day_meal_count,
+                    'use_custom_timing': use_custom_timing,
+                    'meal_times': meal_times
+                }
+    
+    if similar_days:
+        st.success(f"Applied meal settings to similar days: {', '.join(similar_days)}")
+    else:
+        st.info("No similar days found to apply settings to.")
+
+st.markdown("---")
+
 # Meal distribution preview
-st.markdown("### Meal Distribution Preview")
-st.markdown("Based on your preference for {} meals per day:".format(st.session_state.diet_preferences.get('meal_frequency', 3)))
+st.markdown("### Overall Meal Distribution Preview")
+st.markdown("Based on your meal preferences and day-specific customizations:")
 
-meal_frequency = st.session_state.diet_preferences.get('meal_frequency', 3)
+# Show weekly meal distribution summary
+weekly_meal_summary = []
+for day in days_of_week:
+    day_settings = st.session_state.day_specific_meals.get(day, {
+        'meal_count': st.session_state.diet_preferences.get('meal_frequency', 3),
+        'meal_times': []
+    })
+    
+    meal_count = day_settings['meal_count']
+    meal_times = day_settings.get('meal_times', [])
+    
+    if meal_times:
+        times_display = ", ".join(meal_times)
+    else:
+        # Use default times
+        default_times = default_meal_times.get(meal_count, ["07:00", "12:00", "18:00"])
+        times_display = ", ".join(default_times)
+    
+    weekly_meal_summary.append({
+        "Day": day,
+        "Meals": meal_count,
+        "Times": times_display
+    })
 
-# Create meal distribution
-if meal_frequency == 2:
-    meal_names = ["Breakfast", "Dinner"]
-    meal_percentages = [0.4, 0.6]
-elif meal_frequency == 3:
-    meal_names = ["Breakfast", "Lunch", "Dinner"]
-    meal_percentages = [0.25, 0.35, 0.4]
-elif meal_frequency == 4:
-    meal_names = ["Breakfast", "Lunch", "Dinner", "Snack"]
-    meal_percentages = [0.25, 0.3, 0.35, 0.1]
-elif meal_frequency == 5:
-    meal_names = ["Breakfast", "Mid-Morning", "Lunch", "Dinner", "Evening Snack"]
-    meal_percentages = [0.25, 0.1, 0.3, 0.25, 0.1]
-else:  # 6 meals
-    meal_names = ["Breakfast", "Mid-Morning", "Lunch", "Afternoon", "Dinner", "Evening"]
-    meal_percentages = [0.2, 0.1, 0.25, 0.15, 0.25, 0.05]
+weekly_df = pd.DataFrame(weekly_meal_summary)
+st.dataframe(weekly_df, use_container_width=True)
+
+# Example meal distribution for the selected day
+selected_day_settings = st.session_state.day_specific_meals.get(customize_day, {
+    'meal_count': st.session_state.diet_preferences.get('meal_frequency', 3)
+})
+
+example_meal_count = selected_day_settings['meal_count']
+
+# Create meal distribution based on meal count
+def get_meal_distribution(meal_count):
+    if meal_count == 2:
+        return ["Breakfast", "Dinner"], [0.4, 0.6]
+    elif meal_count == 3:
+        return ["Breakfast", "Lunch", "Dinner"], [0.25, 0.35, 0.4]
+    elif meal_count == 4:
+        return ["Breakfast", "Lunch", "Dinner", "Snack"], [0.25, 0.3, 0.35, 0.1]
+    elif meal_count == 5:
+        return ["Breakfast", "Mid-Morning", "Lunch", "Dinner", "Evening Snack"], [0.25, 0.1, 0.3, 0.25, 0.1]
+    elif meal_count == 6:
+        return ["Breakfast", "Mid-Morning", "Lunch", "Afternoon", "Dinner", "Evening"], [0.2, 0.1, 0.25, 0.15, 0.25, 0.05]
+    elif meal_count == 7:
+        return ["Breakfast", "Mid-Morning", "Lunch", "Afternoon", "Pre-Dinner", "Dinner", "Evening"], [0.2, 0.08, 0.22, 0.12, 0.08, 0.25, 0.05]
+    else:  # 8 meals
+        return ["Breakfast", "Mid-Morning", "Lunch", "Afternoon", "Pre-Dinner", "Dinner", "Evening", "Night"], [0.18, 0.07, 0.2, 0.1, 0.07, 0.23, 0.1, 0.05]
+
+meal_names, meal_percentages = get_meal_distribution(example_meal_count)
+
+st.markdown(f"**Example Distribution for {customize_day} ({example_meal_count} meals):**")
 
 # Display meal breakdown
 meal_data = []
@@ -261,7 +429,9 @@ st.session_state.final_nutrition_targets = {
     'carbs': final_carbs,
     'fat': final_fat,
     'meal_distribution': meal_data,
-    'customized': customize_targets
+    'customized': customize_targets,
+    'day_specific_meals': st.session_state.day_specific_meals,
+    'weekly_meal_summary': weekly_meal_summary
 }
 
 confirm_col1, confirm_col2 = st.columns(2)

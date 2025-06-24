@@ -14,7 +14,7 @@ import utils
 
 # Set page title and layout
 st.set_page_config(
-    page_title="Fitomics - Weekly Schedule & Nutrition",
+    page_title="Fitomics - Weekly Schedule",
     page_icon="📅",
     layout="wide"
 )
@@ -41,7 +41,7 @@ if 'day_specific_nutrition' not in st.session_state:
 days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 # Setup page header with Fitomics branding
-st.title("Weekly Schedule & Nutrition Planner")
+st.title("📅 Weekly Schedule")
 
 # Focus on weekly schedule only - nutrition targets moved to separate page
 st.markdown("Create your weekly schedule to calculate your daily energy needs. Your activity levels and workout schedule will be used to determine your personalized nutrition targets.")
@@ -99,8 +99,9 @@ with sleep_col2:
     if 'diet_preferences' in st.session_state and 'meal_frequency' in st.session_state.diet_preferences:
         default_meals = st.session_state.diet_preferences['meal_frequency']
     
-    meals_per_day = st.slider("Number of meals per day", min_value=2, max_value=8, value=default_meals, 
-                             help="This includes main meals and snacks.")
+    # Meal count will be set in Diet Preferences and customized in Nutrition Targets
+    # Use the value from diet preferences
+    meals_per_day = st.session_state.diet_preferences.get('meal_frequency', 3)
     
     # Default meal times based on number of meals
     meal_time_suggestions = {
