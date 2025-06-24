@@ -406,42 +406,238 @@ def get_meal_distribution(meal_count):
 
 meal_names, meal_percentages = get_meal_distribution(example_meal_count)
 
-st.markdown(f"**Example Distribution for {customize_day} ({example_meal_count} meals):**")
+# Advanced per-meal macro customization
+st.markdown("### Per-Meal Macro Customization")
+st.markdown(f"Customize individual meal targets for **{customize_day}** ({example_meal_count} meals):")
 
-# Display meal breakdown
-meal_data = []
-for i, (meal_name, percentage) in enumerate(zip(meal_names, meal_percentages)):
-    meal_calories = final_calories * percentage
-    meal_protein = final_protein * percentage
-    meal_carbs = final_carbs * percentage
-    meal_fat = final_fat * percentage
+# Initialize per-meal customization state
+if 'per_meal_macros' not in st.session_state:
+    st.session_state.per_meal_macros = {}
+
+if customize_day not in st.session_state.per_meal_macros:
+    # Initialize with default distribution
+    meal_names, meal_percentages = get_meal_distribution(example_meal_count)
+    default_meals = []
+    for i, (meal_name, percentage) in enumerate(zip(meal_names, meal_percentages)):
+        default_meals.append({
+            "name": meal_name,
+            "calories": final_calories * percentage,
+            "protein": final_protein * percentage,
+            "carbs": final_carbs * percentage,
+            "fat": final_fat * percentage,
+            "time": selected_day_settings.get('meal_times', default_meal_times.get(example_meal_count, ["07:00", "12:00", "18:00"]))[i] if i < len(selected_day_settings.get('meal_times', [])) else default_meal_times.get(example_meal_count, ["07:00", "12:00", "18:00"])[i] if i < len(default_meal_times.get(example_meal_count, ["07:00", "12:00", "18:00"])) else "12:00"
+        })
+    st.session_state.per_meal_macros[customize_day] = default_meals
+
+# Daily budget display
+st.markdown("#### Daily Macro Budget")
+budget_col1, budget_col2, budget_col3, budget_col4 = st.columns(4)
+
+with budget_col1:
+    st.metric("Target Calories", f"{final_calories:.0f}")
+with budget_col2:
+    st.metric("Target Protein", f"{final_protein:.0f}g")
+with budget_col3:
+    st.metric("Target Carbs", f"{final_carbs:.0f}g")
+with budget_col4:
+    st.metric("Target Fat", f"{final_fat:.0f}g")
+
+# Calculate current totals from customized meals
+current_day_meals = st.session_state.per_meal_macros[customize_day]
+total_calories = sum([meal["calories"] for meal in current_day_meals])
+total_protein = sum([meal["protein"] for meal in current_day_meals])
+total_carbs = sum([meal["carbs"] for meal in current_day_meals])
+total_fat = sum([meal["fat"] for meal in current_day_meals])
+
+# Show current vs target
+st.markdown("#### Current Meal Plan vs Targets")
+current_col1, current_col2, current_col3, current_col4 = st.columns(4)
+
+with current_col1:
+    cal_diff = total_calories - final_calories
+    st.metric("Current Calories", f"{total_calories:.0f}", delta=f"{cal_diff:+.0f}")
+with current_col2:
+    protein_diff = total_protein - final_protein
+    st.metric("Current Protein", f"{total_protein:.0f}g", delta=f"{protein_diff:+.0f}g")
+with current_col3:
+    carbs_diff = total_carbs - final_carbs
+    st.metric("Current Carbs", f"{total_carbs:.0f}g", delta=f"{carbs_diff:+.0f}g")
+with current_col4:
+    fat_diff = total_fat - final_fat
+    st.metric("Current Fat", f"{total_fat:.0f}g", delta=f"{fat_diff:+.0f}g")
+
+# Per-meal customization interface
+st.markdown("#### Individual Meal Customization")
+
+for i, meal in enumerate(current_day_meals):
+    with st.expander(f"🍽️ {meal['name']} - {meal['time']}", expanded=False):
+        meal_col1, meal_col2 = st.columns(2)
+        
+        with meal_col1:
+            # Meal timing
+            meal_time = st.time_input(
+                "Meal Time",
+                value=pd.to_datetime(meal['time']).time(),
+                key=f"meal_time_custom_{customize_day}_{i}"
+            )
+            
+            # Calories
+            meal_calories = st.number_input(
+                "Calories",
+                min_value=50,
+                max_value=int(final_calories),
+                value=int(meal['calories']),
+                step=25,
+                key=f"meal_cal_{customize_day}_{i}"
+            )
+            
+            # Protein
+            meal_protein = st.number_input(
+                "Protein (g)",
+                min_value=5,
+                max_value=int(final_protein),
+                value=int(meal['protein']),
+                step=2,
+                key=f"meal_protein_{customize_day}_{i}"
+            )
+        
+        with meal_col2:
+            # Show percentage of daily total
+            cal_pct = (meal_calories / final_calories) * 100 if final_calories > 0 else 0
+            protein_pct = (meal_protein / final_protein) * 100 if final_protein > 0 else 0
+            
+            st.markdown(f"**% of Daily Target:**")
+            st.write(f"Calories: {cal_pct:.1f}%")
+            st.write(f"Protein: {protein_pct:.1f}%")
+            
+            # Carbs
+            meal_carbs = st.number_input(
+                "Carbs (g)",
+                min_value=5,
+                max_value=int(final_carbs),
+                value=int(meal['carbs']),
+                step=5,
+                key=f"meal_carbs_{customize_day}_{i}"
+            )
+            
+            # Fat
+            meal_fat = st.number_input(
+                "Fat (g)",
+                min_value=2,
+                max_value=int(final_fat),
+                value=int(meal['fat']),
+                step=2,
+                key=f"meal_fat_{customize_day}_{i}"
+            )
+        
+        # Update meal in session state
+        st.session_state.per_meal_macros[customize_day][i] = {
+            "name": meal['name'],
+            "time": meal_time.strftime("%H:%M"),
+            "calories": meal_calories,
+            "protein": meal_protein,
+            "carbs": meal_carbs,
+            "fat": meal_fat
+        }
+        
+        # Quick adjustment buttons
+        quick_col1, quick_col2, quick_col3 = st.columns(3)
+        
+        with quick_col1:
+            if st.button(f"Reset to Default", key=f"reset_{customize_day}_{i}"):
+                # Reset to default percentage distribution
+                meal_names, meal_percentages = get_meal_distribution(example_meal_count)
+                percentage = meal_percentages[i] if i < len(meal_percentages) else 0.2
+                st.session_state.per_meal_macros[customize_day][i].update({
+                    "calories": final_calories * percentage,
+                    "protein": final_protein * percentage,
+                    "carbs": final_carbs * percentage,
+                    "fat": final_fat * percentage
+                })
+                st.rerun()
+        
+        with quick_col2:
+            if st.button(f"Make High Protein", key=f"high_protein_{customize_day}_{i}"):
+                # Increase protein, adjust other macros
+                current_cal = st.session_state.per_meal_macros[customize_day][i]["calories"]
+                new_protein = min(current_cal * 0.4 / 4, final_protein * 0.8)  # 40% calories from protein, max 80% of daily
+                remaining_cal = current_cal - (new_protein * 4)
+                new_carbs = remaining_cal * 0.4 / 4  # 40% of remaining from carbs
+                new_fat = remaining_cal * 0.6 / 9    # 60% of remaining from fat
+                
+                st.session_state.per_meal_macros[customize_day][i].update({
+                    "protein": new_protein,
+                    "carbs": new_carbs,
+                    "fat": new_fat
+                })
+                st.rerun()
+        
+        with quick_col3:
+            if st.button(f"Make Pre-Workout", key=f"pre_workout_{customize_day}_{i}"):
+                # Higher carbs, moderate protein, lower fat
+                current_cal = st.session_state.per_meal_macros[customize_day][i]["calories"]
+                new_carbs = current_cal * 0.6 / 4    # 60% from carbs
+                new_protein = current_cal * 0.25 / 4  # 25% from protein
+                new_fat = current_cal * 0.15 / 9      # 15% from fat
+                
+                st.session_state.per_meal_macros[customize_day][i].update({
+                    "protein": new_protein,
+                    "carbs": new_carbs,
+                    "fat": new_fat
+                })
+                st.rerun()
+
+# Auto-balance button
+if st.button(f"Auto-Balance Remaining Macros", key=f"auto_balance_{customize_day}"):
+    # Redistribute any remaining macros proportionally
+    remaining_cal = final_calories - total_calories
+    remaining_protein = final_protein - total_protein
+    remaining_carbs = final_carbs - total_carbs
+    remaining_fat = final_fat - total_fat
     
-    meal_data.append({
-        "Meal": meal_name,
-        "Calories": f"{meal_calories:.0f}",
-        "Protein": f"{meal_protein:.0f}g",
-        "Carbs": f"{meal_carbs:.0f}g",
-        "Fat": f"{meal_fat:.0f}g"
+    if abs(remaining_cal) > 10:  # Only if there's a significant difference
+        for i, meal in enumerate(st.session_state.per_meal_macros[customize_day]):
+            meal_proportion = meal["calories"] / total_calories if total_calories > 0 else 1/len(st.session_state.per_meal_macros[customize_day])
+            
+            st.session_state.per_meal_macros[customize_day][i]["calories"] += remaining_cal * meal_proportion
+            st.session_state.per_meal_macros[customize_day][i]["protein"] += remaining_protein * meal_proportion
+            st.session_state.per_meal_macros[customize_day][i]["carbs"] += remaining_carbs * meal_proportion
+            st.session_state.per_meal_macros[customize_day][i]["fat"] += remaining_fat * meal_proportion
+        
+        st.success("Macros automatically balanced across meals!")
+        st.rerun()
+
+# Display updated meal plan summary
+st.markdown("#### Updated Meal Plan Summary")
+updated_meal_data = []
+for meal in current_day_meals:
+    updated_meal_data.append({
+        "Meal": f"{meal['name']} ({meal['time']})",
+        "Calories": f"{meal['calories']:.0f}",
+        "Protein": f"{meal['protein']:.0f}g",
+        "Carbs": f"{meal['carbs']:.0f}g",
+        "Fat": f"{meal['fat']:.0f}g"
     })
 
-meal_df = pd.DataFrame(meal_data)
-st.dataframe(meal_df, use_container_width=True)
+updated_df = pd.DataFrame(updated_meal_data)
+st.dataframe(updated_df, use_container_width=True)
 
 st.markdown("---")
 
 # Confirmation section
 st.markdown("### Confirm Your Nutrition Targets")
 
-# Store final targets in session state
+# Store final targets in session state including per-meal customizations
 st.session_state.final_nutrition_targets = {
     'calories': final_calories,
     'protein': final_protein,
     'carbs': final_carbs,
     'fat': final_fat,
-    'meal_distribution': meal_data,
+    'meal_distribution': updated_meal_data,
     'customized': customize_targets,
     'day_specific_meals': st.session_state.day_specific_meals,
-    'weekly_meal_summary': weekly_meal_summary
+    'weekly_meal_summary': weekly_meal_summary,
+    'per_meal_macros': st.session_state.get('per_meal_macros', {})
 }
 
 confirm_col1, confirm_col2 = st.columns(2)
