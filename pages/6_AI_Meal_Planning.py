@@ -1,2764 +1,454 @@
 import streamlit as st
 import pandas as pd
 import json
-import sys
 import os
-import random
-import math
-from datetime import datetime, date, timedelta
-from openai import OpenAI
-from fpdf import FPDF
-from collections import defaultdict
+from datetime import datetime, time
+import copy
 
-# Import utilities
-sys.path.append(os.path.abspath(os.path.dirname(__file__) + '/../'))
+# Import our modules
 import utils
+import fdc_api
+import macro_validator
+from nutrition_cache import NutritionCache
+from pdf_export import export_meal_plan_pdf
 
-# Initialize OpenAI client
+# OpenAI Integration
 def get_openai_client():
-    """Get OpenAI client with API key"""
+    """Get OpenAI client if API key is available"""
     try:
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            return None
-        return OpenAI(api_key=api_key)
-    except Exception as e:
-        st.error(f"Error initializing OpenAI: {str(e)}")
-        return None
+        import openai
+        api_key = os.environ.get('OPENAI_API_KEY')
+        if api_key:
+            return openai.OpenAI(api_key=api_key)
+    except ImportError:
+        pass
+    return None
 
-st.set_page_config(page_title="AI Meal Planner", page_icon="🤖", layout="wide")
-
-# Load Fitomics recipes
-@st.cache_data
-def load_fitomics_recipes():
+def generate_ai_meal_plan(meal_targets, diet_preferences, meal_config, openai_client):
+    """Generate complete AI meal plan using OpenAI"""
     try:
-        with open('data/fitomics_recipes.json', 'r') as f:
-            recipes = json.load(f)
-            return recipes
-    except Exception as e:
-        st.error(f"Error loading recipes: {str(e)}")
-        return []
+        # Build comprehensive prompt
+        prompt = f"""
+Create a complete daily meal plan with the following specifications:
 
-def calculate_recipe_macros_from_ingredients(recipe, ingredient_adjustments):
-    """Calculate macros based on individual ingredient adjustments"""
-    # Comprehensive nutritional database per gram
-    ingredient_nutrition = {
-        # Proteins
-        'egg whites': {'calories': 0.52, 'protein': 0.109, 'carbs': 0.007, 'fat': 0.002},
-        'egg white': {'calories': 0.52, 'protein': 0.109, 'carbs': 0.007, 'fat': 0.002},
-        'eggs': {'calories': 1.55, 'protein': 0.13, 'carbs': 0.011, 'fat': 0.11},
-        'egg': {'calories': 1.55, 'protein': 0.13, 'carbs': 0.011, 'fat': 0.11},
-        'chocolate protein powder': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
-        'protein powder': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
-        'vanilla protein': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
-        'whey protein': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
-        
-        # Carbohydrates
-        'banana': {'calories': 0.89, 'protein': 0.011, 'carbs': 0.228, 'fat': 0.003},
-        'bananas': {'calories': 0.89, 'protein': 0.011, 'carbs': 0.228, 'fat': 0.003},
-        'oats': {'calories': 3.89, 'protein': 0.17, 'carbs': 0.66, 'fat': 0.07},
-        'oat': {'calories': 3.89, 'protein': 0.17, 'carbs': 0.66, 'fat': 0.07},
-        'rolled oats': {'calories': 3.89, 'protein': 0.17, 'carbs': 0.66, 'fat': 0.07},
-        'rice': {'calories': 1.3, 'protein': 0.027, 'carbs': 0.28, 'fat': 0.003},
-        'white rice': {'calories': 1.3, 'protein': 0.027, 'carbs': 0.28, 'fat': 0.003},
-        'brown rice': {'calories': 1.12, 'protein': 0.026, 'carbs': 0.23, 'fat': 0.009},
-        'sweet potato': {'calories': 0.86, 'protein': 0.02, 'carbs': 0.20, 'fat': 0.001},
-        'potato': {'calories': 0.77, 'protein': 0.02, 'carbs': 0.17, 'fat': 0.001},
-        
-        # Fats
-        'olive oil': {'calories': 8.84, 'protein': 0.0, 'carbs': 0.0, 'fat': 1.0},
-        'coconut oil': {'calories': 8.62, 'protein': 0.0, 'carbs': 0.0, 'fat': 0.99},
-        'butter': {'calories': 7.17, 'protein': 0.009, 'carbs': 0.006, 'fat': 0.81},
-        'almond butter': {'calories': 6.14, 'protein': 0.21, 'carbs': 0.19, 'fat': 0.56},
-        'peanut butter': {'calories': 5.88, 'protein': 0.25, 'carbs': 0.20, 'fat': 0.50},
-        'almonds': {'calories': 5.79, 'protein': 0.21, 'carbs': 0.22, 'fat': 0.50},
-        'walnuts': {'calories': 6.54, 'protein': 0.15, 'carbs': 0.14, 'fat': 0.65},
-        'avocado': {'calories': 1.6, 'protein': 0.02, 'carbs': 0.085, 'fat': 0.147},
-        
-        # Dairy
-        'milk': {'calories': 0.42, 'protein': 0.034, 'carbs': 0.05, 'fat': 0.01},
-        'greek yogurt': {'calories': 0.59, 'protein': 0.10, 'carbs': 0.036, 'fat': 0.004},
-        'cottage cheese': {'calories': 0.98, 'protein': 0.11, 'carbs': 0.036, 'fat': 0.043},
-        'cheese': {'calories': 4.02, 'protein': 0.25, 'carbs': 0.013, 'fat': 0.333},
-        
-        # Common additions
-        'baking soda': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
-        'baking powder': {'calories': 0.53, 'protein': 0, 'carbs': 0.13, 'fat': 0},
-        'vanilla': {'calories': 2.88, 'protein': 0, 'carbs': 0.13, 'fat': 0},
-        'cinnamon': {'calories': 2.47, 'protein': 0.04, 'carbs': 0.81, 'fat': 0.01},
-        'salt': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
-        'honey': {'calories': 3.04, 'protein': 0.003, 'carbs': 0.824, 'fat': 0},
-        'maple syrup': {'calories': 2.60, 'protein': 0.004, 'carbs': 0.677, 'fat': 0.006}
-    }
-    
-    total_calories = 0
-    total_protein = 0
-    total_carbs = 0
-    total_fat = 0
-    
-    for ingredient, multiplier in ingredient_adjustments.items():
-        if multiplier <= 0:
-            continue
-            
-        ingredient_lower = ingredient.lower().strip()
-        
-        # Extract quantity and unit
-        import re
-        estimated_grams = 0
-        
-        # Parse quantities with units
-        if 'scoop' in ingredient_lower and 'protein' in ingredient_lower:
-            estimated_grams = 30 * multiplier
-        elif 'tbsp' in ingredient_lower or 'tablespoon' in ingredient_lower:
-            if any(oil in ingredient_lower for oil in ['oil', 'butter']):
-                estimated_grams = 14 * multiplier
-            else:
-                estimated_grams = 15 * multiplier
-        elif 'tsp' in ingredient_lower or 'teaspoon' in ingredient_lower:
-            estimated_grams = 4 * multiplier
-        elif 'cup' in ingredient_lower:
-            if 'oat' in ingredient_lower:
-                estimated_grams = 80 * multiplier
-            elif 'milk' in ingredient_lower:
-                estimated_grams = 240 * multiplier
-            else:
-                estimated_grams = 150 * multiplier
-        elif 'medium' in ingredient_lower and 'banana' in ingredient_lower:
-            estimated_grams = 115 * multiplier
-        elif 'large' in ingredient_lower and 'banana' in ingredient_lower:
-            estimated_grams = 135 * multiplier
-        elif 'small' in ingredient_lower and 'banana' in ingredient_lower:
-            estimated_grams = 90 * multiplier
-        elif 'g' in ingredient_lower:
-            gram_match = re.search(r'(\d+)\s*g', ingredient_lower)
-            if gram_match:
-                estimated_grams = int(gram_match.group(1)) * multiplier
-        elif any(char.isdigit() for char in ingredient):
-            numbers = re.findall(r'\d+', ingredient)
-            if numbers:
-                num = int(numbers[0])
-                if num > 500:
-                    estimated_grams = num * 0.5 * multiplier
-                else:
-                    estimated_grams = num * multiplier
-        
-        # Default estimates if no quantity found
-        if estimated_grams == 0:
-            if any(word in ingredient_lower for word in ['protein', 'powder']):
-                estimated_grams = 30 * multiplier
-            elif any(word in ingredient_lower for word in ['oil', 'butter']):
-                estimated_grams = 10 * multiplier
-            elif 'banana' in ingredient_lower:
-                estimated_grams = 115 * multiplier
-            elif 'egg' in ingredient_lower:
-                estimated_grams = 50 * multiplier
-            else:
-                estimated_grams = 50 * multiplier
-        
-        # Find matching ingredient and add nutrition
-        for key, nutrition in ingredient_nutrition.items():
-            if key in ingredient_lower:
-                total_calories += nutrition['calories'] * estimated_grams
-                total_protein += nutrition['protein'] * estimated_grams
-                total_carbs += nutrition['carbs'] * estimated_grams
-                total_fat += nutrition['fat'] * estimated_grams
-                break
-    
-    return {
-        'calories': max(1, int(total_calories)),
-        'protein': max(0, int(total_protein)),
-        'carbs': max(0, int(total_carbs)),
-        'fat': max(0, int(total_fat))
-    }
+NUTRITION TARGETS:
+{json.dumps(meal_targets, indent=2)}
 
-def calculate_recipe_macros(recipe, serving_multiplier=1.0):
-    """Calculate accurate macros for a recipe with serving adjustment based on ingredients"""
-    # Comprehensive nutritional database per gram
-    ingredient_nutrition = {
-        # Proteins
-        'egg whites': {'calories': 0.52, 'protein': 0.109, 'carbs': 0.007, 'fat': 0.002},
-        'egg white': {'calories': 0.52, 'protein': 0.109, 'carbs': 0.007, 'fat': 0.002},
-        'eggs': {'calories': 1.55, 'protein': 0.13, 'carbs': 0.011, 'fat': 0.11},
-        'egg': {'calories': 1.55, 'protein': 0.13, 'carbs': 0.011, 'fat': 0.11},
-        'chocolate protein powder': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
-        'protein powder': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
-        'vanilla protein': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
-        'whey protein': {'calories': 3.8, 'protein': 0.75, 'carbs': 0.1, 'fat': 0.05},
-        
-        # Carbohydrates
-        'banana': {'calories': 0.89, 'protein': 0.011, 'carbs': 0.228, 'fat': 0.003},
-        'bananas': {'calories': 0.89, 'protein': 0.011, 'carbs': 0.228, 'fat': 0.003},
-        'oats': {'calories': 3.89, 'protein': 0.17, 'carbs': 0.66, 'fat': 0.07},
-        'oat': {'calories': 3.89, 'protein': 0.17, 'carbs': 0.66, 'fat': 0.07},
-        'rolled oats': {'calories': 3.89, 'protein': 0.17, 'carbs': 0.66, 'fat': 0.07},
-        'rice': {'calories': 1.3, 'protein': 0.027, 'carbs': 0.28, 'fat': 0.003},
-        'white rice': {'calories': 1.3, 'protein': 0.027, 'carbs': 0.28, 'fat': 0.003},
-        'brown rice': {'calories': 1.12, 'protein': 0.026, 'carbs': 0.23, 'fat': 0.009},
-        'sweet potato': {'calories': 0.86, 'protein': 0.02, 'carbs': 0.20, 'fat': 0.001},
-        'potato': {'calories': 0.77, 'protein': 0.02, 'carbs': 0.17, 'fat': 0.001},
-        
-        # Fats
-        'olive oil': {'calories': 8.84, 'protein': 0.0, 'carbs': 0.0, 'fat': 1.0},
-        'coconut oil': {'calories': 8.62, 'protein': 0.0, 'carbs': 0.0, 'fat': 0.99},
-        'butter': {'calories': 7.17, 'protein': 0.009, 'carbs': 0.006, 'fat': 0.81},
-        'almond butter': {'calories': 6.14, 'protein': 0.21, 'carbs': 0.19, 'fat': 0.56},
-        'peanut butter': {'calories': 5.88, 'protein': 0.25, 'carbs': 0.20, 'fat': 0.50},
-        'almonds': {'calories': 5.79, 'protein': 0.21, 'carbs': 0.22, 'fat': 0.50},
-        'walnuts': {'calories': 6.54, 'protein': 0.15, 'carbs': 0.14, 'fat': 0.65},
-        'avocado': {'calories': 1.6, 'protein': 0.02, 'carbs': 0.085, 'fat': 0.147},
-        
-        # Dairy
-        'milk': {'calories': 0.42, 'protein': 0.034, 'carbs': 0.05, 'fat': 0.01},
-        'greek yogurt': {'calories': 0.59, 'protein': 0.10, 'carbs': 0.036, 'fat': 0.004},
-        'cottage cheese': {'calories': 0.98, 'protein': 0.11, 'carbs': 0.036, 'fat': 0.043},
-        'cheese': {'calories': 4.02, 'protein': 0.25, 'carbs': 0.013, 'fat': 0.333},
-        
-        # Common additions
-        'baking soda': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
-        'baking powder': {'calories': 0.53, 'protein': 0, 'carbs': 0.13, 'fat': 0},
-        'vanilla': {'calories': 2.88, 'protein': 0, 'carbs': 0.13, 'fat': 0},
-        'cinnamon': {'calories': 2.47, 'protein': 0.04, 'carbs': 0.81, 'fat': 0.01},
-        'salt': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
-        'honey': {'calories': 3.04, 'protein': 0.003, 'carbs': 0.824, 'fat': 0},
-        'maple syrup': {'calories': 2.60, 'protein': 0.004, 'carbs': 0.677, 'fat': 0.006}
-    }
-    
-    # Parse ingredients and calculate nutrition
-    total_calories = 0
-    total_protein = 0
-    total_carbs = 0
-    total_fat = 0
-    
-    if 'ingredients' in recipe and recipe['ingredients']:
-        for ingredient in recipe['ingredients']:
-            ingredient_lower = ingredient.lower().strip()
-            
-            # Extract quantity and unit
-            import re
-            
-            # Common quantity patterns
-            estimated_grams = 0
-            
-            # Parse quantities with units
-            if 'scoop' in ingredient_lower and 'protein' in ingredient_lower:
-                estimated_grams = 30  # Standard protein scoop
-            elif 'tbsp' in ingredient_lower or 'tablespoon' in ingredient_lower:
-                if any(oil in ingredient_lower for oil in ['oil', 'butter']):
-                    estimated_grams = 14  # 1 tbsp oil/butter
-                else:
-                    estimated_grams = 15  # General tbsp
-            elif 'tsp' in ingredient_lower or 'teaspoon' in ingredient_lower:
-                estimated_grams = 4
-            elif 'cup' in ingredient_lower:
-                if 'oat' in ingredient_lower:
-                    estimated_grams = 80  # 1 cup oats
-                elif 'milk' in ingredient_lower:
-                    estimated_grams = 240  # 1 cup milk
-                else:
-                    estimated_grams = 150  # General cup
-            elif 'medium' in ingredient_lower and 'banana' in ingredient_lower:
-                estimated_grams = 115  # Medium banana
-            elif 'large' in ingredient_lower and 'banana' in ingredient_lower:
-                estimated_grams = 135  # Large banana
-            elif 'small' in ingredient_lower and 'banana' in ingredient_lower:
-                estimated_grams = 90   # Small banana
-            elif 'g' in ingredient_lower:
-                # Extract grams directly
-                gram_match = re.search(r'(\d+)\s*g', ingredient_lower)
-                if gram_match:
-                    estimated_grams = int(gram_match.group(1))
-            elif any(char.isdigit() for char in ingredient):
-                # Extract any number as estimate
-                numbers = re.findall(r'\d+', ingredient)
-                if numbers:
-                    num = int(numbers[0])
-                    if num > 500:  # Likely ml, convert estimate
-                        estimated_grams = num * 0.5
-                    else:
-                        estimated_grams = num
-            
-            # If no quantity found, use reasonable defaults
-            if estimated_grams == 0:
-                if any(word in ingredient_lower for word in ['protein', 'powder']):
-                    estimated_grams = 30
-                elif any(word in ingredient_lower for word in ['oil', 'butter']):
-                    estimated_grams = 10
-                elif 'banana' in ingredient_lower:
-                    estimated_grams = 115
-                elif 'egg' in ingredient_lower:
-                    estimated_grams = 50
-                else:
-                    estimated_grams = 50  # Default
-            
-            # Find matching ingredient and add nutrition
-            for key, nutrition in ingredient_nutrition.items():
-                if key in ingredient_lower:
-                    total_calories += nutrition['calories'] * estimated_grams
-                    total_protein += nutrition['protein'] * estimated_grams
-                    total_carbs += nutrition['carbs'] * estimated_grams
-                    total_fat += nutrition['fat'] * estimated_grams
-                    break
-    
-    # Apply serving multiplier
-    final_macros = {
-        'calories': max(1, int(total_calories * serving_multiplier)),
-        'protein': max(0, int(total_protein * serving_multiplier)),
-        'carbs': max(0, int(total_carbs * serving_multiplier)),
-        'fat': max(0, int(total_fat * serving_multiplier))
-    }
-    
-    # If calculated values are too low, use reasonable minimums based on recipe type
-    if final_macros['calories'] < 50:
-        category = recipe.get('category', '').lower()
-        if 'breakfast' in category:
-            final_macros = {'calories': 320, 'protein': 18, 'carbs': 35, 'fat': 12}
-        elif 'lunch' in category or 'dinner' in category:
-            final_macros = {'calories': 420, 'protein': 32, 'carbs': 30, 'fat': 16}
-        elif 'snack' in category:
-            final_macros = {'calories': 180, 'protein': 8, 'carbs': 18, 'fat': 7}
-        else:
-            final_macros = {'calories': 350, 'protein': 22, 'carbs': 28, 'fat': 14}
-    
-    return final_macros
+DIETARY PREFERENCES:
+- Vegetarian: {diet_preferences.get('vegetarian', False)}
+- Vegan: {diet_preferences.get('vegan', False)}
+- Gluten-free: {diet_preferences.get('gluten_free', False)}
+- Dairy-free: {diet_preferences.get('dairy_free', False)}
+- Nut-free: {diet_preferences.get('nut_free', False)}
 
-def get_macro_additions():
-    """Get common macro addition options"""
-    return {
-        'protein': [
-            {'name': 'Protein Powder (1 scoop)', 'calories': 120, 'protein': 25, 'carbs': 2, 'fat': 1},
-            {'name': 'Greek Yogurt (100g)', 'calories': 100, 'protein': 10, 'carbs': 4, 'fat': 0},
-            {'name': 'Chicken Breast (100g)', 'calories': 165, 'protein': 31, 'carbs': 0, 'fat': 4},
-            {'name': 'Egg (1 large)', 'calories': 70, 'protein': 6, 'carbs': 1, 'fat': 5}
-        ],
-        'carbs': [
-            {'name': 'White Rice (50g dry)', 'calories': 180, 'protein': 4, 'carbs': 38, 'fat': 1},
-            {'name': 'Banana (1 medium)', 'calories': 105, 'protein': 1, 'carbs': 27, 'fat': 0},
-            {'name': 'Oats (40g dry)', 'calories': 150, 'protein': 5, 'carbs': 27, 'fat': 3},
-            {'name': 'Sweet Potato (100g)', 'calories': 86, 'protein': 2, 'carbs': 20, 'fat': 0}
-        ],
-        'fat': [
-            {'name': 'Olive Oil (1 tbsp)', 'calories': 120, 'protein': 0, 'carbs': 0, 'fat': 14},
-            {'name': 'Almonds (28g)', 'calories': 164, 'protein': 6, 'carbs': 6, 'fat': 14},
-            {'name': 'Avocado (50g)', 'calories': 80, 'protein': 1, 'carbs': 4, 'fat': 7},
-            {'name': 'Peanut Butter (1 tbsp)', 'calories': 95, 'protein': 4, 'carbs': 3, 'fat': 8}
-        ]
-    }
+MEAL TIMING:
+- Wake time: {meal_config.get('wake_time', '07:00')}
+- Sleep time: {meal_config.get('sleep_time', '23:00')}
+- Workout time: {meal_config.get('workout_time', 'Morning')}
+- Number of meals: {meal_config.get('num_meals', 3)}
+- Number of snacks: {meal_config.get('num_snacks', 1)}
+- Training day: {meal_config.get('is_training_day', True)}
 
-def ai_analyze_recipes_for_meal(recipes, meal_type, target_macros, diet_prefs, openai_client):
-    """Use AI to intelligently find the best recipe matches with comprehensive dietary preferences"""
-    try:
-        # Prepare recipe data for AI analysis
-        recipe_summaries = []
-        for i, recipe in enumerate(recipes[:20]):  # Limit to avoid token limits
-            macros = calculate_recipe_macros(recipe, 1.0)  # Use accurate macro calculation
-            recipe_summaries.append({
-                'index': i,
-                'title': recipe.get('title', ''),
-                'category': recipe.get('category', ''),
-                'calories': macros.get('calories', 0),
-                'protein': macros.get('protein', 0),
-                'carbs': macros.get('carbs', 0),
-                'fat': macros.get('fat', 0),
-                'ingredients': recipe.get('ingredients', [])[:8]  # More ingredients for better analysis
-            })
-        
-        # Build comprehensive dietary restrictions and preferences
-        restrictions = []
-        if diet_prefs.get('vegetarian'): restrictions.append('vegetarian')
-        if diet_prefs.get('vegan'): restrictions.append('vegan')
-        if diet_prefs.get('gluten_free'): restrictions.append('gluten-free')
-        if diet_prefs.get('dairy_free'): restrictions.append('dairy-free')
-        if diet_prefs.get('nut_free'): restrictions.append('nut-free')
-        if diet_prefs.get('shellfish_free'): restrictions.append('shellfish-free')
-        if diet_prefs.get('soy_free'): restrictions.append('soy-free')
-        if diet_prefs.get('egg_free'): restrictions.append('egg-free')
-        
-        preferred_proteins = diet_prefs.get('preferred_proteins', [])
-        preferred_carbs = diet_prefs.get('preferred_carbs', [])
-        preferred_fats = diet_prefs.get('preferred_fats', [])
-        disliked_foods = diet_prefs.get('disliked_foods', [])
-        max_prep_time = diet_prefs.get('max_prep_time', '30 minutes')
-        cooking_skill = diet_prefs.get('cooking_skill', 'Intermediate')
-        budget_preference = diet_prefs.get('budget_preference', 'Moderate budget')
-        
-        prompt = f"""Analyze these Fitomics recipes for a {meal_type} meal targeting {target_macros['calories']} calories, {target_macros['protein']}g protein, {target_macros['carbs']}g carbs, {target_macros['fat']}g fat.
+Please create realistic meals with:
+1. Specific food items and portions
+2. Accurate macro calculations matching targets (±10% tolerance)
+3. Practical cooking instructions
+4. Consideration for meal timing around workouts
+5. Variety and palatability
 
-DIETARY REQUIREMENTS:
-- Restrictions: {', '.join(restrictions) if restrictions else 'None'}
-- Preferred proteins: {', '.join(preferred_proteins) if preferred_proteins else 'Any'}
-- Preferred carbs: {', '.join(preferred_carbs) if preferred_carbs else 'Any'}
-- Preferred fats: {', '.join(preferred_fats) if preferred_fats else 'Any'}
-- Foods to avoid: {', '.join(disliked_foods) if disliked_foods else 'None'}
-- Max prep time: {max_prep_time}
-- Cooking skill: {cooking_skill}
-- Budget preference: {budget_preference}
-
-RECIPES: {json.dumps(recipe_summaries)}
-
-Analyze and rank the top 3 recipes considering:
-1. Macro alignment (protein and calories are most important)
-2. Meal type appropriateness ({meal_type} should have suitable ingredients)
-3. Dietary restrictions compliance (MUST avoid restricted foods)
-4. Preferred ingredient matching (bonus for preferred proteins/carbs/fats)
-5. Avoidance of disliked foods
-6. Cooking complexity matching skill level
-7. Budget-appropriate ingredients
-
-Respond with JSON format: {{"recommendations": [{{"index": 0, "reason": "Brief explanation of why this recipe matches"}}, {{"index": 1, "reason": "Brief explanation"}}, {{"index": 2, "reason": "Brief explanation"}}]}}"""
-        
-        response = openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a nutrition expert analyzing Fitomics recipes for meal planning. Always respond with valid JSON format exactly as requested."},
-                {"role": "user", "content": prompt}
-            ],
-            response_format={"type": "json_object"},
-            max_tokens=1000,
-            temperature=0.3
-        )
-        
-        try:
-            result = json.loads(response.choices[0].message.content)
-            recommendations = result.get('recommendations', [])
-            
-            # Convert AI recommendations to recipe objects
-            ai_recipes = []
-            for i, rec in enumerate(recommendations[:3]):
-                index = rec.get('index')
-                if index is not None and 0 <= index < len(recipes):
-                    recipe = recipes[index]
-                    ai_recipes.append({
-                        'recipe': recipe,
-                        'match_score': 1000 - i * 100,  # Higher score for higher rank
-                        'macros': recipe.get('estimated_macros', {}),
-                        'ai_reason': rec.get('reason', 'AI recommended for nutritional alignment'),
-                        'ai_rank': i + 1
-                    })
-            
-            return ai_recipes
-            
-        except (json.JSONDecodeError, KeyError) as json_error:
-            print(f"AI JSON parsing failed: {json_error}")
-            return []
-        
-    except Exception as e:
-        st.error(f"AI analysis failed: {str(e)}. Using fallback matching.")
-        return find_best_recipes_for_meal_fallback(recipes, meal_type, target_macros, diet_prefs)
-
-def find_best_recipes_for_meal_fallback(recipes, meal_type, target_macros, diet_prefs):
-    """Fallback recipe matching when AI is not available"""
-    suitable_recipes = []
-    
-    for recipe in recipes:
-        # Filter by meal type with more flexibility
-        recipe_category = recipe.get('category', '').lower()
-        recipe_title = recipe.get('title', '').lower()
-        
-        # More flexible meal type matching
-        is_suitable = False
-        if meal_type.lower() == 'breakfast':
-            is_suitable = 'breakfast' in recipe_category or any(word in recipe_title for word in ['pancake', 'egg', 'oat', 'smoothie', 'toast'])
-        elif meal_type.lower() == 'lunch':
-            is_suitable = recipe_category in ['dinner', 'main'] or any(word in recipe_title for word in ['salad', 'bowl', 'wrap', 'sandwich'])
-        elif meal_type.lower() == 'dinner':
-            is_suitable = recipe_category in ['dinner', 'main'] or any(word in recipe_title for word in ['chicken', 'beef', 'fish', 'pasta', 'rice'])
-        elif meal_type.lower() == 'snack':
-            is_suitable = recipe_category in ['snack', 'dessert'] or any(word in recipe_title for word in ['bar', 'ball', 'bite', 'cup'])
-        
-        if not is_suitable:
-            continue
-            
-        # Check diet preferences with flexibility
-        recipe_ingredients = recipe.get('ingredients', [])
-        ingredients_text = ' '.join(recipe_ingredients).lower() if recipe_ingredients else ''
-        full_text = recipe_title + ' ' + ingredients_text
-        
-        # Flexible dietary restriction checking
-        if diet_prefs.get('vegetarian'):
-            meat_keywords = ['chicken', 'beef', 'pork', 'fish', 'salmon', 'turkey', 'bacon', 'ham']
-            if any(meat in full_text for meat in meat_keywords):
-                continue
-        
-        if diet_prefs.get('vegan'):
-            animal_keywords = ['cheese', 'milk', 'butter', 'egg', 'yogurt', 'cream', 'honey']
-            if any(animal in full_text for animal in animal_keywords):
-                continue
-        
-        if diet_prefs.get('gluten_free'):
-            gluten_keywords = ['wheat', 'flour', 'bread', 'pasta', 'barley', 'rye']
-            if any(gluten in full_text for gluten in gluten_keywords):
-                continue
-            
-        # Calculate macro alignment score
-        recipe_macros = recipe.get('estimated_macros', {})
-        if recipe_macros:
-            calorie_diff = abs(recipe_macros.get('calories', 0) - target_macros['calories'])
-            protein_diff = abs(recipe_macros.get('protein', 0) - target_macros['protein'])
-            
-            # Weighted scoring favoring protein alignment
-            match_score = 1000 - (calorie_diff * 0.3 + protein_diff * 3)
-            
-            suitable_recipes.append({
-                'recipe': recipe,
-                'match_score': match_score,
-                'macros': recipe_macros
-            })
-    
-    # Sort by match score and return top 3
-    suitable_recipes.sort(key=lambda x: x['match_score'], reverse=True)
-    return suitable_recipes[:3]
-
-def get_protein_sources(diet_prefs, meal_type='general'):
-    """Get protein sources based on dietary preferences and meal type"""
-    all_sources = {
-        'Chicken Breast': {'protein': 31, 'calories_per_g': 1.65, 'meals': ['lunch', 'dinner']},
-        'Lean Ground Turkey': {'protein': 29, 'calories_per_g': 1.89, 'meals': ['lunch', 'dinner']},
-        'Salmon': {'protein': 25, 'calories_per_g': 2.08, 'meals': ['breakfast', 'lunch', 'dinner']},
-        'Tuna': {'protein': 30, 'calories_per_g': 1.32, 'meals': ['lunch', 'dinner']},
-        'Eggs': {'protein': 13, 'calories_per_g': 1.55, 'meals': ['breakfast', 'lunch']},
-        'Greek Yogurt': {'protein': 10, 'calories_per_g': 0.59, 'meals': ['breakfast', 'snack']},
-        'Cottage Cheese': {'protein': 11, 'calories_per_g': 0.98, 'meals': ['breakfast', 'snack']},
-        'Protein Powder': {'protein': 25, 'calories_per_g': 4.0, 'meals': ['breakfast', 'snack']},
-        'Tofu': {'protein': 8, 'calories_per_g': 0.76, 'meals': ['lunch', 'dinner']},
-        'Tempeh': {'protein': 19, 'calories_per_g': 1.93, 'meals': ['lunch', 'dinner']},
-        'Lentils': {'protein': 9, 'calories_per_g': 1.16, 'meals': ['lunch', 'dinner']},
-        'Black Beans': {'protein': 9, 'calories_per_g': 1.32, 'meals': ['lunch', 'dinner']},
-        'Quinoa': {'protein': 4.4, 'calories_per_g': 1.2, 'meals': ['breakfast', 'lunch', 'dinner']},
-        'Smoked Salmon': {'protein': 25, 'calories_per_g': 1.42, 'meals': ['breakfast']},
-        'Turkey Sausage': {'protein': 14, 'calories_per_g': 1.96, 'meals': ['breakfast']},
-        'Nut Butter': {'protein': 8, 'calories_per_g': 6.0, 'meals': ['breakfast', 'snack']}
-    }
-    
-    # Filter by meal type appropriateness
-    if meal_type != 'general':
-        sources = {k: v for k, v in all_sources.items() if meal_type in v['meals']}
-    else:
-        sources = all_sources
-    
-    # Apply dietary restrictions
-    if diet_prefs.get('vegan'):
-        vegan_sources = {k: v for k, v in sources.items() if k in ['Protein Powder', 'Tofu', 'Tempeh', 'Lentils', 'Black Beans', 'Quinoa', 'Nut Butter']}
-        return vegan_sources
-    elif diet_prefs.get('vegetarian'):
-        vegetarian_sources = {k: v for k, v in sources.items() if k not in ['Chicken Breast', 'Lean Ground Turkey', 'Salmon', 'Tuna', 'Smoked Salmon', 'Turkey Sausage']}
-        return vegetarian_sources
-    
-    return sources
-
-def get_carb_sources(diet_prefs, meal_type='general'):
-    """Get carbohydrate sources based on dietary preferences and meal type"""
-    all_sources = {
-        'Oats': {'carbs': 66, 'calories_per_g': 3.89, 'meals': ['breakfast']},
-        'Banana': {'carbs': 23, 'calories_per_g': 0.89, 'meals': ['breakfast', 'snack']},
-        'Berries': {'carbs': 12, 'calories_per_g': 0.57, 'meals': ['breakfast', 'snack']},
-        'Whole Grain Toast': {'carbs': 49, 'calories_per_g': 2.47, 'meals': ['breakfast']},
-        'English Muffin': {'carbs': 46, 'calories_per_g': 2.34, 'meals': ['breakfast']},
-        'White Rice': {'carbs': 28, 'calories_per_g': 1.3, 'meals': ['lunch', 'dinner']},
-        'Brown Rice': {'carbs': 23, 'calories_per_g': 1.12, 'meals': ['lunch', 'dinner']},
-        'Quinoa': {'carbs': 22, 'calories_per_g': 1.2, 'meals': ['breakfast', 'lunch', 'dinner']},
-        'Sweet Potato': {'carbs': 20, 'calories_per_g': 0.86, 'meals': ['lunch', 'dinner']},
-        'Regular Potato': {'carbs': 17, 'calories_per_g': 0.77, 'meals': ['lunch', 'dinner']},
-        'Whole Wheat Pasta': {'carbs': 31, 'calories_per_g': 1.31, 'meals': ['lunch', 'dinner']},
-        'Apple': {'carbs': 14, 'calories_per_g': 0.52, 'meals': ['snack']},
-        'Dates': {'carbs': 75, 'calories_per_g': 2.77, 'meals': ['snack']},
-        'Rice Cakes': {'carbs': 82, 'calories_per_g': 3.87, 'meals': ['snack']}
-    }
-    
-    # Filter by meal type appropriateness
-    if meal_type != 'general':
-        sources = {k: v for k, v in all_sources.items() if meal_type in v['meals']}
-    else:
-        sources = all_sources
-    
-    if diet_prefs.get('gluten_free'):
-        gluten_free_sources = {k: v for k, v in sources.items() if k not in ['Whole Grain Toast', 'English Muffin', 'Whole Wheat Pasta']}
-        return gluten_free_sources
-    
-    return sources
-
-def get_fat_sources(diet_prefs, meal_type='general'):
-    """Get fat sources based on dietary preferences and meal type"""
-    all_sources = {
-        'Butter': {'fat': 81, 'calories_per_g': 7.17, 'meals': ['breakfast']},
-        'Coconut Oil': {'fat': 100, 'calories_per_g': 8.62, 'meals': ['breakfast']},
-        'Nut Butter': {'fat': 50, 'calories_per_g': 5.88, 'meals': ['breakfast', 'snack']},
-        'Almond Butter': {'fat': 56, 'calories_per_g': 6.14, 'meals': ['breakfast', 'snack']},
-        'Avocado': {'fat': 15, 'calories_per_g': 1.6, 'meals': ['breakfast', 'lunch']},
-        'Olive Oil': {'fat': 100, 'calories_per_g': 9.0, 'meals': ['lunch', 'dinner']},
-        'Almonds': {'fat': 50, 'calories_per_g': 5.79, 'meals': ['snack']},
-        'Walnuts': {'fat': 65, 'calories_per_g': 6.54, 'meals': ['snack']},
-        'Chia Seeds': {'fat': 31, 'calories_per_g': 4.86, 'meals': ['breakfast', 'snack']},
-        'Flax Seeds': {'fat': 42, 'calories_per_g': 5.34, 'meals': ['breakfast']},
-        'Tahini': {'fat': 60, 'calories_per_g': 5.95, 'meals': ['lunch', 'dinner']},
-        'Cheese': {'fat': 33, 'calories_per_g': 4.02, 'meals': ['breakfast', 'lunch', 'snack']}
-    }
-    
-    # Filter by meal type appropriateness
-    if meal_type != 'general':
-        sources = {k: v for k, v in all_sources.items() if meal_type in v['meals']}
-    else:
-        sources = all_sources
-    
-    # Apply dietary restrictions
-    if diet_prefs.get('vegan'):
-        vegan_sources = {k: v for k, v in sources.items() if k not in ['Butter', 'Cheese']}
-        return vegan_sources
-    elif diet_prefs.get('vegetarian'):
-        # All sources are suitable for vegetarians
-        return sources
-    
-    return sources
-
-def get_vegetable_sources(diet_prefs):
-    """Get vegetable sources (mostly for micronutrients and fiber)"""
-    sources = {
-        'Spinach': {'calories_per_g': 0.23, 'fiber': 2.2},
-        'Broccoli': {'calories_per_g': 0.34, 'fiber': 2.6},
-        'Bell Peppers': {'calories_per_g': 0.31, 'fiber': 2.5},
-        'Zucchini': {'calories_per_g': 0.17, 'fiber': 1.0},
-        'Cauliflower': {'calories_per_g': 0.25, 'fiber': 2.0},
-        'Asparagus': {'calories_per_g': 0.20, 'fiber': 2.1},
-        'Green Beans': {'calories_per_g': 0.35, 'fiber': 2.7},
-        'Cucumber': {'calories_per_g': 0.16, 'fiber': 0.5},
-        'Tomatoes': {'calories_per_g': 0.18, 'fiber': 1.2},
-        'Carrots': {'calories_per_g': 0.41, 'fiber': 2.8}
-    }
-    
-    # All vegetables are suitable for all dietary preferences
-    return sources
-
-def calculate_intelligent_meal_distribution(total_calories, total_protein, total_carbs, total_fat, 
-                                          num_meals, num_snacks, is_training_day=False, workout_time=None, 
-                                          meal_times=None, wake_time=None, sleep_time=None):
-    """Calculate intelligent meal distribution based on training status, timing, and circadian optimization"""
-    
-    # Enhanced workout timing parsing
-    workout_period = None
-    if workout_time:
-        if "Early Morning" in workout_time or "6-8 AM" in workout_time:
-            workout_period = "early_morning"
-        elif "Morning" in workout_time or "8-10 AM" in workout_time:
-            workout_period = "morning"
-        elif "Lunch" in workout_time or "11 AM-1 PM" in workout_time:
-            workout_period = "lunch"
-        elif "Afternoon" in workout_time or "2-5 PM" in workout_time:
-            workout_period = "afternoon"
-        elif "Evening" in workout_time or "6-8 PM" in workout_time:
-            workout_period = "evening"
-    
-    # Define base distributions with enhanced timing considerations
-    if num_meals == 2:  # 2 main meals
-        if is_training_day and workout_period:
-            if workout_period in ['early_morning', 'morning']:
-                # Pre-workout fuel, post-workout recovery
-                meal_distributions = {
-                    'breakfast': {'calories': 0.45, 'protein': 0.4, 'carbs': 0.55, 'fat': 0.3},
-                    'dinner': {'calories': 0.55, 'protein': 0.6, 'carbs': 0.45, 'fat': 0.7}
-                }
-            elif workout_period == 'lunch':
-                # Balanced morning, post-workout evening
-                meal_distributions = {
-                    'breakfast': {'calories': 0.4, 'protein': 0.4, 'carbs': 0.5, 'fat': 0.35},
-                    'dinner': {'calories': 0.6, 'protein': 0.6, 'carbs': 0.5, 'fat': 0.65}
-                }
-            else:  # afternoon/evening workout
-                # Fuel throughout day, post-workout dinner
-                meal_distributions = {
-                    'breakfast': {'calories': 0.35, 'protein': 0.35, 'carbs': 0.4, 'fat': 0.4},
-                    'dinner': {'calories': 0.65, 'protein': 0.65, 'carbs': 0.6, 'fat': 0.6}
-                }
-        else:
-            # Standard distribution with circadian consideration
-            meal_distributions = {
-                'breakfast': {'calories': 0.4, 'protein': 0.4, 'carbs': 0.45, 'fat': 0.35},
-                'dinner': {'calories': 0.6, 'protein': 0.6, 'carbs': 0.55, 'fat': 0.65}
-            }
-    elif num_meals == 3:  # 3 main meals
-        if is_training_day and workout_period:
-            if workout_period in ['early_morning', 'morning']:
-                # Pre-workout breakfast, recovery lunch, lighter dinner
-                meal_distributions = {
-                    'breakfast': {'calories': 0.4, 'protein': 0.35, 'carbs': 0.5, 'fat': 0.25},
-                    'lunch': {'calories': 0.35, 'protein': 0.4, 'carbs': 0.3, 'fat': 0.4},
-                    'dinner': {'calories': 0.25, 'protein': 0.25, 'carbs': 0.2, 'fat': 0.35}
-                }
-            elif workout_period == 'lunch':
-                # Light breakfast, workout lunch, balanced dinner
-                meal_distributions = {
-                    'breakfast': {'calories': 0.25, 'protein': 0.25, 'carbs': 0.3, 'fat': 0.3},
-                    'lunch': {'calories': 0.45, 'protein': 0.4, 'carbs': 0.5, 'fat': 0.3},
-                    'dinner': {'calories': 0.3, 'protein': 0.35, 'carbs': 0.2, 'fat': 0.4}
-                }
-            elif workout_period == 'afternoon':
-                # Balanced breakfast/lunch, post-workout dinner
-                meal_distributions = {
-                    'breakfast': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.35, 'fat': 0.3},
-                    'lunch': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.35, 'fat': 0.3},
-                    'dinner': {'calories': 0.4, 'protein': 0.4, 'carbs': 0.3, 'fat': 0.4}
-                }
-            else:  # evening workout
-                # Standard day, pre/post workout dinner
-                meal_distributions = {
-                    'breakfast': {'calories': 0.25, 'protein': 0.25, 'carbs': 0.3, 'fat': 0.3},
-                    'lunch': {'calories': 0.35, 'protein': 0.35, 'carbs': 0.35, 'fat': 0.35},
-                    'dinner': {'calories': 0.4, 'protein': 0.4, 'carbs': 0.35, 'fat': 0.35}
-                }
-        else:
-            # Optimized for natural circadian rhythm
-            meal_distributions = {
-                'breakfast': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.4, 'fat': 0.3},
-                'lunch': {'calories': 0.35, 'protein': 0.35, 'carbs': 0.35, 'fat': 0.3},
-                'dinner': {'calories': 0.35, 'protein': 0.35, 'carbs': 0.25, 'fat': 0.4}
-            }
-    else:  # 4 main meals - frequent feeding
-        if is_training_day and workout_period:
-            if workout_period in ['early_morning', 'morning']:
-                meal_distributions = {
-                    'breakfast': {'calories': 0.25, 'protein': 0.25, 'carbs': 0.3, 'fat': 0.2},
-                    'lunch': {'calories': 0.3, 'protein': 0.35, 'carbs': 0.3, 'fat': 0.3},
-                    'dinner': {'calories': 0.25, 'protein': 0.25, 'carbs': 0.25, 'fat': 0.3},
-                    'evening_meal': {'calories': 0.2, 'protein': 0.15, 'carbs': 0.15, 'fat': 0.2}
-                }
-            else:
-                meal_distributions = {
-                    'breakfast': {'calories': 0.2, 'protein': 0.25, 'carbs': 0.25, 'fat': 0.2},
-                    'lunch': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.35, 'fat': 0.25},
-                    'dinner': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.25, 'fat': 0.35},
-                    'evening_meal': {'calories': 0.2, 'protein': 0.15, 'carbs': 0.15, 'fat': 0.2}
-                }
-        else:
-            meal_distributions = {
-                'breakfast': {'calories': 0.2, 'protein': 0.25, 'carbs': 0.25, 'fat': 0.2},
-                'lunch': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.35, 'fat': 0.25},
-                'dinner': {'calories': 0.3, 'protein': 0.3, 'carbs': 0.25, 'fat': 0.35},
-                'evening_meal': {'calories': 0.2, 'protein': 0.15, 'carbs': 0.15, 'fat': 0.2}
-            }
-    
-    # Apply timing-based adjustments if meal times are provided
-    if meal_times and wake_time and sleep_time:
-        # Calculate circadian adjustments
-        wake_datetime = datetime.combine(datetime.today(), wake_time)
-        sleep_datetime = datetime.combine(datetime.today(), sleep_time)
-        if sleep_datetime < wake_datetime:
-            sleep_datetime += timedelta(days=1)
-        
-        hours_awake = (sleep_datetime - wake_datetime).seconds / 3600
-        
-        # Adjust distributions based on meal timing
-        for meal_name, meal_time in meal_times.items():
-            if meal_name in meal_distributions:
-                meal_datetime = datetime.combine(datetime.today(), meal_time)
-                if meal_datetime < wake_datetime:
-                    meal_datetime += timedelta(days=1)
-                
-                hours_since_wake = (meal_datetime - wake_datetime).seconds / 3600
-                time_ratio = hours_since_wake / hours_awake
-                
-                # Early meals: higher carbs, moderate fat
-                # Later meals: lower carbs, higher fat (better for sleep)
-                carb_factor = max(0.7, 1.3 - time_ratio)
-                fat_factor = min(1.4, 0.7 + time_ratio)
-                
-                meal_distributions[meal_name]['carbs'] *= carb_factor
-                meal_distributions[meal_name]['fat'] *= fat_factor
-    
-    # Add snacks distribution
-    snack_calories_per = 0.1 if num_snacks > 0 else 0
-    snack_protein_per = 0.08 if num_snacks > 0 else 0
-    snack_carbs_per = 0.1 if num_snacks > 0 else 0
-    snack_fat_per = 0.05 if num_snacks > 0 else 0
-    
-    # Adjust main meals to account for snacks
-    if num_snacks > 0:
-        total_snack_allocation = {
-            'calories': snack_calories_per * num_snacks,
-            'protein': snack_protein_per * num_snacks,
-            'carbs': snack_carbs_per * num_snacks,
-            'fat': snack_fat_per * num_snacks
-        }
-        
-        # Reduce main meals proportionally
-        for meal in meal_distributions:
-            for macro in ['calories', 'protein', 'carbs', 'fat']:
-                meal_distributions[meal][macro] *= (1 - total_snack_allocation[macro])
-        
-        # Add snacks
-        for i in range(num_snacks):
-            meal_distributions[f'snack'] = {
-                'calories': snack_calories_per,
-                'protein': snack_protein_per,
-                'carbs': snack_carbs_per,
-                'fat': snack_fat_per
-            }
-    
-    # Convert to actual values
-    meal_targets = {}
-    for meal, ratios in meal_distributions.items():
-        meal_targets[meal] = {
-            'calories': int(total_calories * ratios['calories']),
-            'protein': int(total_protein * ratios['protein']),
-            'carbs': int(total_carbs * ratios['carbs']),
-            'fat': int(total_fat * ratios['fat'])
-        }
-    
-    return meal_targets
-
-def generate_grocery_list(meal_plans):
-    """Generate a consolidated grocery list from meal plans"""
-    grocery_items = defaultdict(float)
-    
-    for day, meals in meal_plans.items():
-        for meal_type, meal_data in meals.items():
-            if 'selected_recipe' in meal_data:
-                recipe = meal_data['selected_recipe']
-                serving_multiplier = meal_data.get('serving_multiplier', 1.0)
-                
-                if 'ingredients' in recipe:
-                    for ingredient in recipe['ingredients']:
-                        # Simple ingredient parsing - could be enhanced
-                        grocery_items[ingredient] += serving_multiplier
-            
-            if 'custom_foods' in meal_data:
-                for food_item, amount in meal_data['custom_foods'].items():
-                    grocery_items[food_item] += amount
-    
-    return dict(grocery_items)
-
-def create_meal_plan_pdf(meal_plans, nutrition_targets, diet_prefs):
-    """Create a branded PDF with meal plans, recipes, and grocery list"""
-    pdf = FPDF()
-    pdf.add_page()
-    
-    # Header with Fitomics branding
-    pdf.set_font('Arial', 'B', 20)
-    pdf.cell(0, 10, 'FITOMICS MEAL PLAN', 0, 1, 'C')
-    pdf.set_font('Arial', '', 12)
-    pdf.cell(0, 10, f'Generated on {datetime.now().strftime("%B %d, %Y")}', 0, 1, 'C')
-    pdf.ln(10)
-    
-    # Nutrition summary
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 10, 'NUTRITION TARGETS', 0, 1)
-    pdf.set_font('Arial', '', 12)
-    pdf.cell(0, 8, f'Daily Calories: {nutrition_targets.get("target_calories", 0)} kcal', 0, 1)
-    pdf.cell(0, 8, f'Protein: {nutrition_targets.get("protein", 0)}g', 0, 1)
-    pdf.cell(0, 8, f'Carbohydrates: {nutrition_targets.get("carbs", 0)}g', 0, 1)
-    pdf.cell(0, 8, f'Fat: {nutrition_targets.get("fat", 0)}g', 0, 1)
-    pdf.ln(10)
-    
-    # Dietary preferences
-    if any(diet_prefs.values()):
-        pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 10, 'DIETARY PREFERENCES', 0, 1)
-        pdf.set_font('Arial', '', 12)
-        for pref, enabled in diet_prefs.items():
-            if enabled:
-                pdf.cell(0, 8, f'✓ {pref.replace("_", " ").title()}', 0, 1)
-        pdf.ln(10)
-    
-    # Meal plans
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 10, 'MEAL PLAN', 0, 1)
-    
-    for day, meals in meal_plans.items():
-        pdf.set_font('Arial', 'B', 12)
-        pdf.cell(0, 10, day.upper(), 0, 1)
-        
-        for meal_type, meal_data in meals.items():
-            pdf.set_font('Arial', 'B', 11)
-            pdf.cell(0, 8, f'{meal_type.title()}:', 0, 1)
-            pdf.set_font('Arial', '', 10)
-            
-            if 'selected_recipe' in meal_data:
-                recipe = meal_data['selected_recipe']
-                pdf.cell(0, 6, f'  Recipe: {recipe.get("title", "Untitled")}', 0, 1)
-                
-                # Add ingredients if available
-                if 'ingredients' in recipe and len(recipe['ingredients']) > 0:
-                    pdf.cell(0, 6, f'  Ingredients: {", ".join(recipe["ingredients"][:3])}...', 0, 1)
-            
-            if 'custom_foods' in meal_data:
-                pdf.cell(0, 6, f'  Custom: {", ".join(meal_data["custom_foods"].keys())}', 0, 1)
-            
-            pdf.ln(2)
-        pdf.ln(5)
-    
-    # Grocery list
-    grocery_list = generate_grocery_list(meal_plans)
-    if grocery_list:
-        pdf.add_page()
-        pdf.set_font('Arial', 'B', 14)
-        pdf.cell(0, 10, 'GROCERY LIST', 0, 1)
-        pdf.set_font('Arial', '', 12)
-        
-        for item, quantity in sorted(grocery_list.items()):
-            pdf.cell(0, 8, f'□ {item}', 0, 1)
-    
-    # Footer
-    pdf.ln(20)
-    pdf.set_font('Arial', 'I', 10)
-    pdf.cell(0, 10, 'Generated by Fitomics Body Composition Planner', 0, 1, 'C')
-    
-    return pdf
-
-def ai_generate_meal_insights(meal_type, target_macros, diet_prefs, openai_client):
-    """Generate AI insights for meal planning"""
-    try:
-        diet_restrictions = []
-        if diet_prefs.get('vegetarian'):
-            diet_restrictions.append('vegetarian')
-        if diet_prefs.get('vegan'):
-            diet_restrictions.append('vegan')
-        if diet_prefs.get('gluten_free'):
-            diet_restrictions.append('gluten-free')
-        
-        prompt = f"""Provide brief meal planning insights for a {meal_type} targeting {target_macros['calories']} calories, {target_macros['protein']}g protein, {target_macros['carbs']}g carbs, {target_macros['fat']}g fat.
-
-Dietary restrictions: {', '.join(diet_restrictions) if diet_restrictions else 'None'}
-
-Provide 3 specific, actionable tips for this meal type and nutrition targets. Focus on food combinations, timing, and optimization strategies.
-
-Respond with JSON: {{"insights": ["tip 1", "tip 2", "tip 3"]}}"""
-        
-        response = openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a nutrition expert providing meal planning insights. Always respond with valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            response_format={"type": "json_object"},
-            max_tokens=500,
-            temperature=0.4
-        )
-        
-        result = json.loads(response.choices[0].message.content)
-        return result.get('insights', [])
-        
-    except Exception as e:
-        print(f"AI insights generation failed: {e}")
-        return []
-
-def create_basic_meal_suggestions(meal_type, target_macros, diet_prefs):
-    """Create basic meal suggestions using authentic nutritional data when no recipes are found"""
-    suggestions = []
-    
-    # Get appropriate protein sources for meal type and diet preferences
-    protein_sources = get_protein_sources(diet_prefs, meal_type)
-    carb_sources = get_carb_sources(diet_prefs, meal_type)
-    fat_sources = get_fat_sources(diet_prefs, meal_type)
-    
-    # Create 3 basic meal suggestions
-    for i in range(3):
-        if i < len(protein_sources):
-            protein_name = list(protein_sources.keys())[i]
-            protein_data = protein_sources[protein_name]
-            
-            # Calculate portions to meet targets
-            protein_needed = target_macros['protein']
-            protein_grams = int(protein_needed / (protein_data['protein'] / 100) * 100)
-            protein_calories = int(protein_grams * protein_data['calories_per_g'])
-            
-            # Get complementary carb source
-            if i < len(carb_sources):
-                carb_name = list(carb_sources.keys())[i % len(carb_sources)]
-                carb_data = carb_sources[carb_name]
-                remaining_calories = target_macros['calories'] - protein_calories
-                carb_calories = min(remaining_calories * 0.6, target_macros['carbs'] * 4)
-                carb_grams = int(carb_calories / carb_data['calories_per_g'])
-            
-            # Get fat source
-            if i < len(fat_sources):
-                fat_name = list(fat_sources.keys())[i % len(fat_sources)]
-                fat_data = fat_sources[fat_name]
-                remaining_calories = target_macros['calories'] - protein_calories - carb_calories
-                fat_calories = min(remaining_calories, target_macros['fat'] * 9)
-                fat_grams = int(fat_calories / fat_data['calories_per_g'])
-            
-            # Create meal suggestion
-            meal_title = f"{meal_type.title()} with {protein_name}"
-            ingredients = [
-                f"{protein_grams}g {protein_name}",
-                f"{carb_grams}g {carb_name}" if 'carb_name' in locals() else "",
-                f"{fat_grams}g {fat_name}" if 'fat_name' in locals() else ""
-            ]
-            ingredients = [ing for ing in ingredients if ing]
-            
-            total_calories = protein_calories + (carb_calories if 'carb_calories' in locals() else 0) + (fat_calories if 'fat_calories' in locals() else 0)
-            total_protein = int(protein_grams * protein_data['protein'] / 100)
-            total_carbs = int(carb_grams * carb_data['carbs'] / 100) if 'carb_data' in locals() else 0
-            total_fat = int(fat_grams * fat_data['fat'] / 100) if 'fat_data' in locals() else 0
-            
-            suggestion = {
-                'recipe': {
-                    'title': meal_title,
-                    'category': meal_type,
-                    'ingredients': ingredients,
-                    'directions': [f"Prepare {protein_name} as desired", "Serve with accompaniments"]
-                },
-                'macros': {
-                    'calories': total_calories,
-                    'protein': total_protein,
-                    'carbs': total_carbs,
-                    'fat': total_fat
-                },
-                'match_score': 100 - i * 10
-            }
-            suggestions.append(suggestion)
-    
-    return suggestions
-
-def get_fdc_meal_recommendations(meal_type, target_macros, diet_prefs):
-    """Get authentic meal recommendations using FDC API data"""
-    from fdc_api import search_foods, get_food_details, normalize_food_data
-    
-    recommendations = []
-    
-    # Define search terms based on meal type and dietary preferences
-    search_terms = {
-        'Breakfast': ['eggs', 'oatmeal', 'greek yogurt', 'whole grain bread'],
-        'Lunch': ['chicken breast', 'salmon', 'quinoa', 'sweet potato'],
-        'Dinner': ['lean beef', 'turkey', 'brown rice', 'vegetables'],
-        'Snack': ['nuts', 'protein bar', 'fruit', 'cottage cheese']
-    }
-    
-    # Adjust search terms based on dietary preferences
-    if diet_prefs.get('vegetarian', False):
-        protein_terms = ['tofu', 'beans', 'lentils', 'quinoa']
-    elif diet_prefs.get('vegan', False):
-        protein_terms = ['tofu', 'tempeh', 'beans', 'nuts']
-    else:
-        protein_terms = ['chicken', 'fish', 'lean beef', 'eggs']
-    
-    try:
-        # Search for foods based on meal type
-        meal_terms = search_terms.get(meal_type, ['chicken', 'rice', 'vegetables'])
-        
-        for term in meal_terms[:3]:  # Get top 3 recommendations
-            foods = search_foods(term, page_size=5)
-            
-            if foods:
-                # Get the first suitable food item
-                for food in foods[:2]:
-                    try:
-                        food_details = get_food_details(food['fdcId'])
-                        normalized_food = normalize_food_data(food_details, 100)
-                        
-                        if normalized_food['calories'] > 0:
-                            # Calculate serving size to meet macro targets
-                            target_calories = target_macros['calories']
-                            serving_multiplier = min(target_calories / normalized_food['calories'], 3.0)
-                            
-                            # Create meal recommendation
-                            recommendation = {
-                                'recipe': {
-                                    'title': f"{meal_type} with {normalized_food['name']}",
-                                    'category': meal_type,
-                                    'ingredients': [f"{int(100 * serving_multiplier)}g {normalized_food['name']}"],
-                                    'directions': [f"Prepare {normalized_food['name']} as desired"]
-                                },
-                                'macros': {
-                                    'calories': int(normalized_food['calories'] * serving_multiplier),
-                                    'protein': int(normalized_food['protein'] * serving_multiplier),
-                                    'carbs': int(normalized_food['carbs'] * serving_multiplier),
-                                    'fat': int(normalized_food['fat'] * serving_multiplier)
-                                },
-                                'match_score': 85,
-                                'fdc_id': food['fdcId']
-                            }
-                            recommendations.append(recommendation)
-                            break
-                    except Exception as e:
-                        continue
-                
-                if len(recommendations) >= 3:
-                    break
-                    
-    except Exception as e:
-        # If FDC API fails, create basic suggestions
-        st.error("Unable to load food recommendations. Please check your FDC API key.")
-        return []
-    
-    return recommendations
-
-def generate_ai_meal_recipe(openai_client, meal_type, target_macros, diet_prefs):
-    """Generate AI-powered meal recipe with customizable ingredients"""
-    # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-    try:
-        # Build dietary restrictions string
-        restrictions = []
-        if diet_prefs.get('vegetarian', False):
-            restrictions.append("vegetarian")
-        if diet_prefs.get('vegan', False):
-            restrictions.append("vegan")
-        if diet_prefs.get('gluten_free', False):
-            restrictions.append("gluten-free")
-        if diet_prefs.get('dairy_free', False):
-            restrictions.append("dairy-free")
-        
-        restrictions_text = f"dietary restrictions: {', '.join(restrictions)}" if restrictions else "no dietary restrictions"
-        
-        prompt = f"""Create a {meal_type.lower()} recipe that meets these exact nutritional targets:
-- Calories: {target_macros['calories']}
-- Protein: {target_macros['protein']}g
-- Carbohydrates: {target_macros['carbs']}g  
-- Fat: {target_macros['fat']}g
-
-Requirements:
-- {restrictions_text}
-- Include specific ingredient amounts in grams
-- Provide clear cooking instructions
-- Focus on whole foods and balanced nutrition
-- Make it practical and delicious
-
-Return as JSON with this structure:
+Format as JSON with this structure:
 {{
-    "title": "Recipe name",
+  "breakfast": {{
+    "name": "meal name",
     "ingredients": [
-        {{"name": "ingredient name", "amount": amount_in_grams, "category": "protein/carbs/fat/vegetable"}}
+      {{"item": "food name", "amount": "portion", "calories": number, "protein": number, "carbs": number, "fat": number}}
     ],
-    "directions": ["step 1", "step 2", "step 3"],
-    "nutrition": {{
-        "calories": calculated_calories,
-        "protein": calculated_protein,
-        "carbs": calculated_carbs,
-        "fat": calculated_fat
-    }},
-    "reason": "Brief explanation of why this recipe fits the targets"
-}}"""
+    "instructions": "cooking steps",
+    "total_macros": {{"calories": number, "protein": number, "carbs": number, "fat": number}},
+    "timing": "suggested time"
+  }},
+  "lunch": {{ ... }},
+  "dinner": {{ ... }},
+  "snack": {{ ... }}
+}}
+"""
 
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"}
+            model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+            messages=[
+                {"role": "system", "content": "You are a nutrition expert who creates precise meal plans with accurate macro calculations."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.7
         )
         
-        import json
-        recipe_data = json.loads(response.choices[0].message.content)
-        
-        return {
-            'recipe': {
-                'title': recipe_data['title'],
-                'category': meal_type,
-                'ingredients': [f"{ing['amount']}g {ing['name']}" for ing in recipe_data['ingredients']],
-                'directions': recipe_data['directions']
-            },
-            'macros': recipe_data['nutrition'],
-            'ai_reason': recipe_data['reason'],
-            'ingredient_details': recipe_data['ingredients']
-        }
-        
+        return json.loads(response.choices[0].message.content)
     except Exception as e:
-        print(f"AI recipe generation failed: {e}")
+        st.error(f"AI meal generation failed: {e}")
         return None
 
-def build_structured_meal(meal_type, target_macros, diet_prefs):
-    """Build structured meal using authentic nutritional data when AI unavailable"""
-    from fdc_api import search_foods, get_food_details, normalize_food_data
-    
-    try:
-        # Define base ingredients by meal type
-        base_ingredients = {
-            'Breakfast': {'protein': 'eggs', 'carbs': 'oatmeal', 'fat': 'almonds'},
-            'Lunch': {'protein': 'chicken breast', 'carbs': 'quinoa', 'fat': 'olive oil'},
-            'Dinner': {'protein': 'salmon', 'carbs': 'sweet potato', 'fat': 'avocado'},
-            'Snack': {'protein': 'greek yogurt', 'carbs': 'apple', 'fat': 'peanut butter'}
-        }
-        
-        # Adjust for dietary preferences
-        if diet_prefs.get('vegetarian', False) or diet_prefs.get('vegan', False):
-            base_ingredients[meal_type]['protein'] = 'tofu'
-        
-        meal_base = base_ingredients.get(meal_type, base_ingredients['Lunch'])
-        
-        # Search for each ingredient and calculate portions
-        ingredients = []
-        total_nutrition = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
-        
-        for category, food_name in meal_base.items():
-            foods = search_foods(food_name, page_size=1)
-            if foods:
-                food_details = get_food_details(foods[0]['fdcId'])
-                normalized_food = normalize_food_data(food_details, 100)
-                
-                # Calculate portion based on target macros
-                if category == 'protein':
-                    portion = max(50, int(target_macros['protein'] / normalized_food['protein'] * 100))
-                elif category == 'carbs':
-                    portion = max(30, int(target_macros['carbs'] / normalized_food['carbs'] * 100))
-                else:  # fat
-                    portion = max(10, int(target_macros['fat'] / normalized_food['fat'] * 100))
-                
-                # Add to ingredients
-                ingredients.append({
-                    'name': normalized_food['name'],
-                    'amount': portion,
-                    'category': category
-                })
-                
-                # Add to nutrition totals
-                multiplier = portion / 100
-                total_nutrition['calories'] += int(normalized_food['calories'] * multiplier)
-                total_nutrition['protein'] += int(normalized_food['protein'] * multiplier)
-                total_nutrition['carbs'] += int(normalized_food['carbs'] * multiplier)
-                total_nutrition['fat'] += int(normalized_food['fat'] * multiplier)
-        
-        return {
-            'recipe': {
-                'title': f"Balanced {meal_type}",
-                'category': meal_type,
-                'ingredients': [f"{ing['amount']}g {ing['name']}" for ing in ingredients],
-                'directions': [
-                    f"Prepare each ingredient according to preference",
-                    f"Combine and serve as a balanced {meal_type.lower()}"
-                ]
-            },
-            'macros': total_nutrition,
-            'ingredient_details': ingredients
-        }
-        
-    except Exception as e:
-        # Ultimate fallback with basic ingredients
-        return {
-            'recipe': {
-                'title': f"Simple {meal_type}",
-                'category': meal_type,
-                'ingredients': [f"100g protein source", f"50g carb source", f"15g fat source"],
-                'directions': [f"Prepare ingredients for a balanced {meal_type.lower()}"]
-            },
-            'macros': target_macros,
-            'ingredient_details': [
-                {'name': 'protein source', 'amount': 100, 'category': 'protein'},
-                {'name': 'carb source', 'amount': 50, 'category': 'carbs'},
-                {'name': 'fat source', 'amount': 15, 'category': 'fat'}
-            ]
-        }
+# Page Setup
+st.set_page_config(page_title="AI Meal Planning", layout="wide")
+st.title("🤖 AI Meal Planning")
+st.markdown("*Complete AI-powered meal planning workflow - from preferences to PDF export*")
 
-def parse_recipe_ingredients(ingredients):
-    """Parse recipe ingredients into categories for customization"""
-    categories = {'protein': [], 'carbs': [], 'fats': [], 'vegetables': []}
-    
-    for ingredient in ingredients:
-        # Extract amount and name from ingredient string
-        import re
-        match = re.match(r'(\d+)g?\s*(.+)', ingredient)
-        if match:
-            amount = int(match.group(1))
-            name = match.group(2).strip()
-            
-            # Categorize ingredient based on name
-            name_lower = name.lower()
-            if any(word in name_lower for word in ['chicken', 'beef', 'fish', 'salmon', 'tuna', 'eggs', 'tofu', 'protein', 'turkey']):
-                categories['protein'].append({'name': name, 'amount': amount})
-            elif any(word in name_lower for word in ['rice', 'oats', 'quinoa', 'bread', 'pasta', 'potato', 'apple', 'banana']):
-                categories['carbs'].append({'name': name, 'amount': amount})
-            elif any(word in name_lower for word in ['oil', 'butter', 'nuts', 'avocado', 'cheese', 'peanut']):
-                categories['fats'].append({'name': name, 'amount': amount})
-            elif any(word in name_lower for word in ['broccoli', 'spinach', 'lettuce', 'tomato', 'pepper', 'onion', 'vegetable']):
-                categories['vegetables'].append({'name': name, 'amount': amount})
-            else:
-                # Default categorization
-                categories['protein'].append({'name': name, 'amount': amount})
-    
-    return categories
+# Initialize nutrition cache
+if 'nutrition_cache' not in st.session_state:
+    st.session_state.nutrition_cache = NutritionCache()
 
-def find_best_recipes_for_meal(recipes, meal_type, target_macros, diet_prefs):
-    """Main function to find best recipes, with AI enhancement if available"""
-    openai_client = get_openai_client()
-    
-    if openai_client:
-        try:
-            return ai_analyze_recipes_for_meal(recipes, meal_type, target_macros, diet_prefs, openai_client)
-        except Exception as e:
-            print(f"AI analysis failed, using fallback: {e}")
-            return find_best_recipes_for_meal_fallback(recipes, meal_type, target_macros, diet_prefs)
-    else:
-        return find_best_recipes_for_meal_fallback(recipes, meal_type, target_macros, diet_prefs)
+# Step 1: Mode Selection
+st.markdown("## 1. Planning Mode")
+mode_col1, mode_col2 = st.columns(2)
 
-# Header
-st.title("🤖 AI Meal Plan Configuration")
-st.markdown("*Configure your meal planning preferences and nutritional targets*")
+with mode_col1:
+    if st.button("🔧 Standalone Mode", use_container_width=True):
+        st.session_state.meal_planner_mode = 'standalone'
+        st.session_state.planning_step = 1
 
-# Initialize default values for standalone use
-if 'diet_preferences' not in st.session_state:
-    st.session_state.diet_preferences = {
-        'vegetarian': False,
-        'vegan': False,
-        'gluten_free': False,
-        'dairy_free': False,
-        'nut_free': False
-    }
+with mode_col2:
+    if st.button("🔄 Sync Profile Mode", use_container_width=True):
+        st.session_state.meal_planner_mode = 'sync'
+        st.session_state.planning_step = 1
 
-# Initialize day_specific_nutrition if not exists
-if 'day_specific_nutrition' not in st.session_state:
-    st.session_state.day_specific_nutrition = {}
-
-# Mode Selection Toggle
-st.subheader("🔧 Planning Mode")
-
-# Initialize mode in session state
+# Initialize session state
 if 'meal_planner_mode' not in st.session_state:
-    st.session_state.meal_planner_mode = 'standalone'
+    st.session_state.meal_planner_mode = 'none'
+if 'planning_step' not in st.session_state:
+    st.session_state.planning_step = 0
 
-# Mode toggle
-mode_options = ['Standalone Mode', 'Sync Profile Mode']
-selected_mode = st.radio(
-    "Choose your planning approach:",
-    mode_options,
-    index=0 if st.session_state.meal_planner_mode == 'standalone' else 1,
-    horizontal=True,
-    help="Standalone: Complete manual setup | Sync Profile: Use data from previous steps"
-)
-
-# Update session state
-st.session_state.meal_planner_mode = 'standalone' if selected_mode == 'Standalone Mode' else 'sync'
-
-if st.session_state.meal_planner_mode == 'standalone':
-    st.info("🎯 **Standalone Mode:** Complete customization with manual input for nutrition targets and dietary preferences.")
-    standalone_mode = True
-else:
-    st.info("🔗 **Sync Profile Mode:** Automatically use your data from Body Composition Planning, Diet Preferences, and Weekly Schedule.")
-    standalone_mode = False
-    col1, col2 = st.columns([3, 1])
-    with col2:
-        if st.button("🔄 Sync All Data", use_container_width=True):
-            # Sync nutrition targets from weekly schedule
-            if 'day_specific_nutrition' in st.session_state and st.session_state.day_specific_nutrition:
-                first_day_data = list(st.session_state.day_specific_nutrition.values())[0]
-                st.session_state.standalone_protein = first_day_data.get('protein', 150)
-                st.session_state.standalone_carbs = first_day_data.get('carbs', 200)
-                st.session_state.standalone_fat = first_day_data.get('fat', 70)
-                st.success("Nutrition targets synced from Weekly Schedule!")
-            
-            # Sync dietary preferences
-            if 'diet_preferences' in st.session_state:
-                st.success("Dietary preferences synced!")
-            else:
-                st.warning("No dietary preferences found. Please configure in Diet Preferences page first.")
-
-# Load recipes
-recipes = load_fitomics_recipes()
-if not recipes:
-    st.error("Unable to load recipe database. Please refresh the page.")
-    st.stop()
-
-# Standalone Configuration Section
-if standalone_mode:
-    st.subheader("🎯 Meal Plan Configuration")
+# Show current mode
+if st.session_state.meal_planner_mode != 'none':
+    mode_display = "Standalone" if st.session_state.meal_planner_mode == 'standalone' else "Sync Profile"
+    st.info(f"**Current Mode:** {mode_display}")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("**Daily Nutrition Targets**")
-        
-        # Use session state to store macro values for auto-calculation
-        if 'standalone_protein' not in st.session_state:
-            st.session_state.standalone_protein = 150
-        if 'standalone_carbs' not in st.session_state:
-            st.session_state.standalone_carbs = 200
-        if 'standalone_fat' not in st.session_state:
-            st.session_state.standalone_fat = 70
-        
-        manual_protein = st.number_input(
-            "Target Protein (g)", 
-            min_value=50, 
-            max_value=300, 
-            value=st.session_state.standalone_protein, 
-            step=5,
-            key="protein_input"
-        )
-        
-        manual_carbs = st.number_input(
-            "Target Carbs (g)", 
-            min_value=50, 
-            max_value=500, 
-            value=st.session_state.standalone_carbs, 
-            step=10,
-            key="carbs_input"
-        )
-        
-        manual_fat = st.number_input(
-            "Target Fat (g)", 
-            min_value=30, 
-            max_value=200, 
-            value=st.session_state.standalone_fat, 
-            step=5,
-            key="fat_input"
-        )
-        
-        # Auto-calculate calories based on macros
-        calculated_calories = (manual_protein * 4) + (manual_carbs * 4) + (manual_fat * 9)
-        
-        # Display calculated calories (read-only)
-        st.markdown("**Calculated Calories**")
-        st.markdown(f"**{calculated_calories} kcal** *(4×{manual_protein}g protein + 4×{manual_carbs}g carbs + 9×{manual_fat}g fat)*")
-        
-        # Update session state
-        st.session_state.standalone_protein = manual_protein
-        st.session_state.standalone_carbs = manual_carbs
-        st.session_state.standalone_fat = manual_fat
-        
-        manual_calories = calculated_calories
-    
-    with col2:
-        st.markdown("**Daily Schedule & Timing**")
-        
-        # Basic schedule settings
-        wake_time = st.time_input("Wake Time", value=datetime.strptime("07:00", "%H:%M").time())
-        sleep_time = st.time_input("Sleep Time", value=datetime.strptime("23:00", "%H:%M").time())
-        
-        is_training_day = st.checkbox("Training Day", value=False, help="Adjusts meal timing and macro distribution around workouts")
-        
-        if is_training_day:
-            workout_time_options = ["Early Morning (6-8 AM)", "Morning (8-10 AM)", "Lunch (11 AM-1 PM)", "Afternoon (2-5 PM)", "Evening (6-8 PM)"]
-            workout_time = st.selectbox("Workout Time", workout_time_options, index=2)
+    if st.session_state.meal_planner_mode == 'sync':
+        # Check for synced data
+        if not st.session_state.get('day_specific_nutrition'):
+            st.warning("No synced nutrition data found. Complete Body Composition Goals → Weekly Schedule → Nutrition Targets first, or use Standalone Mode.")
+            st.stop()
         else:
-            workout_time = None
-        
-        st.markdown("**Meal Structure**")
-        num_meals = st.selectbox("Number of main meals", [2, 3, 4], index=1)
-        num_snacks = st.selectbox("Number of snacks", [0, 1, 2, 3], index=1)
-        
-        # Optional meal timing customization
-        with st.expander("⏰ Customize Meal Times (Optional)"):
-            st.markdown("Set approximate meal times for better macro distribution:")
-            
-            meal_times = {}
-            if num_meals >= 1:
-                meal_times['breakfast'] = st.time_input("Breakfast", value=datetime.strptime("08:00", "%H:%M").time())
-            if num_meals >= 2:
-                meal_times['lunch'] = st.time_input("Lunch", value=datetime.strptime("12:30", "%H:%M").time())
-            if num_meals >= 3:
-                meal_times['dinner'] = st.time_input("Dinner", value=datetime.strptime("18:30", "%H:%M").time())
-            if num_meals >= 4:
-                meal_times['evening_meal'] = st.time_input("Evening Meal", value=datetime.strptime("21:00", "%H:%M").time())
-            
-            if num_snacks > 0:
-                snack_times = []
-                for i in range(num_snacks):
-                    default_time = "10:00" if i == 0 else "15:30" if i == 1 else "20:00"
-                    snack_time = st.time_input(f"Snack {i+1}", value=datetime.strptime(default_time, "%H:%M").time())
-                    snack_times.append(snack_time)
-        
-        st.markdown("**Basic Dietary Preferences**")
-        vegetarian = st.checkbox("Vegetarian", value=st.session_state.diet_preferences.get('vegetarian', False))
-        vegan = st.checkbox("Vegan", value=st.session_state.diet_preferences.get('vegan', False))
-        gluten_free = st.checkbox("Gluten-Free", value=st.session_state.diet_preferences.get('gluten_free', False))
-        dairy_free = st.checkbox("Dairy-Free", value=st.session_state.diet_preferences.get('dairy_free', False))
-    
-    # Enhanced dietary preferences section for standalone mode
-    st.subheader("🍽️ Advanced Meal Planning Preferences")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("**Food Allergies & Restrictions**")
-        nut_free = st.checkbox("Nut-Free", value=st.session_state.diet_preferences.get('nut_free', False))
-        shellfish_free = st.checkbox("Shellfish-Free", value=False)
-        soy_free = st.checkbox("Soy-Free", value=False)
-        egg_free = st.checkbox("Egg-Free", value=False)
-        
-        st.markdown("**Cooking Preferences**")
-        max_prep_time = st.selectbox("Max Prep Time", ["15 minutes", "30 minutes", "45 minutes", "60+ minutes"], index=1)
-        cooking_skill = st.selectbox("Cooking Skill Level", ["Beginner", "Intermediate", "Advanced"], index=1)
-    
-    with col2:
-        st.markdown("**Preferred Ingredients**")
-        preferred_proteins = st.multiselect(
-            "Favorite Proteins",
-            ["Chicken", "Turkey", "Beef", "Fish", "Salmon", "Eggs", "Greek Yogurt", "Protein Powder", "Tofu", "Tempeh", "Lentils", "Beans"],
-            default=["Chicken", "Eggs", "Greek Yogurt"]
-        )
-        
-        preferred_carbs = st.multiselect(
-            "Favorite Carbs",
-            ["Rice", "Oats", "Quinoa", "Sweet Potato", "Pasta", "Bread", "Fruits", "Vegetables"],
-            default=["Rice", "Oats", "Sweet Potato"]
-        )
-        
-        preferred_fats = st.multiselect(
-            "Favorite Fats",
-            ["Olive Oil", "Avocado", "Nuts", "Seeds", "Nut Butter", "Coconut Oil", "Butter"],
-            default=["Olive Oil", "Avocado", "Nuts"]
-        )
-    
-    with col3:
-        st.markdown("**Meal Planning Style**")
-        meal_variety = st.selectbox("Meal Variety Preference", ["High variety (different each day)", "Moderate variety", "Consistent (similar meals)"], index=1)
-        
-        budget_preference = st.selectbox("Budget Priority", ["Budget-friendly", "Moderate budget", "Premium ingredients"], index=1)
-        
-        convenience_preference = st.selectbox("Convenience Priority", ["Maximum convenience", "Balanced", "Fresh cooking preferred"], index=1)
-        
-        st.markdown("**Disliked Foods**")
-        disliked_foods = st.text_area(
-            "Foods to avoid (comma-separated)",
-            placeholder="e.g., mushrooms, cilantro, spicy foods",
-            help="List any foods you want to avoid in your meal plan"
-        )
-    
+            st.success("✅ Synced nutrition targets detected")
+
+# Step 2: Nutrition Targets
+if st.session_state.get('planning_step', 0) >= 1:
     st.markdown("---")
+    st.markdown("## 2. Nutrition Targets")
     
-    # Configuration confirmation - use session state to persist
-    if 'config_confirmed' not in st.session_state:
-        st.session_state.config_confirmed = False
+    if st.session_state.meal_planner_mode == 'sync':
+        # Use synced targets
+        today = datetime.now().strftime('%A')
+        day_nutrition = st.session_state.day_specific_nutrition.get(today, {})
+        
+        target_calories = day_nutrition.get('target_calories', 2000)
+        target_protein = day_nutrition.get('protein', 150)
+        target_carbs = day_nutrition.get('carbs', 200)
+        target_fat = day_nutrition.get('fat', 70)
+        
+        st.markdown(f"**Today ({today}) Targets:**")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Calories", f"{target_calories:,}")
+        with col2:
+            st.metric("Protein", f"{target_protein}g")
+        with col3:
+            st.metric("Carbs", f"{target_carbs}g")
+        with col4:
+            st.metric("Fat", f"{target_fat}g")
     
-    config_confirmed = st.button("✅ Confirm Meal Plan Configuration", type="primary", use_container_width=True)
+    else:
+        # Standalone mode - manual input
+        st.markdown("**Set your daily nutrition targets:**")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            target_calories = st.number_input("Calories", min_value=1200, max_value=4000, value=2000, step=50)
+        with col2:
+            target_protein = st.number_input("Protein (g)", min_value=50, max_value=300, value=150, step=5)
+        with col3:
+            target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=400, value=200, step=10)
+        with col4:
+            target_fat = st.number_input("Fat (g)", min_value=30, max_value=200, value=70, step=5)
     
-    if config_confirmed:
-        st.session_state.config_confirmed = True
-        st.success("Configuration confirmed! Proceeding to nutrition targets...")
+    # Confirm targets and proceed
+    if st.button("✅ Confirm Nutrition Targets", key="confirm_targets"):
+        st.session_state.planning_step = 2
+        st.session_state.confirmed_targets = {
+            'calories': target_calories,
+            'protein': target_protein,
+            'carbs': target_carbs,
+            'fat': target_fat
+        }
+        st.success("Nutrition targets confirmed!")
+        st.rerun()
+
+# Step 3: Dietary Preferences
+if st.session_state.get('planning_step', 0) >= 2:
+    st.markdown("---")
+    st.markdown("## 3. Dietary Preferences")
     
-    if not st.session_state.config_confirmed:
-        st.info("👆 Please confirm your meal plan configuration above to proceed with target calculation.")
-        st.stop()
+    # Use existing preferences if available
+    existing_prefs = st.session_state.get('diet_preferences', {})
     
-    # Update comprehensive diet preferences
-    diet_prefs = {
+    pref_col1, pref_col2, pref_col3 = st.columns(3)
+    
+    with pref_col1:
+        vegetarian = st.checkbox("Vegetarian", value=existing_prefs.get('vegetarian', False))
+        vegan = st.checkbox("Vegan", value=existing_prefs.get('vegan', False))
+    
+    with pref_col2:
+        gluten_free = st.checkbox("Gluten-Free", value=existing_prefs.get('gluten_free', False))
+        dairy_free = st.checkbox("Dairy-Free", value=existing_prefs.get('dairy_free', False))
+    
+    with pref_col3:
+        nut_free = st.checkbox("Nut-Free", value=existing_prefs.get('nut_free', False))
+        low_sodium = st.checkbox("Low Sodium", value=existing_prefs.get('low_sodium', False))
+    
+    diet_preferences = {
         'vegetarian': vegetarian,
         'vegan': vegan,
         'gluten_free': gluten_free,
         'dairy_free': dairy_free,
         'nut_free': nut_free,
-        'shellfish_free': shellfish_free,
-        'soy_free': soy_free,
-        'egg_free': egg_free,
-        'preferred_proteins': preferred_proteins,
-        'preferred_carbs': preferred_carbs,
-        'preferred_fats': preferred_fats,
-        'max_prep_time': max_prep_time,
-        'cooking_skill': cooking_skill,
-        'meal_variety': meal_variety,
-        'budget_preference': budget_preference,
-        'convenience_preference': convenience_preference,
-        'disliked_foods': [food.strip() for food in disliked_foods.split(',') if food.strip()] if disliked_foods else []
+        'low_sodium': low_sodium
     }
     
-    # Create meal structure for standalone mode
-    meal_types = []
-    if num_meals >= 1:
-        meal_types.append('breakfast')
-    if num_meals >= 2:
-        meal_types.append('lunch')
-    if num_meals >= 3:
-        meal_types.append('dinner')
-    if num_meals >= 4:
-        meal_types.append('evening_meal')
+    if st.button("✅ Confirm Dietary Preferences", key="confirm_diet"):
+        st.session_state.planning_step = 3
+        st.session_state.confirmed_diet_prefs = diet_preferences
+        st.success("Dietary preferences confirmed!")
+        st.rerun()
+
+# Step 4: Meal Configuration
+if st.session_state.get('planning_step', 0) >= 3:
+    st.markdown("---")
+    st.markdown("## 4. Meal Timing & Configuration")
     
-    # Add snacks
-    for i in range(num_snacks):
-        meal_types.append('snack')
+    config_col1, config_col2 = st.columns(2)
     
-    # Calculate intelligent meal distribution with timing considerations
-    meal_targets = calculate_intelligent_meal_distribution(
-        manual_calories, manual_protein, manual_carbs, manual_fat,
-        num_meals, num_snacks, is_training_day, workout_time,
-        meal_times if 'meal_times' in locals() else None,
-        wake_time, sleep_time
-    )
+    with config_col1:
+        wake_time = st.time_input("Wake Time", value=time(7, 0))
+        sleep_time = st.time_input("Sleep Time", value=time(23, 0))
+        
+    with config_col2:
+        workout_time = st.selectbox("Workout Timing", [
+            "Morning (6-9 AM)", "Mid-Morning (9-12 PM)", "Afternoon (2-5 PM)", 
+            "Evening (5-8 PM)", "No workout today"
+        ])
+        is_training_day = workout_time != "No workout today"
     
-    # Create nutrition targets
-    day_nutrition = {
-        'target_calories': manual_calories,
-        'protein': manual_protein,
-        'carbs': manual_carbs,
-        'fat': manual_fat,
-        'meal_targets': meal_targets
+    meal_col1, meal_col2 = st.columns(2)
+    with meal_col1:
+        num_meals = st.selectbox("Number of Main Meals", [2, 3, 4], index=1)
+    with meal_col2:
+        num_snacks = st.selectbox("Number of Snacks", [0, 1, 2], index=1)
+    
+    meal_config = {
+        'wake_time': wake_time.strftime("%H:%M"),
+        'sleep_time': sleep_time.strftime("%H:%M"),
+        'workout_time': workout_time,
+        'num_meals': num_meals,
+        'num_snacks': num_snacks,
+        'is_training_day': is_training_day
     }
     
-    selected_day = "Custom Meal Plan"
+    if st.button("✅ Confirm Meal Configuration", key="confirm_config"):
+        st.session_state.planning_step = 4
+        st.session_state.confirmed_meal_config = meal_config
+        st.success("Meal configuration confirmed!")
+        st.rerun()
+
+# Step 5: Generate AI Meal Plan
+if st.session_state.get('planning_step', 0) >= 4:
+    st.markdown("---")
+    st.markdown("## 5. Generate AI Meal Plan")
     
-    # Display targets
-    st.markdown(f"### Nutrition Targets for {selected_day}")
-    target_cols = st.columns(4)
+    # Create meal distribution
+    total_meals = st.session_state.confirmed_meal_config['num_meals'] + st.session_state.confirmed_meal_config['num_snacks']
     
-    with target_cols[0]:
-        st.metric("Calories", f"{manual_calories}")
-    with target_cols[1]:
-        st.metric("Protein", f"{manual_protein}g")
-    with target_cols[2]:
-        st.metric("Carbs", f"{manual_carbs}g")
-    with target_cols[3]:
-        st.metric("Fat", f"{manual_fat}g")
+    if total_meals == 3:  # 2 meals + 1 snack
+        meal_distribution = {'breakfast': 0.35, 'lunch': 0.45, 'snack': 0.20}
+    elif total_meals == 4:  # 3 meals + 1 snack
+        meal_distribution = {'breakfast': 0.25, 'lunch': 0.35, 'dinner': 0.30, 'snack': 0.10}
+    elif total_meals == 5:  # 3 meals + 2 snacks
+        meal_distribution = {'breakfast': 0.25, 'lunch': 0.30, 'dinner': 0.30, 'snack1': 0.08, 'snack2': 0.07}
+    else:  # Default to 4 meals
+        meal_distribution = {'breakfast': 0.25, 'lunch': 0.35, 'dinner': 0.30, 'snack': 0.10}
     
-    # Show intelligent meal distribution with timing context
-    if is_training_day:
-        st.info(f"🏋️ Training day distribution optimized for {workout_time} workout")
+    # Calculate meal targets
+    targets = st.session_state.confirmed_targets
+    meal_targets = {}
     
-    st.markdown("### Per-Meal Targets with Timing Context")
+    for meal_type, percentage in meal_distribution.items():
+        meal_targets[meal_type] = {
+            'calories': int(targets['calories'] * percentage),
+            'protein': int(targets['protein'] * percentage),
+            'carbs': int(targets['carbs'] * percentage),
+            'fat': int(targets['fat'] * percentage)
+        }
     
-    # Calculate timing context for each meal
-    wake_datetime = datetime.combine(datetime.today(), wake_time)
-    sleep_datetime = datetime.combine(datetime.today(), sleep_time)
-    if sleep_datetime < wake_datetime:
-        sleep_datetime += timedelta(days=1)
+    # Display meal target breakdown
+    st.markdown("### Meal Target Breakdown")
+    target_df = pd.DataFrame([
+        {
+            'Meal': meal_type.title(),
+            'Calories': f"{targets['calories']} cal",
+            'Protein': f"{targets['protein']}g",
+            'Carbs': f"{targets['carbs']}g",
+            'Fat': f"{targets['fat']}g"
+        }
+        for meal_type, targets in meal_targets.items()
+    ])
+    st.dataframe(target_df, use_container_width=True)
     
-    # Show meal targets with timing context
-    st.markdown("**Intelligent meal distribution with timing considerations:**")
-    
-    # Initialize adjustable meal targets in session state
-    if 'adjustable_meal_targets' not in st.session_state:
-        st.session_state.adjustable_meal_targets = meal_targets.copy()
-    
-    for meal_name, targets in meal_targets.items():
-        with st.expander(f"📍 {meal_name.title().replace('_', ' ')} - {targets['calories']} cal | {targets['protein']}g protein | {targets['carbs']}g carbs | {targets['fat']}g fat"):
-            col1, col2 = st.columns([2, 1])
+    # Generate meal plan
+    if st.button("🚀 Generate Complete Meal Plan", type="primary", use_container_width=True):
+        openai_client = get_openai_client()
+        
+        if not openai_client:
+            st.error("OpenAI API key not found. Please add your OPENAI_API_KEY to generate AI meal plans.")
+            st.stop()
+        
+        with st.spinner("Creating your personalized meal plan..."):
+            meal_plan = generate_ai_meal_plan(
+                meal_targets,
+                st.session_state.confirmed_diet_prefs,
+                st.session_state.confirmed_meal_config,
+                openai_client
+            )
             
-            with col1:
-                # Show timing context
-                timing_context = []
-                
-                # Check if meal time is defined
-                meal_time_key = meal_name if meal_name in ['breakfast', 'lunch', 'dinner', 'evening_meal'] else None
-                if meal_time_key and 'meal_times' in locals() and meal_times.get(meal_time_key):
-                    meal_time = meal_times[meal_time_key]
-                    meal_datetime = datetime.combine(datetime.today(), meal_time)
-                    if meal_datetime < wake_datetime:
-                        meal_datetime += timedelta(days=1)
-                    
-                    hours_since_wake = (meal_datetime - wake_datetime).seconds / 3600
-                    hours_until_sleep = (sleep_datetime - meal_datetime).seconds / 3600
-                    
-                    timing_context.append(f"⏰ Scheduled for {meal_time.strftime('%I:%M %p')}")
-                    timing_context.append(f"📈 {hours_since_wake:.1f} hours after wake time")
-                    timing_context.append(f"😴 {hours_until_sleep:.1f} hours before sleep")
-                    
-                    # Training context
-                    if is_training_day and workout_time:
-                        workout_relation = "around workout time"
-                        if "Morning" in workout_time and meal_name == 'breakfast':
-                            workout_relation = "pre-workout fuel"
-                        elif "Lunch" in workout_time and meal_name == 'lunch':
-                            workout_relation = "workout meal"
-                        elif ("Afternoon" in workout_time or "Evening" in workout_time) and meal_name == 'dinner':
-                            workout_relation = "post-workout recovery"
-                        timing_context.append(f"🏋️ {workout_relation}")
-                else:
-                    # Default timing descriptions
-                    if meal_name == 'breakfast':
-                        timing_context.append("🌅 Morning energy and metabolism boost")
-                    elif meal_name == 'lunch':
-                        timing_context.append("☀️ Midday fuel and productivity support")
-                    elif meal_name == 'dinner':
-                        timing_context.append("🌆 Evening nutrition and recovery")
-                    elif meal_name == 'evening_meal':
-                        timing_context.append("🌙 Light evening meal before sleep")
-                    elif 'snack' in meal_name:
-                        timing_context.append("🍎 Strategic snack for sustained energy")
-                
-                # Circadian optimization notes
-                if 'hours_since_wake' in locals() and hours_since_wake < 4:
-                    timing_context.append("🔥 Higher carbs for morning energy")
-                elif 'hours_until_sleep' in locals() and hours_until_sleep < 4:
-                    timing_context.append("🧈 Higher fats to support sleep quality")
-                
-                st.markdown("**Timing Context & AI Optimization:**")
-                for context in timing_context:
-                    st.markdown(f"  {context}")
+            if meal_plan:
+                st.session_state.generated_meal_plan = meal_plan
+                st.session_state.planning_step = 5
+                st.success("✅ Meal plan generated successfully!")
+                st.rerun()
+
+# Step 6: Display & Customize Meal Plan
+if st.session_state.get('planning_step', 0) >= 5 and 'generated_meal_plan' in st.session_state:
+    st.markdown("---")
+    st.markdown("## 6. Your Personalized Meal Plan")
+    
+    meal_plan = st.session_state.generated_meal_plan
+    
+    # Create tabs for each meal
+    meal_types = list(meal_plan.keys())
+    meal_tabs = st.tabs([meal_type.title() for meal_type in meal_types])
+    
+    for i, meal_type in enumerate(meal_types):
+        with meal_tabs[i]:
+            meal_data = meal_plan[meal_type]
             
-            with col2:
-                st.markdown("**Customize Targets:**")
-                
-                # Initialize if not exists
-                if meal_name not in st.session_state.adjustable_meal_targets:
-                    st.session_state.adjustable_meal_targets[meal_name] = targets.copy()
-                
-                # Customizable inputs
-                custom_calories = st.number_input(
-                    "Calories", 
-                    min_value=50, 
-                    max_value=1500, 
-                    value=st.session_state.adjustable_meal_targets[meal_name]['calories'],
-                    step=25,
-                    key=f"cal_{meal_name}"
-                )
-                
-                custom_protein = st.number_input(
-                    "Protein (g)", 
-                    min_value=5, 
-                    max_value=100, 
-                    value=st.session_state.adjustable_meal_targets[meal_name]['protein'],
-                    step=5,
-                    key=f"pro_{meal_name}"
-                )
-                
-                custom_carbs = st.number_input(
-                    "Carbs (g)", 
-                    min_value=5, 
-                    max_value=150, 
-                    value=st.session_state.adjustable_meal_targets[meal_name]['carbs'],
-                    step=5,
-                    key=f"carb_{meal_name}"
-                )
-                
-                custom_fat = st.number_input(
-                    "Fat (g)", 
-                    min_value=2, 
-                    max_value=80, 
-                    value=st.session_state.adjustable_meal_targets[meal_name]['fat'],
-                    step=2,
-                    key=f"fat_{meal_name}"
-                )
-                
-                # Update session state
-                st.session_state.adjustable_meal_targets[meal_name] = {
-                    'calories': custom_calories,
-                    'protein': custom_protein,
-                    'carbs': custom_carbs,
-                    'fat': custom_fat
+            st.markdown(f"### {meal_data.get('name', meal_type.title())}")
+            if 'timing' in meal_data:
+                st.markdown(f"**Suggested Time:** {meal_data['timing']}")
+            
+            # Macro summary
+            macros = meal_data.get('total_macros', {})
+            macro_col1, macro_col2, macro_col3, macro_col4 = st.columns(4)
+            
+            with macro_col1:
+                st.metric("Calories", macros.get('calories', 0))
+            with macro_col2:
+                st.metric("Protein", f"{macros.get('protein', 0)}g")
+            with macro_col3:
+                st.metric("Carbs", f"{macros.get('carbs', 0)}g")
+            with macro_col4:
+                st.metric("Fat", f"{macros.get('fat', 0)}g")
+            
+            # Ingredients
+            st.markdown("**Ingredients:**")
+            ingredients = meal_data.get('ingredients', [])
+            
+            for j, ingredient in enumerate(ingredients):
+                with st.expander(f"{ingredient.get('item', 'Unknown')} - {ingredient.get('amount', 'N/A')}", expanded=False):
+                    ing_col1, ing_col2, ing_col3, ing_col4 = st.columns(4)
+                    with ing_col1:
+                        st.write(f"Calories: {ingredient.get('calories', 0)}")
+                    with ing_col2:
+                        st.write(f"Protein: {ingredient.get('protein', 0)}g")
+                    with ing_col3:
+                        st.write(f"Carbs: {ingredient.get('carbs', 0)}g")
+                    with ing_col4:
+                        st.write(f"Fat: {ingredient.get('fat', 0)}g")
+            
+            # Instructions
+            if 'instructions' in meal_data:
+                st.markdown("**Preparation Instructions:**")
+                st.markdown(meal_data['instructions'])
+    
+    # Step 7: Export Options
+    st.markdown("---")
+    st.markdown("## 7. Export Your Meal Plan")
+    
+    export_col1, export_col2 = st.columns(2)
+    
+    with export_col1:
+        if st.button("📄 Export PDF", type="primary", use_container_width=True):
+            try:
+                # Convert meal plan to format expected by PDF export
+                pdf_data = {
+                    'meals': meal_plan,
+                    'daily_totals': st.session_state.confirmed_targets,
+                    'user_preferences': st.session_state.confirmed_diet_prefs
                 }
                 
-                # Reset to AI recommendation button
-                if st.button(f"Reset to AI", key=f"reset_{meal_name}"):
-                    st.session_state.adjustable_meal_targets[meal_name] = targets.copy()
-                    st.rerun()
-    
-    # Update meal targets with customized values
-    meal_targets = st.session_state.adjustable_meal_targets.copy()
-    
-    # Show daily totals with customized values
-    total_custom_calories = sum(targets['calories'] for targets in meal_targets.values())
-    total_custom_protein = sum(targets['protein'] for targets in meal_targets.values())
-    total_custom_carbs = sum(targets['carbs'] for targets in meal_targets.values())
-    total_custom_fat = sum(targets['fat'] for targets in meal_targets.values())
-    
-    st.markdown("### Daily Totals (Customized)")
-    total_cols = st.columns(4)
-    
-    with total_cols[0]:
-        variance_cal = total_custom_calories - manual_calories
-        st.metric("Calories", f"{total_custom_calories}", delta=f"{variance_cal:+d}" if variance_cal != 0 else None)
-    with total_cols[1]:
-        variance_pro = total_custom_protein - manual_protein
-        st.metric("Protein", f"{total_custom_protein}g", delta=f"{variance_pro:+d}g" if variance_pro != 0 else None)
-    with total_cols[2]:
-        variance_carb = total_custom_carbs - manual_carbs
-        st.metric("Carbs", f"{total_custom_carbs}g", delta=f"{variance_carb:+d}g" if variance_carb != 0 else None)
-    with total_cols[3]:
-        variance_fat = total_custom_fat - manual_fat
-        st.metric("Fat", f"{total_custom_fat}g", delta=f"{variance_fat:+d}g" if variance_fat != 0 else None)
-    
-    st.markdown("---")
-    
-    # Nutrition targets confirmation
-    targets_confirmed = st.button("✅ Confirm Nutrition Targets", type="primary", use_container_width=True)
-    
-    if targets_confirmed:
-        # Save configuration to session state
-        st.session_state.meal_planning_confirmed = True
-        st.session_state.confirmed_meal_targets = meal_targets
-        st.session_state.confirmed_diet_prefs = diet_prefs
-        st.session_state.confirmed_meal_config = {
-            'wake_time': wake_time,
-            'sleep_time': sleep_time,
-            'workout_time': workout_time,
-            'num_meals': num_meals,
-            'num_snacks': num_snacks,
-            'is_training_day': is_training_day
-        }
-        
-        st.success("Configuration saved successfully!")
-        st.info("Navigate to the 'AI Meal Plan' page to view your personalized meal recommendations with customizable ingredients.")
-        st.markdown("**Next Step:** Go to the AI Meal Plan page to see your meal recommendations.")
-        st.stop()
-    
-    if not targets_confirmed:
-        st.info("👆 Please confirm your nutrition targets above to proceed with AI meal planning.")
-        st.stop()
-    
-    # Use the customized meal targets for meal planning
-    adjusted_meal_targets = meal_targets.copy()
-    
-    # Update meal targets with user adjustments
-    day_nutrition['meal_targets'] = adjusted_meal_targets
-    
-    # AI Meal Planning Section
-    st.markdown("---")
-    st.markdown("## 🤖 AI-Powered Meal Recommendations")
-    st.markdown("*Based on your customized nutrition targets and dietary preferences*")
-    
-    # Initialize meal plan storage
-    if 'meal_plans' not in st.session_state:
-        st.session_state.meal_plans = {}
-    
-    if selected_day not in st.session_state.meal_plans:
-        st.session_state.meal_plans[selected_day] = {
-            'breakfast': {'recipes': [], 'additions': []},
-            'lunch': {'recipes': [], 'additions': []},
-            'dinner': {'recipes': [], 'additions': []},
-            'snack': {'recipes': [], 'additions': []},
-            'evening_meal': {'recipes': [], 'additions': []}
-        }
-    
-    # Create tabs for each meal type
-    available_meals = [meal for meal in ['breakfast', 'lunch', 'dinner', 'evening_meal', 'snack'] if meal in adjusted_meal_targets]
-    meal_tab_names = [f"🍳 {meal.title().replace('_', ' ')}" for meal in available_meals]
-    meal_tabs = st.tabs(meal_tab_names)
-    
-    for i, (meal_type, tab) in enumerate(zip(available_meals, meal_tabs)):
-        with tab:
-            meal_target = adjusted_meal_targets[meal_type]
-            
-            st.markdown(f"**Target for {meal_type.title().replace('_', ' ')}:** {meal_target['calories']} cal | {meal_target['protein']}g protein | {meal_target['carbs']}g carbs | {meal_target['fat']}g fat")
-            
-            # Add AI insights for meal planning
-            openai_client = get_openai_client()
-            if openai_client:
-                with st.expander("🧠 AI Meal Planning Insights", expanded=False):
-                    insights = ai_generate_meal_insights(meal_type, meal_target, diet_prefs, openai_client)
-                    if insights:
-                        st.markdown("**AI-Powered Tips for Your Meal:**")
-                        for j, insight in enumerate(insights, 1):
-                            st.write(f"{j}. {insight}")
-                    else:
-                        st.info("AI insights temporarily unavailable")
-            
-            # Find recommended recipes
-            recommended_recipes = find_best_recipes_for_meal(recipes, meal_type, meal_target, diet_prefs)
-            
-            # Always show recommendations if no recipes found
-            if not recommended_recipes:
-                st.info("No recipes found in database. Searching authentic food database for recommendations...")
-                # Import FDC functions for authentic food data
-                try:
-                    from fdc_api import search_foods, get_food_details, normalize_food_data
-                    
-                    # Define search terms based on meal type
-                    search_terms = {
-                        'Breakfast': ['eggs', 'oatmeal', 'greek yogurt'],
-                        'Lunch': ['chicken breast', 'salmon', 'quinoa'],
-                        'Dinner': ['lean beef', 'turkey', 'brown rice'],
-                        'Snack': ['nuts', 'protein bar', 'cottage cheese']
-                    }
-                    
-                    meal_terms = search_terms.get(meal_type, ['chicken', 'rice'])
-                    fdc_recommendations = []
-                    
-                    for term in meal_terms[:2]:
-                        foods = search_foods(term, page_size=3)
-                        if foods:
-                            for food in foods[:1]:
-                                try:
-                                    food_details = get_food_details(food['fdcId'])
-                                    normalized_food = normalize_food_data(food_details, 100)
-                                    
-                                    if normalized_food['calories'] > 0:
-                                        recommendation = {
-                                            'recipe': {
-                                                'title': f"{meal_type} with {normalized_food['name']}",
-                                                'category': meal_type,
-                                                'ingredients': [f"100g {normalized_food['name']}"],
-                                                'directions': [f"Prepare {normalized_food['name']} as desired"]
-                                            },
-                                            'macros': {
-                                                'calories': normalized_food['calories'],
-                                                'protein': normalized_food['protein'],
-                                                'carbs': normalized_food['carbs'],
-                                                'fat': normalized_food['fat']
-                                            },
-                                            'match_score': 85
-                                        }
-                                        fdc_recommendations.append(recommendation)
-                                        break
-                                except:
-                                    continue
-                    
-                    recommended_recipes = fdc_recommendations
-                    
-                except Exception as e:
-                    st.error("Unable to load food recommendations. Please ensure FDC API access is configured.")
-                    recommended_recipes = []
-            
-            if recommended_recipes:
-                # Display meal information card
-                st.markdown(f"### {meal_type} Plan")
+                pdf_buffer = export_meal_plan_pdf(pdf_data)
                 
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Target Calories", f"{meal_target['calories']}")
-                with col2:
-                    st.metric("Target Protein", f"{meal_target['protein']}g")
-                with col3:
-                    st.metric("Target Carbs", f"{meal_target['carbs']}g")
-                with col4:
-                    st.metric("Target Fat", f"{meal_target['fat']}g")
-                
-                # Check if recipes came from AI analysis
-                ai_powered = any(rec.get('ai_reason') for rec in recommended_recipes)
-                
-                if ai_powered:
-                    st.markdown("#### 🤖 AI-Powered Recipe Recommendations")
-                    st.success("These recipes were intelligently selected by AI based on your nutrition targets and dietary preferences.")
-                else:
-                    st.markdown("#### Recipe Recommendations")
-                    st.info("Matching recipes to your nutritional targets.")
-                
-                # Always ensure meal recommendations appear using authentic data
-                if not recommended_recipes or len(recommended_recipes) == 0:
-                    st.info("Generating personalized meal recommendations...")
-                    
-                    # Create authentic meal recommendations using FDC API
-                    try:
-                        from fdc_api import search_foods, get_food_details, normalize_food_data
-                        
-                        # Simple meal structure with authentic nutritional data
-                        meal_recommendation = {
-                            'recipe': {
-                                'title': f"Customizable {meal_type}",
-                                'category': meal_type,
-                                'ingredients': [],
-                                'directions': ["Prepare ingredients according to preference", "Combine for a balanced meal"]
-                            },
-                            'macros': meal_target.copy(),
-                            'ingredient_details': []
-                        }
-                        
-                        # Search for protein source
-                        protein_search = 'chicken breast' if not diet_prefs.get('vegetarian') else 'tofu'
-                        protein_foods = search_foods(protein_search, page_size=1)
-                        if protein_foods:
-                            protein_details = get_food_details(protein_foods[0]['fdcId'])
-                            protein_data = normalize_food_data(protein_details, 100)
-                            protein_amount = max(50, int(meal_target['protein'] / protein_data['protein'] * 100))
-                            
-                            meal_recommendation['recipe']['ingredients'].append(f"{protein_amount}g {protein_data['name']}")
-                            meal_recommendation['ingredient_details'].append({
-                                'name': protein_data['name'],
-                                'amount': protein_amount,
-                                'category': 'protein'
-                            })
-                        
-                        # Search for carb source
-                        carb_search = 'brown rice' if meal_type != 'Breakfast' else 'oatmeal'
-                        carb_foods = search_foods(carb_search, page_size=1)
-                        if carb_foods:
-                            carb_details = get_food_details(carb_foods[0]['fdcId'])
-                            carb_data = normalize_food_data(carb_details, 100)
-                            carb_amount = max(30, int(meal_target['carbs'] / carb_data['carbs'] * 100))
-                            
-                            meal_recommendation['recipe']['ingredients'].append(f"{carb_amount}g {carb_data['name']}")
-                            meal_recommendation['ingredient_details'].append({
-                                'name': carb_data['name'],
-                                'amount': carb_amount,
-                                'category': 'carbs'
-                            })
-                        
-                        recommended_recipes = [meal_recommendation]
-                        
-                    except Exception as e:
-                        st.error(f"Unable to load authentic food data. Please ensure your FDC API key is configured.")
-                        # Provide minimal structure to prevent crashes
-                        recommended_recipes = [{
-                            'recipe': {
-                                'title': f"Configure {meal_type}",
-                                'category': meal_type,
-                                'ingredients': ["Please configure FDC API access"],
-                                'directions': ["Set up your FDC API key to access authentic food data"]
-                            },
-                            'macros': meal_target.copy(),
-                            'ingredient_details': []
-                        }]
-                
-                # Display customizable recipe options
-                for j, rec_data in enumerate(recommended_recipes):
-                    recipe = rec_data.get('recipe', {})
-                    recipe_macros = rec_data.get('macros', {})
-                    ai_reason = rec_data.get('ai_reason', '')
-                    
-                    with st.expander(f"🍽️ {recipe.get('title', f'{meal_type} Option {j+1}')}", expanded=True):
-                        if ai_reason:
-                            st.info(f"AI Recommendation: {ai_reason}")
-                        
-                        # Display current macro breakdown
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            current_cals = recipe_macros.get('calories', 0)
-                            target_cals = meal_target['calories']
-                            cal_diff = current_cals - target_cals
-                            cal_color = "red" if abs(cal_diff) > 50 else "green"
-                            st.markdown(f"**Calories:** {current_cals} (Target: {target_cals})")
-                            if cal_diff != 0:
-                                st.markdown(f"<span style='color:{cal_color}'>{'+'if cal_diff > 0 else ''}{cal_diff}</span>", unsafe_allow_html=True)
-                        
-                        with col2:
-                            current_protein = recipe_macros.get('protein', 0)
-                            target_protein = meal_target['protein']
-                            protein_diff = current_protein - target_protein
-                            protein_color = "red" if abs(protein_diff) > 5 else "green"
-                            st.markdown(f"**Protein:** {current_protein}g (Target: {target_protein}g)")
-                            if protein_diff != 0:
-                                st.markdown(f"<span style='color:{protein_color}'>{'+'if protein_diff > 0 else ''}{protein_diff}g</span>", unsafe_allow_html=True)
-                        
-                        with col3:
-                            current_carbs = recipe_macros.get('carbs', 0)
-                            target_carbs = meal_target['carbs']
-                            carb_diff = current_carbs - target_carbs
-                            carb_color = "red" if abs(carb_diff) > 5 else "green"
-                            st.markdown(f"**Carbs:** {current_carbs}g (Target: {target_carbs}g)")
-                            if carb_diff != 0:
-                                st.markdown(f"<span style='color:{carb_color}'>{'+'if carb_diff > 0 else ''}{carb_diff}g</span>", unsafe_allow_html=True)
-                        
-                        with col4:
-                            current_fat = recipe_macros.get('fat', 0)
-                            target_fat = meal_target['fat']
-                            fat_diff = current_fat - target_fat
-                            fat_color = "red" if abs(fat_diff) > 3 else "green"
-                            st.markdown(f"**Fat:** {current_fat}g (Target: {target_fat}g)")
-                            if fat_diff != 0:
-                                st.markdown(f"<span style='color:{fat_color}'>{'+'if fat_diff > 0 else ''}{fat_diff}g</span>", unsafe_allow_html=True)
-                        
-                        # Customizable ingredients section
-                        st.markdown("#### Customize Ingredients")
-                        
-                        # Get ingredient categories from the recipe
-                        ingredients = recipe.get('ingredients', [])
-                        ingredient_categories = rec_data.get('ingredient_details', [])
-                        
-                        # Display and customize ingredients
-                        if ingredient_categories:
-                            st.markdown("**Ingredients:**")
-                            for ing in ingredient_categories:
-                                col1, col2 = st.columns([3, 1])
-                                with col1:
-                                    st.write(f"• {ing.get('name', 'Unknown ingredient')}")
-                                with col2:
-                                    new_amount = st.number_input(
-                                        "grams",
-                                        value=ing.get('amount', 100),
-                                        min_value=0,
-                                        step=5,
-                                        key=f"{meal_type}_{j}_{ing.get('name', 'ingredient')}",
-                                        label_visibility="collapsed"
-                                    )
-                        else:
-                            st.markdown("**Ingredients:**")
-                            for ingredient in ingredients:
-                                st.write(f"• {ingredient}")
-                        
-                        # Recipe instructions
-                        if recipe.get('directions'):
-                            st.markdown("#### Preparation Instructions")
-                            for step_num, direction in enumerate(recipe['directions'], 1):
-                                st.write(f"{step_num}. {direction}")
-                        
-                        # Confirm meal button
-                        if st.button(f"✅ Confirm {meal_type}", key=f"confirm_{meal_type}_{j}"):
-                            # Save confirmed meal to session state
-                            if 'confirmed_meals' not in st.session_state:
-                                st.session_state.confirmed_meals = {}
-                            
-                            st.session_state.confirmed_meals[meal_type] = {
-                                'recipe': recipe,
-                                'macros': recipe_macros,
-                                'ingredients': ingredient_categories
-                            }
-                            st.success(f"{meal_type} confirmed! Recipe saved to your meal plan.")
-                            st.rerun()
-                    ai_rank = rec_data.get('ai_rank', j+1)
-                    
-                    # Enhanced title with AI ranking
-                    title_prefix = f"🥇 AI Top Choice" if ai_rank == 1 else f"#{ai_rank} AI Pick" if ai_reason else f"Option {j+1}"
-                    
-                    with st.expander(f"{title_prefix}: {recipe.get('title', 'Untitled Recipe')}", expanded=(j==0)):
-                        if ai_reason:
-                            st.markdown(f"**🤖 AI Analysis:** {ai_reason}")
-                            st.markdown("---")
-                        
-                        col1, col2 = st.columns([2, 1])
-                        
-                        with col1:
-                            # Recipe details
-                            st.write(f"**Category:** {recipe.get('category', 'N/A')}")
-                            
-                            # Individual ingredient manipulation
-                            if recipe.get('ingredients'):
-                                st.markdown("**Customize Ingredients:**")
-                                
-                                # Initialize ingredient adjustments in session state
-                                ingredient_key = f"ingredients_{meal_type}_{j}"
-                                if ingredient_key not in st.session_state:
-                                    st.session_state[ingredient_key] = {}
-                                    for ingredient in recipe['ingredients']:
-                                        st.session_state[ingredient_key][ingredient] = 1.0
-                                
-                                adjusted_ingredients = {}
-                                
-                                # Display each ingredient with individual controls
-                                for ingredient in recipe['ingredients']:
-                                    col_ing1, col_ing2, col_ing3 = st.columns([3, 1, 1])
-                                    
-                                    with col_ing1:
-                                        st.write(f"• {ingredient}")
-                                    
-                                    with col_ing2:
-                                        multiplier = st.number_input(
-                                            "Amount",
-                                            min_value=0.0,
-                                            max_value=5.0,
-                                            value=st.session_state[ingredient_key].get(ingredient, 1.0),
-                                            step=0.25,
-                                            key=f"ing_{meal_type}_{j}_{ingredient}",
-                                            label_visibility="collapsed"
-                                        )
-                                        st.session_state[ingredient_key][ingredient] = multiplier
-                                        adjusted_ingredients[ingredient] = multiplier
-                                    
-                                    with col_ing3:
-                                        if st.button("Remove", key=f"remove_{meal_type}_{j}_{ingredient}"):
-                                            st.session_state[ingredient_key][ingredient] = 0.0
-                                            st.rerun()
-                                
-                                # Option to add custom ingredients
-                                with st.expander("➕ Add Custom Ingredients"):
-                                    custom_ingredient = st.text_input(
-                                        "Add ingredient (e.g., '1 tbsp olive oil', '50g chicken breast')",
-                                        key=f"custom_ing_{meal_type}_{j}"
-                                    )
-                                    if st.button("Add Ingredient", key=f"add_custom_{meal_type}_{j}"):
-                                        if custom_ingredient:
-                                            st.session_state[ingredient_key][custom_ingredient] = 1.0
-                                            st.rerun()
-                                
-                                # Calculate total macros from adjusted ingredients
-                                total_recipe_macros = calculate_recipe_macros_from_ingredients(
-                                    recipe, adjusted_ingredients
-                                )
-                            else:
-                                # Fallback if no ingredients
-                                total_recipe_macros = calculate_recipe_macros(recipe, 1.0)
-                                adjusted_ingredients = {}
-                        
-                        with col2:
-                            st.markdown("**Customized Nutrition:**")
-                            st.write(f"**{total_recipe_macros['calories']} cal** | **{total_recipe_macros['protein']}g protein**")
-                            st.write(f"**{total_recipe_macros['carbs']}g carbs** | **{total_recipe_macros['fat']}g fat**")
-                            
-                            # Enhanced macro gap analysis
-                            calorie_gap = meal_target['calories'] - total_recipe_macros['calories']
-                            protein_gap = meal_target['protein'] - total_recipe_macros['protein']
-                            carb_gap = meal_target['carbs'] - total_recipe_macros['carbs']
-                            fat_gap = meal_target['fat'] - total_recipe_macros['fat']
-                            
-                            st.markdown("**Target vs Actual:**")
-                            
-                            # Color-coded gap indicators
-                            gap_color = lambda gap, threshold: "🟢" if abs(gap) <= threshold else "🟡" if abs(gap) <= threshold*2 else "🔴"
-                            
-                            st.write(f"{gap_color(calorie_gap, 50)} Calories: {calorie_gap:+d}")
-                            st.write(f"{gap_color(protein_gap, 5)} Protein: {protein_gap:+d}g")
-                            st.write(f"{gap_color(carb_gap, 10)} Carbs: {carb_gap:+d}g")
-                            st.write(f"{gap_color(fat_gap, 5)} Fat: {fat_gap:+d}g")
-                            
-                            # Smart ingredient suggestions
-                            if abs(calorie_gap) > 50 or abs(protein_gap) > 5:
-                                st.markdown("**Smart Additions:**")
-                                additions = get_macro_additions()
-                                
-                                if protein_gap > 10:
-                                    st.write("🥩 **For more protein:**")
-                                    for addition in additions['protein'][:2]:
-                                        st.write(f"  • {addition['name']}")
-                                
-                                if carb_gap > 15:
-                                    st.write("🍞 **For more carbs:**")
-                                    for addition in additions['carbs'][:2]:
-                                        st.write(f"  • {addition['name']}")
-                                
-                                if fat_gap > 8:
-                                    st.write("🥑 **For healthy fats:**")
-                                    for addition in additions['fat'][:2]:
-                                        st.write(f"  • {addition['name']}")
-                            
-                            # Accuracy score
-                            accuracy = 100 - (abs(calorie_gap)/meal_target['calories'] * 50 + abs(protein_gap)/meal_target['protein'] * 50)
-                            accuracy = max(0, min(100, accuracy))
-                            st.metric("Target Accuracy", f"{accuracy:.0f}%")
-                        
-                        # Add to meal plan button with validation
-                        button_text = f"Add to {meal_type.title().replace('_', ' ')}"
-                        button_type = "primary" if accuracy > 80 else "secondary"
-                        
-                        if st.button(button_text, key=f"add_{meal_type}_{j}", type=button_type):
-                            recipe_with_ingredients = {
-                                'recipe': recipe,
-                                'ingredient_adjustments': adjusted_ingredients if 'adjusted_ingredients' in locals() else {},
-                                'final_macros': total_recipe_macros,
-                                'accuracy_score': accuracy
-                            }
-                            st.session_state.meal_plans[selected_day][meal_type]['recipes'].append(recipe_with_ingredients)
-                            st.success(f"Added customized {recipe.get('title', 'Recipe')} to {meal_type.replace('_', ' ')}!")
-                            st.rerun()
-            else:
-                st.warning(f"No suitable recipes found for {meal_type}. Try adjusting your dietary preferences or nutrition targets.")
-    
-    # Show daily total vs targets
-    total_from_meals = {
-        'calories': sum(target['calories'] for target in adjusted_meal_targets.values()),
-        'protein': sum(target['protein'] for target in adjusted_meal_targets.values()),
-        'carbs': sum(target['carbs'] for target in adjusted_meal_targets.values()),
-        'fat': sum(target['fat'] for target in adjusted_meal_targets.values())
-    }
-    
-    st.markdown("### Daily Total Check")
-    check_cols = st.columns(4)
-    
-    with check_cols[0]:
-        cal_diff = total_from_meals['calories'] - manual_calories
-        color = "🟢" if abs(cal_diff) <= 50 else "🟡" if abs(cal_diff) <= 100 else "🔴"
-        st.write(f"{color} {total_from_meals['calories']}/{manual_calories} cal ({cal_diff:+d})")
-    
-    with check_cols[1]:
-        protein_diff = total_from_meals['protein'] - manual_protein
-        color = "🟢" if abs(protein_diff) <= 10 else "🟡" if abs(protein_diff) <= 20 else "🔴"
-        st.write(f"{color} {total_from_meals['protein']}/{manual_protein}g protein ({protein_diff:+d}g)")
-    
-    with check_cols[2]:
-        carb_diff = total_from_meals['carbs'] - manual_carbs
-        color = "🟢" if abs(carb_diff) <= 20 else "🟡" if abs(carb_diff) <= 40 else "🔴"
-        st.write(f"{color} {total_from_meals['carbs']}/{manual_carbs}g carbs ({carb_diff:+d}g)")
-    
-    with check_cols[3]:
-        fat_diff = total_from_meals['fat'] - manual_fat
-        color = "🟢" if abs(fat_diff) <= 10 else "🟡" if abs(fat_diff) <= 20 else "🔴"
-        st.write(f"{color} {total_from_meals['fat']}/{manual_fat}g fat ({fat_diff:+d}g)")
-    
-else:
-    # Use existing day-specific nutrition
-    diet_prefs = st.session_state.diet_preferences
-    
-    # Day-based meal planning interface
-    st.subheader("📅 Weekly Meal Plan")
-    
-    # Day selector
-    days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    selected_day = st.selectbox("Select day to plan meals:", days_of_week)
-    
-    # Get nutrition targets for selected day
-    day_nutrition = st.session_state.day_specific_nutrition.get(selected_day, {})
-    
-    # Display day's nutrition targets
-    st.markdown(f"### Nutrition Targets for {selected_day}")
-    target_cols = st.columns(4)
-    
-    with target_cols[0]:
-        st.metric("Calories", f"{day_nutrition.get('target_calories', 0)}")
-    with target_cols[1]:
-        st.metric("Protein", f"{day_nutrition.get('protein', 0)}g")
-    with target_cols[2]:
-        st.metric("Carbs", f"{day_nutrition.get('carbs', 0)}g")
-    with target_cols[3]:
-        st.metric("Fat", f"{day_nutrition.get('fat', 0)}g")
-    
-    # Default meal types for regular mode
-    meal_types = ['breakfast', 'lunch', 'dinner', 'snack']
-
-# Initialize meal plan storage
-if 'meal_plans' not in st.session_state:
-    st.session_state.meal_plans = {}
-
-if selected_day not in st.session_state.meal_plans:
-    st.session_state.meal_plans[selected_day] = {
-        'breakfast': {'recipes': [], 'additions': []},
-        'lunch': {'recipes': [], 'additions': []},
-        'dinner': {'recipes': [], 'additions': []},
-        'snack': {'recipes': [], 'additions': []}
-    }
-
-# Meal planning interface
-st.markdown("---")
-st.markdown("### Plan Your Meals")
-
-# Calculate target macros per meal (rough distribution)
-total_calories = day_nutrition.get('target_calories', 2000)
-total_protein = day_nutrition.get('protein', 150)
-total_carbs = day_nutrition.get('carbs', 200)
-total_fat = day_nutrition.get('fat', 70)
-
-# Typical meal distribution
-meal_distributions = {
-    'breakfast': 0.25,
-    'lunch': 0.35,
-    'dinner': 0.35,
-    'snack': 0.05
-}
-
-# Meal tabs
-meal_tabs = st.tabs(["🍳 Breakfast", "🥗 Lunch", "🍽️ Dinner", "🍎 Snack"])
-
-for i, (meal_type, tab) in enumerate(zip(['breakfast', 'lunch', 'dinner', 'snack'], meal_tabs)):
-    with tab:
-        # Calculate target macros for this meal
-        meal_target = {
-            'calories': int(total_calories * meal_distributions[meal_type]),
-            'protein': int(total_protein * meal_distributions[meal_type]),
-            'carbs': int(total_carbs * meal_distributions[meal_type]),
-            'fat': int(total_fat * meal_distributions[meal_type])
-        }
-        
-        st.markdown(f"**Target for {meal_type.title()}:** {meal_target['calories']} cal | {meal_target['protein']}g protein | {meal_target['carbs']}g carbs | {meal_target['fat']}g fat")
-        
-        # Add AI insights for meal planning
-        openai_client = get_openai_client()
-        if openai_client:
-            with st.expander("🧠 AI Meal Planning Insights", expanded=False):
-                insights = ai_generate_meal_insights(meal_type, meal_target, diet_prefs, openai_client)
-                if insights:
-                    st.markdown("**AI-Powered Tips for Your Meal:**")
-                    for i, insight in enumerate(insights, 1):
-                        st.write(f"{i}. {insight}")
-                else:
-                    st.info("AI insights temporarily unavailable")
-        
-        # Find recommended recipes
-        recommended_recipes = find_best_recipes_for_meal(recipes, meal_type, meal_target, diet_prefs)
-        
-        if recommended_recipes:
-            # Check if recipes came from AI analysis
-            ai_powered = any(rec.get('ai_reason') for rec in recommended_recipes)
-            
-            if ai_powered:
-                st.markdown("#### 🤖 AI-Powered Recipe Recommendations")
-                st.success("These recipes were intelligently selected by AI based on your nutrition targets and dietary preferences.")
-            else:
-                st.markdown("#### Recommended Recipes")
-                st.info("Using nutritional matching algorithm to find suitable recipes.")
-            
-            # Display recipe options
-            for j, rec_data in enumerate(recommended_recipes):
-                recipe = rec_data['recipe']
-                recipe_macros = rec_data['macros']
-                ai_reason = rec_data.get('ai_reason', '')
-                ai_rank = rec_data.get('ai_rank', j+1)
-                
-                # Enhanced title with AI ranking
-                title_prefix = f"🥇 AI Top Choice" if ai_rank == 1 else f"#{ai_rank} AI Pick" if ai_reason else f"Option {j+1}"
-                
-                with st.expander(f"{title_prefix}: {recipe.get('title', 'Untitled Recipe')}", expanded=(j==0)):
-                    if ai_reason:
-                        st.markdown(f"**🤖 AI Analysis:** {ai_reason}")
-                        st.markdown("---")
-                    
-                    col1, col2 = st.columns([2, 1])
-                    
-                    with col1:
-                        # Recipe details
-                        st.write(f"**Category:** {recipe.get('category', 'N/A')}")
-                        if recipe.get('ingredients'):
-                            st.write("**Key Ingredients:**")
-                            ingredients = recipe['ingredients'][:5] if len(recipe['ingredients']) > 5 else recipe['ingredients']
-                            for ingredient in ingredients:
-                                st.write(f"• {ingredient}")
-                        
-                        # Serving adjustment
-                        st.markdown("**Adjust Serving Size:**")
-                        serving_multiplier = st.slider(
-                            "Serving multiplier",
-                            min_value=0.25,
-                            max_value=3.0,
-                            value=1.0,
-                            step=0.25,
-                            key=f"serving_{selected_day}_{meal_type}_{j}"
-                        )
-                        
-                        # Calculate adjusted macros
-                        adjusted_macros = calculate_recipe_macros(recipe, serving_multiplier)
-                        
-                        st.write(f"**Adjusted Nutrition:** {adjusted_macros['calories']} cal | {adjusted_macros['protein']}g protein | {adjusted_macros['carbs']}g carbs | {adjusted_macros['fat']}g fat")
-                        
-                        # Macro gap analysis
-                        cal_gap = meal_target['calories'] - adjusted_macros['calories']
-                        protein_gap = meal_target['protein'] - adjusted_macros['protein']
-                        carb_gap = meal_target['carbs'] - adjusted_macros['carbs']
-                        fat_gap = meal_target['fat'] - adjusted_macros['fat']
-                        
-                        if abs(cal_gap) > 50 or abs(protein_gap) > 5:
-                            st.markdown("**Macro Gap Analysis:**")
-                            if cal_gap > 50:
-                                st.write(f"🔴 Need {cal_gap} more calories")
-                            elif cal_gap < -50:
-                                st.write(f"🟡 {abs(cal_gap)} calories over target")
-                            
-                            if protein_gap > 5:
-                                st.write(f"🔴 Need {protein_gap}g more protein")
-                            elif protein_gap < -5:
-                                st.write(f"🟡 {abs(protein_gap)}g protein over target")
-                            
-                            # Suggest additions
-                            st.markdown("**Suggested Additions:**")
-                            macro_additions = get_macro_additions()
-                            
-                            if protein_gap > 5:
-                                for addition in macro_additions['protein'][:2]:
-                                    if addition['protein'] >= protein_gap * 0.5:
-                                        st.write(f"• {addition['name']} (+{addition['calories']} cal, +{addition['protein']}g protein)")
-                            
-                            if carb_gap > 10:
-                                for addition in macro_additions['carbs'][:2]:
-                                    if addition['carbs'] >= carb_gap * 0.5:
-                                        st.write(f"• {addition['name']} (+{addition['calories']} cal, +{addition['carbs']}g carbs)")
-                            
-                            if fat_gap > 5:
-                                for addition in macro_additions['fat'][:2]:
-                                    if addition['fat'] >= fat_gap * 0.5:
-                                        st.write(f"• {addition['name']} (+{addition['calories']} cal, +{addition['fat']}g fat)")
-                    
-                    with col2:
-                        # Add to meal plan button
-                        if st.button(f"Add to {meal_type.title()}", key=f"add_{selected_day}_{meal_type}_{j}"):
-                            # Store the selected recipe and serving size
-                            meal_plan_entry = {
-                                'recipe': recipe,
-                                'serving_multiplier': serving_multiplier,
-                                'adjusted_macros': adjusted_macros
-                            }
-                            
-                            st.session_state.meal_plans[selected_day][meal_type]['recipes'].append(meal_plan_entry)
-                            st.success(f"Added {recipe.get('title')} to {meal_type}!")
-                            st.rerun()
-        
-        # Smart meal builder fallback
-        if not recommended_recipes or len(recommended_recipes) == 0:
-            st.markdown("#### Smart Meal Builder")
-            st.info("No pre-made recipes found for your preferences. Build a custom meal using these components:")
-            
-            # Get food components based on dietary preferences and meal type
-            protein_sources = get_protein_sources(diet_prefs, meal_type)
-            carb_sources = get_carb_sources(diet_prefs, meal_type)
-            fat_sources = get_fat_sources(diet_prefs, meal_type)
-            vegetable_sources = get_vegetable_sources(diet_prefs)
-            
-            # Check if we have appropriate food sources for this meal type
-            if not protein_sources and not carb_sources and not fat_sources:
-                st.warning(f"No suitable food components found for {meal_type} with your dietary preferences. Try adjusting your restrictions or check other meal types.")
-            else:
-                with st.expander("Build Custom Meal", expanded=True):
-                    # Show meal-specific guidance
-                    if meal_type == 'breakfast':
-                        st.info("Building a healthy breakfast with protein, carbs, and healthy fats to start your day.")
-                    elif meal_type == 'lunch':
-                        st.info("Creating a balanced lunch to fuel your afternoon activities.")
-                    elif meal_type == 'dinner':
-                        st.info("Designing a satisfying dinner to support recovery and evening goals.")
-                    elif meal_type == 'snack':
-                        st.info("Selecting snack components to bridge meals and support your targets.")
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        if protein_sources:
-                            selected_protein = st.selectbox(
-                                f"Choose {meal_type} protein source:",
-                                options=list(protein_sources.keys()),
-                                key=f"protein_{selected_day}_{meal_type}"
-                            )
-                            protein_amount = st.slider(
-                                "Protein amount (g):",
-                                min_value=0,
-                                max_value=200,
-                                value=meal_target['protein'],
-                                step=5,
-                                key=f"protein_amt_{selected_day}_{meal_type}"
-                            )
-                        else:
-                            st.write("No suitable protein sources for this meal type and dietary preferences.")
-                            selected_protein = "None"
-                            protein_amount = 0
-                        
-                        if carb_sources:
-                            selected_carb = st.selectbox(
-                                f"Choose {meal_type} carb source:",
-                                options=list(carb_sources.keys()),
-                                key=f"carb_{selected_day}_{meal_type}"
-                            )
-                            carb_amount = st.slider(
-                                "Carb amount (g):",
-                                min_value=0,
-                                max_value=150,
-                                value=meal_target['carbs'],
-                                step=5,
-                                key=f"carb_amt_{selected_day}_{meal_type}"
-                            )
-                        else:
-                            st.write("No suitable carb sources for this meal type and dietary preferences.")
-                            selected_carb = "None"
-                            carb_amount = 0
-                    
-                    with col2:
-                        if fat_sources:
-                            selected_fat = st.selectbox(
-                                f"Choose {meal_type} fat source:",
-                                options=list(fat_sources.keys()),
-                                key=f"fat_{selected_day}_{meal_type}"
-                            )
-                            fat_amount = st.slider(
-                                "Fat amount (g):",
-                                min_value=0,
-                                max_value=100,
-                                value=meal_target['fat'],
-                                step=2,
-                                key=f"fat_amt_{selected_day}_{meal_type}"
-                            )
-                        else:
-                            st.write("No suitable fat sources for this meal type and dietary preferences.")
-                            selected_fat = "None"
-                            fat_amount = 0
-                        
-                        selected_vegetables = st.multiselect(
-                            "Add vegetables:",
-                            options=list(vegetable_sources.keys()),
-                            default=list(vegetable_sources.keys())[:2],
-                            key=f"veggies_{selected_day}_{meal_type}"
-                        )
-                
-                # Calculate custom meal macros
-                protein_cals = protein_amount * 4
-                carb_cals = carb_amount * 4
-                fat_cals = fat_amount * 9
-                total_cals = protein_cals + carb_cals + fat_cals
-                
-                st.markdown("**Custom Meal Nutrition:**")
-                st.write(f"Calories: {total_cals} | Protein: {protein_amount}g | Carbs: {carb_amount}g | Fat: {fat_amount}g")
-                
-                # Show how close to target
-                cal_diff = total_cals - meal_target['calories']
-                protein_diff = protein_amount - meal_target['protein']
-                
-                if abs(cal_diff) <= 50 and abs(protein_diff) <= 10:
-                    st.success("Great macro alignment!")
-                elif abs(cal_diff) <= 100:
-                    st.warning("Close to target - consider small adjustments")
-                else:
-                    st.error("Significant macro difference - adjust portions")
-                
-                if st.button(f"Add Custom Meal to {meal_type.title()}", key=f"add_custom_{selected_day}_{meal_type}"):
-                    # Create custom meal entry
-                    custom_meal = {
-                        'recipe': {
-                            'title': f"Custom {meal_type.title()}",
-                            'category': 'custom',
-                            'ingredients': [
-                                f"{selected_protein}",
-                                f"{selected_carb}",
-                                f"{selected_fat}",
-                                *selected_vegetables
-                            ]
-                        },
-                        'serving_multiplier': 1.0,
-                        'adjusted_macros': {
-                            'calories': total_cals,
-                            'protein': protein_amount,
-                            'carbs': carb_amount,
-                            'fat': fat_amount
-                        }
-                    }
-                    
-                    st.session_state.meal_plans[selected_day][meal_type]['recipes'].append(custom_meal)
-                    st.success(f"Added custom meal to {meal_type}!")
-                    st.rerun()
-        
-        elif len(recommended_recipes) < 3:
-            st.markdown("#### Additional Options")
-            st.info("Limited recipe matches found. You can also build a custom meal above or try the meal builder.")
-        
-        # Display current meal plan for this meal
-        current_meal_recipes = st.session_state.meal_plans[selected_day][meal_type]['recipes']
-        if current_meal_recipes:
-            st.markdown("#### Current Meal Plan")
-            total_meal_macros = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
-            
-            for k, meal_entry in enumerate(current_meal_recipes):
-                recipe = meal_entry['recipe']
-                macros = meal_entry['adjusted_macros']
-                
-                # Add to total
-                for macro in total_meal_macros:
-                    total_meal_macros[macro] += macros[macro]
-                
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    st.write(f"**{recipe.get('title')}** (x{meal_entry['serving_multiplier']})")
-                    st.write(f"{macros['calories']} cal | {macros['protein']}g protein | {macros['carbs']}g carbs | {macros['fat']}g fat")
-                
-                with col2:
-                    if st.button("Remove", key=f"remove_{selected_day}_{meal_type}_{k}"):
-                        st.session_state.meal_plans[selected_day][meal_type]['recipes'].pop(k)
-                        st.rerun()
-            
-            # Show meal totals vs targets
-            st.markdown("**Meal Totals vs Targets:**")
-            macro_comparison_cols = st.columns(4)
-            
-            with macro_comparison_cols[0]:
-                cal_diff = total_meal_macros['calories'] - meal_target['calories']
-                color = "🟢" if abs(cal_diff) <= 50 else "🟡" if abs(cal_diff) <= 100 else "🔴"
-                st.write(f"{color} {total_meal_macros['calories']}/{meal_target['calories']} cal ({cal_diff:+d})")
-            
-            with macro_comparison_cols[1]:
-                protein_diff = total_meal_macros['protein'] - meal_target['protein']
-                color = "🟢" if abs(protein_diff) <= 5 else "🟡" if abs(protein_diff) <= 10 else "🔴"
-                st.write(f"{color} {total_meal_macros['protein']}/{meal_target['protein']}g protein ({protein_diff:+d}g)")
-            
-            with macro_comparison_cols[2]:
-                carb_diff = total_meal_macros['carbs'] - meal_target['carbs']
-                color = "🟢" if abs(carb_diff) <= 10 else "🟡" if abs(carb_diff) <= 20 else "🔴"
-                st.write(f"{color} {total_meal_macros['carbs']}/{meal_target['carbs']}g carbs ({carb_diff:+d}g)")
-            
-            with macro_comparison_cols[3]:
-                fat_diff = total_meal_macros['fat'] - meal_target['fat']
-                color = "🟢" if abs(fat_diff) <= 5 else "🟡" if abs(fat_diff) <= 10 else "🔴"
-                st.write(f"{color} {total_meal_macros['fat']}/{meal_target['fat']}g fat ({fat_diff:+d}g)")
-
-# Daily summary
-st.markdown("---")
-st.markdown("### Daily Summary")
-
-# Calculate total daily macros from meal plan
-daily_totals = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
-day_meal_plan = st.session_state.meal_plans.get(selected_day, {})
-
-for meal_type in ['breakfast', 'lunch', 'dinner', 'snack']:
-    meal_recipes = day_meal_plan.get(meal_type, {}).get('recipes', [])
-    for meal_entry in meal_recipes:
-        macros = meal_entry['adjusted_macros']
-        for macro in daily_totals:
-            daily_totals[macro] += macros[macro]
-
-# Display daily totals vs targets
-summary_cols = st.columns(4)
-
-with summary_cols[0]:
-    cal_diff = daily_totals['calories'] - total_calories
-    color = "🟢" if abs(cal_diff) <= 100 else "🟡" if abs(cal_diff) <= 200 else "🔴"
-    st.metric("Daily Calories", f"{daily_totals['calories']}/{total_calories}", f"{cal_diff:+d}")
-
-with summary_cols[1]:
-    protein_diff = daily_totals['protein'] - total_protein
-    color = "🟢" if abs(protein_diff) <= 10 else "🟡" if abs(protein_diff) <= 20 else "🔴"
-    st.metric("Daily Protein", f"{daily_totals['protein']}/{total_protein}g", f"{protein_diff:+d}g")
-
-with summary_cols[2]:
-    carb_diff = daily_totals['carbs'] - total_carbs
-    color = "🟢" if abs(carb_diff) <= 20 else "🟡" if abs(carb_diff) <= 40 else "🔴"
-    st.metric("Daily Carbs", f"{daily_totals['carbs']}/{total_carbs}g", f"{carb_diff:+d}g")
-
-with summary_cols[3]:
-    fat_diff = daily_totals['fat'] - total_fat
-    color = "🟢" if abs(fat_diff) <= 10 else "🟡" if abs(fat_diff) <= 20 else "🔴"
-    st.metric("Daily Fat", f"{daily_totals['fat']}/{total_fat}g", f"{fat_diff:+d}g")
-
-# Export options
-if st.session_state.meal_plans.get(selected_day, {}) and any(meal_data.get('recipes', []) for meal_data in st.session_state.meal_plans[selected_day].values()):
-    st.markdown("---")
-    st.markdown("### Export Options")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📋 Generate Grocery List", type="secondary"):
-            grocery_list = generate_grocery_list({selected_day: st.session_state.meal_plans[selected_day]})
-            if grocery_list:
-                st.markdown("**Grocery List:**")
-                for item in sorted(grocery_list.keys()):
-                    st.write(f"• {item}")
-            else:
-                st.info("No ingredients found in meal plan")
-    
-    with col2:
-        if st.button("📄 Export PDF Meal Plan", type="primary"):
-            try:
-                pdf = create_meal_plan_pdf(
-                    {selected_day: st.session_state.meal_plans[selected_day]}, 
-                    day_nutrition, 
-                    diet_prefs
-                )
-                
-                # Save PDF to bytes
-                pdf_output = pdf.output(dest='S')
-                if isinstance(pdf_output, str):
-                    pdf_output = pdf_output.encode('latin-1')
-                
-                st.download_button(
-                    label="Download PDF",
-                    data=pdf_output,
-                    file_name=f"fitomics_meal_plan_{selected_day.lower().replace(' ', '_')}.pdf",
-                    mime="application/pdf"
-                )
-                st.success("PDF meal plan generated successfully!")
-                
-            except Exception as e:
-                st.error(f"Error generating PDF: {str(e)}")
-
-# Multi-day planning for standalone mode
-if standalone_mode:
-    st.markdown("---")
-    st.subheader("📅 Multi-Day Planning")
-    
-    if st.button("🔄 Apply This Plan to Multiple Days"):
-        selected_days = st.multiselect(
-            "Select days to copy this meal plan to:",
-            ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-            default=[]
-        )
-        
-        if selected_days and st.button("Copy Meal Plan"):
-            for day in selected_days:
-                if day not in st.session_state.meal_plans:
-                    st.session_state.meal_plans[day] = {}
-                for meal_type in meal_types:
-                    if meal_type not in st.session_state.meal_plans[day]:
-                        st.session_state.meal_plans[day][meal_type] = {'recipes': []}
-                    
-                    # Copy current day's meal plan
-                    current_recipes = st.session_state.meal_plans[selected_day][meal_type]['recipes']
-                    st.session_state.meal_plans[day][meal_type]['recipes'] = current_recipes.copy()
-            
-            st.success(f"Meal plan copied to {len(selected_days)} days!")
-            st.rerun()
-    
-    # Weekly summary for standalone mode
-    if len(st.session_state.meal_plans) > 1:
-        st.markdown("### Weekly Summary")
-        
-        weekly_totals = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
-        planned_days = 0
-        
-        for day, meals in st.session_state.meal_plans.items():
-            if any(meal_data.get('recipes', []) for meal_data in meals.values()):
-                planned_days += 1
-                for meal_type, meal_data in meals.items():
-                    for recipe_entry in meal_data.get('recipes', []):
-                        macros = recipe_entry['adjusted_macros']
-                        for macro in weekly_totals:
-                            weekly_totals[macro] += macros[macro]
-        
-        if planned_days > 0:
-            avg_daily = {macro: total / planned_days for macro, total in weekly_totals.items()}
-            
-            st.write(f"**{planned_days} days planned**")
-            
-            weekly_cols = st.columns(4)
-            with weekly_cols[0]:
-                st.metric("Avg Daily Calories", f"{avg_daily['calories']:.0f}")
-            with weekly_cols[1]:
-                st.metric("Avg Daily Protein", f"{avg_daily['protein']:.0f}g")
-            with weekly_cols[2]:
-                st.metric("Avg Daily Carbs", f"{avg_daily['carbs']:.0f}g")
-            with weekly_cols[3]:
-                st.metric("Avg Daily Fat", f"{avg_daily['fat']:.0f}g")
-            
-            # Export full week
-            if st.button("📄 Export Full Week PDF", type="primary"):
-                try:
-                    pdf = create_meal_plan_pdf(st.session_state.meal_plans, day_nutrition, diet_prefs)
-                    pdf_output = pdf.output(dest='S')
-                    if isinstance(pdf_output, str):
-                        pdf_output = pdf_output.encode('latin-1')
-                    
+                if pdf_buffer:
                     st.download_button(
-                        label="Download Weekly PDF",
-                        data=pdf_output,
-                        file_name="fitomics_weekly_meal_plan.pdf",
+                        label="📥 Download PDF",
+                        data=pdf_buffer,
+                        file_name=f"fitomics_meal_plan_{datetime.now().strftime('%Y%m%d')}.pdf",
                         mime="application/pdf"
                     )
-                    st.success("Weekly meal plan PDF generated!")
-                    
-                except Exception as e:
-                    st.error(f"Error generating weekly PDF: {str(e)}")
+                    st.success("PDF generated successfully!")
+                else:
+                    st.error("PDF generation failed")
+            except Exception as e:
+                st.error(f"PDF export error: {e}")
+    
+    with export_col2:
+        if st.button("🛒 Generate Grocery List", use_container_width=True):
+            # Extract all ingredients for grocery list
+            grocery_items = []
+            for meal_type, meal_data in meal_plan.items():
+                for ingredient in meal_data.get('ingredients', []):
+                    grocery_items.append({
+                        'Item': ingredient.get('item', 'Unknown'),
+                        'Amount': ingredient.get('amount', 'N/A'),
+                        'Meal': meal_type.title()
+                    })
+            
+            if grocery_items:
+                st.markdown("### 🛒 Grocery List")
+                grocery_df = pd.DataFrame(grocery_items)
+                st.dataframe(grocery_df, use_container_width=True)
+                
+                # CSV download
+                csv = grocery_df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Grocery List (CSV)",
+                    data=csv,
+                    file_name=f"grocery_list_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv"
+                )
+
+# Progress indicator
+if st.session_state.get('planning_step', 0) > 0:
+    progress_value = min(st.session_state.planning_step / 5, 1.0)
+    st.sidebar.progress(progress_value)
+    st.sidebar.markdown(f"**Progress:** Step {st.session_state.planning_step} of 5")
+    
+    # Quick navigation
+    st.sidebar.markdown("### Quick Navigation")
+    if st.sidebar.button("🔄 Reset Workflow"):
+        # Clear planning state
+        keys_to_clear = ['planning_step', 'meal_planner_mode', 'confirmed_targets', 
+                        'confirmed_diet_prefs', 'confirmed_meal_config', 'generated_meal_plan']
+        for key in keys_to_clear:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.rerun()
+
+if st.session_state.meal_planner_mode == 'none':
+    st.info("👆 Select a planning mode above to get started with AI meal planning.")
