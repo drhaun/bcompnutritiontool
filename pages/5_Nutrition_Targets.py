@@ -124,14 +124,8 @@ days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturda
 user_info = st.session_state.get('user_info', {})
 weight_kg = user_info.get('weight_kg', 70)
 
-# Get goal type
-goal_type = "maintain"  # default
-if "goal_type" in st.session_state:
-    raw_goal_type = st.session_state.goal_type
-    if raw_goal_type == "Lose fat":
-        goal_type = "lose_fat"
-    elif raw_goal_type == "Gain muscle":
-        goal_type = "gain_muscle"
+# Use the same goal type processing as above
+day_goal_type = goal_type  # Already processed above
 
 for day in days_of_week:
     # Get day's TDEE from weekly schedule
@@ -142,7 +136,7 @@ for day in days_of_week:
     day_target_calories = day_tdee
     
     # Use the same macro calculation logic from utils.py
-    day_macros = utils.calculate_macros(day_target_calories, weight_kg, goal_type)
+    day_macros = utils.calculate_macros(day_target_calories, weight_kg, day_goal_type)
     
     days_data.append({
         "Day": day,
@@ -162,7 +156,7 @@ if 'day_specific_nutrition' not in st.session_state:
 for i, day in enumerate(days_of_week):
     day_schedule = st.session_state.confirmed_weekly_schedule.get(day, {})
     day_tdee = day_schedule.get('estimated_tdee', target_calories)
-    day_macros = utils.calculate_macros(day_tdee, weight_kg, goal_type)
+    day_macros = utils.calculate_macros(day_tdee, weight_kg, day_goal_type)
     
     st.session_state.day_specific_nutrition[day] = {
         'target_calories': day_tdee,
