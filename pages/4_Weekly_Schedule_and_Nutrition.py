@@ -45,35 +45,31 @@ st.title("Weekly Schedule & Nutrition Planner")
 # Focus on weekly schedule only - nutrition targets moved to separate page
 st.markdown("Create your weekly schedule to calculate your daily energy needs. Your activity levels and workout schedule will be used to determine your personalized nutrition targets.")
 
-# Weekly Schedule Planner
-    st.header("Weekly Schedule Planner")
-    st.write("Plan your weekly activities including meals, workouts, and sleep schedule.")
+st.header("Weekly Schedule Planner")
+st.write("Plan your weekly activities including meals, workouts, and sleep schedule.")
     
-    # Add guidance information
-    st.info("""
-    **Why this matters:** 
-    - Your activity levels and workout schedule affect your daily energy needs
-    - Rest days typically require fewer calories than training days
-    - Meal timing around workouts can optimize performance and recovery
-    - Getting 7-9 hours of sleep is essential for recovery and results
-    """)
-    
-    # Default schedule setup
-    st.subheader("Quick Schedule Setup")
-    st.write("Set up your default schedule parameters and we'll create a weekly schedule for you.")
-    
-    # Create two column layout for sleep schedule
-    sleep_col1, sleep_col2 = st.columns(2)
-    
-    with sleep_col1:
-        default_wake_time = st.session_state.get('default_wake_time', "06:00")
-        default_wake_time = st.time_input("Default Wake Time", value=datetime.time.fromisoformat(default_wake_time))
-        st.session_state['default_wake_time'] = default_wake_time.strftime("%H:%M")
-    
-    with sleep_col2:
-        default_bed_time = st.session_state.get('default_bed_time', "22:00")
-        default_bed_time = st.time_input("Default Bed Time", value=datetime.time.fromisoformat(default_bed_time))
-        st.session_state['default_bed_time'] = default_bed_time.strftime("%H:%M")
+# Add guidance information
+st.info("""
+**Why this matters:** 
+- Your activity levels and workout schedule affect your daily energy needs
+- Rest days typically require fewer calories than training days
+- Meal timing around workouts can optimize performance and recovery
+- Getting 7-9 hours of sleep is essential for recovery and results
+""")
+# Default schedule setup
+st.subheader("Quick Schedule Setup")
+st.write("Set up your default schedule parameters and we'll create a weekly schedule for you.")
+# Create two column layout for sleep schedule
+sleep_col1, sleep_col2 = st.columns(2)
+with sleep_col1:
+    default_wake_time = st.session_state.get('default_wake_time', "06:00")
+    default_wake_time = st.time_input("Default Wake Time", value=datetime.time.fromisoformat(default_wake_time))
+    st.session_state['default_wake_time'] = default_wake_time.strftime("%H:%M")
+
+with sleep_col2:
+    default_bed_time = st.session_state.get('default_bed_time', "22:00")
+    default_bed_time = st.time_input("Default Bed Time", value=datetime.time.fromisoformat(default_bed_time))
+    st.session_state['default_bed_time'] = default_bed_time.strftime("%H:%M")
     
     # Calculate sleep duration
     def calculate_sleep_duration(wake_time, bed_time):
@@ -449,8 +445,12 @@ st.markdown("Create your weekly schedule to calculate your daily energy needs. Y
             df = pd.DataFrame(week_data)
             st.table(df)
             
-            # Add "Use this Schedule" button
-            if st.button("✅ Use this Schedule", type="primary"):
+            # Simplified workflow - just display next step guidance
+            st.markdown("---")
+            st.markdown("**Next Step:** Navigate to **Nutrition Targets** to review and confirm your nutrition goals based on this schedule.")
+            
+            # Auto-confirm schedule for nutrition targets calculation (hidden from user)
+            if st.session_state.weekly_schedule and 'confirmed_weekly_schedule' not in st.session_state:
                 # Store the schedule in session state for use in meal planning
                 if 'confirmed_weekly_schedule' not in st.session_state:
                     st.session_state.confirmed_weekly_schedule = st.session_state.weekly_schedule

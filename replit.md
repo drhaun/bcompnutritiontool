@@ -100,9 +100,21 @@ This is a comprehensive Streamlit-based web application for body composition pla
 - **Environment**: Headless server mode for production deployment
 - **Workflow**: Parallel task execution with integrated testing
 
+## Recent Changes
+
+- **June 24, 2025 - UI/UX Streamlining**: 
+  - Added Category column to Body Composition table (removed separate section)
+  - Moved reference photos and detailed information to target setting section  
+  - Consolidated Meal Sourcing Preferences into 3 clear options
+  - Streamlined Meal Planning Preferences with cooking for, leftovers preference
+  - Removed Travel & Location Preferences and Delivery Service Integration sections
+  - Fixed Diet Preferences page refresh issues by using forms
+  - Created separate Nutrition Targets page for clearer workflow navigation
+  - Updated Weekly Schedule page to guide users to review nutrition targets before meal planning
+
 ## Changelog
 
-- June 24, 2025. Initial setup
+- June 24, 2025. Initial setup and major UI improvements
 
 ## User Preferences
 
