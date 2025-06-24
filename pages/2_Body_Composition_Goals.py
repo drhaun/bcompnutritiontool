@@ -172,7 +172,21 @@ current_fmi = current_fat_mass_kg / (height_m * height_m)
 current_ffmi = current_ffm_kg / (height_m * height_m)
 current_normalized_ffmi = current_ffmi * (1.8 / height_m)
 
-# Display current body composition in a well-formatted table
+# Find categories for current values
+current_fmi_category = "Unknown"
+for category in fmi_categories:
+    # Use precise floating point comparison with small tolerance
+    if (current_fmi >= category["lower"] - 0.001) and (current_fmi <= category["upper"] + 0.001):
+        current_fmi_category = category["name"]
+        break
+        
+current_ffmi_category = "Unknown"
+for category in ffmi_categories:
+    if category["lower"] <= current_ffmi <= category["upper"]:
+        current_ffmi_category = category["name"]
+        break
+
+# Display current body composition in a well-formatted table with categories
 comp_data = {
     'Measurement': [
         'Weight', 
@@ -191,33 +205,21 @@ comp_data = {
         f"{current_fmi:.1f} kg/m²",
         f"{current_ffmi:.1f} kg/m²",
         f"{current_normalized_ffmi:.1f} kg/m²"
+    ],
+    'Category': [
+        '-',
+        '-', 
+        '-', 
+        '-',
+        current_fmi_category,
+        current_ffmi_category,
+        '-'
     ]
 }
 
 # Display as dataframe
 comp_df = pd.DataFrame(comp_data)
 st.dataframe(comp_df, use_container_width=True)
-
-# Display category information - simplified version without recommendations
-st.write("#### Body Composition Categories")
-
-# Find categories for current values
-current_fmi_category = "Unknown"
-for category in fmi_categories:
-    # Use precise floating point comparison with small tolerance
-    if (current_fmi >= category["lower"] - 0.001) and (current_fmi <= category["upper"] + 0.001):
-        current_fmi_category = category["name"]
-        break
-        
-current_ffmi_category = "Unknown"
-for category in ffmi_categories:
-    if category["lower"] <= current_ffmi <= category["upper"]:
-        current_ffmi_category = category["name"]
-        break
-
-# Display current categories without target columns
-st.write(f"**Current FMI Category**: {current_fmi_category}")
-st.write(f"**Current FFMI Category**: {current_ffmi_category}")
 
 # SECTION 2: Reference photos in collapsible section
 with st.expander("📷 View Body Fat Percentage Reference Photos"):

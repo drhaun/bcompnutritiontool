@@ -136,5 +136,11 @@
     "protein_per_100g": 20.2,
     "carbs_per_100g": 21.7,
     "fat_per_100g": 50.6
+  },
+  "nuts": {
+    "calories_per_100g": 607,
+    "protein_per_100g": 20.2,
+    "carbs_per_100g": 21.7,
+    "fat_per_100g": 50.6
   }
 }

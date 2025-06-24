@@ -203,7 +203,7 @@ if st.session_state.workflow_step >= 3:
                 if meal_data:
                     generated_meals[meal_type] = {
                         'recipe': meal_data['recipe'],
-                        'macros': meal_data['nutrition'],
+                        'macros': meal_data.get('macros', targets),
                         'ingredient_details': meal_data['ingredients'],
                         'ingredient_amounts': {ing['name']: ing['amount'] for ing in meal_data['ingredients']}
                     }
