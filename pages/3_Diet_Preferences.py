@@ -197,7 +197,15 @@ with st.form("planning_preferences_form", clear_on_submit=False):
             'cooking_for': cooking_for,
             'leftovers_preference': leftovers_preference
         })
-        st.success("Meal planning preferences updated!")
+        
+        # Save to file for persistence
+        preferences_file = 'data/diet_preferences.json'
+        if not os.path.exists('data'):
+            os.makedirs('data')
+        with open(preferences_file, 'w') as f:
+            json.dump(st.session_state.diet_preferences, f, indent=2)
+        
+        st.success("Meal planning preferences updated and saved!")
 
 st.markdown("---")
 

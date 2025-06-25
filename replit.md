@@ -102,6 +102,14 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **June 25, 2025 - Major Workflow Consolidation**:
+  - Fixed Weekly Schedule page title to "Weekly Schedule" (removed "and Nutrition")
+  - Consolidated AI Meal Planning from 3 separate pages into 1 comprehensive workflow
+  - Enhanced Weekly Schedule with comprehensive daily activity customization (work, dining, recreation, travel)
+  - Fixed nested expander error preventing daily activity customization from displaying
+  - Improved cooking time preferences persistence from Diet Preferences to AI Meal Planning
+  - Added intelligent meal context recommendations based on daily activities
+  
 - **June 24, 2025 - UI/UX Streamlining**: 
   - Added Category column to Body Composition table (removed separate section)
   - Moved reference photos and detailed information to target setting section  

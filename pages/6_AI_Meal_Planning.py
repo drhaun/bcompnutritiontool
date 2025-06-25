@@ -40,6 +40,10 @@ DIETARY PREFERENCES:
 - Gluten-free: {diet_preferences.get('gluten_free', False)}
 - Dairy-free: {diet_preferences.get('dairy_free', False)}
 - Nut-free: {diet_preferences.get('nut_free', False)}
+- Cooking time preference: {diet_preferences.get('cooking_time_preference', 'Medium (30-60 min)')}
+- Budget preference: {diet_preferences.get('budget_preference', 'Moderate')}
+- Cooking for: {diet_preferences.get('cooking_for', 'Just myself')}
+- Leftovers preference: {diet_preferences.get('leftovers_preference', 'Okay with leftovers occasionally')}
 
 MEAL TIMING:
 - Wake time: {meal_config.get('wake_time', '07:00')}
@@ -190,6 +194,10 @@ if st.session_state.get('planning_step', 0) >= 2:
     # Use existing preferences if available
     existing_prefs = st.session_state.get('diet_preferences', {})
     
+    # Show current cooking time preference if set
+    if existing_prefs.get('cooking_time_preference'):
+        st.info(f"Current cooking time preference: {existing_prefs.get('cooking_time_preference')}")
+    
     pref_col1, pref_col2, pref_col3 = st.columns(3)
     
     with pref_col1:
@@ -210,7 +218,11 @@ if st.session_state.get('planning_step', 0) >= 2:
         'gluten_free': gluten_free,
         'dairy_free': dairy_free,
         'nut_free': nut_free,
-        'low_sodium': low_sodium
+        'low_sodium': low_sodium,
+        'cooking_time_preference': existing_prefs.get('cooking_time_preference', 'Medium (30-60 min)'),
+        'budget_preference': existing_prefs.get('budget_preference', 'Moderate'),
+        'cooking_for': existing_prefs.get('cooking_for', 'Just myself'),
+        'leftovers_preference': existing_prefs.get('leftovers_preference', 'Okay with leftovers occasionally')
     }
     
     if st.button("✅ Confirm Dietary Preferences", key="confirm_diet"):
