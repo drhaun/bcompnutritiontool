@@ -659,58 +659,116 @@ with sleep_col2:
                         key=f"travel_meals_{selected_day}"
                     )
             
-            # Meal context insights
-            st.markdown("**🥘 Meal Context Insights**")
+            # Meal context preferences - make them customizable
+            st.markdown("**🥘 Meal Context Preferences**")
+            st.markdown("Customize how you want to handle each meal based on your activities.")
             
-            # Calculate meal contexts based on activities
-            meal_contexts = {}
+            # Get existing meal contexts if saved
+            existing_contexts = day_data.get('meal_context', {})
             
-            # Breakfast context
+            # Calculate suggested contexts based on activities
+            suggested_contexts = {}
+            
+            # Breakfast suggestions
             if work_type == "Remote Work":
-                breakfast_context = "Home-prepared (flexible timing)"
+                suggested_breakfast = "Home-prepared (flexible timing)"
             elif work_type == "Office Work" and work_start <= datetime.time(8, 0):
-                breakfast_context = "Quick/On-the-go"
+                suggested_breakfast = "Quick/On-the-go"
             elif "Breakfast out" in dining_occasions:
-                breakfast_context = "Restaurant/Cafe"
+                suggested_breakfast = "Restaurant/Cafe"
             else:
-                breakfast_context = "Home-prepared"
+                suggested_breakfast = "Home-prepared"
             
-            # Lunch context
+            # Lunch suggestions
             if work_type == "Office Work":
-                lunch_context = "Meal prep/Delivered to office"
+                suggested_lunch = "Meal prep/Delivered to office"
             elif work_type == "Remote Work":
-                lunch_context = "Home-prepared"
+                suggested_lunch = "Home-prepared"
             elif "Lunch meeting" in dining_occasions:
-                lunch_context = "Restaurant/Business meal"
+                suggested_lunch = "Restaurant/Business meal"
             elif travel_type in ["Day trip", "Business travel"]:
-                lunch_context = "Travel/On-the-go"
+                suggested_lunch = "Travel/On-the-go"
             else:
-                lunch_context = "Home-prepared"
+                suggested_lunch = "Home-prepared"
             
-            # Dinner context
+            # Dinner suggestions
             if dining_occasions:
-                dinner_context = "Restaurant/Dining out"
+                suggested_dinner = "Restaurant/Dining out"
             elif work_end >= datetime.time(18, 0):
-                dinner_context = "Quick home prep/Delivery"
+                suggested_dinner = "Quick home prep/Delivery"
             elif recreation_activities:
-                dinner_context = "Flexible timing/Prep ahead"
+                suggested_dinner = "Flexible timing/Prep ahead"
             else:
-                dinner_context = "Home-prepared"
+                suggested_dinner = "Home-prepared"
             
-            meal_contexts = {
-                "Breakfast": breakfast_context,
-                "Lunch": lunch_context,
-                "Dinner": dinner_context
+            suggested_contexts = {
+                "Breakfast": suggested_breakfast,
+                "Lunch": suggested_lunch,
+                "Dinner": suggested_dinner
             }
             
-            # Display meal context recommendations
-            context_df = pd.DataFrame([
-                {"Meal": "Breakfast", "Recommended Context": meal_contexts["Breakfast"]},
-                {"Meal": "Lunch", "Recommended Context": meal_contexts["Lunch"]},
-                {"Meal": "Dinner", "Recommended Context": meal_contexts["Dinner"]}
+            # Customizable meal context options
+            context_options = [
+                "Home-prepared",
+                "Home-prepared (flexible timing)",
+                "Quick/On-the-go",
+                "Meal prep/Delivered to office",
+                "Restaurant/Cafe",
+                "Restaurant/Business meal",
+                "Restaurant/Dining out",
+                "Quick home prep/Delivery",
+                "Flexible timing/Prep ahead",
+                "Travel/On-the-go",
+                "Meal kit/Delivery service",
+                "Custom"
+            ]
+            
+            # Create customizable meal context inputs
+            meal_contexts = {}
+            context_col1, context_col2, context_col3 = st.columns(3)
+            
+            with context_col1:
+                st.markdown("**Breakfast**")
+                breakfast_context = st.selectbox(
+                    f"Breakfast Context",
+                    options=context_options,
+                    index=context_options.index(existing_contexts.get('Breakfast', suggested_contexts['Breakfast'])) if existing_contexts.get('Breakfast', suggested_contexts['Breakfast']) in context_options else 0,
+                    help=f"Suggested: {suggested_contexts['Breakfast']}",
+                    key=f"breakfast_context_{selected_day}"
+                )
+                meal_contexts["Breakfast"] = breakfast_context
+            
+            with context_col2:
+                st.markdown("**Lunch**")
+                lunch_context = st.selectbox(
+                    f"Lunch Context",
+                    options=context_options,
+                    index=context_options.index(existing_contexts.get('Lunch', suggested_contexts['Lunch'])) if existing_contexts.get('Lunch', suggested_contexts['Lunch']) in context_options else 0,
+                    help=f"Suggested: {suggested_contexts['Lunch']}",
+                    key=f"lunch_context_{selected_day}"
+                )
+                meal_contexts["Lunch"] = lunch_context
+            
+            with context_col3:
+                st.markdown("**Dinner**")
+                dinner_context = st.selectbox(
+                    f"Dinner Context",
+                    options=context_options,
+                    index=context_options.index(existing_contexts.get('Dinner', suggested_contexts['Dinner'])) if existing_contexts.get('Dinner', suggested_contexts['Dinner']) in context_options else 0,
+                    help=f"Suggested: {suggested_contexts['Dinner']}",
+                    key=f"dinner_context_{selected_day}"
+                )
+                meal_contexts["Dinner"] = dinner_context
+            
+            # Show summary of meal context preferences
+            st.markdown("**Selected Meal Contexts:**")
+            context_summary_df = pd.DataFrame([
+                {"Meal": "Breakfast", "Selected Context": meal_contexts["Breakfast"], "AI Suggestion": suggested_contexts["Breakfast"]},
+                {"Meal": "Lunch", "Selected Context": meal_contexts["Lunch"], "AI Suggestion": suggested_contexts["Lunch"]},
+                {"Meal": "Dinner", "Selected Context": meal_contexts["Dinner"], "AI Suggestion": suggested_contexts["Dinner"]}
             ])
             
-            st.dataframe(context_df, use_container_width=True)
+            st.dataframe(context_summary_df, use_container_width=True)
             
             # Save detailed day data
             if st.button(f"Save {selected_day} Details", key=f"save_day_{selected_day}"):
