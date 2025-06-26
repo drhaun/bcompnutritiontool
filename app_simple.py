@@ -61,7 +61,7 @@ This application helps you plan and track your body composition and nutrition go
 1. **Initial Setup**: Enter your personal information and goals
 2. **Body Composition Goals**: Define your body composition targets
 3. **Diet Preferences**: Set your food preferences and dietary restrictions
-4. **Weekly Schedule and Nutrition**: Plan your workout schedule and nutrition targets
+4. **Weekly Schedule**: Plan your workout schedule and daily activities
 5. **DIY Meal Planning**: Create custom meal plans with precise nutrition
 6. **AI Meal Planning**: Get AI-powered meal suggestions and recipes
 7. **Daily Monitoring**: Track your daily weight and nutrition intake
