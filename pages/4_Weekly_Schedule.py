@@ -396,10 +396,25 @@ if generate_schedule_triggered:
     else:
         optimization_status.info("📋 Generating your basic weekly schedule...")
     
+    # Safely get workout variables from session state or use defaults
+    try:
+        workout_days_list = workout_days if workout_days else []
+    except NameError:
+        workout_days_list = []
+    
+    try:
+        workout_duration_val = workout_duration if workout_duration else 60
+    except NameError:
+        workout_duration_val = 60
+        
+    try:
+        workout_intensity_val = workout_intensity if workout_intensity else "Moderate"
+    except NameError:
+        workout_intensity_val = "Moderate"
+    
     # Generate schedule for each day
     for i, day in enumerate(days_of_week):
         # Determine if this is a workout day
-        workout_days_list = workout_days if 'workout_days' in locals() else []
         is_workout_day = day in workout_days_list if total_workouts > 0 else False
         
         # Calculate TDEE for the day
@@ -408,8 +423,6 @@ if generate_schedule_triggered:
         # Add workout calories if it's a workout day
         workout_calories = 0
         if is_workout_day and total_workouts > 0:
-            workout_duration_val = workout_duration if 'workout_duration' in locals() else 60
-            workout_intensity_val = workout_intensity if 'workout_intensity' in locals() else "Moderate"
             workout_calories = workout_duration_val * intensity_cals_per_min.get(workout_intensity_val, 7.5)
         
         day_tdee = int(base_tdee + workout_calories)
@@ -431,7 +444,7 @@ if generate_schedule_triggered:
         # Optimize meal times
         if st.session_state.get('generate_optimized', False):
             optimized_meal_times = optimize_meal_times(day, workout_time_min, work_start_min, work_end_min, wake_min, bed_min, workout_duration_val)
-            optimized_contexts = get_meal_contexts_optimized(optimized_meal_times, workout_time_min, work_start_min, work_end_min)
+            optimized_contexts = get_meal_contexts_optimized(optimized_meal_times, workout_time_min, work_start_min, work_end_min, workout_duration_val)
         else:
             # Use basic meal timing
             optimized_meal_times = []
@@ -467,49 +480,50 @@ if generate_schedule_triggered:
             "work_end": work_end.strftime("%H:%M") if work_end else None,
             "work_type": work_type,
             "has_workout": is_workout_day,
-            "workout_duration": workout_duration if is_workout_day else 0,
-            "workout_intensity": workout_intensity if is_workout_day else None,
+            "workout_duration": workout_duration_val if is_workout_day else 0,
+            "workout_intensity": workout_intensity_val if is_workout_day else None,
+            "workout_time": minutes_to_time(workout_time_min) if workout_time_min else None,
             "activity_level": activity_level,
             "estimated_tdee": day_tdee,
             "meals": [],
-            "meal_contexts": meal_contexts.copy()
+            "meal_contexts": meal_contexts.copy(),
+            "optimized": st.session_state.get('generate_optimized', False)
         }
         
-        # Add suggested meal times based on schedule
-        meal_times = []
-        if meals_per_day == 2:
-            meal_times = ["08:00", "18:00"]
-        elif meals_per_day == 3:
-            meal_times = ["07:30", "12:30", "18:30"]
-        elif meals_per_day == 4:
-            meal_times = ["07:00", "10:00", "13:00", "18:00"]
-        elif meals_per_day == 5:
-            meal_times = ["07:00", "10:00", "13:00", "16:00", "19:00"]
-        elif meals_per_day == 6:
-            meal_times = ["07:00", "09:30", "12:00", "15:00", "17:30", "20:00"]
-        else:
-            # Generate evenly spaced meal times
-            start_hour = wake_time.hour + 1
-            end_hour = bed_time.hour - 1
-            meal_times = []
-            for j in range(meals_per_day):
-                hour = start_hour + (j * (end_hour - start_hour) // (meals_per_day - 1))
-                meal_times.append(f"{hour:02d}:00")
-        
-        # Add meals to schedule
-        for j in range(meals_per_day):
+        # Add optimized meals to schedule
+        for j in range(len(optimized_meal_times)):
             meal_name = meal_names[j] if j < len(meal_names) else f"Meal {j+1}"
-            meal_time = meal_times[j] if j < len(meal_times) else "12:00"
+            meal_time = minutes_to_time(optimized_meal_times[j])
+            meal_context = optimized_contexts[j] if j < len(optimized_contexts) else "Home Cooking"
             
             day_schedule["meals"].append({
                 "name": meal_name,
                 "time": meal_time,
-                "context": meal_contexts.get(meal_name, "Home Cooking")
+                "context": meal_context
             })
         
         st.session_state.weekly_schedule_v2[day] = day_schedule
     
-    st.success("✅ Weekly schedule generated successfully!")
+    # Clear optimization status and show completion
+    optimization_status.empty()
+    if st.session_state.get('generate_optimized', False):
+        st.success("🧠 Smart optimized schedule generated successfully! Meal times, workout timing, and contexts have been optimized based on your preferences.")
+        
+        # Show optimization insights
+        with st.expander("🔍 Optimization Insights", expanded=False):
+            st.write("**Smart optimizations applied:**")
+            if pre_workout_meal:
+                st.write("• Pre-workout meals scheduled 1 hour before workouts")
+            if post_workout_meal:
+                st.write("• Post-workout meals scheduled within 2 hours after workouts")
+            if avoid_late_workouts:
+                st.write("• Workouts scheduled at least 3 hours before bedtime")
+            st.write(f"• Meals spaced at least {meal_spacing} hours apart")
+            st.write(f"• Energy distribution optimized for: {energy_focus}")
+            if workout_time_pref != "Flexible (any time)":
+                st.write(f"• Workouts scheduled during preferred time: {workout_time_pref}")
+    else:
+        st.success("✅ Basic weekly schedule generated successfully!")
 
 # SECTION 5: Schedule Overview
 if st.session_state.weekly_schedule_v2:
