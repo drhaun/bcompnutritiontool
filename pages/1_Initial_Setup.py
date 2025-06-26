@@ -90,13 +90,18 @@ with col1:
             default_dob = date(1990, 1, 1)
     
     dob = st.date_input(
-        "Date of Birth (DD/MM/YYYY)",
+        "Date of Birth",
         value=default_dob,
         min_value=date(1920, 1, 1),  # Allow dates back to 1920
         max_value=date.today(),
         format="DD/MM/YYYY",
-        help="Enter your date of birth. You can type the date or use the calendar picker."
+        help="Enter your date of birth. You can type the date in DD/MM/YYYY format or use the calendar picker."
     )
+    
+    # Display the date in DD/MM/YYYY format consistently
+    if dob:
+        formatted_date = dob.strftime('%d/%m/%Y')
+        st.write(f"**Selected Date: {formatted_date}**")
     
     # Automatically calculate and display age when date is entered
     if dob:
