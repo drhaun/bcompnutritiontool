@@ -102,6 +102,17 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **June 26, 2025 - Weekly AI Meal Planning Enhancement**:
+  - Completely redesigned AI Meal Planning page to generate full weekly meal plans instead of single days
+  - Integrated weekly schedule data with AI meal generation for context-aware meal planning
+  - Enhanced meal planning to consider daily activities, workout timing, and meal contexts
+  - Added intelligent meal distribution based on pre/post-workout needs and schedule constraints
+  - Implemented weekly variety algorithms to prevent meal repetition across days
+  - Fixed PDF export functionality to work with new weekly meal plan format
+  - Added comprehensive grocery list consolidation across the entire week
+  - Created day-specific meal optimization using body composition goals and daily TDEE
+  - Enhanced export options with properly formatted PDF downloads and grocery lists
+
 - **June 26, 2025 - Weekly Schedule Complete Redesign**:
   - Completely redesigned Weekly Schedule page with intuitive, clean UI
   - Streamlined schedule setup into clear sections: Basic Schedule, Activity Schedule, Meal Context
