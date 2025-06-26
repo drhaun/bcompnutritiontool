@@ -24,8 +24,94 @@ def get_openai_client():
         pass
     return None
 
+def generate_weekly_ai_meal_plan(weekly_targets, diet_preferences, weekly_schedule, openai_client):
+    """Generate complete weekly AI meal plan using OpenAI"""
+    weekly_meal_plan = {}
+    
+    for day, day_data in weekly_targets.items():
+        try:
+            # Get day-specific schedule information
+            schedule_info = weekly_schedule.get(day, {})
+            
+            # Build day-specific prompt
+            prompt = f"""
+Create a complete meal plan for {day} with the following specifications:
+
+NUTRITION TARGETS:
+{json.dumps(day_data['meal_targets'], indent=2)}
+
+DAILY SCHEDULE CONTEXT:
+- Wake time: {schedule_info.get('wake_time', '07:00')}
+- Sleep time: {schedule_info.get('bed_time', '23:00')}
+- Work schedule: {schedule_info.get('work_start', 'N/A')} - {schedule_info.get('work_end', 'N/A')}
+- Workout day: {schedule_info.get('has_workout', False)}
+- Workout time: {schedule_info.get('workout_time', 'N/A')}
+- Workout duration: {schedule_info.get('workout_duration', 0)} minutes
+- Estimated TDEE: {schedule_info.get('estimated_tdee', 2000)} calories
+
+MEAL CONTEXTS:
+{json.dumps(schedule_info.get('meal_contexts', {}), indent=2)}
+
+DIETARY PREFERENCES:
+- Vegetarian: {diet_preferences.get('vegetarian', False)}
+- Vegan: {diet_preferences.get('vegan', False)}
+- Gluten-free: {diet_preferences.get('gluten_free', False)}
+- Dairy-free: {diet_preferences.get('dairy_free', False)}
+- Nut-free: {diet_preferences.get('nut_free', False)}
+- Cooking time preference: {diet_preferences.get('cooking_time_preference', 'Medium (30-60 min)')}
+- Budget preference: {diet_preferences.get('budget_preference', 'Moderate')}
+- Cooking for: {diet_preferences.get('cooking_for', 'Just myself')}
+- Leftovers preference: {diet_preferences.get('leftovers_preference', 'Okay with leftovers occasionally')}
+
+MEAL SCHEDULE:
+{json.dumps([{"name": meal["name"], "time": meal["time"], "context": meal["context"]} for meal in schedule_info.get('meals', [])], indent=2)}
+
+Please create realistic meals considering:
+1. Specific food items and portions matching meal contexts (e.g., Pre-Workout = easily digestible, Post-Workout = protein focus)
+2. Accurate macro calculations matching targets (±10% tolerance)
+3. Practical preparation based on context (On-the-Go = quick prep, Home Cooking = more elaborate)
+4. Meal timing around workouts and work schedule
+5. Day-specific variety to avoid repetition across the week
+
+Format as JSON with this structure:
+{{
+  "meals": [
+    {{
+      "name": "meal name matching schedule",
+      "time": "scheduled time",
+      "context": "meal context from schedule",
+      "ingredients": [
+        {{"item": "food name", "amount": "portion", "calories": number, "protein": number, "carbs": number, "fat": number}}
+      ],
+      "instructions": "context-appropriate preparation steps",
+      "total_macros": {{"calories": number, "protein": number, "carbs": number, "fat": number}}
+    }}
+  ],
+  "daily_totals": {{"calories": number, "protein": number, "carbs": number, "fat": number}}
+}}
+"""
+
+            response = openai_client.chat.completions.create(
+                model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+                messages=[
+                    {"role": "system", "content": f"You are a nutrition expert creating a {day} meal plan that fits seamlessly into the user's schedule and lifestyle."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.8  # Slightly higher for day-to-day variety
+            )
+            
+            day_plan = json.loads(response.choices[0].message.content)
+            weekly_meal_plan[day] = day_plan
+            
+        except Exception as e:
+            st.error(f"AI meal generation failed for {day}: {e}")
+            continue
+    
+    return weekly_meal_plan
+
 def generate_ai_meal_plan(meal_targets, diet_preferences, meal_config, openai_client):
-    """Generate complete AI meal plan using OpenAI"""
+    """Generate complete daily AI meal plan using OpenAI (legacy single-day function)"""
     try:
         # Build comprehensive prompt
         prompt = f"""
@@ -94,322 +180,362 @@ Format as JSON with this structure:
 
 # Page Setup
 st.set_page_config(page_title="AI Meal Planning", layout="wide")
-st.title("🤖 AI Meal Planning")
-st.markdown("*Complete AI-powered meal planning workflow - from preferences to PDF export*")
+st.title("🤖 Weekly AI Meal Planning")
+st.markdown("*Generate complete weekly meal plans optimized for your body composition goals, schedule, and preferences*")
 
 # Initialize nutrition cache
 if 'nutrition_cache' not in st.session_state:
     st.session_state.nutrition_cache = NutritionCache()
 
-# Step 1: Mode Selection
-st.markdown("## 1. Planning Mode")
-mode_col1, mode_col2 = st.columns(2)
-
-with mode_col1:
-    if st.button("🔧 Standalone Mode", use_container_width=True):
-        st.session_state.meal_planner_mode = 'standalone'
-        st.session_state.planning_step = 1
-
-with mode_col2:
-    if st.button("🔄 Sync Profile Mode", use_container_width=True):
-        st.session_state.meal_planner_mode = 'sync'
-        st.session_state.planning_step = 1
-
-# Initialize session state
-if 'meal_planner_mode' not in st.session_state:
-    st.session_state.meal_planner_mode = 'none'
-if 'planning_step' not in st.session_state:
-    st.session_state.planning_step = 0
-
-# Show current mode
-if st.session_state.meal_planner_mode != 'none':
-    mode_display = "Standalone" if st.session_state.meal_planner_mode == 'standalone' else "Sync Profile"
-    st.info(f"**Current Mode:** {mode_display}")
+# Check for required data
+if not st.session_state.get('weekly_schedule_v2') or not st.session_state.get('day_specific_nutrition'):
+    st.warning("⚠️ **Weekly schedule and nutrition targets required**")
+    st.markdown("To generate AI meal plans, you need to complete:")
+    st.markdown("1. **Body Composition Goals** - Set your targets")
+    st.markdown("2. **Weekly Schedule** - Plan your daily activities") 
+    st.markdown("3. **Nutrition Targets** - Calculate daily nutrition needs")
+    st.markdown("4. **Diet Preferences** - Set dietary restrictions and preferences")
     
-    if st.session_state.meal_planner_mode == 'sync':
-        # Check for synced data
-        if not st.session_state.get('day_specific_nutrition'):
-            st.warning("No synced nutrition data found. Complete Body Composition Goals → Weekly Schedule → Nutrition Targets first, or use Standalone Mode.")
-            st.stop()
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📊 Go to Body Composition Goals", use_container_width=True):
+            st.switch_page("pages/2_Body_Composition_Goals.py")
+    with col2:
+        if st.button("📅 Go to Weekly Schedule", use_container_width=True):
+            st.switch_page("pages/4_Weekly_Schedule.py")
+    st.stop()
+
+# Display current sync status
+st.success("✅ **Sync Profile Mode Active** - Using your personalized body composition targets and weekly schedule")
+
+# Show weekly overview
+with st.expander("📋 Weekly Overview", expanded=False):
+    weekly_schedule = st.session_state.weekly_schedule_v2
+    day_nutrition = st.session_state.day_specific_nutrition
+    
+    overview_data = []
+    for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
+        schedule = weekly_schedule.get(day, {})
+        nutrition = day_nutrition.get(day, {})
+        
+        overview_data.append({
+            'Day': day,
+            'TDEE': f"{schedule.get('estimated_tdee', 0):.0f} cal",
+            'Workout': '✓' if schedule.get('has_workout', False) else '✗',
+            'Meals': len(schedule.get('meals', [])),
+            'Wake': schedule.get('wake_time', 'N/A'),
+            'Sleep': schedule.get('bed_time', 'N/A')
+        })
+    
+    overview_df = pd.DataFrame(overview_data)
+    st.dataframe(overview_df, use_container_width=True, hide_index=True)
+
+# Step 1: Dietary Preferences
+st.markdown("---")
+st.markdown("## 1. Dietary Preferences")
+
+# Use existing preferences if available
+existing_prefs = st.session_state.get('diet_preferences', {})
+
+if existing_prefs:
+    st.info("Using preferences from Diet Preferences page")
+    with st.expander("View Current Preferences", expanded=False):
+        prefs_to_show = []
+        if existing_prefs.get('vegetarian'): prefs_to_show.append("Vegetarian")
+        if existing_prefs.get('vegan'): prefs_to_show.append("Vegan")
+        if existing_prefs.get('gluten_free'): prefs_to_show.append("Gluten-Free")
+        if existing_prefs.get('dairy_free'): prefs_to_show.append("Dairy-Free")
+        if existing_prefs.get('nut_free'): prefs_to_show.append("Nut-Free")
+        if existing_prefs.get('low_sodium'): prefs_to_show.append("Low Sodium")
+        
+        if prefs_to_show:
+            st.write("**Dietary Restrictions:** " + ", ".join(prefs_to_show))
         else:
-            st.success("✅ Synced nutrition targets detected")
-
-# Step 2: Nutrition Targets
-if st.session_state.get('planning_step', 0) >= 1:
-    st.markdown("---")
-    st.markdown("## 2. Nutrition Targets")
-    
-    if st.session_state.meal_planner_mode == 'sync':
-        # Use synced targets
-        today = datetime.now().strftime('%A')
-        day_nutrition = st.session_state.day_specific_nutrition.get(today, {})
+            st.write("**Dietary Restrictions:** None")
         
-        target_calories = day_nutrition.get('target_calories', 2000)
-        target_protein = day_nutrition.get('protein', 150)
-        target_carbs = day_nutrition.get('carbs', 200)
-        target_fat = day_nutrition.get('fat', 70)
-        
-        st.markdown(f"**Today ({today}) Targets:**")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Calories", f"{target_calories:,}")
-        with col2:
-            st.metric("Protein", f"{target_protein}g")
-        with col3:
-            st.metric("Carbs", f"{target_carbs}g")
-        with col4:
-            st.metric("Fat", f"{target_fat}g")
-    
-    else:
-        # Standalone mode - manual input
-        st.markdown("**Set your daily nutrition targets:**")
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            target_calories = st.number_input("Calories", min_value=1200, max_value=4000, value=2000, step=50)
-        with col2:
-            target_protein = st.number_input("Protein (g)", min_value=50, max_value=300, value=150, step=5)
-        with col3:
-            target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=400, value=200, step=10)
-        with col4:
-            target_fat = st.number_input("Fat (g)", min_value=30, max_value=200, value=70, step=5)
-    
-    # Confirm targets and proceed
-    if st.button("✅ Confirm Nutrition Targets", key="confirm_targets"):
-        st.session_state.planning_step = 2
-        st.session_state.confirmed_targets = {
-            'calories': target_calories,
-            'protein': target_protein,
-            'carbs': target_carbs,
-            'fat': target_fat
-        }
-        st.success("Nutrition targets confirmed!")
-        st.rerun()
+        st.write(f"**Cooking Time:** {existing_prefs.get('cooking_time_preference', 'Medium (30-60 min)')}")
+        st.write(f"**Budget:** {existing_prefs.get('budget_preference', 'Moderate')}")
+        st.write(f"**Cooking For:** {existing_prefs.get('cooking_for', 'Just myself')}")
+        st.write(f"**Leftovers:** {existing_prefs.get('leftovers_preference', 'Okay with leftovers occasionally')}")
+else:
+    st.warning("No dietary preferences set. Using default preferences.")
+    if st.button("📝 Set Diet Preferences", use_container_width=True):
+        st.switch_page("pages/3_Diet_Preferences.py")
 
-# Step 3: Dietary Preferences
-if st.session_state.get('planning_step', 0) >= 2:
-    st.markdown("---")
-    st.markdown("## 3. Dietary Preferences")
-    
-    # Use existing preferences if available
-    existing_prefs = st.session_state.get('diet_preferences', {})
-    
-    # Show current cooking time preference if set
-    if existing_prefs.get('cooking_time_preference'):
-        st.info(f"Current cooking time preference: {existing_prefs.get('cooking_time_preference')}")
-    
-    pref_col1, pref_col2, pref_col3 = st.columns(3)
-    
-    with pref_col1:
-        vegetarian = st.checkbox("Vegetarian", value=existing_prefs.get('vegetarian', False))
-        vegan = st.checkbox("Vegan", value=existing_prefs.get('vegan', False))
-    
-    with pref_col2:
-        gluten_free = st.checkbox("Gluten-Free", value=existing_prefs.get('gluten_free', False))
-        dairy_free = st.checkbox("Dairy-Free", value=existing_prefs.get('dairy_free', False))
-    
-    with pref_col3:
-        nut_free = st.checkbox("Nut-Free", value=existing_prefs.get('nut_free', False))
-        low_sodium = st.checkbox("Low Sodium", value=existing_prefs.get('low_sodium', False))
-    
-    diet_preferences = {
-        'vegetarian': vegetarian,
-        'vegan': vegan,
-        'gluten_free': gluten_free,
-        'dairy_free': dairy_free,
-        'nut_free': nut_free,
-        'low_sodium': low_sodium,
-        'cooking_time_preference': existing_prefs.get('cooking_time_preference', 'Medium (30-60 min)'),
-        'budget_preference': existing_prefs.get('budget_preference', 'Moderate'),
-        'cooking_for': existing_prefs.get('cooking_for', 'Just myself'),
-        'leftovers_preference': existing_prefs.get('leftovers_preference', 'Okay with leftovers occasionally')
-    }
-    
-    if st.button("✅ Confirm Dietary Preferences", key="confirm_diet"):
-        st.session_state.planning_step = 3
-        st.session_state.confirmed_diet_prefs = diet_preferences
-        st.success("Dietary preferences confirmed!")
-        st.rerun()
+# Step 2: Weekly Meal Plan Generation
+st.markdown("---")
+st.markdown("## 2. Generate Weekly Meal Plan")
 
-# Step 4: Meal Configuration
-if st.session_state.get('planning_step', 0) >= 3:
-    st.markdown("---")
-    st.markdown("## 4. Meal Timing & Configuration")
+st.markdown("Your AI meal plan will be optimized for:")
+st.markdown("• **Body Composition Goals** - Personalized macro targets for each day")
+st.markdown("• **Daily Schedule** - Meal timing around work, workouts, and activities")
+st.markdown("• **Meal Contexts** - Pre/post-workout, on-the-go, home cooking, etc.")
+st.markdown("• **Weekly Variety** - Different meals each day to prevent boredom")
+
+# Prepare weekly targets for AI generation
+def prepare_weekly_targets():
+    """Prepare weekly meal targets for AI generation"""
+    weekly_targets = {}
+    weekly_schedule = st.session_state.weekly_schedule_v2
+    day_nutrition = st.session_state.day_specific_nutrition
     
-    config_col1, config_col2 = st.columns(2)
-    
-    with config_col1:
-        wake_time = st.time_input("Wake Time", value=time(7, 0))
-        sleep_time = st.time_input("Sleep Time", value=time(23, 0))
+    for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
+        schedule = weekly_schedule.get(day, {})
+        nutrition = day_nutrition.get(day, {})
         
-    with config_col2:
-        workout_time = st.selectbox("Workout Timing", [
-            "Morning (6-9 AM)", "Mid-Morning (9-12 PM)", "Afternoon (2-5 PM)", 
-            "Evening (5-8 PM)", "No workout today"
-        ])
-        is_training_day = workout_time != "No workout today"
-    
-    meal_col1, meal_col2 = st.columns(2)
-    with meal_col1:
-        num_meals = st.selectbox("Number of Main Meals", [2, 3, 4], index=1)
-    with meal_col2:
-        num_snacks = st.selectbox("Number of Snacks", [0, 1, 2], index=1)
-    
-    meal_config = {
-        'wake_time': wake_time.strftime("%H:%M"),
-        'sleep_time': sleep_time.strftime("%H:%M"),
-        'workout_time': workout_time,
-        'num_meals': num_meals,
-        'num_snacks': num_snacks,
-        'is_training_day': is_training_day
-    }
-    
-    if st.button("✅ Confirm Meal Configuration", key="confirm_config"):
-        st.session_state.planning_step = 4
-        st.session_state.confirmed_meal_config = meal_config
-        st.success("Meal configuration confirmed!")
-        st.rerun()
-
-# Step 5: Generate AI Meal Plan
-if st.session_state.get('planning_step', 0) >= 4:
-    st.markdown("---")
-    st.markdown("## 5. Generate AI Meal Plan")
-    
-    # Create meal distribution
-    total_meals = st.session_state.confirmed_meal_config['num_meals'] + st.session_state.confirmed_meal_config['num_snacks']
-    
-    if total_meals == 3:  # 2 meals + 1 snack
-        meal_distribution = {'breakfast': 0.35, 'lunch': 0.45, 'snack': 0.20}
-    elif total_meals == 4:  # 3 meals + 1 snack
-        meal_distribution = {'breakfast': 0.25, 'lunch': 0.35, 'dinner': 0.30, 'snack': 0.10}
-    elif total_meals == 5:  # 3 meals + 2 snacks
-        meal_distribution = {'breakfast': 0.25, 'lunch': 0.30, 'dinner': 0.30, 'snack1': 0.08, 'snack2': 0.07}
-    else:  # Default to 4 meals
-        meal_distribution = {'breakfast': 0.25, 'lunch': 0.35, 'dinner': 0.30, 'snack': 0.10}
-    
-    # Calculate meal targets
-    targets = st.session_state.confirmed_targets
-    meal_targets = {}
-    
-    for meal_type, percentage in meal_distribution.items():
-        meal_targets[meal_type] = {
-            'calories': int(targets['calories'] * percentage),
-            'protein': int(targets['protein'] * percentage),
-            'carbs': int(targets['carbs'] * percentage),
-            'fat': int(targets['fat'] * percentage)
+        # Calculate meal distribution based on number of meals
+        meals = schedule.get('meals', [])
+        num_meals = len(meals)
+        
+        # Create meal targets based on actual meal schedule
+        meal_targets = {}
+        total_calories = nutrition.get('target_calories', 2000)
+        total_protein = nutrition.get('protein', 150)
+        total_carbs = nutrition.get('carbs', 200)
+        total_fat = nutrition.get('fat', 70)
+        
+        # Distribute macros across scheduled meals
+        for i, meal in enumerate(meals):
+            # Adjust distribution based on meal context and timing
+            if meal['context'] == 'Pre-Workout':
+                cal_pct = 0.15  # Lighter, easily digestible
+            elif meal['context'] == 'Post-Workout':
+                cal_pct = 0.30  # Larger, protein-focused
+            elif 'Breakfast' in meal['name']:
+                cal_pct = 0.25
+            elif 'Lunch' in meal['name']:
+                cal_pct = 0.35
+            elif 'Dinner' in meal['name']:
+                cal_pct = 0.30
+            elif 'Snack' in meal['name']:
+                cal_pct = 0.10
+            else:
+                cal_pct = 1.0 / num_meals  # Equal distribution if unclear
+            
+            meal_targets[f"{meal['name']}_{i}"] = {
+                'name': meal['name'],
+                'time': meal['time'],
+                'context': meal['context'],
+                'calories': int(total_calories * cal_pct),
+                'protein': int(total_protein * cal_pct),
+                'carbs': int(total_carbs * cal_pct),
+                'fat': int(total_fat * cal_pct)
+            }
+        
+        weekly_targets[day] = {
+            'meal_targets': meal_targets,
+            'daily_totals': {
+                'calories': total_calories,
+                'protein': total_protein,
+                'carbs': total_carbs,
+                'fat': total_fat
+            }
         }
     
-    # Display meal target breakdown
-    st.markdown("### Meal Target Breakdown")
-    target_df = pd.DataFrame([
-        {
-            'Meal': meal_type.title(),
-            'Calories': f"{targets['calories']} cal",
-            'Protein': f"{targets['protein']}g",
-            'Carbs': f"{targets['carbs']}g",
-            'Fat': f"{targets['fat']}g"
-        }
-        for meal_type, targets in meal_targets.items()
-    ])
-    st.dataframe(target_df, use_container_width=True)
-    
-    # Generate meal plan
-    if st.button("🚀 Generate Complete Meal Plan", type="primary", use_container_width=True):
+    return weekly_targets
+
+# Generate weekly meal plan
+generation_col1, generation_col2 = st.columns([3, 1])
+
+with generation_col1:
+    if st.button("🚀 Generate Complete Weekly Meal Plan", type="primary", use_container_width=True):
         openai_client = get_openai_client()
         
         if not openai_client:
             st.error("OpenAI API key not found. Please add your OPENAI_API_KEY to generate AI meal plans.")
             st.stop()
         
-        with st.spinner("Creating your personalized meal plan..."):
-            meal_plan = generate_ai_meal_plan(
-                meal_targets,
-                st.session_state.confirmed_diet_prefs,
-                st.session_state.confirmed_meal_config,
-                openai_client
+        # Prepare weekly targets
+        weekly_targets = prepare_weekly_targets()
+        weekly_schedule = st.session_state.weekly_schedule_v2
+        diet_prefs = existing_prefs if existing_prefs else {}
+        
+        with st.spinner("🤖 Creating your personalized weekly meal plan... This may take 1-2 minutes."):
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            weekly_meal_plan = generate_weekly_ai_meal_plan(
+                weekly_targets, diet_prefs, weekly_schedule, openai_client
             )
             
-            if meal_plan:
-                st.session_state.generated_meal_plan = meal_plan
-                st.session_state.planning_step = 5
-                st.success("✅ Meal plan generated successfully!")
+            progress_bar.progress(100)
+            status_text.empty()
+            
+            if weekly_meal_plan:
+                st.session_state.generated_weekly_meal_plan = weekly_meal_plan
+                st.success("✅ **Weekly meal plan generated successfully!**")
                 st.rerun()
 
-# Step 6: Display & Customize Meal Plan
-if st.session_state.get('planning_step', 0) >= 5 and 'generated_meal_plan' in st.session_state:
+with generation_col2:
+    st.markdown("**Plan includes:**")
+    st.markdown("• 7 days of meals")
+    st.markdown("• Recipe instructions")
+    st.markdown("• Macro breakdowns")
+    st.markdown("• Grocery list")
+    st.markdown("• PDF export")
+
+# Step 3: Display Generated Weekly Meal Plan
+if 'generated_weekly_meal_plan' in st.session_state:
     st.markdown("---")
-    st.markdown("## 6. Your Personalized Meal Plan")
+    st.markdown("## 3. Your Weekly Meal Plan")
     
-    meal_plan = st.session_state.generated_meal_plan
+    weekly_meal_plan = st.session_state.generated_weekly_meal_plan
     
-    # Create tabs for each meal
-    meal_types = list(meal_plan.keys())
-    meal_tabs = st.tabs([meal_type.title() for meal_type in meal_types])
+    # Create tabs for each day
+    day_tabs = st.tabs(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
     
-    for i, meal_type in enumerate(meal_types):
-        with meal_tabs[i]:
-            meal_data = meal_plan[meal_type]
-            
-            st.markdown(f"### {meal_data.get('name', meal_type.title())}")
-            if 'timing' in meal_data:
-                st.markdown(f"**Suggested Time:** {meal_data['timing']}")
-            
-            # Macro summary
-            macros = meal_data.get('total_macros', {})
-            macro_col1, macro_col2, macro_col3, macro_col4 = st.columns(4)
-            
-            with macro_col1:
-                st.metric("Calories", macros.get('calories', 0))
-            with macro_col2:
-                st.metric("Protein", f"{macros.get('protein', 0)}g")
-            with macro_col3:
-                st.metric("Carbs", f"{macros.get('carbs', 0)}g")
-            with macro_col4:
-                st.metric("Fat", f"{macros.get('fat', 0)}g")
-            
-            # Ingredients
-            st.markdown("**Ingredients:**")
-            ingredients = meal_data.get('ingredients', [])
-            
-            for j, ingredient in enumerate(ingredients):
-                with st.expander(f"{ingredient.get('item', 'Unknown')} - {ingredient.get('amount', 'N/A')}", expanded=False):
-                    ing_col1, ing_col2, ing_col3, ing_col4 = st.columns(4)
-                    with ing_col1:
-                        st.write(f"Calories: {ingredient.get('calories', 0)}")
-                    with ing_col2:
-                        st.write(f"Protein: {ingredient.get('protein', 0)}g")
-                    with ing_col3:
-                        st.write(f"Carbs: {ingredient.get('carbs', 0)}g")
-                    with ing_col4:
-                        st.write(f"Fat: {ingredient.get('fat', 0)}g")
-            
-            # Instructions
-            if 'instructions' in meal_data:
-                st.markdown("**Preparation Instructions:**")
-                st.markdown(meal_data['instructions'])
+    for i, day in enumerate(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']):
+        with day_tabs[i]:
+            if day in weekly_meal_plan:
+                day_plan = weekly_meal_plan[day]
+                
+                # Display daily summary
+                if 'daily_totals' in day_plan:
+                    totals = day_plan['daily_totals']
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Calories", f"{totals['calories']:,}")
+                    with col2:
+                        st.metric("Protein", f"{totals['protein']}g")
+                    with col3:
+                        st.metric("Carbs", f"{totals['carbs']}g")
+                    with col4:
+                        st.metric("Fat", f"{totals['fat']}g")
+                
+                # Display meals
+                if 'meals' in day_plan:
+                    for meal in day_plan['meals']:
+                        with st.container():
+                            st.markdown(f"### {meal['name']} - {meal['time']}")
+                            st.markdown(f"**Context:** {meal['context']}")
+                            
+                            # Display ingredients
+                            if 'ingredients' in meal:
+                                st.markdown("**Ingredients:**")
+                                for ingredient in meal['ingredients']:
+                                    st.markdown(f"• {ingredient['amount']} {ingredient['item']} ({ingredient['calories']} cal)")
+                            
+                            # Display instructions
+                            if 'instructions' in meal:
+                                st.markdown("**Instructions:**")
+                                st.markdown(meal['instructions'])
+                            
+                            # Display macros
+                            if 'total_macros' in meal:
+                                macros = meal['total_macros']
+                                st.markdown(f"**Macros:** {macros['calories']} cal, {macros['protein']}g protein, {macros['carbs']}g carbs, {macros['fat']}g fat")
+                            
+                            st.markdown("---")
+            else:
+                st.warning(f"No meal plan generated for {day}")
     
-    # Step 7: Export Options
+    # Step 4: Export Options
     st.markdown("---")
-    st.markdown("## 7. Export Your Meal Plan")
+    st.markdown("## 4. Export Your Meal Plan")
     
-    export_col1, export_col2 = st.columns(2)
+    export_col1, export_col2, export_col3 = st.columns(3)
     
     with export_col1:
-        if st.button("📄 Export PDF", type="primary", use_container_width=True):
-            try:
-                # Convert meal plan to format expected by PDF export
-                pdf_data = {
-                    'meals': meal_plan,
-                    'daily_totals': st.session_state.confirmed_targets,
-                    'user_preferences': st.session_state.confirmed_diet_prefs
-                }
+        if st.button("📄 Export to PDF", use_container_width=True):
+            with st.spinner("Generating PDF meal plan..."):
+                try:
+                    # Prepare meal data for PDF export
+                    meal_data_for_pdf = []
+                    all_ingredients = {}
+                    
+                    for day, day_plan in weekly_meal_plan.items():
+                        if 'meals' in day_plan:
+                            for meal in day_plan['meals']:
+                                meal_info = {
+                                    'day': day,
+                                    'meal_type': meal['name'],
+                                    'time': meal['time'],
+                                    'context': meal['context'],
+                                    'recipe': {
+                                        'name': meal['name'],
+                                        'ingredients': meal.get('ingredients', []),
+                                        'instructions': meal.get('instructions', ''),
+                                        'macros': meal.get('total_macros', {})
+                                    }
+                                }
+                                meal_data_for_pdf.append(meal_info)
+                                
+                                # Collect ingredients for grocery list
+                                if 'ingredients' in meal:
+                                    for ingredient in meal['ingredients']:
+                                        item = ingredient['item']
+                                        amount = ingredient['amount']
+                                        if item in all_ingredients:
+                                            all_ingredients[item] += f", {amount}"
+                                        else:
+                                            all_ingredients[item] = amount
+                    
+                    # Get user preferences for PDF
+                    user_info = {
+                        'name': 'Fitomics User',
+                        'plan_type': 'Weekly Meal Plan',
+                        'generation_date': datetime.now().strftime('%B %d, %Y')
+                    }
+                    
+                    # Generate PDF
+                    pdf_path = export_meal_plan_pdf(meal_data_for_pdf, user_info)
+                    
+                    if pdf_path and os.path.exists(pdf_path):
+                        st.success("✅ PDF generated successfully!")
+                        
+                        # Provide download link
+                        with open(pdf_path, "rb") as pdf_file:
+                            st.download_button(
+                                label="⬇️ Download PDF Meal Plan",
+                                data=pdf_file.read(),
+                                file_name=f"fitomics_weekly_meal_plan_{datetime.now().strftime('%Y%m%d')}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
+                    else:
+                        st.error("Failed to generate PDF. Please try again.")
+                        
+                except Exception as e:
+                    st.error(f"PDF generation error: {e}")
+    
+    with export_col2:
+        if st.button("🛒 Generate Grocery List", use_container_width=True):
+            # Generate consolidated grocery list
+            all_ingredients = {}
+            
+            for day, day_plan in weekly_meal_plan.items():
+                if 'meals' in day_plan:
+                    for meal in day_plan['meals']:
+                        if 'ingredients' in meal:
+                            for ingredient in meal['ingredients']:
+                                item = ingredient['item']
+                                amount = ingredient['amount']
+                                if item in all_ingredients:
+                                    # Try to combine amounts if possible
+                                    all_ingredients[item].append(amount)
+                                else:
+                                    all_ingredients[item] = [amount]
+            
+            # Display grocery list
+            st.markdown("### 🛒 Weekly Grocery List")
+            grocery_items = []
+            for item, amounts in all_ingredients.items():
+                # Combine amounts
+                combined_amount = ", ".join(amounts)
+                grocery_items.append(f"• {item}: {combined_amount}")
                 
-                pdf_buffer = export_meal_plan_pdf(pdf_data)
-                
-                if pdf_buffer:
-                    st.download_button(
-                        label="📥 Download PDF",
-                        data=pdf_buffer,
+            grocery_text = "\n".join(grocery_items)
+            st.text_area("Copy your grocery list:", grocery_text, height=300)
+    
+    with export_col3:
+        if st.button("🔄 Generate New Plan", use_container_width=True):
+            if 'generated_weekly_meal_plan' in st.session_state:
+                del st.session_state.generated_weekly_meal_plan
+            st.rerun()
+
+            if 'generated_weekly_meal_plan' in st.session_state:
+                del st.session_state.generated_weekly_meal_plan
+            st.rerun()
                         file_name=f"fitomics_meal_plan_{datetime.now().strftime('%Y%m%d')}.pdf",
                         mime="application/pdf"
                     )
