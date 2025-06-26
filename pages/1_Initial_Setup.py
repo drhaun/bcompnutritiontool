@@ -36,7 +36,8 @@ if st.sidebar.button("🚀 Quick Fill Test Data"):
     st.session_state.user_info = {
         'use_imperial': True,
         'gender': 'Male',
-        'age': 30,
+        'dob': '15/06/1990',  # Add DOB for proper age calculation
+        'age': 34,
         'height_cm': 175,
         'height_ft': 5,
         'height_in': 9,
@@ -97,11 +98,20 @@ with col1:
         help="Enter your date of birth. You can type the date or use the calendar picker."
     )
     
-    # Automatically calculate age when date is entered
+    # Automatically calculate and display age when date is entered
     if dob:
         today = date.today()
-        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-        st.write(f"**Age: {age} years**")
+        calculated_age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        st.write(f"**Age: {calculated_age} years**")
+        
+        # Store calculated age in session state for immediate use
+        if 'temp_age' not in st.session_state:
+            st.session_state.temp_age = calculated_age
+        else:
+            st.session_state.temp_age = calculated_age
+    else:
+        calculated_age = 25  # Default fallback
+        st.session_state.temp_age = calculated_age
     
     # Height input based on unit preference
     if imperial_selected:
@@ -259,9 +269,12 @@ if st.button("Save and Continue", use_container_width=True, type="primary"):
         else:
             commitment_level = "I can commit to at least a few workouts per week and will try to ensure I prioritize sufficient sleep. I will also try to eat mindfully according to my goals, but I'm not certain I'll be able to do all that's required to maximize my progress during this phase."
         
-        # Calculate TDEE
+        # Use the calculated age from date of birth section
+        final_age = st.session_state.get('temp_age', 25)
+        
+        # Calculate TDEE using the calculated age
         tdee = utils.calculate_tdee(
-            gender, weight_kg, height_cm, age, mapped_activity, workouts_per_week, workout_calories
+            gender, weight_kg, height_cm, final_age, mapped_activity, workouts_per_week, workout_calories
         )
         
         # Calculate total height in inches and store height components
@@ -275,11 +288,14 @@ if st.button("Save and Continue", use_container_width=True, type="primary"):
             height_in_store = int(total_height_inches % 12)
         
         # Save all data to session state
+        # Use the calculated age from the display section
+        final_age = st.session_state.get('temp_age', 25)
+        
         st.session_state.user_info = {
             'name': name,
             'gender': gender,
-            'dob': dob.strftime('%Y-%m-%d'),
-            'age': age,
+            'dob': dob.strftime('%d/%m/%Y') if dob else '',  # Store in DD/MM/YYYY format
+            'age': final_age,
             'height_cm': height_cm,
             'height_inches': total_height_inches,
             'height_ft': height_ft_store,
