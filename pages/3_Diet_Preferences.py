@@ -275,6 +275,10 @@ cuisine_options = [
     "Thai", "Greek", "Spanish", "Korean", "Vietnamese"
 ]
 
+# Initialize button state trackers if they don't exist
+if 'button_tracker' not in st.session_state:
+    st.session_state.button_tracker = {}
+
 # Create tabs for different food categories
 pref_tabs = st.tabs(["🥩 Proteins", "🍞 Carbohydrates", "🥑 Fats", "🥬 Vegetables", "🌍 Cuisines"])
 
@@ -284,109 +288,144 @@ with pref_tabs[0]:  # Proteins
     with col1:
         if st.button("Select All Proteins", key="select_all_proteins"):
             st.session_state.diet_preferences['preferred_proteins'] = protein_options.copy()
-            st.rerun()
+            st.session_state.button_tracker['proteins_select_all'] = True
     with col2:
         if st.button("Clear All Proteins", key="clear_all_proteins"):
             st.session_state.diet_preferences['preferred_proteins'] = []
-            st.rerun()
+            st.session_state.button_tracker['proteins_clear_all'] = True
     
-    # Use a unique key that will force refresh when session state changes
-    protein_key = f"proteins_multi_{len(st.session_state.diet_preferences.get('preferred_proteins', []))}"
+    # Use session state value if button was clicked, otherwise use default
+    if st.session_state.button_tracker.get('proteins_select_all', False):
+        current_proteins = protein_options.copy()
+        st.session_state.button_tracker['proteins_select_all'] = False
+    elif st.session_state.button_tracker.get('proteins_clear_all', False):
+        current_proteins = []
+        st.session_state.button_tracker['proteins_clear_all'] = False
+    else:
+        current_proteins = st.session_state.diet_preferences.get('preferred_proteins', [])
+    
     preferred_proteins = st.multiselect(
         "Select your preferred protein sources",
         options=protein_options,
-        default=st.session_state.diet_preferences.get('preferred_proteins', []),
+        default=current_proteins,
         help="Choose proteins you enjoy eating - use buttons above for quick selection",
-        key=protein_key
+        key="proteins_multiselect"
     )
-    # Update session state when user changes selection manually
     st.session_state.diet_preferences['preferred_proteins'] = preferred_proteins
 
 with pref_tabs[1]:  # Carbs
-    # Select All / Deselect All buttons
     col1, col2 = st.columns([1, 1])
     with col1:
         if st.button("Select All Carbs", key="select_all_carbs"):
             st.session_state.diet_preferences['preferred_carbs'] = carb_options.copy()
-            st.rerun()
+            st.session_state.button_tracker['carbs_select_all'] = True
     with col2:
         if st.button("Clear All Carbs", key="clear_all_carbs"):
             st.session_state.diet_preferences['preferred_carbs'] = []
-            st.rerun()
+            st.session_state.button_tracker['carbs_clear_all'] = True
     
-    carbs_key = f"carbs_multi_{len(st.session_state.diet_preferences.get('preferred_carbs', []))}"
+    if st.session_state.button_tracker.get('carbs_select_all', False):
+        current_carbs = carb_options.copy()
+        st.session_state.button_tracker['carbs_select_all'] = False
+    elif st.session_state.button_tracker.get('carbs_clear_all', False):
+        current_carbs = []
+        st.session_state.button_tracker['carbs_clear_all'] = False
+    else:
+        current_carbs = st.session_state.diet_preferences.get('preferred_carbs', [])
+    
     preferred_carbs = st.multiselect(
         "Select your preferred carbohydrate sources",
         options=carb_options,
-        default=st.session_state.diet_preferences.get('preferred_carbs', []),
+        default=current_carbs,
         help="Choose carbs you enjoy eating - use buttons above for quick selection",
-        key=carbs_key
+        key="carbs_multiselect"
     )
     st.session_state.diet_preferences['preferred_carbs'] = preferred_carbs
 
 with pref_tabs[2]:  # Fats
-    # Select All / Deselect All buttons
     col1, col2 = st.columns([1, 1])
     with col1:
         if st.button("Select All Fats", key="select_all_fats"):
             st.session_state.diet_preferences['preferred_fats'] = fat_options.copy()
-            st.rerun()
+            st.session_state.button_tracker['fats_select_all'] = True
     with col2:
         if st.button("Clear All Fats", key="clear_all_fats"):
             st.session_state.diet_preferences['preferred_fats'] = []
-            st.rerun()
+            st.session_state.button_tracker['fats_clear_all'] = True
     
-    fats_key = f"fats_multi_{len(st.session_state.diet_preferences.get('preferred_fats', []))}"
+    if st.session_state.button_tracker.get('fats_select_all', False):
+        current_fats = fat_options.copy()
+        st.session_state.button_tracker['fats_select_all'] = False
+    elif st.session_state.button_tracker.get('fats_clear_all', False):
+        current_fats = []
+        st.session_state.button_tracker['fats_clear_all'] = False
+    else:
+        current_fats = st.session_state.diet_preferences.get('preferred_fats', [])
+    
     preferred_fats = st.multiselect(
         "Select your preferred fat sources",
         options=fat_options,
-        default=st.session_state.diet_preferences.get('preferred_fats', []),
+        default=current_fats,
         help="Choose healthy fats you enjoy - use buttons above for quick selection",
-        key=fats_key
+        key="fats_multiselect"
     )
     st.session_state.diet_preferences['preferred_fats'] = preferred_fats
 
 with pref_tabs[3]:  # Vegetables
-    # Select All / Deselect All buttons
     col1, col2 = st.columns([1, 1])
     with col1:
         if st.button("Select All Vegetables", key="select_all_vegetables"):
             st.session_state.diet_preferences['preferred_vegetables'] = vegetable_options.copy()
-            st.rerun()
+            st.session_state.button_tracker['vegetables_select_all'] = True
     with col2:
         if st.button("Clear All Vegetables", key="clear_all_vegetables"):
             st.session_state.diet_preferences['preferred_vegetables'] = []
-            st.rerun()
+            st.session_state.button_tracker['vegetables_clear_all'] = True
     
-    vegetables_key = f"vegetables_multi_{len(st.session_state.diet_preferences.get('preferred_vegetables', []))}"
+    if st.session_state.button_tracker.get('vegetables_select_all', False):
+        current_vegetables = vegetable_options.copy()
+        st.session_state.button_tracker['vegetables_select_all'] = False
+    elif st.session_state.button_tracker.get('vegetables_clear_all', False):
+        current_vegetables = []
+        st.session_state.button_tracker['vegetables_clear_all'] = False
+    else:
+        current_vegetables = st.session_state.diet_preferences.get('preferred_vegetables', [])
+    
     preferred_vegetables = st.multiselect(
         "Select your preferred vegetables",
         options=vegetable_options,
-        default=st.session_state.diet_preferences.get('preferred_vegetables', []),
+        default=current_vegetables,
         help="Choose vegetables you enjoy eating - use buttons above for quick selection",
-        key=vegetables_key
+        key="vegetables_multiselect"
     )
     st.session_state.diet_preferences['preferred_vegetables'] = preferred_vegetables
 
 with pref_tabs[4]:  # Cuisines
-    # Select All / Deselect All buttons
     col1, col2 = st.columns([1, 1])
     with col1:
         if st.button("Select All Cuisines", key="select_all_cuisines"):
             st.session_state.diet_preferences['cuisine_preferences'] = cuisine_options.copy()
-            st.rerun()
+            st.session_state.button_tracker['cuisines_select_all'] = True
     with col2:
         if st.button("Clear All Cuisines", key="clear_all_cuisines"):
             st.session_state.diet_preferences['cuisine_preferences'] = []
-            st.rerun()
+            st.session_state.button_tracker['cuisines_clear_all'] = True
     
-    cuisines_key = f"cuisines_multi_{len(st.session_state.diet_preferences.get('cuisine_preferences', []))}"
+    if st.session_state.button_tracker.get('cuisines_select_all', False):
+        current_cuisines = cuisine_options.copy()
+        st.session_state.button_tracker['cuisines_select_all'] = False
+    elif st.session_state.button_tracker.get('cuisines_clear_all', False):
+        current_cuisines = []
+        st.session_state.button_tracker['cuisines_clear_all'] = False
+    else:
+        current_cuisines = st.session_state.diet_preferences.get('cuisine_preferences', [])
+    
     cuisine_preferences = st.multiselect(
         "Select your preferred cuisines",
         options=cuisine_options,
-        default=st.session_state.diet_preferences.get('cuisine_preferences', []),
+        default=current_cuisines,
         help="Choose cuisines you enjoy - use buttons above for quick selection",
-        key=cuisines_key
+        key="cuisines_multiselect"
     )
     st.session_state.diet_preferences['cuisine_preferences'] = cuisine_preferences
 
