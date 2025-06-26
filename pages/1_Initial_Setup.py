@@ -72,13 +72,36 @@ with col1:
         index=0 if st.session_state.user_info.get('gender') == "Male" else 1
     )
     
+    # Date of Birth with DD/MM/YYYY format and extended date range
+    # Handle different date formats for backwards compatibility
+    stored_dob = st.session_state.user_info.get('dob', '')
+    default_dob = date(1990, 1, 1)
+    
+    if stored_dob:
+        try:
+            # Try DD/MM/YYYY format first
+            if '/' in stored_dob:
+                default_dob = datetime.strptime(stored_dob, '%d/%m/%Y').date()
+            else:
+                # Fallback to YYYY-MM-DD format
+                default_dob = datetime.strptime(stored_dob, '%Y-%m-%d').date()
+        except ValueError:
+            default_dob = date(1990, 1, 1)
+    
     dob = st.date_input(
-        "Date of Birth",
-        value=datetime.strptime(st.session_state.user_info.get('dob', '1990-01-01'), '%Y-%m-%d').date() if st.session_state.user_info.get('dob') else date(1990, 1, 1),
-        max_value=date.today()
+        "Date of Birth (DD/MM/YYYY)",
+        value=default_dob,
+        min_value=date(1920, 1, 1),  # Allow dates back to 1920
+        max_value=date.today(),
+        format="DD/MM/YYYY",
+        help="Enter your date of birth. You can type the date or use the calendar picker."
     )
-    age = (date.today() - dob).days // 365
-    st.write(f"Age: {age} years")
+    
+    # Automatically calculate age when date is entered
+    if dob:
+        today = date.today()
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        st.write(f"**Age: {age} years**")
     
     # Height input based on unit preference
     if imperial_selected:
