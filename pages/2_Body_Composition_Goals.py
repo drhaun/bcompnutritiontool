@@ -172,19 +172,34 @@ current_fmi = current_fat_mass_kg / (height_m * height_m)
 current_ffmi = current_ffm_kg / (height_m * height_m)
 current_normalized_ffmi = current_ffmi * (1.8 / height_m)
 
-# Find categories for current values
+# Find categories for current values with improved boundary handling
 current_fmi_category = "Unknown"
 for category in fmi_categories:
-    # Use precise floating point comparison with small tolerance
-    if (current_fmi >= category["lower"] - 0.001) and (current_fmi <= category["upper"] + 0.001):
+    # Handle boundary cases more robustly - use inclusive comparison
+    if current_fmi >= category["lower"] and current_fmi <= category["upper"]:
         current_fmi_category = category["name"]
         break
-        
+
+# Fallback check for edge cases where value might be exactly on boundaries
+if current_fmi_category == "Unknown":
+    for category in fmi_categories:
+        # Check with small tolerance for floating point precision
+        if (current_fmi >= category["lower"] - 0.05) and (current_fmi <= category["upper"] + 0.05):
+            current_fmi_category = category["name"]
+            break
+
 current_ffmi_category = "Unknown"
 for category in ffmi_categories:
-    if category["lower"] <= current_ffmi <= category["upper"]:
+    if current_ffmi >= category["lower"] and current_ffmi <= category["upper"]:
         current_ffmi_category = category["name"]
         break
+
+# Fallback check for FFMI edge cases
+if current_ffmi_category == "Unknown":
+    for category in ffmi_categories:
+        if (current_ffmi >= category["lower"] - 0.05) and (current_ffmi <= category["upper"] + 0.05):
+            current_ffmi_category = category["name"]
+            break
 
 # Display current body composition in a well-formatted table with categories
 comp_data = {
@@ -449,11 +464,11 @@ with col2:
     
     # Show resulting indices with category descriptors
     
-    # Determine FMI category
+    # Determine FMI category with improved boundary handling
     fmi_category = "Unknown"
     fmi_color = "gray"
     for category in fmi_categories:
-        if category["lower"] <= resulting_fmi <= category["upper"]:
+        if resulting_fmi >= category["lower"] and resulting_fmi <= category["upper"]:
             fmi_category = category["name"]
             # Set colors based on category for visual guidance
             if "Lean" in fmi_category or "Healthy" in fmi_category:
@@ -466,11 +481,26 @@ with col2:
                 fmi_color = "violet"
             break
     
-    # Determine FFMI category
+    # Fallback for FMI edge cases
+    if fmi_category == "Unknown":
+        for category in fmi_categories:
+            if (resulting_fmi >= category["lower"] - 0.05) and (resulting_fmi <= category["upper"] + 0.05):
+                fmi_category = category["name"]
+                if "Lean" in fmi_category or "Healthy" in fmi_category:
+                    fmi_color = "green"
+                elif "Slightly" in fmi_category:
+                    fmi_color = "orange"
+                elif "Overfat" in fmi_category:
+                    fmi_color = "red"
+                elif "Extremely" in fmi_category:
+                    fmi_color = "violet"
+                break
+    
+    # Determine FFMI category with improved boundary handling
     ffmi_category = "Unknown"
     ffmi_color = "gray"
     for category in ffmi_categories:
-        if category["lower"] <= resulting_ffmi <= category["upper"]:
+        if resulting_ffmi >= category["lower"] and resulting_ffmi <= category["upper"]:
             ffmi_category = category["name"]
             # Set colors based on category for visual guidance
             if "Normal" in ffmi_category or "Muscular" in ffmi_category:
@@ -482,6 +512,21 @@ with col2:
             elif "Very" in ffmi_category or "Extremely" in ffmi_category:
                 ffmi_color = "blue"
             break
+    
+    # Fallback for FFMI edge cases
+    if ffmi_category == "Unknown":
+        for category in ffmi_categories:
+            if (resulting_ffmi >= category["lower"] - 0.05) and (resulting_ffmi <= category["upper"] + 0.05):
+                ffmi_category = category["name"]
+                if "Normal" in ffmi_category or "Muscular" in ffmi_category:
+                    ffmi_color = "green"
+                elif "Moderately" in ffmi_category:
+                    ffmi_color = "orange"
+                elif "Under" in ffmi_category:
+                    ffmi_color = "red"
+                elif "Very" in ffmi_category or "Extremely" in ffmi_category:
+                    ffmi_color = "blue"
+                break
     
     # Display with category indicators and visual guidance
     col1, col2 = st.columns(2)
