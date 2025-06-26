@@ -102,6 +102,17 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **June 26, 2025 - Weekly Schedule Complete Redesign**:
+  - Completely redesigned Weekly Schedule page with intuitive, clean UI
+  - Streamlined schedule setup into clear sections: Basic Schedule, Activity Schedule, Meal Context
+  - Enhanced time allocation visualization with comprehensive weekly overview table
+  - Added detailed daily schedule breakdown with meal contexts and timing
+  - Improved meal planning integration with 12 context options for optimal preparation planning
+  - Simplified workout scheduling with total weekly count and day selection
+  - Added sleep duration feedback and work schedule integration
+  - Created visual schedule overview showing sleep, work, workout, meals, and TDEE for each day
+  - Fixed Diet Preferences select all functionality with robust state tracking system
+
 - **June 25, 2025 - Major Workflow Consolidation**:
   - Fixed Weekly Schedule page title to "Weekly Schedule" (removed "and Nutrition") in navigation bar
   - Renamed page file from 4_Weekly_Schedule_and_Nutrition.py to 4_Weekly_Schedule.py
