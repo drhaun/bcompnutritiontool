@@ -251,11 +251,23 @@ with st.form("diet_preferences_form"):
             "Greek Yogurt", "Cottage Cheese", "Tofu", "Tempeh", 
             "Beans", "Lentils", "Chickpeas", "Protein Powder"
         ]
+        
+        # Select All / Deselect All buttons
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Select All Proteins", key="select_all_proteins"):
+                st.session_state.diet_preferences['preferred_proteins'] = protein_options.copy()
+                st.rerun()
+        with col2:
+            if st.button("Clear All Proteins", key="clear_all_proteins"):
+                st.session_state.diet_preferences['preferred_proteins'] = []
+                st.rerun()
+        
         preferred_proteins = st.multiselect(
             "Select your preferred protein sources",
             options=protein_options,
             default=st.session_state.diet_preferences.get('preferred_proteins', []),
-            help="Choose proteins you enjoy eating"
+            help="Choose proteins you enjoy eating - use buttons above for quick selection"
         )
     
     with pref_tabs[1]:  # Carbs
@@ -264,11 +276,23 @@ with st.form("diet_preferences_form"):
             "Regular Potatoes", "Pasta", "Whole Wheat Pasta", "Bread", 
             "Whole Grain Bread", "Tortillas", "Fruits", "Cereal", "Corn"
         ]
+        
+        # Select All / Deselect All buttons
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Select All Carbs", key="select_all_carbs"):
+                st.session_state.diet_preferences['preferred_carbs'] = carb_options.copy()
+                st.rerun()
+        with col2:
+            if st.button("Clear All Carbs", key="clear_all_carbs"):
+                st.session_state.diet_preferences['preferred_carbs'] = []
+                st.rerun()
+        
         preferred_carbs = st.multiselect(
             "Select your preferred carbohydrate sources",
             options=carb_options,
             default=st.session_state.diet_preferences.get('preferred_carbs', []),
-            help="Choose carbs you enjoy eating"
+            help="Choose carbs you enjoy eating - use buttons above for quick selection"
         )
     
     with pref_tabs[2]:  # Fats
@@ -277,11 +301,23 @@ with st.form("diet_preferences_form"):
             "Peanut Butter", "Almond Butter", "Seeds", "Cheese", 
             "Butter", "Ghee", "Fatty Fish", "Dark Chocolate"
         ]
+        
+        # Select All / Deselect All buttons
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Select All Fats", key="select_all_fats"):
+                st.session_state.diet_preferences['preferred_fats'] = fat_options.copy()
+                st.rerun()
+        with col2:
+            if st.button("Clear All Fats", key="clear_all_fats"):
+                st.session_state.diet_preferences['preferred_fats'] = []
+                st.rerun()
+        
         preferred_fats = st.multiselect(
             "Select your preferred fat sources",
             options=fat_options,
             default=st.session_state.diet_preferences.get('preferred_fats', []),
-            help="Choose healthy fats you enjoy"
+            help="Choose healthy fats you enjoy - use buttons above for quick selection"
         )
     
     with pref_tabs[3]:  # Vegetables
@@ -290,11 +326,23 @@ with st.form("diet_preferences_form"):
             "Zucchini", "Cauliflower", "Green Beans", "Asparagus",
             "Brussels Sprouts", "Mushrooms", "Onions", "Tomatoes", "Cucumber"
         ]
+        
+        # Select All / Deselect All buttons
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Select All Vegetables", key="select_all_vegetables"):
+                st.session_state.diet_preferences['preferred_vegetables'] = vegetable_options.copy()
+                st.rerun()
+        with col2:
+            if st.button("Clear All Vegetables", key="clear_all_vegetables"):
+                st.session_state.diet_preferences['preferred_vegetables'] = []
+                st.rerun()
+        
         preferred_vegetables = st.multiselect(
             "Select your preferred vegetables",
             options=vegetable_options,
             default=st.session_state.diet_preferences.get('preferred_vegetables', []),
-            help="Choose vegetables you enjoy eating"
+            help="Choose vegetables you enjoy eating - use buttons above for quick selection"
         )
     
     with pref_tabs[4]:  # Cuisines
@@ -303,11 +351,23 @@ with st.form("diet_preferences_form"):
             "Indian", "French", "Middle Eastern", "Japanese", "Chinese",
             "Thai", "Greek", "Spanish", "Korean", "Vietnamese"
         ]
+        
+        # Select All / Deselect All buttons
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Select All Cuisines", key="select_all_cuisines"):
+                st.session_state.diet_preferences['cuisine_preferences'] = cuisine_options.copy()
+                st.rerun()
+        with col2:
+            if st.button("Clear All Cuisines", key="clear_all_cuisines"):
+                st.session_state.diet_preferences['cuisine_preferences'] = []
+                st.rerun()
+        
         cuisine_preferences = st.multiselect(
             "Select your preferred cuisines",
             options=cuisine_options,
             default=st.session_state.diet_preferences.get('cuisine_preferences', []),
-            help="Choose cuisines you enjoy"
+            help="Choose cuisines you enjoy - use buttons above for quick selection"
         )
     
     st.markdown("### 🚫 Foods to Avoid")
