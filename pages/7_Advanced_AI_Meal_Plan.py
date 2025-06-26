@@ -179,8 +179,8 @@ Format as JSON with this structure:
         return None
 
 # Page Setup
-st.set_page_config(page_title="AI Meal Planning", layout="wide")
-st.title("🤖 Weekly AI Meal Planning")
+st.set_page_config(page_title="Advanced AI Meal Plan", layout="wide")
+st.title("🧠 Advanced AI Meal Plan")
 st.markdown("*Generate complete weekly meal plans optimized for your body composition goals, schedule, and preferences*")
 
 # Initialize nutrition cache

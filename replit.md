@@ -102,6 +102,14 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **June 26, 2025 - AI Meal Planning Restructure**:
+  - Split AI meal planning into two distinct pages for different user needs
+  - Created "Standalone AI Meal Plan" (Page 6) - compact, single-form interface for quick meal planning without setup
+  - Renamed comprehensive planning to "Advanced AI Meal Plan" (Page 7) - full weekly meal plans with body composition integration
+  - Standalone mode includes all essential features: nutrition targets, dietary preferences, meal configuration, and PDF export
+  - Both pages maintain OpenAI GPT-4o integration for intelligent meal generation
+  - Preserved cross-navigation between standalone and advanced modes based on user needs
+
 - **June 26, 2025 - Weekly AI Meal Planning Enhancement**:
   - Completely redesigned AI Meal Planning page to generate full weekly meal plans instead of single days
   - Integrated weekly schedule data with AI meal generation for context-aware meal planning
