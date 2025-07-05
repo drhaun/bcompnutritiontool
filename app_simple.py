@@ -12,8 +12,8 @@ if not os.path.exists("data"):
 
 # Set page configuration
 st.set_page_config(
-    page_title="Fitomics Body Comp Planning Tool",
-    page_icon="🛡️",
+    page_title="App Overview",
+    page_icon="🏋️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -48,12 +48,15 @@ if 'nutrition_plan' not in st.session_state:
     }
 
 if 'daily_records' not in st.session_state:
-    st.session_state.daily_records = pd.DataFrame(columns=[
-        'date', 'weight_kg', 'calories', 'protein', 'carbs', 'fat'
-    ])
+    st.session_state.daily_records = pd.DataFrame()
 
 # Main page content  
-st.title("🛡️ Fitomics Body Composition Planner")
+col1, col2 = st.columns([1, 4])
+with col1:
+    st.image("attached_assets/Fitomics Stacked – Dark Blue_1751728580847.png", width=120)
+with col2:
+    st.title("App Overview")
+    st.markdown("**Fitomics Body Composition Planning Tool**")
 
 st.markdown("""
 This application helps you plan and track your body composition and nutrition goals. Navigate through the steps using the sidebar menu:
@@ -109,8 +112,12 @@ if not st.session_state.daily_records.empty:
         days_tracked = len(st.session_state.daily_records)
         if 'start_date' in st.session_state.goal_info and st.session_state.goal_info['start_date']:
             start = st.session_state.goal_info['start_date']
-            timeline = st.session_state.goal_info['timeline_weeks'] * 7
-            progress = min(days_tracked / timeline * 100, 100) if timeline else 0
+            timeline_weeks = st.session_state.goal_info.get('timeline_weeks')
+            if timeline_weeks and timeline_weeks > 0:
+                timeline = timeline_weeks * 7
+                progress = min(days_tracked / timeline * 100, 100)
+            else:
+                progress = 0
             st.metric(
                 label="Progress", 
                 value=f"{progress:.1f}%",
