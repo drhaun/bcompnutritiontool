@@ -144,16 +144,20 @@ with col1:
     
     # Weight input based on unit preference
     if imperial_selected:
+        weight_lbs_value = st.session_state.user_info.get('weight_lbs', 165.0)
+        weight_lbs_value = weight_lbs_value if weight_lbs_value is not None else 165.0
         weight_lbs = st.number_input("Weight (lbs)", min_value=80.0, max_value=500.0, 
-                                   value=float(st.session_state.user_info.get('weight_lbs', 165.0)), step=0.5)
+                                   value=float(weight_lbs_value), step=0.5)
         if weight_lbs is not None:
             weight_kg = weight_lbs / 2.20462
             st.write(f"Weight: {weight_kg:.1f} kg")
         else:
             weight_kg = 75.0  # Default fallback
     else:
+        weight_kg_value = st.session_state.user_info.get('weight_kg', 75.0)
+        weight_kg_value = weight_kg_value if weight_kg_value is not None else 75.0
         weight_kg = st.number_input("Weight (kg)", min_value=35.0, max_value=225.0, 
-                                  value=float(st.session_state.user_info.get('weight_kg', 75.0)), step=0.1)
+                                  value=float(weight_kg_value), step=0.1)
         if weight_kg is not None:
             weight_lbs = weight_kg * 2.20462
             st.write(f"Weight: {weight_lbs:.1f} lbs")
