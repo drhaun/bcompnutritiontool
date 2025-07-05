@@ -124,27 +124,41 @@ with col1:
                                     value=st.session_state.user_info.get('height_ft', 5), step=1)
         height_inches = st.number_input("Height (inches)", min_value=0, max_value=11, 
                                       value=st.session_state.user_info.get('height_in', 8), step=1)
-        height_cm = (height_feet * 12 + height_inches) * 2.54
-        st.write(f"Height: {height_feet}'{height_inches}\" ({height_cm:.1f} cm)")
+        if height_feet is not None and height_inches is not None:
+            height_cm = (height_feet * 12 + height_inches) * 2.54
+            st.write(f"Height: {height_feet}'{height_inches}\" ({height_cm:.1f} cm)")
+        else:
+            height_cm = 175.0  # Default fallback
     else:
         height_cm = st.number_input("Height (cm)", min_value=120.0, max_value=250.0, 
                                    value=st.session_state.user_info.get('height_cm', 175.0), step=0.5)
-        height_inches = height_cm / 2.54
-        height_feet = int(height_inches // 12)
-        height_in_remainder = int(height_inches % 12)
-        st.write(f"Height: {height_feet}'{height_in_remainder}\" ({height_cm:.1f} cm)")
+        if height_cm is not None:
+            height_inches = height_cm / 2.54
+            height_feet = int(height_inches // 12)
+            height_in_remainder = int(height_inches % 12)
+            st.write(f"Height: {height_feet}'{height_in_remainder}\" ({height_cm:.1f} cm)")
+        else:
+            height_inches = 0
+            height_feet = 0
+            height_in_remainder = 0
     
     # Weight input based on unit preference
     if imperial_selected:
         weight_lbs = st.number_input("Weight (lbs)", min_value=80.0, max_value=500.0, 
                                    value=float(st.session_state.user_info.get('weight_lbs', 165.0)), step=0.5)
-        weight_kg = weight_lbs / 2.20462
-        st.write(f"Weight: {weight_kg:.1f} kg")
+        if weight_lbs is not None:
+            weight_kg = weight_lbs / 2.20462
+            st.write(f"Weight: {weight_kg:.1f} kg")
+        else:
+            weight_kg = 75.0  # Default fallback
     else:
         weight_kg = st.number_input("Weight (kg)", min_value=35.0, max_value=225.0, 
                                   value=float(st.session_state.user_info.get('weight_kg', 75.0)), step=0.1)
-        weight_lbs = weight_kg * 2.20462
-        st.write(f"Weight: {weight_lbs:.1f} lbs")
+        if weight_kg is not None:
+            weight_lbs = weight_kg * 2.20462
+            st.write(f"Weight: {weight_lbs:.1f} lbs")
+        else:
+            weight_lbs = 165.0  # Default fallback
 
 with col2:
     st.write("Enter Current Estimated Body Fat %")
