@@ -83,6 +83,11 @@ activity_level = st.session_state.get('activity_level', 'Moderately active')
 goal_info = st.session_state.get('goal_info', {})
 goal_type = goal_info.get('goal_type', 'maintain')
 
+# DEBUG: Show what we're getting
+st.write(f"**DEBUG:** goal_type = {goal_type}")
+st.write(f"**DEBUG:** goal_info = {goal_info}")
+st.write(f"**DEBUG:** session_state keys = {list(st.session_state.keys())}")
+
 # Get weekly change parameters for accurate calorie calculation
 # Check multiple possible sources for weekly change data
 weekly_weight_pct = goal_info.get('weekly_weight_pct', 0.0)
