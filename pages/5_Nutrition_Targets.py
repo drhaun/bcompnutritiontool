@@ -78,13 +78,20 @@ weight_kg = st.session_state.user_info.get('weight_kg', 70)
 height_cm = st.session_state.user_info.get('height_cm', 175)
 age = st.session_state.user_info.get('age', 30)
 activity_level = st.session_state.get('activity_level', 'Moderately active')
-goal_type = st.session_state.get('goal_type', 'Maintain weight')
+
+# Get goal type from goal_info (from body composition goals page)
+goal_info = st.session_state.get('goal_info', {})
+goal_type = goal_info.get('goal_type', 'maintain')
+
+# Get weekly change parameters for accurate calorie calculation
+weekly_weight_pct = goal_info.get('weekly_weight_pct', 0.0)
+weekly_weight_change_kg = abs(weekly_weight_pct * weight_kg)
 
 # Calculate TDEE
 tdee = utils.calculate_tdee(gender, weight_kg, height_cm, age, activity_level)
 
-# Calculate target calories based on goal
-target_calories = utils.calculate_target_calories(tdee, goal_type)
+# Calculate target calories based on goal with proper weekly change
+target_calories = utils.calculate_target_calories(tdee, goal_type, weekly_weight_change_kg)
 
 # Calculate macros
 macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
@@ -130,8 +137,8 @@ for day in days_of_week:
     else:
         day_tdee = tdee  # Use base TDEE, not target_calories
     
-    # Calculate day-specific target calories based on goal
-    day_target_calories = utils.calculate_target_calories(day_tdee, goal_type)
+    # Calculate day-specific target calories based on goal with weekly change
+    day_target_calories = utils.calculate_target_calories(day_tdee, goal_type, weekly_weight_change_kg)
     
     # Calculate day-specific macros based on target calories
     day_macros = utils.calculate_macros(day_target_calories, weight_kg, goal_type)
@@ -158,7 +165,7 @@ for i, day in enumerate(days_of_week):
     # Use day-specific TDEE if available from Weekly Schedule
     if day in day_tdee_values:
         day_tdee = day_tdee_values[day]
-        day_target_calories = utils.calculate_target_calories(day_tdee, goal_type)
+        day_target_calories = utils.calculate_target_calories(day_tdee, goal_type, weekly_weight_change_kg)
         day_macros = utils.calculate_macros(day_target_calories, weight_kg, goal_type)
     else:
         day_target_calories = target_calories
