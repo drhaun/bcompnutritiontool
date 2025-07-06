@@ -289,13 +289,9 @@ with pref_tabs[0]:  # Proteins
     with col1:
         if st.button("✅ Select All Proteins", key="select_all_proteins", use_container_width=True):
             st.session_state.diet_preferences['preferred_proteins'] = protein_options.copy()
-            st.success("All proteins selected!")
-            st.rerun()
     with col2:
         if st.button("❌ Clear All Proteins", key="clear_all_proteins", use_container_width=True):
             st.session_state.diet_preferences['preferred_proteins'] = []
-            st.success("All proteins cleared!")
-            st.rerun()
     
     preferred_proteins = st.multiselect(
         "Select your preferred protein sources",
@@ -314,13 +310,9 @@ with pref_tabs[1]:  # Carbs
     with col1:
         if st.button("✅ Select All Carbs", key="select_all_carbs", use_container_width=True):
             st.session_state.diet_preferences['preferred_carbs'] = carb_options.copy()
-            st.success("All carbs selected!")
-            st.rerun()
     with col2:
         if st.button("❌ Clear All Carbs", key="clear_all_carbs", use_container_width=True):
             st.session_state.diet_preferences['preferred_carbs'] = []
-            st.success("All carbs cleared!")
-            st.rerun()
     
     preferred_carbs = st.multiselect(
         "Select your preferred carbohydrate sources",
@@ -338,13 +330,9 @@ with pref_tabs[2]:  # Fats
     with col1:
         if st.button("✅ Select All Fats", key="select_all_fats", use_container_width=True):
             st.session_state.diet_preferences['preferred_fats'] = fat_options.copy()
-            st.success("All fats selected!")
-            st.rerun()
     with col2:
         if st.button("❌ Clear All Fats", key="clear_all_fats", use_container_width=True):
             st.session_state.diet_preferences['preferred_fats'] = []
-            st.success("All fats cleared!")
-            st.rerun()
     
     preferred_fats = st.multiselect(
         "Select your preferred fat sources",
@@ -362,13 +350,9 @@ with pref_tabs[3]:  # Vegetables
     with col1:
         if st.button("✅ Select All Vegetables", key="select_all_vegetables", use_container_width=True):
             st.session_state.diet_preferences['preferred_vegetables'] = vegetable_options.copy()
-            st.success("All vegetables selected!")
-            st.rerun()
     with col2:
         if st.button("❌ Clear All Vegetables", key="clear_all_vegetables", use_container_width=True):
             st.session_state.diet_preferences['preferred_vegetables'] = []
-            st.success("All vegetables cleared!")
-            st.rerun()
     
     preferred_vegetables = st.multiselect(
         "Select your preferred vegetables",
@@ -386,13 +370,9 @@ with pref_tabs[4]:  # Cuisines
     with col1:
         if st.button("✅ Select All Cuisines", key="select_all_cuisines", use_container_width=True):
             st.session_state.diet_preferences['cuisine_preferences'] = cuisine_options.copy()
-            st.success("All cuisines selected!")
-            st.rerun()
     with col2:
         if st.button("❌ Clear All Cuisines", key="clear_all_cuisines", use_container_width=True):
             st.session_state.diet_preferences['cuisine_preferences'] = []
-            st.success("All cuisines cleared!")
-            st.rerun()
     
     cuisine_preferences = st.multiselect(
         "Select your preferred cuisines",
