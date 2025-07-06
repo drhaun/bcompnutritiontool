@@ -1,5 +1,7 @@
 {
-  "dietary_restrictions": [],
+  "dietary_restrictions": [
+    "Gluten-Free"
+  ],
   "cuisine_preferences": [],
   "preferred_proteins": [
     "Chicken Breast",
@@ -9,14 +11,15 @@
     "Ground Beef",
     "Pork",
     "Salmon",
-    "Tuna",
     "White Fish",
-    "Tofu",
     "Tempeh",
-    "Beans",
     "Lentils",
-    "Chickpeas",
-    "Protein Powder"
+    "Protein Powder",
+    "Shrimp",
+    "Eggs",
+    "Greek Yogurt",
+    "Cottage Cheese",
+    "Black Beans"
   ],
   "preferred_carbs": [],
   "preferred_fats": [],
@@ -42,5 +45,14 @@
   "cooking_for": "Myself + partner (2 people)",
   "leftovers_preference": "Okay with leftovers occasionally",
   "supplementation_preference": "Open to supplements",
-  "acceptable_supplements": []
+  "acceptable_supplements": [],
+  "supplementation_preferences": {
+    "creatine": "Already taking",
+    "protein_powder": "Already taking",
+    "pre_workout": "Already taking",
+    "multivitamin": "Already taking",
+    "omega3": "Already taking",
+    "vitamin_d": "Already taking",
+    "other_supplements": []
+  }
 }

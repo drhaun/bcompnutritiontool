@@ -112,30 +112,30 @@ fat_pct = (macros['fat'] * 9 / target_calories) * 100
 
 st.markdown(f"**Macro Distribution:** Protein {protein_pct:.0f}% • Carbs {carbs_pct:.0f}% • Fat {fat_pct:.0f}%")
 
-# Day-specific targets based on weekly schedule and TDEE variations
-st.markdown("#### Day-Specific Targets")
-st.markdown("Your targets vary by day based on your activity schedule:")
+# Day-specific targets based on weekly schedule TDEE variations
+st.markdown("#### Day-Specific TDEE Targets")
+st.markdown("Your targets vary by day based on your personalized weekly schedule and activity levels:")
 
-# Create DataFrame for day-specific targets using proper calculations
+# Create DataFrame for day-specific targets using Weekly Schedule TDEE data
 days_data = []
 days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-# Get user info for calculations
-user_info = st.session_state.get('user_info', {})
-weight_kg = user_info.get('weight_kg', 70)
-
-# Use the same goal type processing as above
-day_goal_type = goal_type  # Already processed above
+# Get day-specific TDEE values from Weekly Schedule
+day_tdee_values = st.session_state.get('day_tdee_values', {})
 
 for day in days_of_week:
-    # Use base targets for all days - ignore incorrect TDEE from weekly schedule
-    # Day-specific adjustments should be minimal variations, not major differences
-    day_target_calories = target_calories
-    day_macros = macros  # Use the same macros as base targets
+    # Use TDEE from Weekly Schedule if available, otherwise use base target
+    if day in day_tdee_values:
+        day_tdee = day_tdee_values[day]
+    else:
+        day_tdee = target_calories
+    
+    # Calculate day-specific macros based on day TDEE
+    day_macros = utils.calculate_macros(day_tdee, weight_kg, goal_type)
     
     days_data.append({
         "Day": day,
-        "Calories": f"{day_target_calories:,.0f}",
+        "TDEE (calories)": f"{day_tdee:,.0f}",
         "Protein": f"{day_macros['protein']:.0f}g",
         "Carbs": f"{day_macros['carbs']:.0f}g", 
         "Fat": f"{day_macros['fat']:.0f}g"
@@ -144,18 +144,101 @@ for day in days_of_week:
 df = pd.DataFrame(days_data)
 st.dataframe(df, use_container_width=True)
 
-# Store the corrected day-specific nutrition in session state
+st.info("💡 **TDEE (Total Daily Energy Expenditure)** varies by day based on your personalized weekly schedule, including workout days, rest days, and activity levels from your Weekly Schedule.")
+
+# Store the day-specific nutrition in session state
 if 'day_specific_nutrition' not in st.session_state:
     st.session_state.day_specific_nutrition = {}
 
 for i, day in enumerate(days_of_week):
-    # Store consistent targets based on user's goals, not weekly schedule TDEE
+    # Use day-specific TDEE if available from Weekly Schedule
+    if day in day_tdee_values:
+        day_tdee = day_tdee_values[day]
+        day_macros = utils.calculate_macros(day_tdee, weight_kg, goal_type)
+    else:
+        day_tdee = target_calories
+        day_macros = macros
+    
     st.session_state.day_specific_nutrition[day] = {
-        'target_calories': target_calories,
-        'protein': macros['protein'],
-        'carbs': macros['carbs'],
-        'fat': macros['fat']
+        'target_calories': day_tdee,
+        'protein': day_macros['protein'],
+        'carbs': day_macros['carbs'],
+        'fat': day_macros['fat']
     }
+
+# Meal and Snack Breakdown from Weekly Schedule
+st.markdown("#### Meal & Snack Structure")
+st.markdown("Based on your Weekly Schedule preferences:")
+
+# Get meal structure from Weekly Schedule
+confirmed_schedule = st.session_state.get('confirmed_weekly_schedule', {})
+meal_contexts_detailed = st.session_state.get('meal_contexts_detailed', {})
+
+if confirmed_schedule:
+    # Get meal/snack counts from any day (they should be consistent)
+    sample_day = next(iter(confirmed_schedule.values()))
+    meals = sample_day.get('meals', [])
+    meal_count = len([m for m in meals if m.get('type') == 'meal'])
+    snack_count = len([m for m in meals if m.get('type') == 'snack'])
+    
+    structure_col1, structure_col2, structure_col3 = st.columns(3)
+    
+    with structure_col1:
+        st.metric("Meals per Day", meal_count)
+        
+    with structure_col2:
+        st.metric("Snacks per Day", snack_count)
+        
+    with structure_col3:
+        st.metric("Total Eating Occasions", meal_count + snack_count)
+    
+    # Show meal contexts from Weekly Schedule
+    if meal_contexts_detailed:
+        st.markdown("**Your Meal Contexts:**")
+        
+        # Display meal contexts
+        for meal_key, context in meal_contexts_detailed.items():
+            if context.get('meal'):
+                meal_name = context['meal']
+                prep_info = ""
+                if context.get('prep_type'):
+                    prep_info += f"• Prep: {context['prep_type']}"
+                if context.get('prep_time'):
+                    prep_info += f" ({context['prep_time']})"
+                if context.get('location'):
+                    prep_info += f" • Location: {', '.join(context['location'])}"
+                if context.get('time_range'):
+                    prep_info += f" • Time: {context['time_range']}"
+                
+                st.write(f"**{meal_name}:** {prep_info}")
+                
+                # Show variations if noted
+                if not context.get('consistency', True) and context.get('variations'):
+                    st.write(f"  └ Variations: {context['variations']}")
+    
+    # Calculate rough calorie distribution
+    st.markdown("**Estimated Calorie Distribution:**")
+    
+    # Simple distribution: meals get more calories than snacks
+    if meal_count > 0 and snack_count >= 0:
+        # Meals typically get 70-80% of calories, snacks get 20-30%
+        meal_calorie_ratio = 0.75
+        snack_calorie_ratio = 0.25
+        
+        avg_daily_calories = sum(day_tdee_values.values()) / len(day_tdee_values) if day_tdee_values else target_calories
+        
+        if meal_count > 0:
+            calories_per_meal = int((avg_daily_calories * meal_calorie_ratio) / meal_count)
+            st.write(f"• **Each meal:** ~{calories_per_meal:,} calories")
+        
+        if snack_count > 0:
+            calories_per_snack = int((avg_daily_calories * snack_calorie_ratio) / snack_count)
+            st.write(f"• **Each snack:** ~{calories_per_snack:,} calories")
+        
+        st.caption("These are rough estimates. Actual meal plans will optimize distribution based on your meal contexts, timing, and preferences.")
+    
+else:
+    st.info("Complete your Weekly Schedule to see your personalized meal and snack structure here.")
 
 st.markdown("---")
 

@@ -683,12 +683,15 @@ if st.session_state.weekly_schedule_v2:
             "Work": work_display,
             "Workout": workout_display,
             "Meals": meal_display,
-            "Total Calories": f"{day_data.get('total_calories', 0)} cal"
+            "TDEE (calories)": f"{day_data.get('total_calories', 0)} cal"
         })
     
     # Display schedule table
     df = pd.DataFrame(schedule_data)
     st.dataframe(df, use_container_width=True, hide_index=True)
+    
+    # Explanation of TDEE
+    st.info("💡 **TDEE (Total Daily Energy Expenditure)** is your personalized daily calorie target based on your basal metabolic rate, activity level, and planned workouts. This represents the total calories your body burns in a day, which becomes your nutrition target for maintaining your current weight or achieving your body composition goals.")
     
     # Daily detail expander
     with st.expander("📋 Daily Schedule Details"):
@@ -720,7 +723,7 @@ if st.session_state.weekly_schedule_v2:
                 
                 st.write(f"• Base TDEE: {day_detail.get('base_tdee', 0)} calories")
                 st.write(f"• Workout calories: {day_detail.get('workout_calories', 0)} calories")
-                st.write(f"• Total calories: {day_detail.get('total_calories', 0)} calories")
+                st.write(f"• **Total TDEE: {day_detail.get('total_calories', 0)} calories** (your daily calorie target)")
             
             with detail_col2:
                 st.write("**Meal & Snack Schedule:**")
