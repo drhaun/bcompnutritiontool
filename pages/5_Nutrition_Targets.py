@@ -242,13 +242,18 @@ df = pd.DataFrame(days_data)
 st.dataframe(df, use_container_width=True)
 
 # Now populate the suggested targets section with calculated values
-if st.session_state.get('day_specific_nutrition'):
-    # Calculate averages from the stored day-specific nutrition data
-    total_days = len(st.session_state.day_specific_nutrition)
-    avg_calories = sum(day_data.get('calories', target_calories) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
-    avg_protein = sum(day_data.get('protein', macros['protein']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
-    avg_carbs = sum(day_data.get('carbs', macros['carbs']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
-    avg_fat = sum(day_data.get('fat', macros['fat']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+# Check if we have day-specific TDEE data (indicating Weekly Schedule is complete)
+if st.session_state.get('day_tdee_values'):
+    # Calculate averages directly from the table data we just calculated
+    total_calories = sum(float(row['Target Calories'].replace(',', '')) for row in days_data)
+    total_protein = sum(float(row['Protein'].replace('g', '')) for row in days_data)
+    total_carbs = sum(float(row['Carbs'].replace('g', '')) for row in days_data)
+    total_fat = sum(float(row['Fat'].replace('g', '')) for row in days_data)
+    
+    avg_calories = total_calories / len(days_data)
+    avg_protein = total_protein / len(days_data)
+    avg_carbs = total_carbs / len(days_data)
+    avg_fat = total_fat / len(days_data)
     
     # Update the suggested targets placeholder
     with suggested_targets_placeholder.container():
