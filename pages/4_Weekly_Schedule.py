@@ -284,11 +284,11 @@ with meal_col1:
         meals_per_day = st.session_state.diet_preferences['meal_frequency']
         st.info(f"Using {meals_per_day} meals per day from your Diet Preferences")
     else:
-        meals_per_day = st.number_input("Meals per day", min_value=2, max_value=8, value=3, key="meals_per_day_input")
+        meals_per_day = st.number_input("Preferred # of meals per day", min_value=2, max_value=8, value=3, key="meals_per_day_input")
 
 with meal_col2:
     # Add snacks per day
-    snacks_per_day = st.number_input("Snacks per day", min_value=0, max_value=5, value=2, key="snacks_per_day_input")
+    snacks_per_day = st.number_input("Preferred # of snacks per day", min_value=0, max_value=5, value=2, key="snacks_per_day_input")
 
 # Description of meal vs snack difference
 st.markdown("""
