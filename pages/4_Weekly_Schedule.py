@@ -279,12 +279,8 @@ st.header("🍽️ Meal Planning Context")
 meal_col1, meal_col2 = st.columns(2)
 
 with meal_col1:
-    # Get meal frequency from diet preferences
-    if 'diet_preferences' in st.session_state and 'meal_frequency' in st.session_state.diet_preferences:
-        meals_per_day = st.session_state.diet_preferences['meal_frequency']
-        st.info(f"Using {meals_per_day} meals per day from your Diet Preferences")
-    else:
-        meals_per_day = st.number_input("Preferred # of meals per day", min_value=2, max_value=8, value=3, key="meals_per_day_input")
+    # User selects preferred number of meals per day
+    meals_per_day = st.number_input("Preferred # of meals per day", min_value=2, max_value=8, value=3, key="meals_per_day_input")
 
 with meal_col2:
     # Add snacks per day
