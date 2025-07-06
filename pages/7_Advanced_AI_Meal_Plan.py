@@ -102,7 +102,7 @@ DAILY SCHEDULE CONTEXT:
 - Estimated TDEE: {schedule_info.get('estimated_tdee', 2000)} calories
 
 MEAL SCHEDULE & CONTEXTS:
-{json.dumps([{"name": meal["name"], "time": meal["time"], "context": meal["context"]} for meal in schedule_info.get('meals', [])], indent=2)}
+- Scheduled meals with times and contexts from user's weekly schedule
 
 Please create realistic meals considering:
 1. Specific food items and portions matching meal contexts (e.g., Pre-Workout = easily digestible, Post-Workout = protein focus)
@@ -316,7 +316,7 @@ with st.expander("📋 Complete Weekly Overview", expanded=True):
             st.write(f"• **Activity Level:** {initial_setup.get('activity_level', 'Not set')}")
             st.write(f"• **Experience Level:** {initial_setup.get('experience_level', 'Not set')}")
         else:
-            st.warning("Initial Setup not completed")
+            st.info("Initial Setup not completed - will use default values")
             
         st.markdown("**📊 Body Composition Goals:**")
         if body_comp_goals:
@@ -335,7 +335,7 @@ with st.expander("📋 Complete Weekly Overview", expanded=True):
                 change_type = "gain" if weekly_change > 0 else "loss"
                 st.write(f"• **Weekly Target:** {abs(weekly_change):.1f} lbs {change_type}/week")
         else:
-            st.warning("Body Composition Goals not set")
+            st.info("Body Composition Goals not set - will use default targets")
     
     with col2:
         st.markdown("**🥗 Diet Preferences:**")
@@ -509,7 +509,7 @@ def prepare_weekly_targets():
         
         # Create meal targets based on actual meal schedule
         meal_targets = {}
-        total_calories = nutrition.get('target_calories', 2000)
+        total_calories = nutrition.get('calories', 2000)  # Fixed key name
         total_protein = nutrition.get('protein', 150)
         total_carbs = nutrition.get('carbs', 200)
         total_fat = nutrition.get('fat', 70)
@@ -532,9 +532,16 @@ def prepare_weekly_targets():
             else:
                 cal_pct = 1.0 / num_meals  # Equal distribution if unclear
             
+            # Handle time conversion from time object to string
+            meal_time = meal.get('time', '12:00')
+            if hasattr(meal_time, 'strftime'):
+                meal_time = meal_time.strftime('%H:%M')
+            elif not isinstance(meal_time, str):
+                meal_time = '12:00'
+            
             meal_targets[f"{meal['name']}_{i}"] = {
                 'name': meal['name'],
-                'time': meal.get('time', '12:00'),
+                'time': meal_time,
                 'context': meal.get('context', 'Regular meal'),
                 'type': meal.get('type', 'meal'),
                 'calories': int(total_calories * cal_pct),
