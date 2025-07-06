@@ -139,11 +139,14 @@ with food_tabs[0]:
         if st.button("❌ Clear All Proteins", key="clear_all_proteins", use_container_width=True):
             st.session_state.diet_preferences['preferred_proteins'] = []
     
-    # Protein multiselect
+    # Protein multiselect - filter defaults to only include valid options
+    saved_proteins = st.session_state.diet_preferences.get('preferred_proteins', [])
+    valid_protein_defaults = [p for p in saved_proteins if p in protein_options]
+    
     preferred_proteins = st.multiselect(
         "Select preferred proteins",
         options=protein_options,
-        default=st.session_state.diet_preferences.get('preferred_proteins', []),
+        default=valid_protein_defaults,
         key="preferred_proteins_multi",
         help="Choose protein sources you enjoy"
     )
@@ -161,11 +164,14 @@ with food_tabs[1]:
         if st.button("❌ Clear All Carbs", key="clear_all_carbs", use_container_width=True):
             st.session_state.diet_preferences['preferred_carbs'] = []
     
-    # Carbs multiselect
+    # Carbs multiselect - filter defaults to only include valid options
+    saved_carbs = st.session_state.diet_preferences.get('preferred_carbs', [])
+    valid_carb_defaults = [c for c in saved_carbs if c in carb_options]
+    
     preferred_carbs = st.multiselect(
         "Select preferred carbohydrates",
         options=carb_options,
-        default=st.session_state.diet_preferences.get('preferred_carbs', []),
+        default=valid_carb_defaults,
         key="preferred_carbs_multi",
         help="Choose carbohydrate sources you enjoy"
     )
@@ -183,11 +189,14 @@ with food_tabs[2]:
         if st.button("❌ Clear All Fats", key="clear_all_fats", use_container_width=True):
             st.session_state.diet_preferences['preferred_fats'] = []
     
-    # Fats multiselect
+    # Fats multiselect - filter defaults to only include valid options
+    saved_fats = st.session_state.diet_preferences.get('preferred_fats', [])
+    valid_fat_defaults = [f for f in saved_fats if f in fat_options]
+    
     preferred_fats = st.multiselect(
         "Select preferred fats",
         options=fat_options,
-        default=st.session_state.diet_preferences.get('preferred_fats', []),
+        default=valid_fat_defaults,
         key="preferred_fats_multi",
         help="Choose fat sources you enjoy"
     )
@@ -205,11 +214,14 @@ with food_tabs[3]:
         if st.button("❌ Clear All Vegetables", key="clear_all_vegetables", use_container_width=True):
             st.session_state.diet_preferences['preferred_vegetables'] = []
     
-    # Vegetables multiselect
+    # Vegetables multiselect - filter defaults to only include valid options
+    saved_vegetables = st.session_state.diet_preferences.get('preferred_vegetables', [])
+    valid_vegetable_defaults = [v for v in saved_vegetables if v in vegetable_options]
+    
     preferred_vegetables = st.multiselect(
         "Select preferred vegetables",
         options=vegetable_options,
-        default=st.session_state.diet_preferences.get('preferred_vegetables', []),
+        default=valid_vegetable_defaults,
         key="preferred_vegetables_multi",
         help="Choose vegetables you enjoy"
     )
@@ -227,11 +239,14 @@ with food_tabs[4]:
         if st.button("❌ Clear All Cuisines", key="clear_all_cuisines", use_container_width=True):
             st.session_state.diet_preferences['cuisine_preferences'] = []
     
-    # Cuisines multiselect
+    # Cuisines multiselect - filter defaults to only include valid options
+    saved_cuisines = st.session_state.diet_preferences.get('cuisine_preferences', [])
+    valid_cuisine_defaults = [c for c in saved_cuisines if c in cuisine_options]
+    
     cuisine_preferences = st.multiselect(
         "Select preferred cuisines",
         options=cuisine_options,
-        default=st.session_state.diet_preferences.get('cuisine_preferences', []),
+        default=valid_cuisine_defaults,
         key="cuisine_preferences_multi",
         help="Choose cuisines you enjoy"
     )
