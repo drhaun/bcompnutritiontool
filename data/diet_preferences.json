@@ -40,5 +40,7 @@
   "home_cooking_interest": "Low",
   "grocery_shopping_interest": "Low",
   "cooking_for": "Myself + partner (2 people)",
-  "leftovers_preference": "Okay with leftovers occasionally"
+  "leftovers_preference": "Okay with leftovers occasionally",
+  "supplementation_preference": "Open to supplements",
+  "acceptable_supplements": []
 }
