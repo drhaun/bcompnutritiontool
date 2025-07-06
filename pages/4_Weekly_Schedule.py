@@ -97,42 +97,124 @@ activity_col1, activity_col2 = st.columns(2)
 with activity_col1:
     st.subheader("Workout Schedule")
     
-    # Simplified workout setup
-    total_workouts = st.number_input("Total workouts per week", min_value=0, max_value=14, value=4, key="total_workouts")
+    # Check if user does multiple workouts per day
+    multiple_workouts_per_day = st.checkbox("I sometimes do multiple workouts per day", value=False, key="multiple_workouts_per_day")
     
-    if total_workouts > 0:
-        workout_duration = st.slider("Average workout duration (minutes)", 30, 180, 60, step=15, key="workout_duration")
-        workout_intensity = st.selectbox("Average workout intensity", 
-                                       ["Light", "Moderate", "High", "Very High"], 
-                                       index=2, key="workout_intensity")
+    if not multiple_workouts_per_day:
+        # Simple single workout per day setup
+        total_workouts = st.number_input("Total workouts per week", min_value=0, max_value=7, value=4, key="total_workouts")
         
-        # Let users select which days they want to work out
-        workout_days = st.multiselect(
-            "Select workout days",
-            days_of_week,
-            default=days_of_week[:min(total_workouts, 7)],
-            help="You can select the same day multiple times for multiple workouts",
-            key="workout_days_select"
-        )
+        if total_workouts > 0:
+            workout_days = st.multiselect(
+                "Select workout days",
+                days_of_week,
+                default=days_of_week[:min(total_workouts, 7)],
+                key="workout_days_select"
+            )
+            
+            if len(workout_days) != total_workouts:
+                st.warning(f"Please select exactly {total_workouts} days for your workouts")
+            
+            # Simple workout details
+            workout_duration = st.slider("Average workout duration (minutes)", 30, 180, 60, step=15, key="workout_duration")
+            workout_intensity = st.selectbox("Average workout intensity", 
+                                           ["Light", "Moderate", "High", "Very High"], 
+                                           index=2, key="workout_intensity")
+            workout_type = st.selectbox("Primary workout type", 
+                                      ["Resistance Training", "Cardio", "Mixed/Cross-Training", "Sports"], 
+                                      index=0, key="workout_type")
+            
+            # Typical workout time
+            workout_time_options = [
+                "Early Morning (5:00-8:00 AM)",
+                "Morning (8:00-11:00 AM)", 
+                "Midday (11:00 AM-2:00 PM)",
+                "Afternoon (2:00-5:00 PM)",
+                "Evening (5:00-8:00 PM)",
+                "Night (8:00-11:00 PM)"
+            ]
+            typical_workout_time = st.selectbox("Typical workout time", workout_time_options, index=4, key="typical_workout_time")
+            
+    else:
+        # Advanced multiple workouts per day setup
+        st.write("**Configure your weekly workout schedule:**")
         
-        if len(workout_days) != total_workouts and total_workouts <= 7:
-            st.warning(f"Please select exactly {total_workouts} days for your workouts")
+        # Initialize workout schedule in session state
+        if 'detailed_workout_schedule' not in st.session_state:
+            st.session_state.detailed_workout_schedule = {}
         
-        # Typical workout time
-        st.subheader("Typical Workout Time")
-        workout_time_options = [
-            "Early Morning (5:00-8:00 AM)",
-            "Morning (8:00-11:00 AM)", 
-            "Midday (11:00 AM-2:00 PM)",
-            "Afternoon (2:00-5:00 PM)",
-            "Evening (5:00-8:00 PM)",
-            "Night (8:00-11:00 PM)"
-        ]
-        typical_workout_time = st.selectbox("Typical workout time", workout_time_options, index=4, key="typical_workout_time")
-        
-        # Workout timing preferences
-        avoid_bedtime_workouts = st.checkbox("Avoid workouts within 3 hours of bedtime", value=True, key="avoid_bedtime_workouts")
-        allow_fasted_workouts = st.checkbox("Allow fasted morning workouts", value=False, key="allow_fasted_workouts")
+        # For each day of the week, let user configure workouts
+        for day in days_of_week:
+            with st.expander(f"**{day}** Workouts", expanded=False):
+                day_key = day.lower()
+                
+                # Number of workouts for this day
+                num_workouts = st.number_input(
+                    f"Number of workouts on {day}",
+                    min_value=0, max_value=3, value=0,
+                    key=f"num_workouts_{day_key}"
+                )
+                
+                if num_workouts > 0:
+                    day_workouts = []
+                    
+                    for workout_num in range(num_workouts):
+                        st.write(f"**Workout {workout_num + 1}:**")
+                        
+                        workout_col1, workout_col2 = st.columns(2)
+                        
+                        with workout_col1:
+                            workout_type = st.selectbox(
+                                "Type",
+                                ["Resistance Training", "Cardio", "Mixed/Cross-Training", "Sports", "Yoga/Flexibility"],
+                                key=f"workout_type_{day_key}_{workout_num}"
+                            )
+                            
+                            workout_time = st.selectbox(
+                                "Time",
+                                [
+                                    "Early Morning (5:00-8:00 AM)",
+                                    "Morning (8:00-11:00 AM)", 
+                                    "Midday (11:00 AM-2:00 PM)",
+                                    "Afternoon (2:00-5:00 PM)",
+                                    "Evening (5:00-8:00 PM)",
+                                    "Night (8:00-11:00 PM)"
+                                ],
+                                key=f"workout_time_{day_key}_{workout_num}"
+                            )
+                        
+                        with workout_col2:
+                            workout_duration = st.slider(
+                                "Duration (min)",
+                                15, 180, 60, step=15,
+                                key=f"workout_duration_{day_key}_{workout_num}"
+                            )
+                            
+                            workout_intensity = st.selectbox(
+                                "Intensity",
+                                ["Light", "Moderate", "High", "Very High"],
+                                index=2,
+                                key=f"workout_intensity_{day_key}_{workout_num}"
+                            )
+                        
+                        day_workouts.append({
+                            'type': workout_type,
+                            'time': workout_time,
+                            'duration': workout_duration,
+                            'intensity': workout_intensity
+                        })
+                        
+                        if workout_num < num_workouts - 1:
+                            st.divider()
+                    
+                    st.session_state.detailed_workout_schedule[day] = day_workouts
+                else:
+                    st.session_state.detailed_workout_schedule[day] = []
+    
+    # General workout preferences (applies to both single and multiple workout setups)
+    st.subheader("Workout Preferences")
+    avoid_bedtime_workouts = st.checkbox("Avoid workouts within 3 hours of bedtime", value=True, key="avoid_bedtime_workouts")
+    allow_fasted_workouts = st.checkbox("Allow fasted morning workouts", value=False, key="allow_fasted_workouts")
 
 with activity_col2:
     st.subheader("Activity Level")
