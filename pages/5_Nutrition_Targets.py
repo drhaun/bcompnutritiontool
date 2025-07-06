@@ -195,7 +195,10 @@ for day in days_of_week:
 df = pd.DataFrame(days_data)
 st.dataframe(df, use_container_width=True)
 
-st.info("💡 **TDEE (Total Daily Energy Expenditure)** estimates how many calories you burn each day. Your nutrition targets below are calculated based on your body composition goals - eating below TDEE for fat loss, above for muscle gain.")
+st.info("💡 **How your targets are calculated:**\n\n"
+        "**Base Daily Targets** - Initial targets based on your body composition goals (shown above)\n\n"
+        "**Suggested Targets** - Adjusted targets that account for your Weekly Schedule activity levels\n\n"
+        "**TDEE (Total Daily Energy Expenditure)** - Total calories you burn each day including all activities")
 
 # Store the day-specific nutrition in session state
 if 'day_specific_nutrition' not in st.session_state:
@@ -527,6 +530,19 @@ st.session_state.day_specific_meals[customize_day] = {
     'meal_times': meal_times
 }
 
+# Show accurate TDEE for this day
+if customize_day in day_tdee_values:
+    day_tdee = day_tdee_values[customize_day]
+    st.markdown(f"**{customize_day} Energy Summary:**")
+    st.write(f"**Estimated TDEE:** {day_tdee:,.0f} calories")
+    
+    # Show suggested vs base targets
+    suggested_calories = st.session_state.day_specific_nutrition.get(customize_day, {}).get('calories', final_calories)
+    st.write(f"**Suggested Target:** {suggested_calories:,.0f} calories (based on your weekly schedule)")
+    st.write(f"**Base Target:** {final_calories:,.0f} calories (from body composition goals)")
+else:
+    st.write(f"**Using Base Target:** {final_calories:,.0f} calories")
+
 # Show meal schedule preview for this day
 st.markdown(f"**{customize_day} Eating Schedule Preview:**")
 meal_names = ["Breakfast", "Mid-Morning", "Lunch", "Afternoon", "Dinner", "Evening", "Late Evening", "Night"]
@@ -588,7 +604,7 @@ st.markdown("---")
 
 # Meal distribution preview
 st.markdown("### Overall Meal Distribution Preview")
-st.markdown("Based on your meal preferences and day-specific customizations:")
+st.markdown("Based on your suggested targets and day-specific customizations:")
 
 # Show weekly meal distribution summary
 weekly_meal_summary = []
@@ -829,10 +845,12 @@ for i, eating_occasion in enumerate(current_day_meals):
         
         # Update eating occasion in session state
         try:
-            if hasattr(occasion_time, 'strftime'):
+            if occasion_time is not None and hasattr(occasion_time, 'strftime'):
                 time_str = occasion_time.strftime("%H:%M")
+            elif occasion_time is not None:
+                time_str = str(occasion_time)
             else:
-                time_str = str(occasion_time) if occasion_time else "12:00"
+                time_str = "12:00"
         except:
             time_str = "12:00"
             

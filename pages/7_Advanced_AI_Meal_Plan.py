@@ -314,8 +314,9 @@ def prepare_weekly_targets():
             
             meal_targets[f"{meal['name']}_{i}"] = {
                 'name': meal['name'],
-                'time': meal['time'],
-                'context': meal['context'],
+                'time': meal.get('time', '12:00'),
+                'context': meal.get('context', 'Regular meal'),
+                'type': meal.get('type', 'meal'),
                 'calories': int(total_calories * cal_pct),
                 'protein': int(total_protein * cal_pct),
                 'carbs': int(total_carbs * cal_pct),
