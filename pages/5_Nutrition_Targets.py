@@ -91,6 +91,14 @@ weekly_weight_change_kg = abs(weekly_weight_pct * weight_kg)
 tdee = utils.calculate_tdee(gender, weight_kg, height_cm, age, activity_level)
 
 # Calculate target calories based on goal with proper weekly change
+# Handle the case where weekly_weight_change_kg might be 0 (maintenance or no timeline set)
+if weekly_weight_change_kg == 0.0 and goal_type != 'maintain':
+    # Use default rates if no weekly change is set but goal is not maintenance
+    if goal_type == 'lose_fat':
+        weekly_weight_change_kg = 0.5 * 0.005 * weight_kg  # 0.5% default for fat loss
+    elif goal_type == 'gain_muscle':
+        weekly_weight_change_kg = 0.5 * 0.0025 * weight_kg  # 0.25% default for muscle gain
+
 target_calories = utils.calculate_target_calories(tdee, goal_type, weekly_weight_change_kg)
 
 # Calculate macros
@@ -138,7 +146,15 @@ for day in days_of_week:
         day_tdee = tdee  # Use base TDEE, not target_calories
     
     # Calculate day-specific target calories based on goal with weekly change
-    day_target_calories = utils.calculate_target_calories(day_tdee, goal_type, weekly_weight_change_kg)
+    # Use the same weekly change calculation as base targets
+    day_weekly_change_kg = weekly_weight_change_kg
+    if day_weekly_change_kg == 0.0 and goal_type != 'maintain':
+        if goal_type == 'lose_fat':
+            day_weekly_change_kg = 0.5 * 0.005 * weight_kg
+        elif goal_type == 'gain_muscle':
+            day_weekly_change_kg = 0.5 * 0.0025 * weight_kg
+    
+    day_target_calories = utils.calculate_target_calories(day_tdee, goal_type, day_weekly_change_kg)
     
     # Calculate day-specific macros based on target calories
     day_macros = utils.calculate_macros(day_target_calories, weight_kg, goal_type)
@@ -165,7 +181,14 @@ for i, day in enumerate(days_of_week):
     # Use day-specific TDEE if available from Weekly Schedule
     if day in day_tdee_values:
         day_tdee = day_tdee_values[day]
-        day_target_calories = utils.calculate_target_calories(day_tdee, goal_type, weekly_weight_change_kg)
+        # Use the same weekly change calculation as day-specific targets
+        day_weekly_change_kg = weekly_weight_change_kg
+        if day_weekly_change_kg == 0.0 and goal_type != 'maintain':
+            if goal_type == 'lose_fat':
+                day_weekly_change_kg = 0.5 * 0.005 * weight_kg
+            elif goal_type == 'gain_muscle':
+                day_weekly_change_kg = 0.5 * 0.0025 * weight_kg
+        day_target_calories = utils.calculate_target_calories(day_tdee, goal_type, day_weekly_change_kg)
         day_macros = utils.calculate_macros(day_target_calories, weight_kg, goal_type)
     else:
         day_target_calories = target_calories
@@ -412,7 +435,8 @@ if use_custom_timing:
             value=pd.to_datetime(default_time).time(),
             key=f"meal_time_{customize_day}_{i}"
         )
-        custom_times.append(meal_time.strftime("%H:%M"))
+        if meal_time:
+            custom_times.append(meal_time.strftime("%H:%M"))
     
     meal_times = custom_times
 
@@ -645,9 +669,14 @@ for i, meal in enumerate(current_day_meals):
             )
         
         # Update meal in session state
+        try:
+            time_str = meal_time.strftime("%H:%M") if meal_time else "12:00"
+        except:
+            time_str = "12:00"
+            
         st.session_state.per_meal_macros[customize_day][i] = {
             "name": meal['name'],
-            "time": meal_time.strftime("%H:%M"),
+            "time": time_str,
             "calories": meal_calories,
             "protein": meal_protein,
             "carbs": meal_carbs,
