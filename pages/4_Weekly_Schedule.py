@@ -45,10 +45,13 @@ with col1:
         wake_minutes = wake.hour * 60 + wake.minute
         bed_minutes = bed.hour * 60 + bed.minute
         
-        if bed_minutes < wake_minutes:  # Sleep crosses midnight
-            bed_minutes += 24 * 60
-        
-        sleep_minutes = bed_minutes - wake_minutes
+        # Sleep typically crosses midnight (bedtime is night before wake time)
+        # So we calculate from bedtime to wake time the next day
+        if bed_minutes > wake_minutes:  # Normal case: bed after wake means sleep crosses midnight
+            sleep_minutes = (24 * 60) - bed_minutes + wake_minutes
+        else:  # Edge case: bed before wake on same day (unusual but possible)
+            sleep_minutes = wake_minutes - bed_minutes
+            
         return sleep_minutes / 60
     
     sleep_hours = calculate_sleep_hours(wake_time, bed_time)
@@ -74,7 +77,14 @@ with col2:
         work_start = st.time_input("Work Start Time", value=datetime.time(9, 0), key="work_start_input")
         work_end = st.time_input("Work End Time", value=datetime.time(17, 0), key="work_end_input")
         
-        work_hours = calculate_sleep_hours(work_start, work_end)
+        # Calculate work hours (different logic than sleep)
+        work_start_minutes = work_start.hour * 60 + work_start.minute
+        work_end_minutes = work_end.hour * 60 + work_end.minute
+        
+        if work_end_minutes < work_start_minutes:  # Work crosses midnight
+            work_hours = ((24 * 60) - work_start_minutes + work_end_minutes) / 60
+        else:  # Normal work day
+            work_hours = (work_end_minutes - work_start_minutes) / 60
         st.info(f"📋 {work_hours:.1f} hour work day")
     else:
         work_start = work_end = None
