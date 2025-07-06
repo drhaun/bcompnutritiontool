@@ -153,7 +153,7 @@ tdee = st.session_state.tdee
 st.write("### Current Body Composition")
 
 # Calculate current body composition values - get weight from session state directly
-current_weight_lbs = st.session_state.weight_kg * 2.20462  # Force direct calculation
+current_weight_lbs = (st.session_state.get('weight_kg', 0) or 0) * 2.20462  # Force direct calculation
 current_bf = body_fat_pct
 current_fat_mass_lbs = current_weight_lbs * (current_bf / 100)
 current_fat_free_mass_lbs = current_weight_lbs - current_fat_mass_lbs
