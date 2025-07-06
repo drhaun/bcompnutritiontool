@@ -681,6 +681,19 @@ if customize_day not in st.session_state.per_meal_macros:
     # Initialize with default distribution including meals and snacks
     default_eating_occasions = []
     
+    # Get suggested targets for this day (if available) or use base targets
+    if customize_day in st.session_state.day_specific_nutrition:
+        suggested_nutrition = st.session_state.day_specific_nutrition[customize_day]
+        suggested_calories = suggested_nutrition['calories']
+        suggested_protein = suggested_nutrition['protein']
+        suggested_carbs = suggested_nutrition['carbs']
+        suggested_fat = suggested_nutrition['fat']
+    else:
+        suggested_calories = final_calories
+        suggested_protein = final_protein
+        suggested_carbs = final_carbs
+        suggested_fat = final_fat
+    
     # Add meals
     meal_names = ["Breakfast", "Lunch", "Dinner", "Mid-Morning", "Afternoon", "Evening", "Pre-Dinner", "Night"]
     meal_percentage = 0.75  # 75% of calories go to meals
@@ -693,10 +706,10 @@ if customize_day not in st.session_state.per_meal_macros:
         default_eating_occasions.append({
             "name": meal_name,
             "type": "meal",
-            "calories": final_calories * individual_meal_pct,
-            "protein": final_protein * individual_meal_pct,
-            "carbs": final_carbs * individual_meal_pct,
-            "fat": final_fat * individual_meal_pct,
+            "calories": suggested_calories * individual_meal_pct,
+            "protein": suggested_protein * individual_meal_pct,
+            "carbs": suggested_carbs * individual_meal_pct,
+            "fat": suggested_fat * individual_meal_pct,
             "time": selected_day_settings.get('meal_times', ["07:00", "12:00", "18:00"])[i] if i < len(selected_day_settings.get('meal_times', [])) else ["07:00", "12:00", "18:00", "16:00", "19:00"][i] if i < 5 else "12:00"
         })
     
@@ -709,27 +722,42 @@ if customize_day not in st.session_state.per_meal_macros:
         default_eating_occasions.append({
             "name": snack_name,
             "type": "snack",
-            "calories": final_calories * individual_snack_pct,
-            "protein": final_protein * individual_snack_pct,
-            "carbs": final_carbs * individual_snack_pct,
-            "fat": final_fat * individual_snack_pct,
+            "calories": suggested_calories * individual_snack_pct,
+            "protein": suggested_protein * individual_snack_pct,
+            "carbs": suggested_carbs * individual_snack_pct,
+            "fat": suggested_fat * individual_snack_pct,
             "time": selected_day_settings.get('snack_times', ["10:00", "15:00", "20:00"])[i] if i < len(selected_day_settings.get('snack_times', [])) else ["10:00", "15:00", "20:00", "21:00"][i] if i < 4 else "15:00"
         })
     
     st.session_state.per_meal_macros[customize_day] = default_eating_occasions
 
-# Daily budget display
+# Daily budget display using suggested targets
 st.markdown("#### Daily Macro Budget")
 budget_col1, budget_col2, budget_col3, budget_col4 = st.columns(4)
 
+# Get suggested targets for this day
+if customize_day in st.session_state.day_specific_nutrition:
+    suggested_nutrition = st.session_state.day_specific_nutrition[customize_day]
+    display_calories = suggested_nutrition['calories']
+    display_protein = suggested_nutrition['protein']
+    display_carbs = suggested_nutrition['carbs']
+    display_fat = suggested_nutrition['fat']
+    st.info(f"**Suggested targets for {customize_day}** (based on your Weekly Schedule)")
+else:
+    display_calories = final_calories
+    display_protein = final_protein
+    display_carbs = final_carbs
+    display_fat = final_fat
+    st.info(f"**Base targets for {customize_day}** (from Body Composition Goals)")
+
 with budget_col1:
-    st.metric("Target Calories", f"{final_calories:.0f}")
+    st.metric("Target Calories", f"{display_calories:.0f}")
 with budget_col2:
-    st.metric("Target Protein", f"{final_protein:.0f}g")
+    st.metric("Target Protein", f"{display_protein:.0f}g")
 with budget_col3:
-    st.metric("Target Carbs", f"{final_carbs:.0f}g")
+    st.metric("Target Carbs", f"{display_carbs:.0f}g")
 with budget_col4:
-    st.metric("Target Fat", f"{final_fat:.0f}g")
+    st.metric("Target Fat", f"{display_fat:.0f}g")
 
 # Calculate current totals from customized meals
 current_day_meals = st.session_state.per_meal_macros[customize_day]
@@ -798,7 +826,7 @@ for i, eating_occasion in enumerate(current_day_meals):
             occasion_calories = st.number_input(
                 "Calories",
                 min_value=50,
-                max_value=int(final_calories),
+                max_value=int(display_calories),
                 value=int(eating_occasion['calories']),
                 step=25,
                 key=f"occasion_cal_{customize_day}_{i}"
@@ -808,16 +836,16 @@ for i, eating_occasion in enumerate(current_day_meals):
             occasion_protein = st.number_input(
                 "Protein (g)",
                 min_value=5,
-                max_value=int(final_protein),
+                max_value=int(display_protein),
                 value=int(eating_occasion['protein']),
                 step=2,
                 key=f"occasion_protein_{customize_day}_{i}"
             )
         
         with meal_col2:
-            # Show percentage of daily total
-            cal_pct = (occasion_calories / final_calories) * 100 if final_calories > 0 else 0
-            protein_pct = (occasion_protein / final_protein) * 100 if final_protein > 0 else 0
+            # Show percentage of daily total using suggested targets
+            cal_pct = (occasion_calories / display_calories) * 100 if display_calories > 0 else 0
+            protein_pct = (occasion_protein / display_protein) * 100 if display_protein > 0 else 0
             
             st.markdown(f"**% of Daily Target:**")
             st.write(f"Calories: {cal_pct:.1f}%")
@@ -827,7 +855,7 @@ for i, eating_occasion in enumerate(current_day_meals):
             occasion_carbs = st.number_input(
                 "Carbs (g)",
                 min_value=5,
-                max_value=int(final_carbs),
+                max_value=int(display_carbs),
                 value=int(eating_occasion['carbs']),
                 step=5,
                 key=f"occasion_carbs_{customize_day}_{i}"
@@ -837,7 +865,7 @@ for i, eating_occasion in enumerate(current_day_meals):
             occasion_fat = st.number_input(
                 "Fat (g)",
                 min_value=2,
-                max_value=int(final_fat),
+                max_value=int(display_fat),
                 value=int(eating_occasion['fat']),
                 step=2,
                 key=f"occasion_fat_{customize_day}_{i}"
