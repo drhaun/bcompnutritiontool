@@ -102,6 +102,14 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 6, 2025 - Fixed Nutrition Targets Calculation System**:
+  - Resolved critical issue where suggested targets were using incorrect base values instead of day-specific calculations
+  - Fixed day-specific nutrition data storage to properly capture calculated values from Day-Specific Nutrition Targets table
+  - Updated all sections (Estimated Calorie Distribution, Customize Targets, etc.) to use suggested targets when available
+  - Ensured proper fallback to base targets when Weekly Schedule is not completed
+  - Suggested targets now correctly average values from day-specific table (e.g., 2,378 cal Mon-Thu, 1,778 cal Fri-Sun)
+  - Added clear messaging that Weekly Schedule completion is required for suggested targets calculation
+
 - **July 6, 2025 - Fixed Select All/Clear All Functionality**:
   - Resolved persistent issues with Select All and Clear All buttons in Diet Preferences page
   - Simplified button logic by removing conflicting st.rerun() calls and success messages
