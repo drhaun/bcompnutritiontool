@@ -101,7 +101,7 @@ with activity_col1:
     multiple_workouts_per_day = st.checkbox("I sometimes do multiple workouts per day", value=False, key="multiple_workouts_per_day")
     
     if not multiple_workouts_per_day:
-        # Simple single workout per day setup
+        # Single workout per day setup with detailed configuration
         total_workouts = st.number_input("Total workouts per week", min_value=0, max_value=7, value=4, key="total_workouts")
         
         if total_workouts > 0:
@@ -115,25 +115,63 @@ with activity_col1:
             if len(workout_days) != total_workouts:
                 st.warning(f"Please select exactly {total_workouts} days for your workouts")
             
-            # Simple workout details
-            workout_duration = st.slider("Average workout duration (minutes)", 30, 180, 60, step=15, key="workout_duration")
-            workout_intensity = st.selectbox("Average workout intensity", 
-                                           ["Light", "Moderate", "High", "Very High"], 
-                                           index=2, key="workout_intensity")
-            workout_type = st.selectbox("Primary workout type", 
-                                      ["Resistance Training", "Cardio", "Mixed/Cross-Training", "Sports"], 
-                                      index=0, key="workout_type")
+            # Initialize single workout schedule in session state
+            if 'single_workout_schedule' not in st.session_state:
+                st.session_state.single_workout_schedule = {}
             
-            # Typical workout time
-            workout_time_options = [
-                "Early Morning (5:00-8:00 AM)",
-                "Morning (8:00-11:00 AM)", 
-                "Midday (11:00 AM-2:00 PM)",
-                "Afternoon (2:00-5:00 PM)",
-                "Evening (5:00-8:00 PM)",
-                "Night (8:00-11:00 PM)"
-            ]
-            typical_workout_time = st.selectbox("Typical workout time", workout_time_options, index=4, key="typical_workout_time")
+            # Configure each selected workout day
+            if workout_days:
+                st.write("**Configure each workout day:**")
+                
+                for day in workout_days:
+                    with st.expander(f"**{day}** Workout Details", expanded=False):
+                        day_key = day.lower()
+                        
+                        workout_col1, workout_col2 = st.columns(2)
+                        
+                        with workout_col1:
+                            workout_type = st.selectbox(
+                                "Workout type",
+                                ["Resistance Training", "Cardio", "Mixed/Cross-Training", "Sports", "Yoga/Flexibility"],
+                                index=0,
+                                key=f"single_workout_type_{day_key}"
+                            )
+                            
+                            workout_time = st.selectbox(
+                                "Workout time",
+                                [
+                                    "Early Morning (5:00-8:00 AM)",
+                                    "Morning (8:00-11:00 AM)", 
+                                    "Midday (11:00 AM-2:00 PM)",
+                                    "Afternoon (2:00-5:00 PM)",
+                                    "Evening (5:00-8:00 PM)",
+                                    "Night (8:00-11:00 PM)"
+                                ],
+                                index=4,
+                                key=f"single_workout_time_{day_key}"
+                            )
+                        
+                        with workout_col2:
+                            workout_duration = st.slider(
+                                "Duration (minutes)",
+                                30, 180, 60, step=15,
+                                key=f"single_workout_duration_{day_key}"
+                            )
+                            
+                            workout_intensity = st.selectbox(
+                                "Intensity",
+                                ["Light", "Moderate", "High", "Very High"],
+                                index=2,
+                                key=f"single_workout_intensity_{day_key}"
+                            )
+                        
+                        # Store workout details for this day
+                        st.session_state.single_workout_schedule[day] = {
+                            'type': workout_type,
+                            'time': workout_time,
+                            'duration': workout_duration,
+                            'intensity': workout_intensity
+                        }
             
     else:
         # Advanced multiple workouts per day setup
