@@ -165,6 +165,14 @@ for day in days_of_week:
         elif goal_type == 'gain_muscle':
             day_weekly_change_kg = 0.5 * 0.0025 * weight_kg
     
+    # Debug: Add explicit check for weekly change calculation
+    if day_weekly_change_kg == 0.0 and goal_type != 'maintain':
+        # Use standard rates for fat loss or muscle gain
+        if goal_type == 'lose_fat':
+            day_weekly_change_kg = 0.5  # 0.5 kg per week
+        elif goal_type == 'gain_muscle':
+            day_weekly_change_kg = 0.25  # 0.25 kg per week
+    
     day_target_calories = utils.calculate_target_calories(day_tdee, goal_type, day_weekly_change_kg)
     
     # Calculate day-specific macros based on target calories
@@ -382,22 +390,32 @@ else:
 
 st.write(f"🔥 Estimated TDEE: {day_tdee:.0f} calories")
 
-# Get default meal settings from diet preferences
-if 'diet_preferences' in st.session_state and 'meal_frequency' in st.session_state.diet_preferences:
+# Get default meal/snack settings from Weekly Schedule (takes priority) or Diet Preferences
+confirmed_schedule = st.session_state.get('confirmed_weekly_schedule', {})
+if confirmed_schedule:
+    # Get meal/snack counts from Weekly Schedule first
+    sample_day = next(iter(confirmed_schedule.values()))
+    meals = sample_day.get('meals', [])
+    default_meal_count = len([m for m in meals if m.get('type') == 'meal'])
+    default_snack_count = len([m for m in meals if m.get('type') == 'snack'])
+elif 'diet_preferences' in st.session_state and 'meal_frequency' in st.session_state.diet_preferences:
     default_meal_count = st.session_state.diet_preferences['meal_frequency']
+    default_snack_count = 0  # Default to no snacks from diet preferences
 else:
     default_meal_count = 3
-    st.warning("Diet preferences not found. Using default of 3 meals per day.")
+    default_snack_count = 0
+    st.warning("Weekly Schedule and Diet preferences not found. Using defaults.")
 
 # Get existing settings for this day or use defaults
 day_meal_settings = st.session_state.day_specific_meals.get(customize_day, {
     'meal_count': default_meal_count,
+    'snack_count': default_snack_count,
     'use_custom_timing': False,
     'meal_times': []
 })
 
 # Get existing snack settings for this day
-day_snack_settings = st.session_state.day_specific_meals.get(customize_day, {}).get('snack_count', 0)
+day_snack_settings = day_meal_settings.get('snack_count', default_snack_count)
 
 meal_col1, meal_col2, meal_col3 = st.columns(3)
 
