@@ -102,6 +102,21 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 6, 2025 - Fixed Day-Specific TDEE and Suggested Targets Accuracy**:
+  - Fixed critical TDEE calculation error in Day-Specific Meal Customization (was showing 1451 instead of correct suggested targets)
+  - Updated all calculations to use suggested targets from Day-Specific Nutrition Targets table instead of base targets
+  - Fixed meal plan comparison metrics to use day-specific suggested targets for accurate delta calculations
+  - Fixed auto-balance functionality to redistribute macros based on suggested targets
+  - Enhanced TDEE display to clearly indicate whether using suggested targets or base targets
+  - Ensured consistent use of suggested targets throughout nutrition planning workflow
+
+- **July 6, 2025 - Enhanced Advanced AI Meal Plan Integration**:
+  - Added comprehensive 3-column setup summary showing all configuration steps
+  - Enhanced OpenAI prompt generation with complete user context (profile, goals, detailed preferences)
+  - Added preferred foods, cuisines, and practical constraints to meal planning context
+  - Improved meal plan generation with comprehensive nutritional and lifestyle data
+  - Updated function calls to pass user profile and body composition goals to AI system
+
 - **July 6, 2025 - Fixed Nutrition Targets Calculation System**:
   - Resolved critical issue where suggested targets were using incorrect base values instead of day-specific calculations
   - Fixed day-specific nutrition data storage to properly capture calculated values from Day-Specific Nutrition Targets table

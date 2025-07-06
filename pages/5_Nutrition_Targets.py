@@ -472,7 +472,14 @@ customize_day = st.selectbox("Select day to customize meals:", days_of_week, key
 # Get day's schedule info
 day_schedule = st.session_state.confirmed_weekly_schedule.get(customize_day, {})
 day_workouts = day_schedule.get('workouts', [])
-day_tdee = target_calories  # Use consistent base target calories
+
+# Get accurate TDEE for this day - use suggested targets if available
+if customize_day in st.session_state.day_specific_nutrition:
+    day_tdee = st.session_state.day_specific_nutrition[customize_day].get('calories', target_calories)
+    is_suggested = True
+else:
+    day_tdee = target_calories  # Fallback to base target calories
+    is_suggested = False
 
 # Display day info
 st.markdown(f"**{customize_day} Schedule:**")
@@ -482,7 +489,11 @@ if day_workouts:
 else:
     st.write("🏋️ Rest Day")
 
-st.write(f"🔥 Estimated TDEE: {day_tdee:.0f} calories")
+# Display accurate TDEE with context
+if is_suggested:
+    st.write(f"🔥 **Estimated TDEE: {day_tdee:.0f} calories** (from suggested targets)")
+else:
+    st.write(f"🔥 **Estimated TDEE: {day_tdee:.0f} calories** (from base targets)")
 
 # Get default meal/snack settings from Weekly Schedule (takes priority) or Diet Preferences
 confirmed_schedule = st.session_state.get('confirmed_weekly_schedule', {})
@@ -616,14 +627,10 @@ st.session_state.day_specific_meals[customize_day] = {
     'meal_times': meal_times
 }
 
-# Show accurate TDEE for this day
-if customize_day in day_tdee_values:
-    day_tdee = day_tdee_values[customize_day]
-    st.markdown(f"**{customize_day} Energy Summary:**")
-    st.write(f"**Estimated TDEE:** {day_tdee:,.0f} calories")
-    
-    # Show suggested vs base targets
-    suggested_calories = st.session_state.day_specific_nutrition.get(customize_day, {}).get('calories', final_calories)
+# Additional energy summary (already shown above)
+st.markdown(f"**{customize_day} Energy Summary:**")
+if customize_day in st.session_state.day_specific_nutrition:
+    suggested_calories = st.session_state.day_specific_nutrition[customize_day].get('calories', final_calories)
     st.write(f"**Suggested Target:** {suggested_calories:,.0f} calories (based on your weekly schedule)")
     st.write(f"**Base Target:** {final_calories:,.0f} calories (from body composition goals)")
 else:
@@ -852,30 +859,43 @@ total_protein = sum([meal["protein"] for meal in current_day_meals])
 total_carbs = sum([meal["carbs"] for meal in current_day_meals])
 total_fat = sum([meal["fat"] for meal in current_day_meals])
 
-# Show current vs target
+# Show current vs target - use suggested targets if available
 st.markdown("#### Current Meal Plan vs Targets")
 current_col1, current_col2, current_col3, current_col4, current_col5 = st.columns(5)
 
+# Use suggested targets for comparison if available
+if customize_day in st.session_state.day_specific_nutrition:
+    target_nutrition = st.session_state.day_specific_nutrition[customize_day]
+    target_calories = target_nutrition.get('calories', final_calories)
+    target_protein = target_nutrition.get('protein', final_protein)
+    target_carbs = target_nutrition.get('carbs', final_carbs)
+    target_fat = target_nutrition.get('fat', final_fat)
+else:
+    target_calories = final_calories
+    target_protein = final_protein
+    target_carbs = final_carbs
+    target_fat = final_fat
+
 with current_col1:
-    cal_diff = total_calories - final_calories
+    cal_diff = total_calories - target_calories
     st.metric("Current Calories", f"{total_calories:.0f}", delta=f"{cal_diff:+.0f}")
 with current_col2:
-    protein_diff = total_protein - final_protein
+    protein_diff = total_protein - target_protein
     st.metric("Current Protein", f"{total_protein:.0f}g", delta=f"{protein_diff:+.0f}g")
 with current_col3:
-    carbs_diff = total_carbs - final_carbs
+    carbs_diff = total_carbs - target_carbs
     st.metric("Current Carbs", f"{total_carbs:.0f}g", delta=f"{carbs_diff:+.0f}g")
 with current_col4:
-    fat_diff = total_fat - final_fat
+    fat_diff = total_fat - target_fat
     st.metric("Current Fat", f"{total_fat:.0f}g", delta=f"{fat_diff:+.0f}g")
 with current_col5:
     # Auto-balance button
     if st.button("⚖️ Auto-Balance Remaining Macros", help="Redistribute remaining macros across all meals and snacks"):
-        # Calculate differences
-        cal_remaining = final_calories - total_calories
-        protein_remaining = final_protein - total_protein
-        carbs_remaining = final_carbs - total_carbs
-        fat_remaining = final_fat - total_fat
+        # Calculate differences using correct targets
+        cal_remaining = target_calories - total_calories
+        protein_remaining = target_protein - total_protein
+        carbs_remaining = target_carbs - total_carbs
+        fat_remaining = target_fat - total_fat
         
         # Distribute remaining macros proportionally
         num_eating_occasions = len(current_day_meals)
