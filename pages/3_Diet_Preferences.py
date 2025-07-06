@@ -412,6 +412,7 @@ with supplement_col2:
             "Protein powders",
             "Amino acids", 
             "Carbohydrate powders",
+            "Creatine",
             "Multivitamins",
             "Electrolytes",
             "Omega-3 supplements",
