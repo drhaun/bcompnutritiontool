@@ -84,20 +84,31 @@ goal_info = st.session_state.get('goal_info', {})
 goal_type = goal_info.get('goal_type', 'maintain')
 
 # Get weekly change parameters for accurate calorie calculation
+# Check multiple possible sources for weekly change data
 weekly_weight_pct = goal_info.get('weekly_weight_pct', 0.0)
+if weekly_weight_pct == 0.0:
+    # Try alternative session state keys
+    weekly_weight_pct = st.session_state.get('weekly_weight_pct', 0.0)
+    if weekly_weight_pct == 0.0:
+        # Try from recommended rates
+        recommended_rates = st.session_state.get('recommended_rates', {})
+        if goal_type == 'lose_fat':
+            weekly_weight_pct = recommended_rates.get('loss_rate', 0.005)  # 0.5% default
+        elif goal_type == 'gain_muscle':
+            weekly_weight_pct = recommended_rates.get('gain_rate', 0.0025)  # 0.25% default
+
 weekly_weight_change_kg = abs(weekly_weight_pct * weight_kg)
 
 # Calculate TDEE
 tdee = utils.calculate_tdee(gender, weight_kg, height_cm, age, activity_level)
 
-# Calculate target calories based on goal with proper weekly change
-# Handle the case where weekly_weight_change_kg might be 0 (maintenance or no timeline set)
+# Ensure we have a reasonable weekly change for non-maintenance goals
 if weekly_weight_change_kg == 0.0 and goal_type != 'maintain':
     # Use default rates if no weekly change is set but goal is not maintenance
     if goal_type == 'lose_fat':
-        weekly_weight_change_kg = 0.5 * 0.005 * weight_kg  # 0.5% default for fat loss
+        weekly_weight_change_kg = 0.5  # 0.5 kg per week default for fat loss
     elif goal_type == 'gain_muscle':
-        weekly_weight_change_kg = 0.5 * 0.0025 * weight_kg  # 0.25% default for muscle gain
+        weekly_weight_change_kg = 0.25  # 0.25 kg per week default for muscle gain
 
 target_calories = utils.calculate_target_calories(tdee, goal_type, weekly_weight_change_kg)
 
@@ -260,14 +271,13 @@ if confirmed_schedule:
         meal_calorie_ratio = 0.75
         snack_calorie_ratio = 0.25
         
-        avg_daily_calories = sum(day_tdee_values.values()) / len(day_tdee_values) if day_tdee_values else target_calories
-        
+        # Use target_calories (with deficit/surplus applied) rather than TDEE
         if meal_count > 0:
-            calories_per_meal = int((avg_daily_calories * meal_calorie_ratio) / meal_count)
+            calories_per_meal = int((target_calories * meal_calorie_ratio) / meal_count)
             st.write(f"• **Each meal:** ~{calories_per_meal:,} calories")
         
         if snack_count > 0:
-            calories_per_snack = int((avg_daily_calories * snack_calorie_ratio) / snack_count)
+            calories_per_snack = int((target_calories * snack_calorie_ratio) / snack_count)
             st.write(f"• **Each snack:** ~{calories_per_snack:,} calories")
         
         st.caption("These are rough estimates. Actual meal plans will optimize distribution based on your meal contexts, timing, and preferences.")
@@ -386,7 +396,10 @@ day_meal_settings = st.session_state.day_specific_meals.get(customize_day, {
     'meal_times': []
 })
 
-meal_col1, meal_col2 = st.columns(2)
+# Get existing snack settings for this day
+day_snack_settings = st.session_state.day_specific_meals.get(customize_day, {}).get('snack_count', 0)
+
+meal_col1, meal_col2, meal_col3 = st.columns(3)
 
 with meal_col1:
     # Meal count for this day
@@ -400,12 +413,23 @@ with meal_col1:
     )
 
 with meal_col2:
+    # Snack count for this day
+    day_snack_count = st.number_input(
+        f"Number of snacks on {customize_day}",
+        min_value=0,
+        max_value=4,
+        value=day_snack_settings,
+        key=f"snack_count_{customize_day}",
+        help="Add snacks between meals for this day"
+    )
+
+with meal_col3:
     # Custom timing option
     use_custom_timing = st.checkbox(
-        f"Custom meal timing for {customize_day}",
+        f"Custom meal/snack timing for {customize_day}",
         value=day_meal_settings['use_custom_timing'],
         key=f"custom_timing_{customize_day}",
-        help="Set specific meal times for this day"
+        help="Set specific meal and snack times for this day"
     )
 
 # Default meal time suggestions based on count
@@ -422,41 +446,92 @@ default_meal_times = {
 meal_times = default_meal_times.get(day_meal_count, ["07:00", "12:00", "18:00"])
 
 if use_custom_timing:
-    st.markdown(f"**Set meal times for {customize_day}:**")
+    st.markdown(f"**Set meal and snack times for {customize_day}:**")
     custom_times = []
     
-    for i in range(day_meal_count):
-        default_time = meal_times[i] if i < len(meal_times) else "12:00"
-        if i < len(day_meal_settings.get('meal_times', [])):
-            default_time = day_meal_settings['meal_times'][i]
-            
-        meal_time = st.time_input(
-            f"Meal {i+1} time",
-            value=pd.to_datetime(default_time).time(),
-            key=f"meal_time_{customize_day}_{i}"
-        )
-        if meal_time:
-            custom_times.append(meal_time.strftime("%H:%M"))
+    # Create combined schedule of meals and snacks
+    total_eating_occasions = day_meal_count + day_snack_count
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Meals:**")
+        for i in range(day_meal_count):
+            default_time = meal_times[i] if i < len(meal_times) else "12:00"
+            if i < len(day_meal_settings.get('meal_times', [])):
+                default_time = day_meal_settings['meal_times'][i]
+                
+            meal_time = st.time_input(
+                f"Meal {i+1} time",
+                value=pd.to_datetime(default_time).time(),
+                key=f"meal_time_{customize_day}_{i}"
+            )
+            if meal_time:
+                custom_times.append(meal_time.strftime("%H:%M"))
+    
+    with col2:
+        st.markdown("**Snacks:**")
+        snack_times = []
+        for i in range(day_snack_count):
+            # Default snack times between meals
+            if i == 0 and day_meal_count >= 2:
+                default_snack_time = "10:00"  # Mid-morning
+            elif i == 1 and day_meal_count >= 3:
+                default_snack_time = "15:00"  # Afternoon
+            elif i == 2:
+                default_snack_time = "20:00"  # Evening
+            else:
+                default_snack_time = "16:00"  # Default afternoon
+                
+            snack_time = st.time_input(
+                f"Snack {i+1} time",
+                value=pd.to_datetime(default_snack_time).time(),
+                key=f"snack_time_{customize_day}_{i}"
+            )
+            if snack_time:
+                snack_times.append(snack_time.strftime("%H:%M"))
+        
+        # Store snack times in session state
+        st.session_state.day_specific_meals[customize_day]['snack_times'] = snack_times
     
     meal_times = custom_times
 
 # Update day-specific settings
 st.session_state.day_specific_meals[customize_day] = {
     'meal_count': day_meal_count,
+    'snack_count': day_snack_count,
     'use_custom_timing': use_custom_timing,
     'meal_times': meal_times
 }
 
 # Show meal schedule preview for this day
-st.markdown(f"**{customize_day} Meal Schedule Preview:**")
+st.markdown(f"**{customize_day} Eating Schedule Preview:**")
 meal_names = ["Breakfast", "Mid-Morning", "Lunch", "Afternoon", "Dinner", "Evening", "Late Evening", "Night"]
 
-day_meal_preview = []
+# Combine meals and snacks for preview
+eating_schedule = []
 for i, meal_time in enumerate(meal_times):
     meal_name = meal_names[i] if i < len(meal_names) else f"Meal {i+1}"
-    day_meal_preview.append(f"{meal_time} - {meal_name}")
+    eating_schedule.append((meal_time, f"🍽️ {meal_name}"))
 
-st.write(" • ".join(day_meal_preview))
+# Add snacks if they exist
+if day_snack_count > 0:
+    snack_times = st.session_state.day_specific_meals[customize_day].get('snack_times', [])
+    for i, snack_time in enumerate(snack_times):
+        eating_schedule.append((snack_time, f"🍎 Snack {i+1}"))
+
+# Sort by time
+eating_schedule.sort(key=lambda x: x[0])
+
+# Display schedule
+schedule_display = []
+for time, description in eating_schedule:
+    schedule_display.append(f"{time} - {description}")
+
+if schedule_display:
+    st.write(" • ".join(schedule_display))
+else:
+    st.write("No eating schedule set for this day.")
 
 if st.button(f"Apply to All Similar Days", key=f"apply_similar_{customize_day}"):
     # Apply to days with similar workout patterns
@@ -468,14 +543,21 @@ if st.button(f"Apply to All Similar Days", key=f"apply_similar_{customize_day}")
             day_data = st.session_state.confirmed_weekly_schedule.get(day, {})
             if len(day_data.get('workouts', [])) == current_workout_count:
                 similar_days.append(day)
-                st.session_state.day_specific_meals[day] = {
+                # Include snack settings in the copy
+                day_settings = {
                     'meal_count': day_meal_count,
+                    'snack_count': day_snack_count,
                     'use_custom_timing': use_custom_timing,
                     'meal_times': meal_times
                 }
+                # Copy snack times if they exist
+                if 'snack_times' in st.session_state.day_specific_meals[customize_day]:
+                    day_settings['snack_times'] = st.session_state.day_specific_meals[customize_day]['snack_times']
+                
+                st.session_state.day_specific_meals[day] = day_settings
     
     if similar_days:
-        st.success(f"Applied meal settings to similar days: {', '.join(similar_days)}")
+        st.success(f"Applied meal and snack settings to similar days: {', '.join(similar_days)}")
     else:
         st.info("No similar days found to apply settings to.")
 
