@@ -29,8 +29,9 @@ if 'weekly_schedule_v2' not in st.session_state:
 # Define days of the week for consistent use
 days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-# SECTION 1: Basic Schedule Setup
-st.header("⏰ Basic Schedule Setup")
+# SECTION 1: General Daily Schedule
+st.header("⏰ General Daily Schedule")
+st.markdown("These settings reflect a routine day and routine work day. If desired, more detailed customization can occur in subsequent steps.")
 
 col1, col2 = st.columns(2)
 
@@ -78,8 +79,8 @@ with col2:
     else:
         work_start = work_end = None
 
-# SECTION 2: Activity Schedule
-st.header("🏃‍♀️ Weekly Activity Schedule")
+# SECTION 2: General Weekly Activity Schedule
+st.header("🏃‍♀️ General Weekly Activity Schedule")
 
 activity_col1, activity_col2 = st.columns(2)
 
@@ -106,6 +107,22 @@ with activity_col1:
         
         if len(workout_days) != total_workouts and total_workouts <= 7:
             st.warning(f"Please select exactly {total_workouts} days for your workouts")
+        
+        # Typical workout time
+        st.subheader("Typical Workout Time")
+        workout_time_options = [
+            "Early Morning (5:00-8:00 AM)",
+            "Morning (8:00-11:00 AM)", 
+            "Midday (11:00 AM-2:00 PM)",
+            "Afternoon (2:00-5:00 PM)",
+            "Evening (5:00-8:00 PM)",
+            "Night (8:00-11:00 PM)"
+        ]
+        typical_workout_time = st.selectbox("Typical workout time", workout_time_options, index=4, key="typical_workout_time")
+        
+        # Workout timing preferences
+        avoid_bedtime_workouts = st.checkbox("Avoid workouts within 3 hours of bedtime", value=True, key="avoid_bedtime_workouts")
+        allow_fasted_workouts = st.checkbox("Allow fasted morning workouts", value=False, key="allow_fasted_workouts")
 
 with activity_col2:
     st.subheader("Activity Level")
@@ -129,16 +146,37 @@ with activity_col2:
 # SECTION 3: Meal Planning Context
 st.header("🍽️ Meal Planning Context")
 
-# Get meal frequency from diet preferences
-if 'diet_preferences' in st.session_state and 'meal_frequency' in st.session_state.diet_preferences:
-    meals_per_day = st.session_state.diet_preferences['meal_frequency']
-    st.info(f"Using {meals_per_day} meals per day from your Diet Preferences")
-else:
-    meals_per_day = st.number_input("Meals per day", min_value=2, max_value=8, value=3, key="meals_per_day_input")
+meal_col1, meal_col2 = st.columns(2)
+
+with meal_col1:
+    # Get meal frequency from diet preferences
+    if 'diet_preferences' in st.session_state and 'meal_frequency' in st.session_state.diet_preferences:
+        meals_per_day = st.session_state.diet_preferences['meal_frequency']
+        st.info(f"Using {meals_per_day} meals per day from your Diet Preferences")
+    else:
+        meals_per_day = st.number_input("Meals per day", min_value=2, max_value=8, value=3, key="meals_per_day_input")
+
+with meal_col2:
+    # Add snacks per day
+    snacks_per_day = st.number_input("Snacks per day", min_value=0, max_value=5, value=2, key="snacks_per_day_input")
+
+# Description of meal vs snack difference
+st.markdown("""
+**Difference between Meals and Snacks:**
+
+**Meal:** A larger, more structured eating occasion typically intended to provide significant nourishment and satiety, often including multiple food groups (e.g., protein, carbs, fats) and consumed at standard times (e.g., breakfast, lunch, dinner).
+
+**Snack:** A smaller, less formal intake of food meant to bridge hunger between meals, usually lower in calories and often more convenient or portable.
+
+**Key differences:**
+- **Size:** Meals are larger; snacks are smaller
+- **Purpose:** Meals sustain; snacks tide you over  
+- **Timing:** Meals are planned; snacks are flexible
+""")
 
 # Meal context options for better meal planning
-st.subheader("Default Meal Contexts")
-st.write("Set default contexts for each meal to help with meal planning and preparation")
+st.subheader("Typical Meal & Snack Contexts")
+st.write("Set default contexts for each meal and snack to help with meal planning and preparation")
 
 # Create meal context inputs
 meal_contexts = {}
@@ -151,8 +189,11 @@ context_options = [
     "Quick & Easy", "Healthy Snack", "Family Meal"
 ]
 
-context_cols = st.columns(min(meals_per_day, 3))
+# Create context inputs for meals and snacks
+total_eating_occasions = meals_per_day + snacks_per_day
+context_cols = st.columns(min(total_eating_occasions, 3))
 
+# Handle meals
 for i in range(meals_per_day):
     meal_name = meal_names[i] if i < len(meal_names) else f"Meal {i+1}"
     col_idx = i % len(context_cols)
@@ -165,43 +206,92 @@ for i in range(meals_per_day):
             help="This helps determine meal suggestions and preparation methods"
         )
 
-# SECTION 4: Smart Time Block Optimizer
-st.header("🧠 Smart Time Block Optimizer")
+# Handle snacks
+snack_names = ["Snack 1", "Snack 2", "Snack 3", "Snack 4", "Snack 5"]
+for i in range(snacks_per_day):
+    snack_name = snack_names[i] if i < len(snack_names) else f"Snack {i+1}"
+    col_idx = (meals_per_day + i) % len(context_cols)
+    
+    with context_cols[col_idx]:
+        meal_contexts[snack_name] = st.selectbox(
+            f"{snack_name} Context",
+            context_options,
+            key=f"snack_context_{i}",
+            help="This helps determine snack suggestions and preparation methods"
+        )
 
-# Advanced optimization settings
-with st.expander("⚙️ Advanced Optimization Settings", expanded=False):
-    st.write("Fine-tune how the optimizer arranges your daily activities:")
+# SECTION 4: Nutrient Timing Planner
+st.header("🧠 Nutrient Timing Planner")
+
+timing_col1, timing_col2 = st.columns(2)
+
+with timing_col1:
+    st.subheader("Meal Timing Preferences")
     
-    opt_col1, opt_col2 = st.columns(2)
+    # Create time inputs for each meal
+    meal_times = {}
+    meal_display_names = ["Breakfast", "Lunch", "Dinner", "Meal 4", "Meal 5", "Meal 6", "Meal 7", "Meal 8"]
+    default_meal_times = [
+        datetime.time(7, 0),   # Breakfast
+        datetime.time(12, 0),  # Lunch  
+        datetime.time(18, 0),  # Dinner
+        datetime.time(21, 0),  # Meal 4
+        datetime.time(9, 0),   # Meal 5
+        datetime.time(15, 0),  # Meal 6
+        datetime.time(20, 0),  # Meal 7
+        datetime.time(22, 0),  # Meal 8
+    ]
     
-    with opt_col1:
-        st.subheader("Meal Timing Preferences")
-        pre_workout_meal = st.checkbox("Include pre-workout meal/snack", value=True, key="pre_workout_meal")
-        post_workout_meal = st.checkbox("Include post-workout meal within 2 hours", value=True, key="post_workout_meal")
-        meal_spacing = st.slider("Minimum hours between meals", 2.0, 6.0, 3.0, 0.5, key="meal_spacing")
-        breakfast_latest = st.time_input("Latest breakfast time", value=datetime.time(9, 0), key="breakfast_latest")
-        dinner_earliest = st.time_input("Earliest dinner time", value=datetime.time(17, 0), key="dinner_earliest")
-        
-    with opt_col2:
-        st.subheader("Workout Optimization")
-        workout_time_pref = st.selectbox("Preferred workout timing", [
-            "Morning (6-10 AM)", 
-            "Lunch Break (11 AM-2 PM)", 
-            "Evening (5-8 PM)", 
-            "Flexible (any time)"
-        ], key="workout_time_pref")
-        
-        avoid_late_workouts = st.checkbox("Avoid workouts within 3 hours of bedtime", value=True, key="avoid_late_workouts")
-        fasted_workouts = st.checkbox("Allow fasted morning workouts", value=False, key="fasted_workouts")
-        
-        # Energy optimization
-        st.subheader("Energy Management")
-        energy_focus = st.selectbox("Energy distribution priority", [
-            "Steady Energy (even meal spacing)",
-            "Work Performance (larger lunch)",
-            "Workout Performance (pre/post workout focus)",
-            "Evening Social (lighter day, bigger dinner)"
-        ], key="energy_focus")
+    for i in range(meals_per_day):
+        meal_name = meal_display_names[i] if i < len(meal_display_names) else f"Meal {i+1}"
+        default_time = default_meal_times[i] if i < len(default_meal_times) else datetime.time(12, 0)
+        meal_times[meal_name] = st.time_input(
+            f"Typical {meal_name} time",
+            value=default_time,
+            key=f"meal_time_{i}"
+        )
+    
+    # Pre/post workout meal preferences
+    pre_workout_meal = st.checkbox("Include pre-workout meal/snack", value=True, key="pre_workout_meal")
+    post_workout_meal = st.checkbox("Include post-workout meal within 2 hours", value=True, key="post_workout_meal")
+
+with timing_col2:
+    st.subheader("Snack Timing Preferences")
+    
+    # Create time inputs for each snack
+    snack_times = {}
+    snack_display_names = ["Snack 1", "Snack 2", "Snack 3", "Snack 4", "Snack 5"]
+    default_snack_times = [
+        datetime.time(10, 0),  # Mid-morning snack
+        datetime.time(15, 0),  # Mid-afternoon snack
+        datetime.time(21, 0),  # Evening snack
+        datetime.time(8, 0),   # Early morning snack
+        datetime.time(16, 0),  # Late afternoon snack
+    ]
+    
+    for i in range(snacks_per_day):
+        snack_name = snack_display_names[i] if i < len(snack_display_names) else f"Snack {i+1}"
+        default_time = default_snack_times[i] if i < len(default_snack_times) else datetime.time(15, 0)
+        snack_times[snack_name] = st.time_input(
+            f"Typical {snack_name} time",
+            value=default_time,
+            key=f"snack_time_{i}"
+        )
+    
+    # Energy management preferences
+    st.subheader("Energy Management")
+    energy_management = st.selectbox(
+        "Energy distribution preference",
+        ["Steady energy throughout day", "Higher energy for workouts", "Higher energy for work/focus"],
+        key="energy_management"
+    )
+    
+    # Liquid calories preference
+    liquid_calories = st.selectbox(
+        "Liquid calories preference",
+        ["Minimize liquid calories", "Allow some liquid calories", "Open to liquid calories"],
+        key="liquid_calories"
+    )
 
 # Generate schedule buttons
 schedule_col1, schedule_col2 = st.columns(2)

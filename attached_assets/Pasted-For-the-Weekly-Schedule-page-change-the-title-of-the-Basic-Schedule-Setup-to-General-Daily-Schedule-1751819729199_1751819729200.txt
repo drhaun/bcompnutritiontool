@@ -1,0 +1,23 @@
+For the Weekly Schedule page, change the title of the Basic Schedule Setup to General Daily Schedule with a description that these settings reflect a routine day and routine work day. If desired, more detailed customization can occur in subsequent steps.
+
+Change Weekly Activity Schedule to General Weekly Activity Schedule
+
+Add a field here instead of in the time block optimizer for the user to select “Typical workout time” with the option to avoid workouts within 3 hours of bedtime and option to allow fasted morning workouts.
+
+In the Meal Planning Context, add a selectable options for “Snacks Per Day” below the “Meals per day” block. 
+
+Place a concise description below Meals per day describing the difference between a meal and snack.
+
+A meal is a larger, more structured eating occasion typically intended to provide significant nourishment and satiety, often including multiple food groups (e.g., protein, carbs, fats) and consumed at standard times (e.g., breakfast, lunch, dinner).
+A snack is a smaller, less formal intake of food meant to bridge hunger between meals, usually lower in calories and often more convenient or portable.
+Key differences:
+	•	Size: Meals are larger; snacks are smaller.
+	•	Purpose: Meals sustain; snacks tide you over.
+	•	Timing: Meals are planned; snacks are flexible.
+For the Default Meal Contexts, change the title to Typical Meal & Snack Contexts and let’s combine this with the section below
+
+In the current “Smart Time Block Optimizer” and change the title to Nutrient Timing Planner.
+
+Add a Snack Timing Preferences area next to Meal Timing Preferences. 
+
+Based on the typical number of meals and snacks selected previously, let’s provide the option for the user to select their typical time range for each meal and snack in this section. This is also where they’d select if they’d like to include a pre-workout meal or a pre-workout snack, and if they’d like to include a post-workout meal or a post-workout snack within 2 hours of their workout. We’d also keep the Energy Management selectable option. Let’s add an option for late or early time-restricted eating where the user can decide when to open and close their eating window and if they’d like a larger or smaller first meal. Don’t overcomplicate this and ensure it’s an intuitive user experience without sacrificing precision and potential for detailed planning.
