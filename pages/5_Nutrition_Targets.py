@@ -118,28 +118,61 @@ target_calories = utils.calculate_target_calories(tdee, goal_type, weekly_weight
 # Calculate macros
 macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
 
-# Display base targets
-st.markdown("#### Base Daily Targets")
-base_col1, base_col2, base_col3, base_col4 = st.columns(4)
+# Display calculated nutrition targets section
+st.markdown("#### Calculated Nutrition Targets")
 
-with base_col1:
-    st.metric("Calories", f"{target_calories:,.0f}")
-    
-with base_col2:
-    st.metric("Protein", f"{macros['protein']:.0f}g")
-    
-with base_col3:
-    st.metric("Carbs", f"{macros['carbs']:.0f}g")
-    
-with base_col4:
-    st.metric("Fat", f"{macros['fat']:.0f}g")
+# Show both base and suggested targets
+target_col1, target_col2 = st.columns(2)
 
-# Show macro percentages
-protein_pct = (macros['protein'] * 4 / target_calories) * 100
-carbs_pct = (macros['carbs'] * 4 / target_calories) * 100
-fat_pct = (macros['fat'] * 9 / target_calories) * 100
+with target_col1:
+    st.markdown("**Base Daily Targets**")
+    st.markdown("*From Body Composition Goals*")
+    
+    base_col1, base_col2, base_col3, base_col4 = st.columns(4)
+    with base_col1:
+        st.metric("Calories", f"{target_calories:,.0f}")
+    with base_col2:
+        st.metric("Protein", f"{macros['protein']:.0f}g")
+    with base_col3:
+        st.metric("Carbs", f"{macros['carbs']:.0f}g")
+    with base_col4:
+        st.metric("Fat", f"{macros['fat']:.0f}g")
+    
+    # Show macro percentages for base
+    protein_pct = (macros['protein'] * 4 / target_calories) * 100
+    carbs_pct = (macros['carbs'] * 4 / target_calories) * 100
+    fat_pct = (macros['fat'] * 9 / target_calories) * 100
+    st.markdown(f"**Macro Distribution:** Protein {protein_pct:.0f}% • Carbs {carbs_pct:.0f}% • Fat {fat_pct:.0f}%")
 
-st.markdown(f"**Macro Distribution:** Protein {protein_pct:.0f}% • Carbs {carbs_pct:.0f}% • Fat {fat_pct:.0f}%")
+with target_col2:
+    st.markdown("**Suggested Daily Targets**")
+    st.markdown("*Adjusted for Weekly Schedule*")
+    
+    # Calculate suggested targets as average from day-specific nutrition
+    if st.session_state.get('day_specific_nutrition'):
+        total_days = len(st.session_state.day_specific_nutrition)
+        avg_calories = sum(day_data.get('calories', target_calories) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        avg_protein = sum(day_data.get('protein', macros['protein']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        avg_carbs = sum(day_data.get('carbs', macros['carbs']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        avg_fat = sum(day_data.get('fat', macros['fat']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        
+        suggested_col1, suggested_col2, suggested_col3, suggested_col4 = st.columns(4)
+        with suggested_col1:
+            st.metric("Calories", f"{avg_calories:,.0f}")
+        with suggested_col2:
+            st.metric("Protein", f"{avg_protein:.0f}g")
+        with suggested_col3:
+            st.metric("Carbs", f"{avg_carbs:.0f}g")
+        with suggested_col4:
+            st.metric("Fat", f"{avg_fat:.0f}g")
+        
+        # Show macro percentages for suggested
+        suggested_protein_pct = (avg_protein * 4 / avg_calories) * 100
+        suggested_carbs_pct = (avg_carbs * 4 / avg_calories) * 100
+        suggested_fat_pct = (avg_fat * 9 / avg_calories) * 100
+        st.markdown(f"**Macro Distribution:** Protein {suggested_protein_pct:.0f}% • Carbs {suggested_carbs_pct:.0f}% • Fat {suggested_fat_pct:.0f}%")
+    else:
+        st.info("Complete Weekly Schedule to see suggested targets")
 
 # Day-specific targets based on weekly schedule TDEE variations  
 st.markdown("#### Day-Specific Nutrition Targets")
@@ -278,8 +311,18 @@ if confirmed_schedule:
                 if not context.get('consistency', True) and context.get('variations'):
                     st.write(f"  └ Variations: {context['variations']}")
     
-    # Calculate rough calorie distribution
+    # Calculate rough calorie distribution based on suggested targets
     st.markdown("**Estimated Calorie Distribution:**")
+    
+    # Use suggested targets (average from day-specific nutrition) instead of base targets
+    if st.session_state.get('day_specific_nutrition'):
+        total_days = len(st.session_state.day_specific_nutrition)
+        avg_suggested_calories = sum(day_data.get('calories', target_calories) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        distribution_calories = avg_suggested_calories
+        st.info(f"Based on suggested targets (avg: {distribution_calories:,.0f} calories/day)")
+    else:
+        distribution_calories = target_calories
+        st.info(f"Based on base targets ({distribution_calories:,.0f} calories/day)")
     
     # Simple distribution: meals get more calories than snacks
     if meal_count > 0 and snack_count >= 0:
@@ -287,13 +330,12 @@ if confirmed_schedule:
         meal_calorie_ratio = 0.75
         snack_calorie_ratio = 0.25
         
-        # Use target_calories (with deficit/surplus applied) rather than TDEE
         if meal_count > 0:
-            calories_per_meal = int((target_calories * meal_calorie_ratio) / meal_count)
+            calories_per_meal = int((distribution_calories * meal_calorie_ratio) / meal_count)
             st.write(f"• **Each meal:** ~{calories_per_meal:,} calories")
         
         if snack_count > 0:
-            calories_per_snack = int((target_calories * snack_calorie_ratio) / snack_count)
+            calories_per_snack = int((distribution_calories * snack_calorie_ratio) / snack_count)
             st.write(f"• **Each snack:** ~{calories_per_snack:,} calories")
         
         st.caption("These are rough estimates. Actual meal plans will optimize distribution based on your meal contexts, timing, and preferences.")
@@ -305,11 +347,26 @@ st.markdown("---")
 
 # Target customization section
 st.markdown("### Customize Your Targets (Optional)")
-st.markdown("You can adjust these targets if needed, or use the calculated values.")
+st.markdown("You can adjust these targets if needed, or use the suggested values.")
 
 customize_targets = st.checkbox("I want to customize my nutrition targets")
 
 if customize_targets:
+    # Use suggested targets as default values if available
+    if st.session_state.get('day_specific_nutrition'):
+        total_days = len(st.session_state.day_specific_nutrition)
+        default_calories = sum(day_data.get('calories', target_calories) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        default_protein = sum(day_data.get('protein', macros['protein']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        default_carbs = sum(day_data.get('carbs', macros['carbs']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        default_fat = sum(day_data.get('fat', macros['fat']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        st.info("Default values based on your suggested targets (from Weekly Schedule)")
+    else:
+        default_calories = target_calories
+        default_protein = macros['protein']
+        default_carbs = macros['carbs']
+        default_fat = macros['fat']
+        st.info("Default values based on your base targets (from Body Composition Goals)")
+    
     custom_col1, custom_col2 = st.columns(2)
     
     with custom_col1:
@@ -317,7 +374,7 @@ if customize_targets:
             "Daily Calories",
             min_value=1200,
             max_value=5000,
-            value=int(target_calories),
+            value=int(default_calories),
             step=50,
             help="Adjust based on your specific needs or preferences"
         )
@@ -326,7 +383,7 @@ if customize_targets:
             "Protein (g)",
             min_value=50,
             max_value=300,
-            value=int(macros['protein']),
+            value=int(default_protein),
             step=5,
             help="Higher protein supports muscle building and satiety"
         )
@@ -336,7 +393,7 @@ if customize_targets:
             "Carbohydrates (g)",
             min_value=50,
             max_value=500,
-            value=int(macros['carbs']),
+            value=int(default_carbs),
             step=10,
             help="Carbs fuel your workouts and daily activities"
         )
@@ -345,7 +402,7 @@ if customize_targets:
             "Fat (g)",
             min_value=30,
             max_value=200,
-            value=int(macros['fat']),
+            value=int(default_fat),
             step=5,
             help="Healthy fats support hormone production and satiety"
         )
@@ -363,10 +420,18 @@ if customize_targets:
     final_carbs = custom_carbs
     final_fat = custom_fat
 else:
-    final_calories = target_calories
-    final_protein = macros['protein']
-    final_carbs = macros['carbs']
-    final_fat = macros['fat']
+    # Use suggested targets as default if available, otherwise base targets
+    if st.session_state.get('day_specific_nutrition'):
+        total_days = len(st.session_state.day_specific_nutrition)
+        final_calories = sum(day_data.get('calories', target_calories) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        final_protein = sum(day_data.get('protein', macros['protein']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        final_carbs = sum(day_data.get('carbs', macros['carbs']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        final_fat = sum(day_data.get('fat', macros['fat']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+    else:
+        final_calories = target_calories
+        final_protein = macros['protein']
+        final_carbs = macros['carbs']
+        final_fat = macros['fat']
 
 st.markdown("---")
 
