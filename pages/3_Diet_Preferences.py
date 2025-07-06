@@ -410,80 +410,7 @@ with st.form("sourcing_preferences_form", clear_on_submit=False):
     # Submit button for sourcing preferences
     sourcing_submit = st.form_submit_button("Update Sourcing Preferences", type="primary")
 
-# ==================== SECTION 6: MEAL PLANNING PREFERENCES ====================
-st.markdown("### 🎯 Meal Planning Preferences")
-st.markdown("Set your meal planning preferences and cooking constraints.")
 
-# Initialize meal planning preferences if not exists
-if 'leftovers_preference' not in st.session_state.diet_preferences:
-    st.session_state.diet_preferences['leftovers_preference'] = 'Moderate'
-if 'cooking_for_others' not in st.session_state.diet_preferences:
-    st.session_state.diet_preferences['cooking_for_others'] = 'Just myself'
-
-# Meal planning preferences form
-with st.form("meal_planning_preferences_form", clear_on_submit=False):
-    planning_col1, planning_col2 = st.columns(2)
-
-    with planning_col1:
-        st.markdown("**Meal Structure**")
-        meal_frequency = st.number_input(
-            "Preferred meals per day",
-            min_value=2,
-            max_value=8,
-            value=st.session_state.diet_preferences.get('meal_frequency', 3),
-            help="How many main meals do you prefer per day?",
-            key="meal_frequency_input"
-        )
-
-        # Handle cooking time preference with fallback for mismatched saved values
-        cooking_time_options = ["Quick (< 30 min)", "Medium (30-60 min)", "Long (60+ min)", "No preference"]
-        saved_cooking_time = st.session_state.diet_preferences.get('cooking_time_preference', 'Medium (30-60 min)')
-        
-        # Map old values to new ones if needed
-        cooking_time_mapping = {
-            'Quick (under 30 min)': 'Quick (< 30 min)',
-            'Medium (30-60 min)': 'Medium (30-60 min)',
-            'Long (60+ min)': 'Long (60+ min)',
-            'No preference': 'No preference'
-        }
-        
-        # Use mapped value or default
-        mapped_cooking_time = cooking_time_mapping.get(saved_cooking_time, saved_cooking_time)
-        if mapped_cooking_time not in cooking_time_options:
-            mapped_cooking_time = 'Medium (30-60 min)'
-        
-        cooking_time_preference = st.selectbox(
-            "Cooking Time Preference",
-            options=cooking_time_options,
-            index=cooking_time_options.index(mapped_cooking_time),
-            help="How much time do you typically want to spend cooking?",
-            key="cooking_time_select"
-        )
-
-    with planning_col2:
-        st.markdown("**Practical Considerations**")
-        cooking_for_others = st.selectbox(
-            "Cooking for",
-            options=["Just myself", "Myself + 1 other", "Family (3-4 people)", "Large group (5+ people)"],
-            index=["Just myself", "Myself + 1 other", "Family (3-4 people)", "Large group (5+ people)"].index(
-                st.session_state.diet_preferences.get('cooking_for_others', 'Just myself')
-            ),
-            help="How many people are you typically cooking for?",
-            key="cooking_for_others_select"
-        )
-
-        leftovers_preference = st.selectbox(
-            "Leftovers Preference",
-            options=["Love leftovers", "Moderate leftovers", "Minimal leftovers", "No leftovers"],
-            index=["Love leftovers", "Moderate leftovers", "Minimal leftovers", "No leftovers"].index(
-                st.session_state.diet_preferences.get('leftovers_preference', 'Moderate leftovers')
-            ),
-            help="How do you feel about eating leftovers?",
-            key="leftovers_select"
-        )
-
-    # Submit button for meal planning preferences
-    meal_planning_submit = st.form_submit_button("Update Meal Planning Preferences", type="primary")
 
 # ==================== SAVE PREFERENCES ====================
 # Save preferences to session state
@@ -522,14 +449,7 @@ if sourcing_submit:
         'grocery_shopping_interest': grocery_shopping_interest
     })
 
-# Update meal planning preferences if form was submitted
-if meal_planning_submit:
-    st.session_state.diet_preferences.update({
-        'meal_frequency': meal_frequency,
-        'cooking_time_preference': cooking_time_preference,
-        'cooking_for_others': cooking_for_others,
-        'leftovers_preference': leftovers_preference
-    })
+
 
 # ==================== HOW PREFERENCES ARE USED ====================
 st.markdown("### How Your Preferences Are Used")
@@ -573,7 +493,3 @@ with st.expander("🔍 Current Preferences Summary"):
     st.write("**Preferred Vegetables:**", ', '.join(st.session_state.diet_preferences.get('preferred_vegetables', [])) or 'None selected')
     st.write("**Cuisine Preferences:**", ', '.join(st.session_state.diet_preferences.get('cuisine_preferences', [])) or 'None selected')
     st.write("**Foods to Avoid:**", ', '.join(st.session_state.diet_preferences.get('disliked_foods', [])) or 'None')
-    st.write("**Meals per Day:**", st.session_state.diet_preferences.get('meal_frequency', 3))
-    st.write("**Cooking Time Preference:**", st.session_state.diet_preferences.get('cooking_time_preference', 'Medium (30-60 min)'))
-    st.write("**Cooking For:**", st.session_state.diet_preferences.get('cooking_for_others', 'Just myself'))
-    st.write("**Leftovers Preference:**", st.session_state.diet_preferences.get('leftovers_preference', 'Moderate leftovers'))
