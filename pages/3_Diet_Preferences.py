@@ -61,33 +61,40 @@ if os.path.exists(preferences_file):
 st.markdown("### 🚫 Dietary Restrictions & Allergies")
 st.markdown("Tell us about any dietary restrictions, food allergies, or health conditions that affect your eating choices.")
 
-col1, col2 = st.columns(2)
+# Use form to handle dietary restrictions properly
+with st.form("dietary_restrictions_form", clear_on_submit=False):
+    col1, col2 = st.columns(2)
 
-with col1:
-    # Dietary restrictions
-    restriction_options = [
-        "None", "Vegetarian", "Vegan", "Pescatarian", 
-        "Gluten-Free", "Dairy-Free", "Keto", "Paleo", 
-        "Low-FODMAP", "Low-Sodium", "Diabetic-Friendly"
-    ]
-    dietary_restrictions = st.multiselect(
-        "Dietary Restrictions",
-        options=restriction_options,
-        default=st.session_state.diet_preferences.get('dietary_restrictions', []),
-        help="Select any dietary restrictions you follow",
-        key="dietary_restrictions_multi"
-    )
+    with col1:
+        # Dietary restrictions
+        restriction_options = [
+            "None", "Vegetarian", "Vegan", "Pescatarian", 
+            "Gluten-Free", "Dairy-Free", "Keto", "Paleo", 
+            "Low-FODMAP", "Low-Sodium", "Diabetic-Friendly"
+        ]
+        dietary_restrictions = st.multiselect(
+            "Dietary Restrictions",
+            options=restriction_options,
+            default=st.session_state.diet_preferences.get('dietary_restrictions', []),
+            help="Select any dietary restrictions you follow",
+            key="dietary_restrictions_multi"
+        )
 
-with col2:
-    # Allergies - critical for safety
-    allergies_input = st.text_area(
-        "Food Allergies (one per line)",
-        value="\n".join(st.session_state.diet_preferences.get('allergies', [])),
-        help="List any food allergies - these will be strictly avoided in meal planning",
-        height=100,
-        key="allergies_textarea"
-    )
-    allergies = [allergy.strip() for allergy in allergies_input.split('\n') if allergy.strip()]
+    with col2:
+        # Allergies - critical for safety
+        allergies_input = st.text_area(
+            "Food Allergies (one per line)",
+            value="\n".join(st.session_state.diet_preferences.get('allergies', [])),
+            help="List any food allergies - these will be strictly avoided in meal planning",
+            height=100,
+            key="allergies_textarea"
+        )
+    
+    # Submit button for dietary restrictions
+    dietary_submit = st.form_submit_button("Update Dietary Restrictions & Allergies", type="primary")
+    
+# Process allergies outside the form
+allergies = [allergy.strip() for allergy in allergies_input.split('\n') if allergy.strip()]
 
 # ==================== SECTION 2: FOOD PREFERENCES ====================
 st.markdown("### 🍽️ Food Preferences")
@@ -428,12 +435,27 @@ with st.form("meal_planning_preferences_form", clear_on_submit=False):
             key="meal_frequency_input"
         )
 
+        # Handle cooking time preference with fallback for mismatched saved values
+        cooking_time_options = ["Quick (< 30 min)", "Medium (30-60 min)", "Long (60+ min)", "No preference"]
+        saved_cooking_time = st.session_state.diet_preferences.get('cooking_time_preference', 'Medium (30-60 min)')
+        
+        # Map old values to new ones if needed
+        cooking_time_mapping = {
+            'Quick (under 30 min)': 'Quick (< 30 min)',
+            'Medium (30-60 min)': 'Medium (30-60 min)',
+            'Long (60+ min)': 'Long (60+ min)',
+            'No preference': 'No preference'
+        }
+        
+        # Use mapped value or default
+        mapped_cooking_time = cooking_time_mapping.get(saved_cooking_time, saved_cooking_time)
+        if mapped_cooking_time not in cooking_time_options:
+            mapped_cooking_time = 'Medium (30-60 min)'
+        
         cooking_time_preference = st.selectbox(
             "Cooking Time Preference",
-            options=["Quick (< 30 min)", "Medium (30-60 min)", "Long (60+ min)", "No preference"],
-            index=["Quick (< 30 min)", "Medium (30-60 min)", "Long (60+ min)", "No preference"].index(
-                st.session_state.diet_preferences.get('cooking_time_preference', 'Medium (30-60 min)')
-            ),
+            options=cooking_time_options,
+            index=cooking_time_options.index(mapped_cooking_time),
             help="How much time do you typically want to spend cooking?",
             key="cooking_time_select"
         )
@@ -484,6 +506,13 @@ st.session_state.diet_preferences.update({
         'other_supplements': other_supplements
     }
 })
+
+# Update dietary restrictions if form was submitted
+if dietary_submit:
+    st.session_state.diet_preferences.update({
+        'dietary_restrictions': dietary_restrictions,
+        'allergies': allergies
+    })
 
 # Update sourcing preferences if form was submitted
 if sourcing_submit:
