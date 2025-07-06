@@ -411,6 +411,11 @@ with timing_col2:
 # Generate schedule button
 st.divider()
 if st.button("📅 Generate Schedule", type="primary", use_container_width=True, key="generate_schedule"):
+    generate_schedule_triggered = True
+else:
+    generate_schedule_triggered = False
+
+if generate_schedule_triggered:
     with st.spinner("Generating your personalized weekly schedule..."):
         # Clear existing schedule
         st.session_state.weekly_schedule_v2 = {}
@@ -440,90 +445,282 @@ if st.button("📅 Generate Schedule", type="primary", use_container_width=True,
             "High": 10.0,
             "Very High": 12.5
         }
+    
+    # Smart optimization functions
+    def time_to_minutes(time_str):
+        """Convert time string (HH:MM) to minutes since midnight"""
+        if isinstance(time_str, str):
+            hours, minutes = map(int, time_str.split(':'))
+        else:
+            hours, minutes = time_str.hour, time_str.minute
+        return hours * 60 + minutes
+    
+    def minutes_to_time(minutes):
+        """Convert minutes since midnight to time string (HH:MM)"""
+        hours = minutes // 60
+        mins = minutes % 60
+        return f"{hours:02d}:{mins:02d}"
+    
+    def optimize_workout_time(day, work_start_min, work_end_min, wake_min, bed_min, workout_duration_mins):
+        """Find optimal workout time based on preferences and constraints"""
+        # Get workout preference time ranges
+        pref_ranges = {
+            "Morning (6-10 AM)": (6*60, 10*60),
+            "Lunch Break (11 AM-2 PM)": (11*60, 14*60),
+            "Evening (5-8 PM)": (17*60, 20*60),
+            "Flexible (any time)": (wake_min + 60, bed_min - 180)  # 1 hour after wake, 3 hours before bed
+        }
         
-        # Generate schedule for each day
-        for day in days_of_week:
-            # Get workout info for this day
-            workout_info = []
-            total_workout_calories = 0
+        pref_start, pref_end = pref_ranges.get(workout_time_pref, pref_ranges["Flexible (any time)"])
+        
+        # Avoid late workouts if selected
+        if avoid_late_workouts:
+            pref_end = min(pref_end, bed_min - 180)  # 3 hours before bed
+        
+        # Avoid work hours if working
+        if work_start_min and work_end_min:
+            # Try to fit workout before work
+            if pref_start < work_start_min and pref_end > work_start_min:
+                if pref_start + workout_duration_mins <= work_start_min - 60:  # 1 hour buffer
+                    return pref_start
             
-            # Check if multiple workouts per day
-            if multiple_workouts_per_day and 'detailed_workout_schedule' in st.session_state:
-                day_workouts = st.session_state.detailed_workout_schedule.get(day, [])
-                if day_workouts:
-                    workout_info = day_workouts
-                    # Calculate total workout calories for the day
-                    for workout in day_workouts:
-                        duration = workout.get('duration', 60)
-                        intensity = workout.get('intensity', 'Moderate')
-                        total_workout_calories += duration * intensity_cals_per_min.get(intensity, 7.5)
+            # Try to fit workout after work
+            if pref_start < work_end_min and pref_end > work_end_min:
+                return max(pref_start, work_end_min + 60)  # 1 hour after work
+        
+        # Default to preference start time
+        return max(pref_start, wake_min + 60)
+    
+    def optimize_meal_times(day, workout_time_min, work_start_min, work_end_min, wake_min, bed_min, workout_duration_mins):
+        """Optimize meal timing based on workout, work schedule, and preferences"""
+        meal_times = []
+        
+        # Convert constraint times to minutes
+        breakfast_latest_min = time_to_minutes(breakfast_latest)
+        dinner_earliest_min = time_to_minutes(dinner_earliest)
+        meal_spacing_min = int(meal_spacing * 60)
+        
+        # Start with breakfast
+        breakfast_time = min(wake_min + 60, breakfast_latest_min)  # 1 hour after wake or latest breakfast time
+        meal_times.append(breakfast_time)
+        
+        # Handle pre-workout meal if needed
+        if workout_time_min and pre_workout_meal and not fasted_workouts:
+            pre_workout_time = workout_time_min - 60  # 1 hour before workout
+            if pre_workout_time > breakfast_time + meal_spacing_min:
+                meal_times.append(pre_workout_time)
+        
+        # Handle post-workout meal if needed
+        if workout_time_min and post_workout_meal:
+            post_workout_time = workout_time_min + workout_duration_mins + 30  # 30 min after workout
+            if post_workout_time < dinner_earliest_min:
+                meal_times.append(post_workout_time)
+        
+        # Fill in remaining meals with optimal spacing
+        while len(meal_times) < meals_per_day:
+            if len(meal_times) == meals_per_day - 1:
+                # Last meal (dinner)
+                dinner_time = max(dinner_earliest_min, meal_times[-1] + meal_spacing_min)
+                dinner_time = min(dinner_time, bed_min - 180)  # 3 hours before bed
+                meal_times.append(dinner_time)
             else:
-                # Single workout mode
-                if 'single_workout_schedule' in st.session_state and day in st.session_state.single_workout_schedule:
-                    workout_info = [st.session_state.single_workout_schedule[day]]
-                    workout = workout_info[0]
-                    duration = workout.get('duration', 60)
-                    intensity = workout.get('intensity', 'Moderate')
-                    total_workout_calories = duration * intensity_cals_per_min.get(intensity, 7.5)
-            
-            # Calculate TDEE for the day
-            base_tdee = bmr * activity_multipliers.get(activity_level, 1.375)
-            day_tdee = int(base_tdee + total_workout_calories)
-            
-            # Create meal structure for the day
-            day_meals = []
-            meal_ordinals = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth"]
-            snack_ordinals = ["First", "Second", "Third", "Fourth", "Fifth"]
-            
-            # Add meals
-            for i in range(meals_per_day):
-                meal_name = f"{meal_ordinals[i]} Meal of Day"
-                context = meal_contexts.get(meal_name, "Home Cooking")
-                day_meals.append({
-                    'type': 'meal',
-                    'name': meal_name,
-                    'context': context,
-                    'calories': int(day_tdee // (meals_per_day + snacks_per_day) * 1.2)  # Meals get more calories
-                })
-            
-            # Add snacks
-            for i in range(snacks_per_day):
-                snack_name = f"{snack_ordinals[i]} Snack of Day"
-                context = meal_contexts.get(snack_name, "Healthy Snack")
-                day_meals.append({
-                    'type': 'snack',
-                    'name': snack_name,
-                    'context': context,
-                    'calories': int(day_tdee // (meals_per_day + snacks_per_day) * 0.8)  # Snacks get fewer calories
-                })
-            
-            # Store day schedule
-            st.session_state.weekly_schedule_v2[day] = {
-                'meals': day_meals,
-                'workouts': workout_info,
-                'total_calories': day_tdee,
-                'base_tdee': int(base_tdee),
-                'workout_calories': int(total_workout_calories),
-                'sleep_schedule': {
-                    'wake_time': wake_time.strftime('%H:%M'),
-                    'bed_time': bed_time.strftime('%H:%M'),
-                    'sleep_hours': sleep_hours
-                },
-                'work_schedule': {
-                    'start_time': work_start.strftime('%H:%M') if work_start else None,
-                    'end_time': work_end.strftime('%H:%M') if work_end else None,
-                    'type': work_type
-                },
-                'preferences': {
-                    'pre_workout_meal': pre_workout_meal,
-                    'pre_workout_snack': pre_workout_snack,
-                    'post_workout_meal': post_workout_meal,
-                    'energy_management': energy_management,
-                    'liquid_calories': liquid_calories
-                }
-            }
+                # Intermediate meals
+                next_meal_time = meal_times[-1] + meal_spacing_min
+                # Avoid work hours if possible
+                if work_start_min and work_end_min and work_start_min <= next_meal_time <= work_end_min:
+                    if next_meal_time < work_start_min + 60:
+                        next_meal_time = work_start_min - 30  # Before work
+                    else:
+                        next_meal_time = work_end_min + 30  # After work
+                
+                meal_times.append(next_meal_time)
         
-        st.success("✅ Weekly schedule generated successfully! Your personalized schedule considers your sleep, work, workout timing, and meal preferences.")
+        # Ensure proper spacing and sort
+        meal_times.sort()
+        
+        # Adjust for energy focus
+        if energy_focus == "Work Performance (larger lunch)":
+            # Move lunch closer to middle of work day if working
+            if work_start_min and work_end_min:
+                work_mid = (work_start_min + work_end_min) // 2
+                # Find closest meal to work midpoint and adjust
+                for i, meal_time in enumerate(meal_times[1:-1], 1):  # Skip breakfast and dinner
+                    if abs(meal_time - work_mid) < 120:  # Within 2 hours
+                        meal_times[i] = work_mid
+                        break
+        
+        return meal_times
+    
+    def get_meal_contexts_optimized(meal_times, workout_time_min, work_start_min, work_end_min, workout_duration_mins):
+        """Assign optimized meal contexts based on timing and activities"""
+        contexts = []
+        
+        for i, meal_time in enumerate(meal_times):
+            context = meal_contexts.get(meal_names[i], "Home Cooking")
+            
+            # Override with smart context selection
+            if workout_time_min:
+                # Pre-workout meal
+                if abs(meal_time - (workout_time_min - 60)) < 30:
+                    context = "Pre-Workout"
+                # Post-workout meal
+                elif abs(meal_time - (workout_time_min + workout_duration_mins + 30)) < 60:
+                    context = "Post-Workout"
+            
+            # Work hour meals
+            if work_start_min and work_end_min and work_start_min <= meal_time <= work_end_min:
+                context = "Office/Work"
+            
+            # Early morning meals
+            if meal_time < time_to_minutes("08:00"):
+                context = "Quick & Easy"
+            
+            # Late meals
+            if meal_time > time_to_minutes("19:00"):
+                if energy_focus == "Evening Social (lighter day, bigger dinner)":
+                    context = "Social Eating"
+                else:
+                    context = "Family Meal"
+            
+            contexts.append(context)
+        
+        return contexts
+    
+    # Show optimization progress
+    optimization_status = st.empty()
+    if st.session_state.get('generate_optimized', False):
+        optimization_status.info("🧠 Optimizing your weekly schedule using smart algorithms...")
+    else:
+        optimization_status.info("📋 Generating your basic weekly schedule...")
+    
+    # Safely get workout variables from session state or use defaults
+    try:
+        workout_days_list = workout_days if workout_days else []
+    except NameError:
+        workout_days_list = []
+    
+    try:
+        workout_duration_val = workout_duration if workout_duration else 60
+    except NameError:
+        workout_duration_val = 60
+        
+    try:
+        workout_intensity_val = workout_intensity if workout_intensity else "Moderate"
+    except NameError:
+        workout_intensity_val = "Moderate"
+    
+    # Generate schedule for each day
+    for i, day in enumerate(days_of_week):
+        # Determine if this is a workout day
+        is_workout_day = day in workout_days_list if total_workouts > 0 else False
+        
+        # Calculate TDEE for the day
+        base_tdee = bmr * activity_multipliers.get(activity_level, 1.375)
+        
+        # Add workout calories if it's a workout day
+        workout_calories = 0
+        if is_workout_day and total_workouts > 0:
+            workout_calories = workout_duration_val * intensity_cals_per_min.get(workout_intensity_val, 7.5)
+        
+        day_tdee = int(base_tdee + workout_calories)
+        
+        # Convert time inputs to minutes for optimization
+        wake_min = time_to_minutes(wake_time)
+        bed_min = time_to_minutes(bed_time)
+        work_start_min = time_to_minutes(work_start) if work_start else None
+        work_end_min = time_to_minutes(work_end) if work_end else None
+        
+        # Optimize workout time if using smart optimizer
+        workout_time_min = None
+        if is_workout_day and st.session_state.get('generate_optimized', False):
+            workout_time_min = optimize_workout_time(day, work_start_min, work_end_min, wake_min, bed_min, workout_duration_val)
+        elif is_workout_day:
+            # Use default workout time for basic schedule
+            workout_time_min = 18 * 60  # 6 PM default
+        
+        # Optimize meal times
+        if st.session_state.get('generate_optimized', False):
+            optimized_meal_times = optimize_meal_times(day, workout_time_min, work_start_min, work_end_min, wake_min, bed_min, workout_duration_val)
+            optimized_contexts = get_meal_contexts_optimized(optimized_meal_times, workout_time_min, work_start_min, work_end_min, workout_duration_val)
+        else:
+            # Use basic meal timing
+            optimized_meal_times = []
+            optimized_contexts = []
+            
+            # Simple meal timing for basic schedule
+            if meals_per_day == 2:
+                optimized_meal_times = [8*60, 18*60]  # 8 AM, 6 PM
+            elif meals_per_day == 3:
+                optimized_meal_times = [7*60+30, 12*60+30, 18*60+30]  # 7:30 AM, 12:30 PM, 6:30 PM
+            elif meals_per_day == 4:
+                optimized_meal_times = [7*60, 10*60, 13*60, 18*60]  # 7 AM, 10 AM, 1 PM, 6 PM
+            else:
+                # Evenly distribute meals
+                start_time = wake_min + 60
+                end_time = bed_min - 180
+                time_span = end_time - start_time
+                for j in range(meals_per_day):
+                    meal_time = start_time + (j * time_span // (meals_per_day - 1))
+                    optimized_meal_times.append(meal_time)
+            
+            # Use default contexts for basic schedule
+            for j in range(meals_per_day):
+                meal_name = meal_names[j] if j < len(meal_names) else f"Meal {j+1}"
+                optimized_contexts.append(meal_contexts.get(meal_name, "Home Cooking"))
+        
+        # Create day schedule
+        day_schedule = {
+            "wake_time": wake_time.strftime("%H:%M"),
+            "bed_time": bed_time.strftime("%H:%M"),
+            "sleep_hours": round(sleep_hours, 1),
+            "work_start": work_start.strftime("%H:%M") if work_start else None,
+            "work_end": work_end.strftime("%H:%M") if work_end else None,
+            "work_type": work_type,
+            "has_workout": is_workout_day,
+            "workout_duration": workout_duration_val if is_workout_day else 0,
+            "workout_intensity": workout_intensity_val if is_workout_day else None,
+            "workout_time": minutes_to_time(workout_time_min) if workout_time_min else None,
+            "activity_level": activity_level,
+            "estimated_tdee": day_tdee,
+            "meals": [],
+            "meal_contexts": meal_contexts.copy(),
+            "optimized": st.session_state.get('generate_optimized', False)
+        }
+        
+        # Add optimized meals to schedule
+        for j in range(len(optimized_meal_times)):
+            meal_name = meal_names[j] if j < len(meal_names) else f"Meal {j+1}"
+            meal_time = minutes_to_time(optimized_meal_times[j])
+            meal_context = optimized_contexts[j] if j < len(optimized_contexts) else "Home Cooking"
+            
+            day_schedule["meals"].append({
+                "name": meal_name,
+                "time": meal_time,
+                "context": meal_context
+            })
+        
+        st.session_state.weekly_schedule_v2[day] = day_schedule
+    
+    # Clear optimization status and show completion
+    optimization_status.empty()
+    if st.session_state.get('generate_optimized', False):
+        st.success("🧠 Smart optimized schedule generated successfully! Meal times, workout timing, and contexts have been optimized based on your preferences.")
+        
+        # Show optimization insights
+        with st.expander("🔍 Optimization Insights", expanded=False):
+            st.write("**Smart optimizations applied:**")
+            if pre_workout_meal:
+                st.write("• Pre-workout meals scheduled 1 hour before workouts")
+            if post_workout_meal:
+                st.write("• Post-workout meals scheduled within 2 hours after workouts")
+            if avoid_late_workouts:
+                st.write("• Workouts scheduled at least 3 hours before bedtime")
+            st.write(f"• Meals spaced at least {meal_spacing} hours apart")
+            st.write(f"• Energy distribution optimized for: {energy_focus}")
+            if workout_time_pref != "Flexible (any time)":
+                st.write(f"• Workouts scheduled during preferred time: {workout_time_pref}")
+    else:
+        st.success("✅ Basic weekly schedule generated successfully!")
 
 # SECTION 5: Schedule Overview
 if st.session_state.weekly_schedule_v2:
@@ -536,40 +733,29 @@ if st.session_state.weekly_schedule_v2:
         day_data = st.session_state.weekly_schedule_v2.get(day, {})
         
         # Work schedule display
-        work_schedule = day_data.get('work_schedule', {})
-        if work_schedule.get('start_time') and work_schedule.get('end_time'):
-            work_display = f"{work_schedule['start_time']} - {work_schedule['end_time']}"
+        if day_data.get("work_start") and day_data.get("work_end"):
+            work_display = f"{day_data['work_start']} - {day_data['work_end']}"
         else:
             work_display = "No work"
         
-        # Workout display
-        workouts = day_data.get('workouts', [])
-        if workouts:
-            if len(workouts) == 1:
-                workout = workouts[0]
-                workout_display = f"{workout.get('duration', 0)}min {workout.get('type', 'Workout')}"
-            else:
-                workout_display = f"{len(workouts)} workouts"
-        else:
-            workout_display = "Rest Day"
+        # Workout display  
+        workout_display = "Rest Day"
+        if day_data.get("has_workout"):
+            workout_display = f"{day_data.get('workout_duration', 0)}min {day_data.get('workout_intensity', '')}"
         
-        # Meal count display
-        meals = day_data.get('meals', [])
-        meal_count = len([m for m in meals if m.get('type') == 'meal'])
-        snack_count = len([m for m in meals if m.get('type') == 'snack'])
-        meal_display = f"{meal_count} meals, {snack_count} snacks"
-        
-        # Sleep display
-        sleep_schedule = day_data.get('sleep_schedule', {})
-        sleep_display = f"{sleep_schedule.get('wake_time', '')} - {sleep_schedule.get('bed_time', '')} ({sleep_schedule.get('sleep_hours', 0):.1f}h)"
+        # Meal times display
+        meals = day_data.get("meals", [])
+        meal_display = " | ".join([f"{meal['time']} {meal['name']}" for meal in meals[:3]])
+        if len(meals) > 3:
+            meal_display += f" | +{len(meals)-3} more"
         
         schedule_data.append({
             "Day": day,
-            "Sleep": sleep_display,
+            "Sleep": f"{day_data.get('wake_time', '')} - {day_data.get('bed_time', '')} ({day_data.get('sleep_hours', 0)}h)",
             "Work": work_display,
             "Workout": workout_display,
             "Meals": meal_display,
-            "Total Calories": f"{day_data.get('total_calories', 0)} cal"
+            "Est. TDEE": f"{day_data.get('estimated_tdee', 0)} cal"
         })
     
     # Display schedule table
@@ -589,43 +775,33 @@ if st.session_state.weekly_schedule_v2:
             
             with detail_col1:
                 st.write("**Daily Overview:**")
-                sleep_schedule = day_detail.get('sleep_schedule', {})
-                work_schedule = day_detail.get('work_schedule', {})
-                
-                st.write(f"• Wake up: {sleep_schedule.get('wake_time', 'N/A')}")
-                st.write(f"• Sleep: {sleep_schedule.get('sleep_hours', 0):.1f} hours")
-                st.write(f"• Work type: {work_schedule.get('type', 'N/A')}")
-                if work_schedule.get('start_time'):
-                    st.write(f"• Work hours: {work_schedule['start_time']} - {work_schedule['end_time']}")
-                
-                workouts = day_detail.get('workouts', [])
-                if workouts:
-                    st.write("**Workouts:**")
-                    for i, workout in enumerate(workouts):
-                        st.write(f"• {workout.get('type', 'Workout')} - {workout.get('duration', 0)} min ({workout.get('intensity', 'N/A')})")
-                
-                st.write(f"• Base TDEE: {day_detail.get('base_tdee', 0)} calories")
-                st.write(f"• Workout calories: {day_detail.get('workout_calories', 0)} calories")
-                st.write(f"• Total calories: {day_detail.get('total_calories', 0)} calories")
+                st.write(f"• Wake up: {day_detail.get('wake_time', 'N/A')}")
+                st.write(f"• Sleep: {day_detail.get('sleep_hours', 0)} hours")
+                st.write(f"• Work: {day_detail.get('work_type', 'N/A')}")
+                if day_detail.get('work_start'):
+                    st.write(f"• Work hours: {day_detail['work_start']} - {day_detail['work_end']}")
+                st.write(f"• Activity level: {day_detail.get('activity_level', 'N/A')}")
+                if day_detail.get('has_workout'):
+                    st.write(f"• Workout: {day_detail.get('workout_duration', 0)} min ({day_detail.get('workout_intensity', 'N/A')})")
+                st.write(f"• Estimated TDEE: {day_detail.get('estimated_tdee', 0)} calories")
             
             with detail_col2:
-                st.write("**Meal & Snack Schedule:**")
+                st.write("**Meal Schedule:**")
                 meals = day_detail.get('meals', [])
                 for meal in meals:
-                    meal_type = meal.get('type', 'meal').title()
-                    st.write(f"• {meal['name']} ({meal_type}) - {meal['context']} - ~{meal['calories']} cal")
+                    st.write(f"• {meal['time']} - {meal['name']} ({meal['context']})")
     
     # Save schedule and proceed
-    st.divider()
-    if st.button("💾 Save Schedule & Continue to Nutrition Targets", type="primary", key="save_schedule"):
+    st.markdown("---")
+    if st.button("Save Schedule & Continue to Nutrition Targets", type="primary", key="save_schedule"):
         # Convert to the format expected by other parts of the app
         st.session_state.confirmed_weekly_schedule = copy.deepcopy(st.session_state.weekly_schedule_v2)
         
-        # Calculate day-specific TDEE values for nutrition targets
+        # Calculate day-specific TDEE values
         day_tdee_values = {}
         for day in days_of_week:
             day_data = st.session_state.weekly_schedule_v2.get(day, {})
-            day_tdee_values[day] = day_data.get('total_calories', 2000)
+            day_tdee_values[day] = day_data.get('estimated_tdee', 2000)
         st.session_state.day_tdee_values = day_tdee_values
         
         st.success("✅ Schedule saved! You can now proceed to Nutrition Targets to set your daily nutrition goals based on this schedule.")
@@ -635,7 +811,7 @@ else:
     st.info("👆 Please generate your weekly schedule using the form above to see your personalized schedule overview.")
 
 # Add helpful tips
-st.divider()
+st.markdown("---")
 st.markdown("### 💡 Tips for Better Meal Planning")
 st.markdown("""
 - **Home Cooking**: Plan prep time and grocery shopping
