@@ -83,11 +83,6 @@ activity_level = st.session_state.get('activity_level', 'Moderately active')
 goal_info = st.session_state.get('goal_info', {})
 goal_type = goal_info.get('goal_type', 'maintain')
 
-# DEBUG: Show what we're getting
-st.write(f"**DEBUG:** goal_type = {goal_type}")
-st.write(f"**DEBUG:** goal_info = {goal_info}")
-st.write(f"**DEBUG:** session_state keys = {list(st.session_state.keys())}")
-
 # Get weekly change parameters for accurate calorie calculation
 # Check multiple possible sources for weekly change data
 weekly_weight_pct = goal_info.get('weekly_weight_pct', 0.0)
@@ -108,14 +103,22 @@ weekly_weight_change_kg = abs(weekly_weight_pct * weight_kg)
 tdee = utils.calculate_tdee(gender, weight_kg, height_cm, age, activity_level)
 
 # Ensure we have a reasonable weekly change for non-maintenance goals
-if weekly_weight_change_kg == 0.0 and goal_type != 'maintain':
+goal_type_lower = goal_type.lower().replace(' ', '_')  # Handle "Lose fat" vs "lose_fat"
+if weekly_weight_change_kg == 0.0 and goal_type_lower != 'maintain':
     # Use default rates if no weekly change is set but goal is not maintenance
-    if goal_type == 'lose_fat':
+    if 'lose' in goal_type_lower or 'fat' in goal_type_lower:
         weekly_weight_change_kg = 0.5  # 0.5 kg per week default for fat loss
-    elif goal_type == 'gain_muscle':
+    elif 'gain' in goal_type_lower or 'muscle' in goal_type_lower:
         weekly_weight_change_kg = 0.25  # 0.25 kg per week default for muscle gain
 
 target_calories = utils.calculate_target_calories(tdee, goal_type, weekly_weight_change_kg)
+
+# DEBUG: Show what we're calculating
+st.write(f"**DEBUG:** goal_type = {goal_type} | goal_type_lower = {goal_type_lower}")
+st.write(f"**DEBUG:** weekly_weight_pct = {weekly_weight_pct}")
+st.write(f"**DEBUG:** weekly_weight_change_kg = {weekly_weight_change_kg}")
+st.write(f"**DEBUG:** TDEE = {tdee}")
+st.write(f"**DEBUG:** target_calories = {target_calories}")
 
 # Calculate macros
 macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
@@ -164,18 +167,20 @@ for day in days_of_week:
     # Calculate day-specific target calories based on goal with weekly change
     # Use the same weekly change calculation as base targets
     day_weekly_change_kg = weekly_weight_change_kg
-    if day_weekly_change_kg == 0.0 and goal_type != 'maintain':
-        if goal_type == 'lose_fat':
+    goal_type_lower = goal_type.lower().replace(' ', '_')  # Handle "Lose fat" vs "lose_fat"
+    
+    if day_weekly_change_kg == 0.0 and goal_type_lower != 'maintain':
+        if 'lose' in goal_type_lower or 'fat' in goal_type_lower:
             day_weekly_change_kg = 0.5 * 0.005 * weight_kg
-        elif goal_type == 'gain_muscle':
+        elif 'gain' in goal_type_lower or 'muscle' in goal_type_lower:
             day_weekly_change_kg = 0.5 * 0.0025 * weight_kg
     
     # Debug: Add explicit check for weekly change calculation
-    if day_weekly_change_kg == 0.0 and goal_type != 'maintain':
+    if day_weekly_change_kg == 0.0 and goal_type_lower != 'maintain':
         # Use standard rates for fat loss or muscle gain
-        if goal_type == 'lose_fat':
+        if 'lose' in goal_type_lower or 'fat' in goal_type_lower:
             day_weekly_change_kg = 0.5  # 0.5 kg per week
-        elif goal_type == 'gain_muscle':
+        elif 'gain' in goal_type_lower or 'muscle' in goal_type_lower:
             day_weekly_change_kg = 0.25  # 0.25 kg per week
     
     day_target_calories = utils.calculate_target_calories(day_tdee, goal_type, day_weekly_change_kg)
