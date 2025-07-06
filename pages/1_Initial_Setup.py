@@ -392,12 +392,21 @@ if st.session_state.user_info:
         height_in = st.session_state.user_info.get('height_in', 8)
         height_cm = st.session_state.user_info.get('height_cm', 175)
         
+        # Ensure values are not None
+        height_ft = height_ft if height_ft is not None else 5
+        height_in = height_in if height_in is not None else 8
+        height_cm = height_cm if height_cm is not None else 175
+        
         if imperial_selected:
             st.write(f"**Height:** {height_ft}'{height_in}\"")
-            st.write(f"**Weight:** {st.session_state.user_info.get('weight_lbs', 0):.1f} lbs")
+            weight_lbs = st.session_state.user_info.get('weight_lbs', 0)
+            weight_lbs = weight_lbs if weight_lbs is not None else 0
+            st.write(f"**Weight:** {weight_lbs:.1f} lbs")
         else:
-            st.write(f"**Height:** {height_ft}'{height_in}\" ({height_cm:.1f} cm)")
-            st.write(f"**Weight:** {st.session_state.user_info.get('weight_kg', 0):.1f} kg")
+            st.write(f"**Height:** {height_cm:.1f} cm")
+            weight_kg = st.session_state.user_info.get('weight_kg', 0)
+            weight_kg = weight_kg if weight_kg is not None else 0
+            st.write(f"**Weight:** {weight_kg:.1f} kg")
     
     with col2:
         body_fat = st.session_state.user_info.get('body_fat_percentage', 0)
