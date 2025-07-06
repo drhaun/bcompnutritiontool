@@ -771,75 +771,79 @@ for i, eating_occasion in enumerate(current_day_meals):
         meal_col1, meal_col2 = st.columns(2)
         
         with meal_col1:
-            # Meal timing
-            meal_time = st.time_input(
-                "Meal Time",
-                value=pd.to_datetime(meal['time']).time(),
-                key=f"meal_time_custom_{customize_day}_{i}"
+            # Timing
+            occasion_time = st.time_input(
+                f"{occasion_type} Time",
+                value=pd.to_datetime(eating_occasion['time']).time(),
+                key=f"occasion_time_custom_{customize_day}_{i}"
             )
             
             # Calories
-            meal_calories = st.number_input(
+            occasion_calories = st.number_input(
                 "Calories",
                 min_value=50,
                 max_value=int(final_calories),
-                value=int(meal['calories']),
+                value=int(eating_occasion['calories']),
                 step=25,
-                key=f"meal_cal_{customize_day}_{i}"
+                key=f"occasion_cal_{customize_day}_{i}"
             )
             
             # Protein
-            meal_protein = st.number_input(
+            occasion_protein = st.number_input(
                 "Protein (g)",
                 min_value=5,
                 max_value=int(final_protein),
-                value=int(meal['protein']),
+                value=int(eating_occasion['protein']),
                 step=2,
-                key=f"meal_protein_{customize_day}_{i}"
+                key=f"occasion_protein_{customize_day}_{i}"
             )
         
         with meal_col2:
             # Show percentage of daily total
-            cal_pct = (meal_calories / final_calories) * 100 if final_calories > 0 else 0
-            protein_pct = (meal_protein / final_protein) * 100 if final_protein > 0 else 0
+            cal_pct = (occasion_calories / final_calories) * 100 if final_calories > 0 else 0
+            protein_pct = (occasion_protein / final_protein) * 100 if final_protein > 0 else 0
             
             st.markdown(f"**% of Daily Target:**")
             st.write(f"Calories: {cal_pct:.1f}%")
             st.write(f"Protein: {protein_pct:.1f}%")
             
             # Carbs
-            meal_carbs = st.number_input(
+            occasion_carbs = st.number_input(
                 "Carbs (g)",
                 min_value=5,
                 max_value=int(final_carbs),
-                value=int(meal['carbs']),
+                value=int(eating_occasion['carbs']),
                 step=5,
-                key=f"meal_carbs_{customize_day}_{i}"
+                key=f"occasion_carbs_{customize_day}_{i}"
             )
             
             # Fat
-            meal_fat = st.number_input(
+            occasion_fat = st.number_input(
                 "Fat (g)",
                 min_value=2,
                 max_value=int(final_fat),
-                value=int(meal['fat']),
+                value=int(eating_occasion['fat']),
                 step=2,
-                key=f"meal_fat_{customize_day}_{i}"
+                key=f"occasion_fat_{customize_day}_{i}"
             )
         
-        # Update meal in session state
+        # Update eating occasion in session state
         try:
-            time_str = meal_time.strftime("%H:%M") if meal_time else "12:00"
+            if hasattr(occasion_time, 'strftime'):
+                time_str = occasion_time.strftime("%H:%M")
+            else:
+                time_str = str(occasion_time) if occasion_time else "12:00"
         except:
             time_str = "12:00"
             
         st.session_state.per_meal_macros[customize_day][i] = {
-            "name": meal['name'],
+            "name": eating_occasion['name'],
+            "type": eating_occasion.get('type', 'meal'),
             "time": time_str,
-            "calories": meal_calories,
-            "protein": meal_protein,
-            "carbs": meal_carbs,
-            "fat": meal_fat
+            "calories": occasion_calories,
+            "protein": occasion_protein,
+            "carbs": occasion_carbs,
+            "fat": occasion_fat
         }
         
         # Quick adjustment buttons
