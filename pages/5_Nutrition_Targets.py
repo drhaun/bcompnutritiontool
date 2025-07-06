@@ -113,12 +113,7 @@ if weekly_weight_change_kg == 0.0 and goal_type_lower != 'maintain':
 
 target_calories = utils.calculate_target_calories(tdee, goal_type, weekly_weight_change_kg)
 
-# DEBUG: Show what we're calculating
-st.write(f"**DEBUG:** goal_type = {goal_type} | goal_type_lower = {goal_type_lower}")
-st.write(f"**DEBUG:** weekly_weight_pct = {weekly_weight_pct}")
-st.write(f"**DEBUG:** weekly_weight_change_kg = {weekly_weight_change_kg}")
-st.write(f"**DEBUG:** TDEE = {tdee}")
-st.write(f"**DEBUG:** target_calories = {target_calories}")
+
 
 # Calculate macros
 macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
@@ -654,28 +649,58 @@ def get_meal_distribution(meal_count):
 
 meal_names, meal_percentages = get_meal_distribution(example_meal_count)
 
-# Advanced per-meal macro customization
-st.markdown("### Per-Meal Macro Customization")
-st.markdown(f"Customize individual meal targets for **{customize_day}** ({example_meal_count} meals):")
+# Advanced per-meal and snack macro customization
+selected_day_meal_count = selected_day_settings.get('meal_count', default_meal_count)
+selected_day_snack_count = selected_day_settings.get('snack_count', default_snack_count)
+total_eating_occasions = selected_day_meal_count + selected_day_snack_count
+
+st.markdown("### Per-Meal & Snack Macro Customization")
+st.markdown(f"Customize individual eating occasion targets for **{customize_day}** ({selected_day_meal_count} meals + {selected_day_snack_count} snacks = {total_eating_occasions} total):")
 
 # Initialize per-meal customization state
 if 'per_meal_macros' not in st.session_state:
     st.session_state.per_meal_macros = {}
 
 if customize_day not in st.session_state.per_meal_macros:
-    # Initialize with default distribution
-    meal_names, meal_percentages = get_meal_distribution(example_meal_count)
-    default_meals = []
-    for i, (meal_name, percentage) in enumerate(zip(meal_names, meal_percentages)):
-        default_meals.append({
+    # Initialize with default distribution including meals and snacks
+    default_eating_occasions = []
+    
+    # Add meals
+    meal_names = ["Breakfast", "Lunch", "Dinner", "Mid-Morning", "Afternoon", "Evening", "Pre-Dinner", "Night"]
+    meal_percentage = 0.75  # 75% of calories go to meals
+    snack_percentage = 0.25  # 25% of calories go to snacks
+    
+    for i in range(selected_day_meal_count):
+        meal_name = meal_names[i] if i < len(meal_names) else f"Meal {i+1}"
+        individual_meal_pct = meal_percentage / selected_day_meal_count
+        
+        default_eating_occasions.append({
             "name": meal_name,
-            "calories": final_calories * percentage,
-            "protein": final_protein * percentage,
-            "carbs": final_carbs * percentage,
-            "fat": final_fat * percentage,
-            "time": selected_day_settings.get('meal_times', default_meal_times.get(example_meal_count, ["07:00", "12:00", "18:00"]))[i] if i < len(selected_day_settings.get('meal_times', [])) else default_meal_times.get(example_meal_count, ["07:00", "12:00", "18:00"])[i] if i < len(default_meal_times.get(example_meal_count, ["07:00", "12:00", "18:00"])) else "12:00"
+            "type": "meal",
+            "calories": final_calories * individual_meal_pct,
+            "protein": final_protein * individual_meal_pct,
+            "carbs": final_carbs * individual_meal_pct,
+            "fat": final_fat * individual_meal_pct,
+            "time": selected_day_settings.get('meal_times', ["07:00", "12:00", "18:00"])[i] if i < len(selected_day_settings.get('meal_times', [])) else ["07:00", "12:00", "18:00", "16:00", "19:00"][i] if i < 5 else "12:00"
         })
-    st.session_state.per_meal_macros[customize_day] = default_meals
+    
+    # Add snacks
+    snack_names = ["Mid-Morning Snack", "Afternoon Snack", "Evening Snack", "Pre-Workout Snack", "Post-Workout Snack"]
+    for i in range(selected_day_snack_count):
+        snack_name = snack_names[i] if i < len(snack_names) else f"Snack {i+1}"
+        individual_snack_pct = snack_percentage / selected_day_snack_count if selected_day_snack_count > 0 else 0
+        
+        default_eating_occasions.append({
+            "name": snack_name,
+            "type": "snack",
+            "calories": final_calories * individual_snack_pct,
+            "protein": final_protein * individual_snack_pct,
+            "carbs": final_carbs * individual_snack_pct,
+            "fat": final_fat * individual_snack_pct,
+            "time": selected_day_settings.get('snack_times', ["10:00", "15:00", "20:00"])[i] if i < len(selected_day_settings.get('snack_times', [])) else ["10:00", "15:00", "20:00", "21:00"][i] if i < 4 else "15:00"
+        })
+    
+    st.session_state.per_meal_macros[customize_day] = default_eating_occasions
 
 # Daily budget display
 st.markdown("#### Daily Macro Budget")
@@ -699,7 +724,7 @@ total_fat = sum([meal["fat"] for meal in current_day_meals])
 
 # Show current vs target
 st.markdown("#### Current Meal Plan vs Targets")
-current_col1, current_col2, current_col3, current_col4 = st.columns(4)
+current_col1, current_col2, current_col3, current_col4, current_col5 = st.columns(5)
 
 with current_col1:
     cal_diff = total_calories - final_calories
@@ -713,12 +738,36 @@ with current_col3:
 with current_col4:
     fat_diff = total_fat - final_fat
     st.metric("Current Fat", f"{total_fat:.0f}g", delta=f"{fat_diff:+.0f}g")
+with current_col5:
+    # Auto-balance button
+    if st.button("⚖️ Auto-Balance Remaining Macros", help="Redistribute remaining macros across all meals and snacks"):
+        # Calculate differences
+        cal_remaining = final_calories - total_calories
+        protein_remaining = final_protein - total_protein
+        carbs_remaining = final_carbs - total_carbs
+        fat_remaining = final_fat - total_fat
+        
+        # Distribute remaining macros proportionally
+        num_eating_occasions = len(current_day_meals)
+        if num_eating_occasions > 0:
+            for meal in current_day_meals:
+                meal["calories"] += cal_remaining / num_eating_occasions
+                meal["protein"] += protein_remaining / num_eating_occasions
+                meal["carbs"] += carbs_remaining / num_eating_occasions
+                meal["fat"] += fat_remaining / num_eating_occasions
+            
+            st.success("Macros auto-balanced across all meals and snacks!")
+            st.rerun()
 
-# Per-meal customization interface
-st.markdown("#### Individual Meal Customization")
+# Per-meal and snack customization interface
+st.markdown("#### Individual Meal & Snack Customization")
 
-for i, meal in enumerate(current_day_meals):
-    with st.expander(f"🍽️ {meal['name']} - {meal['time']}", expanded=False):
+for i, eating_occasion in enumerate(current_day_meals):
+    # Use appropriate icon based on type
+    icon = "🍽️" if eating_occasion.get('type', 'meal') == 'meal' else "🍎"
+    occasion_type = eating_occasion.get('type', 'meal').title()
+    
+    with st.expander(f"{icon} {eating_occasion['name']} ({occasion_type}) - {eating_occasion['time']}", expanded=False):
         meal_col1, meal_col2 = st.columns(2)
         
         with meal_col1:

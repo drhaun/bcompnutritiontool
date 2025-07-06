@@ -65,9 +65,12 @@ def calculate_target_calories(tdee, goal_type, weekly_change_kg=0.5):
     # 1 kg of body weight is approximately 7700 kcal
     daily_calorie_adjustment = (weekly_change_kg * 7700) / 7
     
-    if goal_type == "lose_fat":
+    # Normalize goal_type for comparison
+    goal_type_lower = goal_type.lower().replace(' ', '_')
+    
+    if 'lose' in goal_type_lower or 'fat' in goal_type_lower:
         return tdee - daily_calorie_adjustment
-    elif goal_type == "gain_muscle":
+    elif 'gain' in goal_type_lower or 'muscle' in goal_type_lower:
         return tdee + daily_calorie_adjustment
     else:  # maintain
         return tdee
@@ -82,11 +85,14 @@ def calculate_macros(target_calories, body_weight_kg, goal_type):
     # Convert kg to lbs for easier reference
     body_weight_lbs = body_weight_kg * 2.20462
     
-    if goal_type == "lose_fat":
+    # Normalize goal_type for comparison
+    goal_type_lower = goal_type.lower().replace(' ', '_')
+    
+    if 'lose' in goal_type_lower or 'fat' in goal_type_lower:
         # Higher protein for fat loss
         protein_g = 2.2 * body_weight_kg  # 2.2g per kg bodyweight (1.0g per lb)
         fat_g = 0.8 * body_weight_kg  # 0.8g per kg bodyweight (0.35g per lb)
-    elif goal_type == "gain_muscle":
+    elif 'gain' in goal_type_lower or 'muscle' in goal_type_lower:
         # High protein and carbs for muscle gain
         protein_g = 2.0 * body_weight_kg  # 2.0g per kg bodyweight (0.9g per lb)
         fat_g = 0.8 * body_weight_kg  # 0.8g per kg bodyweight (0.35g per lb)
