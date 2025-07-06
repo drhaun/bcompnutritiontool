@@ -1,7 +1,5 @@
 {
-  "dietary_restrictions": [
-    "Dairy-Free"
-  ],
+  "dietary_restrictions": [],
   "cuisine_preferences": [],
   "preferred_proteins": [
     "Chicken Breast",
@@ -23,10 +21,12 @@
   "preferred_carbs": [],
   "preferred_fats": [],
   "preferred_vegetables": [],
-  "disliked_foods": [],
+  "disliked_foods": [
+    "Brussels, Peas, Asparagus, Dates, Cauliflower"
+  ],
   "allergies": [],
   "meal_frequency": 3,
-  "cooking_time_preference": "Long (60+ min)",
+  "cooking_time_preference": "Quick (under 30 min)",
   "budget_preference": "Moderate",
   "wants_home_cooking": "Yes",
   "home_cooking_percentage": 0,
@@ -35,5 +35,10 @@
   "wants_meal_delivery": "No",
   "meal_delivery_percentage": 0,
   "primary_zip_code": "35007",
-  "travel_frequency": "Sometimes"
+  "travel_frequency": "Sometimes",
+  "meal_delivery_interest": "High",
+  "home_cooking_interest": "Low",
+  "grocery_shopping_interest": "Low",
+  "cooking_for": "Myself + partner (2 people)",
+  "leftovers_preference": "Okay with leftovers occasionally"
 }
