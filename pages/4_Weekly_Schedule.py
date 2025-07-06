@@ -97,6 +97,63 @@ activity_col1, activity_col2 = st.columns(2)
 with activity_col1:
     st.subheader("Workout Schedule")
     
+    # Workout default settings section
+    with st.expander("⚙️ **Set Workout Defaults** (Optional - saves time!)", expanded=False):
+        st.markdown("""
+        💡 **Smart Tip:** Set your typical workout preferences here to auto-fill the settings for each day. 
+        You can still customize individual workouts later if needed!
+        """)
+        
+        default_col1, default_col2 = st.columns(2)
+        
+        with default_col1:
+            default_workout_type = st.selectbox(
+                "Default workout type",
+                ["Resistance Training", "Cardio", "Mixed/Cross-Training", "Sports", "Yoga/Flexibility"],
+                index=0,
+                key="default_workout_type",
+                help="This will be pre-selected for all workout days"
+            )
+            
+            default_workout_time = st.selectbox(
+                "Default workout time",
+                [
+                    "Early Morning (5:00-8:00 AM)",
+                    "Morning (8:00-11:00 AM)", 
+                    "Midday (11:00 AM-2:00 PM)",
+                    "Afternoon (2:00-5:00 PM)",
+                    "Evening (5:00-8:00 PM)",
+                    "Night (8:00-11:00 PM)"
+                ],
+                index=4,
+                key="default_workout_time",
+                help="Your typical workout time slot"
+            )
+        
+        with default_col2:
+            default_workout_duration = st.slider(
+                "Default duration (minutes)",
+                30, 180, 60, step=15,
+                key="default_workout_duration",
+                help="Your usual workout length"
+            )
+            
+            default_workout_intensity = st.selectbox(
+                "Default intensity",
+                ["Light", "Moderate", "High", "Very High"],
+                index=2,
+                key="default_workout_intensity",
+                help="Your typical workout intensity level"
+            )
+        
+        # Store defaults in session state
+        st.session_state.workout_defaults = {
+            'type': default_workout_type,
+            'time': default_workout_time,
+            'duration': default_workout_duration,
+            'intensity': default_workout_intensity
+        }
+    
     # Check if user does multiple workouts per day
     multiple_workouts_per_day = st.checkbox("I sometimes do multiple workouts per day", value=False, key="multiple_workouts_per_day")
     
@@ -123,6 +180,9 @@ with activity_col1:
             if workout_days:
                 st.write("**Configure each workout day:**")
                 
+                # Get workout defaults if they exist
+                workout_defaults = st.session_state.get('workout_defaults', {})
+                
                 for day in workout_days:
                     with st.expander(f"**{day}** Workout Details", expanded=False):
                         day_key = day.lower()
@@ -130,38 +190,58 @@ with activity_col1:
                         workout_col1, workout_col2 = st.columns(2)
                         
                         with workout_col1:
+                            # Use default or fallback for workout type
+                            type_options = ["Resistance Training", "Cardio", "Mixed/Cross-Training", "Sports", "Yoga/Flexibility"]
+                            default_type_index = 0
+                            if workout_defaults.get('type') in type_options:
+                                default_type_index = type_options.index(workout_defaults['type'])
+                            
                             workout_type = st.selectbox(
                                 "Workout type",
-                                ["Resistance Training", "Cardio", "Mixed/Cross-Training", "Sports", "Yoga/Flexibility"],
-                                index=0,
+                                type_options,
+                                index=default_type_index,
                                 key=f"single_workout_type_{day_key}"
                             )
                             
+                            # Use default or fallback for workout time
+                            time_options = [
+                                "Early Morning (5:00-8:00 AM)",
+                                "Morning (8:00-11:00 AM)", 
+                                "Midday (11:00 AM-2:00 PM)",
+                                "Afternoon (2:00-5:00 PM)",
+                                "Evening (5:00-8:00 PM)",
+                                "Night (8:00-11:00 PM)"
+                            ]
+                            default_time_index = 4
+                            if workout_defaults.get('time') in time_options:
+                                default_time_index = time_options.index(workout_defaults['time'])
+                            
                             workout_time = st.selectbox(
                                 "Workout time",
-                                [
-                                    "Early Morning (5:00-8:00 AM)",
-                                    "Morning (8:00-11:00 AM)", 
-                                    "Midday (11:00 AM-2:00 PM)",
-                                    "Afternoon (2:00-5:00 PM)",
-                                    "Evening (5:00-8:00 PM)",
-                                    "Night (8:00-11:00 PM)"
-                                ],
-                                index=4,
+                                time_options,
+                                index=default_time_index,
                                 key=f"single_workout_time_{day_key}"
                             )
                         
                         with workout_col2:
+                            # Use default or fallback for duration
+                            default_duration = workout_defaults.get('duration', 60)
                             workout_duration = st.slider(
                                 "Duration (minutes)",
-                                30, 180, 60, step=15,
+                                30, 180, default_duration, step=15,
                                 key=f"single_workout_duration_{day_key}"
                             )
                             
+                            # Use default or fallback for intensity
+                            intensity_options = ["Light", "Moderate", "High", "Very High"]
+                            default_intensity_index = 2
+                            if workout_defaults.get('intensity') in intensity_options:
+                                default_intensity_index = intensity_options.index(workout_defaults['intensity'])
+                            
                             workout_intensity = st.selectbox(
                                 "Intensity",
-                                ["Light", "Moderate", "High", "Very High"],
-                                index=2,
+                                intensity_options,
+                                index=default_intensity_index,
                                 key=f"single_workout_intensity_{day_key}"
                             )
                         
@@ -196,42 +276,67 @@ with activity_col1:
                 if num_workouts > 0:
                     day_workouts = []
                     
+                    # Get workout defaults if they exist
+                    workout_defaults = st.session_state.get('workout_defaults', {})
+                    
                     for workout_num in range(num_workouts):
                         st.write(f"**Workout {workout_num + 1}:**")
                         
                         workout_col1, workout_col2 = st.columns(2)
                         
                         with workout_col1:
+                            # Use default or fallback for workout type
+                            type_options = ["Resistance Training", "Cardio", "Mixed/Cross-Training", "Sports", "Yoga/Flexibility"]
+                            default_type_index = 0
+                            if workout_defaults.get('type') in type_options:
+                                default_type_index = type_options.index(workout_defaults['type'])
+                            
                             workout_type = st.selectbox(
                                 "Type",
-                                ["Resistance Training", "Cardio", "Mixed/Cross-Training", "Sports", "Yoga/Flexibility"],
+                                type_options,
+                                index=default_type_index,
                                 key=f"workout_type_{day_key}_{workout_num}"
                             )
                             
+                            # Use default or fallback for workout time
+                            time_options = [
+                                "Early Morning (5:00-8:00 AM)",
+                                "Morning (8:00-11:00 AM)", 
+                                "Midday (11:00 AM-2:00 PM)",
+                                "Afternoon (2:00-5:00 PM)",
+                                "Evening (5:00-8:00 PM)",
+                                "Night (8:00-11:00 PM)"
+                            ]
+                            default_time_index = 4
+                            if workout_defaults.get('time') in time_options:
+                                default_time_index = time_options.index(workout_defaults['time'])
+                            
                             workout_time = st.selectbox(
                                 "Time",
-                                [
-                                    "Early Morning (5:00-8:00 AM)",
-                                    "Morning (8:00-11:00 AM)", 
-                                    "Midday (11:00 AM-2:00 PM)",
-                                    "Afternoon (2:00-5:00 PM)",
-                                    "Evening (5:00-8:00 PM)",
-                                    "Night (8:00-11:00 PM)"
-                                ],
+                                time_options,
+                                index=default_time_index,
                                 key=f"workout_time_{day_key}_{workout_num}"
                             )
                         
                         with workout_col2:
+                            # Use default or fallback for duration
+                            default_duration = workout_defaults.get('duration', 60)
                             workout_duration = st.slider(
                                 "Duration (min)",
-                                15, 180, 60, step=15,
+                                15, 180, default_duration, step=15,
                                 key=f"workout_duration_{day_key}_{workout_num}"
                             )
                             
+                            # Use default or fallback for intensity
+                            intensity_options = ["Light", "Moderate", "High", "Very High"]
+                            default_intensity_index = 2
+                            if workout_defaults.get('intensity') in intensity_options:
+                                default_intensity_index = intensity_options.index(workout_defaults['intensity'])
+                            
                             workout_intensity = st.selectbox(
                                 "Intensity",
-                                ["Light", "Moderate", "High", "Very High"],
-                                index=2,
+                                intensity_options,
+                                index=default_intensity_index,
                                 key=f"workout_intensity_{day_key}_{workout_num}"
                             )
                         
