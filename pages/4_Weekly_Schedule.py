@@ -730,7 +730,7 @@ if st.session_state.weekly_schedule_v2:
                 meals = day_detail.get('meals', [])
                 for meal in meals:
                     meal_type = meal.get('type', 'meal').title()
-                    st.write(f"• {meal['name']} ({meal_type}) - {meal['context']} - ~{meal['calories']} cal")
+                    st.write(f"• {meal['name']} ({meal_type}) - {meal['context']}")
     
     # Save schedule and proceed
     st.divider()
