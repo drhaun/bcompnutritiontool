@@ -148,31 +148,8 @@ with target_col2:
     st.markdown("**Suggested Daily Targets**")
     st.markdown("*Adjusted for Weekly Schedule*")
     
-    # Calculate suggested targets as average from day-specific nutrition
-    if st.session_state.get('day_specific_nutrition'):
-        total_days = len(st.session_state.day_specific_nutrition)
-        avg_calories = sum(day_data.get('calories', target_calories) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
-        avg_protein = sum(day_data.get('protein', macros['protein']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
-        avg_carbs = sum(day_data.get('carbs', macros['carbs']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
-        avg_fat = sum(day_data.get('fat', macros['fat']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
-        
-        suggested_col1, suggested_col2, suggested_col3, suggested_col4 = st.columns(4)
-        with suggested_col1:
-            st.metric("Calories", f"{avg_calories:,.0f}")
-        with suggested_col2:
-            st.metric("Protein", f"{avg_protein:.0f}g")
-        with suggested_col3:
-            st.metric("Carbs", f"{avg_carbs:.0f}g")
-        with suggested_col4:
-            st.metric("Fat", f"{avg_fat:.0f}g")
-        
-        # Show macro percentages for suggested
-        suggested_protein_pct = (avg_protein * 4 / avg_calories) * 100
-        suggested_carbs_pct = (avg_carbs * 4 / avg_calories) * 100
-        suggested_fat_pct = (avg_fat * 9 / avg_calories) * 100
-        st.markdown(f"**Macro Distribution:** Protein {suggested_protein_pct:.0f}% • Carbs {suggested_carbs_pct:.0f}% • Fat {suggested_fat_pct:.0f}%")
-    else:
-        st.info("Complete Weekly Schedule to see suggested targets")
+    # Calculate suggested targets - this will be populated after day-specific calculations below
+    suggested_targets_placeholder = st.empty()
 
 # Day-specific targets based on weekly schedule TDEE variations  
 st.markdown("#### Day-Specific Nutrition Targets")
@@ -264,12 +241,41 @@ for i, day in enumerate(days_of_week):
 df = pd.DataFrame(days_data)
 st.dataframe(df, use_container_width=True)
 
+# Now populate the suggested targets section with calculated values
+if st.session_state.get('day_specific_nutrition'):
+    # Calculate averages from the stored day-specific nutrition data
+    total_days = len(st.session_state.day_specific_nutrition)
+    avg_calories = sum(day_data.get('calories', target_calories) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+    avg_protein = sum(day_data.get('protein', macros['protein']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+    avg_carbs = sum(day_data.get('carbs', macros['carbs']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+    avg_fat = sum(day_data.get('fat', macros['fat']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+    
+    # Update the suggested targets placeholder
+    with suggested_targets_placeholder.container():
+        suggested_col1, suggested_col2, suggested_col3, suggested_col4 = st.columns(4)
+        with suggested_col1:
+            st.metric("Calories", f"{avg_calories:,.0f}")
+        with suggested_col2:
+            st.metric("Protein", f"{avg_protein:.0f}g")
+        with suggested_col3:
+            st.metric("Carbs", f"{avg_carbs:.0f}g")
+        with suggested_col4:
+            st.metric("Fat", f"{avg_fat:.0f}g")
+        
+        # Show macro percentages for suggested
+        suggested_protein_pct = (avg_protein * 4 / avg_calories) * 100
+        suggested_carbs_pct = (avg_carbs * 4 / avg_calories) * 100
+        suggested_fat_pct = (avg_fat * 9 / avg_calories) * 100
+        st.markdown(f"**Macro Distribution:** Protein {suggested_protein_pct:.0f}% • Carbs {suggested_carbs_pct:.0f}% • Fat {suggested_fat_pct:.0f}%")
+else:
+    # Show completion message if no day-specific data
+    with suggested_targets_placeholder.container():
+        st.info("Complete Weekly Schedule to see suggested targets")
+
 st.info("💡 **How your targets are calculated:**\n\n"
         "**Base Daily Targets** - Initial targets based on your body composition goals (shown above)\n\n"
         "**Suggested Targets** - Adjusted targets that account for your Weekly Schedule activity levels\n\n"
         "**TDEE (Total Daily Energy Expenditure)** - Total calories you burn each day including all activities")
-
-# Day-specific nutrition data already stored above in the loop
 
 # Meal and Snack Breakdown from Weekly Schedule
 st.markdown("#### Meal & Snack Structure")
