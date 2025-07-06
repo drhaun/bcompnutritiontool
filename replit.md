@@ -102,6 +102,14 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 6, 2025 - Fixed Select All/Clear All Functionality**:
+  - Resolved persistent issues with Select All and Clear All buttons in Diet Preferences page
+  - Simplified button logic by removing conflicting st.rerun() calls and success messages
+  - Buttons now directly update session state without interference
+  - Applied consistent fix across all food categories: Proteins, Carbs, Fats, Vegetables, and Cuisines
+  - Maintained visual styling with checkmark and X icons plus full-width button layout
+  - Users can now successfully select all items in a category and modify individual selections
+
 - **June 26, 2025 - AI Meal Planning Restructure**:
   - Split AI meal planning into two distinct pages for different user needs
   - Created "Standalone AI Meal Plan" (Page 6) - compact, single-form interface for quick meal planning without setup
