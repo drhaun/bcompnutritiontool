@@ -385,6 +385,54 @@ with pref_tabs[4]:  # Cuisines
     if cuisine_preferences != st.session_state.diet_preferences.get('cuisine_preferences', []):
         st.session_state.diet_preferences['cuisine_preferences'] = cuisine_preferences
 
+# Supplementation Preferences section
+st.markdown("### 💊 Supplementation Preferences")
+st.markdown("Help us understand your preference for dietary supplements vs. whole foods to hit your nutrition targets.")
+
+supplement_col1, supplement_col2 = st.columns(2)
+
+with supplement_col1:
+    supplementation_preference = st.selectbox(
+        "Overall supplementation preference",
+        [
+            "Prefer whole foods only",
+            "Minimal supplements if needed", 
+            "Open to supplements",
+            "Prefer supplements for convenience"
+        ],
+        index=1,
+        key="supplementation_preference",
+        help="How comfortable are you with using dietary supplements?"
+    )
+
+with supplement_col2:
+    supplement_types = st.multiselect(
+        "Acceptable supplement types (if applicable)",
+        [
+            "Protein powders",
+            "Amino acids", 
+            "Carbohydrate powders",
+            "Multivitamins",
+            "Electrolytes",
+            "Omega-3 supplements",
+            "Vitamin D",
+            "B-Complex vitamins",
+            "Probiotics",
+            "Fiber supplements",
+            "Meal replacement shakes"
+        ],
+        default=st.session_state.diet_preferences.get('acceptable_supplements', []),
+        key="acceptable_supplements",
+        help="Select supplement types you're comfortable using"
+    )
+
+# Update session state
+if supplementation_preference != st.session_state.diet_preferences.get('supplementation_preference', ''):
+    st.session_state.diet_preferences['supplementation_preference'] = supplementation_preference
+
+if supplement_types != st.session_state.diet_preferences.get('acceptable_supplements', []):
+    st.session_state.diet_preferences['acceptable_supplements'] = supplement_types
+
 # Foods to Avoid section
 st.markdown("### 🚫 Foods to Avoid")
 disliked_foods_input = st.text_area(
@@ -411,6 +459,8 @@ with st.form("diet_preferences_form"):
             'preferred_fats': preferred_fats,
             'preferred_vegetables': preferred_vegetables,
             'cuisine_preferences': cuisine_preferences,
+            'supplementation_preference': supplementation_preference,
+            'acceptable_supplements': supplement_types,
             'disliked_foods': disliked_foods,
         })
         
@@ -437,6 +487,7 @@ with st.form("diet_preferences_form"):
                     st.write(f"**Cuisines:** {', '.join(cuisine_preferences[:3])}{'...' if len(cuisine_preferences) > 3 else ''}")
                 st.write(f"**Meal Delivery:** {st.session_state.diet_preferences.get('meal_delivery_interest', 'Not set')}")
                 st.write(f"**Home Cooking:** {st.session_state.diet_preferences.get('home_cooking_interest', 'Not set')}")
+                st.write(f"**Supplementation:** {st.session_state.diet_preferences.get('supplementation_preference', 'Not set')}")
             
             with summary_col2:
                 st.write(f"**Meals per Day:** {st.session_state.diet_preferences.get('meal_frequency', 'Not set')}")

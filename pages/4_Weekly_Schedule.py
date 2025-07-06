@@ -199,35 +199,62 @@ context_options = [
     "Quick & Easy", "Healthy Snack", "Family Meal"
 ]
 
-# Create context inputs for meals and snacks
+# Create context inputs for meals and snacks with better ordering
 total_eating_occasions = meals_per_day + snacks_per_day
 context_cols = st.columns(min(total_eating_occasions, 3))
 
-# Handle meals
+# Time range options for meals and snacks
+time_range_options = [
+    "Early Morning (5:00-8:00 AM)",
+    "Morning (8:00-11:00 AM)", 
+    "Midday (11:00 AM-2:00 PM)",
+    "Afternoon (2:00-5:00 PM)",
+    "Evening (5:00-8:00 PM)",
+    "Night (8:00-11:00 PM)"
+]
+
+# Handle meals with ordinal naming
 for i in range(meals_per_day):
-    meal_name = meal_names[i] if i < len(meal_names) else f"Meal {i+1}"
+    ordinal = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth"][i]
+    meal_name = f"{ordinal} Meal of Day"
     col_idx = i % len(context_cols)
     
     with context_cols[col_idx]:
+        st.write(f"**{meal_name}**")
         meal_contexts[meal_name] = st.selectbox(
-            f"{meal_name} Context",
+            "Context",
             context_options,
             key=f"meal_context_{i}",
             help="This helps determine meal suggestions and preparation methods"
         )
+        # Add time range selection
+        meal_time_range = st.selectbox(
+            "Typical time range",
+            time_range_options,
+            index=min(i, len(time_range_options)-1),
+            key=f"meal_time_range_{i}"
+        )
 
-# Handle snacks
-snack_names = ["Snack 1", "Snack 2", "Snack 3", "Snack 4", "Snack 5"]
+# Handle snacks with ordinal naming  
 for i in range(snacks_per_day):
-    snack_name = snack_names[i] if i < len(snack_names) else f"Snack {i+1}"
+    ordinal = ["First", "Second", "Third", "Fourth", "Fifth"][i]
+    snack_name = f"{ordinal} Snack of Day"
     col_idx = (meals_per_day + i) % len(context_cols)
     
     with context_cols[col_idx]:
+        st.write(f"**{snack_name}**")
         meal_contexts[snack_name] = st.selectbox(
-            f"{snack_name} Context",
+            "Context",
             context_options,
             key=f"snack_context_{i}",
             help="This helps determine snack suggestions and preparation methods"
+        )
+        # Add time range selection
+        snack_time_range = st.selectbox(
+            "Typical time range",
+            time_range_options,
+            index=min(i+1, len(time_range_options)-1),
+            key=f"snack_time_range_{i}"
         )
 
 # SECTION 4: Nutrient Timing Planner
@@ -236,60 +263,18 @@ st.header("🧠 Nutrient Timing Planner")
 timing_col1, timing_col2 = st.columns(2)
 
 with timing_col1:
-    st.subheader("Meal Timing Preferences")
-    
-    # Create time inputs for each meal
-    meal_times = {}
-    meal_display_names = ["Breakfast", "Lunch", "Dinner", "Meal 4", "Meal 5", "Meal 6", "Meal 7", "Meal 8"]
-    default_meal_times = [
-        datetime.time(7, 0),   # Breakfast
-        datetime.time(12, 0),  # Lunch  
-        datetime.time(18, 0),  # Dinner
-        datetime.time(21, 0),  # Meal 4
-        datetime.time(9, 0),   # Meal 5
-        datetime.time(15, 0),  # Meal 6
-        datetime.time(20, 0),  # Meal 7
-        datetime.time(22, 0),  # Meal 8
-    ]
-    
-    for i in range(meals_per_day):
-        meal_name = meal_display_names[i] if i < len(meal_display_names) else f"Meal {i+1}"
-        default_time = default_meal_times[i] if i < len(default_meal_times) else datetime.time(12, 0)
-        meal_times[meal_name] = st.time_input(
-            f"Typical {meal_name} time",
-            value=default_time,
-            key=f"meal_time_{i}"
-        )
+    st.subheader("Workout Nutrition Preferences")
     
     # Pre/post workout meal preferences
-    pre_workout_meal = st.checkbox("Include pre-workout meal/snack", value=True, key="pre_workout_meal")
+    pre_workout_meal = st.checkbox("Include pre-workout meal", value=True, key="pre_workout_meal")
+    pre_workout_snack = st.checkbox("Include pre-workout snack", value=False, key="pre_workout_snack")
     post_workout_meal = st.checkbox("Include post-workout meal within 2 hours", value=True, key="post_workout_meal")
+    
+    st.info("These preferences help optimize nutrition timing around your workouts for better performance and recovery.")
 
 with timing_col2:
-    st.subheader("Snack Timing Preferences")
-    
-    # Create time inputs for each snack
-    snack_times = {}
-    snack_display_names = ["Snack 1", "Snack 2", "Snack 3", "Snack 4", "Snack 5"]
-    default_snack_times = [
-        datetime.time(10, 0),  # Mid-morning snack
-        datetime.time(15, 0),  # Mid-afternoon snack
-        datetime.time(21, 0),  # Evening snack
-        datetime.time(8, 0),   # Early morning snack
-        datetime.time(16, 0),  # Late afternoon snack
-    ]
-    
-    for i in range(snacks_per_day):
-        snack_name = snack_display_names[i] if i < len(snack_display_names) else f"Snack {i+1}"
-        default_time = default_snack_times[i] if i < len(default_snack_times) else datetime.time(15, 0)
-        snack_times[snack_name] = st.time_input(
-            f"Typical {snack_name} time",
-            value=default_time,
-            key=f"snack_time_{i}"
-        )
-    
-    # Energy management preferences
     st.subheader("Energy Management")
+    
     energy_management = st.selectbox(
         "Energy distribution preference",
         ["Steady energy throughout day", "Higher energy for workouts", "Higher energy for work/focus"],
