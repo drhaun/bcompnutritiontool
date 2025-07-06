@@ -208,27 +208,108 @@ if not st.session_state.get('weekly_schedule_v2') or not st.session_state.get('d
 # Display current sync status
 st.success("✅ **Sync Profile Mode Active** - Using your personalized body composition targets and weekly schedule")
 
-# Show weekly overview
-with st.expander("📋 Weekly Overview", expanded=False):
-    weekly_schedule = st.session_state.weekly_schedule_v2
-    day_nutrition = st.session_state.day_specific_nutrition
+# Show comprehensive weekly overview
+with st.expander("📋 Complete Weekly Overview", expanded=True):
+    st.markdown("**Summary of all your selections and calculations:**")
     
+    # Get all data sources
+    weekly_schedule = st.session_state.get('weekly_schedule_v2', {})
+    day_nutrition = st.session_state.get('day_specific_nutrition', {})
+    body_comp_goals = st.session_state.get('body_composition_goals', {})
+    initial_setup = st.session_state.get('user_profile', {})
+    diet_prefs = st.session_state.get('diet_preferences', {})
+    
+    # Create comprehensive overview table
     overview_data = []
     for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
         schedule = weekly_schedule.get(day, {})
         nutrition = day_nutrition.get(day, {})
         
+        # Count meals and snacks
+        meals = schedule.get('meals', [])
+        meal_count = len([m for m in meals if m.get('type') == 'meal'])
+        snack_count = len([m for m in meals if m.get('type') == 'snack'])
+        
+        # Workout info
+        workouts = schedule.get('workouts', [])
+        workout_display = 'Rest Day'
+        if workouts:
+            if len(workouts) == 1:
+                workout = workouts[0]
+                workout_display = f"{workout.get('duration', 0)}min {workout.get('type', 'Workout')}"
+            else:
+                workout_display = f"{len(workouts)} workouts"
+        
         overview_data.append({
             'Day': day,
-            'TDEE': f"{schedule.get('estimated_tdee', 0):.0f} cal",
-            'Workout': '✓' if schedule.get('has_workout', False) else '✗',
-            'Meals': len(schedule.get('meals', [])),
+            'TDEE': f"{schedule.get('estimated_tdee', 0):.0f}",
+            'Target Calories': f"{nutrition.get('calories', 0):.0f}",
+            'Protein': f"{nutrition.get('protein', 0):.0f}g",
+            'Carbs': f"{nutrition.get('carbs', 0):.0f}g",
+            'Fat': f"{nutrition.get('fat', 0):.0f}g",
+            'Meals': meal_count,
+            'Snacks': snack_count,
+            'Workout': workout_display,
             'Wake': schedule.get('wake_time', 'N/A'),
             'Sleep': schedule.get('bed_time', 'N/A')
         })
     
     overview_df = pd.DataFrame(overview_data)
     st.dataframe(overview_df, use_container_width=True, hide_index=True)
+    
+    # Display summary information from previous steps
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**📊 Body Composition Goals:**")
+        if body_comp_goals:
+            st.write(f"• Goal: {body_comp_goals.get('goal_type', 'Not set')}")
+            st.write(f"• Current Weight: {body_comp_goals.get('current_weight_lbs', 'Not set')} lbs")
+            st.write(f"• Target Weight: {body_comp_goals.get('target_weight_lbs', 'Not set')} lbs")
+            st.write(f"• Timeline: {body_comp_goals.get('timeline_weeks', 'Not set')} weeks")
+        else:
+            st.write("Not configured")
+            
+        st.markdown("**👤 User Profile:**")
+        if initial_setup:
+            st.write(f"• Age: {initial_setup.get('age', 'Not set')}")
+            st.write(f"• Gender: {initial_setup.get('gender', 'Not set')}")
+            st.write(f"• Height: {initial_setup.get('height_ft', 'Not set')}'{initial_setup.get('height_in', '')}\"")
+            st.write(f"• Activity: {initial_setup.get('activity_level', 'Not set')}")
+        else:
+            st.write("Not configured")
+    
+    with col2:
+        st.markdown("**🥗 Diet Preferences:**")
+        if diet_prefs:
+            restrictions = []
+            if diet_prefs.get('vegetarian'): restrictions.append("Vegetarian")
+            if diet_prefs.get('vegan'): restrictions.append("Vegan")
+            if diet_prefs.get('gluten_free'): restrictions.append("Gluten-Free")
+            if diet_prefs.get('dairy_free'): restrictions.append("Dairy-Free")
+            if diet_prefs.get('nut_free'): restrictions.append("Nut-Free")
+            if diet_prefs.get('low_sodium'): restrictions.append("Low Sodium")
+            
+            if restrictions:
+                st.write(f"• Restrictions: {', '.join(restrictions)}")
+            else:
+                st.write("• No dietary restrictions")
+                
+            st.write(f"• Meal Frequency: {diet_prefs.get('meal_frequency', 'Not set')}")
+            st.write(f"• Cooking Time: {diet_prefs.get('cooking_time', 'Not set')}")
+            st.write(f"• Budget: {diet_prefs.get('budget_preference', 'Not set')}")
+        else:
+            st.write("Not configured")
+            
+        st.markdown("**📅 Weekly Schedule:**")
+        if weekly_schedule:
+            total_workout_days = sum(1 for day_data in weekly_schedule.values() if day_data.get('workouts', []))
+            avg_wake = "Variable" if len(set(d.get('wake_time', '07:00') for d in weekly_schedule.values())) > 1 else list(weekly_schedule.values())[0].get('wake_time', '07:00')
+            st.write(f"• Workout Days: {total_workout_days}/7")
+            st.write(f"• Wake Time: {avg_wake}")
+            st.write(f"• Days Configured: {len(weekly_schedule)}/7")
+        else:
+            st.write("Not configured")
 
 # Step 1: Dietary Preferences
 st.markdown("---")

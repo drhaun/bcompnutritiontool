@@ -684,10 +684,10 @@ if customize_day not in st.session_state.per_meal_macros:
     # Get suggested targets for this day (if available) or use base targets
     if customize_day in st.session_state.day_specific_nutrition:
         suggested_nutrition = st.session_state.day_specific_nutrition[customize_day]
-        suggested_calories = suggested_nutrition['calories']
-        suggested_protein = suggested_nutrition['protein']
-        suggested_carbs = suggested_nutrition['carbs']
-        suggested_fat = suggested_nutrition['fat']
+        suggested_calories = suggested_nutrition.get('calories', final_calories)
+        suggested_protein = suggested_nutrition.get('protein', final_protein)
+        suggested_carbs = suggested_nutrition.get('carbs', final_carbs)
+        suggested_fat = suggested_nutrition.get('fat', final_fat)
     else:
         suggested_calories = final_calories
         suggested_protein = final_protein
@@ -738,10 +738,10 @@ budget_col1, budget_col2, budget_col3, budget_col4 = st.columns(4)
 # Get suggested targets for this day
 if customize_day in st.session_state.day_specific_nutrition:
     suggested_nutrition = st.session_state.day_specific_nutrition[customize_day]
-    display_calories = suggested_nutrition['calories']
-    display_protein = suggested_nutrition['protein']
-    display_carbs = suggested_nutrition['carbs']
-    display_fat = suggested_nutrition['fat']
+    display_calories = suggested_nutrition.get('calories', final_calories)
+    display_protein = suggested_nutrition.get('protein', final_protein)
+    display_carbs = suggested_nutrition.get('carbs', final_carbs)
+    display_fat = suggested_nutrition.get('fat', final_fat)
     st.info(f"**Suggested targets for {customize_day}** (based on your Weekly Schedule)")
 else:
     display_calories = final_calories
