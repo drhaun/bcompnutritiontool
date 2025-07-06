@@ -300,78 +300,195 @@ st.markdown("""
 - **Timing:** Meals are planned; snacks are flexible
 """)
 
-# Meal context options for better meal planning
-st.subheader("Typical Meal & Snack Contexts")
-st.write("Set default contexts for each meal and snack to help with meal planning and preparation")
+# Enhanced Meal Context Builder
+st.subheader("🍽️ Meal Context Builder")
+st.write("Answer a few simple questions for each meal to create personalized meal planning contexts.")
 
-# Create meal context inputs
+# Initialize meal contexts storage
+if 'meal_contexts_detailed' not in st.session_state:
+    st.session_state.meal_contexts_detailed = {}
+
+# Create detailed meal context inputs
 meal_contexts = {}
-meal_names = ["Breakfast", "Lunch", "Dinner", "Snack 1", "Snack 2", "Snack 3", "Snack 4", "Snack 5"]
+meal_names = ["First Meal", "Second Meal", "Third Meal", "Fourth Meal", "Fifth Meal", "Sixth Meal", "Seventh Meal", "Eighth Meal"]
+snack_names = ["First Snack", "Second Snack", "Third Snack", "Fourth Snack", "Fifth Snack"]
 
-context_options = [
-    "Home Cooking", "Meal Prep", "Restaurant/Dining Out", 
-    "Takeout/Delivery", "On-the-Go/Portable", "Office/Work",
-    "Post-Workout", "Pre-Workout", "Social Eating",
-    "Quick & Easy", "Healthy Snack", "Family Meal"
-]
-
-# Create context inputs for meals and snacks with better ordering
-total_eating_occasions = meals_per_day + snacks_per_day
-context_cols = st.columns(min(total_eating_occasions, 3))
-
-# Time range options for meals and snacks
-time_range_options = [
-    "Early Morning (5:00-8:00 AM)",
-    "Morning (8:00-11:00 AM)", 
-    "Midday (11:00 AM-2:00 PM)",
-    "Afternoon (2:00-5:00 PM)",
-    "Evening (5:00-8:00 PM)",
-    "Night (8:00-11:00 PM)"
-]
-
-# Handle meals with ordinal naming
+# Process meals
 for i in range(meals_per_day):
-    ordinal = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth"][i]
-    meal_name = f"{ordinal} Meal of Day"
-    col_idx = i % len(context_cols)
+    meal_name = f"{meal_names[i]} of Day"
+    meal_key = f"meal_{i+1}"
     
-    with context_cols[col_idx]:
-        st.write(f"**{meal_name}**")
-        meal_contexts[meal_name] = st.selectbox(
-            "Context",
-            context_options,
-            key=f"meal_context_{i}",
-            help="This helps determine meal suggestions and preparation methods"
+    with st.expander(f"🍽️ **{meal_name}** Configuration", expanded=False):
+        
+        # 1. Meal Prep Preference
+        st.write("**How would you prefer to prepare this meal most days?**")
+        prep_type = st.radio(
+            "Preparation method:",
+            options=[
+                "🧑‍🍳 Cook from scratch",
+                "🍱 Use leftovers/pre-prepped ingredients", 
+                "🥡 Pickup or takeout",
+                "🚚 Meal delivery (ready-to-eat)",
+                "❌ Skip this meal most days"
+            ],
+            key=f"prep_type_{meal_key}",
+            horizontal=True
         )
-        # Add time range selection
-        meal_time_range = st.selectbox(
-            "Typical time range",
+        
+        # Conditional prep time question
+        prep_time = None
+        if prep_type in ["🧑‍🍳 Cook from scratch", "🍱 Use leftovers/pre-prepped ingredients"]:
+            st.write("**How much time would you typically like to spend preparing this meal?**")
+            prep_time = st.radio(
+                "Preparation time:",
+                options=["⏱️ <5 minutes", "⏱️ 5–15 minutes", "⏱️ 15–30 minutes", "⏱️ 30+ minutes"],
+                key=f"prep_time_{meal_key}",
+                horizontal=True
+            )
+        
+        # 2. Location
+        st.write("**Where do you typically eat this meal?**")
+        location = st.multiselect(
+            "Location(s):",
+            options=["🏠 At home", "🧑‍💼 At work", "🍽️ At a restaurant", "🚗 On-the-go (in transit, gym, car, etc.)"],
+            key=f"location_{meal_key}",
+            help="Select one or multiple locations"
+        )
+        
+        # 3. Time range
+        st.write("**What time do you typically eat this meal?**")
+        time_range_options = [
+            "Early Morning (5:00-8:00 AM)",
+            "Morning (8:00-11:00 AM)", 
+            "Midday (11:00 AM-2:00 PM)",
+            "Afternoon (2:00-5:00 PM)",
+            "Evening (5:00-8:00 PM)",
+            "Night (8:00-11:00 PM)"
+        ]
+        time_range = st.selectbox(
+            "Typical time range:",
             time_range_options,
             index=min(i, len(time_range_options)-1),
-            key=f"meal_time_range_{i}"
+            key=f"time_range_{meal_key}"
         )
+        
+        # 4. Consistency check
+        st.write("**Is this your usual routine for this meal most days?**")
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            is_consistent = st.toggle("Consistent routine", value=True, key=f"consistent_{meal_key}")
+        
+        with col2:
+            variations = None
+            if not is_consistent:
+                variations = st.text_input(
+                    "Describe variations:",
+                    placeholder="e.g., weekends differ, travel days, social events...",
+                    key=f"variations_{meal_key}"
+                )
+        
+        # Store detailed context
+        st.session_state.meal_contexts_detailed[meal_key] = {
+            "meal": meal_name,
+            "prep_type": prep_type.split(" ", 1)[1] if prep_type else None,  # Remove emoji
+            "prep_time": prep_time.split(" ", 1)[1] if prep_time else None,  # Remove emoji
+            "location": [loc.split(" ", 1)[1] for loc in location] if location else [],  # Remove emojis
+            "time_range": time_range,
+            "consistency": is_consistent,
+            "variations": variations
+        }
+        
+        # Create simplified context for backward compatibility
+        if prep_type == "🧑‍🍳 Cook from scratch":
+            context = "Home Cooking"
+        elif prep_type == "🍱 Use leftovers/pre-prepped ingredients":
+            context = "Meal Prep"
+        elif prep_type == "🥡 Pickup or takeout":
+            context = "Restaurant/Dining Out"
+        elif prep_type == "🚚 Meal delivery (ready-to-eat)":
+            context = "Takeout/Delivery"
+        elif prep_type == "❌ Skip this meal most days":
+            context = "Skip Meal"
+        else:
+            context = "Home Cooking"
+            
+        # Override context based on location for work meals
+        if "🧑‍💼 At work" in location:
+            context = "Office/Work"
+        elif "🚗 On-the-go (in transit, gym, car, etc.)" in location:
+            context = "On-the-Go/Portable"
+            
+        meal_contexts[meal_name] = context
 
-# Handle snacks with ordinal naming  
+# Process snacks
 for i in range(snacks_per_day):
-    ordinal = ["First", "Second", "Third", "Fourth", "Fifth"][i]
-    snack_name = f"{ordinal} Snack of Day"
-    col_idx = (meals_per_day + i) % len(context_cols)
+    snack_name = f"{snack_names[i]} of Day"
+    snack_key = f"snack_{i+1}"
     
-    with context_cols[col_idx]:
-        st.write(f"**{snack_name}**")
-        meal_contexts[snack_name] = st.selectbox(
-            "Context",
-            context_options,
-            key=f"snack_context_{i}",
-            help="This helps determine snack suggestions and preparation methods"
+    with st.expander(f"🥨 **{snack_name}** Configuration", expanded=False):
+        
+        # Simplified snack configuration
+        st.write("**How do you typically handle this snack?**")
+        snack_type = st.radio(
+            "Snack approach:",
+            options=[
+                "🏠 Prepare at home",
+                "🏪 Buy ready-made", 
+                "🧑‍💼 Office/work snack",
+                "🏃‍♀️ Pre/post workout",
+                "❌ Skip this snack most days"
+            ],
+            key=f"snack_type_{snack_key}",
+            horizontal=True
         )
-        # Add time range selection
+        
+        # Snack timing
         snack_time_range = st.selectbox(
-            "Typical time range",
+            "Typical time:",
             time_range_options,
             index=min(i+1, len(time_range_options)-1),
-            key=f"snack_time_range_{i}"
+            key=f"snack_time_range_{snack_key}"
         )
+        
+        # Store snack context
+        st.session_state.meal_contexts_detailed[snack_key] = {
+            "meal": snack_name,
+            "prep_type": snack_type.split(" ", 1)[1] if snack_type else None,
+            "time_range": snack_time_range,
+            "consistency": True  # Snacks are generally more consistent
+        }
+        
+        # Create simplified context for backward compatibility
+        if snack_type == "🏠 Prepare at home":
+            context = "Healthy Snack"
+        elif snack_type == "🏪 Buy ready-made":
+            context = "Quick & Easy"
+        elif snack_type == "🧑‍💼 Office/work snack":
+            context = "Office/Work"
+        elif snack_type == "🏃‍♀️ Pre/post workout":
+            context = "Pre-Workout"  # Will be refined during schedule generation
+        elif snack_type == "❌ Skip this snack most days":
+            context = "Skip Snack"
+        else:
+            context = "Healthy Snack"
+            
+        meal_contexts[snack_name] = context
+
+# Show smart recommendations
+with st.expander("🧠 Smart Meal Context Tips", expanded=False):
+    st.markdown("""
+    **Smart defaults applied:**
+    - Work meals automatically suggest portable/office-friendly options
+    - Morning meals prioritize quick preparation
+    - Evening meals allow more cooking time
+    - Post-workout timing optimizes for recovery nutrition
+    
+    **Meal planning benefits:**
+    - AI meal plans consider your prep time and location constraints
+    - Grocery lists organize by preparation method
+    - Recipe complexity matches your available time
+    - Context-aware nutrition timing around workouts
+    """)
 
 # SECTION 4: Nutrient Timing Planner
 st.header("🧠 Nutrient Timing Planner")
@@ -493,7 +610,7 @@ if st.button("📅 Generate Schedule", type="primary", use_container_width=True,
                     'calories': int(day_tdee // (meals_per_day + snacks_per_day) * 0.8)  # Snacks get fewer calories
                 })
             
-            # Store day schedule
+            # Store day schedule with enhanced meal contexts
             st.session_state.weekly_schedule_v2[day] = {
                 'meals': day_meals,
                 'workouts': workout_info,
@@ -516,7 +633,8 @@ if st.button("📅 Generate Schedule", type="primary", use_container_width=True,
                     'post_workout_meal': post_workout_meal,
                     'energy_management': energy_management,
                     'liquid_calories': liquid_calories
-                }
+                },
+                'detailed_meal_contexts': st.session_state.meal_contexts_detailed
             }
         
         st.success("✅ Weekly schedule generated successfully! Your personalized schedule considers your sleep, work, workout timing, and meal preferences.")
