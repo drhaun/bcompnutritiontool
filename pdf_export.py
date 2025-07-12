@@ -309,6 +309,10 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
         print(f"Meal data type: {type(meal_data)}")
         print(f"Meal data length: {len(meal_data) if meal_data else 'None'}")
         
+        # Validate meal data exists
+        if not meal_data:
+            raise ValueError("No meal data provided for PDF export")
+        
         # Debug: Print first few items to understand structure
         if meal_data:
             print("First meal data sample:")

@@ -915,6 +915,11 @@ if 'generated_weekly_meal_plan' in st.session_state:
                         'diet_preferences': diet_preferences
                     }
                     
+                    # Validate meal data before PDF generation
+                    if not meal_data_for_pdf:
+                        st.error("No meal data available for PDF export. Please generate a meal plan first.")
+                        return
+                    
                     # Generate PDF
                     pdf_path = export_meal_plan_pdf(meal_data_for_pdf, user_info)
                     
@@ -934,7 +939,8 @@ if 'generated_weekly_meal_plan' in st.session_state:
                         st.error("Failed to generate PDF. Please try again.")
                         
                 except Exception as e:
-                    st.error(f"PDF generation error: {e}")
+                    st.error(f"PDF generation error: {str(e)}")
+                    st.error("Please ensure your meal plan has been generated successfully before exporting.")
     
     with export_col2:
         if st.button("🛒 Generate Grocery List", use_container_width=True):

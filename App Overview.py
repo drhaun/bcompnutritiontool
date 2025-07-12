@@ -62,17 +62,29 @@ with col2:
 st.markdown("""
 This application helps you plan and track your body composition and nutrition goals. Navigate through the steps using the sidebar menu:
 
-1. **Initial Setup**: Enter your personal information and goals
-2. **Body Composition Goals**: Define your body composition targets
-3. **Diet Preferences**: Set your food preferences and dietary restrictions
-4. **Weekly Schedule**: Plan your workout schedule and daily activities
-5. **DIY Meal Planning**: Create custom meal plans with precise nutrition
-6. **AI Meal Planning**: Get AI-powered meal suggestions and recipes
-7. **Daily Monitoring**: Track your daily weight and nutrition intake
-8. **Progress Dashboard**: Visualize your journey and get insights
-9. **Grocery List**: Generate shopping lists from your meal plans
+## Core Workflow Steps:
 
-Get started by selecting "Initial Setup" from the sidebar!
+1. **Initial Setup**: Enter your personal information, body measurements, and fitness goals
+2. **Body Composition Goals**: Define your target weight, body fat percentage, and timeline
+3. **Diet Preferences**: Set your food preferences, dietary restrictions, allergies, and flavor preferences
+4. **Weekly Schedule**: Plan your workout schedule, meal timing, and daily activities
+5. **Nutrition Targets**: Review calculated nutrition targets and customize if needed
+6. **Standalone AI Meal Plan**: Quick meal planning without full setup (single day)
+7. **Advanced AI Meal Plan**: Complete weekly meal plans with AI integration
+
+## Additional Features:
+
+- **Session Management**: Save and load your progress at any step
+- **PDF Export**: Generate branded meal plans with grocery lists
+- **Macro Accuracy**: AI-powered meal planning with precise macro targeting (±3% tolerance)
+- **Flavor Customization**: Seasoning and spice preferences for better meal variety
+- **Progress Tracking**: Monitor your body composition journey
+
+## Getting Started:
+
+Complete the setup steps in order (1-5) for the best experience, then use either AI meal planning option based on your needs. Your progress is automatically saved and can be resumed at any time.
+
+**Quick Start**: Select "Initial Setup" from the sidebar to begin!
 """)
 
 # Add some basic statistics if user has been using the app

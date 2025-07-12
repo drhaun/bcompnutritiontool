@@ -102,6 +102,16 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 12, 2025 - Enhanced AI Meal Planning Accuracy & Fixed PDF Export Issues**:
+  - Improved AI meal planning accuracy from ±5% to ±3% tolerance for macro targeting
+  - Enhanced AI prompts with specific calorie-boosting strategies using calorie-dense ingredients
+  - Lowered AI temperature from 0.2 to 0.1 for maximum calculation consistency
+  - Added comprehensive ingredient selection guidelines for hitting higher calorie targets
+  - Fixed PDF export error handling with better validation and user feedback
+  - Updated App Overview page to accurately reflect current 7-step workflow
+  - Added enhanced error messages for PDF generation failures
+  - Improved meal data validation before PDF export to prevent failures
+
 - **July 12, 2025 - Enhanced AI Meal Planning Accuracy with Flavor Improvements**:
   - Added comprehensive seasoning and flavor preferences section to Diet Preferences page
   - Integrated flavor preferences into AI meal planning prompts for tastier, more appealing recipes
