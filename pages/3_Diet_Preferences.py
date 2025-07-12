@@ -147,11 +147,15 @@ def create_food_selection_tab(tab_name, options, session_key, button_prefix):
     with col1:
         if st.button(f"✅ Select All {tab_name}", key=f"{button_prefix}_select_all", use_container_width=True):
             st.session_state.diet_preferences[session_key] = options.copy()
+            # Force widget to update by setting its key in session state
+            st.session_state[f"{button_prefix}_multiselect"] = options.copy()
             st.rerun()
     
     with col2:
         if st.button(f"❌ Clear All {tab_name}", key=f"{button_prefix}_clear_all", use_container_width=True):
             st.session_state.diet_preferences[session_key] = []
+            # Force widget to update by setting its key in session state
+            st.session_state[f"{button_prefix}_multiselect"] = []
             st.rerun()
     
     # Multiselect with controlled state management
@@ -161,9 +165,8 @@ def create_food_selection_tab(tab_name, options, session_key, button_prefix):
     def on_change():
         # Get the current widget value
         widget_value = st.session_state[f"{button_prefix}_multiselect"]
-        # Update the session state only if it's different
-        if widget_value != st.session_state.diet_preferences.get(session_key, []):
-            st.session_state.diet_preferences[session_key] = widget_value
+        # Update the session state
+        st.session_state.diet_preferences[session_key] = widget_value
     
     selection = st.multiselect(
         f"Select preferred {tab_name.lower()}",
