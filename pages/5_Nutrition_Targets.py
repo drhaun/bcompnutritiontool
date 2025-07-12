@@ -61,7 +61,18 @@ with profile_col2:
 with profile_col3:
     st.markdown("**Activity & Preferences**")
     st.write(f"Activity Level: {st.session_state.get('activity_level', 'N/A')}")
-    st.write(f"Meals per Day: {st.session_state.diet_preferences.get('meal_frequency', 3)}")
+    
+    # Calculate total eating occasions from weekly schedule
+    total_eating_occasions = 0
+    if 'confirmed_weekly_schedule' in st.session_state:
+        meals_per_day = st.session_state.get('meals_per_day', 3)
+        snacks_per_day = st.session_state.get('snacks_per_day', 0)
+        total_eating_occasions = meals_per_day + snacks_per_day
+    else:
+        # Fallback to diet preferences
+        total_eating_occasions = st.session_state.diet_preferences.get('meal_frequency', 3)
+    
+    st.write(f"Total Eating Occasions: {total_eating_occasions}")
     st.write(f"Cooking Time: {st.session_state.diet_preferences.get('cooking_time_preference', 'N/A')}")
     dietary_restrictions = st.session_state.diet_preferences.get('dietary_restrictions', [])
     if dietary_restrictions and 'None' not in dietary_restrictions:
