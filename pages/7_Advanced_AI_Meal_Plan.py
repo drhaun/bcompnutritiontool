@@ -109,13 +109,17 @@ MEAL SCHEDULE & CONTEXTS:
 CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
 
 1. **MACRO ACCURACY (HIGHEST PRIORITY)**:
-   - Each meal MUST match its target macros within ±5% tolerance (not ±10%)
-   - Daily totals MUST match daily targets within ±5% tolerance
+   - Each meal MUST match its target macros within ±3% tolerance (not ±5% or ±10%)
+   - Daily totals MUST match daily targets within ±3% tolerance
    - Calculate each ingredient's exact macros using standard USDA nutrition data
    - Verify total meal macros add up correctly before including in response
-   - If a meal doesn't hit targets, adjust portion sizes until it does
-   - Example: If target is 500 calories, acceptable range is 475-525 calories
-   - CRITICAL: Ensure daily totals sum to match the specified daily targets exactly
+   - If a meal doesn't hit targets, INCREASE portion sizes and add calorie-dense ingredients
+   - Use calorie-dense ingredients: nuts, oils, avocado, cheese, nut butters to boost calories
+   - Add cooking oils (olive oil, coconut oil, butter) generously to increase fat and calories
+   - Include larger protein portions (6-8oz meat, 1-2 cups legumes) to hit protein targets
+   - Use calorie-dense carbs (quinoa, oats, sweet potatoes, rice) in adequate amounts
+   - Example: If target is 500 calories, acceptable range is 485-515 calories
+   - CRITICAL: Ensure daily totals sum to match the specified daily targets exactly - err on the side of slightly higher rather than lower
 
 2. **INGREDIENT PRECISION**:
    - Use specific quantities: "150g chicken breast" not "1 serving chicken"
@@ -178,32 +182,33 @@ CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
 **VALIDATION CHECKLIST** - Verify before responding:
 ✓ Each meal's total_macros equals sum of its ingredients
 ✓ Daily_totals equals sum of all meal total_macros
-✓ Each meal hits its individual target within ±5%
-✓ Daily totals hit overall targets within ±5% (THIS IS CRITICAL)
+✓ Each meal hits its individual target within ±3%
+✓ Daily totals hit overall targets within ±3% (THIS IS CRITICAL)
 ✓ All ingredient amounts are specific and measurable
 ✓ All macro values are realistic and nutritionally accurate
 ✓ Variety level is properly applied (no excessive repetition)
 ✓ Meal context matches daily schedule requirements
 
-**FINAL VALIDATION PROMPT**:
-Before providing your response, please:
+**FINAL VALIDATION STEP**:
+Before providing your response:
 1. Calculate the daily totals by summing all meal macros
 2. Compare these totals to the daily targets provided
-3. If any macro is outside ±5% tolerance, adjust ingredient portions
-4. Ensure the adjusted totals meet the targets exactly
-5. Only then provide your final JSON response
+3. If any macro is outside ±3% tolerance, INCREASE ingredient portions appropriately
+4. Add calorie-dense ingredients (nuts, oils, larger portions) to boost low macros
+5. Ensure the adjusted totals meet the targets within ±3%
+6. Only then provide your final JSON response
 
-Remember: The user is relying on these macros for precise body composition goals. Accuracy is paramount.
+Remember: The user needs these exact macros for precise body composition goals. Accuracy is paramount - err on the side of slightly higher calories rather than lower.
 """
 
             response = openai_client.chat.completions.create(
                 model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
                 messages=[
-                    {"role": "system", "content": f"You are a professional nutritionist and meal planning expert with expertise in precise macro calculations. You MUST create meal plans that exactly match the specified macro targets within ±5% tolerance. Always double-check your calculations and ensure ingredient macros are nutritionally accurate. Prioritize macro accuracy above all other considerations. You are creating a {day} meal plan."},
+                    {"role": "system", "content": f"You are a professional nutritionist and meal planning expert with expertise in precise macro calculations. You MUST create meal plans that exactly match the specified macro targets within ±3% tolerance. Always double-check your calculations and ensure ingredient macros are nutritionally accurate. Use calorie-dense ingredients and larger portions to hit higher targets. Prioritize macro accuracy above all other considerations. You are creating a {day} meal plan."},
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.2,  # Even lower temperature for maximum calculation consistency
+                temperature=0.1,  # Even lower temperature for maximum calculation consistency
                 max_tokens=4000  # Increased for more detailed responses and validation
             )
             
@@ -231,8 +236,8 @@ def validate_meal_plan_accuracy(day_plan, day_targets, day_name):
         # Calculate target totals from individual meal targets
         target_totals = day_targets.get('daily_totals', {})
         
-        # Define acceptable tolerance (5%)
-        tolerance = 0.05
+        # Define acceptable tolerance (3%)
+        tolerance = 0.03
         
         # Check each macro
         macros = ['calories', 'protein', 'carbs', 'fat']
