@@ -392,6 +392,7 @@ with col2:
     with bf_result_col2:
         if st.button("📷 BF Reference", key="bf_ref_calc", help="View body fat percentage reference photos"):
             st.session_state.show_bf_reference_calc = True
+            st.rerun()
     
     # Calculate resulting FMI and FFMI
     height_m = height_cm / 100
@@ -409,14 +410,16 @@ with col2:
     with fmi_col2:
         if st.button("ℹ️ FMI Info", key="fmi_info_calc", help="Learn about Fat Mass Index"):
             st.session_state.show_fmi_info = True
+            st.rerun()
     
-    # FFMI display with info button (will be added after category determination)
+    # FFMI display with info button
     ffmi_col1, ffmi_col2 = st.columns([3, 1])
     with ffmi_col1:
         st.write(f"FFMI: **{resulting_ffmi:.1f}**")
     with ffmi_col2:
         if st.button("ℹ️ FFMI Info", key="ffmi_info_calc", help="Learn about Fat-Free Mass Index"):
             st.session_state.show_ffmi_info = True
+            st.rerun()
     
     # Determine FMI category with improved boundary handling
     fmi_category = "Unknown"
