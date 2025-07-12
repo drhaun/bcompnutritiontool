@@ -484,12 +484,17 @@ customize_day = st.selectbox("Select day to customize meals:", days_of_week, key
 day_schedule = st.session_state.confirmed_weekly_schedule.get(customize_day, {})
 day_workouts = day_schedule.get('workouts', [])
 
-# Get accurate TDEE for this day - use suggested targets if available
-if customize_day in st.session_state.day_specific_nutrition:
+# Get accurate TDEE for this day - use actual TDEE values from weekly schedule
+if 'day_tdee_values' in st.session_state and customize_day in st.session_state.day_tdee_values:
+    day_tdee = st.session_state.day_tdee_values[customize_day]
+    is_suggested = True
+elif customize_day in st.session_state.day_specific_nutrition:
+    # Fallback to day-specific nutrition data
     day_tdee = st.session_state.day_specific_nutrition[customize_day].get('calories', target_calories)
     is_suggested = True
 else:
-    day_tdee = target_calories  # Fallback to base target calories
+    # Final fallback to base TDEE calculation
+    day_tdee = utils.calculate_tdee(gender, weight_kg, height_cm, age, activity_level)
     is_suggested = False
 
 # Display day info
