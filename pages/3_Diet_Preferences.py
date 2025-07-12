@@ -157,6 +157,9 @@ with food_tabs[0]:
         key="preferred_proteins_multi",
         help="Choose protein sources you enjoy"
     )
+    
+    # Update session state when proteins are changed
+    st.session_state.diet_preferences['preferred_proteins'] = preferred_proteins
 
 with food_tabs[1]:
     st.write("**Carbohydrate Sources**")
@@ -182,6 +185,9 @@ with food_tabs[1]:
         key="preferred_carbs_multi",
         help="Choose carbohydrate sources you enjoy"
     )
+    
+    # Update session state when carbs are changed
+    st.session_state.diet_preferences['preferred_carbs'] = preferred_carbs
 
 with food_tabs[2]:
     st.write("**Fat Sources**")
@@ -207,6 +213,9 @@ with food_tabs[2]:
         key="preferred_fats_multi",
         help="Choose fat sources you enjoy"
     )
+    
+    # Update session state when fats are changed
+    st.session_state.diet_preferences['preferred_fats'] = preferred_fats
 
 with food_tabs[3]:
     st.write("**Vegetables**")
@@ -232,6 +241,9 @@ with food_tabs[3]:
         key="preferred_vegetables_multi",
         help="Choose vegetables you enjoy"
     )
+    
+    # Update session state when vegetables are changed
+    st.session_state.diet_preferences['preferred_vegetables'] = preferred_vegetables
 
 with food_tabs[4]:
     st.write("**Cuisine Preferences**")
@@ -257,6 +269,9 @@ with food_tabs[4]:
         key="cuisine_preferences_multi",
         help="Choose cuisines you enjoy"
     )
+    
+    # Update session state when cuisines are changed
+    st.session_state.diet_preferences['cuisine_preferences'] = cuisine_preferences
 
 # ==================== SECTION 3: FOODS TO AVOID ====================
 st.markdown("### 🚫 Foods to Avoid")

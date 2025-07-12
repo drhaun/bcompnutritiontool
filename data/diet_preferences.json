@@ -1,6 +1,7 @@
 {
   "dietary_restrictions": [
-    "Gluten-Free"
+    "Gluten-Free",
+    "Low-FODMAP"
   ],
   "cuisine_preferences": [],
   "preferred_proteins": [
@@ -21,9 +22,22 @@
     "Cottage Cheese",
     "Black Beans"
   ],
-  "preferred_carbs": [],
+  "preferred_carbs": [
+    "Brown Rice",
+    "White Rice",
+    "Quinoa",
+    "Oats",
+    "Sweet Potato",
+    "Regular Potato"
+  ],
   "preferred_fats": [],
-  "preferred_vegetables": [],
+  "preferred_vegetables": [
+    "Spinach",
+    "Carrots",
+    "Zucchini",
+    "Cucumber",
+    "Tomatoes"
+  ],
   "disliked_foods": [
     "Brussels, Peas, Asparagus, Dates, Cauliflower"
   ],
