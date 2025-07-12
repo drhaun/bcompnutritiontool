@@ -102,6 +102,18 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 12, 2025 - Enhanced AI Meal Planning Accuracy with Flavor Improvements**:
+  - Added comprehensive seasoning and flavor preferences section to Diet Preferences page
+  - Integrated flavor preferences into AI meal planning prompts for tastier, more appealing recipes
+  - Enhanced AI prompts with specific seasoning requirements and flavor profile targeting
+  - Fixed PDF export to show average daily amounts instead of confusing weekly totals
+  - Added macro accuracy comparison table to PDF showing daily Target vs Actual results
+  - Improved PDF ingredient display to show proper food names instead of "Unknown"
+  - Added meal context and timing information to PDF exports from weekly schedule
+  - Enhanced cooking instructions display in PDF with proper formatting
+  - Users can now specify spice levels, flavor profiles, preferred seasonings, and cooking enhancers
+  - AI now generates more flavorful meals with specific seasoning recommendations in instructions
+
 - **July 12, 2025 - Enhanced AI Meal Planning Accuracy**:
   - Improved AI prompt specificity with stricter macro accuracy requirements (±5% instead of ±10%)
   - Added comprehensive validation checklist for AI to follow before generating responses

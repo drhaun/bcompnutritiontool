@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-07-12T22:04:54.791502",
+  "timestamp": "2025-07-12T22:16:01.125440",
   "user_info": {
     "name": "Cody",
     "gender": "Male",
@@ -14,8 +14,8 @@
     "body_fat_percentage": 20.0,
     "activity_level": "Lightly Active (light exercise 2-3 times per week)",
     "raw_activity_level": "Light Active (5-10k steps/day)",
-    "workouts_per_week": 6,
-    "workout_frequency": "6+ workouts per week",
+    "workouts_per_week": 5,
+    "workout_frequency": "4-5 workouts per week",
     "workout_calories": 400,
     "goal_focus": "Lose fat",
     "performance_preference": "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal.",
@@ -24,7 +24,7 @@
     "tracking_commitment": "I am committed to tracking regularly",
     "commitment_level": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently.",
     "use_imperial": true,
-    "tdee": 2869.503268805152
+    "tdee": 2812.360411662295
   },
   "goal_info": {
     "goal_type": "Lose fat",
@@ -38,7 +38,7 @@
     "target_weight_lbs": 185.0,
     "timeline_weeks": 10,
     "start_date": "2025-07-12",
-    "target_energy": 2121
+    "target_energy": 2064
   },
   "diet_preferences": {
     "dietary_restrictions": [

@@ -51,36 +51,6 @@
         "12:00",
         "18:00"
       ]
-    },
-    "Tuesday": {
-      "meal_count": 3,
-      "snack_count": 2,
-      "use_custom_timing": false,
-      "meal_times": [
-        "07:00",
-        "12:00",
-        "18:00"
-      ]
-    },
-    "Wednesday": {
-      "meal_count": 3,
-      "snack_count": 2,
-      "use_custom_timing": false,
-      "meal_times": [
-        "07:00",
-        "12:00",
-        "18:00"
-      ]
-    },
-    "Thursday": {
-      "meal_count": 3,
-      "snack_count": 2,
-      "use_custom_timing": false,
-      "meal_times": [
-        "07:00",
-        "12:00",
-        "18:00"
-      ]
     }
   },
   "weekly_meal_summary": [

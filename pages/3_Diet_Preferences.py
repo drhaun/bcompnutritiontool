@@ -377,6 +377,15 @@ st.session_state.diet_preferences.update({
     }
 })
 
+# Update seasoning preferences if form was submitted
+if seasoning_submit:
+    st.session_state.diet_preferences.update({
+        'spice_level': spice_level,
+        'flavor_profile': flavor_profile,
+        'preferred_seasonings': preferred_seasonings,
+        'cooking_enhancers': cooking_enhancers
+    })
+
 # Update dietary restrictions if form was submitted
 if dietary_submit:
     st.session_state.diet_preferences.update({
@@ -394,7 +403,67 @@ if sourcing_submit:
 
 
 
-# ==================== SECTION 6: VARIETY PREFERENCES ====================
+# ==================== SECTION 6: SEASONING AND FLAVOR PREFERENCES ====================
+st.markdown("### 🧂 Seasoning & Flavor Preferences")
+st.markdown("Tell us about your preferred flavors and seasonings to make your meals more delicious and interesting.")
+
+with st.form("seasoning_preferences_form", clear_on_submit=False):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 🌶️ Spice Level")
+        spice_level = st.select_slider(
+            "How spicy do you like your food?",
+            options=["No Spice", "Mild", "Medium", "Hot", "Very Hot"],
+            value=st.session_state.diet_preferences.get('spice_level', 'Medium'),
+            help="This affects how much heat will be included in your meal recommendations"
+        )
+        
+        st.markdown("#### 🧄 Flavor Profile")
+        flavor_profile = st.multiselect(
+            "What flavor profiles do you enjoy?",
+            options=[
+                "Savory/Umami", "Sweet", "Sour/Tangy", "Bitter", "Spicy/Hot",
+                "Herbal", "Smoky", "Citrusy", "Garlic-heavy", "Onion-heavy"
+            ],
+            default=st.session_state.diet_preferences.get('flavor_profile', ['Savory/Umami', 'Herbal']),
+            help="Select all flavor profiles you enjoy"
+        )
+    
+    with col2:
+        st.markdown("#### 🌿 Preferred Seasonings")
+        preferred_seasonings = st.multiselect(
+            "What seasonings and spices do you love?",
+            options=[
+                "Salt", "Black Pepper", "Garlic Powder", "Onion Powder", "Paprika",
+                "Cumin", "Oregano", "Basil", "Thyme", "Rosemary", "Sage",
+                "Chili Powder", "Cayenne", "Red Pepper Flakes", "Turmeric",
+                "Ginger", "Cinnamon", "Italian Seasoning", "Lemon Pepper",
+                "Everything Bagel Seasoning", "Herbs de Provence"
+            ],
+            default=st.session_state.diet_preferences.get('preferred_seasonings', ['Salt', 'Black Pepper', 'Garlic Powder', 'Oregano']),
+            help="Select seasonings you want included in your meal plans"
+        )
+        
+        st.markdown("#### 🧂 Cooking Enhancers")
+        cooking_enhancers = st.multiselect(
+            "What cooking enhancers do you use?",
+            options=[
+                "Olive Oil", "Butter", "Coconut Oil", "Avocado Oil", "Sesame Oil",
+                "Lemon Juice", "Lime Juice", "Vinegar", "Soy Sauce", "Hot Sauce",
+                "Worcestershire Sauce", "Balsamic Vinegar", "Honey", "Maple Syrup",
+                "Garlic", "Fresh Herbs", "Ginger", "Mustard"
+            ],
+            default=st.session_state.diet_preferences.get('cooking_enhancers', ['Olive Oil', 'Lemon Juice', 'Garlic']),
+            help="Select ingredients that enhance flavor in your cooking"
+        )
+    
+    # Submit button for seasoning preferences
+    seasoning_submit = st.form_submit_button("Update Seasoning Preferences", type="primary")
+
+st.markdown("---")
+
+# ==================== SECTION 7: VARIETY PREFERENCES ====================
 st.markdown("### 🔄 Meal Variety Preferences")
 st.markdown("Control how much variety you want in your meal plans. This affects how the AI creates your weekly meals.")
 

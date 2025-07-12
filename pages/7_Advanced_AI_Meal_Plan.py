@@ -144,7 +144,15 @@ CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
    - {diet_preferences.get('weekly_structure', 'Mix of routine and variety')}
    - {diet_preferences.get('cooking_variety', 'Some variety in cooking methods')}
 
-6. **QUALITY ASSURANCE**:
+6. **FLAVOR AND SEASONING REQUIREMENTS**:
+   - Spice Level: {diet_preferences.get('spice_level', 'Medium')} - adjust heat accordingly
+   - Flavor Profiles: {', '.join(diet_preferences.get('flavor_profile', ['Savory/Umami', 'Herbal']))} - emphasize these tastes
+   - Preferred Seasonings: {', '.join(diet_preferences.get('preferred_seasonings', ['Salt', 'Black Pepper', 'Garlic Powder', 'Oregano']))} - use these in recipes
+   - Cooking Enhancers: {', '.join(diet_preferences.get('cooking_enhancers', ['Olive Oil', 'Lemon Juice', 'Garlic']))} - incorporate these for flavor
+   - CRITICAL: Include specific seasoning recommendations in each recipe's instructions
+   - Make meals flavorful and appetizing, not bland or boring
+
+7. **QUALITY ASSURANCE**:
    - Double-check all calculations before providing response
    - Ensure daily totals sum correctly across all meals
    - Verify no ingredient conflicts with dietary restrictions or allergies

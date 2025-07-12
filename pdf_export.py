@@ -110,10 +110,49 @@ class FitomicsPDF(FPDF):
                         self.cell(0, 6, f"Target Weight: {goals['target_weight_lbs']} lbs", 0, 1, 'L')
                     if goals.get('target_bf'):
                         self.cell(0, 6, f"Target Body Fat: {goals['target_bf']}%", 0, 1, 'L')
-        self.cell(0, 6, f"Daily Calories: {plan_info.get('total_calories', 'N/A')}", 0, 1, 'L')
-        self.cell(0, 6, f"Protein: {plan_info.get('total_protein', 'N/A')}g", 0, 1, 'L')
-        self.cell(0, 6, f"Carbohydrates: {plan_info.get('total_carbs', 'N/A')}g", 0, 1, 'L')
-        self.cell(0, 6, f"Fat: {plan_info.get('total_fat', 'N/A')}g", 0, 1, 'L')
+        # Show average daily amounts instead of weekly totals
+        avg_calories = plan_info.get('total_calories', 0) / 7 if plan_info.get('total_calories') else 0
+        avg_protein = plan_info.get('total_protein', 0) / 7 if plan_info.get('total_protein') else 0
+        avg_carbs = plan_info.get('total_carbs', 0) / 7 if plan_info.get('total_carbs') else 0
+        avg_fat = plan_info.get('total_fat', 0) / 7 if plan_info.get('total_fat') else 0
+        
+        self.cell(0, 6, f"Average Daily Calories: {avg_calories:.0f}", 0, 1, 'L')
+        self.cell(0, 6, f"Average Daily Protein: {avg_protein:.1f}g", 0, 1, 'L')
+        self.cell(0, 6, f"Average Daily Carbohydrates: {avg_carbs:.1f}g", 0, 1, 'L')
+        self.cell(0, 6, f"Average Daily Fat: {avg_fat:.1f}g", 0, 1, 'L')
+        
+        # Add accuracy comparison if target data is available
+        if plan_info.get('daily_accuracy_comparison'):
+            self.ln(10)
+            self.set_font('Arial', 'B', 14)
+            self.cell(0, 8, 'MACRO ACCURACY COMPARISON', 0, 1, 'L')
+            
+            self.set_font('Arial', '', 10)
+            self.cell(0, 5, 'Daily Target vs Actual Results:', 0, 1, 'L')
+            self.ln(3)
+            
+            # Create table header
+            self.set_font('Arial', 'B', 9)
+            self.cell(25, 6, 'Day', 1, 0, 'C')
+            self.cell(30, 6, 'Calories', 1, 0, 'C')
+            self.cell(30, 6, 'Protein', 1, 0, 'C')
+            self.cell(30, 6, 'Carbs', 1, 0, 'C')
+            self.cell(30, 6, 'Fat', 1, 0, 'C')
+            self.cell(25, 6, 'Accuracy', 1, 1, 'C')
+            
+            # Add data rows
+            self.set_font('Arial', '', 8)
+            for day_data in plan_info['daily_accuracy_comparison']:
+                self.cell(25, 5, day_data['day'][:3], 1, 0, 'C')
+                self.cell(30, 5, f"{day_data['actual_cal']:.0f}/{day_data['target_cal']:.0f}", 1, 0, 'C')
+                self.cell(30, 5, f"{day_data['actual_protein']:.0f}/{day_data['target_protein']:.0f}", 1, 0, 'C')
+                self.cell(30, 5, f"{day_data['actual_carbs']:.0f}/{day_data['target_carbs']:.0f}", 1, 0, 'C')
+                self.cell(30, 5, f"{day_data['actual_fat']:.0f}/{day_data['target_fat']:.0f}", 1, 0, 'C')
+                self.cell(25, 5, day_data['accuracy_score'], 1, 1, 'C')
+            
+            self.ln(3)
+            self.set_font('Arial', 'I', 8)
+            self.cell(0, 4, 'Format: Actual/Target | ✅ = Within 5% | ⚠️ = Outside 5%', 0, 1, 'L')
         
         # Diet preferences
         diet_prefs = plan_info.get('diet_preferences', {})
