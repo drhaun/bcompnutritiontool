@@ -141,25 +141,26 @@ with food_tabs[0]:
     with protein_col1:
         if st.button("✅ Select All Proteins", key="select_all_proteins", use_container_width=True):
             st.session_state.diet_preferences['preferred_proteins'] = protein_options.copy()
+            st.rerun()
     
     with protein_col2:
         if st.button("❌ Clear All Proteins", key="clear_all_proteins", use_container_width=True):
             st.session_state.diet_preferences['preferred_proteins'] = []
+            st.rerun()
     
-    # Protein multiselect - filter defaults to only include valid options
-    saved_proteins = st.session_state.diet_preferences.get('preferred_proteins', [])
-    valid_protein_defaults = [p for p in saved_proteins if p in protein_options]
+    # Protein multiselect with proper state management
+    current_proteins = st.session_state.diet_preferences.get('preferred_proteins', [])
     
     preferred_proteins = st.multiselect(
         "Select preferred proteins",
         options=protein_options,
-        default=valid_protein_defaults,
-        key="preferred_proteins_multi",
+        default=current_proteins,
         help="Choose protein sources you enjoy"
     )
     
-    # Update session state when proteins are changed
-    st.session_state.diet_preferences['preferred_proteins'] = preferred_proteins
+    # Only update session state if selection actually changed
+    if preferred_proteins != current_proteins:
+        st.session_state.diet_preferences['preferred_proteins'] = preferred_proteins
 
 with food_tabs[1]:
     st.write("**Carbohydrate Sources**")
@@ -169,25 +170,26 @@ with food_tabs[1]:
     with carb_col1:
         if st.button("✅ Select All Carbs", key="select_all_carbs", use_container_width=True):
             st.session_state.diet_preferences['preferred_carbs'] = carb_options.copy()
+            st.rerun()
     
     with carb_col2:
         if st.button("❌ Clear All Carbs", key="clear_all_carbs", use_container_width=True):
             st.session_state.diet_preferences['preferred_carbs'] = []
+            st.rerun()
     
-    # Carbs multiselect - filter defaults to only include valid options
-    saved_carbs = st.session_state.diet_preferences.get('preferred_carbs', [])
-    valid_carb_defaults = [c for c in saved_carbs if c in carb_options]
+    # Carbs multiselect with proper state management
+    current_carbs = st.session_state.diet_preferences.get('preferred_carbs', [])
     
     preferred_carbs = st.multiselect(
         "Select preferred carbohydrates",
         options=carb_options,
-        default=valid_carb_defaults,
-        key="preferred_carbs_multi",
+        default=current_carbs,
         help="Choose carbohydrate sources you enjoy"
     )
     
-    # Update session state when carbs are changed
-    st.session_state.diet_preferences['preferred_carbs'] = preferred_carbs
+    # Only update session state if selection actually changed
+    if preferred_carbs != current_carbs:
+        st.session_state.diet_preferences['preferred_carbs'] = preferred_carbs
 
 with food_tabs[2]:
     st.write("**Fat Sources**")
@@ -197,25 +199,26 @@ with food_tabs[2]:
     with fat_col1:
         if st.button("✅ Select All Fats", key="select_all_fats", use_container_width=True):
             st.session_state.diet_preferences['preferred_fats'] = fat_options.copy()
+            st.rerun()
     
     with fat_col2:
         if st.button("❌ Clear All Fats", key="clear_all_fats", use_container_width=True):
             st.session_state.diet_preferences['preferred_fats'] = []
+            st.rerun()
     
-    # Fats multiselect - filter defaults to only include valid options
-    saved_fats = st.session_state.diet_preferences.get('preferred_fats', [])
-    valid_fat_defaults = [f for f in saved_fats if f in fat_options]
+    # Fats multiselect with proper state management
+    current_fats = st.session_state.diet_preferences.get('preferred_fats', [])
     
     preferred_fats = st.multiselect(
         "Select preferred fats",
         options=fat_options,
-        default=valid_fat_defaults,
-        key="preferred_fats_multi",
+        default=current_fats,
         help="Choose fat sources you enjoy"
     )
     
-    # Update session state when fats are changed
-    st.session_state.diet_preferences['preferred_fats'] = preferred_fats
+    # Only update session state if selection actually changed
+    if preferred_fats != current_fats:
+        st.session_state.diet_preferences['preferred_fats'] = preferred_fats
 
 with food_tabs[3]:
     st.write("**Vegetables**")
@@ -225,25 +228,26 @@ with food_tabs[3]:
     with veg_col1:
         if st.button("✅ Select All Vegetables", key="select_all_vegetables", use_container_width=True):
             st.session_state.diet_preferences['preferred_vegetables'] = vegetable_options.copy()
+            st.rerun()
     
     with veg_col2:
         if st.button("❌ Clear All Vegetables", key="clear_all_vegetables", use_container_width=True):
             st.session_state.diet_preferences['preferred_vegetables'] = []
+            st.rerun()
     
-    # Vegetables multiselect - filter defaults to only include valid options
-    saved_vegetables = st.session_state.diet_preferences.get('preferred_vegetables', [])
-    valid_vegetable_defaults = [v for v in saved_vegetables if v in vegetable_options]
+    # Vegetables multiselect with proper state management
+    current_vegetables = st.session_state.diet_preferences.get('preferred_vegetables', [])
     
     preferred_vegetables = st.multiselect(
         "Select preferred vegetables",
         options=vegetable_options,
-        default=valid_vegetable_defaults,
-        key="preferred_vegetables_multi",
+        default=current_vegetables,
         help="Choose vegetables you enjoy"
     )
     
-    # Update session state when vegetables are changed
-    st.session_state.diet_preferences['preferred_vegetables'] = preferred_vegetables
+    # Only update session state if selection actually changed
+    if preferred_vegetables != current_vegetables:
+        st.session_state.diet_preferences['preferred_vegetables'] = preferred_vegetables
 
 with food_tabs[4]:
     st.write("**Cuisine Preferences**")
@@ -253,25 +257,26 @@ with food_tabs[4]:
     with cuisine_col1:
         if st.button("✅ Select All Cuisines", key="select_all_cuisines", use_container_width=True):
             st.session_state.diet_preferences['cuisine_preferences'] = cuisine_options.copy()
+            st.rerun()
     
     with cuisine_col2:
         if st.button("❌ Clear All Cuisines", key="clear_all_cuisines", use_container_width=True):
             st.session_state.diet_preferences['cuisine_preferences'] = []
+            st.rerun()
     
-    # Cuisines multiselect - filter defaults to only include valid options
-    saved_cuisines = st.session_state.diet_preferences.get('cuisine_preferences', [])
-    valid_cuisine_defaults = [c for c in saved_cuisines if c in cuisine_options]
+    # Cuisines multiselect with proper state management
+    current_cuisines = st.session_state.diet_preferences.get('cuisine_preferences', [])
     
     cuisine_preferences = st.multiselect(
         "Select preferred cuisines",
         options=cuisine_options,
-        default=valid_cuisine_defaults,
-        key="cuisine_preferences_multi",
+        default=current_cuisines,
         help="Choose cuisines you enjoy"
     )
     
-    # Update session state when cuisines are changed
-    st.session_state.diet_preferences['cuisine_preferences'] = cuisine_preferences
+    # Only update session state if selection actually changed
+    if cuisine_preferences != current_cuisines:
+        st.session_state.diet_preferences['cuisine_preferences'] = cuisine_preferences
 
 # ==================== SECTION 3: FOODS TO AVOID ====================
 st.markdown("### 🚫 Foods to Avoid")
@@ -499,12 +504,186 @@ if st.button("💾 Save All Preferences", type="primary", use_container_width=Tr
         st.error(f"Error saving preferences: {e}")
 
 # Display current preferences summary
-with st.expander("🔍 Current Preferences Summary"):
-    st.write("**Dietary Restrictions:**", ', '.join(st.session_state.diet_preferences.get('dietary_restrictions', [])) or 'None')
-    st.write("**Allergies:**", ', '.join(st.session_state.diet_preferences.get('allergies', [])) or 'None')
-    st.write("**Preferred Proteins:**", ', '.join(st.session_state.diet_preferences.get('preferred_proteins', [])) or 'None selected')
-    st.write("**Preferred Carbs:**", ', '.join(st.session_state.diet_preferences.get('preferred_carbs', [])) or 'None selected')
-    st.write("**Preferred Fats:**", ', '.join(st.session_state.diet_preferences.get('preferred_fats', [])) or 'None selected')
-    st.write("**Preferred Vegetables:**", ', '.join(st.session_state.diet_preferences.get('preferred_vegetables', [])) or 'None selected')
-    st.write("**Cuisine Preferences:**", ', '.join(st.session_state.diet_preferences.get('cuisine_preferences', [])) or 'None selected')
-    st.write("**Foods to Avoid:**", ', '.join(st.session_state.diet_preferences.get('disliked_foods', [])) or 'None')
+st.markdown("---")
+st.markdown("### 📊 Complete User Profile Summary")
+st.markdown("This comprehensive summary will be used to inform your AI meal planning and nutrition recommendations.")
+
+# Create comprehensive profile summary
+profile_col1, profile_col2 = st.columns(2)
+
+with profile_col1:
+    st.markdown("#### 👤 Personal Information")
+    user_info = st.session_state.get('user_info', {})
+    if user_info:
+        st.write(f"**Name:** {user_info.get('name', 'Not set')}")
+        st.write(f"**Gender:** {user_info.get('gender', 'Not set')}")
+        st.write(f"**Age:** {user_info.get('age', 'Not set')} years")
+        if user_info.get('use_imperial', True):
+            st.write(f"**Height:** {user_info.get('height_ft', 'Not set')}'{user_info.get('height_in', 'Not set')}\"")
+            st.write(f"**Weight:** {user_info.get('weight_lbs', 'Not set')} lbs")
+        else:
+            st.write(f"**Height:** {user_info.get('height_cm', 'Not set')} cm")
+            st.write(f"**Weight:** {user_info.get('weight_kg', 'Not set')} kg")
+        st.write(f"**Body Fat:** {user_info.get('body_fat_percentage', 'Not set')}%")
+        st.write(f"**Activity Level:** {user_info.get('activity_level', 'Not set')}")
+        st.write(f"**Workout Frequency:** {user_info.get('workout_frequency', 'Not set')}/week")
+    else:
+        st.warning("Complete Initial Setup to see personal information")
+
+    st.markdown("#### 🎯 Body Composition Goals")
+    goal_info = st.session_state.get('goal_info', {})
+    if goal_info and st.session_state.get('targets_set', False):
+        st.write(f"**Goal Type:** {goal_info.get('goal_type', 'Not set')}")
+        st.write(f"**Target Weight:** {goal_info.get('target_weight_lbs', 'Not set')} lbs")
+        st.write(f"**Target Body Fat:** {goal_info.get('target_body_fat', 'Not set'):.1f}%")
+        st.write(f"**Target Fat Mass:** {goal_info.get('target_fat_mass_lbs', 'Not set')} lbs")
+        st.write(f"**Target FFM:** {goal_info.get('target_ffm_lbs', 'Not set')} lbs")
+        st.write(f"**Timeline:** {goal_info.get('timeline_weeks', 'Not set')} weeks")
+    else:
+        st.warning("Complete Body Composition Goals to see targets")
+
+with profile_col2:
+    st.markdown("#### 🍽️ Diet Preferences")
+    diet_prefs = st.session_state.get('diet_preferences', {})
+    
+    # Dietary restrictions and allergies
+    restrictions = diet_prefs.get('dietary_restrictions', [])
+    allergies = diet_prefs.get('allergies', [])
+    st.write(f"**Dietary Restrictions:** {', '.join(restrictions) if restrictions else 'None'}")
+    st.write(f"**Allergies:** {', '.join(allergies) if allergies else 'None'}")
+    
+    # Food preferences
+    proteins = diet_prefs.get('preferred_proteins', [])
+    carbs = diet_prefs.get('preferred_carbs', [])
+    fats = diet_prefs.get('preferred_fats', [])
+    vegetables = diet_prefs.get('preferred_vegetables', [])
+    cuisines = diet_prefs.get('cuisine_preferences', [])
+    
+    st.write(f"**Preferred Proteins:** {len(proteins)} selected")
+    if proteins:
+        st.caption(f"*{', '.join(proteins[:3])}{'...' if len(proteins) > 3 else ''}*")
+    
+    st.write(f"**Preferred Carbs:** {len(carbs)} selected")
+    if carbs:
+        st.caption(f"*{', '.join(carbs[:3])}{'...' if len(carbs) > 3 else ''}*")
+    
+    st.write(f"**Preferred Fats:** {len(fats)} selected")
+    if fats:
+        st.caption(f"*{', '.join(fats[:3])}{'...' if len(fats) > 3 else ''}*")
+    
+    st.write(f"**Preferred Vegetables:** {len(vegetables)} selected")
+    if vegetables:
+        st.caption(f"*{', '.join(vegetables[:3])}{'...' if len(vegetables) > 3 else ''}*")
+    
+    st.write(f"**Cuisine Preferences:** {len(cuisines)} selected")
+    if cuisines:
+        st.caption(f"*{', '.join(cuisines[:3])}{'...' if len(cuisines) > 3 else ''}*")
+    
+    # Foods to avoid
+    disliked = diet_prefs.get('disliked_foods', [])
+    st.write(f"**Foods to Avoid:** {len(disliked)} listed")
+    if disliked:
+        st.caption(f"*{', '.join(disliked[:3])}{'...' if len(disliked) > 3 else ''}*")
+    
+    # Meal sourcing preferences
+    st.markdown("#### 🛒 Meal Sourcing Preferences")
+    meal_delivery = diet_prefs.get('meal_delivery_interest', 'Not set')
+    home_cooking = diet_prefs.get('home_cooking_interest', 'Not set')
+    grocery_shopping = diet_prefs.get('grocery_shopping_interest', 'Not set')
+    
+    st.write(f"**Meal Delivery:** {meal_delivery}")
+    st.write(f"**Home Cooking:** {home_cooking}")
+    st.write(f"**Grocery Shopping:** {grocery_shopping}")
+    
+    # Cooking preferences
+    cooking_time = diet_prefs.get('cooking_time_preference', 'Not set')
+    budget = diet_prefs.get('budget_preference', 'Not set')
+    st.write(f"**Cooking Time:** {cooking_time}")
+    st.write(f"**Budget:** {budget}")
+
+# Show nutrition targets if available
+st.markdown("#### 📈 Nutrition Targets")
+nutrition_targets = st.session_state.get('final_nutrition_targets', {})
+if nutrition_targets:
+    target_col1, target_col2, target_col3, target_col4 = st.columns(4)
+    with target_col1:
+        st.metric("Calories", f"{nutrition_targets.get('calories', 'Not set'):,}")
+    with target_col2:
+        st.metric("Protein", f"{nutrition_targets.get('protein', 'Not set')}g")
+    with target_col3:
+        st.metric("Carbs", f"{nutrition_targets.get('carbs', 'Not set')}g")
+    with target_col4:
+        st.metric("Fat", f"{nutrition_targets.get('fat', 'Not set')}g")
+else:
+    st.warning("Complete Nutrition Targets to see daily macro goals")
+
+# Show weekly schedule summary if available
+st.markdown("#### 📅 Weekly Schedule")
+weekly_schedule = st.session_state.get('confirmed_weekly_schedule', {})
+if weekly_schedule:
+    st.success("Weekly schedule configured - ready for AI meal planning")
+    # Show brief schedule summary
+    total_workouts = sum(len(day.get('workouts', [])) for day in weekly_schedule.values())
+    st.write(f"**Total Weekly Workouts:** {total_workouts}")
+    
+    # Show day-specific nutrition if available
+    day_nutrition = st.session_state.get('day_specific_nutrition', {})
+    if day_nutrition:
+        st.write("**Day-Specific Nutrition:** Configured")
+        avg_calories = sum(day.get('calories', 0) for day in day_nutrition.values()) / len(day_nutrition)
+        st.write(f"**Average Daily Calories:** {avg_calories:,.0f}")
+else:
+    st.warning("Complete Weekly Schedule for personalized meal timing")
+
+st.markdown("---")
+st.info("💡 This complete profile will be used to create personalized AI meal plans that match your goals, preferences, and schedule.")
+
+# Detailed expandable section for full preferences
+with st.expander("🔍 Detailed Preferences Breakdown"):
+    st.markdown("#### Complete Food Preferences")
+    
+    detail_col1, detail_col2 = st.columns(2)
+    
+    with detail_col1:
+        st.write("**Preferred Proteins:**")
+        if proteins:
+            for protein in proteins:
+                st.write(f"• {protein}")
+        else:
+            st.write("*None selected*")
+        
+        st.write("**Preferred Carbohydrates:**")
+        if carbs:
+            for carb in carbs:
+                st.write(f"• {carb}")
+        else:
+            st.write("*None selected*")
+        
+        st.write("**Preferred Fats:**")
+        if fats:
+            for fat in fats:
+                st.write(f"• {fat}")
+        else:
+            st.write("*None selected*")
+    
+    with detail_col2:
+        st.write("**Preferred Vegetables:**")
+        if vegetables:
+            for vegetable in vegetables:
+                st.write(f"• {vegetable}")
+        else:
+            st.write("*None selected*")
+        
+        st.write("**Cuisine Preferences:**")
+        if cuisines:
+            for cuisine in cuisines:
+                st.write(f"• {cuisine}")
+        else:
+            st.write("*None selected*")
+        
+        st.write("**Foods to Avoid:**")
+        if disliked:
+            for food in disliked:
+                st.write(f"• {food}")
+        else:
+            st.write("*None listed*")
