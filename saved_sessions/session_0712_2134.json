@@ -1,10 +1,10 @@
 {
-  "timestamp": "2025-07-12T21:26:09.988497",
+  "timestamp": "2025-07-12T21:34:45.673477",
   "user_info": {
     "name": "Cody",
     "gender": "Male",
-    "dob": "01/01/1990",
-    "age": 35,
+    "dob": "12/12/1990",
+    "age": 34,
     "height_cm": 175.26,
     "height_inches": 69,
     "height_ft": 5,
@@ -12,8 +12,8 @@
     "weight_kg": 90.71858188712795,
     "weight_lbs": 200.0,
     "body_fat_percentage": 20.0,
-    "activity_level": "Sedentary (office job, <2 hours exercise per week)",
-    "raw_activity_level": "Sedentary (0-5k steps/day)",
+    "activity_level": "Lightly Active (light exercise 2-3 times per week)",
+    "raw_activity_level": "Light Active (5-10k steps/day)",
     "workouts_per_week": 6,
     "workout_frequency": "6+ workouts per week",
     "workout_calories": 400,
@@ -24,22 +24,21 @@
     "tracking_commitment": "I am committed to tracking regularly",
     "commitment_level": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently.",
     "use_imperial": true,
-    "tdee": 2541.930125502678
+    "tdee": 2869.503268805152
   },
   "goal_info": {
     "goal_type": "Lose fat",
-    "target_weight_kg": NaN,
-    "target_body_fat": 13.513513513513514,
-    "timeline_weeks": 10,
-    "start_date": "2025-07-12",
     "target_fat_mass_lbs": 25.0,
     "target_ffm_lbs": 160.0,
+    "target_body_fat": 13.513513513513514,
     "target_fmi": 3.6918211287863536,
     "target_ffmi": 23.627655224232665,
     "weekly_weight_pct": -0.0075,
     "weekly_fat_pct": 0.85,
     "target_weight_lbs": 185.0,
-    "target_energy": 1794
+    "timeline_weeks": 10,
+    "start_date": "2025-07-12",
+    "target_energy": 2121
   },
   "diet_preferences": {
     "dietary_restrictions": [
@@ -152,25 +151,25 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 934
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 934
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 624
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 624
         }
       ],
       "workouts": [
@@ -181,17 +180,17 @@
           "intensity": "High"
         }
       ],
-      "total_calories": 3119,
-      "base_tdee": 2519,
+      "total_calories": 3126,
+      "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -253,25 +252,25 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 934
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 934
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 624
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 624
         }
       ],
       "workouts": [
@@ -282,17 +281,17 @@
           "intensity": "High"
         }
       ],
-      "total_calories": 3119,
-      "base_tdee": 2519,
+      "total_calories": 3126,
+      "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -354,46 +353,46 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 844
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 844
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 563
+          "calories": 624
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 563
+          "calories": 624
         }
       ],
       "workouts": [
         {
-          "type": "Cardio",
+          "type": "Resistance Training",
           "time": "Early Morning (5:00-8:00 AM)",
           "duration": 60,
-          "intensity": "Light"
+          "intensity": "High"
         }
       ],
-      "total_calories": 2819,
-      "base_tdee": 2519,
-      "workout_calories": 300,
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -455,25 +454,25 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 934
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 934
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 624
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 624
         }
       ],
       "workouts": [
@@ -484,17 +483,17 @@
           "intensity": "High"
         }
       ],
-      "total_calories": 3119,
-      "base_tdee": 2519,
+      "total_calories": 3126,
+      "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -556,46 +555,39 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 934
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 934
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 504
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 504
         }
       ],
-      "workouts": [
-        {
-          "type": "Resistance Training",
-          "time": "Early Morning (5:00-8:00 AM)",
-          "duration": 60,
-          "intensity": "High"
-        }
-      ],
-      "total_calories": 3119,
-      "base_tdee": 2519,
-      "workout_calories": 600,
+      "workouts": [],
+      "total_calories": 2526,
+      "base_tdee": 2526,
+      "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -657,46 +649,39 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 823
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 823
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 548
+          "calories": 504
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 548
+          "calories": 504
         }
       ],
-      "workouts": [
-        {
-          "type": "Cardio",
-          "time": "Early Morning (5:00-8:00 AM)",
-          "duration": 45,
-          "intensity": "Light"
-        }
-      ],
-      "total_calories": 2744,
-      "base_tdee": 2519,
-      "workout_calories": 225,
+      "workouts": [],
+      "total_calories": 2526,
+      "base_tdee": 2526,
+      "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -758,39 +743,39 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 754
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 754
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 503
+          "calories": 504
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 503
+          "calories": 504
         }
       ],
       "workouts": [],
-      "total_calories": 2519,
-      "base_tdee": 2519,
+      "total_calories": 2526,
+      "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -854,25 +839,25 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 934
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 934
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 624
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 624
         }
       ],
       "workouts": [
@@ -883,17 +868,17 @@
           "intensity": "High"
         }
       ],
-      "total_calories": 3119,
-      "base_tdee": 2519,
+      "total_calories": 3126,
+      "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -955,25 +940,25 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 934
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 934
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 624
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 624
         }
       ],
       "workouts": [
@@ -984,17 +969,17 @@
           "intensity": "High"
         }
       ],
-      "total_calories": 3119,
-      "base_tdee": 2519,
+      "total_calories": 3126,
+      "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -1056,46 +1041,46 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 844
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 844
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 563
+          "calories": 624
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 563
+          "calories": 624
         }
       ],
       "workouts": [
         {
-          "type": "Cardio",
+          "type": "Resistance Training",
           "time": "Early Morning (5:00-8:00 AM)",
           "duration": 60,
-          "intensity": "Light"
+          "intensity": "High"
         }
       ],
-      "total_calories": 2819,
-      "base_tdee": 2519,
-      "workout_calories": 300,
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -1157,25 +1142,25 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 934
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 934
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 624
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 624
         }
       ],
       "workouts": [
@@ -1186,17 +1171,17 @@
           "intensity": "High"
         }
       ],
-      "total_calories": 3119,
-      "base_tdee": 2519,
+      "total_calories": 3126,
+      "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -1258,46 +1243,39 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 934
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 934
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 504
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 623
+          "calories": 504
         }
       ],
-      "workouts": [
-        {
-          "type": "Resistance Training",
-          "time": "Early Morning (5:00-8:00 AM)",
-          "duration": 60,
-          "intensity": "High"
-        }
-      ],
-      "total_calories": 3119,
-      "base_tdee": 2519,
-      "workout_calories": 600,
+      "workouts": [],
+      "total_calories": 2526,
+      "base_tdee": 2526,
+      "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -1359,46 +1337,39 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 823
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 823
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 548
+          "calories": 504
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 548
+          "calories": 504
         }
       ],
-      "workouts": [
-        {
-          "type": "Cardio",
-          "time": "Early Morning (5:00-8:00 AM)",
-          "duration": 45,
-          "intensity": "Light"
-        }
-      ],
-      "total_calories": 2744,
-      "base_tdee": 2519,
-      "workout_calories": 225,
+      "workouts": [],
+      "total_calories": 2526,
+      "base_tdee": 2526,
+      "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -1460,39 +1431,39 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Meal Prep",
-          "calories": 754
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 754
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 503
+          "calories": 504
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 503
+          "calories": 504
         }
       ],
       "workouts": [],
-      "total_calories": 2519,
-      "base_tdee": 2519,
+      "total_calories": 2526,
+      "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:45",
-        "sleep_hours": 7.75
+        "wake_time": "05:00",
+        "bed_time": "21:00",
+        "sleep_hours": 8.0
       },
       "work_schedule": {
         "start_time": "08:00",
-        "end_time": "16:00",
+        "end_time": "17:00",
         "type": "Hybrid Work"
       },
       "preferences": {
@@ -1549,30 +1520,77 @@
       }
     }
   },
+  "meal_contexts_detailed": {
+    "meal_1": {
+      "meal": "First Meal of Day",
+      "prep_type": "Use leftovers/pre-prepped ingredients",
+      "prep_time": "<5 minutes",
+      "location": [
+        "At home"
+      ],
+      "time_range": "Early Morning (5:00-8:00 AM)",
+      "consistency": true,
+      "variations": null
+    },
+    "meal_2": {
+      "meal": "Second Meal of Day",
+      "prep_type": "Meal delivery (ready-to-eat)",
+      "prep_time": null,
+      "location": [
+        "At home"
+      ],
+      "time_range": "Evening (5:00-8:00 PM)",
+      "consistency": true,
+      "variations": null
+    },
+    "meal_3": {
+      "meal": "Third Meal of Day",
+      "prep_type": "Cook from scratch",
+      "prep_time": "<5 minutes",
+      "location": [],
+      "time_range": "Midday (11:00 AM-2:00 PM)",
+      "consistency": true,
+      "variations": null
+    },
+    "snack_1": {
+      "meal": "First Snack of Day",
+      "prep_type": "Office/work snack",
+      "time_range": "Morning (8:00-11:00 AM)",
+      "consistency": true
+    },
+    "snack_2": {
+      "meal": "Second Snack of Day",
+      "prep_type": "Office/work snack",
+      "time_range": "Midday (11:00 AM-2:00 PM)",
+      "consistency": true
+    }
+  },
   "day_specific_nutrition": {},
   "day_tdee_values": {
-    "Monday": 3119,
-    "Tuesday": 3119,
-    "Wednesday": 2819,
-    "Thursday": 3119,
-    "Friday": 3119,
-    "Saturday": 2744,
-    "Sunday": 2519
+    "Monday": 3126,
+    "Tuesday": 3126,
+    "Wednesday": 3126,
+    "Thursday": 3126,
+    "Friday": 2526,
+    "Saturday": 2526,
+    "Sunday": 2526
   },
   "setup_complete": true,
   "body_fat_pct": 20.0,
   "target_bf": 13.513513513513514,
+  "target_fat": 25.0,
+  "target_ffm": 160.0,
+  "target_weight": 0.0,
+  "target_fmi": 3.6918211287863536,
+  "target_ffmi": 23.627655224232665,
+  "targets_set": true,
   "timeline_weeks": 10,
   "target_weight_lbs": 185.0,
-  "activity_level": "Sedentary (office job, <2 hours exercise per week)",
+  "activity_level": "Lightly Active (light exercise 2-3 times per week)",
   "goal_type": "Lose fat",
   "weekly_weight_pct": -0.0075,
   "recommended_rates": {},
   "nutrition_plan": {
-    "target_calories": NaN,
-    "target_protein": NaN,
-    "target_carbs": NaN,
-    "target_fat": NaN,
     "weekly_adjustments": [
       {
         "message": "Decrease daily calories by 341 kcal to stay on track.",
@@ -1585,5 +1603,5 @@
     ]
   },
   "ai_meal_plan": {},
-  "session_name": "session_0712_2126"
+  "session_name": "session_0712_2134"
 }

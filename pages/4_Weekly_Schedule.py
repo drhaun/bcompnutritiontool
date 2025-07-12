@@ -30,6 +30,19 @@ add_session_controls()
 if 'weekly_schedule_v2' not in st.session_state:
     st.session_state.weekly_schedule_v2 = {}
 
+# Load saved values for form inputs
+def get_session_time(key, default_time):
+    """Get time value from session state or use default"""
+    if key in st.session_state:
+        return st.session_state[key]
+    return default_time
+
+def get_session_value(key, default_value):
+    """Get value from session state or use default"""
+    if key in st.session_state:
+        return st.session_state[key]
+    return default_value
+
 # Define days of the week for consistent use
 days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
@@ -41,8 +54,8 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Sleep Schedule")
-    wake_time = st.time_input("Wake Up Time", value=datetime.time(7, 0), key="wake_time_input")
-    bed_time = st.time_input("Bed Time", value=datetime.time(22, 30), key="bed_time_input")
+    wake_time = st.time_input("Wake Up Time", value=get_session_time("wake_time_input", datetime.time(7, 0)), key="wake_time_input")
+    bed_time = st.time_input("Bed Time", value=get_session_time("bed_time_input", datetime.time(22, 30)), key="bed_time_input")
     
     # Calculate sleep duration
     def calculate_sleep_hours(wake, bed):
@@ -75,11 +88,11 @@ with col2:
         "Travel Work",
         "Student",
         "Retired/Unemployed"
-    ], key="work_type_select")
+    ], index=get_session_value("work_type_select", 0), key="work_type_select")
     
     if work_type not in ["Retired/Unemployed"]:
-        work_start = st.time_input("Work Start Time", value=datetime.time(9, 0), key="work_start_input")
-        work_end = st.time_input("Work End Time", value=datetime.time(17, 0), key="work_end_input")
+        work_start = st.time_input("Work Start Time", value=get_session_time("work_start_input", datetime.time(9, 0)), key="work_start_input")
+        work_end = st.time_input("Work End Time", value=get_session_time("work_end_input", datetime.time(17, 0)), key="work_end_input")
         
         # Calculate work hours (different logic than sleep)
         work_start_minutes = work_start.hour * 60 + work_start.minute
@@ -114,7 +127,7 @@ with activity_col1:
             default_workout_type = st.selectbox(
                 "Default workout type",
                 ["Resistance Training", "Cardio", "Mixed/Cross-Training", "Sports", "Yoga/Flexibility"],
-                index=0,
+                index=get_session_value("default_workout_type", 0),
                 key="default_workout_type",
                 help="This will be pre-selected for all workout days"
             )
@@ -129,7 +142,7 @@ with activity_col1:
                     "Evening (5:00-8:00 PM)",
                     "Night (8:00-11:00 PM)"
                 ],
-                index=4,
+                index=get_session_value("default_workout_time", 4),
                 key="default_workout_time",
                 help="Your typical workout time slot"
             )
@@ -137,7 +150,7 @@ with activity_col1:
         with default_col2:
             default_workout_duration = st.slider(
                 "Default duration (minutes)",
-                30, 180, 60, step=15,
+                30, 180, get_session_value("default_workout_duration", 60), step=15,
                 key="default_workout_duration",
                 help="Your usual workout length"
             )
@@ -145,7 +158,7 @@ with activity_col1:
             default_workout_intensity = st.selectbox(
                 "Default intensity",
                 ["Light", "Moderate", "High", "Very High"],
-                index=2,
+                index=get_session_value("default_workout_intensity", 2),
                 key="default_workout_intensity",
                 help="Your typical workout intensity level"
             )
@@ -159,17 +172,17 @@ with activity_col1:
         }
     
     # Check if user does multiple workouts per day
-    multiple_workouts_per_day = st.checkbox("I sometimes do multiple workouts per day", value=False, key="multiple_workouts_per_day")
+    multiple_workouts_per_day = st.checkbox("I sometimes do multiple workouts per day", value=get_session_value("multiple_workouts_per_day", False), key="multiple_workouts_per_day")
     
     if not multiple_workouts_per_day:
         # Single workout per day setup with detailed configuration
-        total_workouts = st.number_input("Total workouts per week", min_value=0, max_value=7, value=4, key="total_workouts")
+        total_workouts = st.number_input("Total workouts per week", min_value=0, max_value=7, value=get_session_value("total_workouts", 4), key="total_workouts")
         
         if total_workouts > 0:
             workout_days = st.multiselect(
                 "Select workout days",
                 days_of_week,
-                default=days_of_week[:min(total_workouts, 7)],
+                default=get_session_value("workout_days_select", days_of_week[:min(total_workouts, 7)]),
                 key="workout_days_select"
             )
             
@@ -360,8 +373,8 @@ with activity_col1:
     
     # General workout preferences (applies to both single and multiple workout setups)
     st.subheader("Workout Preferences")
-    avoid_bedtime_workouts = st.checkbox("Avoid workouts within 3 hours of bedtime", value=True, key="avoid_bedtime_workouts")
-    allow_fasted_workouts = st.checkbox("Allow fasted morning workouts", value=False, key="allow_fasted_workouts")
+    avoid_bedtime_workouts = st.checkbox("Avoid workouts within 3 hours of bedtime", value=get_session_value("avoid_bedtime_workouts", True), key="avoid_bedtime_workouts")
+    allow_fasted_workouts = st.checkbox("Allow fasted morning workouts", value=get_session_value("allow_fasted_workouts", False), key="allow_fasted_workouts")
 
 with activity_col2:
     st.subheader("Activity Level")
@@ -371,7 +384,7 @@ with activity_col2:
         "Lightly Active (some walking, light daily activities)", 
         "Moderately Active (regular walking, active lifestyle)",
         "Very Active (lots of movement, physical job)"
-    ], index=1, key="base_activity_select")
+    ], index=get_session_value("base_activity_select", 1), key="base_activity_select")
     
     # Convert to simple labels for calculations
     activity_mapping = {
@@ -389,11 +402,11 @@ meal_col1, meal_col2 = st.columns(2)
 
 with meal_col1:
     # User selects preferred number of meals per day
-    meals_per_day = st.number_input("Preferred # of meals per day", min_value=2, max_value=8, value=3, key="meals_per_day_input")
+    meals_per_day = st.number_input("Preferred # of meals per day", min_value=2, max_value=8, value=get_session_value("meals_per_day_input", 3), key="meals_per_day_input")
 
 with meal_col2:
     # Add snacks per day
-    snacks_per_day = st.number_input("Preferred # of snacks per day", min_value=0, max_value=5, value=2, key="snacks_per_day_input")
+    snacks_per_day = st.number_input("Preferred # of snacks per day", min_value=0, max_value=5, value=get_session_value("snacks_per_day_input", 2), key="snacks_per_day_input")
 
 # Description of meal vs snack difference
 st.markdown("""
@@ -608,9 +621,9 @@ with timing_col1:
     st.subheader("Workout Nutrition Preferences")
     
     # Pre/post workout meal preferences
-    pre_workout_meal = st.checkbox("Include pre-workout meal", value=True, key="pre_workout_meal")
-    pre_workout_snack = st.checkbox("Include pre-workout snack", value=False, key="pre_workout_snack")
-    post_workout_meal = st.checkbox("Include post-workout meal within 2 hours", value=True, key="post_workout_meal")
+    pre_workout_meal = st.checkbox("Include pre-workout meal", value=get_session_value("pre_workout_meal", True), key="pre_workout_meal")
+    pre_workout_snack = st.checkbox("Include pre-workout snack", value=get_session_value("pre_workout_snack", False), key="pre_workout_snack")
+    post_workout_meal = st.checkbox("Include post-workout meal within 2 hours", value=get_session_value("post_workout_meal", True), key="post_workout_meal")
     
     st.info("These preferences help optimize nutrition timing around your workouts for better performance and recovery.")
 
@@ -620,6 +633,7 @@ with timing_col2:
     energy_management = st.selectbox(
         "Energy distribution preference",
         ["Steady energy throughout day", "Higher energy for workouts", "Higher energy for work/focus"],
+        index=get_session_value("energy_management", 0),
         key="energy_management"
     )
     
@@ -627,6 +641,7 @@ with timing_col2:
     liquid_calories = st.selectbox(
         "Liquid calories preference",
         ["Minimize liquid calories", "Allow some liquid calories", "Open to liquid calories"],
+        index=get_session_value("liquid_calories", 0),
         key="liquid_calories"
     )
 

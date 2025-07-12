@@ -1,10 +1,10 @@
 {
-  "timestamp": "2025-07-12T21:24:37.050604",
+  "timestamp": "2025-07-12T21:33:35.369327",
   "user_info": {
     "name": "Cody",
     "gender": "Male",
-    "dob": "01/01/1990",
-    "age": 35,
+    "dob": "12/12/1990",
+    "age": 34,
     "height_cm": 175.26,
     "height_inches": 69,
     "height_ft": 5,
@@ -12,8 +12,8 @@
     "weight_kg": 90.71858188712795,
     "weight_lbs": 200.0,
     "body_fat_percentage": 20.0,
-    "activity_level": "Sedentary (office job, <2 hours exercise per week)",
-    "raw_activity_level": "Sedentary (0-5k steps/day)",
+    "activity_level": "Lightly Active (light exercise 2-3 times per week)",
+    "raw_activity_level": "Light Active (5-10k steps/day)",
     "workouts_per_week": 6,
     "workout_frequency": "6+ workouts per week",
     "workout_calories": 400,
@@ -24,22 +24,21 @@
     "tracking_commitment": "I am committed to tracking regularly",
     "commitment_level": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently.",
     "use_imperial": true,
-    "tdee": 2541.930125502678
+    "tdee": 2869.503268805152
   },
   "goal_info": {
     "goal_type": "Lose fat",
-    "target_weight_kg": NaN,
-    "target_body_fat": 13.513513513513514,
-    "timeline_weeks": 10,
-    "start_date": "2025-07-12",
     "target_fat_mass_lbs": 25.0,
     "target_ffm_lbs": 160.0,
+    "target_body_fat": 13.513513513513514,
     "target_fmi": 3.6918211287863536,
     "target_ffmi": 23.627655224232665,
     "weekly_weight_pct": -0.0075,
     "weekly_fat_pct": 0.85,
     "target_weight_lbs": 185.0,
-    "target_energy": 1794
+    "timeline_weeks": 10,
+    "start_date": "2025-07-12",
+    "target_energy": 2121
   },
   "diet_preferences": {
     "dietary_restrictions": [
@@ -147,22 +146,25 @@
   },
   "weekly_schedule_v2": {},
   "confirmed_weekly_schedule": {},
+  "meal_contexts_detailed": {},
   "day_specific_nutrition": {},
   "day_tdee_values": {},
   "setup_complete": true,
   "body_fat_pct": 20.0,
   "target_bf": 13.513513513513514,
+  "target_fat": 25.0,
+  "target_ffm": 160.0,
+  "target_weight": 0.0,
+  "target_fmi": 3.6918211287863536,
+  "target_ffmi": 23.627655224232665,
+  "targets_set": true,
   "timeline_weeks": 10,
   "target_weight_lbs": 185.0,
-  "activity_level": "Sedentary (office job, <2 hours exercise per week)",
+  "activity_level": "Lightly Active (light exercise 2-3 times per week)",
   "goal_type": "Lose fat",
   "weekly_weight_pct": -0.0075,
   "recommended_rates": {},
   "nutrition_plan": {
-    "target_calories": NaN,
-    "target_protein": NaN,
-    "target_carbs": NaN,
-    "target_fat": NaN,
     "weekly_adjustments": [
       {
         "message": "Decrease daily calories by 341 kcal to stay on track.",
@@ -175,5 +177,5 @@
     ]
   },
   "ai_meal_plan": {},
-  "session_name": "session_0712_2124"
+  "session_name": "session_0712_2133"
 }
