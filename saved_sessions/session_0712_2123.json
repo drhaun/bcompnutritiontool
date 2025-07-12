@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-07-12T21:20:19.731644",
+  "timestamp": "2025-07-12T21:23:30.799981",
   "user_info": {
     "name": "Cody",
     "gender": "Male",
@@ -12,8 +12,8 @@
     "weight_kg": 90.71858188712795,
     "weight_lbs": 200.0,
     "body_fat_percentage": 20.0,
-    "activity_level": "Lightly Active (light exercise 2-3 times per week)",
-    "raw_activity_level": "Light Active (5-10k steps/day)",
+    "activity_level": "Sedentary (office job, <2 hours exercise per week)",
+    "raw_activity_level": "Sedentary (0-5k steps/day)",
     "workouts_per_week": 6,
     "workout_frequency": "6+ workouts per week",
     "workout_calories": 400,
@@ -24,14 +24,22 @@
     "tracking_commitment": "I am committed to tracking regularly",
     "commitment_level": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently.",
     "use_imperial": true,
-    "tdee": 2862.628268805152
+    "tdee": 2541.930125502678
   },
   "goal_info": {
-    "goal_type": "lose_fat",
+    "goal_type": "Lose fat",
     "target_weight_kg": null,
-    "target_body_fat": null,
-    "timeline_weeks": null,
-    "start_date": null
+    "target_body_fat": 13.513513513513514,
+    "timeline_weeks": 10,
+    "start_date": "2025-07-12",
+    "target_fat_mass_lbs": 25.0,
+    "target_ffm_lbs": 160.0,
+    "target_fmi": 3.6918211287863536,
+    "target_ffmi": 23.627655224232665,
+    "weekly_weight_pct": -0.0075,
+    "weekly_fat_pct": 0.85,
+    "target_weight_lbs": 185.0,
+    "target_energy": 1794
   },
   "diet_preferences": {},
   "weekly_schedule_v2": {},
@@ -39,13 +47,13 @@
   "day_specific_nutrition": {},
   "day_tdee_values": {},
   "setup_complete": true,
-  "body_fat_pct": 0,
-  "target_bf": 0,
-  "timeline_weeks": 0,
-  "target_weight_lbs": 0,
-  "activity_level": "",
-  "goal_type": "",
-  "weekly_weight_pct": 0,
+  "body_fat_pct": 20.0,
+  "target_bf": 13.513513513513514,
+  "timeline_weeks": 10,
+  "target_weight_lbs": 185.0,
+  "activity_level": "Sedentary (office job, <2 hours exercise per week)",
+  "goal_type": "Lose fat",
+  "weekly_weight_pct": -0.0075,
   "recommended_rates": {},
   "nutrition_plan": {
     "target_calories": null,
@@ -55,5 +63,5 @@
     "weekly_adjustments": []
   },
   "ai_meal_plan": {},
-  "session_name": "session_0712_2120"
+  "session_name": "session_0712_2123"
 }

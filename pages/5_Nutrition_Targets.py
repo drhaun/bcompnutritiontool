@@ -308,6 +308,16 @@ st.markdown("Based on your Weekly Schedule preferences:")
 confirmed_schedule = st.session_state.get('confirmed_weekly_schedule', {})
 meal_contexts_detailed = st.session_state.get('meal_contexts_detailed', {})
 
+# Debug information - show in sidebar
+with st.sidebar:
+    st.markdown("### Debug Info")
+    st.write(f"Confirmed schedule keys: {list(confirmed_schedule.keys())}")
+    st.write(f"Meal contexts keys: {list(meal_contexts_detailed.keys())}")
+    if meal_contexts_detailed:
+        st.write("Sample meal context:")
+        first_key = list(meal_contexts_detailed.keys())[0]
+        st.json(meal_contexts_detailed[first_key])
+
 if confirmed_schedule:
     # Get meal/snack counts from any day (they should be consistent)
     sample_day = next(iter(confirmed_schedule.values()))
@@ -330,25 +340,40 @@ if confirmed_schedule:
     if meal_contexts_detailed:
         st.markdown("**Your Meal Contexts:**")
         
-        # Display meal contexts
+        # Display meal contexts in a more readable format
         for meal_key, context in meal_contexts_detailed.items():
             if context.get('meal'):
                 meal_name = context['meal']
-                prep_info = ""
-                if context.get('prep_type'):
-                    prep_info += f"• Prep: {context['prep_type']}"
-                if context.get('prep_time'):
-                    prep_info += f" ({context['prep_time']})"
-                if context.get('location'):
-                    prep_info += f" • Location: {', '.join(context['location'])}"
-                if context.get('time_range'):
-                    prep_info += f" • Time: {context['time_range']}"
                 
-                st.write(f"**{meal_name}:** {prep_info}")
+                # Build context details
+                context_details = []
+                if context.get('prep_type'):
+                    if context.get('prep_time'):
+                        context_details.append(f"Prep: {context['prep_type']} ({context['prep_time']})")
+                    else:
+                        context_details.append(f"Prep: {context['prep_type']}")
+                
+                if context.get('location'):
+                    locations = context['location']
+                    if isinstance(locations, list):
+                        context_details.append(f"Location: {', '.join(locations)}")
+                    else:
+                        context_details.append(f"Location: {locations}")
+                
+                if context.get('time_range'):
+                    context_details.append(f"Time: {context['time_range']}")
+                
+                # Display the meal context
+                if context_details:
+                    st.write(f"**{meal_name}:** {' • '.join(context_details)}")
+                else:
+                    st.write(f"**{meal_name}:** No specific context set")
                 
                 # Show variations if noted
                 if not context.get('consistency', True) and context.get('variations'):
                     st.write(f"  └ Variations: {context['variations']}")
+    else:
+        st.info("No meal contexts configured yet. Complete your Weekly Schedule to set meal preferences.")
     
     # Calculate rough calorie distribution based on suggested targets
     st.markdown("**Estimated Calorie Distribution:**")
