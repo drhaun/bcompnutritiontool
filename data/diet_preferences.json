@@ -3,7 +3,15 @@
     "Gluten-Free",
     "Low-FODMAP"
   ],
-  "cuisine_preferences": [],
+  "cuisine_preferences": [
+    "American",
+    "Italian",
+    "Mexican",
+    "Asian",
+    "Mediterranean",
+    "Japanese",
+    "Greek"
+  ],
   "preferred_proteins": [
     "Chicken Breast",
     "Chicken Thighs",
@@ -28,15 +36,39 @@
     "Quinoa",
     "Oats",
     "Sweet Potato",
-    "Regular Potato"
+    "Regular Potato",
+    "Pasta",
+    "Bread",
+    "Tortillas",
+    "Fruits",
+    "Vegetables",
+    "Legumes"
   ],
-  "preferred_fats": [],
+  "preferred_fats": [
+    "Olive Oil",
+    "Coconut Oil",
+    "Butter",
+    "Avocado",
+    "Nuts",
+    "Seeds",
+    "Nut Butters",
+    "Fatty Fish",
+    "Cheese",
+    "Cream"
+  ],
   "preferred_vegetables": [
     "Spinach",
+    "Broccoli",
+    "Cauliflower",
     "Carrots",
+    "Bell Peppers",
     "Zucchini",
     "Cucumber",
-    "Tomatoes"
+    "Tomatoes",
+    "Onions",
+    "Garlic",
+    "Mushrooms",
+    "Green Beans"
   ],
   "disliked_foods": [
     "Brussels, Peas, Asparagus, Dates, Cauliflower"
