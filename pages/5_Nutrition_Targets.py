@@ -65,9 +65,10 @@ with profile_col3:
     # Calculate total eating occasions from weekly schedule
     total_eating_occasions = 0
     if 'confirmed_weekly_schedule' in st.session_state:
-        meals_per_day = st.session_state.get('meals_per_day', 3)
-        snacks_per_day = st.session_state.get('snacks_per_day', 0)
-        total_eating_occasions = meals_per_day + snacks_per_day
+        # Get eating occasions from any day in the confirmed schedule
+        sample_day = next(iter(st.session_state.confirmed_weekly_schedule.values()))
+        meals = sample_day.get('meals', [])
+        total_eating_occasions = len(meals)  # Total meals + snacks
     else:
         # Fallback to diet preferences
         total_eating_occasions = st.session_state.diet_preferences.get('meal_frequency', 3)
@@ -217,13 +218,15 @@ for day in days_of_week:
 if 'day_specific_nutrition' not in st.session_state:
     st.session_state.day_specific_nutrition = {}
 
-# Store the numerical values for calculations
+# Store the numerical values for calculations - use the same data as the table
 for i, day in enumerate(days_of_week):
-    day_schedule = st.session_state.confirmed_weekly_schedule.get(day, {})
-    day_workouts = day_schedule.get('workouts', [])
-    day_tdee = tdee + (len(day_workouts) * 300)  # Add 300 calories per workout
+    # Use the same TDEE calculation as the table display
+    if day in day_tdee_values:
+        day_tdee = day_tdee_values[day]
+    else:
+        day_tdee = tdee  # Use base TDEE, not target_calories
     
-    # Calculate day-specific target calories and macros  
+    # Use the same weekly change calculation as the table
     day_weekly_change_kg = weekly_weight_change_kg
     goal_type_lower = goal_type.lower().replace(' ', '_')
     
