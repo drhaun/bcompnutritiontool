@@ -241,76 +241,7 @@ st.write("### Target Body Composition Planning")
 st.write("Set your goals for body composition changes. Use the reference information below to guide your target selection.")
 
 # Reference sections moved here to help guide target setting
-with st.expander("View Body Fat Percentage Reference Photos"):
-    ref_photo_path = "images/ref_photos.jpg"
-    if os.path.exists(ref_photo_path):
-        st.image(ref_photo_path, caption="Body Fat Percentage Reference - Men (top) and Women (bottom)", use_container_width=True)
-        st.write("These visual references can help you understand how different body fat percentages look.")
-    else:
-        alt_path = "attached_assets/ref_photos.jpg"
-        if os.path.exists(alt_path):
-            st.image(alt_path, caption="Body Fat Percentage Reference", use_container_width=True)
-        else:
-            st.warning("Reference photos not available. Visit the Reference Photos page for examples.")
-            st.link_button("Go to Reference Photos", url="Reference_Photos")
 
-with st.expander("View Detailed Information on Fat Mass Index and Fat-Free Mass Index"):
-    st.subheader("Body Composition Indices Explained")
-    
-    # Fat Mass Index explanation
-    st.write("### Fat Mass Index (FMI)")
-    st.write("""
-    **What it is**: FMI measures the amount of fat mass relative to height squared (kg/m²).
-    
-    **Why it matters**: FMI helps classify body fat levels independent of muscle mass, giving a clearer picture of fat-related health risks.
-    
-    **Interpretation**:
-    - **Below 2**: Extremely low fat (potentially unhealthy)
-    - **2-5**: Lean 
-    - **5-7**: Healthy/Athletic (varies by gender)
-    - **7-9**: Slightly overfat
-    - **9-13**: Overfat
-    - **Above 13**: Significantly overfat
-    
-    Different recommendations apply based on your FMI category. For example, those in higher FMI categories may benefit from focusing on fat loss, while those in lower categories may need to maintain or even increase fat mass.
-    """)
-    
-    # Fat-Free Mass Index explanation
-    st.write("### Fat-Free Mass Index (FFMI)")
-    st.write("""
-    **What it is**: FFMI measures the amount of fat-free mass (muscle, bone, organs) relative to height squared (kg/m²).
-    
-    **Why it matters**: FFMI helps assess muscularity independent of body fat, giving a clearer picture of muscle development.
-    
-    **Interpretation**:
-    - **Below 16**: Undermuscled
-    - **16-18**: Moderately undermuscled
-    - **18-22**: Normal/healthy
-    - **22-25**: Muscular
-    - **25-27**: Very muscular (approaching genetic potential for most)
-    - **Above 27**: Extremely muscular (rare without PEDs)
-    
-    **Normalized FFMI** adjusts the score to account for height differences, as taller individuals naturally have lower FFMI values.
-    
-    Different recommendations apply based on your FFMI category. For example, those in lower FFMI categories may benefit from focusing on muscle gain.
-    """)
-    
-    # Body Composition Category Reference Tables
-    st.write("### Body Composition Category Reference Tables")
-    
-    # Add advice about combined categories (not in nested expander)
-    st.write("""
-    The combination of your FMI and FFMI categories provides a comprehensive picture of your body composition status.
-    
-    **General Patterns:**
-    - If your FMI is high and FFMI is low: Focus on losing fat while gaining muscle
-    - If your FMI is high and FFMI is average: Focus on losing fat while maintaining muscle
-    - If your FMI is low or average and FFMI is low: Focus on building muscle
-    - If your FMI is low and FFMI is high: Consider maintenance or a slight surplus for performance
-    - If your FMI is high and FFMI is high: Consider body recomposition (lose fat while maintaining muscle)
-    
-    The "Body Composition Category Reference Tables" provide specific recommendations based on your unique combination.
-    """)
 
 # Initialize target session state variables if needed
 if "target_bf" not in st.session_state:
@@ -453,7 +384,14 @@ with col2:
     st.write(f"Total Weight: **{resulting_weight:.1f} lbs**")
     
     resulting_bf_pct = (new_target_fat_mass_lbs / resulting_weight) * 100
-    st.write(f"Body Fat: **{resulting_bf_pct:.1f}%**")
+    
+    # Add body fat percentage with reference photo button
+    bf_result_col1, bf_result_col2 = st.columns([3, 1])
+    with bf_result_col1:
+        st.write(f"Body Fat: **{resulting_bf_pct:.1f}%**")
+    with bf_result_col2:
+        if st.button("📷 BF Reference", key="bf_ref_calc", help="View body fat percentage reference photos"):
+            st.session_state.show_bf_reference_calc = True
     
     # Calculate resulting FMI and FFMI
     height_m = height_cm / 100
@@ -462,7 +400,23 @@ with col2:
     resulting_fmi = resulting_fat_kg / (height_m * height_m)
     resulting_ffmi = resulting_ffm_kg / (height_m * height_m)
     
-    # Show resulting indices with category descriptors
+    # Show resulting indices with category descriptors and help buttons
+    
+    # FMI display with info button
+    fmi_col1, fmi_col2 = st.columns([3, 1])
+    with fmi_col1:
+        st.write(f"FMI: **{resulting_fmi:.1f}**")
+    with fmi_col2:
+        if st.button("ℹ️ FMI Info", key="fmi_info_calc", help="Learn about Fat Mass Index"):
+            st.session_state.show_fmi_info = True
+    
+    # FFMI display with info button (will be added after category determination)
+    ffmi_col1, ffmi_col2 = st.columns([3, 1])
+    with ffmi_col1:
+        st.write(f"FFMI: **{resulting_ffmi:.1f}**")
+    with ffmi_col2:
+        if st.button("ℹ️ FFMI Info", key="ffmi_info_calc", help="Learn about Fat-Free Mass Index"):
+            st.session_state.show_ffmi_info = True
     
     # Determine FMI category with improved boundary handling
     fmi_category = "Unknown"
@@ -578,6 +532,89 @@ with col2:
         st.session_state.goal_info["target_ffmi"] = resulting_ffmi
         
         # Use the modern rerun method to refresh the page
+        st.rerun()
+
+# Add information panels below the Set Target Values section
+st.markdown("---")
+
+# Body Fat Reference Photos Panel
+if st.session_state.get('show_bf_reference_calc', False):
+    st.markdown("### Body Fat Percentage Visual Reference")
+    st.markdown("Use these reference photos to help understand how different body fat percentages look.")
+    
+    ref_photo_path = "images/ref_photos.jpg"
+    if os.path.exists(ref_photo_path):
+        st.image(ref_photo_path, caption="Body Fat Percentage Reference - Men (top) and Women (bottom)", use_container_width=True)
+    else:
+        alt_path = "attached_assets/ref_photos.jpg"
+        if os.path.exists(alt_path):
+            st.image(alt_path, caption="Body Fat Percentage Reference", use_container_width=True)
+        else:
+            st.warning("Reference photos not available.")
+    
+    if st.button("Close Reference Photos", key="close_bf_ref"):
+        st.session_state.show_bf_reference_calc = False
+        st.rerun()
+
+# FMI Information Panel
+if st.session_state.get('show_fmi_info', False):
+    st.markdown("### Fat Mass Index (FMI) Explained")
+    st.markdown("""
+    **What it is**: FMI measures the amount of fat mass relative to height squared (kg/m²).
+    
+    **Why it matters**: FMI helps classify body fat levels independent of muscle mass, giving a clearer picture of fat-related health risks.
+    
+    **Interpretation**:
+    - **Below 2**: Extremely low fat (potentially unhealthy)
+    - **2-5**: Lean 
+    - **5-7**: Healthy/Athletic (varies by gender)
+    - **7-9**: Slightly overfat
+    - **9-13**: Overfat
+    - **Above 13**: Significantly overfat
+    
+    Different recommendations apply based on your FMI category. For example, those in higher FMI categories may benefit from focusing on fat loss, while those in lower categories may need to maintain or even increase fat mass.
+    """)
+    
+    if st.button("Close FMI Information", key="close_fmi_info"):
+        st.session_state.show_fmi_info = False
+        st.rerun()
+
+# FFMI Information Panel
+if st.session_state.get('show_ffmi_info', False):
+    st.markdown("### Fat-Free Mass Index (FFMI) Explained")
+    st.markdown("""
+    **What it is**: FFMI measures the amount of fat-free mass (muscle, bone, organs) relative to height squared (kg/m²).
+    
+    **Why it matters**: FFMI helps assess muscularity independent of body fat, giving a clearer picture of muscle development.
+    
+    **Interpretation**:
+    - **Below 16**: Undermuscled
+    - **16-18**: Moderately undermuscled
+    - **18-22**: Normal/healthy
+    - **22-25**: Muscular
+    - **25-27**: Very muscular (approaching genetic potential for most)
+    - **Above 27**: Extremely muscular (rare without PEDs)
+    
+    **Normalized FFMI** adjusts the score to account for height differences, as taller individuals naturally have lower FFMI values.
+    
+    Different recommendations apply based on your FFMI category. For example, those in lower FFMI categories may benefit from focusing on muscle gain.
+    """)
+    
+    # Add advice about combined categories
+    st.markdown("#### Combined FMI + FFMI Guidance")
+    st.markdown("""
+    The combination of your FMI and FFMI categories provides a comprehensive picture of your body composition status.
+    
+    **General Patterns:**
+    - If your FMI is high and FFMI is low: Focus on losing fat while gaining muscle
+    - If your FMI is high and FFMI is average: Focus on losing fat while maintaining muscle
+    - If your FMI is low or average and FFMI is low: Focus on building muscle
+    - If your FMI is low and FFMI is high: Consider maintenance or a slight surplus for performance
+    - If your FMI is high and FFMI is high: Consider body recomposition (lose fat while maintaining muscle)
+    """)
+    
+    if st.button("Close FFMI Information", key="close_ffmi_info"):
+        st.session_state.show_ffmi_info = False
         st.rerun()
 
 # Get target values from session state if targets have been set
