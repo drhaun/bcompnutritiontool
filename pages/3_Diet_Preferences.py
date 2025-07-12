@@ -130,183 +130,164 @@ cuisine_options = [
     "Indian", "Thai", "Japanese", "French", "Greek", "Middle Eastern"
 ]
 
-# Food Preferences with Select All functionality
-food_tabs = st.tabs(["🥩 Proteins", "🍞 Carbohydrates", "🥑 Fats", "🥬 Vegetables", "🌍 Cuisines"])
+# Food Preferences with Form-based State Management
+st.markdown("### 🍽️ Food Preferences")
 
-with food_tabs[0]:
-    st.write("**Protein Sources**")
-    
-    # Initialize if not exists
-    if 'preferred_proteins' not in st.session_state.diet_preferences:
-        st.session_state.diet_preferences['preferred_proteins'] = []
-    
-    # Select All / Clear All buttons for proteins
-    protein_col1, protein_col2 = st.columns(2)
-    with protein_col1:
-        if st.button("✅ Select All Proteins", key="select_all_proteins", use_container_width=True):
-            st.session_state.diet_preferences['preferred_proteins'] = protein_options.copy()
-            st.session_state.multiselect_proteins = protein_options.copy()
-    
-    with protein_col2:
-        if st.button("❌ Clear All Proteins", key="clear_all_proteins", use_container_width=True):
-            st.session_state.diet_preferences['preferred_proteins'] = []
-            st.session_state.multiselect_proteins = []
-    
-    # Get current value from session state for consistency
-    current_proteins = st.session_state.diet_preferences.get('preferred_proteins', [])
-    
-    # Protein multiselect with forced key sync
-    preferred_proteins = st.multiselect(
-        "Select preferred proteins",
-        options=protein_options,
-        default=current_proteins,
-        key="multiselect_proteins",
-        help="Choose protein sources you enjoy"
-    )
-    
-    # Only update if there's an actual change
-    if preferred_proteins != st.session_state.diet_preferences.get('preferred_proteins', []):
-        st.session_state.diet_preferences['preferred_proteins'] = preferred_proteins
+# Initialize food preferences if not exists
+if 'preferred_proteins' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['preferred_proteins'] = []
+if 'preferred_carbs' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['preferred_carbs'] = []
+if 'preferred_fats' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['preferred_fats'] = []
+if 'preferred_vegetables' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['preferred_vegetables'] = []
+if 'cuisine_preferences' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['cuisine_preferences'] = []
 
-with food_tabs[1]:
-    st.write("**Carbohydrate Sources**")
+# Form for food preferences
+with st.form("food_preferences_form"):
+    food_tabs = st.tabs(["🥩 Proteins", "🍞 Carbohydrates", "🥑 Fats", "🥬 Vegetables", "🌍 Cuisines"])
     
-    # Initialize if not exists
-    if 'preferred_carbs' not in st.session_state.diet_preferences:
-        st.session_state.diet_preferences['preferred_carbs'] = []
+    with food_tabs[0]:
+        st.write("**Protein Sources**")
+        
+        # Select All / Clear All buttons for proteins
+        protein_col1, protein_col2 = st.columns(2)
+        with protein_col1:
+            select_all_proteins = st.form_submit_button("✅ Select All Proteins", use_container_width=True)
+        with protein_col2:
+            clear_all_proteins = st.form_submit_button("❌ Clear All Proteins", use_container_width=True)
+        
+        # Protein multiselect
+        if select_all_proteins:
+            default_proteins = protein_options.copy()
+        elif clear_all_proteins:
+            default_proteins = []
+        else:
+            default_proteins = st.session_state.diet_preferences.get('preferred_proteins', [])
+        
+        preferred_proteins = st.multiselect(
+            "Select preferred proteins",
+            options=protein_options,
+            default=default_proteins,
+            help="Choose protein sources you enjoy"
+        )
     
-    # Select All / Clear All buttons for carbs
-    carb_col1, carb_col2 = st.columns(2)
-    with carb_col1:
-        if st.button("✅ Select All Carbs", key="select_all_carbs", use_container_width=True):
-            st.session_state.diet_preferences['preferred_carbs'] = carb_options.copy()
-            st.session_state.multiselect_carbs = carb_options.copy()
+    with food_tabs[1]:
+        st.write("**Carbohydrate Sources**")
+        
+        # Select All / Clear All buttons for carbs
+        carb_col1, carb_col2 = st.columns(2)
+        with carb_col1:
+            select_all_carbs = st.form_submit_button("✅ Select All Carbs", use_container_width=True)
+        with carb_col2:
+            clear_all_carbs = st.form_submit_button("❌ Clear All Carbs", use_container_width=True)
+        
+        # Carbs multiselect
+        if select_all_carbs:
+            default_carbs = carb_options.copy()
+        elif clear_all_carbs:
+            default_carbs = []
+        else:
+            default_carbs = st.session_state.diet_preferences.get('preferred_carbs', [])
+        
+        preferred_carbs = st.multiselect(
+            "Select preferred carbohydrates",
+            options=carb_options,
+            default=default_carbs,
+            help="Choose carbohydrate sources you enjoy"
+        )
     
-    with carb_col2:
-        if st.button("❌ Clear All Carbs", key="clear_all_carbs", use_container_width=True):
-            st.session_state.diet_preferences['preferred_carbs'] = []
-            st.session_state.multiselect_carbs = []
+    with food_tabs[2]:
+        st.write("**Fat Sources**")
+        
+        # Select All / Clear All buttons for fats
+        fat_col1, fat_col2 = st.columns(2)
+        with fat_col1:
+            select_all_fats = st.form_submit_button("✅ Select All Fats", use_container_width=True)
+        with fat_col2:
+            clear_all_fats = st.form_submit_button("❌ Clear All Fats", use_container_width=True)
+        
+        # Fats multiselect
+        if select_all_fats:
+            default_fats = fat_options.copy()
+        elif clear_all_fats:
+            default_fats = []
+        else:
+            default_fats = st.session_state.diet_preferences.get('preferred_fats', [])
+        
+        preferred_fats = st.multiselect(
+            "Select preferred fats",
+            options=fat_options,
+            default=default_fats,
+            help="Choose fat sources you enjoy"
+        )
     
-    # Get current value from session state for consistency
-    current_carbs = st.session_state.diet_preferences.get('preferred_carbs', [])
+    with food_tabs[3]:
+        st.write("**Vegetables**")
+        
+        # Select All / Clear All buttons for vegetables
+        veg_col1, veg_col2 = st.columns(2)
+        with veg_col1:
+            select_all_vegetables = st.form_submit_button("✅ Select All Vegetables", use_container_width=True)
+        with veg_col2:
+            clear_all_vegetables = st.form_submit_button("❌ Clear All Vegetables", use_container_width=True)
+        
+        # Vegetables multiselect
+        if select_all_vegetables:
+            default_vegetables = vegetable_options.copy()
+        elif clear_all_vegetables:
+            default_vegetables = []
+        else:
+            default_vegetables = st.session_state.diet_preferences.get('preferred_vegetables', [])
+        
+        preferred_vegetables = st.multiselect(
+            "Select preferred vegetables",
+            options=vegetable_options,
+            default=default_vegetables,
+            help="Choose vegetables you enjoy"
+        )
     
-    # Carbs multiselect with forced key sync
-    preferred_carbs = st.multiselect(
-        "Select preferred carbohydrates",
-        options=carb_options,
-        default=current_carbs,
-        key="multiselect_carbs",
-        help="Choose carbohydrate sources you enjoy"
-    )
+    with food_tabs[4]:
+        st.write("**Cuisine Preferences**")
+        
+        # Select All / Clear All buttons for cuisines
+        cuisine_col1, cuisine_col2 = st.columns(2)
+        with cuisine_col1:
+            select_all_cuisines = st.form_submit_button("✅ Select All Cuisines", use_container_width=True)
+        with cuisine_col2:
+            clear_all_cuisines = st.form_submit_button("❌ Clear All Cuisines", use_container_width=True)
+        
+        # Cuisines multiselect
+        if select_all_cuisines:
+            default_cuisines = cuisine_options.copy()
+        elif clear_all_cuisines:
+            default_cuisines = []
+        else:
+            default_cuisines = st.session_state.diet_preferences.get('cuisine_preferences', [])
+        
+        cuisine_preferences = st.multiselect(
+            "Select preferred cuisines",
+            options=cuisine_options,
+            default=default_cuisines,
+            help="Choose cuisines you enjoy"
+        )
     
-    # Only update if there's an actual change
-    if preferred_carbs != st.session_state.diet_preferences.get('preferred_carbs', []):
-        st.session_state.diet_preferences['preferred_carbs'] = preferred_carbs
-
-with food_tabs[2]:
-    st.write("**Fat Sources**")
+    # Submit button for food preferences
+    food_preferences_submitted = st.form_submit_button("💾 Update Food Preferences", type="primary", use_container_width=True)
     
-    # Initialize if not exists
-    if 'preferred_fats' not in st.session_state.diet_preferences:
-        st.session_state.diet_preferences['preferred_fats'] = []
-    
-    # Select All / Clear All buttons for fats
-    fat_col1, fat_col2 = st.columns(2)
-    with fat_col1:
-        if st.button("✅ Select All Fats", key="select_all_fats", use_container_width=True):
-            st.session_state.diet_preferences['preferred_fats'] = fat_options.copy()
-            st.session_state.multiselect_fats = fat_options.copy()
-    
-    with fat_col2:
-        if st.button("❌ Clear All Fats", key="clear_all_fats", use_container_width=True):
-            st.session_state.diet_preferences['preferred_fats'] = []
-            st.session_state.multiselect_fats = []
-    
-    # Get current value from session state for consistency
-    current_fats = st.session_state.diet_preferences.get('preferred_fats', [])
-    
-    # Fats multiselect with forced key sync
-    preferred_fats = st.multiselect(
-        "Select preferred fats",
-        options=fat_options,
-        default=current_fats,
-        key="multiselect_fats",
-        help="Choose fat sources you enjoy"
-    )
-    
-    # Only update if there's an actual change
-    if preferred_fats != st.session_state.diet_preferences.get('preferred_fats', []):
-        st.session_state.diet_preferences['preferred_fats'] = preferred_fats
-
-with food_tabs[3]:
-    st.write("**Vegetables**")
-    
-    # Initialize if not exists
-    if 'preferred_vegetables' not in st.session_state.diet_preferences:
-        st.session_state.diet_preferences['preferred_vegetables'] = []
-    
-    # Select All / Clear All buttons for vegetables
-    veg_col1, veg_col2 = st.columns(2)
-    with veg_col1:
-        if st.button("✅ Select All Vegetables", key="select_all_vegetables", use_container_width=True):
-            st.session_state.diet_preferences['preferred_vegetables'] = vegetable_options.copy()
-            st.session_state.multiselect_vegetables = vegetable_options.copy()
-    
-    with veg_col2:
-        if st.button("❌ Clear All Vegetables", key="clear_all_vegetables", use_container_width=True):
-            st.session_state.diet_preferences['preferred_vegetables'] = []
-            st.session_state.multiselect_vegetables = []
-    
-    # Get current value from session state for consistency
-    current_vegetables = st.session_state.diet_preferences.get('preferred_vegetables', [])
-    
-    # Vegetables multiselect with forced key sync
-    preferred_vegetables = st.multiselect(
-        "Select preferred vegetables",
-        options=vegetable_options,
-        default=current_vegetables,
-        key="multiselect_vegetables",
-        help="Choose vegetables you enjoy"
-    )
-    
-    # Only update if there's an actual change
-    if preferred_vegetables != st.session_state.diet_preferences.get('preferred_vegetables', []):
-        st.session_state.diet_preferences['preferred_vegetables'] = preferred_vegetables
-
-with food_tabs[4]:
-    st.write("**Cuisine Preferences**")
-    
-    # Initialize if not exists
-    if 'cuisine_preferences' not in st.session_state.diet_preferences:
-        st.session_state.diet_preferences['cuisine_preferences'] = []
-    
-    # Select All / Clear All buttons for cuisines
-    cuisine_col1, cuisine_col2 = st.columns(2)
-    with cuisine_col1:
-        if st.button("✅ Select All Cuisines", key="select_all_cuisines", use_container_width=True):
-            st.session_state.diet_preferences['cuisine_preferences'] = cuisine_options.copy()
-            st.session_state.multiselect_cuisines = cuisine_options.copy()
-    
-    with cuisine_col2:
-        if st.button("❌ Clear All Cuisines", key="clear_all_cuisines", use_container_width=True):
-            st.session_state.diet_preferences['cuisine_preferences'] = []
-            st.session_state.multiselect_cuisines = []
-    
-    # Get current value from session state for consistency
-    current_cuisines = st.session_state.diet_preferences.get('cuisine_preferences', [])
-    
-    # Cuisines multiselect with forced key sync
-    cuisine_preferences = st.multiselect(
-        "Select preferred cuisines",
-        options=cuisine_options,
-        default=current_cuisines,
-        key="multiselect_cuisines",
-        help="Choose cuisines you enjoy"
-    )
-    
-    # Only update if there's an actual change
-    if cuisine_preferences != st.session_state.diet_preferences.get('cuisine_preferences', []):
-        st.session_state.diet_preferences['cuisine_preferences'] = cuisine_preferences
+    # Update session state when form is submitted
+    if food_preferences_submitted:
+        st.session_state.diet_preferences.update({
+            'preferred_proteins': preferred_proteins,
+            'preferred_carbs': preferred_carbs,
+            'preferred_fats': preferred_fats,
+            'preferred_vegetables': preferred_vegetables,
+            'cuisine_preferences': cuisine_preferences
+        })
+        st.success("Food preferences updated successfully!")
+        st.rerun()
 
 # ==================== SECTION 3: FOODS TO AVOID ====================
 st.markdown("### 🚫 Foods to Avoid")
