@@ -71,6 +71,12 @@ PRACTICAL PREFERENCES:
 - Budget: {diet_preferences.get('budget_preference', 'Not specified')}
 - Meal Sourcing: Home cooking interest - {diet_preferences.get('home_cooking_interest', 'High')}
 - Meal Frequency: {diet_preferences.get('meal_frequency', 'Not specified')}
+
+VARIETY PREFERENCES:
+- Variety Level: {diet_preferences.get('variety_level', 'Moderate Variety')}
+- Repetition Preference: {diet_preferences.get('repetition_preference', 'I like some repetition but with variations')}
+- Weekly Structure: {diet_preferences.get('weekly_structure', 'Mix of routine and variety')}
+- Cooking Variety: {diet_preferences.get('cooking_variety', 'Some variety in cooking methods')}
 """
     
     for day, day_data in weekly_targets.items():
@@ -105,7 +111,14 @@ Please create realistic meals considering:
 2. Accurate macro calculations matching targets (±10% tolerance)
 3. Practical preparation based on context (On-the-Go = quick prep, Home Cooking = more elaborate)
 4. Meal timing around workouts and work schedule
-5. Day-specific variety to avoid repetition across the week
+5. VARIETY CONTROL: Apply user's variety preferences - {diet_preferences.get('variety_level', 'Moderate Variety')}
+   - For "Low Variety": Use similar meal structures with minor variations
+   - For "Moderate Variety": Mix familiar and new meals with some repetition
+   - For "High Variety": Create mostly different meals with occasional repeats
+   - For "Maximum Variety": Ensure each meal is unique and creative
+6. REPETITION HANDLING: {diet_preferences.get('repetition_preference', 'I like some repetition but with variations')}
+7. WEEKLY STRUCTURE: {diet_preferences.get('weekly_structure', 'Mix of routine and variety')}
+8. COOKING VARIETY: {diet_preferences.get('cooking_variety', 'Some variety in cooking methods')}
 
 Format as JSON with this structure:
 {{
@@ -362,6 +375,15 @@ with st.expander("📋 Complete Weekly Overview", expanded=True):
             st.write(f"• **Cooking Time:** {diet_prefs.get('cooking_time_preference', 'Not set')}")
             st.write(f"• **Budget:** {diet_prefs.get('budget_preference', 'Not set')}")
             st.write(f"• **Home Cooking Interest:** {diet_prefs.get('home_cooking_interest', 'Not set')}")
+            
+            # Variety preferences
+            variety_level = diet_prefs.get('variety_level', 'Not set')
+            repetition_preference = diet_prefs.get('repetition_preference', 'Not set')
+            weekly_structure = diet_prefs.get('weekly_structure', 'Not set')
+            
+            st.write(f"• **Variety Level:** {variety_level}")
+            st.write(f"• **Repetition Preference:** {repetition_preference}")
+            st.write(f"• **Weekly Structure:** {weekly_structure}")
             
             # Preferred foods
             preferred_proteins = diet_prefs.get('preferred_proteins', [])

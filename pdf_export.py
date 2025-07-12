@@ -208,21 +208,35 @@ class FitomicsPDF(FPDF):
         consolidated = {}
         for ingredient in all_ingredients:
             if isinstance(ingredient, dict):
-                name = ingredient.get('name', '').lower()
-                amount = float(ingredient.get('amount', 0))
+                name = ingredient.get('name', ingredient.get('item', ''))
+                amount_str = str(ingredient.get('amount', ''))
                 
+                # Skip empty names or amounts
+                if not name or not amount_str:
+                    continue
+                
+                # Store amounts as strings to preserve units (like "200g", "1 cup")
                 if name in consolidated:
-                    consolidated[name] += amount
+                    if isinstance(consolidated[name], list):
+                        consolidated[name].append(amount_str)
+                    else:
+                        consolidated[name] = [consolidated[name], amount_str]
                 else:
-                    consolidated[name] = amount
+                    consolidated[name] = amount_str
         
         # Sort and display
         self.set_font('Arial', '', 11)
         self.set_text_color(0, 0, 0)
         
-        for name, total_amount in sorted(consolidated.items()):
-            if name and total_amount > 0:
-                self.cell(0, 6, f"- {total_amount:.0f}g {name.title()}", 0, 1, 'L')
+        for name, amounts in sorted(consolidated.items()):
+            if name:
+                if isinstance(amounts, list):
+                    # Multiple amounts for same ingredient
+                    combined_amounts = ", ".join(amounts)
+                    self.cell(0, 6, f"- {name}: {combined_amounts}", 0, 1, 'L')
+                else:
+                    # Single amount
+                    self.cell(0, 6, f"- {name}: {amounts}", 0, 1, 'L')
 
 def export_meal_plan_pdf(meal_data, user_preferences=None):
     """Export complete meal plan with grocery list to branded PDF"""

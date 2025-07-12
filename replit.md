@@ -102,6 +102,16 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 12, 2025 - Fixed PDF Export and Added Variety Preferences**:
+  - Fixed critical PDF export data flow issue with AI-generated meal plans
+  - Enhanced PDF export to handle string amounts with units (e.g., "200g", "1 cup") instead of failing on float conversion
+  - Added comprehensive variety preferences section to Diet Preferences page
+  - Integrated variety preferences into AI meal planning prompts for better meal diversity control
+  - Added profile summary integration to PDF export title page
+  - Enhanced debugging capabilities for PDF export with detailed console logging
+  - Users can now control meal variety through Low/Moderate/High/Maximum variety settings
+  - Added repetition preference, weekly structure, and cooking variety controls
+
 - **July 12, 2025 - Implemented Persistent Session Management System**:
   - Created comprehensive session save/load functionality across all pages
   - Added auto-load feature that restores last saved session when returning to any page

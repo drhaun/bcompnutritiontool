@@ -394,6 +394,76 @@ if sourcing_submit:
 
 
 
+# ==================== SECTION 6: VARIETY PREFERENCES ====================
+st.markdown("### 🔄 Meal Variety Preferences")
+st.markdown("Control how much variety you want in your meal plans. This affects how the AI creates your weekly meals.")
+
+with st.form("variety_preferences_form", clear_on_submit=False):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 🍽️ Meal Variety Level")
+        variety_level = st.select_slider(
+            "How much variety do you want in your meals?",
+            options=["Low Variety", "Moderate Variety", "High Variety", "Maximum Variety"],
+            value=st.session_state.diet_preferences.get('variety_level', 'Moderate Variety'),
+            help="Low: Similar meals repeated often | Moderate: Some repetition with variation | High: Different meals most days | Maximum: New meals as much as possible"
+        )
+        
+        st.markdown("#### 🔁 Repetition Preference")
+        repetition_preference = st.selectbox(
+            "How do you feel about repeating meals?",
+            options=[
+                "I enjoy eating the same meals regularly",
+                "I like some repetition but with variations",
+                "I prefer different meals but can repeat favorites",
+                "I want as much variety as possible"
+            ],
+            index=["I enjoy eating the same meals regularly", "I like some repetition but with variations", "I prefer different meals but can repeat favorites", "I want as much variety as possible"].index(
+                st.session_state.diet_preferences.get('repetition_preference', 'I like some repetition but with variations')
+            )
+        )
+    
+    with col2:
+        st.markdown("#### 📅 Weekly Meal Planning")
+        weekly_structure = st.selectbox(
+            "How would you like your weekly meals structured?",
+            options=[
+                "Same breakfast, lunch, and dinner daily",
+                "Same breakfast, varied lunch and dinner",
+                "Different meals each day",
+                "Mix of routine and variety"
+            ],
+            index=["Same breakfast, lunch, and dinner daily", "Same breakfast, varied lunch and dinner", "Different meals each day", "Mix of routine and variety"].index(
+                st.session_state.diet_preferences.get('weekly_structure', 'Mix of routine and variety')
+            )
+        )
+        
+        st.markdown("#### 🍳 Cooking Variety")
+        cooking_variety = st.selectbox(
+            "How much variety do you want in cooking methods?",
+            options=[
+                "Keep it simple - same cooking methods",
+                "Some variety in cooking methods",
+                "Try different cooking techniques",
+                "Maximum cooking variety and creativity"
+            ],
+            index=["Keep it simple - same cooking methods", "Some variety in cooking methods", "Try different cooking techniques", "Maximum cooking variety and creativity"].index(
+                st.session_state.diet_preferences.get('cooking_variety', 'Some variety in cooking methods')
+            )
+        )
+    
+    # Update session state
+    st.session_state.diet_preferences['variety_level'] = variety_level
+    st.session_state.diet_preferences['repetition_preference'] = repetition_preference
+    st.session_state.diet_preferences['weekly_structure'] = weekly_structure
+    st.session_state.diet_preferences['cooking_variety'] = cooking_variety
+    
+    # Submit form
+    variety_submit = st.form_submit_button("Save Variety Preferences", type="primary")
+    if variety_submit:
+        st.success("✅ Variety preferences saved!")
+
 # ==================== HOW PREFERENCES ARE USED ====================
 st.markdown("### How Your Preferences Are Used")
 st.markdown("""
