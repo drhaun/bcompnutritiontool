@@ -44,36 +44,31 @@ USER PROFILE:
         user_context += f"""
 BODY COMPOSITION GOALS:
 - Primary Goal: {body_comp_goals.get('goal_type', 'Not specified')}
-- Current Weight: {body_comp_goals.get('current_weight_lbs', 'Not specified')} lbs
-- Target Weight: {body_comp_goals.get('target_weight_lbs', 'Not specified')} lbs
-- Target Body Fat: {body_comp_goals.get('target_bf_pct', 'Not specified')}%
-- Timeline: {body_comp_goals.get('timeline_weeks', 'Not specified')} weeks
+- Current Weight: {user_profile.get('weight_lbs', 'Not specified')} lbs
+- Target Weight: {st.session_state.get('target_weight_lbs', 'Not specified')} lbs
+- Target Body Fat: {st.session_state.get('target_bf', 'Not specified')}%
+- Timeline: {st.session_state.get('timeline_weeks', 'Not specified')} weeks
 """
     
     # Enhanced dietary preferences context
+    dietary_restrictions = diet_preferences.get('dietary_restrictions', [])
     diet_context = f"""
 DIETARY PREFERENCES & RESTRICTIONS:
-- Vegetarian: {diet_preferences.get('vegetarian', False)}
-- Vegan: {diet_preferences.get('vegan', False)}
-- Gluten-free: {diet_preferences.get('gluten_free', False)}
-- Dairy-free: {diet_preferences.get('dairy_free', False)}
-- Nut-free: {diet_preferences.get('nut_free', False)}
-- Ketogenic: {diet_preferences.get('keto', False)}
-- Paleo: {diet_preferences.get('paleo', False)}
-- Low Sodium: {diet_preferences.get('low_sodium', False)}
+- Dietary Restrictions: {', '.join(dietary_restrictions) if dietary_restrictions else 'None'}
+- Allergies: {', '.join(diet_preferences.get('allergies', []))}
+- Disliked Foods: {', '.join(diet_preferences.get('disliked_foods', [])[:5])}
 
 FOOD PREFERENCES:
 - Preferred Proteins: {', '.join(diet_preferences.get('preferred_proteins', [])[:5])}
 - Preferred Carbs: {', '.join(diet_preferences.get('preferred_carbs', [])[:5])}
 - Preferred Fats: {', '.join(diet_preferences.get('preferred_fats', [])[:5])}
 - Preferred Vegetables: {', '.join(diet_preferences.get('preferred_vegetables', [])[:5])}
-- Preferred Cuisines: {', '.join(diet_preferences.get('preferred_cuisines', [])[:3])}
+- Preferred Cuisines: {', '.join(diet_preferences.get('cuisine_preferences', [])[:3])}
 
 PRACTICAL PREFERENCES:
-- Cooking Time: {diet_preferences.get('cooking_time', 'Not specified')}
+- Cooking Time: {diet_preferences.get('cooking_time_preference', 'Not specified')}
 - Budget: {diet_preferences.get('budget_preference', 'Not specified')}
-- Cooking For: {diet_preferences.get('cooking_for', 'Not specified')}
-- Leftovers: {diet_preferences.get('leftovers_preference', 'Not specified')}
+- Meal Sourcing: Home cooking interest - {diet_preferences.get('home_cooking_interest', 'High')}
 - Meal Frequency: {diet_preferences.get('meal_frequency', 'Not specified')}
 """
     
@@ -99,7 +94,7 @@ DAILY SCHEDULE CONTEXT:
 - Work schedule: {schedule_info.get('work_start', 'N/A')} - {schedule_info.get('work_end', 'N/A')}
 - Workout day: {len(schedule_info.get('workouts', [])) > 0}
 - Workout times: {', '.join([f"{w.get('time', 'N/A')} ({w.get('duration', 0)}min {w.get('type', 'workout')})" for w in schedule_info.get('workouts', [])])}
-- Estimated TDEE: {schedule_info.get('estimated_tdee', 2000)} calories
+- Estimated TDEE: {schedule_info.get('total_calories', 2000)} calories
 
 MEAL SCHEDULE & CONTEXTS:
 - Scheduled meals with times and contexts from user's weekly schedule
@@ -250,11 +245,11 @@ st.success("✅ **Sync Profile Mode Active** - Using your personalized body comp
 with st.expander("📋 Complete Weekly Overview", expanded=True):
     st.markdown("**Summary of all your selections and calculations:**")
     
-    # Get all data sources
+    # Get all data sources with correct session state keys
     weekly_schedule = st.session_state.get('weekly_schedule_v2', {})
     day_nutrition = st.session_state.get('day_specific_nutrition', {})
-    body_comp_goals = st.session_state.get('body_composition_goals', {})
-    initial_setup = st.session_state.get('user_profile', {})
+    body_comp_goals = st.session_state.get('goal_info', {})  # Corrected key name
+    initial_setup = st.session_state.get('user_info', {})  # Corrected key name
     diet_prefs = st.session_state.get('diet_preferences', {})
     
     # Create comprehensive overview table
@@ -280,7 +275,7 @@ with st.expander("📋 Complete Weekly Overview", expanded=True):
         
         overview_data.append({
             'Day': day,
-            'TDEE': f"{schedule.get('estimated_tdee', 0):.0f}",
+            'TDEE': f"{schedule.get('total_calories', 0):.0f}",
             'Target Calories': f"{nutrition.get('calories', 0):.0f}",
             'Protein': f"{nutrition.get('protein', 0):.0f}g",
             'Carbs': f"{nutrition.get('carbs', 0):.0f}g",
@@ -314,22 +309,23 @@ with st.expander("📋 Complete Weekly Overview", expanded=True):
             if height_ft and height_in:
                 st.write(f"• **Height:** {height_ft}'{height_in}\"")
             st.write(f"• **Activity Level:** {initial_setup.get('activity_level', 'Not set')}")
-            st.write(f"• **Experience Level:** {initial_setup.get('experience_level', 'Not set')}")
+            st.write(f"• **Workout Frequency:** {initial_setup.get('workout_frequency', 'Not set')}")
+            st.write(f"• **Goal Focus:** {initial_setup.get('goal_focus', 'Not set')}")
         else:
             st.info("Initial Setup not completed - will use default values")
             
         st.markdown("**📊 Body Composition Goals:**")
         if body_comp_goals:
             st.write(f"• **Primary Goal:** {body_comp_goals.get('goal_type', 'Not set')}")
-            st.write(f"• **Current Weight:** {body_comp_goals.get('current_weight_lbs', 'Not set')} lbs")
-            st.write(f"• **Target Weight:** {body_comp_goals.get('target_weight_lbs', 'Not set')} lbs")
-            st.write(f"• **Target Body Fat:** {body_comp_goals.get('target_bf_pct', 'Not set')}%")
-            st.write(f"• **Timeline:** {body_comp_goals.get('timeline_weeks', 'Not set')} weeks")
+            st.write(f"• **Current Weight:** {initial_setup.get('weight_lbs', 'Not set')} lbs")
+            st.write(f"• **Target Weight:** {st.session_state.get('target_weight_lbs', 'Not set')} lbs")
+            st.write(f"• **Target Body Fat:** {st.session_state.get('target_bf', 'Not set')}%")
+            st.write(f"• **Timeline:** {st.session_state.get('timeline_weeks', 'Not set')} weeks")
             
             # Calculate weekly change rate
-            current_weight = body_comp_goals.get('current_weight_lbs', 0)
-            target_weight = body_comp_goals.get('target_weight_lbs', 0)
-            timeline = body_comp_goals.get('timeline_weeks', 1)
+            current_weight = initial_setup.get('weight_lbs', 0)
+            target_weight = st.session_state.get('target_weight_lbs', 0)
+            timeline = st.session_state.get('timeline_weeks', 1)
             if current_weight and target_weight and timeline:
                 weekly_change = (target_weight - current_weight) / timeline
                 change_type = "gain" if weekly_change > 0 else "loss"
@@ -340,27 +336,28 @@ with st.expander("📋 Complete Weekly Overview", expanded=True):
     with col2:
         st.markdown("**🥗 Diet Preferences:**")
         if diet_prefs:
-            # Dietary restrictions
-            restrictions = []
-            if diet_prefs.get('vegetarian'): restrictions.append("Vegetarian")
-            if diet_prefs.get('vegan'): restrictions.append("Vegan")
-            if diet_prefs.get('gluten_free'): restrictions.append("Gluten-Free")
-            if diet_prefs.get('dairy_free'): restrictions.append("Dairy-Free")
-            if diet_prefs.get('nut_free'): restrictions.append("Nut-Free")
-            if diet_prefs.get('low_sodium'): restrictions.append("Low Sodium")
-            if diet_prefs.get('keto'): restrictions.append("Ketogenic")
-            if diet_prefs.get('paleo'): restrictions.append("Paleo")
-            
+            # Dietary restrictions from actual session state structure
+            restrictions = diet_prefs.get('dietary_restrictions', [])
             if restrictions:
                 st.write(f"• **Dietary Restrictions:** {', '.join(restrictions)}")
             else:
                 st.write("• **Dietary Restrictions:** None")
             
+            # Allergies
+            allergies = diet_prefs.get('allergies', [])
+            if allergies:
+                st.write(f"• **Allergies:** {', '.join(allergies)}")
+            
+            # Disliked foods
+            disliked_foods = diet_prefs.get('disliked_foods', [])
+            if disliked_foods:
+                st.write(f"• **Disliked Foods:** {', '.join(disliked_foods[:3])}{'...' if len(disliked_foods) > 3 else ''}")
+            
             # Food preferences
             st.write(f"• **Meal Frequency:** {diet_prefs.get('meal_frequency', 'Not set')}")
-            st.write(f"• **Cooking Time:** {diet_prefs.get('cooking_time', 'Not set')}")
+            st.write(f"• **Cooking Time:** {diet_prefs.get('cooking_time_preference', 'Not set')}")
             st.write(f"• **Budget:** {diet_prefs.get('budget_preference', 'Not set')}")
-            st.write(f"• **Cooking For:** {diet_prefs.get('cooking_for', 'Not set')}")
+            st.write(f"• **Home Cooking Interest:** {diet_prefs.get('home_cooking_interest', 'Not set')}")
             
             # Preferred foods
             preferred_proteins = diet_prefs.get('preferred_proteins', [])
@@ -375,8 +372,8 @@ with st.expander("📋 Complete Weekly Overview", expanded=True):
             if preferred_vegetables:
                 st.write(f"• **Preferred Vegetables:** {', '.join(preferred_vegetables[:3])}{'...' if len(preferred_vegetables) > 3 else ''}")
                 
-            # Cuisine preferences
-            preferred_cuisines = diet_prefs.get('preferred_cuisines', [])
+            # Cuisine preferences (correct key name)
+            preferred_cuisines = diet_prefs.get('cuisine_preferences', [])
             if preferred_cuisines:
                 st.write(f"• **Preferred Cuisines:** {', '.join(preferred_cuisines[:3])}{'...' if len(preferred_cuisines) > 3 else ''}")
         else:
@@ -460,23 +457,36 @@ existing_prefs = st.session_state.get('diet_preferences', {})
 if existing_prefs:
     st.info("Using preferences from Diet Preferences page")
     with st.expander("View Current Preferences", expanded=False):
-        prefs_to_show = []
-        if existing_prefs.get('vegetarian'): prefs_to_show.append("Vegetarian")
-        if existing_prefs.get('vegan'): prefs_to_show.append("Vegan")
-        if existing_prefs.get('gluten_free'): prefs_to_show.append("Gluten-Free")
-        if existing_prefs.get('dairy_free'): prefs_to_show.append("Dairy-Free")
-        if existing_prefs.get('nut_free'): prefs_to_show.append("Nut-Free")
-        if existing_prefs.get('low_sodium'): prefs_to_show.append("Low Sodium")
-        
-        if prefs_to_show:
-            st.write("**Dietary Restrictions:** " + ", ".join(prefs_to_show))
+        # Use correct key names from Diet Preferences page
+        dietary_restrictions = existing_prefs.get('dietary_restrictions', [])
+        if dietary_restrictions:
+            st.write("**Dietary Restrictions:** " + ", ".join(dietary_restrictions))
         else:
             st.write("**Dietary Restrictions:** None")
         
+        allergies = existing_prefs.get('allergies', [])
+        if allergies:
+            st.write("**Allergies:** " + ", ".join(allergies))
+        
         st.write(f"**Cooking Time:** {existing_prefs.get('cooking_time_preference', 'Medium (30-60 min)')}")
         st.write(f"**Budget:** {existing_prefs.get('budget_preference', 'Moderate')}")
-        st.write(f"**Cooking For:** {existing_prefs.get('cooking_for', 'Just myself')}")
-        st.write(f"**Leftovers:** {existing_prefs.get('leftovers_preference', 'Okay with leftovers occasionally')}")
+        st.write(f"**Home Cooking Interest:** {existing_prefs.get('home_cooking_interest', 'High')}")
+        st.write(f"**Meal Frequency:** {existing_prefs.get('meal_frequency', 3)}")
+        
+        # Show preferred foods
+        preferred_proteins = existing_prefs.get('preferred_proteins', [])
+        preferred_carbs = existing_prefs.get('preferred_carbs', [])
+        preferred_vegetables = existing_prefs.get('preferred_vegetables', [])
+        preferred_cuisines = existing_prefs.get('cuisine_preferences', [])
+        
+        if preferred_proteins:
+            st.write(f"**Preferred Proteins:** {', '.join(preferred_proteins[:5])}")
+        if preferred_carbs:
+            st.write(f"**Preferred Carbs:** {', '.join(preferred_carbs[:5])}")
+        if preferred_vegetables:
+            st.write(f"**Preferred Vegetables:** {', '.join(preferred_vegetables[:5])}")
+        if preferred_cuisines:
+            st.write(f"**Preferred Cuisines:** {', '.join(preferred_cuisines[:3])}")
 else:
     st.warning("No dietary preferences set. Using default preferences.")
     if st.button("📝 Set Diet Preferences", use_container_width=True):
@@ -509,7 +519,7 @@ def prepare_weekly_targets():
         
         # Create meal targets based on actual meal schedule
         meal_targets = {}
-        total_calories = nutrition.get('calories', 2000)  # Fixed key name
+        total_calories = nutrition.get('calories', 2000)  # Using correct key name
         total_protein = nutrition.get('protein', 150)
         total_carbs = nutrition.get('carbs', 200)
         total_fat = nutrition.get('fat', 70)
