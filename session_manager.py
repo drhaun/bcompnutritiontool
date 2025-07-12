@@ -149,22 +149,28 @@ def add_session_controls():
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 💾 Session Management")
     
-    # Auto-save indicator
-    if session_manager.has_auto_save():
-        st.sidebar.success("Auto-save available")
+    # Auto-load on page load
+    auto_load_session()
+    
+    # Show current session status
+    current_session = st.session_state.get('current_session_name', 'Unsaved')
+    st.sidebar.info(f"Current: {current_session}")
     
     # Save current session
     col1, col2 = st.sidebar.columns(2)
     with col1:
-        if st.button("💾 Save", use_container_width=True):
+        if st.button("💾 Save", use_container_width=True, key="save_session"):
             session_name = f"session_{datetime.now().strftime('%m%d_%H%M')}"
             filepath = session_manager.save_session(session_name)
             if filepath:
+                st.session_state['current_session_name'] = session_name
                 st.sidebar.success(f"Saved as {session_name}")
+                st.rerun()
     
     with col2:
-        if st.button("🔄 Auto-Save", use_container_width=True):
+        if st.button("🔄 Auto-Save", use_container_width=True, key="auto_save_session"):
             session_manager.auto_save()
+            st.session_state['current_session_name'] = "auto_save_latest"
             st.sidebar.success("Auto-saved")
     
     # Load existing sessions
@@ -192,18 +198,47 @@ def add_session_controls():
             selected_session = st.sidebar.selectbox(
                 "Select Session:",
                 options=[None] + session_options,
-                format_func=lambda x: "Choose..." if x is None else x[0]
+                format_func=lambda x: "Choose..." if x is None else x[0],
+                key="session_selector"
             )
             
             if selected_session:
                 col1, col2 = st.sidebar.columns(2)
                 with col1:
-                    if st.button("📂 Load", use_container_width=True):
+                    if st.button("📂 Load", use_container_width=True, key="load_session"):
                         if session_manager.load_session(selected_session[1]):
+                            st.session_state['current_session_name'] = selected_session[1].replace('.json', '')
                             st.rerun()
                 
                 with col2:
-                    if st.button("🗑️ Delete", use_container_width=True):
+                    if st.button("🗑️ Delete", use_container_width=True, key="delete_session"):
                         if session_manager.delete_session(selected_session[1]):
                             st.sidebar.success("Session deleted")
                             st.rerun()
+
+def auto_load_session():
+    """Automatically load the most recent session if available"""
+    # Check if we should auto-load
+    if 'session_auto_loaded' not in st.session_state:
+        st.session_state.session_auto_loaded = True
+        
+        # Try to load auto-save first
+        if session_manager.has_auto_save():
+            session_manager.load_session("auto_save_latest.json")
+            st.session_state['current_session_name'] = "auto_save_latest"
+        else:
+            # Load most recent session
+            sessions = session_manager.get_saved_sessions()
+            if sessions:
+                latest_session = sessions[0]  # Already sorted by timestamp
+                session_manager.load_session(latest_session['filename'])
+                st.session_state['current_session_name'] = latest_session['filename'].replace('.json', '')
+
+def save_on_change():
+    """Auto-save whenever data changes"""
+    if 'auto_save_enabled' not in st.session_state:
+        st.session_state.auto_save_enabled = True
+    
+    if st.session_state.auto_save_enabled:
+        session_manager.auto_save()
+        st.session_state['current_session_name'] = "auto_save_latest"

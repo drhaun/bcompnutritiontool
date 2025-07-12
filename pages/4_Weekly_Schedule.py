@@ -10,6 +10,7 @@ import numpy as np
 # Add parent directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import utils
+from session_manager import add_session_controls, save_on_change
 
 # Set page title and layout
 st.set_page_config(
@@ -21,6 +22,9 @@ st.set_page_config(
 # Setup page header with Fitomics branding
 st.title("📅 Weekly Schedule")
 st.markdown("Create a comprehensive weekly schedule that helps optimize meal planning by understanding when and where you'll be eating throughout the week.")
+
+# Add session management controls
+add_session_controls()
 
 # Initialize session state for schedule if needed
 if 'weekly_schedule_v2' not in st.session_state:

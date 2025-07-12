@@ -8,6 +8,7 @@ from datetime import datetime
 # Add the root directory to the path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import utils
+from session_manager import add_session_controls, save_on_change
 
 # Set page config
 st.set_page_config(
@@ -22,6 +23,9 @@ utils.load_data()
 # Streamlit UI
 st.title("🎯 Nutrition Targets")
 st.markdown("Review and confirm your personalized nutrition targets based on your body composition goals, diet preferences, and weekly schedule.")
+
+# Add session management controls
+add_session_controls()
 
 # Check if prerequisites are completed
 if 'user_info' not in st.session_state or not st.session_state.user_info:

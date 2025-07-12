@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime, date
 import os
 import utils
+from session_manager import add_session_controls, save_on_change
 
 # Page config
 st.set_page_config(
@@ -18,6 +19,9 @@ except:
     st.title("Fitomics")
 st.title("Initial Setup")
 st.markdown("Enter your personal information and goals to get started.")
+
+# Add session management controls
+add_session_controls()
 
 # Initialize session state
 if 'user_info' not in st.session_state:

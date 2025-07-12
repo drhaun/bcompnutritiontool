@@ -9,6 +9,7 @@ import os
 # Add the root directory to the path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import utils
+from session_manager import add_session_controls, save_on_change
 
 # Initialize session state variables
 if "targets_set" not in st.session_state:
@@ -61,6 +62,9 @@ except:
     st.title("Fitomics")
 st.title("Body Composition Goals")
 st.markdown("Define your body composition targets and timeline.")
+
+# Add session management controls
+add_session_controls()
 
 # Check if initial setup is complete, otherwise redirect
 # Temporarily bypassed for testing

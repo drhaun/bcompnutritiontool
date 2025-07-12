@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 # Import custom modules
 sys.path.append(os.path.abspath(os.path.dirname(__file__) + '/../'))
 import utils
+from session_manager import add_session_controls, save_on_change
 
 # Set page config
 st.set_page_config(
@@ -23,6 +24,9 @@ utils.load_data()
 # Streamlit UI
 st.title("🍏 Diet Preferences")
 st.markdown("Customize your nutrition plan by setting your food preferences, dietary restrictions, and eating habits. These preferences will guide both DIY and AI-powered meal planning.")
+
+# Add session management controls
+add_session_controls()
 
 # Check if user info is set
 if 'user_info' not in st.session_state or not st.session_state.user_info:
