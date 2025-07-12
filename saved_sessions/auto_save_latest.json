@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-07-12T22:00:38.893556",
+  "timestamp": "2025-07-12T22:04:54.791502",
   "user_info": {
     "name": "Cody",
     "gender": "Male",
@@ -153,25 +153,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 750
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         }
       ],
       "workouts": [
@@ -186,9 +192,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -196,8 +202,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -250,25 +256,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 750
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         }
       ],
       "workouts": [
@@ -283,9 +295,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -293,8 +305,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -347,25 +359,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 750
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         }
       ],
       "workouts": [
@@ -380,9 +398,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -390,8 +408,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -444,25 +462,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 750
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         }
       ],
       "workouts": [
@@ -477,9 +501,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -487,8 +511,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -541,25 +565,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 606
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 606
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 606
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 404
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 404
         }
       ],
       "workouts": [],
@@ -567,9 +597,9 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -577,8 +607,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -631,25 +661,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 606
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 606
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 606
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 404
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 404
         }
       ],
       "workouts": [],
@@ -657,9 +693,9 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -667,8 +703,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -721,25 +757,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 606
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 606
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 606
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 404
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 404
         }
       ],
       "workouts": [],
@@ -747,9 +789,9 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -757,8 +799,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -813,25 +855,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 750
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         }
       ],
       "workouts": [
@@ -846,9 +894,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -856,8 +904,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -910,25 +958,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 750
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         }
       ],
       "workouts": [
@@ -943,9 +997,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -953,8 +1007,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -1007,25 +1061,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 750
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         }
       ],
       "workouts": [
@@ -1040,9 +1100,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -1050,8 +1110,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -1104,25 +1164,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 937
+          "calories": 750
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 750
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 624
+          "calories": 500
         }
       ],
       "workouts": [
@@ -1137,9 +1203,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -1147,8 +1213,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -1201,25 +1267,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 606
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 606
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 606
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 404
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 404
         }
       ],
       "workouts": [],
@@ -1227,9 +1299,9 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -1237,8 +1309,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -1291,25 +1363,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 606
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 606
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 606
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 404
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 404
         }
       ],
       "workouts": [],
@@ -1317,9 +1395,9 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -1327,8 +1405,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -1381,25 +1459,31 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 606
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 606
+        },
+        {
+          "type": "meal",
+          "name": "Third Meal of Day",
+          "context": "Home Cooking",
+          "calories": 606
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 404
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 404
         }
       ],
       "workouts": [],
@@ -1407,9 +1491,9 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "21:00",
-        "sleep_hours": 8.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -1417,8 +1501,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"

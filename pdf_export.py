@@ -132,7 +132,7 @@ class FitomicsPDF(FPDF):
             for pref in prefs:
                 self.cell(0, 6, f"- {pref}", 0, 1, 'L')
                 
-    def add_meal_section(self, meal_type, recipe, macros, ingredients):
+    def add_meal_section(self, meal_type, recipe, macros, ingredients, meal_context=None, meal_time=None):
         """Add a meal section with recipe and ingredients"""
         # Meal title
         self.set_font('Arial', 'B', 16)
@@ -142,7 +142,20 @@ class FitomicsPDF(FPDF):
         # Recipe name
         self.set_font('Arial', 'B', 14)
         self.set_text_color(0, 0, 0)
-        self.cell(0, 8, recipe.get('title', 'Custom Meal'), 0, 1, 'L')
+        recipe_name = recipe.get('name', recipe.get('title', 'Custom Meal'))
+        self.cell(0, 8, recipe_name, 0, 1, 'L')
+        
+        # Add meal context and time if available
+        if meal_context or meal_time:
+            self.set_font('Arial', '', 10)
+            self.set_text_color(100, 100, 100)
+            context_parts = []
+            if meal_time:
+                context_parts.append(f"Time: {meal_time}")
+            if meal_context:
+                context_parts.append(f"Context: {meal_context}")
+            self.cell(0, 5, " | ".join(context_parts), 0, 1, 'L')
+            self.set_text_color(0, 0, 0)
         
         # Macros box
         self.ln(2)
@@ -177,22 +190,34 @@ class FitomicsPDF(FPDF):
         self.set_font('Arial', '', 10)
         for ingredient in ingredients:
             if isinstance(ingredient, dict):
-                name = ingredient.get('name', 'Unknown')
+                # Try different keys for ingredient name
+                name = ingredient.get('item', ingredient.get('name', 'Unknown'))
                 amount = ingredient.get('amount', 0)
-                self.cell(0, 5, f"- {amount}g {name}", 0, 1, 'L')
+                # Clean up amount formatting - preserve units
+                if isinstance(amount, str):
+                    self.cell(0, 5, f"- {amount} {name}", 0, 1, 'L')
+                else:
+                    self.cell(0, 5, f"- {amount}g {name}", 0, 1, 'L')
             else:
                 self.cell(0, 5, f"- {ingredient}", 0, 1, 'L')
         
-        # Directions
-        directions = recipe.get('directions', [])
-        if directions:
+        # Instructions/Directions
+        instructions = recipe.get('instructions', recipe.get('directions', []))
+        if instructions:
             self.ln(3)
             self.set_font('Arial', 'B', 12)
-            self.cell(0, 6, 'DIRECTIONS:', 0, 1, 'L')
+            self.cell(0, 6, 'INSTRUCTIONS:', 0, 1, 'L')
             
             self.set_font('Arial', '', 10)
-            for i, direction in enumerate(directions, 1):
-                self.cell(0, 5, f"{i}. {direction}", 0, 1, 'L')
+            if isinstance(instructions, list):
+                for i, instruction in enumerate(instructions, 1):
+                    self.cell(0, 5, f"{i}. {instruction}", 0, 1, 'L')
+            else:
+                # Split text instructions into lines
+                lines = str(instructions).split('. ')
+                for i, line in enumerate(lines, 1):
+                    if line.strip():
+                        self.cell(0, 5, f"{i}. {line.strip()}", 0, 1, 'L')
         
         self.ln(8)
         
@@ -347,8 +372,15 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
                     submeal_macros = submeal.get('total_macros', {})
                     submeal_ingredients = submeal.get('ingredients', [])
                     
-                    # Add meal section to PDF
-                    pdf.add_meal_section(submeal_name, submeal, submeal_macros, submeal_ingredients)
+                    # Add meal section to PDF with context
+                    pdf.add_meal_section(
+                        meal_type=submeal_name,
+                        recipe=submeal,
+                        macros=submeal_macros,
+                        ingredients=submeal_ingredients,
+                        meal_context=submeal.get('context'),
+                        meal_time=submeal.get('time')
+                    )
                     
                     # Collect ingredients for grocery list
                     for ingredient in submeal_ingredients:
@@ -367,8 +399,15 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
                     macros = recipe.get('macros', {})
                     ingredients = recipe.get('ingredients', [])
                     
-                    # Add to PDF
-                    pdf.add_meal_section(meal_name, recipe, macros, ingredients)
+                    # Add to PDF with context
+                    pdf.add_meal_section(
+                        meal_type=meal_name,
+                        recipe=recipe,
+                        macros=macros,
+                        ingredients=ingredients,
+                        meal_context=meal_info.get('context'),
+                        meal_time=meal_info.get('time')
+                    )
                     
                     # Collect ingredients for grocery list
                     for ingredient in ingredients:
@@ -388,7 +427,14 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
             if ingredients:
                 all_ingredients.extend(ingredients)
             
-            pdf.add_meal_section(meal_type, recipe, macros, ingredients)
+            pdf.add_meal_section(
+                meal_type=meal_type,
+                recipe=recipe,
+                macros=macros,
+                ingredients=ingredients,
+                meal_context=meal_info.get('context'),
+                meal_time=meal_info.get('time')
+            )
         
         print(f"Adding grocery list with {len(all_ingredients)} ingredients...")
         # Add grocery list on new page

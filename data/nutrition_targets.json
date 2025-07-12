@@ -5,78 +5,80 @@
   "fat": 73.0,
   "meal_distribution": [
     {
-      "Meal": "Breakfast (08:00)",
-      "Calories": "666",
-      "Protein": "75g",
-      "Carbs": "30g",
-      "Fat": "27g"
+      "Meal": "Breakfast (07:00)",
+      "Calories": "594",
+      "Protein": "50g",
+      "Carbs": "58g",
+      "Fat": "18g"
     },
     {
-      "Meal": "Lunch (18:00)",
-      "Calories": "666",
-      "Protein": "75g",
-      "Carbs": "30g",
-      "Fat": "27g"
+      "Meal": "Lunch (12:00)",
+      "Calories": "594",
+      "Protein": "50g",
+      "Carbs": "58g",
+      "Fat": "18g"
+    },
+    {
+      "Meal": "Dinner (18:00)",
+      "Calories": "594",
+      "Protein": "50g",
+      "Carbs": "58g",
+      "Fat": "18g"
     },
     {
       "Meal": "Mid-Morning Snack (10:00)",
-      "Calories": "222",
+      "Calories": "297",
       "Protein": "25g",
-      "Carbs": "10g",
+      "Carbs": "29g",
       "Fat": "9g"
     },
     {
       "Meal": "Afternoon Snack (15:00)",
-      "Calories": "222",
+      "Calories": "297",
       "Protein": "25g",
-      "Carbs": "10g",
+      "Carbs": "29g",
       "Fat": "9g"
     }
   ],
   "customized": false,
   "day_specific_meals": {
     "Monday": {
-      "meal_count": 2,
+      "meal_count": 3,
       "snack_count": 2,
       "use_custom_timing": false,
       "meal_times": [
-        "08:00",
+        "07:00",
+        "12:00",
         "18:00"
       ]
     },
     "Tuesday": {
-      "meal_count": 2,
+      "meal_count": 3,
       "snack_count": 2,
       "use_custom_timing": false,
       "meal_times": [
-        "08:00",
+        "07:00",
+        "12:00",
         "18:00"
       ]
     },
     "Wednesday": {
-      "meal_count": 2,
+      "meal_count": 3,
       "snack_count": 2,
       "use_custom_timing": false,
       "meal_times": [
-        "08:00",
+        "07:00",
+        "12:00",
         "18:00"
       ]
     },
     "Thursday": {
-      "meal_count": 2,
+      "meal_count": 3,
       "snack_count": 2,
       "use_custom_timing": false,
       "meal_times": [
-        "08:00",
-        "18:00"
-      ]
-    },
-    "Saturday": {
-      "meal_count": 2,
-      "snack_count": 2,
-      "use_custom_timing": false,
-      "meal_times": [
-        "08:00",
+        "07:00",
+        "12:00",
         "18:00"
       ]
     }
@@ -84,23 +86,23 @@
   "weekly_meal_summary": [
     {
       "Day": "Monday",
-      "Meals": 2,
-      "Times": "08:00, 18:00"
+      "Meals": 3,
+      "Times": "07:00, 12:00, 18:00"
     },
     {
       "Day": "Tuesday",
-      "Meals": 2,
-      "Times": "08:00, 18:00"
+      "Meals": 3,
+      "Times": "07:00, 12:00, 18:00"
     },
     {
       "Day": "Wednesday",
-      "Meals": 2,
-      "Times": "08:00, 18:00"
+      "Meals": 3,
+      "Times": "07:00, 12:00, 18:00"
     },
     {
       "Day": "Thursday",
-      "Meals": 2,
-      "Times": "08:00, 18:00"
+      "Meals": 3,
+      "Times": "07:00, 12:00, 18:00"
     },
     {
       "Day": "Friday",
@@ -109,8 +111,8 @@
     },
     {
       "Day": "Saturday",
-      "Meals": 2,
-      "Times": "08:00, 18:00"
+      "Meals": 3,
+      "Times": "07:00, 12:00, 18:00"
     },
     {
       "Day": "Sunday",
@@ -123,20 +125,29 @@
       {
         "name": "Breakfast",
         "type": "meal",
-        "time": "08:00",
-        "calories": 891,
-        "protein": 75,
-        "carbs": 87,
-        "fat": 27
+        "time": "07:00",
+        "calories": 594,
+        "protein": 50,
+        "carbs": 58,
+        "fat": 18
       },
       {
         "name": "Lunch",
         "type": "meal",
+        "time": "12:00",
+        "calories": 594,
+        "protein": 50,
+        "carbs": 58,
+        "fat": 18
+      },
+      {
+        "name": "Dinner",
+        "type": "meal",
         "time": "18:00",
-        "calories": 891,
-        "protein": 75,
-        "carbs": 87,
-        "fat": 27
+        "calories": 594,
+        "protein": 50,
+        "carbs": 58,
+        "fat": 18
       },
       {
         "name": "Mid-Morning Snack",
@@ -154,44 +165,6 @@
         "calories": 297,
         "protein": 25,
         "carbs": 29,
-        "fat": 9
-      }
-    ],
-    "Saturday": [
-      {
-        "name": "Breakfast",
-        "type": "meal",
-        "time": "08:00",
-        "calories": 666,
-        "protein": 75,
-        "carbs": 30,
-        "fat": 27
-      },
-      {
-        "name": "Lunch",
-        "type": "meal",
-        "time": "18:00",
-        "calories": 666,
-        "protein": 75,
-        "carbs": 30,
-        "fat": 27
-      },
-      {
-        "name": "Mid-Morning Snack",
-        "type": "snack",
-        "time": "10:00",
-        "calories": 222,
-        "protein": 25,
-        "carbs": 10,
-        "fat": 9
-      },
-      {
-        "name": "Afternoon Snack",
-        "type": "snack",
-        "time": "15:00",
-        "calories": 222,
-        "protein": 25,
-        "carbs": 10,
         "fat": 9
       }
     ]

@@ -110,10 +110,12 @@ CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
 
 1. **MACRO ACCURACY (HIGHEST PRIORITY)**:
    - Each meal MUST match its target macros within ±5% tolerance (not ±10%)
-   - Calculate each ingredient's exact macros using standard nutrition data
+   - Daily totals MUST match daily targets within ±5% tolerance
+   - Calculate each ingredient's exact macros using standard USDA nutrition data
    - Verify total meal macros add up correctly before including in response
    - If a meal doesn't hit targets, adjust portion sizes until it does
    - Example: If target is 500 calories, acceptable range is 475-525 calories
+   - CRITICAL: Ensure daily totals sum to match the specified daily targets exactly
 
 2. **INGREDIENT PRECISION**:
    - Use specific quantities: "150g chicken breast" not "1 serving chicken"
@@ -128,10 +130,11 @@ CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
    - Snacks: Smaller portions, typically 10-25% of daily targets
 
 4. **VARIETY CONTROL**: Apply user's variety preferences - {diet_preferences.get('variety_level', 'Moderate Variety')}
-   - For "Low Variety": Use similar meal structures with minor variations
-   - For "Moderate Variety": Mix familiar and new meals with some repetition
-   - For "High Variety": Create mostly different meals with occasional repeats
-   - For "Maximum Variety": Ensure each meal is unique and creative
+   - For "Low Variety": Use similar meal structures with minor variations (same proteins, rotate sides)
+   - For "Moderate Variety": Mix familiar and new meals with some repetition (2-3 different proteins per week)
+   - For "High Variety": Create mostly different meals with occasional repeats (different proteins, cooking methods, cuisines)
+   - For "Maximum Variety": Ensure each meal is unique and creative (different proteins, varied cuisines, diverse cooking methods)
+   - ENFORCE VARIETY: Track ingredients used and actively avoid repetition based on user preference level
 
 5. **PRACTICAL CONSIDERATIONS**:
    - Cooking time: {diet_preferences.get('cooking_time_preference', 'Not specified')}
@@ -168,9 +171,21 @@ CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
 ✓ Each meal's total_macros equals sum of its ingredients
 ✓ Daily_totals equals sum of all meal total_macros
 ✓ Each meal hits its individual target within ±5%
-✓ Daily totals hit overall targets within ±5%
+✓ Daily totals hit overall targets within ±5% (THIS IS CRITICAL)
 ✓ All ingredient amounts are specific and measurable
 ✓ All macro values are realistic and nutritionally accurate
+✓ Variety level is properly applied (no excessive repetition)
+✓ Meal context matches daily schedule requirements
+
+**FINAL VALIDATION PROMPT**:
+Before providing your response, please:
+1. Calculate the daily totals by summing all meal macros
+2. Compare these totals to the daily targets provided
+3. If any macro is outside ±5% tolerance, adjust ingredient portions
+4. Ensure the adjusted totals meet the targets exactly
+5. Only then provide your final JSON response
+
+Remember: The user is relying on these macros for precise body composition goals. Accuracy is paramount.
 """
 
             response = openai_client.chat.completions.create(
@@ -180,8 +195,8 @@ CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.3,  # Lower temperature for more consistent and accurate calculations
-                max_tokens=3000  # Increased for more detailed responses
+                temperature=0.2,  # Even lower temperature for maximum calculation consistency
+                max_tokens=4000  # Increased for more detailed responses and validation
             )
             
             day_plan = json.loads(response.choices[0].message.content)
