@@ -407,6 +407,12 @@ if sourcing_submit:
 st.markdown("### 🧂 Seasoning & Flavor Preferences")
 st.markdown("Tell us about your preferred flavors and seasonings to make your meals more delicious and interesting.")
 
+# Initialize seasoning preferences variables
+spice_level = st.session_state.diet_preferences.get('spice_level', 'Medium')
+flavor_profile = st.session_state.diet_preferences.get('flavor_profile', ['Savory/Umami', 'Herbal'])
+preferred_seasonings = st.session_state.diet_preferences.get('preferred_seasonings', ['Salt', 'Black Pepper', 'Garlic Powder', 'Oregano'])
+cooking_enhancers = st.session_state.diet_preferences.get('cooking_enhancers', ['Olive Oil', 'Lemon Juice', 'Garlic'])
+
 with st.form("seasoning_preferences_form", clear_on_submit=False):
     col1, col2 = st.columns(2)
     
@@ -415,7 +421,7 @@ with st.form("seasoning_preferences_form", clear_on_submit=False):
         spice_level = st.select_slider(
             "How spicy do you like your food?",
             options=["No Spice", "Mild", "Medium", "Hot", "Very Hot"],
-            value=st.session_state.diet_preferences.get('spice_level', 'Medium'),
+            value=spice_level,
             help="This affects how much heat will be included in your meal recommendations"
         )
         
@@ -426,7 +432,7 @@ with st.form("seasoning_preferences_form", clear_on_submit=False):
                 "Savory/Umami", "Sweet", "Sour/Tangy", "Bitter", "Spicy/Hot",
                 "Herbal", "Smoky", "Citrusy", "Garlic-heavy", "Onion-heavy"
             ],
-            default=st.session_state.diet_preferences.get('flavor_profile', ['Savory/Umami', 'Herbal']),
+            default=flavor_profile,
             help="Select all flavor profiles you enjoy"
         )
     
@@ -441,7 +447,7 @@ with st.form("seasoning_preferences_form", clear_on_submit=False):
                 "Ginger", "Cinnamon", "Italian Seasoning", "Lemon Pepper",
                 "Everything Bagel Seasoning", "Herbs de Provence"
             ],
-            default=st.session_state.diet_preferences.get('preferred_seasonings', ['Salt', 'Black Pepper', 'Garlic Powder', 'Oregano']),
+            default=preferred_seasonings,
             help="Select seasonings you want included in your meal plans"
         )
         
@@ -454,7 +460,7 @@ with st.form("seasoning_preferences_form", clear_on_submit=False):
                 "Worcestershire Sauce", "Balsamic Vinegar", "Honey", "Maple Syrup",
                 "Garlic", "Fresh Herbs", "Ginger", "Mustard"
             ],
-            default=st.session_state.diet_preferences.get('cooking_enhancers', ['Olive Oil', 'Lemon Juice', 'Garlic']),
+            default=cooking_enhancers,
             help="Select ingredients that enhance flavor in your cooking"
         )
     
@@ -662,6 +668,24 @@ with profile_col2:
     budget = diet_prefs.get('budget_preference', 'Not set')
     st.write(f"**Cooking Time:** {cooking_time}")
     st.write(f"**Budget:** {budget}")
+    
+    # Seasoning preferences
+    st.markdown("#### 🧂 Seasoning & Flavor Preferences")
+    spice_level = diet_prefs.get('spice_level', 'Medium')
+    flavor_profiles = diet_prefs.get('flavor_profile', [])
+    seasonings = diet_prefs.get('preferred_seasonings', [])
+    enhancers = diet_prefs.get('cooking_enhancers', [])
+    
+    st.write(f"**Spice Level:** {spice_level}")
+    st.write(f"**Flavor Profiles:** {len(flavor_profiles)} selected")
+    if flavor_profiles:
+        st.caption(f"*{', '.join(flavor_profiles[:3])}{'...' if len(flavor_profiles) > 3 else ''}*")
+    st.write(f"**Preferred Seasonings:** {len(seasonings)} selected")
+    if seasonings:
+        st.caption(f"*{', '.join(seasonings[:3])}{'...' if len(seasonings) > 3 else ''}*")
+    st.write(f"**Cooking Enhancers:** {len(enhancers)} selected")
+    if enhancers:
+        st.caption(f"*{', '.join(enhancers[:3])}{'...' if len(enhancers) > 3 else ''}*")
 
 # Show nutrition targets if available
 st.markdown("#### 📈 Nutrition Targets")
