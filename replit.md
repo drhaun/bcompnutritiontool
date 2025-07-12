@@ -102,6 +102,15 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 12, 2025 - Fixed Diet Preferences Individual Food Selection and Enhanced Profile Summary**:
+  - Fixed individual food item removal functionality - clicking "x" on specific items now removes only that item
+  - Resolved Select All/Clear All button functionality by removing interfering st.rerun() calls
+  - Enhanced session state synchronization to prevent multiple item deletion issues
+  - Created comprehensive user profile summary integrating Initial Setup, Body Composition Goals, and Diet Preferences
+  - Added detailed meal sourcing preferences, nutrition targets, and weekly schedule integration to profile summary
+  - Provided complete preferences breakdown for accurate AI meal planning context
+  - Ensured proper workflow integration from Initial Setup through Diet Preferences for seamless user experience
+
 - **July 6, 2025 - Fixed Day-Specific TDEE and Suggested Targets Accuracy**:
   - Fixed critical TDEE calculation error in Day-Specific Meal Customization (was showing 1451 instead of correct suggested targets)
   - Updated all calculations to use suggested targets from Day-Specific Nutrition Targets table instead of base targets
