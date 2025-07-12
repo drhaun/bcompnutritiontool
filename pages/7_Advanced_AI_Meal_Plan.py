@@ -11,6 +11,7 @@ import fdc_api
 import macro_validator
 from nutrition_cache import NutritionCache
 from pdf_export import export_meal_plan_pdf
+from session_manager import add_session_controls
 
 # OpenAI Integration
 def get_openai_client():
@@ -215,6 +216,9 @@ Format as JSON with this structure:
 st.set_page_config(page_title="Advanced AI Meal Plan", layout="wide")
 st.title("🧠 Advanced AI Meal Plan")
 st.markdown("*Generate complete weekly meal plans optimized for your body composition goals, schedule, and preferences*")
+
+# Add session management controls to sidebar
+add_session_controls()
 
 # Initialize nutrition cache
 if 'nutrition_cache' not in st.session_state:

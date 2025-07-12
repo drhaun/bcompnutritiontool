@@ -200,12 +200,34 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
         total_fat = 0
         
         print(f"Processing {len(meal_data)} meals...")
-        for meal in meal_data.values():
-            macros = meal.get('macros', {})
-            total_calories += float(macros.get('calories', 0) or 0)
-            total_protein += float(macros.get('protein', 0) or 0)
-            total_carbs += float(macros.get('carbs', 0) or 0)
-            total_fat += float(macros.get('fat', 0) or 0)
+        
+        # Handle both dictionary and list formats
+        if isinstance(meal_data, dict):
+            meals_to_process = meal_data.values()
+        else:
+            meals_to_process = meal_data
+            
+        for meal in meals_to_process:
+            # Handle different meal data structures
+            if isinstance(meal, dict):
+                # Try different possible macro locations
+                macros = meal.get('macros', meal.get('total_macros', {}))
+                if not macros and 'calories' in meal:
+                    macros = meal  # The meal itself contains the macros
+                    
+                # Handle meals array from AI response
+                if 'meals' in meal:
+                    for submeal in meal['meals']:
+                        submacros = submeal.get('total_macros', {})
+                        total_calories += float(submacros.get('calories', 0) or 0)
+                        total_protein += float(submacros.get('protein', 0) or 0)
+                        total_carbs += float(submacros.get('carbs', 0) or 0)
+                        total_fat += float(submacros.get('fat', 0) or 0)
+                else:
+                    total_calories += float(macros.get('calories', 0) or 0)
+                    total_protein += float(macros.get('protein', 0) or 0)
+                    total_carbs += float(macros.get('carbs', 0) or 0)
+                    total_fat += float(macros.get('fat', 0) or 0)
         
         plan_info = {
             'total_calories': int(total_calories),
@@ -229,11 +251,45 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
         
         all_ingredients = []
         
-        for meal_type, meal_info in meal_data.items():
+        # Handle both dictionary and list formats
+        if isinstance(meal_data, dict):
+            items_to_process = meal_data.items()
+        else:
+            items_to_process = enumerate(meal_data)
+            
+        for meal_identifier, meal_info in items_to_process:
+            if isinstance(meal_identifier, int):
+                meal_type = meal_info.get('name', f'Meal {meal_identifier + 1}')
+            else:
+                meal_type = meal_identifier
+                
             print(f"Processing meal: {meal_type}")
-            recipe = meal_info.get('recipe', {})
-            macros = meal_info.get('macros', {})
-            ingredients = meal_info.get('ingredient_details', [])
+            
+            # Handle different meal data structures from AI response
+            if 'meals' in meal_info:
+                # This is a daily meal plan with multiple meals
+                for submeal in meal_info['meals']:
+                    submeal_name = submeal.get('name', 'Meal')
+                    submeal_macros = submeal.get('total_macros', {})
+                    submeal_ingredients = submeal.get('ingredients', [])
+                    
+                    # Add meal section to PDF
+                    pdf.add_meal_section(submeal_name, submeal, submeal_macros, submeal_ingredients)
+                    
+                    # Collect ingredients for grocery list
+                    for ingredient in submeal_ingredients:
+                        if isinstance(ingredient, dict):
+                            all_ingredients.append({
+                                'name': ingredient.get('item', ''),
+                                'amount': ingredient.get('amount', ''),
+                                'unit': 'serving'
+                            })
+                continue
+            else:
+                # Single meal structure
+                recipe = meal_info.get('recipe', meal_info)
+                macros = meal_info.get('macros', meal_info.get('total_macros', {}))
+                ingredients = meal_info.get('ingredient_details', meal_info.get('ingredients', []))
             
             if ingredients:
                 all_ingredients.extend(ingredients)

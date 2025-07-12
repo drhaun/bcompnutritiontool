@@ -5,6 +5,7 @@ import os
 import json
 from datetime import datetime, timedelta
 import utils
+from session_manager import add_session_controls
 
 # Create data directory if it doesn't exist
 if not os.path.exists("data"):
@@ -123,3 +124,6 @@ if not st.session_state.daily_records.empty:
                 value=f"{progress:.1f}%",
                 delta=f"{days_tracked} days tracked"
             )
+
+# Add session management controls to sidebar
+add_session_controls()
