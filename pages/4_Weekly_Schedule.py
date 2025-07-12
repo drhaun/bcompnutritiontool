@@ -747,6 +747,9 @@ if st.button("📅 Generate Schedule", type="primary", use_container_width=True,
             }
         
         st.success("✅ Weekly schedule generated successfully! Your personalized schedule considers your sleep, work, workout timing, and meal preferences.")
+        
+        # Auto-save session when schedule is generated
+        save_on_change()
 
 # SECTION 5: Schedule Overview
 if st.session_state.weekly_schedule_v2:
@@ -853,6 +856,9 @@ if st.session_state.weekly_schedule_v2:
             day_data = st.session_state.weekly_schedule_v2.get(day, {})
             day_tdee_values[day] = day_data.get('total_calories', 2000)
         st.session_state.day_tdee_values = day_tdee_values
+        
+        # Auto-save session when schedule is confirmed
+        save_on_change()
         
         st.success("✅ Schedule saved! You can now proceed to Nutrition Targets to set your daily nutrition goals based on this schedule.")
         st.balloons()

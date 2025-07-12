@@ -308,15 +308,15 @@ st.markdown("Based on your Weekly Schedule preferences:")
 confirmed_schedule = st.session_state.get('confirmed_weekly_schedule', {})
 meal_contexts_detailed = st.session_state.get('meal_contexts_detailed', {})
 
-# Debug information - show in sidebar
-with st.sidebar:
-    st.markdown("### Debug Info")
-    st.write(f"Confirmed schedule keys: {list(confirmed_schedule.keys())}")
-    st.write(f"Meal contexts keys: {list(meal_contexts_detailed.keys())}")
-    if meal_contexts_detailed:
-        st.write("Sample meal context:")
-        first_key = list(meal_contexts_detailed.keys())[0]
-        st.json(meal_contexts_detailed[first_key])
+# Debug information - show in sidebar (remove for production)
+# with st.sidebar:
+#     st.markdown("### Debug Info")
+#     st.write(f"Confirmed schedule keys: {list(confirmed_schedule.keys())}")
+#     st.write(f"Meal contexts keys: {list(meal_contexts_detailed.keys())}")
+#     if meal_contexts_detailed:
+#         st.write("Sample meal context:")
+#         first_key = list(meal_contexts_detailed.keys())[0]
+#         st.json(meal_contexts_detailed[first_key])
 
 if confirmed_schedule:
     # Get meal/snack counts from any day (they should be consistent)
