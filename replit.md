@@ -102,6 +102,16 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 12, 2025 - Enhanced AI Meal Planning Accuracy**:
+  - Improved AI prompt specificity with stricter macro accuracy requirements (±5% instead of ±10%)
+  - Added comprehensive validation checklist for AI to follow before generating responses
+  - Enhanced system prompts to prioritize macro accuracy above all other considerations
+  - Added post-processing validation to check generated meal plans against targets
+  - Implemented real-time accuracy comparison display showing target vs generated macros
+  - Added weekly macro accuracy summary table with visual indicators
+  - Lowered AI temperature from 0.8 to 0.3 for more consistent calculations
+  - Increased max tokens to 3000 for more detailed and accurate responses
+
 - **July 12, 2025 - Fixed PDF Export and Added Variety Preferences**:
   - Fixed critical PDF export data flow issue with AI-generated meal plans
   - Enhanced PDF export to handle string amounts with units (e.g., "200g", "1 cup") instead of failing on float conversion

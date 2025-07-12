@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-07-12T21:52:32.901563",
+  "timestamp": "2025-07-12T22:00:38.893556",
   "user_info": {
     "name": "Cody",
     "gender": "Male",
@@ -140,7 +140,11 @@
       "omega3": "Already taking",
       "vitamin_d": "Already taking",
       "other_supplements": []
-    }
+    },
+    "variety_level": "Moderate Variety",
+    "repetition_preference": "I like some repetition but with variations",
+    "weekly_structure": "Mix of routine and variety",
+    "cooking_variety": "Some variety in cooking methods"
   },
   "weekly_schedule_v2": {
     "Monday": {

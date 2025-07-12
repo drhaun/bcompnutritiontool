@@ -106,21 +106,48 @@ DAILY SCHEDULE CONTEXT:
 MEAL SCHEDULE & CONTEXTS:
 - Scheduled meals with times and contexts from user's weekly schedule
 
-Please create realistic meals considering:
-1. Specific food items and portions matching meal contexts (e.g., Pre-Workout = easily digestible, Post-Workout = protein focus)
-2. Accurate macro calculations matching targets (±10% tolerance)
-3. Practical preparation based on context (On-the-Go = quick prep, Home Cooking = more elaborate)
-4. Meal timing around workouts and work schedule
-5. VARIETY CONTROL: Apply user's variety preferences - {diet_preferences.get('variety_level', 'Moderate Variety')}
+CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
+
+1. **MACRO ACCURACY (HIGHEST PRIORITY)**:
+   - Each meal MUST match its target macros within ±5% tolerance (not ±10%)
+   - Calculate each ingredient's exact macros using standard nutrition data
+   - Verify total meal macros add up correctly before including in response
+   - If a meal doesn't hit targets, adjust portion sizes until it does
+   - Example: If target is 500 calories, acceptable range is 475-525 calories
+
+2. **INGREDIENT PRECISION**:
+   - Use specific quantities: "150g chicken breast" not "1 serving chicken"
+   - Include exact macro values for each ingredient
+   - Use common portion sizes that are easy to measure
+   - Ensure ingredient macros are nutritionally accurate
+
+3. **MEAL CONTEXT OPTIMIZATION**:
+   - Pre-Workout: Lower fat (<10g), moderate carbs (20-40g), some protein (15-25g)
+   - Post-Workout: Higher protein (25-40g), moderate-high carbs (30-50g), lower fat (<15g)
+   - Regular meals: Balanced distribution based on targets
+   - Snacks: Smaller portions, typically 10-25% of daily targets
+
+4. **VARIETY CONTROL**: Apply user's variety preferences - {diet_preferences.get('variety_level', 'Moderate Variety')}
    - For "Low Variety": Use similar meal structures with minor variations
    - For "Moderate Variety": Mix familiar and new meals with some repetition
    - For "High Variety": Create mostly different meals with occasional repeats
    - For "Maximum Variety": Ensure each meal is unique and creative
-6. REPETITION HANDLING: {diet_preferences.get('repetition_preference', 'I like some repetition but with variations')}
-7. WEEKLY STRUCTURE: {diet_preferences.get('weekly_structure', 'Mix of routine and variety')}
-8. COOKING VARIETY: {diet_preferences.get('cooking_variety', 'Some variety in cooking methods')}
 
-Format as JSON with this structure:
+5. **PRACTICAL CONSIDERATIONS**:
+   - Cooking time: {diet_preferences.get('cooking_time_preference', 'Not specified')}
+   - Budget: {diet_preferences.get('budget_preference', 'Not specified')}
+   - Meal timing around workouts and work schedule
+   - {diet_preferences.get('repetition_preference', 'I like some repetition but with variations')}
+   - {diet_preferences.get('weekly_structure', 'Mix of routine and variety')}
+   - {diet_preferences.get('cooking_variety', 'Some variety in cooking methods')}
+
+6. **QUALITY ASSURANCE**:
+   - Double-check all calculations before providing response
+   - Ensure daily totals sum correctly across all meals
+   - Verify no ingredient conflicts with dietary restrictions or allergies
+   - Make sure portion sizes are realistic and practical
+
+**MANDATORY JSON FORMAT** - Follow this structure exactly:
 {{
   "meals": [
     {{
@@ -128,34 +155,87 @@ Format as JSON with this structure:
       "time": "scheduled time",
       "context": "meal context from schedule",
       "ingredients": [
-        {{"item": "food name", "amount": "portion", "calories": number, "protein": number, "carbs": number, "fat": number}}
+        {{"item": "specific food name", "amount": "exact quantity with unit", "calories": precise_number, "protein": precise_number, "carbs": precise_number, "fat": precise_number}}
       ],
-      "instructions": "context-appropriate preparation steps",
-      "total_macros": {{"calories": number, "protein": number, "carbs": number, "fat": number}}
+      "instructions": "step-by-step preparation instructions",
+      "total_macros": {{"calories": sum_of_ingredient_calories, "protein": sum_of_ingredient_protein, "carbs": sum_of_ingredient_carbs, "fat": sum_of_ingredient_fat}}
     }}
   ],
-  "daily_totals": {{"calories": number, "protein": number, "carbs": number, "fat": number}}
+  "daily_totals": {{"calories": sum_of_all_meal_calories, "protein": sum_of_all_meal_protein, "carbs": sum_of_all_meal_carbs, "fat": sum_of_all_meal_fat}}
 }}
+
+**VALIDATION CHECKLIST** - Verify before responding:
+✓ Each meal's total_macros equals sum of its ingredients
+✓ Daily_totals equals sum of all meal total_macros
+✓ Each meal hits its individual target within ±5%
+✓ Daily totals hit overall targets within ±5%
+✓ All ingredient amounts are specific and measurable
+✓ All macro values are realistic and nutritionally accurate
 """
 
             response = openai_client.chat.completions.create(
                 model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
                 messages=[
-                    {"role": "system", "content": f"You are a nutrition expert creating a {day} meal plan that fits seamlessly into the user's schedule and lifestyle."},
+                    {"role": "system", "content": f"You are a professional nutritionist and meal planning expert with expertise in precise macro calculations. You MUST create meal plans that exactly match the specified macro targets within ±5% tolerance. Always double-check your calculations and ensure ingredient macros are nutritionally accurate. Prioritize macro accuracy above all other considerations. You are creating a {day} meal plan."},
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.8  # Slightly higher for day-to-day variety
+                temperature=0.3,  # Lower temperature for more consistent and accurate calculations
+                max_tokens=3000  # Increased for more detailed responses
             )
             
             day_plan = json.loads(response.choices[0].message.content)
-            weekly_meal_plan[day] = day_plan
+            
+            # Validate macro accuracy and provide feedback
+            if validate_meal_plan_accuracy(day_plan, day_data, day):
+                weekly_meal_plan[day] = day_plan
+            else:
+                st.warning(f"⚠️ {day} meal plan generated but may have macro accuracy issues. Check the results carefully.")
+                weekly_meal_plan[day] = day_plan
             
         except Exception as e:
             st.error(f"AI meal generation failed for {day}: {e}")
             continue
     
     return weekly_meal_plan
+
+def validate_meal_plan_accuracy(day_plan, day_targets, day_name):
+    """Validate that generated meal plan matches targets within acceptable tolerance"""
+    try:
+        # Extract daily totals from generated plan
+        generated_totals = day_plan.get('daily_totals', {})
+        
+        # Calculate target totals from individual meal targets
+        target_totals = day_targets.get('daily_totals', {})
+        
+        # Define acceptable tolerance (5%)
+        tolerance = 0.05
+        
+        # Check each macro
+        macros = ['calories', 'protein', 'carbs', 'fat']
+        accuracy_issues = []
+        
+        for macro in macros:
+            generated = generated_totals.get(macro, 0)
+            target = target_totals.get(macro, 0)
+            
+            if target > 0:
+                deviation = abs(generated - target) / target
+                if deviation > tolerance:
+                    accuracy_issues.append(f"{macro}: {generated} vs {target} (±{deviation:.1%})")
+        
+        if accuracy_issues:
+            print(f"⚠️ {day_name} macro accuracy issues:")
+            for issue in accuracy_issues:
+                print(f"  - {issue}")
+            return False
+        else:
+            print(f"✅ {day_name} macro accuracy validated")
+            return True
+            
+    except Exception as e:
+        print(f"⚠️ Error validating {day_name} meal plan: {e}")
+        return False
 
 def generate_ai_meal_plan(meal_targets, diet_preferences, meal_config, openai_client):
     """Generate complete daily AI meal plan using OpenAI (legacy single-day function)"""
@@ -648,6 +728,39 @@ if 'generated_weekly_meal_plan' in st.session_state:
     
     weekly_meal_plan = st.session_state.generated_weekly_meal_plan
     
+    # Prepare weekly targets for accuracy comparison
+    weekly_targets = prepare_weekly_targets()
+    
+    # Calculate and display overall accuracy summary
+    st.markdown("### 🎯 Macro Accuracy Summary")
+    
+    accuracy_data = []
+    for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
+        if day in weekly_meal_plan:
+            day_plan = weekly_meal_plan[day]
+            day_targets = weekly_targets.get(day, {})
+            target_totals = day_targets.get('daily_totals', {})
+            generated_totals = day_plan.get('daily_totals', {})
+            
+            # Calculate accuracy for each macro
+            cal_accuracy = "✅" if abs(generated_totals.get('calories', 0) - target_totals.get('calories', 0)) <= target_totals.get('calories', 0) * 0.05 else "⚠️"
+            protein_accuracy = "✅" if abs(generated_totals.get('protein', 0) - target_totals.get('protein', 0)) <= target_totals.get('protein', 0) * 0.05 else "⚠️"
+            carb_accuracy = "✅" if abs(generated_totals.get('carbs', 0) - target_totals.get('carbs', 0)) <= target_totals.get('carbs', 0) * 0.05 else "⚠️"
+            fat_accuracy = "✅" if abs(generated_totals.get('fat', 0) - target_totals.get('fat', 0)) <= target_totals.get('fat', 0) * 0.05 else "⚠️"
+            
+            accuracy_data.append({
+                'Day': day,
+                'Calories': f"{generated_totals.get('calories', 0):.0f} / {target_totals.get('calories', 0):.0f} {cal_accuracy}",
+                'Protein': f"{generated_totals.get('protein', 0):.0f}g / {target_totals.get('protein', 0):.0f}g {protein_accuracy}",
+                'Carbs': f"{generated_totals.get('carbs', 0):.0f}g / {target_totals.get('carbs', 0):.0f}g {carb_accuracy}",
+                'Fat': f"{generated_totals.get('fat', 0):.0f}g / {target_totals.get('fat', 0):.0f}g {fat_accuracy}"
+            })
+    
+    if accuracy_data:
+        accuracy_df = pd.DataFrame(accuracy_data)
+        st.dataframe(accuracy_df, use_container_width=True, hide_index=True)
+        st.caption("Format: Generated / Target | ✅ = Within 5% | ⚠️ = Outside 5%")
+    
     # Create tabs for each day
     day_tabs = st.tabs(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
     
@@ -687,10 +800,33 @@ if 'generated_weekly_meal_plan' in st.session_state:
                                 st.markdown("**Instructions:**")
                                 st.markdown(meal['instructions'])
                             
-                            # Display macros
+                            # Display macros with target comparison
                             if 'total_macros' in meal:
                                 macros = meal['total_macros']
                                 st.markdown(f"**Macros:** {macros['calories']} cal, {macros['protein']}g protein, {macros['carbs']}g carbs, {macros['fat']}g fat")
+                                
+                                # Show target comparison if available
+                                day_targets = weekly_targets.get(day, {})
+                                meal_targets = day_targets.get('meal_targets', {})
+                                
+                                # Find matching meal target
+                                meal_target = None
+                                for target_key, target_data in meal_targets.items():
+                                    if target_data.get('name') == meal.get('name'):
+                                        meal_target = target_data
+                                        break
+                                
+                                if meal_target:
+                                    # Calculate accuracy
+                                    cal_diff = macros['calories'] - meal_target['calories']
+                                    protein_diff = macros['protein'] - meal_target['protein']
+                                    carb_diff = macros['carbs'] - meal_target['carbs']
+                                    fat_diff = macros['fat'] - meal_target['fat']
+                                    
+                                    # Show comparison
+                                    accuracy_color = "green" if abs(cal_diff) <= meal_target['calories'] * 0.05 else "orange"
+                                    st.markdown(f"**Target:** {meal_target['calories']} cal, {meal_target['protein']}g protein, {meal_target['carbs']}g carbs, {meal_target['fat']}g fat")
+                                    st.markdown(f"**Difference:** <span style='color: {accuracy_color}'>{cal_diff:+.0f} cal, {protein_diff:+.0f}g protein, {carb_diff:+.0f}g carbs, {fat_diff:+.0f}g fat</span>", unsafe_allow_html=True)
                             
                             st.markdown("---")
             else:
