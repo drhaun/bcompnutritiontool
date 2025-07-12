@@ -165,15 +165,44 @@ with col1:
             weight_lbs = 165.0  # Default fallback
 
 with col2:
-    st.write("Enter Current Estimated Body Fat %")
-    body_fat = st.number_input(
-        "Body Fat Percentage",
-        min_value=3.0,
-        max_value=50.0,
-        value=15.0,
-        step=0.1,
-        format="%.1f"
-    )
+    # Body fat input with reference photo tooltip
+    bf_col1, bf_col2 = st.columns([3, 1])
+    
+    with bf_col1:
+        st.write("Enter Current Estimated Body Fat %")
+        body_fat = st.number_input(
+            "Body Fat Percentage",
+            min_value=3.0,
+            max_value=50.0,
+            value=15.0,
+            step=0.1,
+            format="%.1f"
+        )
+    
+    with bf_col2:
+        st.write("")  # Empty space to align with input
+        if st.button("📷 Reference", help="View body fat percentage reference photos"):
+            st.session_state.show_bf_reference = True
+    
+    # Show reference photos in a modal-like container when button is clicked
+    if st.session_state.get('show_bf_reference', False):
+        with st.container():
+            st.markdown("### Body Fat Percentage Visual Reference")
+            st.markdown("Use these reference photos to help estimate your current body fat percentage.")
+            
+            ref_photo_path = "images/ref_photos.jpg"
+            if os.path.exists(ref_photo_path):
+                st.image(ref_photo_path, caption="Body Fat Percentage Reference - Men (top) and Women (bottom)", use_container_width=True)
+            else:
+                alt_path = "attached_assets/ref_photos.jpg"
+                if os.path.exists(alt_path):
+                    st.image(alt_path, caption="Body Fat Percentage Reference", use_container_width=True)
+                else:
+                    st.warning("Reference photos not available.")
+            
+            if st.button("Close Reference Photos"):
+                st.session_state.show_bf_reference = False
+                st.rerun()
     
     activity_level = st.selectbox(
         "Select Physical Activity Level Outside of Workouts",
@@ -361,19 +390,7 @@ if st.button("Save and Continue", use_container_width=True, type="primary"):
         st.info("💡 You can return to this page at any time to update your information. All changes will be saved automatically.")
 
 # Body fat reference photos
-with st.expander("📷 Body Fat Reference Photos (Click to view)"):
-    st.markdown("### Body Fat Percentage Visual Reference")
-    st.markdown("Use these reference photos to help estimate your current body fat percentage.")
-    
-    ref_photo_path = "images/ref_photos.jpg"
-    if os.path.exists(ref_photo_path):
-        st.image(ref_photo_path, caption="Body Fat Percentage Reference - Men (top) and Women (bottom)", use_container_width=True)
-    else:
-        alt_path = "attached_assets/ref_photos.jpg"
-        if os.path.exists(alt_path):
-            st.image(alt_path, caption="Body Fat Percentage Reference", use_container_width=True)
-        else:
-            st.warning("Reference photos not available.")
+
 
 # Show current values if saved
 if st.session_state.user_info:
