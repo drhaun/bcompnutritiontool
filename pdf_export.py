@@ -73,6 +73,43 @@ class FitomicsPDF(FPDF):
         
         self.set_font('Arial', '', 12)
         self.cell(0, 6, f"Generated: {datetime.now().strftime('%B %d, %Y')}", 0, 1, 'L')
+        
+        # Add profile summary if available
+        if user_info and 'profile' in user_info:
+            profile = user_info['profile']
+            goals = user_info.get('goals', {})
+            
+            if profile:
+                self.ln(5)
+                self.set_font('Arial', 'B', 14)
+                self.cell(0, 8, 'PROFILE SUMMARY', 0, 1, 'L')
+                
+                self.set_font('Arial', '', 12)
+                if profile.get('name'):
+                    self.cell(0, 6, f"Name: {profile['name']}", 0, 1, 'L')
+                if profile.get('age'):
+                    self.cell(0, 6, f"Age: {profile['age']} years", 0, 1, 'L')
+                if profile.get('gender'):
+                    self.cell(0, 6, f"Gender: {profile['gender']}", 0, 1, 'L')
+                if profile.get('weight_lbs'):
+                    self.cell(0, 6, f"Weight: {profile['weight_lbs']} lbs", 0, 1, 'L')
+                if profile.get('height_ft') and profile.get('height_in'):
+                    self.cell(0, 6, f"Height: {profile['height_ft']}'{profile['height_in']}\"", 0, 1, 'L')
+                if profile.get('activity_level'):
+                    self.cell(0, 6, f"Activity Level: {profile['activity_level']}", 0, 1, 'L')
+                
+                # Add goals if available
+                if goals:
+                    self.ln(3)
+                    self.set_font('Arial', 'B', 12)
+                    self.cell(0, 6, 'Goals:', 0, 1, 'L')
+                    self.set_font('Arial', '', 12)
+                    if goals.get('goal_type'):
+                        self.cell(0, 6, f"Primary Goal: {goals['goal_type']}", 0, 1, 'L')
+                    if goals.get('target_weight_lbs'):
+                        self.cell(0, 6, f"Target Weight: {goals['target_weight_lbs']} lbs", 0, 1, 'L')
+                    if goals.get('target_bf'):
+                        self.cell(0, 6, f"Target Body Fat: {goals['target_bf']}%", 0, 1, 'L')
         self.cell(0, 6, f"Daily Calories: {plan_info.get('total_calories', 'N/A')}", 0, 1, 'L')
         self.cell(0, 6, f"Protein: {plan_info.get('total_protein', 'N/A')}g", 0, 1, 'L')
         self.cell(0, 6, f"Carbohydrates: {plan_info.get('total_carbs', 'N/A')}g", 0, 1, 'L')
@@ -191,6 +228,20 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
     """Export complete meal plan with grocery list to branded PDF"""
     try:
         print("Starting PDF creation...")
+        print(f"Meal data type: {type(meal_data)}")
+        print(f"Meal data length: {len(meal_data) if meal_data else 'None'}")
+        
+        # Debug: Print first few items to understand structure
+        if meal_data:
+            print("First meal data sample:")
+            if isinstance(meal_data, list) and len(meal_data) > 0:
+                print(json.dumps(meal_data[0], indent=2, default=str))
+            elif isinstance(meal_data, dict):
+                first_key = list(meal_data.keys())[0] if meal_data else None
+                if first_key:
+                    print(f"First key: {first_key}")
+                    print(json.dumps(meal_data[first_key], indent=2, default=str))
+        
         pdf = FitomicsPDF()
         
         # Safely extract plan info with error handling
@@ -210,6 +261,15 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
         for meal in meals_to_process:
             # Handle different meal data structures
             if isinstance(meal, dict):
+                # Check for recipe structure first
+                if 'recipe' in meal and isinstance(meal['recipe'], dict):
+                    recipe_macros = meal['recipe'].get('macros', {})
+                    total_calories += float(recipe_macros.get('calories', 0) or 0)
+                    total_protein += float(recipe_macros.get('protein', 0) or 0)
+                    total_carbs += float(recipe_macros.get('carbs', 0) or 0)
+                    total_fat += float(recipe_macros.get('fat', 0) or 0)
+                    continue
+                
                 # Try different possible macro locations
                 macros = meal.get('macros', meal.get('total_macros', {}))
                 if not macros and 'calories' in meal:
@@ -259,7 +319,7 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
             
         for meal_identifier, meal_info in items_to_process:
             if isinstance(meal_identifier, int):
-                meal_type = meal_info.get('name', f'Meal {meal_identifier + 1}')
+                meal_type = meal_info.get('meal_type', meal_info.get('name', f'Meal {meal_identifier + 1}'))
             else:
                 meal_type = meal_identifier
                 
@@ -286,7 +346,27 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
                             })
                 continue
             else:
-                # Single meal structure
+                # Handle recipe structure from AI meal planning
+                if 'recipe' in meal_info:
+                    recipe = meal_info['recipe']
+                    meal_name = recipe.get('name', meal_type)
+                    macros = recipe.get('macros', {})
+                    ingredients = recipe.get('ingredients', [])
+                    
+                    # Add to PDF
+                    pdf.add_meal_section(meal_name, recipe, macros, ingredients)
+                    
+                    # Collect ingredients for grocery list
+                    for ingredient in ingredients:
+                        if isinstance(ingredient, dict):
+                            all_ingredients.append({
+                                'name': ingredient.get('item', ingredient.get('name', '')),
+                                'amount': ingredient.get('amount', ''),
+                                'unit': 'serving'
+                            })
+                    continue
+                
+                # Single meal structure (fallback)
                 recipe = meal_info.get('recipe', meal_info)
                 macros = meal_info.get('macros', meal_info.get('total_macros', {}))
                 ingredients = meal_info.get('ingredient_details', meal_info.get('ingredients', []))

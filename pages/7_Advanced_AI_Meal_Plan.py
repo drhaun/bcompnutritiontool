@@ -715,11 +715,18 @@ if 'generated_weekly_meal_plan' in st.session_state:
                                         else:
                                             all_ingredients[item] = amount
                     
-                    # Get user preferences for PDF
+                    # Get user preferences for PDF including profile summary
+                    user_profile = st.session_state.get('user_info', {})
+                    goal_info = st.session_state.get('goal_info', {})
+                    diet_preferences = st.session_state.get('diet_preferences', {})
+                    
                     user_info = {
-                        'name': 'Fitomics User',
+                        'name': user_profile.get('name', 'Fitomics User'),
                         'plan_type': 'Weekly Meal Plan',
-                        'generation_date': datetime.now().strftime('%B %d, %Y')
+                        'generation_date': datetime.now().strftime('%B %d, %Y'),
+                        'profile': user_profile,
+                        'goals': goal_info,
+                        'diet_preferences': diet_preferences
                     }
                     
                     # Generate PDF
