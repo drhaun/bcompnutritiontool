@@ -43,6 +43,16 @@ def get_session_value(key, default_value):
         return st.session_state[key]
     return default_value
 
+def get_session_index(key, options, default_index=0):
+    """Get index for selectbox from session state value"""
+    if key in st.session_state:
+        saved_value = st.session_state[key]
+        if isinstance(saved_value, str) and saved_value in options:
+            return options.index(saved_value)
+        elif isinstance(saved_value, int) and 0 <= saved_value < len(options):
+            return saved_value
+    return default_index
+
 # Define days of the week for consistent use
 days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
@@ -80,7 +90,7 @@ with col1:
 
 with col2:
     st.subheader("Work Schedule")
-    work_type = st.selectbox("Work Type", [
+    work_type_options = [
         "Remote Work",
         "Office Work", 
         "Hybrid Work",
@@ -88,7 +98,10 @@ with col2:
         "Travel Work",
         "Student",
         "Retired/Unemployed"
-    ], index=get_session_value("work_type_select", 0), key="work_type_select")
+    ]
+    work_type = st.selectbox("Work Type", work_type_options, 
+                           index=get_session_index("work_type_select", work_type_options, 0), 
+                           key="work_type_select")
     
     if work_type not in ["Retired/Unemployed"]:
         work_start = st.time_input("Work Start Time", value=get_session_time("work_start_input", datetime.time(9, 0)), key="work_start_input")
@@ -124,25 +137,27 @@ with activity_col1:
         default_col1, default_col2 = st.columns(2)
         
         with default_col1:
+            workout_type_options = ["Resistance Training", "Cardio", "Mixed/Cross-Training", "Sports", "Yoga/Flexibility"]
             default_workout_type = st.selectbox(
                 "Default workout type",
-                ["Resistance Training", "Cardio", "Mixed/Cross-Training", "Sports", "Yoga/Flexibility"],
-                index=get_session_value("default_workout_type", 0),
+                workout_type_options,
+                index=get_session_index("default_workout_type", workout_type_options, 0),
                 key="default_workout_type",
                 help="This will be pre-selected for all workout days"
             )
             
+            workout_time_options = [
+                "Early Morning (5:00-8:00 AM)",
+                "Morning (8:00-11:00 AM)", 
+                "Midday (11:00 AM-2:00 PM)",
+                "Afternoon (2:00-5:00 PM)",
+                "Evening (5:00-8:00 PM)",
+                "Night (8:00-11:00 PM)"
+            ]
             default_workout_time = st.selectbox(
                 "Default workout time",
-                [
-                    "Early Morning (5:00-8:00 AM)",
-                    "Morning (8:00-11:00 AM)", 
-                    "Midday (11:00 AM-2:00 PM)",
-                    "Afternoon (2:00-5:00 PM)",
-                    "Evening (5:00-8:00 PM)",
-                    "Night (8:00-11:00 PM)"
-                ],
-                index=get_session_value("default_workout_time", 4),
+                workout_time_options,
+                index=get_session_index("default_workout_time", workout_time_options, 4),
                 key="default_workout_time",
                 help="Your typical workout time slot"
             )
@@ -155,10 +170,11 @@ with activity_col1:
                 help="Your usual workout length"
             )
             
+            intensity_options = ["Light", "Moderate", "High", "Very High"]
             default_workout_intensity = st.selectbox(
                 "Default intensity",
-                ["Light", "Moderate", "High", "Very High"],
-                index=get_session_value("default_workout_intensity", 2),
+                intensity_options,
+                index=get_session_index("default_workout_intensity", intensity_options, 2),
                 key="default_workout_intensity",
                 help="Your typical workout intensity level"
             )
@@ -379,12 +395,16 @@ with activity_col1:
 with activity_col2:
     st.subheader("Activity Level")
     
-    base_activity = st.selectbox("Daily activity level (outside workouts)", [
+    base_activity_options = [
         "Sedentary (desk job, minimal movement)",
         "Lightly Active (some walking, light daily activities)", 
         "Moderately Active (regular walking, active lifestyle)",
         "Very Active (lots of movement, physical job)"
-    ], index=get_session_value("base_activity_select", 1), key="base_activity_select")
+    ]
+    base_activity = st.selectbox("Daily activity level (outside workouts)", 
+                               base_activity_options, 
+                               index=get_session_index("base_activity_select", base_activity_options, 1), 
+                               key="base_activity_select")
     
     # Convert to simple labels for calculations
     activity_mapping = {
@@ -630,18 +650,20 @@ with timing_col1:
 with timing_col2:
     st.subheader("Energy Management")
     
+    energy_options = ["Steady energy throughout day", "Higher energy for workouts", "Higher energy for work/focus"]
     energy_management = st.selectbox(
         "Energy distribution preference",
-        ["Steady energy throughout day", "Higher energy for workouts", "Higher energy for work/focus"],
-        index=get_session_value("energy_management", 0),
+        energy_options,
+        index=get_session_index("energy_management", energy_options, 0),
         key="energy_management"
     )
     
     # Liquid calories preference
+    liquid_options = ["Minimize liquid calories", "Allow some liquid calories", "Open to liquid calories"]
     liquid_calories = st.selectbox(
         "Liquid calories preference",
-        ["Minimize liquid calories", "Allow some liquid calories", "Open to liquid calories"],
-        index=get_session_value("liquid_calories", 0),
+        liquid_options,
+        index=get_session_index("liquid_calories", liquid_options, 0),
         key="liquid_calories"
     )
 
