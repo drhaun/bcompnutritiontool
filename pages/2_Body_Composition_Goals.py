@@ -15,6 +15,20 @@ from session_manager import add_session_controls, save_on_change
 if "targets_set" not in st.session_state:
     st.session_state.targets_set = False
 
+# Initialize target values to prevent AttributeError
+if "target_fat" not in st.session_state:
+    st.session_state.target_fat = 0.0
+if "target_ffm" not in st.session_state:
+    st.session_state.target_ffm = 0.0
+if "target_weight" not in st.session_state:
+    st.session_state.target_weight = 0.0
+if "target_bf" not in st.session_state:
+    st.session_state.target_bf = 0.0
+if "target_fmi" not in st.session_state:
+    st.session_state.target_fmi = 0.0
+if "target_ffmi" not in st.session_state:
+    st.session_state.target_ffmi = 0.0
+
 # Define body composition categories with rate recommendations
 # FMI categories with rate recommendations
 fmi_categories = [
@@ -255,6 +269,7 @@ if "target_bf" not in st.session_state:
     st.session_state.target_ffm = current_fat_free_mass_lbs
     st.session_state.target_fmi = current_fmi
     st.session_state.target_ffmi = current_ffmi
+    st.session_state.target_weight = current_weight_lbs
 
 # SECTION 4: Set Target Values
 st.markdown("---")
