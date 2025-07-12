@@ -353,56 +353,6 @@ with st.form("sourcing_preferences_form", clear_on_submit=False):
     # Submit button for sourcing preferences
     sourcing_submit = st.form_submit_button("Update Sourcing Preferences", type="primary")
 
-
-
-# ==================== SAVE PREFERENCES ====================
-# Save preferences to session state
-st.session_state.diet_preferences.update({
-    'dietary_restrictions': dietary_restrictions,
-    'allergies': allergies,
-    'preferred_proteins': preferred_proteins,
-    'preferred_carbs': preferred_carbs,
-    'preferred_fats': preferred_fats,
-    'preferred_vegetables': preferred_vegetables,
-    'cuisine_preferences': cuisine_preferences,
-    'disliked_foods': disliked_foods,
-    'supplementation_preferences': {
-        'creatine': creatine_pref,
-        'protein_powder': protein_powder_pref,
-        'pre_workout': pre_workout_pref,
-        'multivitamin': multivitamin_pref,
-        'omega3': omega3_pref,
-        'vitamin_d': vitamin_d_pref,
-        'other_supplements': other_supplements
-    }
-})
-
-# Update seasoning preferences if form was submitted
-if seasoning_submit:
-    st.session_state.diet_preferences.update({
-        'spice_level': spice_level,
-        'flavor_profile': flavor_profile,
-        'preferred_seasonings': preferred_seasonings,
-        'cooking_enhancers': cooking_enhancers
-    })
-
-# Update dietary restrictions if form was submitted
-if dietary_submit:
-    st.session_state.diet_preferences.update({
-        'dietary_restrictions': dietary_restrictions,
-        'allergies': allergies
-    })
-
-# Update sourcing preferences if form was submitted
-if sourcing_submit:
-    st.session_state.diet_preferences.update({
-        'meal_delivery_interest': meal_delivery_interest,
-        'home_cooking_interest': home_cooking_interest,
-        'grocery_shopping_interest': grocery_shopping_interest
-    })
-
-
-
 # ==================== SECTION 6: SEASONING AND FLAVOR PREFERENCES ====================
 st.markdown("### 🧂 Seasoning & Flavor Preferences")
 st.markdown("Tell us about your preferred flavors and seasonings to make your meals more delicious and interesting.")
@@ -468,6 +418,52 @@ with st.form("seasoning_preferences_form", clear_on_submit=False):
     seasoning_submit = st.form_submit_button("Update Seasoning Preferences", type="primary")
 
 st.markdown("---")
+
+# ==================== SAVE PREFERENCES ====================
+# Save preferences to session state
+st.session_state.diet_preferences.update({
+    'dietary_restrictions': dietary_restrictions,
+    'allergies': allergies,
+    'preferred_proteins': preferred_proteins,
+    'preferred_carbs': preferred_carbs,
+    'preferred_fats': preferred_fats,
+    'preferred_vegetables': preferred_vegetables,
+    'cuisine_preferences': cuisine_preferences,
+    'disliked_foods': disliked_foods,
+    'supplementation_preferences': {
+        'creatine': creatine_pref,
+        'protein_powder': protein_powder_pref,
+        'pre_workout': pre_workout_pref,
+        'multivitamin': multivitamin_pref,
+        'omega3': omega3_pref,
+        'vitamin_d': vitamin_d_pref,
+        'other_supplements': other_supplements
+    }
+})
+
+# Update seasoning preferences if form was submitted
+if seasoning_submit:
+    st.session_state.diet_preferences.update({
+        'spice_level': spice_level,
+        'flavor_profile': flavor_profile,
+        'preferred_seasonings': preferred_seasonings,
+        'cooking_enhancers': cooking_enhancers
+    })
+
+# Update dietary restrictions if form was submitted
+if dietary_submit:
+    st.session_state.diet_preferences.update({
+        'dietary_restrictions': dietary_restrictions,
+        'allergies': allergies
+    })
+
+# Update sourcing preferences if form was submitted
+if sourcing_submit:
+    st.session_state.diet_preferences.update({
+        'meal_delivery_interest': meal_delivery_interest,
+        'home_cooking_interest': home_cooking_interest,
+        'grocery_shopping_interest': grocery_shopping_interest
+    })
 
 # ==================== SECTION 7: VARIETY PREFERENCES ====================
 st.markdown("### 🔄 Meal Variety Preferences")
