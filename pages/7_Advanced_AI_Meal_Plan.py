@@ -113,34 +113,39 @@ CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
    - Daily totals MUST match daily targets within ±3% tolerance
    - Calculate each ingredient's exact macros using standard USDA nutrition data
    - Verify total meal macros add up correctly before including in response
-   - If a meal doesn't hit targets, INCREASE portion sizes and add calorie-dense ingredients
-   - Use calorie-dense ingredients: nuts, oils, avocado, cheese, nut butters to boost calories
-   - Add cooking oils (olive oil, coconut oil, butter) generously to increase fat and calories
-   - Include larger protein portions (6-8oz meat, 1-2 cups legumes) to hit protein targets
-   - Use calorie-dense carbs (quinoa, oats, sweet potatoes, rice) in adequate amounts
-   - Example: If target is 500 calories, acceptable range is 485-515 calories
-   - CRITICAL: Ensure daily totals sum to match the specified daily targets exactly - err on the side of slightly higher rather than lower
 
-2. **INGREDIENT PRECISION**:
+2. **WORKOUT PROXIMITY MEAL TIMING (CRITICAL)**:
+   - If workout is scheduled, optimize meal timing and composition around training
+   - PRE-WORKOUT (1-2 hours before): Moderate protein (20-30g), moderate-high carbs (30-50g), LOW fat (<10g), LOW fiber (<5g)
+   - POST-WORKOUT (within 1 hour): High protein (25-40g), high carbs (40-60g), moderate fat (10-20g), avoid high-fiber foods
+   - DURING WORKOUT WINDOW (±1 hour): Avoid large meals, prefer liquid/easily digestible options
+   - FASTED TRAINING: If user allows, provide post-workout recovery meal emphasis
+   - Consider workout type and duration for carb timing and amounts
+   - Liquid or light, easily digestible meals around hard workouts
+   - Strength training: Emphasize protein timing around workouts
+   - Cardio: Focus on carb availability before and replenishment after
+   - HIIT/Intense: Minimize fat and fiber 2 hours before, prioritize quick recovery after
+
+3. **INGREDIENT PRECISION**:
    - Use specific quantities: "150g chicken breast" not "1 serving chicken"
    - Include exact macro values for each ingredient
    - Use common portion sizes that are easy to measure
    - Ensure ingredient macros are nutritionally accurate
 
-3. **MEAL CONTEXT OPTIMIZATION**:
+4. **MEAL CONTEXT OPTIMIZATION**:
    - Pre-Workout: Lower fat (<10g), moderate carbs (20-40g), some protein (15-25g)
    - Post-Workout: Higher protein (25-40g), moderate-high carbs (30-50g), lower fat (<15g)
    - Regular meals: Balanced distribution based on targets
    - Snacks: Smaller portions, typically 10-25% of daily targets
 
-4. **VARIETY CONTROL**: Apply user's variety preferences - {diet_preferences.get('variety_level', 'Moderate Variety')}
+5. **VARIETY CONTROL**: Apply user's variety preferences - {diet_preferences.get('variety_level', 'Moderate Variety')}
    - For "Low Variety": Use similar meal structures with minor variations (same proteins, rotate sides)
    - For "Moderate Variety": Mix familiar and new meals with some repetition (2-3 different proteins per week)
    - For "High Variety": Create mostly different meals with occasional repeats (different proteins, cooking methods, cuisines)
    - For "Maximum Variety": Ensure each meal is unique and creative (different proteins, varied cuisines, diverse cooking methods)
    - ENFORCE VARIETY: Track ingredients used and actively avoid repetition based on user preference level
 
-5. **PRACTICAL CONSIDERATIONS**:
+6. **PRACTICAL CONSIDERATIONS**:
    - Cooking time: {diet_preferences.get('cooking_time_preference', 'Not specified')}
    - Budget: {diet_preferences.get('budget_preference', 'Not specified')}
    - Meal timing around workouts and work schedule
@@ -148,7 +153,7 @@ CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
    - {diet_preferences.get('weekly_structure', 'Mix of routine and variety')}
    - {diet_preferences.get('cooking_variety', 'Some variety in cooking methods')}
 
-6. **FLAVOR AND SEASONING REQUIREMENTS**:
+7. **FLAVOR AND SEASONING REQUIREMENTS**:
    - Spice Level: {diet_preferences.get('spice_level', 'Medium')} - adjust heat accordingly
    - Flavor Profiles: {', '.join(diet_preferences.get('flavor_profile', ['Savory/Umami', 'Herbal']))} - emphasize these tastes
    - Preferred Seasonings: {', '.join(diet_preferences.get('preferred_seasonings', ['Salt', 'Black Pepper', 'Garlic Powder', 'Oregano']))} - use these in recipes
@@ -156,7 +161,7 @@ CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
    - CRITICAL: Include specific seasoning recommendations in each recipe's instructions
    - Make meals flavorful and appetizing, not bland or boring
 
-7. **QUALITY ASSURANCE**:
+8. **QUALITY ASSURANCE**:
    - Double-check all calculations before providing response
    - Ensure daily totals sum correctly across all meals
    - Verify no ingredient conflicts with dietary restrictions or allergies
@@ -337,6 +342,32 @@ Format as JSON with this structure:
 st.set_page_config(page_title="Advanced AI Meal Plan", layout="wide")
 st.title("🧠 Advanced AI Meal Plan")
 st.markdown("*Generate complete weekly meal plans optimized for your body composition goals, schedule, and preferences*")
+
+# Workout proximity meal timing educational section
+with st.expander("🏋️ Workout Meal Timing Guidelines", expanded=False):
+    st.markdown("""
+    **Pre-Workout (1-2 hours before training):**
+    - Moderate protein (20-30g), moderate-high carbs (30-50g)
+    - LOW fat (<10g), LOW fiber (<5g)
+    - Focus on easily digestible foods to prevent GI upset
+    
+    **Post-Workout (within 1 hour after training):**
+    - High protein (25-40g), high carbs (40-60g)
+    - Moderate fat (10-20g), avoid high-fiber foods
+    - Prioritize muscle recovery and glycogen replenishment
+    
+    **During Workout Window (±1 hour of training):**
+    - Avoid large meals that may cause digestive issues
+    - Prefer liquid or easily digestible options
+    - Stay hydrated and avoid foods that cause GI upset
+    
+    **Training Type Considerations:**
+    - **Strength Training:** Emphasize protein timing around workouts for muscle recovery
+    - **Cardio:** Focus on carb availability before and replenishment after
+    - **HIIT/Intense Training:** Minimize fat and fiber 2 hours before, prioritize quick recovery after
+    
+    **Fasted Training:** If you prefer training without eating, post-workout nutrition becomes critical for recovery and muscle protein synthesis.
+    """)
 
 # Add session management controls to sidebar
 add_session_controls()

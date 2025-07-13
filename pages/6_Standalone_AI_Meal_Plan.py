@@ -69,6 +69,8 @@ DAILY SCHEDULE:
 - Has workout: {meal_config.get('has_workout', False)}
 - Workout time: {meal_config.get('workout_time', 'N/A')}
 - Workout type: {meal_config.get('workout_type', 'N/A')}
+- Pre-workout preference: {meal_config.get('pre_workout_preference', 'N/A')}
+- Post-workout preference: {meal_config.get('post_workout_preference', 'N/A')}
 - Number of meals: {meal_config.get('num_meals', 3)}
 - Number of snacks: {meal_config.get('num_snacks', 1)}
 - Day activity level: {meal_config.get('day_activity', 'N/A')}
@@ -76,9 +78,15 @@ DAILY SCHEDULE:
 
 REQUIREMENTS:
 1. Create realistic meals with specific food items and portions
-2. Accurate macro calculations matching targets (±5% tolerance)
+2. Accurate macro calculations matching targets (±3% tolerance)
 3. Practical cooking instructions with timing
-4. Consider meal timing around workouts if applicable
+4. **WORKOUT PROXIMITY MEAL TIMING (CRITICAL)**:
+   - If workout is scheduled, optimize meal timing and composition around training
+   - PRE-WORKOUT (1-2 hours before): Moderate protein, moderate-high carbs, LOW fat, LOW fiber
+   - POST-WORKOUT (within 1 hour): High protein, high carbs, moderate fat, avoid high-fiber foods
+   - DURING WORKOUT WINDOW (±1 hour): Avoid large meals, prefer liquid/easily digestible options
+   - FASTED TRAINING: If user allows, provide post-workout recovery meal emphasis
+   - Consider workout type (cardio vs strength) for carb timing and amounts
 5. Use preferred ingredients and respect dietary restrictions
 6. Match cooking style and spice preferences
 7. Consider budget and cooking time preferences
@@ -335,7 +343,7 @@ with st.form("standalone_meal_plan_form"):
         wake_time = st.time_input("Wake Time", value=time(7, 0))
         sleep_time = st.time_input("Sleep Time", value=time(23, 0))
         
-        # Workout planning
+        # Workout planning with enhanced timing guidance
         has_workout = st.checkbox("I'm working out today", value=True)
         if has_workout:
             workout_time = st.selectbox("Workout Time", [
@@ -352,9 +360,35 @@ with st.form("standalone_meal_plan_form"):
                 "Sports/Recreation",
                 "Mixed Training"
             ])
+            
+            # Workout meal timing preferences
+            st.markdown("**🏋️ Workout Meal Timing**")
+            pre_workout_preference = st.selectbox("Pre-workout meal preference", [
+                "Fasted training (no pre-workout meal)",
+                "Light snack 30-60 min before (banana, toast)",
+                "Small meal 1-2 hours before (moderate protein/carbs, low fat/fiber)",
+                "Regular meal 2+ hours before"
+            ], index=2)
+            
+            post_workout_preference = st.selectbox("Post-workout meal preference", [
+                "Immediate recovery snack/shake within 30 min",
+                "Full meal within 1 hour (high protein/carbs)",
+                "Regular meal timing (no special timing)"
+            ], index=1)
+            
+            # Workout proximity guidance
+            st.info("""
+            **Workout Meal Timing Guidelines:**
+            • **Pre-workout (1-2 hours)**: Moderate protein, moderate-high carbs, LOW fat & fiber
+            • **Post-workout (within 1 hour)**: High protein, high carbs, moderate fat, easily digestible
+            • **Avoid large meals within 1 hour before intense exercise**
+            • **Liquid/light options preferred around workout times**
+            """)
         else:
             workout_time = None
             workout_type = None
+            pre_workout_preference = None
+            post_workout_preference = None
     
     with schedule_col2:
         # Meal timing preferences
@@ -564,6 +598,8 @@ with st.form("standalone_meal_plan_form"):
             'has_workout': has_workout,
             'workout_time': workout_time if has_workout else None,
             'workout_type': workout_type if has_workout else None,
+            'pre_workout_preference': pre_workout_preference if has_workout else None,
+            'post_workout_preference': post_workout_preference if has_workout else None,
             'num_meals': num_meals,
             'num_snacks': num_snacks,
             'day_activity': day_activity,
