@@ -167,21 +167,81 @@ REQUIREMENTS:
 9. Organize grocery ingredients by category for easy shopping
 """
 
+        # Add specific macro targets to the beginning of the prompt for extra emphasis
+        enhanced_prompt = f"""
+**MACRO TARGETS - MUST HIT EXACTLY (±3% tolerance)**:
+- Calories: {meal_targets['calories']} (Range: {meal_targets['calories'] * 0.97:.0f} - {meal_targets['calories'] * 1.03:.0f})
+- Protein: {meal_targets['protein']}g (Range: {meal_targets['protein'] * 0.97:.0f} - {meal_targets['protein'] * 1.03:.0f}g)
+- Carbs: {meal_targets['carbs']}g (Range: {meal_targets['carbs'] * 0.97:.0f} - {meal_targets['carbs'] * 1.03:.0f}g)
+- Fat: {meal_targets['fat']}g (Range: {meal_targets['fat'] * 0.97:.0f} - {meal_targets['fat'] * 1.03:.0f}g)
+
+**PORTION SIZE GUIDELINES TO HIT TARGETS**:
+- For {meal_targets['calories']} calories: Use large portions, add oils, nuts, and calorie-dense ingredients
+- For {meal_targets['protein']}g protein: Use 6-8oz meat portions, add protein powder, Greek yogurt
+- For {meal_targets['carbs']}g carbs: Use 1-2 cups rice/pasta, multiple fruits, large oat portions
+- For {meal_targets['fat']}g fat: Use 2-4 tbsp oils, nuts, avocado, nut butters
+
+{prompt}
+        """
+        
         response = openai_client.chat.completions.create(
             model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
             messages=[
-                {"role": "system", "content": "You are a nutrition expert who creates precise meal plans with accurate macro calculations. Focus on meal personalization based on user preferences and schedule optimization."},
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": "You are a professional nutritionist and meal planning expert with expertise in precise macro calculations. You MUST create meal plans that exactly match the specified macro targets within ±3% tolerance. If the calculated totals are below targets, you MUST increase ingredient portions aggressively. Add oils, nuts, larger protein portions, and calorie-dense ingredients to hit the exact targets. NEVER submit a meal plan below the target ranges. Prioritize macro accuracy above all other considerations."},
+                {"role": "user", "content": enhanced_prompt}
             ],
             response_format={"type": "json_object"},
             temperature=0.1,  # Lower temperature for more consistent calculations
-            max_tokens=3000
+            max_tokens=4000  # Increased for more detailed responses and validation
         )
         
-        return json.loads(response.choices[0].message.content)
+        meal_plan = json.loads(response.choices[0].message.content)
+        
+        # Validate macro accuracy and provide feedback
+        if validate_standalone_meal_plan_accuracy(meal_plan, meal_targets):
+            return meal_plan
+        else:
+            st.warning("⚠️ Meal plan generated but may have macro accuracy issues. Check the results carefully.")
+            return meal_plan
+            
     except Exception as e:
         st.error(f"AI meal generation failed: {e}")
         return None
+
+def validate_standalone_meal_plan_accuracy(meal_plan, target_totals):
+    """Validate that generated meal plan matches targets within acceptable tolerance"""
+    try:
+        # Extract daily totals from generated plan
+        generated_totals = meal_plan.get('daily_totals', {})
+        
+        # Define acceptable tolerance (3%)
+        tolerance = 0.03
+        
+        # Check each macro
+        macros = ['calories', 'protein', 'carbs', 'fat']
+        accuracy_issues = []
+        
+        for macro in macros:
+            generated = generated_totals.get(macro, 0)
+            target = target_totals.get(macro, 0)
+            
+            if target > 0:
+                deviation = abs(generated - target) / target
+                if deviation > tolerance:
+                    accuracy_issues.append(f"{macro}: {generated} vs {target} (±{deviation:.1%})")
+        
+        if accuracy_issues:
+            print(f"⚠️ Standalone meal plan macro accuracy issues:")
+            for issue in accuracy_issues:
+                print(f"  - {issue}")
+            return False
+        else:
+            print(f"✅ Standalone meal plan macro accuracy validated")
+            return True
+            
+    except Exception as e:
+        print(f"⚠️ Error validating standalone meal plan: {e}")
+        return False
 
 # Set page config
 st.set_page_config(
