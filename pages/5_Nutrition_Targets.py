@@ -1049,25 +1049,25 @@ if customize_day in st.session_state.day_specific_nutrition:
             st.write(info)
 else:
     display_calories = final_calories
-    display_protein = suggested_nutrition.get('protein', final_protein)
-    display_carbs = suggested_nutrition.get('carbs', final_carbs)
-    display_fat = suggested_nutrition.get('fat', final_fat)
-    st.info(f"**Suggested targets for {customize_day}** (based on your Weekly Schedule)")
-else:
-    display_calories = final_calories
     display_protein = final_protein
     display_carbs = final_carbs
     display_fat = final_fat
     st.info(f"**Base targets for {customize_day}** (from Body Composition Goals)")
-
-with budget_col1:
-    st.metric("Target Calories", f"{display_calories:.0f}")
-with budget_col2:
-    st.metric("Target Protein", f"{display_protein:.0f}g")
-with budget_col3:
-    st.metric("Target Carbs", f"{display_carbs:.0f}g")
-with budget_col4:
-    st.metric("Target Fat", f"{display_fat:.0f}g")
+    
+    # Basic budget display without enhanced metrics
+    budget_col1, budget_col2, budget_col3, budget_col4 = st.columns(4)
+    
+    with budget_col1:
+        st.metric("Calories", f"{display_calories:,.0f}")
+    
+    with budget_col2:
+        st.metric("Protein", f"{display_protein:.0f}g")
+    
+    with budget_col3:
+        st.metric("Carbs", f"{display_carbs:.0f}g")
+    
+    with budget_col4:
+        st.metric("Fat", f"{display_fat:.0f}g")
 
 # Calculate current totals from customized meals
 current_day_meals = st.session_state.per_meal_macros[customize_day]
