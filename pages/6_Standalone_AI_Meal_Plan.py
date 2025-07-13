@@ -63,6 +63,19 @@ DIETARY PREFERENCES & RESTRICTIONS:
 - Leftovers preference: {diet_preferences.get('leftovers_preference', 'Okay with leftovers occasionally')}
 - Meal prep interest: {diet_preferences.get('meal_prep_interest', 'Some meal prep')}
 
+LOCATION-BASED PREFERENCES:
+- Location Features Enabled: {diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False)}
+- Primary Zip Code: {diet_preferences.get('location_based_preferences', {}).get('primary_zip_code', 'Not specified')}
+- Favorite Restaurants: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_restaurants', [])[:3])}
+- Favorite Grocery Stores: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_grocery_stores', [])[:3])}
+
+ENHANCED PREFERENCES:
+- Micronutrient Focus: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('micronutrient_focus', [])[:5])}
+- Seasonal Ingredients: {diet_preferences.get('enhanced_preferences', {}).get('seasonal_ingredients', True)}
+- Current Season: {diet_preferences.get('enhanced_preferences', {}).get('current_season', 'Auto-detect')}
+- Ingredient Substitutions: {diet_preferences.get('enhanced_preferences', {}).get('ingredient_substitutions', True)}
+- Meal Prep Coordination: {diet_preferences.get('enhanced_preferences', {}).get('meal_prep_coordination', 'Some coordination')}
+
 DAILY SCHEDULE:
 - Wake time: {meal_config.get('wake_time', '07:00')}
 - Sleep time: {meal_config.get('sleep_time', '23:00')}
@@ -90,6 +103,19 @@ REQUIREMENTS:
 6. Match cooking style and spice preferences
 7. Consider budget and cooking time preferences
 8. Optimize for the specified meal context and variety level
+9. **ENHANCED NUTRITIONAL OPTIMIZATION**:
+   - Micronutrient Focus: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('micronutrient_focus', [])[:5])} - prioritize foods rich in these nutrients
+   - Seasonal Ingredients: {diet_preferences.get('enhanced_preferences', {}).get('seasonal_ingredients', True)} - use seasonal produce when available
+   - Current Season: {diet_preferences.get('enhanced_preferences', {}).get('current_season', 'Auto-detect')} - adjust ingredient selections accordingly
+   - Ingredient Substitutions: {diet_preferences.get('enhanced_preferences', {}).get('ingredient_substitutions', True)} - offer alternatives when appropriate
+   - Meal Prep Coordination: {diet_preferences.get('enhanced_preferences', {}).get('meal_prep_coordination', 'Some coordination - Share ingredients across meals')} - coordinate ingredients across meals
+10. **LOCATION-BASED MEAL SOURCING** (if enabled):
+    - Location Features: {diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False)}
+    - If location features enabled:
+      * Suggest specific restaurants from favorite list: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_restaurants', [])[:3])}
+      * Recommend macro-friendly options from these restaurants
+      * Include grocery store suggestions: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_grocery_stores', [])[:3])}
+      * Consider convenience store options for on-the-go meals
 
 Format as JSON with this structure:
 {{

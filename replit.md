@@ -102,6 +102,25 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 13, 2025 - Enhanced Location-Based Meal Planning & Micronutrient Optimization**:
+  - Added comprehensive location-based meal planning features to Diet Preferences page
+  - Implemented zip code input for primary location and work location
+  - Added favorite restaurants and grocery stores tracking for personalized recommendations
+  - Created convenience store options for on-the-go meal planning
+  - Integrated travel routes consideration for meal planning across locations
+  - Added comprehensive micronutrient optimization with 15+ micronutrient focus options
+  - Implemented seasonal ingredient integration with auto-detect season functionality
+  - Added preferred seasonal produce selection for enhanced meal variety
+  - Created smart ingredient substitution system for dietary restrictions and preferences
+  - Added meal prep coordination levels from minimal to maximum weekly prep planning
+  - Enhanced both Advanced and Standalone AI meal planners with location-based context
+  - Updated AI prompts to include micronutrient targeting, seasonal preferences, and location data
+  - Created seasonal_ingredients.py utility module for dynamic ingredient recommendations
+  - Added location-based meal sourcing integration (placeholder for future API expansions)
+  - Enhanced user interface with conditional location fields for intuitive experience
+  - Maintained core ±3% macro accuracy while adding powerful backend optimization features
+  - Updated App Overview page to showcase new enhanced features and capabilities
+
 - **July 13, 2025 - Enhanced Workout Proximity Meal Timing System & Page Reorganization**:
   - Added comprehensive workout proximity meal timing guidelines to both AI meal planning systems
   - Enhanced standalone AI meal planner with detailed pre/post-workout meal preferences

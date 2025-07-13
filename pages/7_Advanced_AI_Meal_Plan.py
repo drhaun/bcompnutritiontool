@@ -77,6 +77,22 @@ VARIETY PREFERENCES:
 - Repetition Preference: {diet_preferences.get('repetition_preference', 'I like some repetition but with variations')}
 - Weekly Structure: {diet_preferences.get('weekly_structure', 'Mix of routine and variety')}
 - Cooking Variety: {diet_preferences.get('cooking_variety', 'Some variety in cooking methods')}
+
+LOCATION-BASED PREFERENCES:
+- Location Features Enabled: {diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False)}
+- Primary Zip Code: {diet_preferences.get('location_based_preferences', {}).get('primary_zip_code', 'Not specified')}
+- Work Zip Code: {diet_preferences.get('location_based_preferences', {}).get('work_zip_code', 'Not specified')}
+- Favorite Restaurants: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_restaurants', [])[:3])}
+- Favorite Grocery Stores: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_grocery_stores', [])[:3])}
+
+ENHANCED PREFERENCES:
+- Micronutrient Focus: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('micronutrient_focus', [])[:5])}
+- Seasonal Ingredients: {diet_preferences.get('enhanced_preferences', {}).get('seasonal_ingredients', True)}
+- Current Season: {diet_preferences.get('enhanced_preferences', {}).get('current_season', 'Auto-detect')}
+- Ingredient Substitutions: {diet_preferences.get('enhanced_preferences', {}).get('ingredient_substitutions', True)}
+- Meal Prep Coordination: {diet_preferences.get('enhanced_preferences', {}).get('meal_prep_coordination', 'Some coordination')}
+- Local Cuisine Integration: {diet_preferences.get('enhanced_preferences', {}).get('local_cuisine_integration', False)}
+- Preferred Seasonal Produce: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('preferred_produce_seasons', [])[:2])}
 """
     
     for day, day_data in weekly_targets.items():
@@ -161,11 +177,31 @@ CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
    - CRITICAL: Include specific seasoning recommendations in each recipe's instructions
    - Make meals flavorful and appetizing, not bland or boring
 
-8. **QUALITY ASSURANCE**:
-   - Double-check all calculations before providing response
-   - Ensure daily totals sum correctly across all meals
-   - Verify no ingredient conflicts with dietary restrictions or allergies
-   - Make sure portion sizes are realistic and practical
+8. **ENHANCED NUTRITIONAL OPTIMIZATION**:
+   - Micronutrient Focus: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('micronutrient_focus', [])[:5])} - prioritize foods rich in these nutrients
+   - Seasonal Ingredients: {diet_preferences.get('enhanced_preferences', {}).get('seasonal_ingredients', True)} - use current season produce when possible
+   - Current Season: {diet_preferences.get('enhanced_preferences', {}).get('current_season', 'Auto-detect')} - adjust ingredient selections accordingly
+   - Ingredient Substitutions: {diet_preferences.get('enhanced_preferences', {}).get('ingredient_substitutions', True)} - offer alternatives when needed
+   - Meal Prep Coordination: {diet_preferences.get('enhanced_preferences', {}).get('meal_prep_coordination', 'Some coordination - Share ingredients across meals')} - coordinate ingredients across meals
+   - Local Cuisine Integration: {diet_preferences.get('enhanced_preferences', {}).get('local_cuisine_integration', False)} - include local restaurant options if enabled
+   - Preferred Seasonal Produce: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('preferred_produce_seasons', [])[:2])} - feature these when in season
+
+9. **LOCATION-BASED MEAL SOURCING** (if enabled):
+   - Location Features: {diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False)}
+   - Primary Zip: {diet_preferences.get('location_based_preferences', {}).get('primary_zip_code', 'Not specified')}
+   - If location features enabled and meal sourcing preferences include delivery/takeout:
+     * Suggest specific restaurants from favorite list: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_restaurants', [])[:3])}
+     * Recommend macro-friendly options from these restaurants
+     * Include grocery store suggestions: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_grocery_stores', [])[:3])}
+     * Consider convenience store options for on-the-go meals
+
+10. **QUALITY ASSURANCE**:
+    - Double-check all calculations before providing response
+    - Ensure daily totals sum correctly across all meals
+    - Verify no ingredient conflicts with dietary restrictions or allergies
+    - Make sure portion sizes are realistic and practical
+    - Validate micronutrient targets are addressed through food choices
+    - Confirm seasonal ingredient availability and appropriateness
 
 **MANDATORY JSON FORMAT** - Follow this structure exactly:
 {{

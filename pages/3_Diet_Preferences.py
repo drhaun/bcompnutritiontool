@@ -307,7 +307,7 @@ other_supplements = [supp.strip() for supp in other_supplements_input.split('\n'
 
 # ==================== SECTION 5: MEAL SOURCING PREFERENCES ====================
 st.markdown("### 🍽️ Meal Sourcing Preferences")
-st.markdown("Tell us how you prefer to get your meals and groceries.")
+st.markdown("Tell us how you prefer to get your meals and groceries, plus location details for enhanced local recommendations.")
 
 # Initialize sourcing preferences if not exists
 if 'meal_delivery_interest' not in st.session_state.diet_preferences:
@@ -316,6 +316,16 @@ if 'home_cooking_interest' not in st.session_state.diet_preferences:
     st.session_state.diet_preferences['home_cooking_interest'] = 'High'
 if 'grocery_shopping_interest' not in st.session_state.diet_preferences:
     st.session_state.diet_preferences['grocery_shopping_interest'] = 'High'
+if 'location_based_preferences' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['location_based_preferences'] = {
+        'primary_zip_code': '',
+        'work_zip_code': '',
+        'travel_routes': [],
+        'favorite_restaurants': [],
+        'favorite_grocery_stores': [],
+        'convenience_stores': [],
+        'enable_location_features': False
+    }
 
 # Consolidated meal sourcing options - use form to prevent refresh
 with st.form("sourcing_preferences_form", clear_on_submit=False):
@@ -350,6 +360,86 @@ with st.form("sourcing_preferences_form", clear_on_submit=False):
             help="Shopping for ingredients to cook at home",
             key="grocery_shopping_select"
         )
+
+    # Location-Based Preferences Section
+    st.markdown("---")
+    st.markdown("#### 📍 Location-Based Meal Planning")
+    st.markdown("*Enable location features to get personalized recommendations for local restaurants, grocery stores, and on-the-go meal options.*")
+    
+    # Enable location features toggle
+    enable_location = st.checkbox(
+        "Enable Location-Based Features",
+        value=st.session_state.diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False),
+        help="Get recommendations for local restaurants, grocery stores, and meal options based on your location",
+        key="enable_location_checkbox"
+    )
+    
+    # Conditional location fields - only show if enabled
+    if enable_location:
+        location_col1, location_col2 = st.columns(2)
+        
+        with location_col1:
+            st.markdown("**Primary Locations**")
+            primary_zip = st.text_input(
+                "Home Zip Code",
+                value=st.session_state.diet_preferences.get('location_based_preferences', {}).get('primary_zip_code', ''),
+                placeholder="e.g., 90210",
+                help="Your primary location for meal planning recommendations",
+                key="primary_zip_input"
+            )
+            
+            work_zip = st.text_input(
+                "Work Zip Code (Optional)",
+                value=st.session_state.diet_preferences.get('location_based_preferences', {}).get('work_zip_code', ''),
+                placeholder="e.g., 90210",
+                help="Work location for lunch and on-the-go meal options",
+                key="work_zip_input"
+            )
+            
+            travel_routes = st.text_area(
+                "Common Travel Routes (Optional)",
+                value="\n".join(st.session_state.diet_preferences.get('location_based_preferences', {}).get('travel_routes', [])),
+                placeholder="e.g., Home to Gym\nWork to Kids School",
+                help="Common routes for meal planning along your travels",
+                height=80,
+                key="travel_routes_input"
+            )
+        
+        with location_col2:
+            st.markdown("**Favorite Local Places**")
+            favorite_restaurants = st.text_area(
+                "Favorite Restaurants",
+                value="\n".join(st.session_state.diet_preferences.get('location_based_preferences', {}).get('favorite_restaurants', [])),
+                placeholder="e.g., Chipotle\nPanera Bread\nLocal Steakhouse",
+                help="Restaurants you frequent - we'll find macro-friendly options",
+                height=80,
+                key="favorite_restaurants_input"
+            )
+            
+            favorite_grocery = st.text_area(
+                "Favorite Grocery Stores",
+                value="\n".join(st.session_state.diet_preferences.get('location_based_preferences', {}).get('favorite_grocery_stores', [])),
+                placeholder="e.g., Whole Foods\nKroger\nTrader Joe's",
+                help="Grocery stores you prefer for ingredient shopping",
+                height=80,
+                key="favorite_grocery_input"
+            )
+            
+            convenience_stores = st.text_area(
+                "Convenience Stores (Optional)",
+                value="\n".join(st.session_state.diet_preferences.get('location_based_preferences', {}).get('convenience_stores', [])),
+                placeholder="e.g., 7-Eleven\nWawa\nSheetz",
+                help="For quick on-the-go meal options",
+                height=80,
+                key="convenience_stores_input"
+            )
+        
+        # Location features info box
+        if primary_zip:
+            st.info(
+                "🌟 **Location Features Enabled:** Your meal plans will include local restaurant recommendations, "
+                "grocery store suggestions, and on-the-go options tailored to your zip code and favorite places!"
+            )
 
     # Submit button for sourcing preferences
     sourcing_submit = st.form_submit_button("Update Sourcing Preferences", type="primary")
@@ -460,10 +550,22 @@ if dietary_submit:
 
 # Update sourcing preferences if form was submitted
 if sourcing_submit:
+    # Process location-based preferences
+    location_preferences = {
+        'enable_location_features': enable_location,
+        'primary_zip_code': primary_zip if enable_location else '',
+        'work_zip_code': work_zip if enable_location else '',
+        'travel_routes': [route.strip() for route in travel_routes.split('\n') if route.strip()] if enable_location else [],
+        'favorite_restaurants': [restaurant.strip() for restaurant in favorite_restaurants.split('\n') if restaurant.strip()] if enable_location else [],
+        'favorite_grocery_stores': [store.strip() for store in favorite_grocery.split('\n') if store.strip()] if enable_location else [],
+        'convenience_stores': [store.strip() for store in convenience_stores.split('\n') if store.strip()] if enable_location else []
+    }
+    
     st.session_state.diet_preferences.update({
         'meal_delivery_interest': meal_delivery_interest,
         'home_cooking_interest': home_cooking_interest,
-        'grocery_shopping_interest': grocery_shopping_interest
+        'grocery_shopping_interest': grocery_shopping_interest,
+        'location_based_preferences': location_preferences
     })
 
 # ==================== SECTION 7: VARIETY PREFERENCES ====================
@@ -535,6 +637,127 @@ with st.form("variety_preferences_form", clear_on_submit=False):
     variety_submit = st.form_submit_button("Save Variety Preferences", type="primary")
     if variety_submit:
         st.success("✅ Variety preferences saved!")
+
+# ==================== SECTION 8: MICRONUTRIENT & SEASONAL PREFERENCES ====================
+st.markdown("### 🧬 Micronutrient Optimization & Seasonal Preferences")
+st.markdown("Enhanced features for micronutrient optimization and seasonal ingredient preferences to maximize nutrition and variety.")
+
+# Initialize enhanced preferences if not exists
+if 'enhanced_preferences' not in st.session_state.diet_preferences:
+    st.session_state.diet_preferences['enhanced_preferences'] = {
+        'micronutrient_focus': [],
+        'seasonal_ingredients': True,
+        'local_cuisine_integration': False,
+        'ingredient_substitutions': True,
+        'meal_prep_coordination': 'Some coordination - Share ingredients across meals',
+        'current_season': 'Auto-detect',
+        'preferred_produce_seasons': []
+    }
+
+with st.form("enhanced_preferences_form", clear_on_submit=False):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 🧬 Micronutrient Focus Areas")
+        micronutrient_focus = st.multiselect(
+            "Which micronutrients would you like to optimize?",
+            options=[
+                "Vitamin D", "Vitamin B12", "Iron", "Calcium", "Magnesium", "Zinc",
+                "Omega-3 Fatty Acids", "Vitamin C", "Vitamin A", "Folate", 
+                "Potassium", "Vitamin K", "Antioxidants", "Fiber", "Probiotics"
+            ],
+            default=st.session_state.diet_preferences.get('enhanced_preferences', {}).get('micronutrient_focus', []),
+            help="Select nutrients you want to prioritize in your meal plans"
+        )
+        
+        st.markdown("#### 🌱 Seasonal Ingredients")
+        seasonal_ingredients = st.checkbox(
+            "Prioritize seasonal ingredients",
+            value=st.session_state.diet_preferences.get('enhanced_preferences', {}).get('seasonal_ingredients', True),
+            help="Include seasonal produce for better taste, nutrition, and cost-effectiveness"
+        )
+        
+        if seasonal_ingredients:
+            current_season = st.selectbox(
+                "Current season preference",
+                options=["Auto-detect", "Spring", "Summer", "Fall", "Winter"],
+                index=["Auto-detect", "Spring", "Summer", "Fall", "Winter"].index(
+                    st.session_state.diet_preferences.get('enhanced_preferences', {}).get('current_season', 'Auto-detect')
+                ),
+                help="Override automatic season detection"
+            )
+        else:
+            current_season = "Auto-detect"
+        
+        st.markdown("#### 🔄 Ingredient Substitutions")
+        ingredient_substitutions = st.checkbox(
+            "Enable smart ingredient substitutions",
+            value=st.session_state.diet_preferences.get('enhanced_preferences', {}).get('ingredient_substitutions', True),
+            help="Get alternative ingredient suggestions to hit macro targets or accommodate preferences"
+        )
+    
+    with col2:
+        st.markdown("#### 🌍 Local Cuisine Integration")
+        local_cuisine_integration = st.checkbox(
+            "Integrate local cuisine recommendations",
+            value=st.session_state.diet_preferences.get('enhanced_preferences', {}).get('local_cuisine_integration', False),
+            help="Include local restaurant and cuisine options based on your location"
+        )
+        
+        st.markdown("#### 🥘 Meal Prep Coordination")
+        meal_prep_coordination = st.selectbox(
+            "How much meal prep coordination do you want?",
+            options=[
+                "Minimal - Each meal independent",
+                "Some coordination - Share ingredients across meals",
+                "High coordination - Batch cooking optimization",
+                "Maximum - Full weekly prep planning"
+            ],
+            index=["Minimal - Each meal independent", "Some coordination - Share ingredients across meals", "High coordination - Batch cooking optimization", "Maximum - Full weekly prep planning"].index(
+                st.session_state.diet_preferences.get('enhanced_preferences', {}).get('meal_prep_coordination', 'Some coordination - Share ingredients across meals')
+            ),
+            help="Coordinate ingredient usage and preparation timing across meals"
+        )
+        
+        st.markdown("#### 🍎 Preferred Produce Seasons")
+        preferred_produce_seasons = st.multiselect(
+            "Which seasonal produce do you especially enjoy?",
+            options=[
+                "Spring: Asparagus, Artichokes, Peas, Strawberries",
+                "Summer: Tomatoes, Corn, Berries, Stone Fruits",
+                "Fall: Squash, Apples, Pumpkin, Root Vegetables",
+                "Winter: Citrus, Cabbage, Brussels Sprouts, Pomegranates"
+            ],
+            default=st.session_state.diet_preferences.get('enhanced_preferences', {}).get('preferred_produce_seasons', []),
+            help="Select seasonal produce you'd like featured in your meal plans"
+        )
+    
+    # Enhanced preferences info
+    st.markdown("---")
+    st.info("""
+    **🔬 Enhanced Features:**
+    - **Micronutrient Optimization:** Meals will be designed to include foods rich in your selected nutrients
+    - **Seasonal Integration:** Ingredients will reflect current season availability for better taste and cost
+    - **Smart Substitutions:** Alternative ingredients suggested when originals aren't available or preferred
+    - **Meal Prep Coordination:** Ingredient overlap and preparation timing optimized across your weekly plan
+    - **Local Integration:** Restaurant and store recommendations based on your location preferences
+    """)
+    
+    # Submit button for enhanced preferences
+    enhanced_submit = st.form_submit_button("Update Enhanced Preferences", type="primary")
+
+# Update enhanced preferences if form was submitted
+if enhanced_submit:
+    st.session_state.diet_preferences['enhanced_preferences'] = {
+        'micronutrient_focus': micronutrient_focus,
+        'seasonal_ingredients': seasonal_ingredients,
+        'local_cuisine_integration': local_cuisine_integration,
+        'ingredient_substitutions': ingredient_substitutions,
+        'meal_prep_coordination': meal_prep_coordination,
+        'current_season': current_season,
+        'preferred_produce_seasons': preferred_produce_seasons
+    }
+    st.success("✅ Enhanced preferences updated!")
 
 # ==================== HOW PREFERENCES ARE USED ====================
 st.markdown("### How Your Preferences Are Used")

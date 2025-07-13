@@ -80,6 +80,15 @@ This application helps you plan and track your body composition and nutrition go
 - **Flavor Customization**: Seasoning and spice preferences for better meal variety
 - **Progress Tracking**: Monitor your body composition journey
 
+## Enhanced Features (NEW):
+
+- **Micronutrient Optimization**: Target specific vitamins and minerals in your meal plans
+- **Seasonal Ingredient Integration**: Prioritize seasonal produce for better taste and nutrition
+- **Location-Based Meal Planning**: Get local restaurant and grocery store recommendations
+- **Smart Ingredient Substitutions**: Alternative ingredient suggestions for dietary restrictions
+- **Meal Prep Coordination**: Optimize ingredient usage and preparation timing across meals
+- **Local Cuisine Integration**: Restaurant recommendations based on your location and preferences
+
 ## Getting Started:
 
 Complete the setup steps in order (1-5) for the best experience, then use either AI meal planning option based on your needs. Your progress is automatically saved and can be resumed at any time.
