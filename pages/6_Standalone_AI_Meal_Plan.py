@@ -67,8 +67,7 @@ DAILY SCHEDULE:
 - Wake time: {meal_config.get('wake_time', '07:00')}
 - Sleep time: {meal_config.get('sleep_time', '23:00')}
 - Has workout: {meal_config.get('has_workout', False)}
-- Workout time: {meal_config.get('workout_time', 'N/A')}
-- Workout type: {meal_config.get('workout_type', 'N/A')}
+- Workout details: {meal_config.get('workout_details', [])}
 - Pre-workout preference: {meal_config.get('pre_workout_preference', 'N/A')}
 - Post-workout preference: {meal_config.get('post_workout_preference', 'N/A')}
 - Number of meals: {meal_config.get('num_meals', 3)}
@@ -229,25 +228,7 @@ with personal_col2:
         index=2
     )
     
-    # Workout frequency
-    workouts_per_week = st.number_input(
-        "Average Workouts per Week",
-        min_value=0,
-        max_value=14,
-        value=4,
-        step=1,
-        help="Number of structured workout sessions per week"
-    )
-    
-    # Workout calories
-    workout_calories = st.number_input(
-        "Average Calories per Workout",
-        min_value=0,
-        max_value=1000,
-        value=350,
-        step=25,
-        help="Estimated calories burned during an average workout"
-    )
+
 
 # Create meal plan form for preferences and generation
 with st.form("standalone_meal_plan_form"):
@@ -283,20 +264,75 @@ with st.form("standalone_meal_plan_form"):
         # Workout planning with enhanced timing guidance
         has_workout = st.checkbox("I'm working out today", value=True)
         if has_workout:
-            workout_time = st.selectbox("Workout Time", [
-                "Early Morning (5-7 AM)", "Morning (7-9 AM)", "Mid-Morning (9-11 AM)",
-                "Lunch Time (11 AM-1 PM)", "Afternoon (1-4 PM)", "Evening (4-7 PM)",
-                "Night (7-9 PM)", "Late Night (9-11 PM)"
-            ], index=1)
+            # Option for multiple workouts
+            multiple_workouts = st.checkbox("I'm working out more than once today")
             
-            workout_type = st.selectbox("Workout Type", [
-                "Cardio (Running, Cycling, etc.)",
-                "Strength Training",
-                "HIIT/Circuit Training",
-                "Yoga/Pilates",
-                "Sports/Recreation",
-                "Mixed Training"
-            ])
+            if multiple_workouts:
+                st.markdown("**First Workout:**")
+                workout_time_1 = st.selectbox("First Workout Time", [
+                    "Early Morning (5-7 AM)", "Morning (7-9 AM)", "Mid-Morning (9-11 AM)",
+                    "Lunch Time (11 AM-1 PM)", "Afternoon (1-4 PM)", "Evening (4-7 PM)",
+                    "Night (7-9 PM)", "Late Night (9-11 PM)"
+                ], index=1, key="workout1_time")
+                
+                workout_type_1 = st.selectbox("First Workout Type", [
+                    "Cardio (Running, Cycling, etc.)",
+                    "Strength Training",
+                    "HIIT/Circuit Training",
+                    "Yoga/Pilates",
+                    "Sports/Recreation",
+                    "Mixed Training"
+                ], key="workout1_type")
+                
+                workout_duration_1 = st.selectbox("First Workout Duration", [
+                    "15-30 minutes", "30-45 minutes", "45-60 minutes", "60-90 minutes", "90+ minutes"
+                ], index=1, key="workout1_duration")
+                
+                st.markdown("**Second Workout:**")
+                workout_time_2 = st.selectbox("Second Workout Time", [
+                    "Early Morning (5-7 AM)", "Morning (7-9 AM)", "Mid-Morning (9-11 AM)",
+                    "Lunch Time (11 AM-1 PM)", "Afternoon (1-4 PM)", "Evening (4-7 PM)",
+                    "Night (7-9 PM)", "Late Night (9-11 PM)"
+                ], index=5, key="workout2_time")
+                
+                workout_type_2 = st.selectbox("Second Workout Type", [
+                    "Cardio (Running, Cycling, etc.)",
+                    "Strength Training",
+                    "HIIT/Circuit Training",
+                    "Yoga/Pilates",
+                    "Sports/Recreation",
+                    "Mixed Training"
+                ], key="workout2_type")
+                
+                workout_duration_2 = st.selectbox("Second Workout Duration", [
+                    "15-30 minutes", "30-45 minutes", "45-60 minutes", "60-90 minutes", "90+ minutes"
+                ], index=1, key="workout2_duration")
+                
+                workout_details = [
+                    {"time": workout_time_1, "type": workout_type_1, "duration": workout_duration_1},
+                    {"time": workout_time_2, "type": workout_type_2, "duration": workout_duration_2}
+                ]
+            else:
+                workout_time = st.selectbox("Workout Time", [
+                    "Early Morning (5-7 AM)", "Morning (7-9 AM)", "Mid-Morning (9-11 AM)",
+                    "Lunch Time (11 AM-1 PM)", "Afternoon (1-4 PM)", "Evening (4-7 PM)",
+                    "Night (7-9 PM)", "Late Night (9-11 PM)"
+                ], index=1)
+                
+                workout_type = st.selectbox("Workout Type", [
+                    "Cardio (Running, Cycling, etc.)",
+                    "Strength Training",
+                    "HIIT/Circuit Training",
+                    "Yoga/Pilates",
+                    "Sports/Recreation",
+                    "Mixed Training"
+                ])
+                
+                workout_duration = st.selectbox("Workout Duration", [
+                    "15-30 minutes", "30-45 minutes", "45-60 minutes", "60-90 minutes", "90+ minutes"
+                ], index=1)
+                
+                workout_details = [{"time": workout_time, "type": workout_type, "duration": workout_duration}]
             
             # Workout meal timing preferences
             st.markdown("**🏋️ Workout Meal Timing**")
@@ -322,8 +358,7 @@ with st.form("standalone_meal_plan_form"):
             • **Liquid/light options preferred around workout times**
             """)
         else:
-            workout_time = None
-            workout_type = None
+            workout_details = []
             pre_workout_preference = None
             post_workout_preference = None
     
@@ -483,7 +518,7 @@ with st.form("standalone_meal_plan_form"):
     
     # Calculate TDEE
     tdee = utils.calculate_tdee(
-        gender, weight_kg, height_cm, calculated_age, activity_level, workouts_per_week, workout_calories
+        gender, weight_kg, height_cm, calculated_age, activity_level
     )
     
     # Calculate target calories based on goal
@@ -508,8 +543,18 @@ with st.form("standalone_meal_plan_form"):
     fat_free_mass_kg = weight_kg * (1 - body_fat_pct / 100)
     fat_mass_kg = weight_kg - fat_free_mass_kg
     
-    # Calculate energy availability
-    energy_availability = (target_calories - workout_calories * (workouts_per_week / 7)) / fat_free_mass_kg
+    # Calculate energy availability (estimate exercise calories based on activity level)
+    estimated_exercise_calories = 0
+    if "Lightly Active" in activity_level:
+        estimated_exercise_calories = 200  # ~2-3 workouts per week
+    elif "Moderately Active" in activity_level:
+        estimated_exercise_calories = 350  # ~3-5 workouts per week
+    elif "Very Active" in activity_level:
+        estimated_exercise_calories = 500  # ~6-7 workouts per week
+    elif "Extremely Active" in activity_level:
+        estimated_exercise_calories = 650  # Very high activity
+    
+    energy_availability = (target_calories - estimated_exercise_calories) / fat_free_mass_kg
     
     # Display calculated values with enhanced context
     st.markdown("### 🎯 Your Personalized Targets")
@@ -607,7 +652,7 @@ with st.form("standalone_meal_plan_form"):
         
         # Show EA impact if calories changed
         if adjusted_calories != target_calories:
-            new_ea = (adjusted_calories - workout_calories * (workouts_per_week / 7)) / fat_free_mass_kg
+            new_ea = (adjusted_calories - estimated_exercise_calories) / fat_free_mass_kg
             delta_ea = new_ea - energy_availability
             if delta_ea > 0:
                 st.caption(f"🔼 EA: +{delta_ea:.0f} kcal/kg FFM")
@@ -646,7 +691,7 @@ with st.form("standalone_meal_plan_form"):
         target_fat = adjusted_fat
         
         # Recalculate energy availability with new values
-        energy_availability = (target_calories - workout_calories * (workouts_per_week / 7)) / fat_free_mass_kg
+        energy_availability = (target_calories - estimated_exercise_calories) / fat_free_mass_kg
         
         # Show warning if EA is getting too low
         if energy_availability < 30:
@@ -711,8 +756,7 @@ with st.form("standalone_meal_plan_form"):
             'wake_time': wake_time.strftime("%H:%M"),
             'sleep_time': sleep_time.strftime("%H:%M"),
             'has_workout': has_workout,
-            'workout_time': workout_time if has_workout else None,
-            'workout_type': workout_type if has_workout else None,
+            'workout_details': workout_details if has_workout else [],
             'pre_workout_preference': pre_workout_preference if has_workout else None,
             'post_workout_preference': post_workout_preference if has_workout else None,
             'num_meals': num_meals,

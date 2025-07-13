@@ -122,6 +122,9 @@ This is a comprehensive Streamlit-based web application for body composition pla
   - Added enhanced target displays with body mass ratios, calorie percentages, and EA status to individual meal customization
   - Integrated workout-specific nutrition recommendations based on scheduled training types and timing
   - Enhanced daily macro budget display with real-time energy availability calculations and workout-specific guidance
+  - Simplified standalone meal planner to use physical activity level instead of separate workout frequency/calories fields
+  - Added support for multiple workouts per day in standalone planner with detailed workout specifications
+  - Enhanced workout details to include duration and multiple workout scheduling capabilities
 
 - **July 13, 2025 - Enhanced Session Management & Streamlined AI Meal Planning**:
   - Completely enhanced session management to save all user form inputs and selections
