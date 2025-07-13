@@ -307,16 +307,16 @@ st.markdown("#### 🔧 Adjust Targets (Optional)")
 adjust_col1, adjust_col2, adjust_col3, adjust_col4 = st.columns(4)
 
 with adjust_col1:
-    target_calories = st.number_input("Daily Calories", min_value=1000, max_value=5000, value=int(target_calories), step=50, key="adj_calories")
+    target_calories = st.number_input("Daily Calories", min_value=1000, max_value=6000, value=int(target_calories), step=50, key="adj_calories")
 
 with adjust_col2:
-    target_protein = st.number_input("Protein (g)", min_value=50, max_value=300, value=int(target_protein), step=5, key="adj_protein")
+    target_protein = st.number_input("Protein (g)", min_value=50, max_value=400, value=int(target_protein), step=5, key="adj_protein")
 
 with adjust_col3:
-    target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=500, value=int(target_carbs), step=10, key="adj_carbs")
+    target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=800, value=int(target_carbs), step=10, key="adj_carbs")
 
 with adjust_col4:
-    target_fat = st.number_input("Fat (g)", min_value=30, max_value=200, value=int(target_fat), step=5, key="adj_fat")
+    target_fat = st.number_input("Fat (g)", min_value=30, max_value=300, value=int(target_fat), step=5, key="adj_fat")
 
 # Create meal plan form for preferences and generation
 with st.form("standalone_meal_plan_form"):
