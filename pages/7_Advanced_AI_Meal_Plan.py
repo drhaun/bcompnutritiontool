@@ -918,7 +918,7 @@ if 'generated_weekly_meal_plan' in st.session_state:
                     # Validate meal data before PDF generation
                     if not meal_data_for_pdf:
                         st.error("No meal data available for PDF export. Please generate a meal plan first.")
-                        return
+                        st.stop()
                     
                     # Generate PDF
                     pdf_path = export_meal_plan_pdf(meal_data_for_pdf, user_info)

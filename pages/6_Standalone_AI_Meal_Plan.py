@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-from datetime import datetime, time
+from datetime import datetime, time, date
 import copy
 
 # Import our modules
@@ -27,38 +27,62 @@ def get_openai_client():
 def generate_standalone_meal_plan(meal_targets, diet_preferences, meal_config, openai_client):
     """Generate complete AI meal plan using OpenAI for standalone mode"""
     try:
-        # Build comprehensive prompt
+        user_profile = meal_config.get('user_profile', {})
+        
+        # Build comprehensive prompt with enhanced context
         prompt = f"""
 Create a complete daily meal plan with the following specifications:
+
+USER PROFILE:
+- Name: {user_profile.get('name', 'User')}
+- Age: {user_profile.get('age', 'N/A')} years
+- Gender: {user_profile.get('gender', 'N/A')}
+- Weight: {user_profile.get('weight_kg', 'N/A')} kg
+- Height: {user_profile.get('height_cm', 'N/A')} cm
+- Body Fat: {user_profile.get('body_fat_pct', 'N/A')}%
+- TDEE: {user_profile.get('tdee', 'N/A')} calories
+- Goal: {user_profile.get('goal_type', 'N/A')}
 
 NUTRITION TARGETS:
 {json.dumps(meal_targets, indent=2)}
 
-DIETARY PREFERENCES:
-- Vegetarian: {diet_preferences.get('vegetarian', False)}
-- Vegan: {diet_preferences.get('vegan', False)}
-- Gluten-free: {diet_preferences.get('gluten_free', False)}
-- Dairy-free: {diet_preferences.get('dairy_free', False)}
-- Nut-free: {diet_preferences.get('nut_free', False)}
+DIETARY PREFERENCES & RESTRICTIONS:
+- Dietary restrictions: {diet_preferences.get('dietary_restrictions', [])}
+- Food allergies: {diet_preferences.get('food_allergies', 'None')}
+- Cuisine preferences: {diet_preferences.get('cuisine_preferences', [])}
+- Preferred proteins: {diet_preferences.get('proteins', [])}
+- Preferred carbs: {diet_preferences.get('carbs', [])}
+- Preferred fats: {diet_preferences.get('fats', [])}
+- Spice level: {diet_preferences.get('spice_level', 'Medium')}
+- Flavor profiles: {diet_preferences.get('flavor_profiles', [])}
+- Cooking style: {diet_preferences.get('cooking_style', 'N/A')}
+- Meal variety: {diet_preferences.get('meal_variety', 'Some variety')}
 - Cooking time preference: {diet_preferences.get('cooking_time_preference', 'Medium (30-60 min)')}
 - Budget preference: {diet_preferences.get('budget_preference', 'Moderate')}
 - Cooking for: {diet_preferences.get('cooking_for', 'Just myself')}
 - Leftovers preference: {diet_preferences.get('leftovers_preference', 'Okay with leftovers occasionally')}
+- Meal prep interest: {diet_preferences.get('meal_prep_interest', 'Some meal prep')}
 
-MEAL TIMING:
+DAILY SCHEDULE:
 - Wake time: {meal_config.get('wake_time', '07:00')}
 - Sleep time: {meal_config.get('sleep_time', '23:00')}
-- Workout time: {meal_config.get('workout_time', 'Morning')}
+- Has workout: {meal_config.get('has_workout', False)}
+- Workout time: {meal_config.get('workout_time', 'N/A')}
+- Workout type: {meal_config.get('workout_type', 'N/A')}
 - Number of meals: {meal_config.get('num_meals', 3)}
 - Number of snacks: {meal_config.get('num_snacks', 1)}
-- Training day: {meal_config.get('is_training_day', True)}
+- Day activity level: {meal_config.get('day_activity', 'N/A')}
+- Meal context: {meal_config.get('meal_context', 'N/A')}
 
-Please create realistic meals with:
-1. Specific food items and portions
-2. Accurate macro calculations matching targets (±10% tolerance)
-3. Practical cooking instructions
-4. Consideration for meal timing around workouts
-5. Variety and palatability
+REQUIREMENTS:
+1. Create realistic meals with specific food items and portions
+2. Accurate macro calculations matching targets (±5% tolerance)
+3. Practical cooking instructions with timing
+4. Consider meal timing around workouts if applicable
+5. Use preferred ingredients and respect dietary restrictions
+6. Match cooking style and spice preferences
+7. Consider budget and cooking time preferences
+8. Optimize for the specified meal context and variety level
 
 Format as JSON with this structure:
 {{
@@ -67,9 +91,10 @@ Format as JSON with this structure:
     "ingredients": [
       {{"item": "food name", "amount": "portion", "calories": number, "protein": number, "carbs": number, "fat": number}}
     ],
-    "instructions": "cooking steps",
+    "instructions": "detailed cooking steps with timing",
     "total_macros": {{"calories": number, "protein": number, "carbs": number, "fat": number}},
-    "timing": "suggested time"
+    "timing": "suggested time",
+    "meal_context": "context description"
   }},
   "lunch": {{ ... }},
   "dinner": {{ ... }},
@@ -80,11 +105,12 @@ Format as JSON with this structure:
         response = openai_client.chat.completions.create(
             model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
             messages=[
-                {"role": "system", "content": "You are a nutrition expert who creates precise meal plans with accurate macro calculations."},
+                {"role": "system", "content": "You are a nutrition expert who creates precise meal plans with accurate macro calculations. Focus on meal personalization based on user preferences and schedule optimization."},
                 {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"},
-            temperature=0.7
+            temperature=0.1,  # Lower temperature for more consistent calculations
+            max_tokens=3000
         )
         
         return json.loads(response.choices[0].message.content)
@@ -92,93 +118,372 @@ Format as JSON with this structure:
         st.error(f"AI meal generation failed: {e}")
         return None
 
-# Page Setup
-st.set_page_config(page_title="Standalone AI Meal Plan", layout="wide")
-st.title("🚀 Standalone AI Meal Plan")
-st.markdown("*Quick and easy AI meal planning - no setup required*")
+# Set page config
+st.set_page_config(
+    page_title="Fitomics - Daily Meal Planner",
+    page_icon="🍽️",
+    layout="wide"
+)
 
-# Initialize nutrition cache
-if 'nutrition_cache' not in st.session_state:
-    st.session_state.nutrition_cache = NutritionCache()
+# Header
+try:
+    st.image("images/fitomicshorizontalgold.png", width=300)
+except:
+    st.title("Fitomics")
 
-# Initialize session state for standalone mode
-if 'standalone_step' not in st.session_state:
-    st.session_state.standalone_step = 0
-
+st.title("🍽️ Daily AI Meal Planner")
 st.markdown("""
-Get a personalized meal plan in just a few clicks! This standalone tool creates AI-powered meal plans 
-without requiring body composition analysis or weekly scheduling.
+Create a personalized daily meal plan in minutes! This standalone planner calculates your nutrition needs and generates AI-powered meal recommendations tailored to your preferences and schedule.
+
+**Perfect for:** Daily meal planning, trying new recipes, or creating one-off meal plans without the full body composition workflow.
 """)
 
-# Compact form for all inputs
-with st.form("standalone_meal_planner", clear_on_submit=False):
-    st.markdown("## 📋 Quick Setup")
+# Initialize session state for this page
+if 'generated_standalone_plan' not in st.session_state:
+    st.session_state.generated_standalone_plan = None
+
+# Create comprehensive meal plan form
+with st.form("standalone_meal_plan_form"):
+    st.markdown("## 👤 Personal Information")
+    st.markdown("*This information helps calculate your estimated daily calorie and nutrient needs.*")
     
-    # Nutrition targets in columns
-    st.markdown("### Daily Nutrition Targets")
-    col1, col2, col3, col4 = st.columns(4)
+    # Personal info section
+    personal_col1, personal_col2 = st.columns(2)
     
-    with col1:
-        target_calories = st.number_input("Calories", min_value=1200, max_value=4000, value=2000, step=50)
-    with col2:
-        target_protein = st.number_input("Protein (g)", min_value=50, max_value=300, value=150, step=5)
-    with col3:
-        target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=400, value=200, step=10)
-    with col4:
-        target_fat = st.number_input("Fat (g)", min_value=30, max_value=200, value=70, step=5)
+    with personal_col1:
+        name = st.text_input("Full Name", value="", placeholder="Enter your name")
+        
+        gender = st.selectbox("Gender", options=["Male", "Female"], index=0)
+        
+        # Date of Birth with age calculation
+        dob = st.date_input(
+            "Date of Birth",
+            value=date(1990, 1, 1),
+            min_value=date(1920, 1, 1),
+            max_value=date.today(),
+            help="Used to calculate age for accurate TDEE estimation"
+        )
+        
+        # Calculate and display age
+        if dob:
+            today = date.today()
+            calculated_age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            st.info(f"**Age:** {calculated_age} years")
+        else:
+            calculated_age = 25
+        
+        # Imperial/Metric toggle
+        use_imperial = st.toggle("Use Imperial Units (lbs, ft/in)", value=True)
+        
+        # Height input
+        if use_imperial:
+            height_feet = st.number_input("Height (feet)", min_value=3, max_value=8, value=5, step=1)
+            height_inches = st.number_input("Height (inches)", min_value=0, max_value=11, value=8, step=1)
+            height_cm = (height_feet * 12 + height_inches) * 2.54
+            st.write(f"Height: {height_feet}'{height_inches}\" ({height_cm:.1f} cm)")
+        else:
+            height_cm = st.number_input("Height (cm)", min_value=120.0, max_value=250.0, value=175.0, step=0.5)
+            height_inches = height_cm / 2.54
+            height_feet = int(height_inches // 12)
+            height_in_remainder = int(height_inches % 12)
+            st.write(f"Height: {height_feet}'{height_in_remainder}\" ({height_cm:.1f} cm)")
     
-    # Dietary preferences in columns
-    st.markdown("### Dietary Preferences")
-    pref_col1, pref_col2, pref_col3 = st.columns(3)
+    with personal_col2:
+        # Weight input
+        if use_imperial:
+            weight_lbs = st.number_input("Weight (lbs)", min_value=80.0, max_value=500.0, value=165.0, step=0.5)
+            weight_kg = weight_lbs / 2.20462
+            st.write(f"Weight: {weight_kg:.1f} kg")
+        else:
+            weight_kg = st.number_input("Weight (kg)", min_value=35.0, max_value=225.0, value=75.0, step=0.1)
+            weight_lbs = weight_kg * 2.20462
+            st.write(f"Weight: {weight_lbs:.1f} lbs")
+        
+        # Body fat percentage
+        body_fat_pct = st.number_input(
+            "Estimated Body Fat %",
+            min_value=5.0,
+            max_value=50.0,
+            value=18.0,
+            step=0.5,
+            help="Estimate your body fat percentage (affects metabolic calculations)"
+        )
+        
+        # Activity level
+        activity_level = st.selectbox(
+            "Physical Activity Level",
+            options=[
+                "Sedentary (office job, <2 hours exercise per week)",
+                "Lightly Active (light exercise 2-3 times per week)",
+                "Moderately Active (moderate exercise 3-5 times per week)",
+                "Very Active (hard exercise 6-7 times per week)",
+                "Extremely Active (very hard exercise, physical job)"
+            ],
+            index=2
+        )
+        
+        # Workout frequency
+        workouts_per_week = st.number_input(
+            "Average Workouts per Week",
+            min_value=0,
+            max_value=14,
+            value=4,
+            step=1,
+            help="Number of structured workout sessions per week"
+        )
+        
+        # Workout calories
+        workout_calories = st.number_input(
+            "Average Calories per Workout",
+            min_value=0,
+            max_value=1000,
+            value=350,
+            step=25,
+            help="Estimated calories burned during an average workout"
+        )
     
-    with pref_col1:
-        vegetarian = st.checkbox("Vegetarian")
-        vegan = st.checkbox("Vegan")
+    # Calculate TDEE
+    tdee = utils.calculate_tdee(
+        gender, weight_kg, height_cm, calculated_age, activity_level, workouts_per_week, workout_calories
+    )
     
-    with pref_col2:
-        gluten_free = st.checkbox("Gluten-Free")
-        dairy_free = st.checkbox("Dairy-Free")
+    # Display calculated TDEE
+    st.markdown("---")
+    st.markdown("### 📊 Calculated Daily Energy Needs")
+    tdee_col1, tdee_col2, tdee_col3 = st.columns(3)
     
-    with pref_col3:
-        nut_free = st.checkbox("Nut-Free")
-        low_sodium = st.checkbox("Low Sodium")
+    with tdee_col1:
+        st.metric("Estimated TDEE", f"{tdee:,} calories", help="Total Daily Energy Expenditure")
     
-    # Meal configuration
-    st.markdown("### Meal Configuration")
-    config_col1, config_col2 = st.columns(2)
+    with tdee_col2:
+        # Goal adjustment
+        goal_type = st.selectbox(
+            "Daily Goal",
+            options=[
+                "Maintain Weight",
+                "Lose Weight (0.5-1 lb/week)",
+                "Lose Weight (1-2 lbs/week)",
+                "Gain Weight (0.5-1 lb/week)",
+                "Gain Weight (1-2 lbs/week)"
+            ],
+            index=0
+        )
+        
+        # Calculate target calories based on goal
+        if goal_type == "Maintain Weight":
+            target_calories = tdee
+        elif goal_type == "Lose Weight (0.5-1 lb/week)":
+            target_calories = tdee - 375  # 0.75 lb/week average
+        elif goal_type == "Lose Weight (1-2 lbs/week)":
+            target_calories = tdee - 750  # 1.5 lbs/week average
+        elif goal_type == "Gain Weight (0.5-1 lb/week)":
+            target_calories = tdee + 375  # 0.75 lb/week average
+        else:  # Gain Weight (1-2 lbs/week)
+            target_calories = tdee + 750  # 1.5 lbs/week average
     
-    with config_col1:
+    with tdee_col3:
+        st.metric("Target Calories", f"{target_calories:,} calories", help="Adjusted for your goal")
+    
+    # Calculate macros based on goal and body weight
+    macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
+    target_protein = macros['protein']
+    target_carbs = macros['carbs']
+    target_fat = macros['fat']
+    
+    # Display calculated macros
+    st.markdown("### 🥗 Recommended Macronutrients")
+    macro_col1, macro_col2, macro_col3 = st.columns(3)
+    
+    with macro_col1:
+        st.metric("Protein", f"{target_protein}g", f"{target_protein * 4} calories")
+    
+    with macro_col2:
+        st.metric("Carbs", f"{target_carbs}g", f"{target_carbs * 4} calories")
+    
+    with macro_col3:
+        st.metric("Fat", f"{target_fat}g", f"{target_fat * 9} calories")
+    
+    # Allow manual adjustment
+    st.markdown("#### 🔧 Adjust Targets (Optional)")
+    adjust_col1, adjust_col2, adjust_col3, adjust_col4 = st.columns(4)
+    
+    with adjust_col1:
+        target_calories = st.number_input("Daily Calories", min_value=1000, max_value=5000, value=int(target_calories), step=50)
+    
+    with adjust_col2:
+        target_protein = st.number_input("Protein (g)", min_value=50, max_value=300, value=int(target_protein), step=5)
+    
+    with adjust_col3:
+        target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=500, value=int(target_carbs), step=10)
+    
+    with adjust_col4:
+        target_fat = st.number_input("Fat (g)", min_value=30, max_value=200, value=int(target_fat), step=5)
+    
+    # Day Schedule Planning
+    st.markdown("---")
+    st.markdown("## 📅 Daily Schedule Planning")
+    st.markdown("*Tell us about your day so we can optimize meal timing and content.*")
+    
+    schedule_col1, schedule_col2 = st.columns(2)
+    
+    with schedule_col1:
+        # Basic timing
         wake_time = st.time_input("Wake Time", value=time(7, 0))
         sleep_time = st.time_input("Sleep Time", value=time(23, 0))
         
-    with config_col2:
-        workout_time = st.selectbox("Workout Timing", [
-            "Morning (6-9 AM)", "Mid-Morning (9-12 PM)", "Afternoon (2-5 PM)", 
-            "Evening (5-8 PM)", "No workout today"
+        # Workout planning
+        has_workout = st.checkbox("I'm working out today", value=True)
+        if has_workout:
+            workout_time = st.selectbox("Workout Time", [
+                "Early Morning (5-7 AM)", "Morning (7-9 AM)", "Mid-Morning (9-11 AM)",
+                "Lunch Time (11 AM-1 PM)", "Afternoon (1-4 PM)", "Evening (4-7 PM)",
+                "Night (7-9 PM)", "Late Night (9-11 PM)"
+            ], index=1)
+            
+            workout_type = st.selectbox("Workout Type", [
+                "Cardio (Running, Cycling, etc.)",
+                "Strength Training",
+                "HIIT/Circuit Training",
+                "Yoga/Pilates",
+                "Sports/Recreation",
+                "Mixed Training"
+            ])
+        else:
+            workout_time = None
+            workout_type = None
+    
+    with schedule_col2:
+        # Meal timing preferences
+        num_meals = st.selectbox("Number of Main Meals", [2, 3, 4], index=1)
+        num_snacks = st.selectbox("Number of Snacks", [0, 1, 2, 3], index=1)
+        
+        # Activity level for the day
+        day_activity = st.selectbox("Today's Activity Level", [
+            "Sedentary (desk work, minimal movement)",
+            "Light Activity (some walking, desk work)",
+            "Moderate Activity (regular movement, errands)",
+            "Active Day (lots of walking, physical tasks)",
+            "Very Active (physical job, lots of movement)"
+        ], index=2)
+        
+        # Meal contexts
+        meal_context = st.selectbox("Primary Meal Context", [
+            "Home cooking", "Meal prep", "Quick & easy", "Comfort food",
+            "Healthy focus", "Performance focus", "Social/family meals"
         ])
-        is_training_day = workout_time != "No workout today"
     
-    # Additional preferences
-    st.markdown("### Additional Preferences")
-    add_col1, add_col2, add_col3 = st.columns(3)
+    # Diet Preferences
+    st.markdown("---")
+    st.markdown("## 🥗 Diet Preferences")
+    st.markdown("*Customize your food preferences and dietary requirements.*")
     
-    with add_col1:
-        num_meals = st.selectbox("Main Meals", [2, 3, 4], index=1)
-        num_snacks = st.selectbox("Snacks", [0, 1, 2], index=1)
+    # Dietary restrictions
+    restrict_col1, restrict_col2 = st.columns(2)
     
-    with add_col2:
-        cooking_time = st.selectbox("Cooking Time", [
-            "Quick (Under 30 min)", "Medium (30-60 min)", "Long (60+ min)"
-        ], index=1)
-        budget = st.selectbox("Budget", ["Budget-friendly", "Moderate", "Premium"], index=1)
+    with restrict_col1:
+        st.markdown("**Dietary Restrictions & Allergies**")
+        dietary_restrictions = st.multiselect(
+            "Select any that apply:",
+            ["Vegetarian", "Vegan", "Pescatarian", "Gluten-Free", "Dairy-Free", 
+             "Nut-Free", "Soy-Free", "Low-Sodium", "Low-Sugar", "Keto", "Paleo"],
+            default=[]
+        )
+        
+        food_allergies = st.text_area(
+            "Food Allergies/Intolerances",
+            placeholder="List any specific foods you cannot eat...",
+            height=80
+        )
     
-    with add_col3:
+    with restrict_col2:
+        st.markdown("**Cuisine Preferences**")
+        cuisine_preferences = st.multiselect(
+            "What cuisines do you enjoy?",
+            ["American", "Italian", "Mexican", "Asian", "Indian", "Mediterranean", 
+             "Middle Eastern", "Thai", "Japanese", "French", "Greek", "Korean"],
+            default=["American", "Italian", "Mexican"]
+        )
+        
+        cooking_time = st.selectbox("Cooking Time Preference", [
+            "Quick (15-30 min)", "Medium (30-60 min)", "Longer (60+ min)", "No preference"
+        ])
+    
+    # Food preferences
+    st.markdown("**Food Preferences**")
+    food_col1, food_col2, food_col3 = st.columns(3)
+    
+    with food_col1:
+        st.markdown("*Preferred Proteins*")
+        proteins = st.multiselect(
+            "Select preferred proteins:",
+            ["Chicken", "Beef", "Pork", "Fish", "Salmon", "Shrimp", "Eggs", 
+             "Tofu", "Tempeh", "Beans", "Lentils", "Greek Yogurt", "Cottage Cheese"],
+            default=["Chicken", "Fish", "Eggs"]
+        )
+    
+    with food_col2:
+        st.markdown("*Preferred Carbs*")
+        carbs = st.multiselect(
+            "Select preferred carbs:",
+            ["Rice", "Pasta", "Bread", "Oats", "Quinoa", "Sweet Potato", 
+             "Regular Potato", "Fruit", "Vegetables", "Beans", "Lentils"],
+            default=["Rice", "Oats", "Sweet Potato"]
+        )
+    
+    with food_col3:
+        st.markdown("*Preferred Fats*")
+        fats = st.multiselect(
+            "Select preferred fats:",
+            ["Olive Oil", "Avocado", "Nuts", "Seeds", "Butter", "Coconut Oil", 
+             "Fatty Fish", "Cheese", "Nut Butters"],
+            default=["Olive Oil", "Avocado", "Nuts"]
+        )
+    
+    # Flavor preferences
+    st.markdown("**Flavor & Spice Preferences**")
+    flavor_col1, flavor_col2 = st.columns(2)
+    
+    with flavor_col1:
+        spice_level = st.selectbox("Spice Level", [
+            "Mild (no spice)", "Medium (some heat)", "Spicy (lots of heat)", "Very Spicy (extreme heat)"
+        ])
+        
+        flavor_profiles = st.multiselect(
+            "Favorite Flavor Profiles:",
+            ["Savory", "Sweet", "Sour", "Bitter", "Umami", "Herbal", "Smoky", "Citrusy"],
+            default=["Savory", "Herbal"]
+        )
+    
+    with flavor_col2:
+        cooking_style = st.selectbox("Cooking Style Preference", [
+            "Simple & clean", "Bold & flavorful", "Comfort food", "Gourmet", "Healthy focus"
+        ])
+        
+        meal_variety = st.selectbox("Meal Variety Level", [
+            "Keep it simple (similar meals)", "Some variety", "High variety", "Maximum variety"
+        ])
+    
+    # Practical preferences
+    st.markdown("**Practical Preferences**")
+    practical_col1, practical_col2 = st.columns(2)
+    
+    with practical_col1:
         cooking_for = st.selectbox("Cooking For", [
             "Just myself", "2 people", "3-4 people", "Family (5+ people)"
         ])
-        leftovers = st.selectbox("Leftovers", [
-            "Love leftovers", "Okay with leftovers occasionally", "Prefer fresh meals"
-        ], index=1)
+        
+        leftover_preference = st.selectbox("Leftover Preference", [
+            "Love leftovers", "Okay with leftovers occasionally", "Prefer fresh meals daily"
+        ])
+    
+    with practical_col2:
+        budget_level = st.selectbox("Budget Level", [
+            "Budget-conscious", "Moderate budget", "Higher budget", "No budget constraints"
+        ])
+        
+        meal_prep_interest = st.selectbox("Meal Prep Interest", [
+            "No meal prep", "Some meal prep", "Heavy meal prep", "Batch cooking"
+        ])
     
     # Generate button
     st.markdown("---")
@@ -213,31 +518,49 @@ with st.form("standalone_meal_planner", clear_on_submit=False):
                 'fat': int(target_fat * percentage)
             }
         
-        # Prepare preferences
+        # Prepare comprehensive preferences
         diet_preferences = {
-            'vegetarian': vegetarian,
-            'vegan': vegan,
-            'gluten_free': gluten_free,
-            'dairy_free': dairy_free,
-            'nut_free': nut_free,
-            'low_sodium': low_sodium,
+            'dietary_restrictions': dietary_restrictions,
+            'food_allergies': food_allergies,
+            'cuisine_preferences': cuisine_preferences,
+            'proteins': proteins,
+            'carbs': carbs,
+            'fats': fats,
+            'spice_level': spice_level,
+            'flavor_profiles': flavor_profiles,
+            'cooking_style': cooking_style,
+            'meal_variety': meal_variety,
             'cooking_time_preference': cooking_time,
-            'budget_preference': budget,
+            'budget_preference': budget_level,
             'cooking_for': cooking_for,
-            'leftovers_preference': leftovers
+            'leftovers_preference': leftover_preference,
+            'meal_prep_interest': meal_prep_interest
         }
         
-        # Prepare meal config
+        # Prepare enhanced meal config
         meal_config = {
             'wake_time': wake_time.strftime("%H:%M"),
             'sleep_time': sleep_time.strftime("%H:%M"),
-            'workout_time': workout_time,
+            'has_workout': has_workout,
+            'workout_time': workout_time if has_workout else None,
+            'workout_type': workout_type if has_workout else None,
             'num_meals': num_meals,
             'num_snacks': num_snacks,
-            'is_training_day': is_training_day
+            'day_activity': day_activity,
+            'meal_context': meal_context,
+            'user_profile': {
+                'name': name,
+                'age': calculated_age,
+                'gender': gender,
+                'weight_kg': weight_kg,
+                'height_cm': height_cm,
+                'body_fat_pct': body_fat_pct,
+                'tdee': tdee,
+                'goal_type': goal_type
+            }
         }
         
-        with st.spinner("🤖 Creating your personalized meal plan..."):
+        with st.spinner("🤖 Creating your personalized daily meal plan..."):
             meal_plan = generate_standalone_meal_plan(
                 meal_targets, diet_preferences, meal_config, openai_client
             )
@@ -251,7 +574,14 @@ with st.form("standalone_meal_planner", clear_on_submit=False):
                     'fat': target_fat
                 }
                 st.session_state.standalone_preferences = diet_preferences
-                st.success("✅ **Meal plan generated successfully!**")
+                st.session_state.standalone_user_info = {
+                    'name': name,
+                    'age': calculated_age,
+                    'gender': gender,
+                    'tdee': tdee,
+                    'goal_type': goal_type
+                }
+                st.success("✅ **Personalized meal plan generated successfully!**")
                 st.rerun()
 
 # Display generated meal plan
@@ -267,17 +597,70 @@ if 'generated_standalone_plan' in st.session_state:
     total_carbs = sum(meal.get('total_macros', {}).get('carbs', 0) for meal in meal_plan.values())
     total_fat = sum(meal.get('total_macros', {}).get('fat', 0) for meal in meal_plan.values())
     
-    st.markdown("### Daily Nutrition Summary")
-    summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
+    # User info display
+    if 'standalone_user_info' in st.session_state:
+        user_info = st.session_state.standalone_user_info
+        st.markdown("### 👤 Your Profile Summary")
+        info_col1, info_col2, info_col3, info_col4 = st.columns(4)
+        
+        with info_col1:
+            st.metric("Name", user_info.get('name', 'User'))
+        with info_col2:
+            st.metric("Age", f"{user_info.get('age', 'N/A')} years")
+        with info_col3:
+            st.metric("TDEE", f"{user_info.get('tdee', 'N/A'):,} cal")
+        with info_col4:
+            st.metric("Goal", user_info.get('goal_type', 'N/A'))
     
-    with summary_col1:
-        st.metric("Total Calories", f"{total_calories:,}")
-    with summary_col2:
-        st.metric("Total Protein", f"{total_protein}g")
-    with summary_col3:
-        st.metric("Total Carbs", f"{total_carbs}g")
-    with summary_col4:
-        st.metric("Total Fat", f"{total_fat}g")
+    # Nutrition accuracy check
+    targets = st.session_state.get('standalone_targets', {})
+    target_calories = targets.get('calories', 0)
+    target_protein = targets.get('protein', 0)
+    target_carbs = targets.get('carbs', 0)
+    target_fat = targets.get('fat', 0)
+    
+    st.markdown("### 🎯 Nutrition Accuracy Check")
+    accuracy_col1, accuracy_col2, accuracy_col3, accuracy_col4 = st.columns(4)
+    
+    with accuracy_col1:
+        cal_diff = total_calories - target_calories
+        cal_percent = (cal_diff / target_calories * 100) if target_calories > 0 else 0
+        st.metric("Calories", f"{total_calories:,}", f"{cal_diff:+,} ({cal_percent:+.1f}%)")
+    
+    with accuracy_col2:
+        protein_diff = total_protein - target_protein
+        protein_percent = (protein_diff / target_protein * 100) if target_protein > 0 else 0
+        st.metric("Protein", f"{total_protein}g", f"{protein_diff:+}g ({protein_percent:+.1f}%)")
+    
+    with accuracy_col3:
+        carb_diff = total_carbs - target_carbs
+        carb_percent = (carb_diff / target_carbs * 100) if target_carbs > 0 else 0
+        st.metric("Carbs", f"{total_carbs}g", f"{carb_diff:+}g ({carb_percent:+.1f}%)")
+    
+    with accuracy_col4:
+        fat_diff = total_fat - target_fat
+        fat_percent = (fat_diff / target_fat * 100) if target_fat > 0 else 0
+        st.metric("Fat", f"{total_fat}g", f"{fat_diff:+}g ({fat_percent:+.1f}%)")
+    
+    # Accuracy summary
+    accuracy_scores = []
+    if target_calories > 0:
+        accuracy_scores.append(abs(cal_percent))
+    if target_protein > 0:
+        accuracy_scores.append(abs(protein_percent))
+    if target_carbs > 0:
+        accuracy_scores.append(abs(carb_percent))
+    if target_fat > 0:
+        accuracy_scores.append(abs(fat_percent))
+    
+    if accuracy_scores:
+        avg_accuracy = sum(accuracy_scores) / len(accuracy_scores)
+        if avg_accuracy <= 5:
+            st.success("🎯 **Excellent accuracy!** Your meal plan is within 5% of all targets.")
+        elif avg_accuracy <= 10:
+            st.info("✅ **Good accuracy!** Your meal plan is within 10% of targets.")
+        else:
+            st.warning("⚠️ **Moderate accuracy.** Consider adjusting portions if needed.")
     
     # Create tabs for each meal
     meal_types = list(meal_plan.keys())
