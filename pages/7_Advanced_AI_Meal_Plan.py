@@ -285,17 +285,24 @@ Remember: The user needs these exact macros for precise body composition goals. 
             daily_fat = daily_totals.get('fat', 70)
             
             enhanced_prompt = f"""
-**DAILY MACRO TARGETS FOR {day.upper()} - MUST HIT EXACTLY (±3% tolerance)**:
-- Calories: {daily_calories} (Range: {daily_calories * 0.97:.0f} - {daily_calories * 1.03:.0f})
-- Protein: {daily_protein}g (Range: {daily_protein * 0.97:.0f} - {daily_protein * 1.03:.0f}g)
-- Carbs: {daily_carbs}g (Range: {daily_carbs * 0.97:.0f} - {daily_carbs * 1.03:.0f}g)
-- Fat: {daily_fat}g (Range: {daily_fat * 0.97:.0f} - {daily_fat * 1.03:.0f}g)
+**CRITICAL: DAILY MACRO TARGETS FOR {day.upper()} - MUST HIT EXACTLY (±3% tolerance)**:
+- Calories: {daily_calories} (MANDATORY Range: {daily_calories * 0.97:.0f} - {daily_calories * 1.03:.0f})
+- Protein: {daily_protein}g (MANDATORY Range: {daily_protein * 0.97:.0f} - {daily_protein * 1.03:.0f}g)
+- Carbs: {daily_carbs}g (MANDATORY Range: {daily_carbs * 0.97:.0f} - {daily_carbs * 1.03:.0f}g)
+- Fat: {daily_fat}g (MANDATORY Range: {daily_fat * 0.97:.0f} - {daily_fat * 1.03:.0f}g)
 
-**PORTION SIZE GUIDELINES TO HIT TARGETS**:
-- For {daily_calories} calories: Use large portions, add oils, nuts, and calorie-dense ingredients
-- For {daily_protein}g protein: Use 6-8oz meat portions, add protein powder, Greek yogurt
-- For {daily_carbs}g carbs: Use 1-2 cups rice/pasta, multiple fruits, large oat portions
-- For {daily_fat}g fat: Use 2-4 tbsp oils, nuts, avocado, nut butters
+**AGGRESSIVE PORTION SIZE GUIDELINES TO HIT TARGETS**:
+- For {daily_calories} calories: Use LARGE portions, add 3-4 tbsp oils, nuts, avocado, nut butters
+- For {daily_protein}g protein: Use 8-10oz meat portions, add protein powder, Greek yogurt, eggs
+- For {daily_carbs}g carbs: Use 1.5-2 cups rice/pasta, multiple fruits, large oat portions
+- For {daily_fat}g fat: Use 3-4 tbsp oils, nuts, avocado, nut butters, full-fat dairy
+
+**MANDATORY ACCURACY REQUIREMENTS**:
+1. Calculate totals for each meal BEFORE finalizing ingredients
+2. If any macro is below target, INCREASE portions by 25-50%
+3. Add calorie-dense ingredients: nuts, oils, avocados, nut butters
+4. NEVER submit a meal plan below the mandatory ranges
+5. Double-check all calculations before responding
 
 {prompt}
             """

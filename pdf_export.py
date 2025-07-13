@@ -6,6 +6,42 @@ import os
 from datetime import datetime
 import json
 import traceback
+import unicodedata
+import re
+
+def clean_text_for_pdf(text):
+    """Clean text to ensure it's compatible with PDF latin-1 encoding"""
+    if not text:
+        return ""
+    
+    # Convert to string if not already
+    text = str(text)
+    
+    # Normalize unicode characters
+    text = unicodedata.normalize('NFKD', text)
+    
+    # Remove or replace problematic characters
+    text = re.sub(r'[^\x00-\x7F]+', '', text)  # Remove non-ASCII characters
+    text = text.replace('–', '-')  # Replace em dash with hyphen
+    text = text.replace('—', '-')  # Replace en dash with hyphen
+    text = text.replace('"', '"')  # Replace curly quotes
+    text = text.replace('"', '"')
+    text = text.replace(''', "'")  # Replace curly apostrophes
+    text = text.replace(''', "'")
+    text = text.replace('…', '...')  # Replace ellipsis
+    text = text.replace('°', ' degrees')  # Replace degree symbol
+    text = text.replace('½', '1/2')  # Replace fraction
+    text = text.replace('¼', '1/4')
+    text = text.replace('¾', '3/4')
+    
+    # Ensure it's encodable in latin-1
+    try:
+        text.encode('latin-1')
+    except UnicodeEncodeError:
+        # If still problematic, keep only ASCII characters
+        text = ''.join(char for char in text if ord(char) < 128)
+    
+    return text
 
 class FitomicsPDF(FPDF):
     def __init__(self):
@@ -176,13 +212,13 @@ class FitomicsPDF(FPDF):
         # Meal title
         self.set_font('Arial', 'B', 16)
         self.set_text_color(41, 84, 144)
-        self.cell(0, 10, meal_type.upper(), 0, 1, 'L')
+        self.cell(0, 10, clean_text_for_pdf(meal_type).upper(), 0, 1, 'L')
         
         # Recipe name
         self.set_font('Arial', 'B', 14)
         self.set_text_color(0, 0, 0)
         recipe_name = recipe.get('name', recipe.get('title', 'Custom Meal'))
-        self.cell(0, 8, recipe_name, 0, 1, 'L')
+        self.cell(0, 8, clean_text_for_pdf(recipe_name), 0, 1, 'L')
         
         # Add meal context and time if available
         if meal_context or meal_time:
@@ -190,9 +226,9 @@ class FitomicsPDF(FPDF):
             self.set_text_color(100, 100, 100)
             context_parts = []
             if meal_time:
-                context_parts.append(f"Time: {meal_time}")
+                context_parts.append(f"Time: {clean_text_for_pdf(meal_time)}")
             if meal_context:
-                context_parts.append(f"Context: {meal_context}")
+                context_parts.append(f"Context: {clean_text_for_pdf(meal_context)}")
             self.cell(0, 5, " | ".join(context_parts), 0, 1, 'L')
             self.set_text_color(0, 0, 0)
         
@@ -200,7 +236,7 @@ class FitomicsPDF(FPDF):
         if workout_annotation:
             self.set_font('Arial', 'B', 10)
             self.set_text_color(255, 140, 0)  # Orange color for workout annotations
-            self.cell(0, 5, f"🏋️ {workout_annotation}", 0, 1, 'L')
+            self.cell(0, 5, f"Workout: {clean_text_for_pdf(workout_annotation)}", 0, 1, 'L')
             self.set_text_color(0, 0, 0)
         
         # Macros box
@@ -241,11 +277,11 @@ class FitomicsPDF(FPDF):
                 amount = ingredient.get('amount', 0)
                 # Clean up amount formatting - preserve units
                 if isinstance(amount, str):
-                    self.cell(0, 5, f"- {amount} {name}", 0, 1, 'L')
+                    self.cell(0, 5, f"- {clean_text_for_pdf(amount)} {clean_text_for_pdf(name)}", 0, 1, 'L')
                 else:
-                    self.cell(0, 5, f"- {amount}g {name}", 0, 1, 'L')
+                    self.cell(0, 5, f"- {amount}g {clean_text_for_pdf(name)}", 0, 1, 'L')
             else:
-                self.cell(0, 5, f"- {ingredient}", 0, 1, 'L')
+                self.cell(0, 5, f"- {clean_text_for_pdf(ingredient)}", 0, 1, 'L')
         
         # Instructions/Directions
         instructions = recipe.get('instructions', recipe.get('directions', []))
@@ -257,13 +293,13 @@ class FitomicsPDF(FPDF):
             self.set_font('Arial', '', 10)
             if isinstance(instructions, list):
                 for i, instruction in enumerate(instructions, 1):
-                    self.cell(0, 5, f"{i}. {instruction}", 0, 1, 'L')
+                    self.cell(0, 5, f"{i}. {clean_text_for_pdf(instruction)}", 0, 1, 'L')
             else:
                 # Split text instructions into lines
                 lines = str(instructions).split('. ')
                 for i, line in enumerate(lines, 1):
                     if line.strip():
-                        self.cell(0, 5, f"{i}. {line.strip()}", 0, 1, 'L')
+                        self.cell(0, 5, f"{i}. {clean_text_for_pdf(line.strip())}", 0, 1, 'L')
         
         self.ln(8)
         
@@ -304,10 +340,10 @@ class FitomicsPDF(FPDF):
                 if isinstance(amounts, list):
                     # Multiple amounts for same ingredient
                     combined_amounts = ", ".join(amounts)
-                    self.cell(0, 6, f"- {name}: {combined_amounts}", 0, 1, 'L')
+                    self.cell(0, 6, f"- {clean_text_for_pdf(name)}: {clean_text_for_pdf(combined_amounts)}", 0, 1, 'L')
                 else:
                     # Single amount
-                    self.cell(0, 6, f"- {name}: {amounts}", 0, 1, 'L')
+                    self.cell(0, 6, f"- {clean_text_for_pdf(name)}: {clean_text_for_pdf(amounts)}", 0, 1, 'L')
     
     def add_organized_grocery_list(self, all_ingredients):
         """Add organized grocery list by category"""

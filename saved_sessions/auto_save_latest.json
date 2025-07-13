@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-07-13T22:05:53.284989",
+  "timestamp": "2025-07-13T22:12:58.422804",
   "user_info": {
     "name": "Cody",
     "gender": "Male",
@@ -16,7 +16,7 @@
     "raw_activity_level": "Light Active (5-10k steps/day)",
     "workouts_per_week": 6,
     "workout_frequency": "6+ workouts per week",
-    "workout_calories": 350,
+    "workout_calories": 450,
     "goal_focus": "Lose fat",
     "performance_preference": "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal.",
     "body_comp_preference": "I don't want to lose any muscle mass while losing body fat.",
@@ -24,7 +24,7 @@
     "tracking_commitment": "I am committed to tracking regularly",
     "commitment_level": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently.",
     "use_imperial": true,
-    "tdee": 2826.6461259480093
+    "tdee": 2912.360411662295
   },
   "goal_info": {
     "goal_type": "Lose fat",
@@ -38,7 +38,7 @@
     "target_weight_lbs": 185.0,
     "timeline_weeks": 10,
     "start_date": "2025-07-13",
-    "target_energy": 2078
+    "target_energy": 2164
   },
   "diet_preferences": {
     "dietary_restrictions": [
@@ -1569,7 +1569,7 @@
   "goal_focus": "Lose fat",
   "activity_level": "Lightly Active (light exercise 2-3 times per week)",
   "workout_frequency": "6+ workouts per week",
-  "workout_calories": 350,
+  "workout_calories": 450,
   "lifestyle_commitment": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase.",
   "tracking_commitment": "I am committed to tracking regularly",
   "body_fat_pct": 20.0,
@@ -1752,7 +1752,7 @@
       }
     ]
   },
-  "tdee": 2826.6461259480093,
+  "tdee": 2912.360411662295,
   "setup_complete": true,
   "body_composition_complete": false,
   "diet_preferences_complete": false,
