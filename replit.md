@@ -102,6 +102,23 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 13, 2025 - Major AI Meal Planning System Overhaul for ±3% Accuracy**:
+  - Completely revamped AI meal planning prompts with enhanced JSON output format
+  - Implemented strict ±3% macro accuracy requirements with validation checks
+  - Added comprehensive profile summary explaining how user preferences influence meal plans
+  - Integrated workout annotations showing pre/post-workout meal optimizations
+  - Enhanced meal naming system with descriptive names instead of generic labels
+  - Added individual meal target tracking and accuracy comparisons
+  - Implemented organized grocery list categorization by food type
+  - Created enhanced PDF export functions with profile summaries and workout timing guidance
+  - Updated both Advanced and Standalone AI meal planners with unified enhanced format
+  - Added daily totals validation and accuracy summaries in meal plan responses
+  - Fixed meal plan processing to handle both legacy and new enhanced JSON formats
+  - Enhanced error handling and validation for PDF export functionality
+  - Improved cooking instructions formatting with clear step-by-step guidance
+  - Added support for calorie-dense ingredient recommendations to boost low macros
+  - Temperature lowered to 0.1 for maximum calculation consistency and accuracy
+
 - **July 13, 2025 - Enhanced Location-Based Meal Planning & Micronutrient Optimization**:
   - Added comprehensive location-based meal planning features to Diet Preferences page
   - Implemented zip code input for primary location and work location

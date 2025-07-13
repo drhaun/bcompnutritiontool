@@ -117,22 +117,54 @@ REQUIREMENTS:
       * Include grocery store suggestions: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_grocery_stores', [])[:3])}
       * Consider convenience store options for on-the-go meals
 
-Format as JSON with this structure:
+**MANDATORY JSON FORMAT** - Follow this structure exactly:
 {{
-  "breakfast": {{
-    "name": "meal name",
-    "ingredients": [
-      {{"item": "food name", "amount": "portion", "calories": number, "protein": number, "carbs": number, "fat": number}}
-    ],
-    "instructions": "detailed cooking steps with timing",
-    "total_macros": {{"calories": number, "protein": number, "carbs": number, "fat": number}},
-    "timing": "suggested time",
-    "meal_context": "context description"
+  "profile_summary": "Brief explanation of how user's preferences influenced this meal plan (dietary restrictions, favorite foods, workout timing, etc.)",
+  "workout_annotations": {{
+    "has_workout": true/false,
+    "workout_details": "time and type of workout if applicable",
+    "peri_workout_meals": [
+      {{
+        "meal_name": "name of meal",
+        "timing": "pre-workout/post-workout/during",
+        "optimization": "how this meal is optimized for workout performance"
+      }}
+    ]
   }},
-  "lunch": {{ ... }},
-  "dinner": {{ ... }},
-  "snack": {{ ... }}
+  "meals": [
+    {{
+      "meal_type": "breakfast/lunch/dinner/snack",
+      "name": "Descriptive meal name (e.g., 'Protein-Packed Breakfast Bowl', 'Post-Workout Recovery Lunch')",
+      "timing": "suggested time",
+      "context": "context description",
+      "workout_annotation": "PRE-WORKOUT/POST-WORKOUT/REGULAR (if applicable)",
+      "ingredients": [
+        {{"item": "specific food name", "amount": "exact quantity with unit", "calories": precise_number, "protein": precise_number, "carbs": precise_number, "fat": precise_number}}
+      ],
+      "instructions": "Clear step-by-step preparation instructions (no numbering issues)",
+      "total_macros": {{"calories": sum_of_ingredient_calories, "protein": sum_of_ingredient_protein, "carbs": sum_of_ingredient_carbs, "fat": sum_of_ingredient_fat}},
+      "meal_targets": {{"calories": individual_meal_target_calories, "protein": individual_meal_target_protein, "carbs": individual_meal_target_carbs, "fat": individual_meal_target_fat}},
+      "accuracy_check": {{"calories": "±X%", "protein": "±X%", "carbs": "±X%", "fat": "±X%"}}
+    }}
+  ],
+  "daily_totals": {{"calories": sum_of_all_meal_calories, "protein": sum_of_all_meal_protein, "carbs": sum_of_all_meal_carbs, "fat": sum_of_all_meal_fat}},
+  "daily_targets": {{"calories": target_calories, "protein": target_protein, "carbs": target_carbs, "fat": target_fat}},
+  "accuracy_summary": {{"calories": "±X%", "protein": "±X%", "carbs": "±X%", "fat": "±X%"}},
+  "grocery_ingredients": [
+    {{"item": "ingredient name", "total_amount": "total quantity needed", "category": "protein/carbs/fats/vegetables/seasonings"}}
+  ]
 }}
+
+**CRITICAL ACCURACY REQUIREMENTS - MUST BE FOLLOWED**:
+1. Daily totals MUST be within ±3% of daily targets (not ±5% or higher)
+2. If any macro is outside ±3%, INCREASE ingredient portions or add calorie-dense ingredients
+3. Use larger portions, nuts, oils, or additional protein sources to boost low macros
+4. Verify all calculations twice before responding
+5. Include profile summary explaining how user preferences influenced meal selections
+6. Add workout annotations showing pre/post-workout meal optimizations
+7. Use descriptive meal names, not generic labels like "breakfast" or "first meal"
+8. Provide clear, well-formatted cooking instructions
+9. Organize grocery ingredients by category for easy shopping
 """
 
         response = openai_client.chat.completions.create(
@@ -932,11 +964,27 @@ if 'generated_standalone_plan' in st.session_state:
     meal_plan = st.session_state.generated_standalone_plan
     
     # Daily totals summary - check if meal_plan is valid
-    if meal_plan:
-        total_calories = sum(meal.get('total_macros', {}).get('calories', 0) for meal in meal_plan.values())
-        total_protein = sum(meal.get('total_macros', {}).get('protein', 0) for meal in meal_plan.values())
-        total_carbs = sum(meal.get('total_macros', {}).get('carbs', 0) for meal in meal_plan.values())
-        total_fat = sum(meal.get('total_macros', {}).get('fat', 0) for meal in meal_plan.values())
+    if meal_plan and isinstance(meal_plan, dict):
+        # Handle new enhanced format with daily_totals
+        if 'daily_totals' in meal_plan:
+            daily_totals = meal_plan['daily_totals']
+            total_calories = daily_totals.get('calories', 0)
+            total_protein = daily_totals.get('protein', 0)
+            total_carbs = daily_totals.get('carbs', 0)
+            total_fat = daily_totals.get('fat', 0)
+        # Handle legacy format with meals as keys
+        elif 'meals' in meal_plan:
+            meals = meal_plan['meals']
+            total_calories = sum(meal.get('total_macros', {}).get('calories', 0) for meal in meals)
+            total_protein = sum(meal.get('total_macros', {}).get('protein', 0) for meal in meals)
+            total_carbs = sum(meal.get('total_macros', {}).get('carbs', 0) for meal in meals)
+            total_fat = sum(meal.get('total_macros', {}).get('fat', 0) for meal in meals)
+        else:
+            # Legacy format with meal types as keys
+            total_calories = sum(meal.get('total_macros', {}).get('calories', 0) for meal in meal_plan.values())
+            total_protein = sum(meal.get('total_macros', {}).get('protein', 0) for meal in meal_plan.values())
+            total_carbs = sum(meal.get('total_macros', {}).get('carbs', 0) for meal in meal_plan.values())
+            total_fat = sum(meal.get('total_macros', {}).get('fat', 0) for meal in meal_plan.values())
     else:
         total_calories = total_protein = total_carbs = total_fat = 0
     
@@ -1005,55 +1053,100 @@ if 'generated_standalone_plan' in st.session_state:
         else:
             st.warning("⚠️ **Moderate accuracy.** Consider adjusting portions if needed.")
     
+    # Add profile summary and workout annotations if available
+    if meal_plan and isinstance(meal_plan, dict):
+        if 'profile_summary' in meal_plan:
+            st.markdown("### 📝 How Your Preferences Influenced Your Plan")
+            st.info(meal_plan['profile_summary'])
+        
+        if 'workout_annotations' in meal_plan:
+            workout_info = meal_plan['workout_annotations']
+            if workout_info.get('has_workout'):
+                st.markdown("### 🏋️ Workout Optimization")
+                st.success(f"**Workout Details:** {workout_info.get('workout_details', 'Workout scheduled')}")
+                
+                if 'peri_workout_meals' in workout_info:
+                    for meal_info in workout_info['peri_workout_meals']:
+                        st.markdown(f"- **{meal_info['meal_name']}** ({meal_info['timing']}): {meal_info['optimization']}")
+    
     # Create tabs for each meal
     if meal_plan:
-        meal_types = list(meal_plan.keys())
+        # Handle new enhanced format with meals array
+        if 'meals' in meal_plan:
+            meals_list = meal_plan['meals']
+            meal_types = [meal['meal_type'] for meal in meals_list]
+        else:
+            # Legacy format with meal types as keys
+            meal_types = list(meal_plan.keys())
         meal_tabs = st.tabs([meal_type.title() for meal_type in meal_types])
+        
+        for i, meal_type in enumerate(meal_types):
+            with meal_tabs[i]:
+                # Handle new enhanced format with meals array
+                if 'meals' in meal_plan:
+                    meal_data = meals_list[i]
+                else:
+                    # Legacy format with meal types as keys
+                    meal_data = meal_plan[meal_type]
+                
+                # Display meal information
+                st.markdown(f"### {meal_data.get('name', meal_type.title())}")
+                
+                # Show timing and context
+                timing = meal_data.get('timing', meal_data.get('time', 'N/A'))
+                context = meal_data.get('context', meal_data.get('meal_context', 'N/A'))
+                
+                timing_col, context_col = st.columns(2)
+                with timing_col:
+                    st.markdown(f"**⏰ Timing:** {timing}")
+                with context_col:
+                    st.markdown(f"**📍 Context:** {context}")
+                
+                # Show workout annotation if available
+                if 'workout_annotation' in meal_data:
+                    workout_annotation = meal_data['workout_annotation']
+                    if workout_annotation != 'REGULAR':
+                        st.markdown(f"**🏋️ Workout Timing:** {workout_annotation}")
+                
+                # Display macros
+                meal_macros = meal_data.get('total_macros', {})
+                if meal_macros:
+                    macro_col1, macro_col2, macro_col3, macro_col4 = st.columns(4)
+                    
+                    with macro_col1:
+                        st.metric("Calories", f"{meal_macros.get('calories', 0):,}")
+                    with macro_col2:
+                        st.metric("Protein", f"{meal_macros.get('protein', 0)}g")
+                    with macro_col3:
+                        st.metric("Carbs", f"{meal_macros.get('carbs', 0)}g")
+                    with macro_col4:
+                        st.metric("Fat", f"{meal_macros.get('fat', 0)}g")
+                
+                # Display accuracy check if available
+                if 'accuracy_check' in meal_data:
+                    accuracy = meal_data['accuracy_check']
+                    st.markdown(f"**Accuracy vs Target:** Calories {accuracy.get('calories', 'N/A')}, Protein {accuracy.get('protein', 'N/A')}, Carbs {accuracy.get('carbs', 'N/A')}, Fat {accuracy.get('fat', 'N/A')}")
+                
+                # Display ingredients
+                ingredients = meal_data.get('ingredients', [])
+                if ingredients:
+                    st.markdown("#### 🥘 Ingredients")
+                    for ingredient in ingredients:
+                        if isinstance(ingredient, dict):
+                            item = ingredient.get('item', 'Unknown')
+                            amount = ingredient.get('amount', 'N/A')
+                            calories = ingredient.get('calories', 0)
+                            st.markdown(f"• **{amount}** {item} ({calories} cal)")
+                        else:
+                            st.markdown(f"• {ingredient}")
+                
+                # Display instructions
+                instructions = meal_data.get('instructions', '')
+                if instructions:
+                    st.markdown("#### 📋 Instructions")
+                    st.markdown(instructions)
     else:
         st.warning("No meal plan available. Please generate a new plan.")
-        meal_types = []
-    
-    for i, meal_type in enumerate(meal_types):
-        with meal_tabs[i]:
-            meal_data = meal_plan[meal_type] if meal_plan else {}
-            
-            st.markdown(f"### {meal_data.get('name', meal_type.title())}")
-            if 'timing' in meal_data:
-                st.markdown(f"**Suggested Time:** {meal_data['timing']}")
-            
-            # Macro summary
-            macros = meal_data.get('total_macros', {})
-            macro_col1, macro_col2, macro_col3, macro_col4 = st.columns(4)
-            
-            with macro_col1:
-                st.metric("Calories", macros.get('calories', 0))
-            with macro_col2:
-                st.metric("Protein", f"{macros.get('protein', 0)}g")
-            with macro_col3:
-                st.metric("Carbs", f"{macros.get('carbs', 0)}g")
-            with macro_col4:
-                st.metric("Fat", f"{macros.get('fat', 0)}g")
-            
-            # Ingredients
-            st.markdown("**Ingredients:**")
-            ingredients = meal_data.get('ingredients', [])
-            
-            for j, ingredient in enumerate(ingredients):
-                with st.expander(f"{ingredient.get('item', 'Unknown')} - {ingredient.get('amount', 'N/A')}", expanded=False):
-                    ing_col1, ing_col2, ing_col3, ing_col4 = st.columns(4)
-                    with ing_col1:
-                        st.write(f"Calories: {ingredient.get('calories', 0)}")
-                    with ing_col2:
-                        st.write(f"Protein: {ingredient.get('protein', 0)}g")
-                    with ing_col3:
-                        st.write(f"Carbs: {ingredient.get('carbs', 0)}g")
-                    with ing_col4:
-                        st.write(f"Fat: {ingredient.get('fat', 0)}g")
-            
-            # Instructions
-            if 'instructions' in meal_data:
-                st.markdown("**Preparation Instructions:**")
-                st.markdown(meal_data['instructions'])
     
     # Export Options
     st.markdown("---")
@@ -1068,20 +1161,39 @@ if 'generated_standalone_plan' in st.session_state:
                 meal_data_for_pdf = []
                 
                 if meal_plan:
-                    for meal_type, meal_data in meal_plan.items():
-                        meal_info = {
-                            'day': 'Today',
-                            'meal_type': meal_type,
-                            'time': meal_data.get('timing', ''),
-                            'context': 'Standalone Plan',
-                            'recipe': {
-                                'name': meal_data.get('name', meal_type.title()),
-                            'ingredients': meal_data.get('ingredients', []),
-                            'instructions': meal_data.get('instructions', ''),
-                            'macros': meal_data.get('total_macros', {})
-                        }
-                    }
-                    meal_data_for_pdf.append(meal_info)
+                    # Handle new enhanced format with meals array
+                    if 'meals' in meal_plan:
+                        for meal_data in meal_plan['meals']:
+                            meal_info = {
+                                'day': 'Today',
+                                'meal_type': meal_data.get('meal_type', 'meal'),
+                                'time': meal_data.get('timing', meal_data.get('time', '')),
+                                'context': meal_data.get('context', 'Standalone Plan'),
+                                'recipe': {
+                                    'name': meal_data.get('name', meal_data.get('meal_type', 'Meal').title()),
+                                    'ingredients': meal_data.get('ingredients', []),
+                                    'instructions': meal_data.get('instructions', ''),
+                                    'macros': meal_data.get('total_macros', {})
+                                }
+                            }
+                            meal_data_for_pdf.append(meal_info)
+                    else:
+                        # Legacy format with meal types as keys  
+                        for meal_type, meal_data in meal_plan.items():
+                            if meal_type not in ['profile_summary', 'workout_annotations', 'daily_totals', 'daily_targets', 'accuracy_summary', 'grocery_ingredients']:
+                                meal_info = {
+                                    'day': 'Today',
+                                    'meal_type': meal_type,
+                                    'time': meal_data.get('timing', ''),
+                                    'context': 'Standalone Plan',
+                                    'recipe': {
+                                        'name': meal_data.get('name', meal_type.title()),
+                                        'ingredients': meal_data.get('ingredients', []),
+                                        'instructions': meal_data.get('instructions', ''),
+                                        'macros': meal_data.get('total_macros', {})
+                                    }
+                                }
+                                meal_data_for_pdf.append(meal_info)
                 
                 # Get user preferences for PDF
                 user_info = {

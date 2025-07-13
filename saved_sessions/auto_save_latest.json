@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-07-13T20:48:06.337454",
+  "timestamp": "2025-07-13T20:53:00.595552",
   "user_info": {
     "name": "Cody",
     "gender": "Male",
@@ -16,7 +16,7 @@
     "raw_activity_level": "Light Active (5-10k steps/day)",
     "workouts_per_week": 6,
     "workout_frequency": "6+ workouts per week",
-    "workout_calories": 400,
+    "workout_calories": 300,
     "goal_focus": "Lose fat",
     "performance_preference": "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal.",
     "body_comp_preference": "I don't want to lose any muscle mass while losing body fat.",
@@ -24,7 +24,7 @@
     "tracking_commitment": "I am committed to tracking regularly",
     "commitment_level": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently.",
     "use_imperial": true,
-    "tdee": 2869.503268805152
+    "tdee": 2783.7889830908666
   },
   "goal_info": {
     "goal_type": "Lose fat",
@@ -38,7 +38,7 @@
     "target_weight_lbs": 185.0,
     "timeline_weeks": 10,
     "start_date": "2025-07-13",
-    "target_energy": 2121
+    "target_energy": 2035
   },
   "diet_preferences": {
     "dietary_restrictions": [
@@ -201,7 +201,7 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
+          "context": "Home Cooking",
           "calories": 937
         },
         {
@@ -236,16 +236,16 @@
       "workout_calories": 600,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -254,7 +254,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -302,7 +302,7 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
+          "context": "Home Cooking",
           "calories": 937
         },
         {
@@ -337,16 +337,16 @@
       "workout_calories": 600,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -355,7 +355,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -403,7 +403,7 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
+          "context": "Home Cooking",
           "calories": 937
         },
         {
@@ -438,16 +438,16 @@
       "workout_calories": 600,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -456,7 +456,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -504,7 +504,7 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
+          "context": "Home Cooking",
           "calories": 937
         },
         {
@@ -539,16 +539,16 @@
       "workout_calories": 600,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -557,7 +557,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -605,51 +605,44 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 937
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 937
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 624
+          "calories": 504
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 624
+          "calories": 504
         }
       ],
-      "workouts": [
-        {
-          "type": "Resistance Training",
-          "time": "Early Morning (5:00-8:00 AM)",
-          "duration": 60,
-          "intensity": "High"
-        }
-      ],
-      "total_calories": 3126,
+      "workouts": [],
+      "total_calories": 2526,
       "base_tdee": 2526,
-      "workout_calories": 600,
+      "workout_calories": 0,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -658,7 +651,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -706,7 +699,7 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
+          "context": "Home Cooking",
           "calories": 757
         },
         {
@@ -734,16 +727,16 @@
       "workout_calories": 0,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -752,7 +745,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -800,7 +793,7 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
+          "context": "Home Cooking",
           "calories": 757
         },
         {
@@ -828,16 +821,16 @@
       "workout_calories": 0,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -846,7 +839,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -896,7 +889,7 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
+          "context": "Home Cooking",
           "calories": 937
         },
         {
@@ -931,16 +924,16 @@
       "workout_calories": 600,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -949,7 +942,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -997,7 +990,7 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
+          "context": "Home Cooking",
           "calories": 937
         },
         {
@@ -1032,16 +1025,16 @@
       "workout_calories": 600,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -1050,7 +1043,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -1098,7 +1091,7 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
+          "context": "Home Cooking",
           "calories": 937
         },
         {
@@ -1133,16 +1126,16 @@
       "workout_calories": 600,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -1151,7 +1144,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -1199,7 +1192,7 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
+          "context": "Home Cooking",
           "calories": 937
         },
         {
@@ -1234,16 +1227,16 @@
       "workout_calories": 600,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -1252,7 +1245,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -1300,51 +1293,44 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 937
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Takeout/Delivery",
-          "calories": 937
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Office/Work",
-          "calories": 624
+          "calories": 504
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Office/Work",
-          "calories": 624
+          "calories": 504
         }
       ],
-      "workouts": [
-        {
-          "type": "Resistance Training",
-          "time": "Early Morning (5:00-8:00 AM)",
-          "duration": 60,
-          "intensity": "High"
-        }
-      ],
-      "total_calories": 3126,
+      "workouts": [],
+      "total_calories": 2526,
       "base_tdee": 2526,
-      "workout_calories": 600,
+      "workout_calories": 0,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -1353,7 +1339,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -1401,7 +1387,7 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
+          "context": "Home Cooking",
           "calories": 757
         },
         {
@@ -1429,16 +1415,16 @@
       "workout_calories": 0,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -1447,7 +1433,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -1495,7 +1481,7 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
+          "context": "Home Cooking",
           "calories": 757
         },
         {
@@ -1523,16 +1509,16 @@
       "workout_calories": 0,
       "sleep_schedule": {
         "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "bed_time": "20:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "08:00",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
+        "pre_workout_meal": true,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
@@ -1541,7 +1527,7 @@
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
           "location": [
             "At home"
@@ -1588,7 +1574,7 @@
   "meal_contexts_detailed": {
     "meal_1": {
       "meal": "First Meal of Day",
-      "prep_type": "Use leftovers/pre-prepped ingredients",
+      "prep_type": "Cook from scratch",
       "prep_time": "<5 minutes",
       "location": [
         "At home"
@@ -1643,7 +1629,7 @@
   "goal_focus": "Lose fat",
   "activity_level": "Lightly Active (light exercise 2-3 times per week)",
   "workout_frequency": "6+ workouts per week",
-  "workout_calories": 400,
+  "workout_calories": 300,
   "lifestyle_commitment": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase.",
   "tracking_commitment": "I am committed to tracking regularly",
   "body_fat_pct": 20.0,
@@ -1809,7 +1795,7 @@
     "Tuesday": 3126,
     "Wednesday": 3126,
     "Thursday": 3126,
-    "Friday": 3126,
+    "Friday": 2526,
     "Saturday": 2526,
     "Sunday": 2526
   },
@@ -1826,7 +1812,7 @@
       }
     ]
   },
-  "tdee": 2869.503268805152,
+  "tdee": 2783.7889830908666,
   "setup_complete": true,
   "body_composition_complete": false,
   "diet_preferences_complete": false,

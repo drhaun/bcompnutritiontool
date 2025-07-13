@@ -208,20 +208,52 @@ CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
 
 **MANDATORY JSON FORMAT** - Follow this structure exactly:
 {{
+  "day": "{day}",
+  "profile_summary": "Brief explanation of how user's preferences influenced this day's meal plan (dietary restrictions, favorite foods, workout timing, etc.)",
+  "workout_annotations": {{
+    "has_workout": true/false,
+    "workout_details": "time and type of workout if applicable",
+    "peri_workout_meals": [
+      {{
+        "meal_name": "name of meal",
+        "timing": "pre-workout/post-workout/during",
+        "optimization": "how this meal is optimized for workout performance"
+      }}
+    ]
+  }},
   "meals": [
     {{
-      "name": "meal name matching schedule",
+      "name": "Descriptive meal name (e.g., 'Protein-Packed Breakfast Bowl', 'Post-Workout Recovery Lunch')",
       "time": "scheduled time",
       "context": "meal context from schedule",
+      "workout_annotation": "PRE-WORKOUT/POST-WORKOUT/REGULAR (if applicable)",
       "ingredients": [
         {{"item": "specific food name", "amount": "exact quantity with unit", "calories": precise_number, "protein": precise_number, "carbs": precise_number, "fat": precise_number}}
       ],
-      "instructions": "step-by-step preparation instructions",
-      "total_macros": {{"calories": sum_of_ingredient_calories, "protein": sum_of_ingredient_protein, "carbs": sum_of_ingredient_carbs, "fat": sum_of_ingredient_fat}}
+      "instructions": "Clear step-by-step preparation instructions (no numbering issues)",
+      "total_macros": {{"calories": sum_of_ingredient_calories, "protein": sum_of_ingredient_protein, "carbs": sum_of_ingredient_carbs, "fat": sum_of_ingredient_fat}},
+      "meal_targets": {{"calories": individual_meal_target_calories, "protein": individual_meal_target_protein, "carbs": individual_meal_target_carbs, "fat": individual_meal_target_fat}},
+      "accuracy_check": {{"calories": "±X%", "protein": "±X%", "carbs": "±X%", "fat": "±X%"}}
     }}
   ],
-  "daily_totals": {{"calories": sum_of_all_meal_calories, "protein": sum_of_all_meal_protein, "carbs": sum_of_all_meal_carbs, "fat": sum_of_all_meal_fat}}
+  "daily_totals": {{"calories": sum_of_all_meal_calories, "protein": sum_of_all_meal_protein, "carbs": sum_of_all_meal_carbs, "fat": sum_of_all_meal_fat}},
+  "daily_targets": {{"calories": target_calories, "protein": target_protein, "carbs": target_carbs, "fat": target_fat}},
+  "accuracy_summary": {{"calories": "±X%", "protein": "±X%", "carbs": "±X%", "fat": "±X%"}},
+  "grocery_ingredients": [
+    {{"item": "ingredient name", "total_amount": "total quantity needed", "category": "protein/carbs/fats/vegetables/seasonings"}}
+  ]
 }}
+
+**CRITICAL ACCURACY REQUIREMENTS - MUST BE FOLLOWED**:
+1. Daily totals MUST be within ±3% of daily targets (not ±5% or higher)
+2. If any macro is outside ±3%, INCREASE ingredient portions or add calorie-dense ingredients
+3. Use larger portions, nuts, oils, or additional protein sources to boost low macros
+4. Verify all calculations twice before responding
+5. Include profile summary explaining how user preferences influenced meal selections
+6. Add workout annotations showing pre/post-workout meal optimizations
+7. Use descriptive meal names, not generic labels like "First Meal"
+8. Provide clear, well-formatted cooking instructions
+9. Organize grocery ingredients by category for easy shopping
 
 **VALIDATION CHECKLIST** - Verify before responding:
 ✓ Each meal's total_macros equals sum of its ingredients
@@ -1089,8 +1121,9 @@ if 'generated_weekly_meal_plan' in st.session_state:
                         st.error("No meal data available for PDF export. Please generate a meal plan first.")
                         st.stop()
                     
-                    # Generate PDF
-                    pdf_path = export_meal_plan_pdf(meal_data_for_pdf, user_info)
+                    # Generate PDF using enhanced export function
+                    from pdf_export import export_enhanced_weekly_meal_plan_pdf
+                    pdf_path = export_enhanced_weekly_meal_plan_pdf(weekly_meal_plan, user_info)
                     
                     if pdf_path and os.path.exists(pdf_path):
                         st.success("✅ PDF generated successfully!")

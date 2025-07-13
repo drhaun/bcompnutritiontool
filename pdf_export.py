@@ -171,7 +171,7 @@ class FitomicsPDF(FPDF):
             for pref in prefs:
                 self.cell(0, 6, f"- {pref}", 0, 1, 'L')
                 
-    def add_meal_section(self, meal_type, recipe, macros, ingredients, meal_context=None, meal_time=None):
+    def add_meal_section(self, meal_type, recipe, macros, ingredients, meal_context=None, meal_time=None, workout_annotation=None):
         """Add a meal section with recipe and ingredients"""
         # Meal title
         self.set_font('Arial', 'B', 16)
@@ -194,6 +194,13 @@ class FitomicsPDF(FPDF):
             if meal_context:
                 context_parts.append(f"Context: {meal_context}")
             self.cell(0, 5, " | ".join(context_parts), 0, 1, 'L')
+            self.set_text_color(0, 0, 0)
+        
+        # Add workout annotation if available
+        if workout_annotation:
+            self.set_font('Arial', 'B', 10)
+            self.set_text_color(255, 140, 0)  # Orange color for workout annotations
+            self.cell(0, 5, f"🏋️ {workout_annotation}", 0, 1, 'L')
             self.set_text_color(0, 0, 0)
         
         # Macros box
@@ -301,6 +308,55 @@ class FitomicsPDF(FPDF):
                 else:
                     # Single amount
                     self.cell(0, 6, f"- {name}: {amounts}", 0, 1, 'L')
+    
+    def add_organized_grocery_list(self, all_ingredients):
+        """Add organized grocery list by category"""
+        self.add_page()
+        
+        self.set_font('Arial', 'B', 18)
+        self.set_text_color(41, 84, 144)
+        self.cell(0, 12, 'ORGANIZED GROCERY LIST', 0, 1, 'L')
+        
+        # Organize ingredients by category
+        categories = {
+            'protein': [],
+            'carbs': [],
+            'fats': [],
+            'vegetables': [],
+            'seasonings': [],
+            'other': []
+        }
+        
+        for ingredient in all_ingredients:
+            if isinstance(ingredient, dict):
+                category = ingredient.get('category', 'other')
+                name = ingredient.get('name', ingredient.get('item', ''))
+                amount = ingredient.get('amount', ingredient.get('total_amount', ''))
+                
+                if name and amount:
+                    categories[category].append(f"{name}: {amount}")
+        
+        # Display by category
+        category_names = {
+            'protein': 'PROTEINS',
+            'carbs': 'CARBOHYDRATES',
+            'fats': 'FATS & OILS',
+            'vegetables': 'VEGETABLES & FRUITS',
+            'seasonings': 'SEASONINGS & SPICES',
+            'other': 'OTHER ITEMS'
+        }
+        
+        for category, items in categories.items():
+            if items:
+                self.ln(3)
+                self.set_font('Arial', 'B', 14)
+                self.set_text_color(41, 84, 144)
+                self.cell(0, 8, category_names[category], 0, 1, 'L')
+                
+                self.set_font('Arial', '', 11)
+                self.set_text_color(0, 0, 0)
+                for item in sorted(items):
+                    self.cell(0, 5, f"• {item}", 0, 1, 'L')
 
 def export_meal_plan_pdf(meal_data, user_preferences=None):
     """Export complete meal plan with grocery list to branded PDF"""
@@ -494,5 +550,161 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
         
     except Exception as e:
         print(f"Error creating PDF: {e}")
+        print(f"Full traceback: {traceback.format_exc()}")
+        return None
+
+def export_enhanced_weekly_meal_plan_pdf(weekly_meal_data, user_preferences=None):
+    """Export enhanced weekly meal plan with profile summaries, workout annotations, and organized grocery lists"""
+    try:
+        print("Starting enhanced weekly PDF creation...")
+        
+        if not weekly_meal_data:
+            raise ValueError("No weekly meal data provided for PDF export")
+        
+        pdf = FitomicsPDF()
+        
+        # Calculate weekly totals
+        weekly_totals = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+        all_ingredients = []
+        
+        # Extract profile summaries and workout info
+        profile_summaries = []
+        workout_info = []
+        
+        for day, day_data in weekly_meal_data.items():
+            if isinstance(day_data, dict):
+                # Add profile summary if available
+                if 'profile_summary' in day_data:
+                    profile_summaries.append(f"{day}: {day_data['profile_summary']}")
+                
+                # Add workout info if available
+                if 'workout_annotations' in day_data:
+                    workout_data = day_data['workout_annotations']
+                    if workout_data.get('has_workout'):
+                        workout_info.append(f"{day}: {workout_data.get('workout_details', 'Workout scheduled')}")
+                
+                # Add to weekly totals
+                daily_totals = day_data.get('daily_totals', {})
+                for macro in weekly_totals:
+                    weekly_totals[macro] += daily_totals.get(macro, 0)
+                
+                # Collect organized ingredients
+                if 'grocery_ingredients' in day_data:
+                    for ingredient in day_data['grocery_ingredients']:
+                        all_ingredients.append({
+                            'name': ingredient.get('item', ''),
+                            'amount': ingredient.get('total_amount', ''),
+                            'category': ingredient.get('category', 'other'),
+                            'day': day
+                        })
+        
+        # Create enhanced plan info
+        plan_info = {
+            'total_calories': int(weekly_totals['calories'] / 7),  # Daily average
+            'total_protein': round(weekly_totals['protein'] / 7, 1),
+            'total_carbs': round(weekly_totals['carbs'] / 7, 1),
+            'total_fat': round(weekly_totals['fat'] / 7, 1),
+            'diet_preferences': user_preferences or {},
+            'profile_summaries': profile_summaries,
+            'workout_info': workout_info
+        }
+        
+        # Add enhanced title page
+        pdf.add_title_page({}, plan_info)
+        
+        # Add profile summary page
+        if profile_summaries:
+            pdf.add_page()
+            pdf.set_font('Arial', 'B', 18)
+            pdf.set_text_color(41, 84, 144)
+            pdf.cell(0, 12, 'HOW YOUR PREFERENCES SHAPED YOUR PLAN', 0, 1, 'L')
+            pdf.ln(5)
+            
+            pdf.set_font('Arial', '', 11)
+            pdf.set_text_color(0, 0, 0)
+            for summary in profile_summaries:
+                pdf.cell(0, 6, summary, 0, 1, 'L')
+                pdf.ln(2)
+        
+        # Add workout optimization page
+        if workout_info:
+            pdf.add_page()
+            pdf.set_font('Arial', 'B', 18)
+            pdf.set_text_color(41, 84, 144)
+            pdf.cell(0, 12, 'WORKOUT OPTIMIZATION NOTES', 0, 1, 'L')
+            pdf.ln(5)
+            
+            pdf.set_font('Arial', '', 11)
+            pdf.set_text_color(0, 0, 0)
+            for workout in workout_info:
+                pdf.cell(0, 6, workout, 0, 1, 'L')
+                pdf.ln(2)
+        
+        # Add daily meal plans
+        for day, day_data in weekly_meal_data.items():
+            if not isinstance(day_data, dict) or 'meals' not in day_data:
+                continue
+                
+            pdf.add_page()
+            pdf.set_font('Arial', 'B', 20)
+            pdf.set_text_color(193, 153, 98)
+            pdf.cell(0, 12, f'{day.upper()} MEAL PLAN', 0, 1, 'L')
+            pdf.ln(5)
+            
+            # Add daily totals summary
+            daily_totals = day_data.get('daily_totals', {})
+            daily_targets = day_data.get('daily_targets', {})
+            
+            pdf.set_font('Arial', 'B', 12)
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(0, 6, 'DAILY SUMMARY:', 0, 1, 'L')
+            
+            pdf.set_font('Arial', '', 10)
+            if daily_totals and daily_targets:
+                pdf.cell(0, 5, f"Target: {daily_targets.get('calories', 0):.0f} cal | {daily_targets.get('protein', 0):.0f}g protein | {daily_targets.get('carbs', 0):.0f}g carbs | {daily_targets.get('fat', 0):.0f}g fat", 0, 1, 'L')
+                pdf.cell(0, 5, f"Actual: {daily_totals.get('calories', 0):.0f} cal | {daily_totals.get('protein', 0):.0f}g protein | {daily_totals.get('carbs', 0):.0f}g carbs | {daily_totals.get('fat', 0):.0f}g fat", 0, 1, 'L')
+                
+                # Add accuracy summary
+                accuracy = day_data.get('accuracy_summary', {})
+                if accuracy:
+                    pdf.set_font('Arial', 'B', 10)
+                    pdf.set_text_color(0, 150, 0)
+                    accuracy_text = f"Accuracy: {accuracy.get('calories', 'N/A')} cal | {accuracy.get('protein', 'N/A')} protein | {accuracy.get('carbs', 'N/A')} carbs | {accuracy.get('fat', 'N/A')} fat"
+                    pdf.cell(0, 5, accuracy_text, 0, 1, 'L')
+                    pdf.set_text_color(0, 0, 0)
+            
+            pdf.ln(5)
+            
+            # Add meals
+            for meal in day_data['meals']:
+                meal_name = meal.get('name', 'Meal')
+                meal_macros = meal.get('total_macros', {})
+                meal_ingredients = meal.get('ingredients', [])
+                meal_context = meal.get('context', '')
+                meal_time = meal.get('time', '')
+                workout_annotation = meal.get('workout_annotation', '')
+                
+                pdf.add_meal_section(
+                    meal_type=meal_name,
+                    recipe=meal,
+                    macros=meal_macros,
+                    ingredients=meal_ingredients,
+                    meal_context=meal_context,
+                    meal_time=meal_time,
+                    workout_annotation=workout_annotation
+                )
+        
+        # Add organized grocery list
+        if all_ingredients:
+            pdf.add_organized_grocery_list(all_ingredients)
+        
+        # Save PDF
+        filename = f"fitomics_weekly_meal_plan_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+        pdf.output(filename)
+        print("Enhanced weekly PDF created successfully!")
+        return filename
+        
+    except Exception as e:
+        print(f"Error creating enhanced weekly PDF: {e}")
         print(f"Full traceback: {traceback.format_exc()}")
         return None
