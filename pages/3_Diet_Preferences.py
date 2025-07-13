@@ -366,13 +366,16 @@ with st.form("sourcing_preferences_form", clear_on_submit=False):
     st.markdown("#### 📍 Location-Based Meal Planning")
     st.markdown("*Enable location features to get personalized recommendations for local restaurants, grocery stores, and on-the-go meal options.*")
     
-    # Enable location features toggle
+    # Enable location features toggle - make more prominent
     enable_location = st.checkbox(
-        "Enable Location-Based Features",
+        "✅ **Enable Location-Based Features** (zip code, restaurants, grocery stores)",
         value=st.session_state.diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False),
-        help="Get recommendations for local restaurants, grocery stores, and meal options based on your location",
+        help="Check this box to unlock location-based meal planning features",
         key="enable_location_checkbox"
     )
+    
+    if not enable_location:
+        st.info("👆 **Check the box above to enable location features and enter your zip code for local cuisine integration!**")
     
     # Conditional location fields - only show if enabled
     if enable_location:
