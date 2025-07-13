@@ -446,6 +446,44 @@ with st.expander("📋 Complete Weekly Overview", expanded=True):
     overview_df = pd.DataFrame(overview_data)
     st.dataframe(overview_df, use_container_width=True, hide_index=True)
     
+    # Calculate and display energy availability information
+    if initial_setup:
+        weight_lbs = initial_setup.get('weight_lbs', 165)
+        weight_kg = weight_lbs / 2.20462
+        body_fat_pct = initial_setup.get('body_fat_percentage', 18)
+        fat_free_mass_kg = weight_kg * (1 - body_fat_pct / 100)
+        
+        # Calculate average energy availability across the week
+        total_calories = sum([float(row['Target Calories']) for row in overview_data if row['Target Calories'] != '0'])
+        avg_calories = total_calories / 7 if total_calories > 0 else 2000
+        
+        # Estimate average exercise calories per day
+        workout_days = len([row for row in overview_data if row['Workout'] != 'Rest Day'])
+        avg_exercise_calories = (workout_days * 350) / 7  # Estimate 350 cal per workout
+        
+        avg_energy_availability = (avg_calories - avg_exercise_calories) / fat_free_mass_kg
+        
+        st.markdown("### ⚡ Weekly Energy Availability Analysis")
+        ea_col1, ea_col2, ea_col3 = st.columns(3)
+        
+        with ea_col1:
+            st.metric("Fat-Free Mass", f"{fat_free_mass_kg:.1f} kg", f"{fat_free_mass_kg * 2.20462:.1f} lbs")
+        
+        with ea_col2:
+            st.metric("Average Daily Calories", f"{avg_calories:.0f}", help="Average across your weekly plan")
+        
+        with ea_col3:
+            st.metric("Energy Availability", f"{avg_energy_availability:.0f} kcal/kg FFM", 
+                     help="Energy available for essential body functions")
+        
+        # EA status indicator
+        if avg_energy_availability >= 45:
+            st.success("✅ **Excellent Energy Availability** - Your plan supports optimal health and performance")
+        elif avg_energy_availability >= 30:
+            st.warning("⚠️ **Moderate Energy Availability** - Monitor for fatigue or performance issues")
+        else:
+            st.error("🚨 **Low Energy Availability** - Consider increasing calorie intake to support health and performance")
+    
     # Display comprehensive summary information from all previous steps
     st.markdown("---")
     st.markdown("### 📋 Complete Setup Summary")

@@ -114,6 +114,10 @@ This is a comprehensive Streamlit-based web application for body composition pla
   - Added specific macro targets for pre-workout (low fat/fiber) and post-workout (high protein/carbs) meals
   - Reorganized standalone AI meal plan page - moved Meal Plan Configuration and Diet Preferences up, Calculated Daily Energy Needs to bottom
   - Improved user flow by showing energy calculations after all selections are made, taking preferences into account
+  - Enhanced target displays with body mass and fat-free mass ratios, calorie percentages, and energy availability calculations
+  - Added comprehensive energy availability education with health implications and optimization guidance
+  - Implemented real-time energy availability warnings when users adjust targets below healthy thresholds
+  - Added energy availability analysis to both standalone and advanced AI meal planning pages for consistent user education
 
 - **July 13, 2025 - Enhanced Session Management & Streamlined AI Meal Planning**:
   - Completely enhanced session management to save all user form inputs and selections

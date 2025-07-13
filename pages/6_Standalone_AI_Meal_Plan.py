@@ -504,33 +504,155 @@ with st.form("standalone_meal_plan_form"):
     target_carbs = int(macros['carbs'])
     target_fat = int(macros['fat'])
     
-    # Display calculated values
-    energy_col1, energy_col2 = st.columns(2)
+    # Calculate body composition metrics
+    fat_free_mass_kg = weight_kg * (1 - body_fat_pct / 100)
+    fat_mass_kg = weight_kg - fat_free_mass_kg
     
-    with energy_col1:
-        st.metric("Estimated TDEE", f"{tdee:,} calories", help="Total Daily Energy Expenditure")
+    # Calculate energy availability
+    energy_availability = (target_calories - workout_calories * (workouts_per_week / 7)) / fat_free_mass_kg
+    
+    # Display calculated values with enhanced context
+    st.markdown("### 🎯 Your Personalized Targets")
+    
+    # Primary metrics
+    primary_col1, primary_col2 = st.columns(2)
+    
+    with primary_col1:
+        st.metric("Estimated TDEE", f"{tdee:,} calories", help="Total Daily Energy Expenditure based on your activity level")
         st.metric("Target Calories", f"{target_calories:,} calories", help="Adjusted for your goal")
     
-    with energy_col2:
-        st.metric("Protein Target", f"{target_protein}g", f"{target_protein * 4} calories")
-        st.metric("Carbs Target", f"{target_carbs}g", f"{target_carbs * 4} calories")
-        st.metric("Fat Target", f"{target_fat}g", f"{target_fat * 9} calories")
+    with primary_col2:
+        st.metric("Fat-Free Mass", f"{fat_free_mass_kg:.1f} kg", f"{fat_free_mass_kg * 2.20462:.1f} lbs")
+        st.metric("Energy Availability", f"{energy_availability:.0f} kcal/kg FFM", 
+                 help="Energy available for essential body functions after exercise")
     
-    # Allow manual adjustment
+    # Macronutrient targets with context
+    st.markdown("### 📊 Macronutrient Breakdown")
+    
+    macro_col1, macro_col2, macro_col3 = st.columns(3)
+    
+    with macro_col1:
+        protein_per_kg = target_protein / weight_kg
+        protein_per_ffm = target_protein / fat_free_mass_kg
+        protein_calories = target_protein * 4
+        protein_percentage = (protein_calories / target_calories) * 100
+        
+        st.metric("Protein Target", f"{target_protein}g", f"{protein_percentage:.0f}% of calories")
+        st.caption(f"• {protein_per_kg:.1f}g per kg body weight")
+        st.caption(f"• {protein_per_ffm:.1f}g per kg fat-free mass")
+    
+    with macro_col2:
+        carbs_per_kg = target_carbs / weight_kg
+        carbs_calories = target_carbs * 4
+        carbs_percentage = (carbs_calories / target_calories) * 100
+        
+        st.metric("Carbs Target", f"{target_carbs}g", f"{carbs_percentage:.0f}% of calories")
+        st.caption(f"• {carbs_per_kg:.1f}g per kg body weight")
+        st.caption(f"• Primary energy source for brain & muscles")
+    
+    with macro_col3:
+        fat_per_kg = target_fat / weight_kg
+        fat_calories = target_fat * 9
+        fat_percentage = (fat_calories / target_calories) * 100
+        
+        st.metric("Fat Target", f"{target_fat}g", f"{fat_percentage:.0f}% of calories")
+        st.caption(f"• {fat_per_kg:.1f}g per kg body weight")
+        st.caption(f"• Essential for hormone production")
+    
+    # Energy Availability Education
+    with st.expander("📚 Understanding Energy Availability", expanded=False):
+        st.markdown("""
+        **Energy Availability (EA)** is the amount of energy left for essential body functions after accounting for exercise energy expenditure.
+        
+        **EA = (Energy Intake - Exercise Energy Expenditure) ÷ Fat-Free Mass**
+        
+        **Optimal Ranges:**
+        - **Healthy EA:** 45+ kcal/kg FFM/day - Supports optimal health, metabolism, and performance
+        - **Reduced EA:** 30-45 kcal/kg FFM/day - May impact some metabolic functions
+        - **Low EA:** <30 kcal/kg FFM/day - Risk of metabolic dysfunction, hormonal issues
+        
+        **Your Current EA:** {energy_availability:.0f} kcal/kg FFM
+        """.format(energy_availability=energy_availability))
+        
+        if energy_availability >= 45:
+            st.success("✅ **Excellent EA** - Supporting optimal health and performance")
+        elif energy_availability >= 30:
+            st.warning("⚠️ **Moderate EA** - Consider increasing intake if experiencing fatigue or performance issues")
+        else:
+            st.error("🚨 **Low EA** - May negatively impact metabolism, hormones, and health. Consider increasing calorie intake.")
+        
+        st.markdown("""
+        **Why EA Matters:**
+        - Maintains healthy metabolism and hormone production
+        - Supports immune function and recovery
+        - Prevents metabolic adaptation in extreme dieting
+        - Critical for reproductive health and bone density
+        - Ensures sustainable long-term results
+        
+        **Improving EA:**
+        - Increase overall calorie intake
+        - Reduce excessive exercise volume
+        - Focus on nutrient-dense foods
+        - Consider periodized training and nutrition
+        """)
+    
+    # Allow manual adjustment with warnings
     st.markdown("#### 🔧 Fine-Tune Targets (Optional)")
+    st.markdown("*⚠️ Adjusting targets may impact your energy availability and health outcomes*")
+    
     adjust_col1, adjust_col2, adjust_col3, adjust_col4 = st.columns(4)
     
     with adjust_col1:
-        target_calories = st.number_input("Daily Calories", min_value=1000, max_value=6000, value=int(target_calories), step=50, key="form_adj_calories")
+        adjusted_calories = st.number_input("Daily Calories", min_value=1000, max_value=6000, value=int(target_calories), step=50, key="form_adj_calories")
+        
+        # Show EA impact if calories changed
+        if adjusted_calories != target_calories:
+            new_ea = (adjusted_calories - workout_calories * (workouts_per_week / 7)) / fat_free_mass_kg
+            delta_ea = new_ea - energy_availability
+            if delta_ea > 0:
+                st.caption(f"🔼 EA: +{delta_ea:.0f} kcal/kg FFM")
+            else:
+                st.caption(f"🔽 EA: {delta_ea:.0f} kcal/kg FFM")
     
     with adjust_col2:
-        target_protein = st.number_input("Protein (g)", min_value=50, max_value=400, value=int(target_protein), step=5, key="form_adj_protein")
+        adjusted_protein = st.number_input("Protein (g)", min_value=50, max_value=400, value=int(target_protein), step=5, key="form_adj_protein")
+        
+        # Show relative changes
+        if adjusted_protein != target_protein:
+            new_protein_per_kg = adjusted_protein / weight_kg
+            st.caption(f"= {new_protein_per_kg:.1f}g/kg BW")
     
     with adjust_col3:
-        target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=800, value=int(target_carbs), step=10, key="form_adj_carbs")
+        adjusted_carbs = st.number_input("Carbs (g)", min_value=50, max_value=800, value=int(target_carbs), step=10, key="form_adj_carbs")
+        
+        # Show relative changes
+        if adjusted_carbs != target_carbs:
+            new_carbs_per_kg = adjusted_carbs / weight_kg
+            st.caption(f"= {new_carbs_per_kg:.1f}g/kg BW")
     
     with adjust_col4:
-        target_fat = st.number_input("Fat (g)", min_value=30, max_value=300, value=int(target_fat), step=5, key="form_adj_fat")
+        adjusted_fat = st.number_input("Fat (g)", min_value=30, max_value=300, value=int(target_fat), step=5, key="form_adj_fat")
+        
+        # Show relative changes
+        if adjusted_fat != target_fat:
+            new_fat_per_kg = adjusted_fat / weight_kg
+            st.caption(f"= {new_fat_per_kg:.1f}g/kg BW")
+    
+    # Update targets if user made changes
+    if adjusted_calories != target_calories or adjusted_protein != target_protein or adjusted_carbs != target_carbs or adjusted_fat != target_fat:
+        target_calories = adjusted_calories
+        target_protein = adjusted_protein
+        target_carbs = adjusted_carbs
+        target_fat = adjusted_fat
+        
+        # Recalculate energy availability with new values
+        energy_availability = (target_calories - workout_calories * (workouts_per_week / 7)) / fat_free_mass_kg
+        
+        # Show warning if EA is getting too low
+        if energy_availability < 30:
+            st.error("🚨 **Warning:** Your adjusted targets result in low energy availability (<30 kcal/kg FFM). This may negatively impact your health, metabolism, and performance.")
+        elif energy_availability < 45:
+            st.warning("⚠️ **Caution:** Your adjusted targets result in moderate energy availability (30-45 kcal/kg FFM). Monitor for signs of fatigue or performance issues.")
     
     # Generate button
     st.markdown("---")
