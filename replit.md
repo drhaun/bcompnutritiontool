@@ -102,7 +102,7 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
-- **July 13, 2025 - Enhanced Workout Proximity Meal Timing System**:
+- **July 13, 2025 - Enhanced Workout Proximity Meal Timing System & Page Reorganization**:
   - Added comprehensive workout proximity meal timing guidelines to both AI meal planning systems
   - Enhanced standalone AI meal planner with detailed pre/post-workout meal preferences
   - Added educational content about workout meal timing for users in both pages
@@ -112,6 +112,8 @@ This is a comprehensive Streamlit-based web application for body composition pla
   - Enhanced meal timing recommendations for fasted training vs pre-workout nutrition
   - Updated both standalone and advanced AI meal planners with liquid/digestible meal options around workouts
   - Added specific macro targets for pre-workout (low fat/fiber) and post-workout (high protein/carbs) meals
+  - Reorganized standalone AI meal plan page - moved Meal Plan Configuration and Diet Preferences up, Calculated Daily Energy Needs to bottom
+  - Improved user flow by showing energy calculations after all selections are made, taking preferences into account
 
 - **July 13, 2025 - Enhanced Session Management & Streamlined AI Meal Planning**:
   - Completely enhanced session management to save all user form inputs and selections

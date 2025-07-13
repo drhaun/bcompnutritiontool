@@ -150,9 +150,9 @@ Create a personalized daily meal plan in minutes! This standalone planner calcul
 if 'generated_standalone_plan' not in st.session_state:
     st.session_state.generated_standalone_plan = None
 
-# Step 1: Personal Information (outside form for reactivity)
+# Step 1: Personal Information (for calculations)
 st.markdown("## 👤 Personal Information")
-st.markdown("*This information helps calculate your estimated daily calorie and nutrient needs.*")
+st.markdown("*Basic information for calculating your daily energy needs*")
 
 # Personal info section
 personal_col1, personal_col2 = st.columns(2)
@@ -249,23 +249,15 @@ with personal_col2:
         help="Estimated calories burned during an average workout"
     )
 
-# Calculate TDEE
-tdee = utils.calculate_tdee(
-    gender, weight_kg, height_cm, calculated_age, activity_level, workouts_per_week, workout_calories
-)
-
-# Display calculated TDEE
-st.markdown("---")
-st.markdown("### 📊 Calculated Daily Energy Needs")
-tdee_col1, tdee_col2, tdee_col3 = st.columns(3)
-
-with tdee_col1:
-    st.metric("Estimated TDEE", f"{tdee:,} calories", help="Total Daily Energy Expenditure")
-
-with tdee_col2:
-    # Goal adjustment
+# Create meal plan form for preferences and generation
+with st.form("standalone_meal_plan_form"):
+    st.markdown("## 📋 Meal Plan Configuration")
+    st.markdown("*Configure your meal preferences and schedule for AI generation.*")
+    
+    # Goal selection first
+    st.markdown("### 🎯 Daily Goal")
     goal_type = st.selectbox(
-        "Daily Goal",
+        "What's your goal for today?",
         options=[
             "Maintain Weight",
             "Lose Weight (0.5-1 lb/week)",
@@ -275,61 +267,6 @@ with tdee_col2:
         ],
         index=0
     )
-    
-    # Calculate target calories based on goal
-    if goal_type == "Maintain Weight":
-        target_calories = int(tdee)
-    elif goal_type == "Lose Weight (0.5-1 lb/week)":
-        target_calories = int(tdee - 375)  # 0.75 lb/week average
-    elif goal_type == "Lose Weight (1-2 lbs/week)":
-        target_calories = int(tdee - 750)  # 1.5 lbs/week average
-    elif goal_type == "Gain Weight (0.5-1 lb/week)":
-        target_calories = int(tdee + 375)  # 0.75 lb/week average
-    else:  # Gain Weight (1-2 lbs/week)
-        target_calories = int(tdee + 750)  # 1.5 lbs/week average
-
-with tdee_col3:
-    st.metric("Target Calories", f"{target_calories:,} calories", help="Adjusted for your goal")
-
-# Calculate macros based on goal and body weight
-macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
-target_protein = int(macros['protein'])
-target_carbs = int(macros['carbs'])
-target_fat = int(macros['fat'])
-
-# Display calculated macros with reactive updates
-st.markdown("### 🥗 Recommended Macronutrients")
-macro_col1, macro_col2, macro_col3 = st.columns(3)
-
-with macro_col1:
-    st.metric("Protein", f"{target_protein}g", f"{target_protein * 4} calories")
-
-with macro_col2:
-    st.metric("Carbs", f"{target_carbs}g", f"{target_carbs * 4} calories")
-
-with macro_col3:
-    st.metric("Fat", f"{target_fat}g", f"{target_fat * 9} calories")
-
-# Allow manual adjustment
-st.markdown("#### 🔧 Adjust Targets (Optional)")
-adjust_col1, adjust_col2, adjust_col3, adjust_col4 = st.columns(4)
-
-with adjust_col1:
-    target_calories = st.number_input("Daily Calories", min_value=1000, max_value=6000, value=int(target_calories), step=50, key="adj_calories")
-
-with adjust_col2:
-    target_protein = st.number_input("Protein (g)", min_value=50, max_value=400, value=int(target_protein), step=5, key="adj_protein")
-
-with adjust_col3:
-    target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=800, value=int(target_carbs), step=10, key="adj_carbs")
-
-with adjust_col4:
-    target_fat = st.number_input("Fat (g)", min_value=30, max_value=300, value=int(target_fat), step=5, key="adj_fat")
-
-# Create meal plan form for preferences and generation
-with st.form("standalone_meal_plan_form"):
-    st.markdown("## 📋 Meal Plan Configuration")
-    st.markdown("*Configure your meal preferences and schedule for AI generation.*")
     
     # Day Schedule Planning
     st.markdown("---")
@@ -538,6 +475,62 @@ with st.form("standalone_meal_plan_form"):
         meal_prep_interest = st.selectbox("Meal Prep Interest", [
             "No meal prep", "Some meal prep", "Heavy meal prep", "Batch cooking"
         ])
+    
+    # Calculate energy needs based on selections
+    st.markdown("---")
+    st.markdown("## 📊 Calculated Daily Energy Needs")
+    st.markdown("*Based on your personal information and goal selection above*")
+    
+    # Calculate TDEE
+    tdee = utils.calculate_tdee(
+        gender, weight_kg, height_cm, calculated_age, activity_level, workouts_per_week, workout_calories
+    )
+    
+    # Calculate target calories based on goal
+    if goal_type == "Maintain Weight":
+        target_calories = int(tdee)
+    elif goal_type == "Lose Weight (0.5-1 lb/week)":
+        target_calories = int(tdee - 375)  # 0.75 lb/week average
+    elif goal_type == "Lose Weight (1-2 lbs/week)":
+        target_calories = int(tdee - 750)  # 1.5 lbs/week average
+    elif goal_type == "Gain Weight (0.5-1 lb/week)":
+        target_calories = int(tdee + 375)  # 0.75 lb/week average
+    else:  # Gain Weight (1-2 lbs/week)
+        target_calories = int(tdee + 750)  # 1.5 lbs/week average
+    
+    # Calculate macros based on goal and body weight
+    macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
+    target_protein = int(macros['protein'])
+    target_carbs = int(macros['carbs'])
+    target_fat = int(macros['fat'])
+    
+    # Display calculated values
+    energy_col1, energy_col2 = st.columns(2)
+    
+    with energy_col1:
+        st.metric("Estimated TDEE", f"{tdee:,} calories", help="Total Daily Energy Expenditure")
+        st.metric("Target Calories", f"{target_calories:,} calories", help="Adjusted for your goal")
+    
+    with energy_col2:
+        st.metric("Protein Target", f"{target_protein}g", f"{target_protein * 4} calories")
+        st.metric("Carbs Target", f"{target_carbs}g", f"{target_carbs * 4} calories")
+        st.metric("Fat Target", f"{target_fat}g", f"{target_fat * 9} calories")
+    
+    # Allow manual adjustment
+    st.markdown("#### 🔧 Fine-Tune Targets (Optional)")
+    adjust_col1, adjust_col2, adjust_col3, adjust_col4 = st.columns(4)
+    
+    with adjust_col1:
+        target_calories = st.number_input("Daily Calories", min_value=1000, max_value=6000, value=int(target_calories), step=50, key="form_adj_calories")
+    
+    with adjust_col2:
+        target_protein = st.number_input("Protein (g)", min_value=50, max_value=400, value=int(target_protein), step=5, key="form_adj_protein")
+    
+    with adjust_col3:
+        target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=800, value=int(target_carbs), step=10, key="form_adj_carbs")
+    
+    with adjust_col4:
+        target_fat = st.number_input("Fat (g)", min_value=30, max_value=300, value=int(target_fat), step=5, key="form_adj_fat")
     
     # Generate button
     st.markdown("---")
