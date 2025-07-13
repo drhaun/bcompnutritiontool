@@ -398,7 +398,13 @@ if confirmed_schedule:
         st.markdown("### 🎯 Your Personalized Targets")
         
         # Calculate energy availability
-        avg_workout_calories = st.session_state.user_info.get('workout_frequency', 4) * 350 / 7  # Estimate
+        workout_freq = st.session_state.user_info.get('workout_frequency', 4)
+        if isinstance(workout_freq, str):
+            try:
+                workout_freq = int(workout_freq)
+            except ValueError:
+                workout_freq = 4  # Default fallback
+        avg_workout_calories = workout_freq * 350 / 7  # Estimate
         energy_availability = (avg_suggested_calories - avg_workout_calories) / fat_free_mass_kg
         
         # Primary metrics
