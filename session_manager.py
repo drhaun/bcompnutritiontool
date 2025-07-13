@@ -37,23 +37,23 @@ class SessionManager:
                 'confirmed_weekly_schedule': st.session_state.get('confirmed_weekly_schedule', {}),
                 'meal_contexts_detailed': st.session_state.get('meal_contexts_detailed', {}),
                 
-                # Initial Setup Form Selections
-                'use_imperial': st.session_state.get('use_imperial', True),
-                'gender': st.session_state.get('gender', ''),
-                'dob': st.session_state.get('dob', ''),
-                'age': st.session_state.get('age', 0),
-                'height_cm': st.session_state.get('height_cm', 0),
-                'height_ft': st.session_state.get('height_ft', 0),
-                'height_in': st.session_state.get('height_in', 0),
-                'weight_kg': st.session_state.get('weight_kg', 0),
-                'weight_lbs': st.session_state.get('weight_lbs', 0),
-                'body_fat_percentage': st.session_state.get('body_fat_percentage', 0),
-                'goal_focus': st.session_state.get('goal_focus', ''),
-                'activity_level': st.session_state.get('activity_level', ''),
-                'workout_frequency': st.session_state.get('workout_frequency', 0),
-                'workout_calories': st.session_state.get('workout_calories', 0),
-                'lifestyle_commitment': st.session_state.get('lifestyle_commitment', ''),
-                'tracking_commitment': st.session_state.get('tracking_commitment', ''),
+                # Initial Setup Form Selections (extracted from user_info)
+                'use_imperial': st.session_state.get('user_info', {}).get('use_imperial', True),
+                'gender': st.session_state.get('user_info', {}).get('gender', ''),
+                'dob': st.session_state.get('user_info', {}).get('dob', ''),
+                'age': st.session_state.get('user_info', {}).get('age', 0),
+                'height_cm': st.session_state.get('user_info', {}).get('height_cm', 0),
+                'height_ft': st.session_state.get('user_info', {}).get('height_ft', 0),
+                'height_in': st.session_state.get('user_info', {}).get('height_in', 0),
+                'weight_kg': st.session_state.get('user_info', {}).get('weight_kg', 0),
+                'weight_lbs': st.session_state.get('user_info', {}).get('weight_lbs', 0),
+                'body_fat_percentage': st.session_state.get('user_info', {}).get('body_fat_percentage', 0),
+                'goal_focus': st.session_state.get('user_info', {}).get('goal_focus', ''),
+                'activity_level': st.session_state.get('user_info', {}).get('activity_level', ''),
+                'workout_frequency': st.session_state.get('user_info', {}).get('workout_frequency', 0),
+                'workout_calories': st.session_state.get('user_info', {}).get('workout_calories', 0),
+                'lifestyle_commitment': st.session_state.get('user_info', {}).get('lifestyle_commitment', ''),
+                'tracking_commitment': st.session_state.get('user_info', {}).get('tracking_commitment', ''),
                 
                 # Body Composition Goals Selections
                 'body_fat_pct': st.session_state.get('body_fat_pct', 0),
@@ -72,25 +72,25 @@ class SessionManager:
                 'body_comp_preference': st.session_state.get('body_comp_preference', ''),
                 'commitment_level': st.session_state.get('commitment_level', ''),
                 
-                # Diet Preferences Selections
-                'selected_proteins': st.session_state.get('selected_proteins', []),
-                'selected_carbs': st.session_state.get('selected_carbs', []),
-                'selected_fats': st.session_state.get('selected_fats', []),
-                'selected_vegetables': st.session_state.get('selected_vegetables', []),
-                'selected_cuisines': st.session_state.get('selected_cuisines', []),
-                'dietary_restrictions': st.session_state.get('dietary_restrictions', []),
-                'allergies': st.session_state.get('allergies', []),
-                'meal_sourcing_preference': st.session_state.get('meal_sourcing_preference', ''),
-                'cooking_for': st.session_state.get('cooking_for', ''),
-                'leftover_preference': st.session_state.get('leftover_preference', ''),
-                'spice_level': st.session_state.get('spice_level', ''),
-                'flavor_profile': st.session_state.get('flavor_profile', []),
-                'preferred_seasonings': st.session_state.get('preferred_seasonings', []),
-                'cooking_enhancers': st.session_state.get('cooking_enhancers', []),
-                'variety_preference': st.session_state.get('variety_preference', ''),
-                'repetition_preference': st.session_state.get('repetition_preference', ''),
-                'weekly_structure': st.session_state.get('weekly_structure', ''),
-                'cooking_variety': st.session_state.get('cooking_variety', ''),
+                # Diet Preferences Selections (extracted from diet_preferences)
+                'selected_proteins': st.session_state.get('diet_preferences', {}).get('preferred_proteins', []),
+                'selected_carbs': st.session_state.get('diet_preferences', {}).get('preferred_carbs', []),
+                'selected_fats': st.session_state.get('diet_preferences', {}).get('preferred_fats', []),
+                'selected_vegetables': st.session_state.get('diet_preferences', {}).get('preferred_vegetables', []),
+                'selected_cuisines': st.session_state.get('diet_preferences', {}).get('cuisine_preferences', []),
+                'dietary_restrictions': st.session_state.get('diet_preferences', {}).get('dietary_restrictions', []),
+                'allergies': st.session_state.get('diet_preferences', {}).get('allergies', []),
+                'meal_sourcing_preference': st.session_state.get('diet_preferences', {}).get('meal_sourcing_preference', ''),
+                'cooking_for': st.session_state.get('diet_preferences', {}).get('cooking_for', ''),
+                'leftover_preference': st.session_state.get('diet_preferences', {}).get('leftover_preference', ''),
+                'spice_level': st.session_state.get('diet_preferences', {}).get('spice_level', ''),
+                'flavor_profile': st.session_state.get('diet_preferences', {}).get('flavor_profile', []),
+                'preferred_seasonings': st.session_state.get('diet_preferences', {}).get('preferred_seasonings', []),
+                'cooking_enhancers': st.session_state.get('diet_preferences', {}).get('cooking_enhancers', []),
+                'variety_preference': st.session_state.get('diet_preferences', {}).get('variety_level', ''),
+                'repetition_preference': st.session_state.get('diet_preferences', {}).get('repetition_preference', ''),
+                'weekly_structure': st.session_state.get('diet_preferences', {}).get('weekly_structure', ''),
+                'cooking_variety': st.session_state.get('diet_preferences', {}).get('cooking_variety', ''),
                 
                 # Weekly Schedule Selections
                 'daily_activities': st.session_state.get('daily_activities', {}),
@@ -151,6 +151,14 @@ class SessionManager:
             for key, value in session_data.items():
                 if key != 'timestamp' and key != 'session_name':
                     st.session_state[key] = value
+            
+            # Ensure nested structures are properly restored
+            if 'user_info' in session_data:
+                st.session_state.user_info = session_data['user_info']
+            if 'diet_preferences' in session_data:
+                st.session_state.diet_preferences = session_data['diet_preferences']
+            if 'goal_info' in session_data:
+                st.session_state.goal_info = session_data['goal_info']
             
             st.success(f"Session loaded successfully: {session_data.get('session_name', filename)}")
             return True
