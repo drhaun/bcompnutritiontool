@@ -72,7 +72,7 @@ DAILY SCHEDULE:
 - Number of meals: {meal_config.get('num_meals', 3)}
 - Number of snacks: {meal_config.get('num_snacks', 1)}
 - Day activity level: {meal_config.get('day_activity', 'N/A')}
-- Meal context: {meal_config.get('meal_context', 'N/A')}
+- Meal contexts: {meal_config.get('meal_contexts', {})}
 
 REQUIREMENTS:
 1. Create realistic meals with specific food items and portions
@@ -271,24 +271,24 @@ with st.form("standalone_meal_plan_form"):
         
         # Calculate target calories based on goal
         if goal_type == "Maintain Weight":
-            target_calories = tdee
+            target_calories = int(tdee)
         elif goal_type == "Lose Weight (0.5-1 lb/week)":
-            target_calories = tdee - 375  # 0.75 lb/week average
+            target_calories = int(tdee - 375)  # 0.75 lb/week average
         elif goal_type == "Lose Weight (1-2 lbs/week)":
-            target_calories = tdee - 750  # 1.5 lbs/week average
+            target_calories = int(tdee - 750)  # 1.5 lbs/week average
         elif goal_type == "Gain Weight (0.5-1 lb/week)":
-            target_calories = tdee + 375  # 0.75 lb/week average
+            target_calories = int(tdee + 375)  # 0.75 lb/week average
         else:  # Gain Weight (1-2 lbs/week)
-            target_calories = tdee + 750  # 1.5 lbs/week average
+            target_calories = int(tdee + 750)  # 1.5 lbs/week average
     
     with tdee_col3:
         st.metric("Target Calories", f"{target_calories:,} calories", help="Adjusted for your goal")
     
     # Calculate macros based on goal and body weight
     macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
-    target_protein = macros['protein']
-    target_carbs = macros['carbs']
-    target_fat = macros['fat']
+    target_protein = int(macros['protein'])
+    target_carbs = int(macros['carbs'])
+    target_fat = int(macros['fat'])
     
     # Display calculated macros
     st.markdown("### 🥗 Recommended Macronutrients")
@@ -366,11 +366,27 @@ with st.form("standalone_meal_plan_form"):
             "Very Active (physical job, lots of movement)"
         ], index=2)
         
-        # Meal contexts
-        meal_context = st.selectbox("Primary Meal Context", [
+        # Individual meal contexts
+        st.markdown("**Meal Contexts**")
+        st.write("Set the context for each meal:")
+        
+        context_options = [
             "Home cooking", "Meal prep", "Quick & easy", "Comfort food",
-            "Healthy focus", "Performance focus", "Social/family meals"
-        ])
+            "Healthy focus", "Performance focus", "Social/family meals", 
+            "On-the-go", "Work meal", "Post-workout", "Pre-workout"
+        ]
+        
+        breakfast_context = st.selectbox("Breakfast Context", context_options, index=0)
+        lunch_context = st.selectbox("Lunch Context", context_options, index=2)
+        dinner_context = st.selectbox("Dinner Context", context_options, index=0)
+        snack_context = st.selectbox("Snack Context", context_options, index=3)
+        
+        meal_contexts = {
+            'breakfast': breakfast_context,
+            'lunch': lunch_context,
+            'dinner': dinner_context,
+            'snack': snack_context
+        }
     
     # Diet Preferences
     st.markdown("---")
@@ -547,7 +563,7 @@ with st.form("standalone_meal_plan_form"):
             'num_meals': num_meals,
             'num_snacks': num_snacks,
             'day_activity': day_activity,
-            'meal_context': meal_context,
+            'meal_contexts': meal_contexts,
             'user_profile': {
                 'name': name,
                 'age': calculated_age,
@@ -591,11 +607,14 @@ if 'generated_standalone_plan' in st.session_state:
     
     meal_plan = st.session_state.generated_standalone_plan
     
-    # Daily totals summary
-    total_calories = sum(meal.get('total_macros', {}).get('calories', 0) for meal in meal_plan.values())
-    total_protein = sum(meal.get('total_macros', {}).get('protein', 0) for meal in meal_plan.values())
-    total_carbs = sum(meal.get('total_macros', {}).get('carbs', 0) for meal in meal_plan.values())
-    total_fat = sum(meal.get('total_macros', {}).get('fat', 0) for meal in meal_plan.values())
+    # Daily totals summary - check if meal_plan is valid
+    if meal_plan:
+        total_calories = sum(meal.get('total_macros', {}).get('calories', 0) for meal in meal_plan.values())
+        total_protein = sum(meal.get('total_macros', {}).get('protein', 0) for meal in meal_plan.values())
+        total_carbs = sum(meal.get('total_macros', {}).get('carbs', 0) for meal in meal_plan.values())
+        total_fat = sum(meal.get('total_macros', {}).get('fat', 0) for meal in meal_plan.values())
+    else:
+        total_calories = total_protein = total_carbs = total_fat = 0
     
     # User info display
     if 'standalone_user_info' in st.session_state:
