@@ -128,6 +128,9 @@ This is a comprehensive Streamlit-based web application for body composition pla
   - Added precision TDEE calculation using specific workout types, durations, and calories when multiple workouts are specified
   - Enhanced energy availability calculations to use precise workout calorie estimates instead of activity level approximations
   - Added workout calorie breakdown display showing individual workout contributions to daily energy expenditure
+  - Implemented progressive summary system showing cumulative progress across all workflow pages
+  - Added rolling summary at bottom of each page displaying completed steps and user selections
+  - Enhanced user experience with step-by-step progress tracking and visual completion indicators
 
 - **July 13, 2025 - Enhanced Session Management & Streamlined AI Meal Planning**:
   - Completely enhanced session management to save all user form inputs and selections

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 sys.path.append(os.path.abspath(os.path.dirname(__file__) + '/../'))
 import utils
 from session_manager import add_session_controls, save_on_change
+from progress_summary import show_progress_summary
 
 # Set page config
 st.set_page_config(
@@ -769,3 +770,6 @@ with st.expander("🔍 Detailed Preferences Breakdown"):
                 st.write(f"• {food}")
         else:
             st.write("*None listed*")
+
+# Show progressive summary
+show_progress_summary('diet_prefs')

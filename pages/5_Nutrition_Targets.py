@@ -9,6 +9,7 @@ from datetime import datetime
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import utils
 from session_manager import add_session_controls, save_on_change
+from progress_summary import show_progress_summary
 
 # Set page config
 st.set_page_config(
@@ -1372,3 +1373,6 @@ if st.session_state.get('nutrition_targets_confirmed', False):
     st.markdown("Navigate using the sidebar to begin meal planning!")
 else:
     st.info("Please confirm your nutrition targets above to proceed to meal planning.")
+
+# Show progressive summary
+show_progress_summary('nutrition_targets')

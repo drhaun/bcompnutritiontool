@@ -10,6 +10,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import utils
 from session_manager import add_session_controls, save_on_change
+from progress_summary import show_progress_summary
 
 # Initialize session state variables
 if "targets_set" not in st.session_state:
@@ -1116,3 +1117,6 @@ st.markdown("---")
 st.write("Continue to the Diet Preferences page to set up your food preferences and meal sourcing options.")
 if st.session_state.targets_set:
     st.link_button("Continue to Diet Preferences", url="Diet_Preferences")
+
+# Show progressive summary
+show_progress_summary('body_comp')

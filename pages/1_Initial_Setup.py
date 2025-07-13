@@ -4,6 +4,7 @@ from datetime import datetime, date
 import os
 import utils
 from session_manager import add_session_controls, save_on_change
+from progress_summary import show_progress_summary
 
 # Page config
 st.set_page_config(
@@ -438,3 +439,6 @@ if st.session_state.user_info:
         st.write(f"**Activity Level:** {st.session_state.user_info.get('raw_activity_level', 'Not set')}")
         st.write(f"**Workouts/Week:** {workouts}" if workouts is not None else "**Workouts/Week:** Not set")
         st.write(f"**TDEE:** {tdee:.0f} calories" if tdee else "**TDEE:** Not calculated")
+
+# Show progressive summary
+show_progress_summary('initial_setup')

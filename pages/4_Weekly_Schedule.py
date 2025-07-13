@@ -11,6 +11,7 @@ import numpy as np
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import utils
 from session_manager import add_session_controls, save_on_change
+from progress_summary import show_progress_summary
 
 # Set page title and layout
 st.set_page_config(
@@ -914,3 +915,6 @@ st.markdown("""
 - **Post-Workout**: Emphasize protein and recovery nutrition
 - **Office/Work**: Consider storage and heating options
 """)
+
+# Show progressive summary
+show_progress_summary('weekly_schedule')
