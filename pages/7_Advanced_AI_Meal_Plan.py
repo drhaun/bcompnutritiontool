@@ -69,8 +69,10 @@ FOOD PREFERENCES:
 PRACTICAL PREFERENCES:
 - Cooking Time: {diet_preferences.get('cooking_time_preference', 'Not specified')}
 - Budget: {diet_preferences.get('budget_preference', 'Not specified')}
-- Meal Sourcing: Home cooking interest - {diet_preferences.get('home_cooking_interest', 'High')}
-- Meal Frequency: {diet_preferences.get('meal_frequency', 'Not specified')}
+- Cooking For: {diet_preferences.get('cooking_for', 'Not specified')}
+- Leftovers Preference: {diet_preferences.get('leftovers_preference', 'Not specified')}
+- Home Cooking Interest: {diet_preferences.get('home_cooking_interest', 'High')}
+- Meal Frequency: {diet_preferences.get('meal_frequency', 'Not specified')} meals/day
 
 VARIETY PREFERENCES:
 - Variety Level: {diet_preferences.get('variety_level', 'Moderate Variety')}
@@ -174,6 +176,7 @@ CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
    - Flavor Profiles: {', '.join(diet_preferences.get('flavor_profile', ['Savory/Umami', 'Herbal']))} - emphasize these tastes
    - Preferred Seasonings: {', '.join(diet_preferences.get('preferred_seasonings', ['Salt', 'Black Pepper', 'Garlic Powder', 'Oregano']))} - use these in recipes
    - Cooking Enhancers: {', '.join(diet_preferences.get('cooking_enhancers', ['Olive Oil', 'Lemon Juice', 'Garlic']))} - incorporate these for flavor
+   - Cooking For: {diet_preferences.get('cooking_for', 'Just myself')} - adjust portion sizes accordingly
    - CRITICAL: Include specific seasoning recommendations in each recipe's instructions
    - Make meals flavorful and appetizing, not bland or boring
 
@@ -577,26 +580,42 @@ with st.expander("📋 Complete Weekly Overview", expanded=True):
             allergies = diet_prefs.get('allergies', [])
             if allergies:
                 st.write(f"• **Allergies:** {', '.join(allergies)}")
+            else:
+                st.write("• **Allergies:** None")
             
-            # Disliked foods
+            # Disliked foods - handle both list and string formats
             disliked_foods = diet_prefs.get('disliked_foods', [])
             if disliked_foods:
-                st.write(f"• **Disliked Foods:** {', '.join(disliked_foods[:3])}{'...' if len(disliked_foods) > 3 else ''}")
+                # Handle case where disliked_foods might be a string
+                if isinstance(disliked_foods, str):
+                    disliked_display = disliked_foods
+                else:
+                    disliked_display = ', '.join(disliked_foods[:3]) + ('...' if len(disliked_foods) > 3 else '')
+                st.write(f"• **Disliked Foods:** {disliked_display}")
             
-            # Food preferences
-            st.write(f"• **Meal Frequency:** {diet_prefs.get('meal_frequency', 'Not set')}")
+            # Food preferences and practical info
+            st.write(f"• **Meal Frequency:** {diet_prefs.get('meal_frequency', 'Not set')} meals/day")
             st.write(f"• **Cooking Time:** {diet_prefs.get('cooking_time_preference', 'Not set')}")
             st.write(f"• **Budget:** {diet_prefs.get('budget_preference', 'Not set')}")
-            st.write(f"• **Home Cooking Interest:** {diet_prefs.get('home_cooking_interest', 'Not set')}")
+            st.write(f"• **Cooking For:** {diet_prefs.get('cooking_for', 'Not set')}")
+            st.write(f"• **Leftovers:** {diet_prefs.get('leftovers_preference', 'Not set')}")
             
-            # Variety preferences
+            # Variety and flavor preferences
             variety_level = diet_prefs.get('variety_level', 'Not set')
-            repetition_preference = diet_prefs.get('repetition_preference', 'Not set')
-            weekly_structure = diet_prefs.get('weekly_structure', 'Not set')
+            spice_level = diet_prefs.get('spice_level', 'Not set')
             
             st.write(f"• **Variety Level:** {variety_level}")
-            st.write(f"• **Repetition Preference:** {repetition_preference}")
-            st.write(f"• **Weekly Structure:** {weekly_structure}")
+            st.write(f"• **Spice Level:** {spice_level}")
+            
+            # Flavor profiles
+            flavor_profiles = diet_prefs.get('flavor_profile', [])
+            if flavor_profiles:
+                st.write(f"• **Flavor Profiles:** {', '.join(flavor_profiles[:2])}{'...' if len(flavor_profiles) > 2 else ''}")
+            
+            # Preferred seasonings
+            preferred_seasonings = diet_prefs.get('preferred_seasonings', [])
+            if preferred_seasonings:
+                st.write(f"• **Preferred Seasonings:** {', '.join(preferred_seasonings[:3])}{'...' if len(preferred_seasonings) > 3 else ''}")
             
             # Preferred foods
             preferred_proteins = diet_prefs.get('preferred_proteins', [])
@@ -608,6 +627,8 @@ with st.expander("📋 Complete Weekly Overview", expanded=True):
                 st.write(f"• **Preferred Proteins:** {', '.join(preferred_proteins[:3])}{'...' if len(preferred_proteins) > 3 else ''}")
             if preferred_carbs:
                 st.write(f"• **Preferred Carbs:** {', '.join(preferred_carbs[:3])}{'...' if len(preferred_carbs) > 3 else ''}")
+            if preferred_fats:
+                st.write(f"• **Preferred Fats:** {', '.join(preferred_fats[:3])}{'...' if len(preferred_fats) > 3 else ''}")
             if preferred_vegetables:
                 st.write(f"• **Preferred Vegetables:** {', '.join(preferred_vegetables[:3])}{'...' if len(preferred_vegetables) > 3 else ''}")
                 
@@ -615,6 +636,49 @@ with st.expander("📋 Complete Weekly Overview", expanded=True):
             preferred_cuisines = diet_prefs.get('cuisine_preferences', [])
             if preferred_cuisines:
                 st.write(f"• **Preferred Cuisines:** {', '.join(preferred_cuisines[:3])}{'...' if len(preferred_cuisines) > 3 else ''}")
+            
+            # Enhanced preferences section
+            enhanced_prefs = diet_prefs.get('enhanced_preferences', {})
+            if enhanced_prefs:
+                st.markdown("**🔬 Enhanced Features:**")
+                
+                # Micronutrient focus
+                micronutrient_focus = enhanced_prefs.get('micronutrient_focus', [])
+                if micronutrient_focus:
+                    st.write(f"• **Micronutrient Focus:** {', '.join(micronutrient_focus[:3])}{'...' if len(micronutrient_focus) > 3 else ''}")
+                
+                # Seasonal and location preferences
+                seasonal_ingredients = enhanced_prefs.get('seasonal_ingredients', False)
+                current_season = enhanced_prefs.get('current_season', 'Auto-detect')
+                st.write(f"• **Seasonal Ingredients:** {'Yes' if seasonal_ingredients else 'No'} ({current_season})")
+                
+                meal_prep_coordination = enhanced_prefs.get('meal_prep_coordination', 'Not set')
+                st.write(f"• **Meal Prep Coordination:** {meal_prep_coordination}")
+                
+                local_cuisine = enhanced_prefs.get('local_cuisine_integration', False)
+                st.write(f"• **Local Cuisine Integration:** {'Yes' if local_cuisine else 'No'}")
+                
+                ingredient_substitutions = enhanced_prefs.get('ingredient_substitutions', False)
+                st.write(f"• **Ingredient Substitutions:** {'Yes' if ingredient_substitutions else 'No'}")
+            
+            # Location-based preferences
+            location_prefs = diet_prefs.get('location_based_preferences', {})
+            if location_prefs and location_prefs.get('enable_location_features'):
+                st.markdown("**📍 Location Features:**")
+                primary_zip = location_prefs.get('primary_zip_code', '')
+                work_zip = location_prefs.get('work_zip_code', '')
+                if primary_zip:
+                    st.write(f"• **Primary Zip Code:** {primary_zip}")
+                if work_zip:
+                    st.write(f"• **Work Zip Code:** {work_zip}")
+                
+                favorite_restaurants = location_prefs.get('favorite_restaurants', [])
+                if favorite_restaurants:
+                    st.write(f"• **Favorite Restaurants:** {', '.join(favorite_restaurants[:2])}{'...' if len(favorite_restaurants) > 2 else ''}")
+                
+                favorite_stores = location_prefs.get('favorite_grocery_stores', [])
+                if favorite_stores:
+                    st.write(f"• **Favorite Grocery Stores:** {', '.join(favorite_stores[:2])}{'...' if len(favorite_stores) > 2 else ''}")
         else:
             st.warning("Diet Preferences not set")
     

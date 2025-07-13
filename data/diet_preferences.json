@@ -118,5 +118,38 @@
     "Olive Oil",
     "Lemon Juice",
     "Garlic"
-  ]
+  ],
+  "location_based_preferences": {
+    "enable_location_features": true,
+    "primary_zip_code": "35124",
+    "work_zip_code": "35007",
+    "travel_routes": [
+      "Home to Work",
+      "Home to Gym"
+    ],
+    "favorite_restaurants": [
+      "Chipotle",
+      "City Bowls"
+    ],
+    "favorite_grocery_stores": [
+      "Walmart"
+    ],
+    "convenience_stores": []
+  },
+  "enhanced_preferences": {
+    "micronutrient_focus": [
+      "Omega-3 Fatty Acids",
+      "Fiber",
+      "Potassium",
+      "Zinc",
+      "Magnesium",
+      "Iron"
+    ],
+    "seasonal_ingredients": true,
+    "local_cuisine_integration": true,
+    "ingredient_substitutions": true,
+    "meal_prep_coordination": "Some coordination - Share ingredients across meals",
+    "current_season": "Auto-detect",
+    "preferred_produce_seasons": []
+  }
 }
