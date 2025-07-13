@@ -102,6 +102,15 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 13, 2025 - Enhanced Session Management & Streamlined AI Meal Planning**:
+  - Completely enhanced session management to save all user form inputs and selections
+  - Added comprehensive data capture for Initial Setup, Body Composition Goals, Diet Preferences, and Weekly Schedule
+  - Users can now save and reload sessions with all their selections preserved and editable
+  - Removed redundant AI Meal Plan Compact page to simplify workflow
+  - Session system now captures activity level, workout frequency, calories, goal preferences, and all diet selections
+  - Enhanced session persistence for individual ongoing use, preparing for future login/subscription features
+  - Improved session auto-load functionality to restore complete user experience seamlessly
+
 - **July 12, 2025 - Enhanced AI Meal Planning Accuracy & Fixed PDF Export Issues**:
   - Improved AI meal planning accuracy from ±5% to ±3% tolerance for macro targeting
   - Enhanced AI prompts with specific calorie-boosting strategies using calorie-dense ingredients
