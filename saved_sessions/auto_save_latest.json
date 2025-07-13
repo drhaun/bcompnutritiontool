@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-07-13T21:39:13.567815",
+  "timestamp": "2025-07-13T22:05:53.284989",
   "user_info": {
     "name": "Cody",
     "gender": "Male",
@@ -16,7 +16,7 @@
     "raw_activity_level": "Light Active (5-10k steps/day)",
     "workouts_per_week": 6,
     "workout_frequency": "6+ workouts per week",
-    "workout_calories": 400,
+    "workout_calories": 350,
     "goal_focus": "Lose fat",
     "performance_preference": "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal.",
     "body_comp_preference": "I don't want to lose any muscle mass while losing body fat.",
@@ -24,7 +24,7 @@
     "tracking_commitment": "I am committed to tracking regularly",
     "commitment_level": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently.",
     "use_imperial": true,
-    "tdee": 2869.503268805152
+    "tdee": 2826.6461259480093
   },
   "goal_info": {
     "goal_type": "Lose fat",
@@ -38,7 +38,7 @@
     "target_weight_lbs": 185.0,
     "timeline_weeks": 10,
     "start_date": "2025-07-13",
-    "target_energy": 2121
+    "target_energy": 2078
   },
   "diet_preferences": {
     "dietary_restrictions": [
@@ -245,8 +245,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -342,8 +342,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -439,8 +439,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -536,8 +536,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -626,8 +626,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -716,8 +716,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -806,8 +806,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -905,8 +905,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -1002,8 +1002,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -1099,8 +1099,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -1196,8 +1196,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -1286,8 +1286,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -1376,8 +1376,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -1466,8 +1466,8 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
-        "pre_workout_snack": false,
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
         "liquid_calories": "Minimize liquid calories"
@@ -1569,7 +1569,7 @@
   "goal_focus": "Lose fat",
   "activity_level": "Lightly Active (light exercise 2-3 times per week)",
   "workout_frequency": "6+ workouts per week",
-  "workout_calories": 400,
+  "workout_calories": 350,
   "lifestyle_commitment": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase.",
   "tracking_commitment": "I am committed to tracking regularly",
   "body_fat_pct": 20.0,
@@ -1712,9 +1712,9 @@
       "fat": 73
     },
     "Friday": {
-      "calories": 2377.5716994311942,
+      "calories": 1777.5716994311942,
       "protein": 200,
-      "carbs": 232,
+      "carbs": 82,
       "fat": 73
     },
     "Saturday": {
@@ -1752,7 +1752,7 @@
       }
     ]
   },
-  "tdee": 2869.503268805152,
+  "tdee": 2826.6461259480093,
   "setup_complete": true,
   "body_composition_complete": false,
   "diet_preferences_complete": false,

@@ -278,19 +278,24 @@ Remember: The user needs these exact macros for precise body composition goals. 
 """
 
             # Add specific macro targets to the beginning of the prompt for extra emphasis
-            macro_targets = day_data['meal_targets']
+            daily_totals = day_data.get('daily_totals', {})
+            daily_calories = daily_totals.get('calories', 2000)
+            daily_protein = daily_totals.get('protein', 150)
+            daily_carbs = daily_totals.get('carbs', 200)
+            daily_fat = daily_totals.get('fat', 70)
+            
             enhanced_prompt = f"""
-**MACRO TARGETS FOR {day.upper()} - MUST HIT EXACTLY (±3% tolerance)**:
-- Calories: {macro_targets['calories']} (Range: {macro_targets['calories'] * 0.97:.0f} - {macro_targets['calories'] * 1.03:.0f})
-- Protein: {macro_targets['protein']}g (Range: {macro_targets['protein'] * 0.97:.0f} - {macro_targets['protein'] * 1.03:.0f}g)
-- Carbs: {macro_targets['carbs']}g (Range: {macro_targets['carbs'] * 0.97:.0f} - {macro_targets['carbs'] * 1.03:.0f}g)
-- Fat: {macro_targets['fat']}g (Range: {macro_targets['fat'] * 0.97:.0f} - {macro_targets['fat'] * 1.03:.0f}g)
+**DAILY MACRO TARGETS FOR {day.upper()} - MUST HIT EXACTLY (±3% tolerance)**:
+- Calories: {daily_calories} (Range: {daily_calories * 0.97:.0f} - {daily_calories * 1.03:.0f})
+- Protein: {daily_protein}g (Range: {daily_protein * 0.97:.0f} - {daily_protein * 1.03:.0f}g)
+- Carbs: {daily_carbs}g (Range: {daily_carbs * 0.97:.0f} - {daily_carbs * 1.03:.0f}g)
+- Fat: {daily_fat}g (Range: {daily_fat * 0.97:.0f} - {daily_fat * 1.03:.0f}g)
 
 **PORTION SIZE GUIDELINES TO HIT TARGETS**:
-- For {macro_targets['calories']} calories: Use large portions, add oils, nuts, and calorie-dense ingredients
-- For {macro_targets['protein']}g protein: Use 6-8oz meat portions, add protein powder, Greek yogurt
-- For {macro_targets['carbs']}g carbs: Use 1-2 cups rice/pasta, multiple fruits, large oat portions
-- For {macro_targets['fat']}g fat: Use 2-4 tbsp oils, nuts, avocado, nut butters
+- For {daily_calories} calories: Use large portions, add oils, nuts, and calorie-dense ingredients
+- For {daily_protein}g protein: Use 6-8oz meat portions, add protein powder, Greek yogurt
+- For {daily_carbs}g carbs: Use 1-2 cups rice/pasta, multiple fruits, large oat portions
+- For {daily_fat}g fat: Use 2-4 tbsp oils, nuts, avocado, nut butters
 
 {prompt}
             """
@@ -327,8 +332,8 @@ def validate_meal_plan_accuracy(day_plan, day_targets, day_name):
         # Extract daily totals from generated plan
         generated_totals = day_plan.get('daily_totals', {})
         
-        # Get target totals from meal_targets structure
-        target_totals = day_targets.get('meal_targets', {})
+        # Get target totals from daily_totals structure (not meal_targets)
+        target_totals = day_targets.get('daily_totals', {})
         
         # Define acceptable tolerance (3%)
         tolerance = 0.03

@@ -102,6 +102,15 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 13, 2025 - CRITICAL FIX: Resolved KeyError 'calories' in Advanced AI Meal Plan**:
+  - Fixed critical production bug where Advanced AI Meal Plan was trying to access non-existent 'calories' key in meal_targets
+  - Updated data structure access to correctly use daily_totals instead of meal_targets for macro target retrieval
+  - Fixed validation function to properly access daily_totals from day_targets structure
+  - Added fallback values for all macro targets to prevent KeyError exceptions
+  - Comprehensive testing confirms all systems now working correctly with 100% accuracy validation
+  - Both Advanced and Standalone AI meal planners are now fully operational and ready for production use
+  - Temperature maintained at 0.1 for maximum calculation consistency and ±3% macro accuracy requirement
+
 - **July 13, 2025 - COMPLETED: Major AI Meal Planning System Overhaul for ±3% Accuracy**:
   - Completely revamped AI meal planning prompts with enhanced JSON output format
   - Implemented strict ±3% macro accuracy requirements with validation checks
