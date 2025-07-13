@@ -516,10 +516,119 @@ with st.form("standalone_meal_plan_form"):
     st.markdown("## 📊 Calculated Daily Energy Needs")
     st.markdown("*Based on your personal information and goal selection above*")
     
-    # Calculate TDEE
-    tdee = utils.calculate_tdee(
+    # Calculate TDEE with workout-specific adjustments if available
+    base_tdee = utils.calculate_tdee(
         gender, weight_kg, height_cm, calculated_age, activity_level
     )
+    
+    # Calculate precise workout calories if user provided specific workout details
+    daily_workout_calories = 0
+    if has_workout and workout_details:
+        for workout in workout_details:
+            # Estimate calories based on workout type and duration
+            duration_minutes = 45  # Default duration
+            if "15-30" in workout.get('duration', ''):
+                duration_minutes = 22.5
+            elif "30-45" in workout.get('duration', ''):
+                duration_minutes = 37.5
+            elif "45-60" in workout.get('duration', ''):
+                duration_minutes = 52.5
+            elif "60-90" in workout.get('duration', ''):
+                duration_minutes = 75
+            elif "90+" in workout.get('duration', ''):
+                duration_minutes = 105
+            
+            # Calories per minute by workout type (rough estimates)
+            workout_type = workout.get('type', '')
+            if 'Cardio' in workout_type:
+                calories_per_minute = 8
+            elif 'Strength' in workout_type:
+                calories_per_minute = 6
+            elif 'HIIT' in workout_type:
+                calories_per_minute = 10
+            elif 'Yoga' in workout_type:
+                calories_per_minute = 3
+            elif 'Sports' in workout_type:
+                calories_per_minute = 7
+            else:  # Mixed Training
+                calories_per_minute = 7
+            
+            daily_workout_calories += duration_minutes * calories_per_minute
+        
+        # Adjust TDEE based on specific workout calories vs activity level estimate
+        activity_exercise_estimate = 0
+        if "Lightly Active" in activity_level:
+            activity_exercise_estimate = 200
+        elif "Moderately Active" in activity_level:
+            activity_exercise_estimate = 350
+        elif "Very Active" in activity_level:
+            activity_exercise_estimate = 500
+        elif "Extremely Active" in activity_level:
+            activity_exercise_estimate = 650
+        
+        # Use the higher of the two estimates for more accurate TDEE
+        if daily_workout_calories > activity_exercise_estimate:
+            tdee = base_tdee + (daily_workout_calories - activity_exercise_estimate)
+            st.info(f"📊 **Enhanced TDEE Calculation**: Using specific workout details (+{daily_workout_calories - activity_exercise_estimate:.0f} calories from detailed workouts)")
+        else:
+            tdee = base_tdee
+        
+        # Show workout calorie breakdown for transparency
+        if len(workout_details) > 1:
+            st.markdown("**Today's Workout Breakdown:**")
+            for i, workout in enumerate(workout_details, 1):
+                duration_str = workout.get('duration', '45-60 minutes')
+                workout_type = workout.get('type', 'Mixed Training')
+                workout_time = workout.get('time', 'Not specified')
+                
+                # Calculate calories for this specific workout
+                duration_minutes = 45
+                if "15-30" in duration_str:
+                    duration_minutes = 22.5
+                elif "30-45" in duration_str:
+                    duration_minutes = 37.5
+                elif "45-60" in duration_str:
+                    duration_minutes = 52.5
+                elif "60-90" in duration_str:
+                    duration_minutes = 75
+                elif "90+" in duration_str:
+                    duration_minutes = 105
+                
+                # Calories per minute by workout type
+                if 'Cardio' in workout_type:
+                    calories_per_minute = 8
+                elif 'Strength' in workout_type:
+                    calories_per_minute = 6
+                elif 'HIIT' in workout_type:
+                    calories_per_minute = 10
+                elif 'Yoga' in workout_type:
+                    calories_per_minute = 3
+                elif 'Sports' in workout_type:
+                    calories_per_minute = 7
+                else:
+                    calories_per_minute = 7
+                
+                workout_calories = duration_minutes * calories_per_minute
+                st.write(f"• **Workout {i}**: {workout_type} ({workout_time}) - {duration_str} = ~{workout_calories:.0f} calories")
+            
+            st.write(f"**Total Daily Workout Calories**: ~{daily_workout_calories:.0f} calories")
+        elif len(workout_details) == 1:
+            workout = workout_details[0]
+            duration_str = workout.get('duration', '45-60 minutes')
+            workout_type = workout.get('type', 'Mixed Training')
+            workout_time = workout.get('time', 'Not specified')
+            st.write(f"**Today's Workout**: {workout_type} ({workout_time}) - {duration_str} = ~{daily_workout_calories:.0f} calories")
+    else:
+        tdee = base_tdee
+        # Estimate daily workout calories based on activity level
+        if "Lightly Active" in activity_level:
+            daily_workout_calories = 200
+        elif "Moderately Active" in activity_level:
+            daily_workout_calories = 350
+        elif "Very Active" in activity_level:
+            daily_workout_calories = 500
+        elif "Extremely Active" in activity_level:
+            daily_workout_calories = 650
     
     # Calculate target calories based on goal
     if goal_type == "Maintain Weight":
@@ -543,18 +652,8 @@ with st.form("standalone_meal_plan_form"):
     fat_free_mass_kg = weight_kg * (1 - body_fat_pct / 100)
     fat_mass_kg = weight_kg - fat_free_mass_kg
     
-    # Calculate energy availability (estimate exercise calories based on activity level)
-    estimated_exercise_calories = 0
-    if "Lightly Active" in activity_level:
-        estimated_exercise_calories = 200  # ~2-3 workouts per week
-    elif "Moderately Active" in activity_level:
-        estimated_exercise_calories = 350  # ~3-5 workouts per week
-    elif "Very Active" in activity_level:
-        estimated_exercise_calories = 500  # ~6-7 workouts per week
-    elif "Extremely Active" in activity_level:
-        estimated_exercise_calories = 650  # Very high activity
-    
-    energy_availability = (target_calories - estimated_exercise_calories) / fat_free_mass_kg
+    # Calculate energy availability using precise workout calories
+    energy_availability = (target_calories - daily_workout_calories) / fat_free_mass_kg
     
     # Display calculated values with enhanced context
     st.markdown("### 🎯 Your Personalized Targets")
@@ -652,7 +751,7 @@ with st.form("standalone_meal_plan_form"):
         
         # Show EA impact if calories changed
         if adjusted_calories != target_calories:
-            new_ea = (adjusted_calories - estimated_exercise_calories) / fat_free_mass_kg
+            new_ea = (adjusted_calories - daily_workout_calories) / fat_free_mass_kg
             delta_ea = new_ea - energy_availability
             if delta_ea > 0:
                 st.caption(f"🔼 EA: +{delta_ea:.0f} kcal/kg FFM")
@@ -691,7 +790,7 @@ with st.form("standalone_meal_plan_form"):
         target_fat = adjusted_fat
         
         # Recalculate energy availability with new values
-        energy_availability = (target_calories - estimated_exercise_calories) / fat_free_mass_kg
+        energy_availability = (target_calories - daily_workout_calories) / fat_free_mass_kg
         
         # Show warning if EA is getting too low
         if energy_availability < 30:

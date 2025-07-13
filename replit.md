@@ -125,6 +125,9 @@ This is a comprehensive Streamlit-based web application for body composition pla
   - Simplified standalone meal planner to use physical activity level instead of separate workout frequency/calories fields
   - Added support for multiple workouts per day in standalone planner with detailed workout specifications
   - Enhanced workout details to include duration and multiple workout scheduling capabilities
+  - Added precision TDEE calculation using specific workout types, durations, and calories when multiple workouts are specified
+  - Enhanced energy availability calculations to use precise workout calorie estimates instead of activity level approximations
+  - Added workout calorie breakdown display showing individual workout contributions to daily energy expenditure
 
 - **July 13, 2025 - Enhanced Session Management & Streamlined AI Meal Planning**:
   - Completely enhanced session management to save all user form inputs and selections
