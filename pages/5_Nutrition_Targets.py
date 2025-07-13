@@ -378,12 +378,81 @@ if confirmed_schedule:
     # Calculate rough calorie distribution based on suggested targets
     st.markdown("**Estimated Calorie Distribution:**")
     
+    # Calculate body composition metrics for enhanced displays
+    weight_kg = st.session_state.user_info.get('weight_lbs', 165) / 2.20462
+    body_fat_pct = st.session_state.get('body_fat_pct', 18)
+    fat_free_mass_kg = weight_kg * (1 - body_fat_pct / 100)
+    
     # Use suggested targets (average from day-specific nutrition) instead of base targets
     if st.session_state.get('day_specific_nutrition'):
         total_days = len(st.session_state.day_specific_nutrition)
         avg_suggested_calories = sum(day_data.get('calories', target_calories) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        avg_suggested_protein = sum(day_data.get('protein', macros['protein']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        avg_suggested_carbs = sum(day_data.get('carbs', macros['carbs']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        avg_suggested_fat = sum(day_data.get('fat', macros['fat']) for day_data in st.session_state.day_specific_nutrition.values()) / total_days
+        
         distribution_calories = avg_suggested_calories
         st.info(f"Based on suggested targets (avg: {distribution_calories:,.0f} calories/day)")
+        
+        # Display enhanced target metrics
+        st.markdown("### 🎯 Your Personalized Targets")
+        
+        # Calculate energy availability
+        avg_workout_calories = st.session_state.user_info.get('workout_frequency', 4) * 350 / 7  # Estimate
+        energy_availability = (avg_suggested_calories - avg_workout_calories) / fat_free_mass_kg
+        
+        # Primary metrics
+        primary_col1, primary_col2 = st.columns(2)
+        
+        with primary_col1:
+            st.metric("Average Daily Calories", f"{avg_suggested_calories:,.0f}", help="Average across your weekly plan")
+            st.metric("Fat-Free Mass", f"{fat_free_mass_kg:.1f} kg", f"{fat_free_mass_kg * 2.20462:.1f} lbs")
+        
+        with primary_col2:
+            st.metric("Energy Availability", f"{energy_availability:.0f} kcal/kg FFM", 
+                     help="Energy available for essential body functions after exercise")
+            
+            # EA status indicator
+            if energy_availability >= 45:
+                st.success("✅ Excellent EA - Supporting optimal health")
+            elif energy_availability >= 30:
+                st.warning("⚠️ Moderate EA - Monitor for fatigue")
+            else:
+                st.error("🚨 Low EA - Consider increasing intake")
+        
+        # Macronutrient targets with context
+        st.markdown("### 📊 Macronutrient Breakdown")
+        
+        macro_col1, macro_col2, macro_col3 = st.columns(3)
+        
+        with macro_col1:
+            protein_per_kg = avg_suggested_protein / weight_kg
+            protein_per_ffm = avg_suggested_protein / fat_free_mass_kg
+            protein_calories = avg_suggested_protein * 4
+            protein_percentage = (protein_calories / avg_suggested_calories) * 100
+            
+            st.metric("Protein Target", f"{avg_suggested_protein:.0f}g", f"{protein_percentage:.0f}% of calories")
+            st.caption(f"• {protein_per_kg:.1f}g per kg body weight")
+            st.caption(f"• {protein_per_ffm:.1f}g per kg fat-free mass")
+        
+        with macro_col2:
+            carbs_per_kg = avg_suggested_carbs / weight_kg
+            carbs_calories = avg_suggested_carbs * 4
+            carbs_percentage = (carbs_calories / avg_suggested_calories) * 100
+            
+            st.metric("Carbs Target", f"{avg_suggested_carbs:.0f}g", f"{carbs_percentage:.0f}% of calories")
+            st.caption(f"• {carbs_per_kg:.1f}g per kg body weight")
+            st.caption(f"• Primary energy source for brain & muscles")
+        
+        with macro_col3:
+            fat_per_kg = avg_suggested_fat / weight_kg
+            fat_calories = avg_suggested_fat * 9
+            fat_percentage = (fat_calories / avg_suggested_calories) * 100
+            
+            st.metric("Fat Target", f"{avg_suggested_fat:.0f}g", f"{fat_percentage:.0f}% of calories")
+            st.caption(f"• {fat_per_kg:.1f}g per kg body weight")
+            st.caption(f"• Essential for hormone production")
+        
     else:
         distribution_calories = target_calories
         st.info(f"Based on base targets ({distribution_calories:,.0f} calories/day)")
@@ -502,6 +571,30 @@ st.markdown("---")
 # Day-specific meal customization
 st.markdown("### Day-Specific Meal Customization")
 st.markdown("Customize meal count and timing for each day based on your training schedule and preferences.")
+
+# Workout proximity meal timing guidelines
+with st.expander("🏋️ Workout Meal Timing Guidelines", expanded=False):
+    st.markdown("""
+    **Pre-Workout (1-2 hours before training):**
+    - Moderate protein (20-30g), moderate-high carbs (30-50g)
+    - LOW fat (<10g), LOW fiber (<5g)
+    - Focus on easily digestible foods to prevent GI upset
+    
+    **Post-Workout (within 1 hour after training):**
+    - High protein (25-40g), high carbs (40-60g)
+    - Moderate fat (10-20g), avoid high-fiber foods
+    - Prioritize muscle recovery and glycogen replenishment
+    
+    **During Workout Window (±1 hour of training):**
+    - Avoid large meals that may cause digestive issues
+    - Prefer liquid or easily digestible options
+    - Stay hydrated and avoid foods that cause GI upset
+    
+    **Training Type Considerations:**
+    - **Strength Training:** Emphasize protein timing around workouts for muscle recovery
+    - **Cardio:** Focus on carb availability before and replenishment after
+    - **HIIT/Intense Training:** Minimize fat and fiber 2 hours before, prioritize quick recovery after
+    """)
 
 # Initialize day-specific meal settings if not exists
 if 'day_specific_meals' not in st.session_state:
@@ -874,12 +967,88 @@ if customize_day not in st.session_state.per_meal_macros:
 
 # Daily budget display using suggested targets
 st.markdown("#### Daily Macro Budget")
-budget_col1, budget_col2, budget_col3, budget_col4 = st.columns(4)
 
 # Get suggested targets for this day
 if customize_day in st.session_state.day_specific_nutrition:
     suggested_nutrition = st.session_state.day_specific_nutrition[customize_day]
     display_calories = suggested_nutrition.get('calories', final_calories)
+    display_protein = suggested_nutrition.get('protein', final_protein)
+    display_carbs = suggested_nutrition.get('carbs', final_carbs)
+    display_fat = suggested_nutrition.get('fat', final_fat)
+    
+    # Calculate enhanced metrics for this day
+    display_protein_per_kg = display_protein / weight_kg
+    display_protein_per_ffm = display_protein / fat_free_mass_kg
+    display_carbs_per_kg = display_carbs / weight_kg
+    display_fat_per_kg = display_fat / weight_kg
+    
+    # Calculate percentages
+    protein_calories = display_protein * 4
+    carbs_calories = display_carbs * 4
+    fat_calories = display_fat * 9
+    protein_percentage = (protein_calories / display_calories) * 100
+    carbs_percentage = (carbs_calories / display_calories) * 100
+    fat_percentage = (fat_calories / display_calories) * 100
+    
+    # Energy availability for this day
+    day_workout_calories = 0
+    if day_workouts:
+        day_workout_calories = sum(workout.get('duration', 0) * 5 for workout in day_workouts)  # Rough estimate
+    day_energy_availability = (display_calories - day_workout_calories) / fat_free_mass_kg
+    
+    # Enhanced budget display
+    budget_col1, budget_col2, budget_col3, budget_col4 = st.columns(4)
+    
+    with budget_col1:
+        st.metric("Calories", f"{display_calories:,.0f}", help=f"Energy Availability: {day_energy_availability:.0f} kcal/kg FFM")
+        
+        # EA status for this day
+        if day_energy_availability >= 45:
+            st.caption("✅ Excellent EA")
+        elif day_energy_availability >= 30:
+            st.caption("⚠️ Moderate EA")
+        else:
+            st.caption("🚨 Low EA")
+    
+    with budget_col2:
+        st.metric("Protein", f"{display_protein:.0f}g", f"{protein_percentage:.0f}% of calories")
+        st.caption(f"• {display_protein_per_kg:.1f}g/kg BW")
+        st.caption(f"• {display_protein_per_ffm:.1f}g/kg FFM")
+    
+    with budget_col3:
+        st.metric("Carbs", f"{display_carbs:.0f}g", f"{carbs_percentage:.0f}% of calories")
+        st.caption(f"• {display_carbs_per_kg:.1f}g/kg BW")
+        st.caption(f"• Brain & muscle fuel")
+    
+    with budget_col4:
+        st.metric("Fat", f"{display_fat:.0f}g", f"{fat_percentage:.0f}% of calories")
+        st.caption(f"• {display_fat_per_kg:.1f}g/kg BW")
+        st.caption(f"• Hormone production")
+    
+    # Workout-specific recommendations for this day
+    if day_workouts:
+        st.markdown("#### Workout Timing Recommendations")
+        workout_info = []
+        for workout in day_workouts:
+            workout_time = workout.get('time', 'Not specified')
+            workout_type = workout.get('type', 'Workout')
+            workout_duration = workout.get('duration', 0)
+            
+            if workout_type.lower() in ['strength', 'resistance', 'weight']:
+                recommendation = "Focus on protein timing around workout (25-40g post-workout)"
+            elif workout_type.lower() in ['cardio', 'running', 'cycling']:
+                recommendation = "Prioritize carbs before (30-50g) and after (40-60g) workout"
+            elif workout_type.lower() in ['hiit', 'crossfit', 'intense']:
+                recommendation = "Low fat/fiber 2 hours before, quick protein/carb recovery after"
+            else:
+                recommendation = "General pre/post workout nutrition guidelines apply"
+            
+            workout_info.append(f"**{workout_time} - {workout_type} ({workout_duration}min):** {recommendation}")
+        
+        for info in workout_info:
+            st.write(info)
+else:
+    display_calories = final_calories
     display_protein = suggested_nutrition.get('protein', final_protein)
     display_carbs = suggested_nutrition.get('carbs', final_carbs)
     display_fat = suggested_nutrition.get('fat', final_fat)

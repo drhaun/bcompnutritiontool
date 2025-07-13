@@ -118,6 +118,10 @@ This is a comprehensive Streamlit-based web application for body composition pla
   - Added comprehensive energy availability education with health implications and optimization guidance
   - Implemented real-time energy availability warnings when users adjust targets below healthy thresholds
   - Added energy availability analysis to both standalone and advanced AI meal planning pages for consistent user education
+  - Enhanced Nutrition Targets page with comprehensive energy availability integration and workout timing guidelines
+  - Added enhanced target displays with body mass ratios, calorie percentages, and EA status to individual meal customization
+  - Integrated workout-specific nutrition recommendations based on scheduled training types and timing
+  - Enhanced daily macro budget display with real-time energy availability calculations and workout-specific guidance
 
 - **July 13, 2025 - Enhanced Session Management & Streamlined AI Meal Planning**:
   - Completely enhanced session management to save all user form inputs and selections
