@@ -142,182 +142,186 @@ Create a personalized daily meal plan in minutes! This standalone planner calcul
 if 'generated_standalone_plan' not in st.session_state:
     st.session_state.generated_standalone_plan = None
 
-# Create comprehensive meal plan form
-with st.form("standalone_meal_plan_form"):
-    st.markdown("## 👤 Personal Information")
-    st.markdown("*This information helps calculate your estimated daily calorie and nutrient needs.*")
+# Step 1: Personal Information (outside form for reactivity)
+st.markdown("## 👤 Personal Information")
+st.markdown("*This information helps calculate your estimated daily calorie and nutrient needs.*")
+
+# Personal info section
+personal_col1, personal_col2 = st.columns(2)
+
+with personal_col1:
+    name = st.text_input("Full Name", value="", placeholder="Enter your name")
     
-    # Personal info section
-    personal_col1, personal_col2 = st.columns(2)
+    gender = st.selectbox("Gender", options=["Male", "Female"], index=0)
     
-    with personal_col1:
-        name = st.text_input("Full Name", value="", placeholder="Enter your name")
-        
-        gender = st.selectbox("Gender", options=["Male", "Female"], index=0)
-        
-        # Date of Birth with age calculation
-        dob = st.date_input(
-            "Date of Birth",
-            value=date(1990, 1, 1),
-            min_value=date(1920, 1, 1),
-            max_value=date.today(),
-            help="Used to calculate age for accurate TDEE estimation"
-        )
-        
-        # Calculate and display age
-        if dob:
-            today = date.today()
-            calculated_age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-            st.info(f"**Age:** {calculated_age} years")
-        else:
-            calculated_age = 25
-        
-        # Imperial/Metric toggle
-        use_imperial = st.toggle("Use Imperial Units (lbs, ft/in)", value=True)
-        
-        # Height input
-        if use_imperial:
-            height_feet = st.number_input("Height (feet)", min_value=3, max_value=8, value=5, step=1)
-            height_inches = st.number_input("Height (inches)", min_value=0, max_value=11, value=8, step=1)
-            height_cm = (height_feet * 12 + height_inches) * 2.54
-            st.write(f"Height: {height_feet}'{height_inches}\" ({height_cm:.1f} cm)")
-        else:
-            height_cm = st.number_input("Height (cm)", min_value=120.0, max_value=250.0, value=175.0, step=0.5)
-            height_inches = height_cm / 2.54
-            height_feet = int(height_inches // 12)
-            height_in_remainder = int(height_inches % 12)
-            st.write(f"Height: {height_feet}'{height_in_remainder}\" ({height_cm:.1f} cm)")
-    
-    with personal_col2:
-        # Weight input
-        if use_imperial:
-            weight_lbs = st.number_input("Weight (lbs)", min_value=80.0, max_value=500.0, value=165.0, step=0.5)
-            weight_kg = weight_lbs / 2.20462
-            st.write(f"Weight: {weight_kg:.1f} kg")
-        else:
-            weight_kg = st.number_input("Weight (kg)", min_value=35.0, max_value=225.0, value=75.0, step=0.1)
-            weight_lbs = weight_kg * 2.20462
-            st.write(f"Weight: {weight_lbs:.1f} lbs")
-        
-        # Body fat percentage
-        body_fat_pct = st.number_input(
-            "Estimated Body Fat %",
-            min_value=5.0,
-            max_value=50.0,
-            value=18.0,
-            step=0.5,
-            help="Estimate your body fat percentage (affects metabolic calculations)"
-        )
-        
-        # Activity level
-        activity_level = st.selectbox(
-            "Physical Activity Level",
-            options=[
-                "Sedentary (office job, <2 hours exercise per week)",
-                "Lightly Active (light exercise 2-3 times per week)",
-                "Moderately Active (moderate exercise 3-5 times per week)",
-                "Very Active (hard exercise 6-7 times per week)",
-                "Extremely Active (very hard exercise, physical job)"
-            ],
-            index=2
-        )
-        
-        # Workout frequency
-        workouts_per_week = st.number_input(
-            "Average Workouts per Week",
-            min_value=0,
-            max_value=14,
-            value=4,
-            step=1,
-            help="Number of structured workout sessions per week"
-        )
-        
-        # Workout calories
-        workout_calories = st.number_input(
-            "Average Calories per Workout",
-            min_value=0,
-            max_value=1000,
-            value=350,
-            step=25,
-            help="Estimated calories burned during an average workout"
-        )
-    
-    # Calculate TDEE
-    tdee = utils.calculate_tdee(
-        gender, weight_kg, height_cm, calculated_age, activity_level, workouts_per_week, workout_calories
+    # Date of Birth with age calculation
+    dob = st.date_input(
+        "Date of Birth",
+        value=date(1990, 1, 1),
+        min_value=date(1920, 1, 1),
+        max_value=date.today(),
+        help="Used to calculate age for accurate TDEE estimation"
     )
     
-    # Display calculated TDEE
-    st.markdown("---")
-    st.markdown("### 📊 Calculated Daily Energy Needs")
-    tdee_col1, tdee_col2, tdee_col3 = st.columns(3)
+    # Calculate and display age
+    if dob:
+        today = date.today()
+        calculated_age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        st.info(f"**Age:** {calculated_age} years")
+    else:
+        calculated_age = 25
     
-    with tdee_col1:
-        st.metric("Estimated TDEE", f"{tdee:,} calories", help="Total Daily Energy Expenditure")
+    # Imperial/Metric toggle
+    use_imperial = st.toggle("Use Imperial Units (lbs, ft/in)", value=True)
     
-    with tdee_col2:
-        # Goal adjustment
-        goal_type = st.selectbox(
-            "Daily Goal",
-            options=[
-                "Maintain Weight",
-                "Lose Weight (0.5-1 lb/week)",
-                "Lose Weight (1-2 lbs/week)",
-                "Gain Weight (0.5-1 lb/week)",
-                "Gain Weight (1-2 lbs/week)"
-            ],
-            index=0
-        )
-        
-        # Calculate target calories based on goal
-        if goal_type == "Maintain Weight":
-            target_calories = int(tdee)
-        elif goal_type == "Lose Weight (0.5-1 lb/week)":
-            target_calories = int(tdee - 375)  # 0.75 lb/week average
-        elif goal_type == "Lose Weight (1-2 lbs/week)":
-            target_calories = int(tdee - 750)  # 1.5 lbs/week average
-        elif goal_type == "Gain Weight (0.5-1 lb/week)":
-            target_calories = int(tdee + 375)  # 0.75 lb/week average
-        else:  # Gain Weight (1-2 lbs/week)
-            target_calories = int(tdee + 750)  # 1.5 lbs/week average
+    # Height input
+    if use_imperial:
+        height_feet = st.number_input("Height (feet)", min_value=3, max_value=8, value=5, step=1)
+        height_inches = st.number_input("Height (inches)", min_value=0, max_value=11, value=8, step=1)
+        height_cm = (height_feet * 12 + height_inches) * 2.54
+        st.write(f"Height: {height_feet}'{height_inches}\" ({height_cm:.1f} cm)")
+    else:
+        height_cm = st.number_input("Height (cm)", min_value=120.0, max_value=250.0, value=175.0, step=0.5)
+        height_inches = height_cm / 2.54
+        height_feet = int(height_inches // 12)
+        height_in_remainder = int(height_inches % 12)
+        st.write(f"Height: {height_feet}'{height_in_remainder}\" ({height_cm:.1f} cm)")
+
+with personal_col2:
+    # Weight input
+    if use_imperial:
+        weight_lbs = st.number_input("Weight (lbs)", min_value=80.0, max_value=500.0, value=165.0, step=0.5)
+        weight_kg = weight_lbs / 2.20462
+        st.write(f"Weight: {weight_kg:.1f} kg")
+    else:
+        weight_kg = st.number_input("Weight (kg)", min_value=35.0, max_value=225.0, value=75.0, step=0.1)
+        weight_lbs = weight_kg * 2.20462
+        st.write(f"Weight: {weight_lbs:.1f} lbs")
     
-    with tdee_col3:
-        st.metric("Target Calories", f"{target_calories:,} calories", help="Adjusted for your goal")
+    # Body fat percentage
+    body_fat_pct = st.number_input(
+        "Estimated Body Fat %",
+        min_value=5.0,
+        max_value=50.0,
+        value=18.0,
+        step=0.5,
+        help="Estimate your body fat percentage (affects metabolic calculations)"
+    )
     
-    # Calculate macros based on goal and body weight
-    macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
-    target_protein = int(macros['protein'])
-    target_carbs = int(macros['carbs'])
-    target_fat = int(macros['fat'])
+    # Activity level
+    activity_level = st.selectbox(
+        "Physical Activity Level",
+        options=[
+            "Sedentary (office job, <2 hours exercise per week)",
+            "Lightly Active (light exercise 2-3 times per week)",
+            "Moderately Active (moderate exercise 3-5 times per week)",
+            "Very Active (hard exercise 6-7 times per week)",
+            "Extremely Active (very hard exercise, physical job)"
+        ],
+        index=2
+    )
     
-    # Display calculated macros
-    st.markdown("### 🥗 Recommended Macronutrients")
-    macro_col1, macro_col2, macro_col3 = st.columns(3)
+    # Workout frequency
+    workouts_per_week = st.number_input(
+        "Average Workouts per Week",
+        min_value=0,
+        max_value=14,
+        value=4,
+        step=1,
+        help="Number of structured workout sessions per week"
+    )
     
-    with macro_col1:
-        st.metric("Protein", f"{target_protein}g", f"{target_protein * 4} calories")
+    # Workout calories
+    workout_calories = st.number_input(
+        "Average Calories per Workout",
+        min_value=0,
+        max_value=1000,
+        value=350,
+        step=25,
+        help="Estimated calories burned during an average workout"
+    )
+
+# Calculate TDEE
+tdee = utils.calculate_tdee(
+    gender, weight_kg, height_cm, calculated_age, activity_level, workouts_per_week, workout_calories
+)
+
+# Display calculated TDEE
+st.markdown("---")
+st.markdown("### 📊 Calculated Daily Energy Needs")
+tdee_col1, tdee_col2, tdee_col3 = st.columns(3)
+
+with tdee_col1:
+    st.metric("Estimated TDEE", f"{tdee:,} calories", help="Total Daily Energy Expenditure")
+
+with tdee_col2:
+    # Goal adjustment
+    goal_type = st.selectbox(
+        "Daily Goal",
+        options=[
+            "Maintain Weight",
+            "Lose Weight (0.5-1 lb/week)",
+            "Lose Weight (1-2 lbs/week)",
+            "Gain Weight (0.5-1 lb/week)",
+            "Gain Weight (1-2 lbs/week)"
+        ],
+        index=0
+    )
     
-    with macro_col2:
-        st.metric("Carbs", f"{target_carbs}g", f"{target_carbs * 4} calories")
-    
-    with macro_col3:
-        st.metric("Fat", f"{target_fat}g", f"{target_fat * 9} calories")
-    
-    # Allow manual adjustment
-    st.markdown("#### 🔧 Adjust Targets (Optional)")
-    adjust_col1, adjust_col2, adjust_col3, adjust_col4 = st.columns(4)
-    
-    with adjust_col1:
-        target_calories = st.number_input("Daily Calories", min_value=1000, max_value=5000, value=int(target_calories), step=50)
-    
-    with adjust_col2:
-        target_protein = st.number_input("Protein (g)", min_value=50, max_value=300, value=int(target_protein), step=5)
-    
-    with adjust_col3:
-        target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=500, value=int(target_carbs), step=10)
-    
-    with adjust_col4:
-        target_fat = st.number_input("Fat (g)", min_value=30, max_value=200, value=int(target_fat), step=5)
+    # Calculate target calories based on goal
+    if goal_type == "Maintain Weight":
+        target_calories = int(tdee)
+    elif goal_type == "Lose Weight (0.5-1 lb/week)":
+        target_calories = int(tdee - 375)  # 0.75 lb/week average
+    elif goal_type == "Lose Weight (1-2 lbs/week)":
+        target_calories = int(tdee - 750)  # 1.5 lbs/week average
+    elif goal_type == "Gain Weight (0.5-1 lb/week)":
+        target_calories = int(tdee + 375)  # 0.75 lb/week average
+    else:  # Gain Weight (1-2 lbs/week)
+        target_calories = int(tdee + 750)  # 1.5 lbs/week average
+
+with tdee_col3:
+    st.metric("Target Calories", f"{target_calories:,} calories", help="Adjusted for your goal")
+
+# Calculate macros based on goal and body weight
+macros = utils.calculate_macros(target_calories, weight_kg, goal_type)
+target_protein = int(macros['protein'])
+target_carbs = int(macros['carbs'])
+target_fat = int(macros['fat'])
+
+# Display calculated macros with reactive updates
+st.markdown("### 🥗 Recommended Macronutrients")
+macro_col1, macro_col2, macro_col3 = st.columns(3)
+
+with macro_col1:
+    st.metric("Protein", f"{target_protein}g", f"{target_protein * 4} calories")
+
+with macro_col2:
+    st.metric("Carbs", f"{target_carbs}g", f"{target_carbs * 4} calories")
+
+with macro_col3:
+    st.metric("Fat", f"{target_fat}g", f"{target_fat * 9} calories")
+
+# Allow manual adjustment
+st.markdown("#### 🔧 Adjust Targets (Optional)")
+adjust_col1, adjust_col2, adjust_col3, adjust_col4 = st.columns(4)
+
+with adjust_col1:
+    target_calories = st.number_input("Daily Calories", min_value=1000, max_value=5000, value=int(target_calories), step=50, key="adj_calories")
+
+with adjust_col2:
+    target_protein = st.number_input("Protein (g)", min_value=50, max_value=300, value=int(target_protein), step=5, key="adj_protein")
+
+with adjust_col3:
+    target_carbs = st.number_input("Carbs (g)", min_value=50, max_value=500, value=int(target_carbs), step=10, key="adj_carbs")
+
+with adjust_col4:
+    target_fat = st.number_input("Fat (g)", min_value=30, max_value=200, value=int(target_fat), step=5, key="adj_fat")
+
+# Create meal plan form for preferences and generation
+with st.form("standalone_meal_plan_form"):
+    st.markdown("## 📋 Meal Plan Configuration")
+    st.markdown("*Configure your meal preferences and schedule for AI generation.*")
     
     # Day Schedule Planning
     st.markdown("---")
@@ -682,12 +686,16 @@ if 'generated_standalone_plan' in st.session_state:
             st.warning("⚠️ **Moderate accuracy.** Consider adjusting portions if needed.")
     
     # Create tabs for each meal
-    meal_types = list(meal_plan.keys())
-    meal_tabs = st.tabs([meal_type.title() for meal_type in meal_types])
+    if meal_plan:
+        meal_types = list(meal_plan.keys())
+        meal_tabs = st.tabs([meal_type.title() for meal_type in meal_types])
+    else:
+        st.warning("No meal plan available. Please generate a new plan.")
+        meal_types = []
     
     for i, meal_type in enumerate(meal_types):
         with meal_tabs[i]:
-            meal_data = meal_plan[meal_type]
+            meal_data = meal_plan[meal_type] if meal_plan else {}
             
             st.markdown(f"### {meal_data.get('name', meal_type.title())}")
             if 'timing' in meal_data:
@@ -739,14 +747,15 @@ if 'generated_standalone_plan' in st.session_state:
                 # Convert meal plan to format expected by PDF export
                 meal_data_for_pdf = []
                 
-                for meal_type, meal_data in meal_plan.items():
-                    meal_info = {
-                        'day': 'Today',
-                        'meal_type': meal_type,
-                        'time': meal_data.get('timing', ''),
-                        'context': 'Standalone Plan',
-                        'recipe': {
-                            'name': meal_data.get('name', meal_type.title()),
+                if meal_plan:
+                    for meal_type, meal_data in meal_plan.items():
+                        meal_info = {
+                            'day': 'Today',
+                            'meal_type': meal_type,
+                            'time': meal_data.get('timing', ''),
+                            'context': 'Standalone Plan',
+                            'recipe': {
+                                'name': meal_data.get('name', meal_type.title()),
                             'ingredients': meal_data.get('ingredients', []),
                             'instructions': meal_data.get('instructions', ''),
                             'macros': meal_data.get('total_macros', {})
@@ -785,13 +794,14 @@ if 'generated_standalone_plan' in st.session_state:
         if st.button("🛒 Generate Grocery List", use_container_width=True):
             # Extract all ingredients for grocery list
             grocery_items = []
-            for meal_type, meal_data in meal_plan.items():
-                for ingredient in meal_data.get('ingredients', []):
-                    grocery_items.append({
-                        'Item': ingredient.get('item', 'Unknown'),
-                        'Amount': ingredient.get('amount', 'N/A'),
-                        'Meal': meal_type.title()
-                    })
+            if meal_plan:
+                for meal_type, meal_data in meal_plan.items():
+                    for ingredient in meal_data.get('ingredients', []):
+                        grocery_items.append({
+                            'Item': ingredient.get('item', 'Unknown'),
+                            'Amount': ingredient.get('amount', 'N/A'),
+                            'Meal': meal_type.title()
+                        })
             
             if grocery_items:
                 st.markdown("### 🛒 Grocery List")
