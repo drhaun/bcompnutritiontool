@@ -706,10 +706,23 @@ with st.form("standalone_meal_plan_form"):
         else:
             target_calories = base_tdee
         
-        # Calculate macros using existing functions
-        protein_grams = utils.calculate_protein_grams(weight_kg, body_fat_pct, goal_type, activity_level)
-        fat_grams = utils.calculate_fat_grams(weight_kg, body_fat_pct, goal_type, gender)
-        carb_grams = utils.calculate_carb_grams(target_calories, protein_grams, fat_grams)
+        # Calculate macros using simple calculations
+        # Protein: 0.8-1.2g per kg body weight (higher for muscle gain/fat loss)
+        if "gain" in goal_type.lower():
+            protein_grams = weight_kg * 1.2
+        elif "lose" in goal_type.lower():
+            protein_grams = weight_kg * 1.1
+        else:
+            protein_grams = weight_kg * 0.9
+        
+        # Fat: 0.8-1.0g per kg body weight (25-35% of calories)
+        fat_grams = weight_kg * 0.9
+        
+        # Carbs: Remainder of calories after protein and fat
+        protein_calories = protein_grams * 4
+        fat_calories = fat_grams * 9
+        carb_calories = target_calories - protein_calories - fat_calories
+        carb_grams = max(carb_calories / 4, 50)  # Minimum 50g carbs
         
         # Display targets
         st.markdown("**Dynamic Nutrition Targets:**")
