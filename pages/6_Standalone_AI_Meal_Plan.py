@@ -90,10 +90,14 @@ VARIETY PREFERENCES:
 - Cooking variety: {diet_preferences.get('cooking_variety', 'Some variety in cooking methods')}
 
 LOCATION-BASED PREFERENCES:
-- Location Features Enabled: {diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False)}
-- Primary Zip Code: {diet_preferences.get('location_based_preferences', {}).get('primary_zip_code', 'Not specified')}
-- Favorite Restaurants: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_restaurants', [])[:3])}
-- Favorite Grocery Stores: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_grocery_stores', [])[:3])}
+- Primary Location: {diet_preferences.get('primary_zip', 'Not specified')}
+- Work Location: {diet_preferences.get('work_zip', 'Not specified')}  
+- Travel Routes: {diet_preferences.get('travel_routes', 'Not specified')}
+- Favorite Restaurants: {diet_preferences.get('favorite_restaurants', 'Not specified')}
+- Favorite Grocery Stores: {diet_preferences.get('favorite_grocery_stores', 'Not specified')}
+- Convenience Stores: {diet_preferences.get('convenience_stores', 'Not specified')}
+- Current Season: {diet_preferences.get('current_season', 'Summer')}
+- Seasonal Ingredients: {', '.join(diet_preferences.get('seasonal_ingredients', []))}
 
 ENHANCED PREFERENCES:
 - Micronutrient Focus: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('micronutrient_focus', [])[:5])}
@@ -135,13 +139,17 @@ REQUIREMENTS:
    - Current Season: {diet_preferences.get('enhanced_preferences', {}).get('current_season', 'Auto-detect')} - adjust ingredient selections accordingly
    - Ingredient Substitutions: {diet_preferences.get('enhanced_preferences', {}).get('ingredient_substitutions', True)} - offer alternatives when appropriate
    - Meal Prep Coordination: {diet_preferences.get('enhanced_preferences', {}).get('meal_prep_coordination', 'Some coordination - Share ingredients across meals')} - coordinate ingredients across meals
-10. **LOCATION-BASED MEAL SOURCING** (if enabled):
-    - Location Features: {diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False)}
-    - If location features enabled:
-      * Suggest specific restaurants from favorite list: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_restaurants', [])[:3])}
-      * Recommend macro-friendly options from these restaurants
-      * Include grocery store suggestions: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_grocery_stores', [])[:3])}
-      * Consider convenience store options for on-the-go meals
+10. **LOCATION-BASED MEAL SOURCING**:
+    - Primary Location: {diet_preferences.get('primary_zip', 'Not specified')}
+    - Work Location: {diet_preferences.get('work_zip', 'Not specified')}
+    - When location information is provided:
+      * Suggest specific restaurants from favorite list: {diet_preferences.get('favorite_restaurants', 'Not specified')}
+      * Recommend macro-friendly menu options from these restaurants
+      * Include grocery store suggestions: {diet_preferences.get('favorite_grocery_stores', 'Not specified')}
+      * Consider convenience store options for on-the-go meals: {diet_preferences.get('convenience_stores', 'Not specified')}
+      * Account for travel routes: {diet_preferences.get('travel_routes', 'Not specified')}
+      * Use seasonal ingredients based on current season: {diet_preferences.get('current_season', 'Summer')}
+      * Focus on seasonal produce: {', '.join(diet_preferences.get('seasonal_ingredients', []))}
 
 **MANDATORY JSON FORMAT** - Follow this structure exactly:
 {{
@@ -178,7 +186,18 @@ REQUIREMENTS:
   "accuracy_summary": {{"calories": "±X%", "protein": "±X%", "carbs": "±X%", "fat": "±X%"}},
   "grocery_ingredients": [
     {{"item": "ingredient name", "total_amount": "total quantity needed", "category": "protein/carbs/fats/vegetables/seasonings"}}
-  ]
+  ],
+  "location_recommendations": {{
+    "restaurant_options": [
+      {{"restaurant": "name from favorite list", "menu_item": "macro-friendly option", "macros": "approximate macros"}}
+    ],
+    "grocery_stores": [
+      {{"store": "name from favorite list", "shopping_tips": "specific tips for this store"}}
+    ],
+    "convenience_options": [
+      {{"store": "name from favorite list", "quick_options": "portable/quick meal options"}}
+    ]
+  }}
 }}
 
 **CRITICAL ACCURACY REQUIREMENTS - MUST BE FOLLOWED**:
@@ -737,7 +756,7 @@ with st.form("standalone_meal_plan_form"):
     st.markdown("*Customize your food preferences and dietary requirements for precise meal planning.*")
     
     # Use tabs for better organization
-    diet_tab1, diet_tab2, diet_tab3, diet_tab4 = st.tabs(["🚫 Restrictions & Allergies", "🍽️ Food Preferences", "🌶️ Flavors & Seasonings", "📦 Meal Sourcing"])
+    diet_tab1, diet_tab2, diet_tab3, diet_tab4, diet_tab5 = st.tabs(["🚫 Restrictions & Allergies", "🍽️ Food Preferences", "🌶️ Flavors & Seasonings", "📦 Meal Sourcing", "📍 Location & Restaurants"])
     
     with diet_tab1:
         st.markdown("### 🚫 Dietary Restrictions & Allergies")
@@ -871,6 +890,92 @@ with st.form("standalone_meal_plan_form"):
                 "Low", "Moderate", "High", "Very High"
             ], index=2, key="standalone_grocery_shopping")
     
+    with diet_tab5:
+        st.markdown("### 📍 Location & Restaurant Preferences")
+        st.markdown("*Help us recommend location-appropriate meals and nearby restaurant options*")
+        
+        location_col1, location_col2 = st.columns(2)
+        
+        with location_col1:
+            st.markdown("**Your Location**")
+            primary_zip = st.text_input(
+                "Primary Location (Zip Code)",
+                placeholder="e.g., 10001",
+                help="For seasonal ingredients and local restaurant recommendations",
+                key="standalone_primary_zip"
+            )
+            
+            work_zip = st.text_input(
+                "Work Location (Zip Code)",
+                placeholder="e.g., 10002",
+                help="For work lunch recommendations",
+                key="standalone_work_zip"
+            )
+            
+            st.markdown("**Travel Routes**")
+            travel_routes = st.text_area(
+                "Common travel routes or areas you visit",
+                placeholder="e.g., Between home and gym (Downtown), Weekend trips to suburbs",
+                help="Helps suggest portable meals and restaurant options along your routes",
+                key="standalone_travel_routes"
+            )
+        
+        with location_col2:
+            st.markdown("**Favorite Local Spots**")
+            favorite_restaurants = st.text_area(
+                "Favorite restaurants or food places",
+                placeholder="e.g., Chipotle, local pizza place, farmer's market",
+                help="We'll suggest similar options or menu items",
+                key="standalone_favorite_restaurants"
+            )
+            
+            favorite_grocery_stores = st.text_area(
+                "Favorite grocery stores",
+                placeholder="e.g., Whole Foods, Trader Joe's, local market",
+                help="For ingredient availability and shopping list optimization",
+                key="standalone_favorite_grocery_stores"
+            )
+            
+            convenience_stores = st.text_area(
+                "Nearby convenience stores",
+                placeholder="e.g., 7-Eleven, CVS, campus store",
+                help="For quick meal options and emergency snacks",
+                key="standalone_convenience_stores"
+            )
+        
+        # Seasonal and regional preferences
+        st.markdown("**Seasonal & Regional Preferences**")
+        seasonal_col1, seasonal_col2 = st.columns(2)
+        
+        with seasonal_col1:
+            # Auto-detect current season
+            import datetime
+            current_month = datetime.datetime.now().month
+            if current_month in [12, 1, 2]:
+                default_season = "Winter"
+            elif current_month in [3, 4, 5]:
+                default_season = "Spring"
+            elif current_month in [6, 7, 8]:
+                default_season = "Summer"
+            else:
+                default_season = "Fall"
+            
+            current_season = st.selectbox(
+                "Current season focus",
+                ["Spring", "Summer", "Fall", "Winter"],
+                index=["Spring", "Summer", "Fall", "Winter"].index(default_season),
+                key="standalone_current_season"
+            )
+        
+        with seasonal_col2:
+            seasonal_ingredients = st.multiselect(
+                "Preferred seasonal ingredients",
+                ["Citrus fruits", "Root vegetables", "Leafy greens", "Berries", "Stone fruits", 
+                 "Squash", "Apples", "Herbs", "Tomatoes", "Peppers", "Corn", "Melons"],
+                default=["Leafy greens", "Herbs"],
+                key="standalone_seasonal_ingredients"
+            )
+    
     # Collect all diet preferences for comprehensive AI prompt
     diet_preferences = {
         'dietary_restrictions': dietary_restrictions,
@@ -887,7 +992,15 @@ with st.form("standalone_meal_plan_form"):
         'home_cooking_interest': home_cooking_interest,
         'meal_prep_interest': meal_prep_interest,
         'meal_delivery_interest': meal_delivery_interest,
-        'grocery_shopping_interest': grocery_shopping_interest
+        'grocery_shopping_interest': grocery_shopping_interest,
+        'primary_zip': primary_zip,
+        'work_zip': work_zip,
+        'travel_routes': travel_routes,
+        'favorite_restaurants': favorite_restaurants,
+        'favorite_grocery_stores': favorite_grocery_stores,
+        'convenience_stores': convenience_stores,
+        'current_season': current_season,
+        'seasonal_ingredients': seasonal_ingredients
     }
     
     # Calculate energy needs based on selections
@@ -1618,8 +1731,8 @@ if 'generated_standalone_plan' in st.session_state:
             grocery_items = []
             if meal_plan and 'meals' in meal_plan:
                 for meal in meal_plan['meals']:
-                    if isinstance(meal, dict) and 'recipe' in meal:
-                        for ingredient in meal['recipe'].get('ingredients', []):
+                    if isinstance(meal, dict) and 'ingredients' in meal:
+                        for ingredient in meal['ingredients']:
                             grocery_items.append({
                                 'Item': ingredient.get('item', 'Unknown'),
                                 'Amount': ingredient.get('amount', 'N/A'),
@@ -1634,6 +1747,40 @@ if 'generated_standalone_plan' in st.session_state:
                 # Text format for copying
                 grocery_text = "\n".join([f"• {item['Item']}: {item['Amount']}" for item in grocery_items])
                 st.text_area("Copy your grocery list:", grocery_text, height=200)
+                
+                # Add location-based recommendations if available
+                if meal_plan and 'location_recommendations' in meal_plan:
+                    location_recs = meal_plan['location_recommendations']
+                    
+                    if location_recs:
+                        st.markdown("### 📍 Location-Based Recommendations")
+                        
+                        # Restaurant options
+                        if 'restaurant_options' in location_recs and location_recs['restaurant_options']:
+                            st.markdown("#### 🍽️ Restaurant Options")
+                            for restaurant in location_recs['restaurant_options']:
+                                st.markdown(f"• **{restaurant.get('restaurant', 'N/A')}**: {restaurant.get('menu_item', 'N/A')} - {restaurant.get('macros', 'N/A')}")
+                        
+                        # Grocery store recommendations
+                        if 'grocery_stores' in location_recs and location_recs['grocery_stores']:
+                            st.markdown("#### 🏪 Grocery Store Tips")
+                            for store in location_recs['grocery_stores']:
+                                st.markdown(f"• **{store.get('store', 'N/A')}**: {store.get('shopping_tips', 'N/A')}")
+                        
+                        # Convenience store options
+                        if 'convenience_options' in location_recs and location_recs['convenience_options']:
+                            st.markdown("#### 🏬 Convenience Options")
+                            for conv in location_recs['convenience_options']:
+                                st.markdown(f"• **{conv.get('store', 'N/A')}**: {conv.get('quick_options', 'N/A')}")
+                
+                # Add seasonal ingredient recommendations
+                if 'standalone_preferences' in st.session_state:
+                    prefs = st.session_state.standalone_preferences
+                    if prefs.get('seasonal_ingredients') and prefs.get('current_season'):
+                        st.markdown("### 🌱 Seasonal Ingredient Focus")
+                        st.info(f"**Current Season**: {prefs.get('current_season', 'Summer')} - Look for seasonal produce like {', '.join(prefs.get('seasonal_ingredients', []))}")
+            else:
+                st.info("No grocery items found. Please generate a meal plan first.")
     
     with export_col3:
         if st.button("🔄 Generate New Plan", use_container_width=True):

@@ -1412,3 +1412,18 @@ def load_data():
     
     except Exception as e:
         print(f"Error loading data: {e}")  # Use print instead of st.error to avoid UI issues
+
+def calculate_protein_grams(calories, percentage):
+    """Calculate protein grams from calories and percentage"""
+    protein_calories = calories * (percentage / 100)
+    return protein_calories / 4  # 4 calories per gram of protein
+
+def calculate_carb_grams(calories, percentage):
+    """Calculate carb grams from calories and percentage"""
+    carb_calories = calories * (percentage / 100)
+    return carb_calories / 4  # 4 calories per gram of carbs
+
+def calculate_fat_grams(calories, percentage):
+    """Calculate fat grams from calories and percentage"""
+    fat_calories = calories * (percentage / 100)
+    return fat_calories / 9  # 9 calories per gram of fat
