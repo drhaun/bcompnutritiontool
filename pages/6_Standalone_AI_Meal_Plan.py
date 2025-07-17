@@ -24,7 +24,7 @@ def get_openai_client():
         pass
     return None
 
-def generate_standalone_meal_plan(meal_targets, diet_preferences, meal_config, openai_client):
+def generate_standalone_meal_plan(daily_totals, diet_preferences, meal_config, openai_client, meal_targets=None):
     """Generate complete AI meal plan using OpenAI for standalone mode"""
     try:
         user_profile = meal_config.get('user_profile', {})
@@ -44,7 +44,7 @@ USER PROFILE:
 - Goal: {user_profile.get('goal_type', 'N/A')}
 
 NUTRITION TARGETS:
-{json.dumps(meal_targets, indent=2)}
+{json.dumps(daily_totals, indent=2)}
 
 DIETARY PREFERENCES & RESTRICTIONS:
 - Dietary restrictions: {diet_preferences.get('dietary_restrictions', [])}
@@ -196,16 +196,16 @@ REQUIREMENTS:
         # Add specific macro targets to the beginning of the prompt for extra emphasis
         enhanced_prompt = f"""
 **MACRO TARGETS - MUST HIT EXACTLY (±3% tolerance)**:
-- Calories: {meal_targets['calories']} (Range: {meal_targets['calories'] * 0.97:.0f} - {meal_targets['calories'] * 1.03:.0f})
-- Protein: {meal_targets['protein']}g (Range: {meal_targets['protein'] * 0.97:.0f} - {meal_targets['protein'] * 1.03:.0f}g)
-- Carbs: {meal_targets['carbs']}g (Range: {meal_targets['carbs'] * 0.97:.0f} - {meal_targets['carbs'] * 1.03:.0f}g)
-- Fat: {meal_targets['fat']}g (Range: {meal_targets['fat'] * 0.97:.0f} - {meal_targets['fat'] * 1.03:.0f}g)
+- Calories: {daily_totals['calories']} (Range: {daily_totals['calories'] * 0.97:.0f} - {daily_totals['calories'] * 1.03:.0f})
+- Protein: {daily_totals['protein']}g (Range: {daily_totals['protein'] * 0.97:.0f} - {daily_totals['protein'] * 1.03:.0f}g)
+- Carbs: {daily_totals['carbs']}g (Range: {daily_totals['carbs'] * 0.97:.0f} - {daily_totals['carbs'] * 1.03:.0f}g)
+- Fat: {daily_totals['fat']}g (Range: {daily_totals['fat'] * 0.97:.0f} - {daily_totals['fat'] * 1.03:.0f}g)
 
 **PORTION SIZE GUIDELINES TO HIT TARGETS**:
-- For {meal_targets['calories']} calories: Use large portions, add oils, nuts, and calorie-dense ingredients
-- For {meal_targets['protein']}g protein: Use 6-8oz meat portions, add protein powder, Greek yogurt
-- For {meal_targets['carbs']}g carbs: Use 1-2 cups rice/pasta, multiple fruits, large oat portions
-- For {meal_targets['fat']}g fat: Use 2-4 tbsp oils, nuts, avocado, nut butters
+- For {daily_totals['calories']} calories: Use large portions, add oils, nuts, and calorie-dense ingredients
+- For {daily_totals['protein']}g protein: Use 6-8oz meat portions, add protein powder, Greek yogurt
+- For {daily_totals['carbs']}g carbs: Use 1-2 cups rice/pasta, multiple fruits, large oat portions
+- For {daily_totals['fat']}g fat: Use 2-4 tbsp oils, nuts, avocado, nut butters
 
 {prompt}
         """
@@ -224,7 +224,7 @@ REQUIREMENTS:
         meal_plan = json.loads(response.choices[0].message.content)
         
         # Validate macro accuracy and provide feedback
-        if validate_standalone_meal_plan_accuracy(meal_plan, meal_targets):
+        if validate_standalone_meal_plan_accuracy(meal_plan, daily_totals):
             return meal_plan
         else:
             st.warning("⚠️ Meal plan generated but may have macro accuracy issues. Check the results carefully.")
@@ -520,9 +520,9 @@ with st.form("standalone_meal_plan_form"):
             "Very Active (physical job, lots of movement)"
         ], index=2)
         
-        # Individual meal contexts
+        # Dynamic meal contexts based on user selections
         st.markdown("**Meal Contexts**")
-        st.write("Set the context for each meal:")
+        st.write("Set the context for each meal based on your selections:")
         
         context_options = [
             "Home cooking", "Meal prep", "Quick & easy", "Comfort food",
@@ -530,17 +530,35 @@ with st.form("standalone_meal_plan_form"):
             "On-the-go", "Work meal", "Post-workout", "Pre-workout"
         ]
         
-        breakfast_context = st.selectbox("Breakfast Context", context_options, index=0)
-        lunch_context = st.selectbox("Lunch Context", context_options, index=2)
-        dinner_context = st.selectbox("Dinner Context", context_options, index=0)
-        snack_context = st.selectbox("Snack Context", context_options, index=3)
+        meal_contexts = {}
         
-        meal_contexts = {
-            'breakfast': breakfast_context,
-            'lunch': lunch_context,
-            'dinner': dinner_context,
-            'snack': snack_context
-        }
+        # Create meal context selectors based on number of meals
+        meal_names = ["First Meal", "Second Meal", "Third Meal", "Fourth Meal"]
+        for i in range(num_meals):
+            meal_key = f"meal_{i+1}"
+            meal_name = meal_names[i] if i < len(meal_names) else f"Meal {i+1}"
+            
+            context = st.selectbox(
+                f"{meal_name} Context",
+                context_options,
+                index=0 if i == 0 else 2,  # First meal defaults to "Home cooking", others to "Quick & easy"
+                key=f"context_{meal_key}"
+            )
+            meal_contexts[meal_key] = context
+        
+        # Create snack context selectors based on number of snacks
+        snack_names = ["First Snack", "Second Snack", "Third Snack"]
+        for i in range(num_snacks):
+            snack_key = f"snack_{i+1}"
+            snack_name = snack_names[i] if i < len(snack_names) else f"Snack {i+1}"
+            
+            context = st.selectbox(
+                f"{snack_name} Context",
+                context_options,
+                index=3,  # Defaults to "Comfort food"
+                key=f"context_{snack_key}"
+            )
+            meal_contexts[snack_key] = context
     
     # Diet Preferences
     st.markdown("---")
@@ -953,19 +971,40 @@ with st.form("standalone_meal_plan_form"):
             st.error("OpenAI API key not found. Please add your OPENAI_API_KEY to generate AI meal plans.")
             st.stop()
         
-        # Prepare data for AI generation
+        # Dynamic meal distribution based on user selections
         total_meals = num_meals + num_snacks
         
-        if total_meals == 3:  # 2 meals + 1 snack
-            meal_distribution = {'breakfast': 0.35, 'lunch': 0.45, 'snack': 0.20}
-        elif total_meals == 4:  # 3 meals + 1 snack
-            meal_distribution = {'breakfast': 0.25, 'lunch': 0.35, 'dinner': 0.30, 'snack': 0.10}
-        elif total_meals == 5:  # 3 meals + 2 snacks
-            meal_distribution = {'breakfast': 0.25, 'lunch': 0.30, 'dinner': 0.30, 'snack1': 0.08, 'snack2': 0.07}
-        else:  # Default to 4 meals
-            meal_distribution = {'breakfast': 0.25, 'lunch': 0.35, 'dinner': 0.30, 'snack': 0.10}
+        # Calculate meal distribution percentages dynamically
+        meal_distribution = {}
         
-        # Calculate meal targets
+        # Define base percentages for meals (larger portions)
+        if num_meals == 2:
+            meal_percentages = [0.45, 0.45]  # Two larger meals
+        elif num_meals == 3:
+            meal_percentages = [0.30, 0.40, 0.30]  # Traditional three meals
+        elif num_meals == 4:
+            meal_percentages = [0.25, 0.30, 0.30, 0.15]  # Four smaller meals
+        else:
+            # For any number of meals, distribute roughly equally
+            base_percentage = 0.85 / num_meals  # 85% for meals, 15% for snacks
+            meal_percentages = [base_percentage] * num_meals
+        
+        # Add meals to distribution
+        for i in range(num_meals):
+            meal_key = f"meal_{i+1}"
+            meal_distribution[meal_key] = meal_percentages[i]
+        
+        # Calculate remaining percentage for snacks
+        remaining_percentage = 1.0 - sum(meal_percentages)
+        
+        # Distribute remaining percentage among snacks
+        if num_snacks > 0:
+            snack_percentage = remaining_percentage / num_snacks
+            for i in range(num_snacks):
+                snack_key = f"snack_{i+1}"
+                meal_distribution[snack_key] = snack_percentage
+        
+        # Calculate meal targets based on dynamic distribution
         meal_targets = {}
         for meal_type, percentage in meal_distribution.items():
             meal_targets[meal_type] = {
@@ -1058,9 +1097,17 @@ with st.form("standalone_meal_plan_form"):
             }
         }
         
+        # Create daily totals from meal targets for AI function
+        daily_totals = {
+            'calories': target_calories,
+            'protein': target_protein,
+            'carbs': target_carbs,
+            'fat': target_fat
+        }
+        
         with st.spinner("🤖 Creating your personalized daily meal plan..."):
             meal_plan = generate_standalone_meal_plan(
-                meal_targets, diet_preferences, meal_config, openai_client
+                daily_totals, diet_preferences, meal_config, openai_client, meal_targets
             )
             
             if meal_plan:
