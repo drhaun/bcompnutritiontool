@@ -217,6 +217,33 @@ REQUIREMENTS:
 14. Show individual meal targets vs actual to demonstrate precision
 """
 
+        # Add location-based context if enabled
+        location_context = ""
+        if diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False):
+            location_prefs = diet_preferences['location_based_preferences']
+            if location_prefs.get('primary_zip_code'):
+                location_context += f"\n**LOCATION-BASED PREFERENCES**:\n"
+                location_context += f"- Primary Location: {location_prefs['primary_zip_code']}\n"
+                if location_prefs.get('work_zip_code'):
+                    location_context += f"- Work Location: {location_prefs['work_zip_code']}\n"
+                if location_prefs.get('favorite_restaurants'):
+                    location_context += f"- Favorite Restaurants: {', '.join(location_prefs['favorite_restaurants'])}\n"
+                if location_prefs.get('favorite_grocery_stores'):
+                    location_context += f"- Favorite Grocery Stores: {', '.join(location_prefs['favorite_grocery_stores'])}\n"
+                if location_prefs.get('convenience_stores'):
+                    location_context += f"- Convenience Stores: {', '.join(location_prefs['convenience_stores'])}\n"
+                location_context += f"- IMPORTANT: Include location_recommendations in your JSON response with specific restaurant menu items from the user's favorite restaurants that match their macro targets\n"
+        
+        # Add seasonal context
+        seasonal_context = ""
+        if diet_preferences.get('enhanced_preferences', {}).get('seasonal_ingredients', False):
+            enhanced_prefs = diet_preferences['enhanced_preferences']
+            seasonal_context += f"\n**SEASONAL PREFERENCES**:\n"
+            seasonal_context += f"- Current Season: {enhanced_prefs.get('current_season', 'Auto-detect')}\n"
+            if enhanced_prefs.get('preferred_produce_seasons'):
+                seasonal_context += f"- Preferred Seasonal Produce: {', '.join(enhanced_prefs['preferred_produce_seasons'])}\n"
+            seasonal_context += f"- Use seasonal ingredients appropriate for the current season\n"
+
         # Add specific macro targets with enhanced precision requirements
         enhanced_prompt = f"""
 **MACRO TARGETS - MUST HIT EXACTLY (±1% tolerance MAXIMUM)**:
@@ -239,13 +266,16 @@ REQUIREMENTS:
 - Sum all individual ingredient macros to verify totals
 - If total is outside ±1% range, adjust portions immediately
 
+{location_context}
+{seasonal_context}
+
 {prompt}
         """
         
         response = openai_client.chat.completions.create(
             model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
             messages=[
-                {"role": "system", "content": "You are a professional nutritionist and meal planning expert with expertise in precise macro calculations. You MUST create meal plans that exactly match the specified macro targets within ±3% tolerance. If the calculated totals are below targets, you MUST increase ingredient portions aggressively. Add oils, nuts, larger protein portions, and calorie-dense ingredients to hit the exact targets. NEVER submit a meal plan below the target ranges. Prioritize macro accuracy above all other considerations."},
+                {"role": "system", "content": "You are a professional nutritionist and meal planning expert with expertise in precise macro calculations. You MUST create meal plans that exactly match the specified macro targets within ±1% tolerance. If the calculated totals are below targets, you MUST increase ingredient portions aggressively. Add oils, nuts, larger protein portions, and calorie-dense ingredients to hit the exact targets. NEVER submit a meal plan below the target ranges. Prioritize macro accuracy above all other considerations."},
                 {"role": "user", "content": enhanced_prompt}
             ],
             response_format={"type": "json_object"},
@@ -1384,22 +1414,22 @@ with st.form("standalone_meal_plan_form"):
             'weekly_structure': 'Mix of routine and variety',
             'cooking_variety': 'Some variety in cooking methods',
             'location_based_preferences': {
-                'enable_location_features': False,
-                'primary_zip_code': '',
-                'work_zip_code': '',
-                'favorite_restaurants': [],
-                'favorite_grocery_stores': [],
-                'convenience_stores': [],
-                'travel_routes': []
+                'enable_location_features': enable_location_features,
+                'primary_zip_code': primary_zip_code,
+                'work_zip_code': work_zip_code,
+                'favorite_restaurants': favorite_restaurants,
+                'favorite_grocery_stores': favorite_grocery_stores,
+                'convenience_stores': convenience_stores,
+                'travel_routes': travel_routes
             },
             'enhanced_preferences': {
-                'micronutrient_focus': [],
-                'seasonal_ingredients': True,
-                'current_season': 'Auto-detect',
+                'micronutrient_focus': micronutrient_focus,
+                'seasonal_ingredients': seasonal_ingredients,
+                'current_season': current_season,
                 'ingredient_substitutions': True,
                 'meal_prep_coordination': 'Some coordination - Share ingredients across meals',
                 'local_cuisine_integration': False,
-                'preferred_produce_seasons': []
+                'preferred_produce_seasons': preferred_produce_seasons
             }
         }
         
