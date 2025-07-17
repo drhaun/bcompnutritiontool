@@ -250,6 +250,22 @@ REQUIREMENTS:
                     location_context += f"- Convenience Stores: {', '.join(location_prefs['convenience_stores'])}\n"
                 location_context += f"- IMPORTANT: Include location_recommendations in your JSON response with specific restaurant menu items from the user's favorite restaurants that match their macro targets\n"
         
+        # Add flavor and seasoning context for taste preferences
+        flavor_context = ""
+        if diet_preferences.get('flavor_preferences'):
+            flavor_prefs = diet_preferences['flavor_preferences']
+            flavor_context += f"\n**FLAVOR & SEASONING PREFERENCES**:\n"
+            flavor_context += f"- Spice Level: {flavor_prefs.get('spice_level', 'Medium')}\n"
+            if flavor_prefs.get('preferred_seasonings'):
+                flavor_context += f"- Preferred Seasonings: {', '.join(flavor_prefs['preferred_seasonings'])}\n"
+            if flavor_prefs.get('flavor_profiles'):
+                flavor_context += f"- Flavor Profiles: {', '.join(flavor_prefs['flavor_profiles'])}\n"
+            if flavor_prefs.get('cooking_enhancers'):
+                flavor_context += f"- Cooking Enhancers: {', '.join(flavor_prefs['cooking_enhancers'])}\n"
+            flavor_context += f"- CRITICAL: Use these seasonings and flavors in ALL recipes to match user taste preferences\n"
+            flavor_context += f"- Include specific seasoning instructions in cooking steps\n"
+            flavor_context += f"- Make meals taste amazing using user's preferred flavors\n"
+
         # Add seasonal context
         seasonal_context = ""
         if diet_preferences.get('enhanced_preferences', {}).get('seasonal_ingredients', False):
@@ -290,6 +306,7 @@ REQUIREMENTS:
 - NEVER submit a plan that's outside the acceptable ranges
 
 {supplementation_context}
+{flavor_context}
 {location_context}
 {seasonal_context}
 
@@ -1865,6 +1882,10 @@ if 'generated_standalone_plan' in st.session_state:
                     'plan_type': 'Standalone Meal Plan',
                     'generation_date': dt.now().strftime('%B %d, %Y')
                 }
+                
+                # Add daily totals to user_info for PDF display
+                if meal_plan and 'daily_totals' in meal_plan:
+                    user_info['daily_totals'] = meal_plan['daily_totals']
                 
                 pdf_path = export_meal_plan_pdf(meal_data_for_pdf, user_info)
                 

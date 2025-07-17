@@ -146,11 +146,25 @@ class FitomicsPDF(FPDF):
                         self.cell(0, 6, f"Target Weight: {goals['target_weight_lbs']} lbs", 0, 1, 'L')
                     if goals.get('target_bf'):
                         self.cell(0, 6, f"Target Body Fat: {goals['target_bf']}%", 0, 1, 'L')
-        # Show average daily amounts instead of weekly totals
-        avg_calories = plan_info.get('total_calories', 0) / 7 if plan_info.get('total_calories') else 0
-        avg_protein = plan_info.get('total_protein', 0) / 7 if plan_info.get('total_protein') else 0
-        avg_carbs = plan_info.get('total_carbs', 0) / 7 if plan_info.get('total_carbs') else 0
-        avg_fat = plan_info.get('total_fat', 0) / 7 if plan_info.get('total_fat') else 0
+        # Show daily totals from meal plan data
+        if user_info and user_info.get('daily_totals'):
+            daily_totals = user_info['daily_totals']
+            avg_calories = daily_totals.get('calories', 0)
+            avg_protein = daily_totals.get('protein', 0)
+            avg_carbs = daily_totals.get('carbs', 0)
+            avg_fat = daily_totals.get('fat', 0)
+        elif plan_info.get('daily_totals'):
+            daily_totals = plan_info['daily_totals']
+            avg_calories = daily_totals.get('calories', 0)
+            avg_protein = daily_totals.get('protein', 0)
+            avg_carbs = daily_totals.get('carbs', 0)
+            avg_fat = daily_totals.get('fat', 0)
+        else:
+            # Fallback to calculated averages if daily_totals not available
+            avg_calories = plan_info.get('total_calories', 0) / 7 if plan_info.get('total_calories') else 0
+            avg_protein = plan_info.get('total_protein', 0) / 7 if plan_info.get('total_protein') else 0
+            avg_carbs = plan_info.get('total_carbs', 0) / 7 if plan_info.get('total_carbs') else 0
+            avg_fat = plan_info.get('total_fat', 0) / 7 if plan_info.get('total_fat') else 0
         
         self.cell(0, 6, f"Average Daily Calories: {avg_calories:.0f}", 0, 1, 'L')
         self.cell(0, 6, f"Average Daily Protein: {avg_protein:.1f}g", 0, 1, 'L')
