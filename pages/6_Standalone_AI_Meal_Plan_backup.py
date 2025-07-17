@@ -674,49 +674,121 @@ with st.form("standalone_meal_plan_form"):
 
 
         
-        # Show meal contexts summary
-        st.markdown("**Meal Contexts Configured:**")
-        for key, context in meal_contexts.items():
-            meal_num = key.replace("meal_", "").replace("snack_", "")
-            if "meal" in key:
-                st.write(f"• Meal {meal_num}: {context}")
-            else:
-                st.write(f"• Snack {meal_num}: {context}")
+        # Process meals with detailed context
+        for i in range(num_meals):
+            meal_name = f"{meal_names[i]} of Day"
+            meal_key = f"meal_{i+1}"
+            
+            with st.expander(f"🍽️ **{meal_name}** Configuration", expanded=False):
+                
+                # 1. Meal Prep Preference
+                st.write("**How would you prefer to prepare this meal?**")
+                prep_type = st.radio(
+                    "Preparation method:",
+                    options=[
+                        "🧑‍🍳 Cook from scratch",
+                        "🍱 Use leftovers/pre-prepped ingredients", 
+                        "🥡 Pickup or takeout",
+                        "🚚 Meal delivery (ready-to-eat)",
+                        "❌ Skip this meal"
+                    ],
+                    key=f"prep_type_{meal_key}",
+                    horizontal=True
+                )
+                
+                # Conditional prep time question
+                prep_time = None
+                if prep_type in ["🧑‍🍳 Cook from scratch", "🍱 Use leftovers/pre-prepped ingredients"]:
+                    st.write("**How much time would you like to spend preparing this meal?**")
+                    prep_time = st.radio(
+                        "Preparation time:",
+                        options=["⏱️ <5 minutes", "⏱️ 5–15 minutes", "⏱️ 15–30 minutes", "⏱️ 30+ minutes"],
+                        key=f"prep_time_{meal_key}",
+                        horizontal=True
+                    )
+                
+                # 2. Location
+                st.write("**Where do you typically eat this meal?**")
+                location = st.multiselect(
+                    "Location(s):",
+                    options=["🏠 At home", "🧑‍💼 At work", "🍽️ At a restaurant", "🚗 On-the-go (in transit, gym, car, etc.)"],
+                    key=f"location_{meal_key}",
+                    help="Select one or multiple locations"
+                )
+                
+                # 3. Time range
+                st.write("**What time do you typically eat this meal?**")
+                time_range_options = [
+                    "Early Morning (5:00-8:00 AM)",
+                    "Morning (8:00-11:00 AM)", 
+                    "Midday (11:00 AM-2:00 PM)",
+                    "Afternoon (2:00-5:00 PM)",
+                    "Evening (5:00-8:00 PM)",
+                    "Night (8:00-11:00 PM)"
+                ]
+                time_range = st.selectbox(
+                    "Typical time range:",
+                    time_range_options,
+                    index=min(i, len(time_range_options)-1),
+                    key=f"time_range_{meal_key}"
+                )
+                
+                # Store detailed context
+                st.session_state.standalone_meal_contexts_detailed[meal_key] = {
+                    "meal": meal_name,
+                    "prep_type": prep_type.split(" ", 1)[1] if prep_type else None,
+                    "prep_time": prep_time.split(" ", 1)[1] if prep_time else None,
+                    "location": [loc.split(" ", 1)[1] for loc in location] if location else [],
+                    "time_range": time_range
+                }
+                
+                # Create simplified context for AI
+                if prep_type == "🧑‍🍳 Cook from scratch":
+                    context = f"Home cooking - {prep_time}" if prep_time else "Home cooking"
+                elif prep_type == "🍱 Use leftovers/pre-prepped ingredients":
+                    context = "Meal prep/leftovers"
+                elif prep_type == "🥡 Pickup or takeout":
+                    context = "Takeout/restaurant"
+                elif prep_type == "🚚 Meal delivery (ready-to-eat)":
+                    context = "Meal delivery"
+                else:
+                    context = "Quick & easy"
+                
+                meal_contexts[meal_key] = context
         
-        # Show workout preferences if configured
-        if has_workout and pre_workout_preference:
-            st.markdown("**Workout Meal Preferences:**")
-            st.write(f"• Pre-workout: {pre_workout_preference}")
-            st.write(f"• Post-workout: {post_workout_preference}")
-        
-        # Calculate and show nutrition targets
-        base_tdee = utils.calculate_tdee(gender, weight_kg, height_cm, calculated_age, activity_level)
-        
-        # Adjust calories based on goal
-        if goal_type == "Maintain Weight":
-            target_calories = base_tdee
-        elif goal_type == "Lose Weight (0.5-1 lb/week)":
-            target_calories = base_tdee - 375
-        elif goal_type == "Lose Weight (1-2 lbs/week)":
-            target_calories = base_tdee - 750
-        elif goal_type == "Gain Weight (0.5-1 lb/week)":
-            target_calories = base_tdee + 375
-        elif goal_type == "Gain Weight (1-2 lbs/week)":
-            target_calories = base_tdee + 750
-        else:
-            target_calories = base_tdee
-        
-        # Calculate macros using existing functions
-        protein_grams = utils.calculate_protein_grams(weight_kg, body_fat_pct, goal_type, activity_level)
-        fat_grams = utils.calculate_fat_grams(weight_kg, body_fat_pct, goal_type, gender)
-        carb_grams = utils.calculate_carb_grams(target_calories, protein_grams, fat_grams)
-        
-        # Display targets
-        st.markdown("**Dynamic Nutrition Targets:**")
-        st.write(f"• **Calories:** {target_calories:,.0f} cal")
-        st.write(f"• **Protein:** {protein_grams:.0f}g")
-        st.write(f"• **Carbs:** {carb_grams:.0f}g")  
-        st.write(f"• **Fat:** {fat_grams:.0f}g")
+        # Process snacks with simplified context
+        snack_names = ["First Snack", "Second Snack", "Third Snack"]
+        for i in range(num_snacks):
+            snack_key = f"snack_{i+1}"
+            snack_name = snack_names[i] if i < len(snack_names) else f"Snack {i+1}"
+            
+            with st.expander(f"🍿 **{snack_name}** Configuration", expanded=False):
+                st.write("**What type of snack do you prefer?**")
+                snack_type = st.selectbox(
+                    "Snack preference:",
+                    options=[
+                        "🥜 Protein-focused (nuts, protein bar, Greek yogurt)",
+                        "🍎 Fresh & light (fruit, vegetables, light snacks)",
+                        "🍪 Comfort food (cookies, crackers, comfort snacks)",
+                        "🥤 Liquid/shake (protein shake, smoothie, drink)",
+                        "🏃‍♂️ Pre/post workout (energy bar, banana, recovery snack)"
+                    ],
+                    key=f"snack_type_{snack_key}"
+                )
+                
+                # Create context for AI
+                if "Protein-focused" in snack_type:
+                    context = "Protein snack"
+                elif "Fresh & light" in snack_type:
+                    context = "Healthy snack"
+                elif "Comfort food" in snack_type:
+                    context = "Comfort snack"
+                elif "Liquid/shake" in snack_type:
+                    context = "Liquid snack"
+                else:
+                    context = "Workout snack"
+                
+                meal_contexts[snack_key] = context
     
     # Comprehensive Diet Preferences (matching Diet Preferences page structure)
     st.markdown("---")
