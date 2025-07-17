@@ -1414,22 +1414,22 @@ with st.form("standalone_meal_plan_form"):
             'weekly_structure': 'Mix of routine and variety',
             'cooking_variety': 'Some variety in cooking methods',
             'location_based_preferences': {
-                'enable_location_features': enable_location_features,
-                'primary_zip_code': primary_zip_code,
-                'work_zip_code': work_zip_code,
-                'favorite_restaurants': favorite_restaurants,
-                'favorite_grocery_stores': favorite_grocery_stores,
-                'convenience_stores': convenience_stores,
-                'travel_routes': travel_routes
+                'enable_location_features': bool(primary_zip.strip()) if primary_zip else False,
+                'primary_zip_code': primary_zip,
+                'work_zip_code': work_zip,
+                'favorite_restaurants': favorite_restaurants.split(',') if favorite_restaurants else [],
+                'favorite_grocery_stores': favorite_grocery_stores.split(',') if favorite_grocery_stores else [],
+                'convenience_stores': convenience_stores.split(',') if convenience_stores else [],
+                'travel_routes': travel_routes.split(',') if travel_routes else []
             },
             'enhanced_preferences': {
-                'micronutrient_focus': micronutrient_focus,
+                'micronutrient_focus': [],
                 'seasonal_ingredients': seasonal_ingredients,
                 'current_season': current_season,
                 'ingredient_substitutions': True,
                 'meal_prep_coordination': 'Some coordination - Share ingredients across meals',
                 'local_cuisine_integration': False,
-                'preferred_produce_seasons': preferred_produce_seasons
+                'preferred_produce_seasons': seasonal_ingredients
             }
         }
         
