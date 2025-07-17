@@ -102,6 +102,20 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 17, 2025 - HYDRATION CALCULATOR INTEGRATION: Science-Based Fluid Needs Assessment**:
+  - Added comprehensive hydration calculator as page 10 in the workflow
+  - Calculates personalized fluid needs based on body weight, exercise intensity, and duration
+  - Includes sweat rate estimation from pre/post exercise weights or intensity-based calculations
+  - Provides real-time hydration recommendations during exercise (mL every 15-20 minutes)
+  - Estimates sodium loss based on sweat rate (500-1200 mg/L range)
+  - Calculates post-exercise rehydration targets (125-150% of fluid lost)
+  - Features advanced mode toggle for detailed calculations and methodology
+  - Includes mobile-friendly, responsive design consistent with Fitomics branding
+  - Provides comprehensive hydration strategy guidance and fluid type recommendations
+  - Integrates form validation and dynamic result updating
+  - Added session management for hydration preferences
+  - Updated App Overview to include hydration calculator in core workflow
+
 - **July 17, 2025 - STREAMLINED WORKFLOW FOCUS: Comprehensive App Refinement**:
   - Removed Standalone AI Meal Plan and backup pages to focus on comprehensive workflow
   - Reorganized page structure to emphasize full body composition planning journey

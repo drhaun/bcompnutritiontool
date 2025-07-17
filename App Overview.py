@@ -73,6 +73,7 @@ This application helps you plan and track your body composition and nutrition go
 7. **DIY Meal Planning**: Manual meal planning with macro tracking
 8. **Daily Monitoring**: Track daily progress and adjustments
 9. **Progress Dashboard**: View comprehensive progress analytics and trends
+10. **Hydration Calculator**: Calculate personalized hydration needs for exercise and daily life
 
 ## Additional Features:
 
@@ -81,6 +82,7 @@ This application helps you plan and track your body composition and nutrition go
 - **Macro Accuracy**: AI-powered meal planning with precise macro targeting (±3% tolerance)
 - **Flavor Customization**: Seasoning and spice preferences for better meal variety
 - **Progress Tracking**: Monitor your body composition journey
+- **Hydration Calculator**: Personalized fluid intake recommendations for exercise and daily needs
 
 ## Enhanced Features (NEW):
 
