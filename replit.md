@@ -102,6 +102,25 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 17, 2025 - COMPREHENSIVE STANDALONE AI MEAL PLAN ENHANCEMENT: Enhanced Precision & User Experience**:
+  - Completely revamped Standalone AI Meal Plan page with comprehensive features matching Weekly Schedule page
+  - Enhanced workout scheduling to support multiple daily workouts with detailed time blocks like Weekly Schedule
+  - Implemented dynamic meal context builder matching Weekly Schedule page with detailed prep preferences, locations, and time ranges
+  - Added comprehensive Diet Preferences section with 4 organized tabs: Restrictions & Allergies, Food Preferences, Flavors & Seasonings, and Meal Sourcing
+  - Enhanced AI prompt precision from ±3% to ±1% macro accuracy tolerance for extremely precise meal planning
+  - Added detailed serving size requirements using precise grams/ounces (e.g., "150g chicken breast" vs "1 chicken breast")
+  - Implemented USDA nutritional database calculation requirements for ingredient-level macro accuracy
+  - Enhanced AI prompts with calculation verification requirements and portion adjustment guidelines
+  - Fixed grocery list generation AttributeError by updating data structure access for new meal plan format
+  - Added comprehensive seasoning, flavor profile, and cooking enhancer preferences integration
+  - Enhanced meal sourcing preferences with home cooking, meal prep, delivery, and grocery shopping interest levels
+  - Structured page to match Diet Preferences page organization for consistent user experience
+  - Added precision calculation requirements forcing AI to show calculation work for each ingredient
+  - Updated validation system to use strict 1% tolerance instead of 3% for maximum accuracy
+  - Enhanced PDF export compatibility with new comprehensive meal plan structure
+  - Improved meal context system to provide more detailed context for AI meal generation
+  - Added comprehensive user preference collection for more personalized and accurate meal plans
+
 - **July 17, 2025 - COMPREHENSIVE DIET PREFERENCES INTEGRATION: Enhanced AI Meal Planning Accuracy**:
   - Integrated ALL Diet Preferences page information into both Advanced and Standalone AI meal planners
   - Added comprehensive dietary restrictions, food allergies, and disliked foods with safety-critical handling

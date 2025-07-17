@@ -182,30 +182,43 @@ REQUIREMENTS:
 }}
 
 **CRITICAL ACCURACY REQUIREMENTS - MUST BE FOLLOWED**:
-1. Daily totals MUST be within ±3% of daily targets (not ±5% or higher)
-2. If any macro is outside ±3%, INCREASE ingredient portions or add calorie-dense ingredients
-3. Use larger portions, nuts, oils, or additional protein sources to boost low macros
-4. Verify all calculations twice before responding
-5. Include profile summary explaining how user preferences influenced meal selections
-6. Add workout annotations showing pre/post-workout meal optimizations
-7. Use descriptive meal names, not generic labels like "breakfast" or "first meal"
-8. Provide clear, well-formatted cooking instructions
-9. Organize grocery ingredients by category for easy shopping
+1. Daily totals MUST be within ±1% of daily targets (not ±3% or higher) - EXTREMELY STRICT
+2. If any macro is outside ±1%, INCREASE ingredient portions significantly or add calorie-dense ingredients
+3. Use PRECISE serving sizes in grams/ounces when possible (e.g., "150g chicken breast" not "1 chicken breast")
+4. Verify nutritional calculations using standard USDA values for each ingredient
+5. For protein: Use 6-8oz portions of meat/fish, add protein powder, Greek yogurt, eggs
+6. For carbs: Use specific amounts (e.g., "200g cooked rice", "80g oats", "2 medium bananas")
+7. For fats: Use precise amounts (e.g., "15ml olive oil", "30g almonds", "1/2 medium avocado")
+8. Calculate each ingredient's macros individually and sum them accurately
+9. Include profile summary explaining how user preferences influenced meal selections
+10. Add workout annotations showing pre/post-workout meal optimizations
+11. Use descriptive meal names that reflect the actual recipe content
+12. Provide clear, step-by-step cooking instructions with cooking times
+13. Organize grocery ingredients by category for easy shopping
+14. Show individual meal targets vs actual to demonstrate precision
 """
 
-        # Add specific macro targets to the beginning of the prompt for extra emphasis
+        # Add specific macro targets with enhanced precision requirements
         enhanced_prompt = f"""
-**MACRO TARGETS - MUST HIT EXACTLY (±3% tolerance)**:
-- Calories: {daily_totals['calories']} (Range: {daily_totals['calories'] * 0.97:.0f} - {daily_totals['calories'] * 1.03:.0f})
-- Protein: {daily_totals['protein']}g (Range: {daily_totals['protein'] * 0.97:.0f} - {daily_totals['protein'] * 1.03:.0f}g)
-- Carbs: {daily_totals['carbs']}g (Range: {daily_totals['carbs'] * 0.97:.0f} - {daily_totals['carbs'] * 1.03:.0f}g)
-- Fat: {daily_totals['fat']}g (Range: {daily_totals['fat'] * 0.97:.0f} - {daily_totals['fat'] * 1.03:.0f}g)
+**MACRO TARGETS - MUST HIT EXACTLY (±1% tolerance MAXIMUM)**:
+- Calories: {daily_totals['calories']} (Acceptable range: {daily_totals['calories'] * 0.99:.0f} - {daily_totals['calories'] * 1.01:.0f})
+- Protein: {daily_totals['protein']}g (Acceptable range: {daily_totals['protein'] * 0.99:.0f} - {daily_totals['protein'] * 1.01:.0f}g)
+- Carbs: {daily_totals['carbs']}g (Acceptable range: {daily_totals['carbs'] * 0.99:.0f} - {daily_totals['carbs'] * 1.01:.0f}g)
+- Fat: {daily_totals['fat']}g (Acceptable range: {daily_totals['fat'] * 0.99:.0f} - {daily_totals['fat'] * 1.01:.0f}g)
 
-**PORTION SIZE GUIDELINES TO HIT TARGETS**:
-- For {daily_totals['calories']} calories: Use large portions, add oils, nuts, and calorie-dense ingredients
-- For {daily_totals['protein']}g protein: Use 6-8oz meat portions, add protein powder, Greek yogurt
-- For {daily_totals['carbs']}g carbs: Use 1-2 cups rice/pasta, multiple fruits, large oat portions
-- For {daily_totals['fat']}g fat: Use 2-4 tbsp oils, nuts, avocado, nut butters
+**PRECISE PORTION SIZE GUIDELINES**:
+- For {daily_totals['calories']} calories: Calculate exact portions using calorie-dense ingredients
+- For {daily_totals['protein']}g protein: Use precise meat weights (170g chicken breast = 31g protein)
+- For {daily_totals['carbs']}g carbs: Use specific amounts (100g cooked rice = 28g carbs)
+- For {daily_totals['fat']}g fat: Use exact measurements (15ml olive oil = 14g fat)
+
+**PRECISION CALCULATION REQUIREMENTS**:
+- Each ingredient must specify exact weight/volume (e.g., "150g chicken breast", "200g cooked rice", "15ml olive oil")
+- Use USDA nutritional database values for accuracy
+- Calculate macros per 100g for each ingredient, then scale to portion size
+- Show your calculation work for each ingredient
+- Sum all individual ingredient macros to verify totals
+- If total is outside ±1% range, adjust portions immediately
 
 {prompt}
         """
@@ -240,8 +253,8 @@ def validate_standalone_meal_plan_accuracy(meal_plan, target_totals):
         # Extract daily totals from generated plan
         generated_totals = meal_plan.get('daily_totals', {})
         
-        # Define acceptable tolerance (3%)
-        tolerance = 0.03
+        # Define strict tolerance (1%)
+        tolerance = 0.01
         
         # Check each macro
         macros = ['calories', 'protein', 'carbs', 'fat']
@@ -257,12 +270,12 @@ def validate_standalone_meal_plan_accuracy(meal_plan, target_totals):
                     accuracy_issues.append(f"{macro}: {generated} vs {target} (±{deviation:.1%})")
         
         if accuracy_issues:
-            print(f"⚠️ Standalone meal plan macro accuracy issues:")
+            print(f"⚠️ Standalone meal plan macro accuracy issues (±1% tolerance):")
             for issue in accuracy_issues:
                 print(f"  - {issue}")
             return False
         else:
-            print(f"✅ Standalone meal plan macro accuracy validated")
+            print(f"✅ Standalone meal plan macro accuracy validated (±1% tolerance)")
             return True
             
     except Exception as e:
@@ -520,158 +533,291 @@ with st.form("standalone_meal_plan_form"):
             "Very Active (physical job, lots of movement)"
         ], index=2)
         
-        # Dynamic meal contexts based on user selections
-        st.markdown("**Meal Contexts**")
-        st.write("Set the context for each meal based on your selections:")
+        # Enhanced Meal Context Builder (matching Weekly Schedule page)
+        st.markdown("**🍽️ Meal Context Builder**")
+        st.write("Answer a few simple questions for each meal to create personalized meal planning contexts.")
         
-        context_options = [
-            "Home cooking", "Meal prep", "Quick & easy", "Comfort food",
-            "Healthy focus", "Performance focus", "Social/family meals", 
-            "On-the-go", "Work meal", "Post-workout", "Pre-workout"
-        ]
+        # Initialize meal contexts storage
+        if 'standalone_meal_contexts_detailed' not in st.session_state:
+            st.session_state.standalone_meal_contexts_detailed = {}
         
         meal_contexts = {}
-        
-        # Create meal context selectors based on number of meals
         meal_names = ["First Meal", "Second Meal", "Third Meal", "Fourth Meal"]
-        for i in range(num_meals):
-            meal_key = f"meal_{i+1}"
-            meal_name = meal_names[i] if i < len(meal_names) else f"Meal {i+1}"
-            
-            context = st.selectbox(
-                f"{meal_name} Context",
-                context_options,
-                index=0 if i == 0 else 2,  # First meal defaults to "Home cooking", others to "Quick & easy"
-                key=f"context_{meal_key}"
-            )
-            meal_contexts[meal_key] = context
         
-        # Create snack context selectors based on number of snacks
+        # Process meals with detailed context
+        for i in range(num_meals):
+            meal_name = f"{meal_names[i]} of Day"
+            meal_key = f"meal_{i+1}"
+            
+            with st.expander(f"🍽️ **{meal_name}** Configuration", expanded=False):
+                
+                # 1. Meal Prep Preference
+                st.write("**How would you prefer to prepare this meal?**")
+                prep_type = st.radio(
+                    "Preparation method:",
+                    options=[
+                        "🧑‍🍳 Cook from scratch",
+                        "🍱 Use leftovers/pre-prepped ingredients", 
+                        "🥡 Pickup or takeout",
+                        "🚚 Meal delivery (ready-to-eat)",
+                        "❌ Skip this meal"
+                    ],
+                    key=f"prep_type_{meal_key}",
+                    horizontal=True
+                )
+                
+                # Conditional prep time question
+                prep_time = None
+                if prep_type in ["🧑‍🍳 Cook from scratch", "🍱 Use leftovers/pre-prepped ingredients"]:
+                    st.write("**How much time would you like to spend preparing this meal?**")
+                    prep_time = st.radio(
+                        "Preparation time:",
+                        options=["⏱️ <5 minutes", "⏱️ 5–15 minutes", "⏱️ 15–30 minutes", "⏱️ 30+ minutes"],
+                        key=f"prep_time_{meal_key}",
+                        horizontal=True
+                    )
+                
+                # 2. Location
+                st.write("**Where do you typically eat this meal?**")
+                location = st.multiselect(
+                    "Location(s):",
+                    options=["🏠 At home", "🧑‍💼 At work", "🍽️ At a restaurant", "🚗 On-the-go (in transit, gym, car, etc.)"],
+                    key=f"location_{meal_key}",
+                    help="Select one or multiple locations"
+                )
+                
+                # 3. Time range
+                st.write("**What time do you typically eat this meal?**")
+                time_range_options = [
+                    "Early Morning (5:00-8:00 AM)",
+                    "Morning (8:00-11:00 AM)", 
+                    "Midday (11:00 AM-2:00 PM)",
+                    "Afternoon (2:00-5:00 PM)",
+                    "Evening (5:00-8:00 PM)",
+                    "Night (8:00-11:00 PM)"
+                ]
+                time_range = st.selectbox(
+                    "Typical time range:",
+                    time_range_options,
+                    index=min(i, len(time_range_options)-1),
+                    key=f"time_range_{meal_key}"
+                )
+                
+                # Store detailed context
+                st.session_state.standalone_meal_contexts_detailed[meal_key] = {
+                    "meal": meal_name,
+                    "prep_type": prep_type.split(" ", 1)[1] if prep_type else None,
+                    "prep_time": prep_time.split(" ", 1)[1] if prep_time else None,
+                    "location": [loc.split(" ", 1)[1] for loc in location] if location else [],
+                    "time_range": time_range
+                }
+                
+                # Create simplified context for AI
+                if prep_type == "🧑‍🍳 Cook from scratch":
+                    context = f"Home cooking - {prep_time}" if prep_time else "Home cooking"
+                elif prep_type == "🍱 Use leftovers/pre-prepped ingredients":
+                    context = "Meal prep/leftovers"
+                elif prep_type == "🥡 Pickup or takeout":
+                    context = "Takeout/restaurant"
+                elif prep_type == "🚚 Meal delivery (ready-to-eat)":
+                    context = "Meal delivery"
+                else:
+                    context = "Quick & easy"
+                
+                meal_contexts[meal_key] = context
+        
+        # Process snacks with simplified context
         snack_names = ["First Snack", "Second Snack", "Third Snack"]
         for i in range(num_snacks):
             snack_key = f"snack_{i+1}"
             snack_name = snack_names[i] if i < len(snack_names) else f"Snack {i+1}"
             
-            context = st.selectbox(
-                f"{snack_name} Context",
-                context_options,
-                index=3,  # Defaults to "Comfort food"
-                key=f"context_{snack_key}"
-            )
-            meal_contexts[snack_key] = context
+            with st.expander(f"🍿 **{snack_name}** Configuration", expanded=False):
+                st.write("**What type of snack do you prefer?**")
+                snack_type = st.selectbox(
+                    "Snack preference:",
+                    options=[
+                        "🥜 Protein-focused (nuts, protein bar, Greek yogurt)",
+                        "🍎 Fresh & light (fruit, vegetables, light snacks)",
+                        "🍪 Comfort food (cookies, crackers, comfort snacks)",
+                        "🥤 Liquid/shake (protein shake, smoothie, drink)",
+                        "🏃‍♂️ Pre/post workout (energy bar, banana, recovery snack)"
+                    ],
+                    key=f"snack_type_{snack_key}"
+                )
+                
+                # Create context for AI
+                if "Protein-focused" in snack_type:
+                    context = "Protein snack"
+                elif "Fresh & light" in snack_type:
+                    context = "Healthy snack"
+                elif "Comfort food" in snack_type:
+                    context = "Comfort snack"
+                elif "Liquid/shake" in snack_type:
+                    context = "Liquid snack"
+                else:
+                    context = "Workout snack"
+                
+                meal_contexts[snack_key] = context
     
-    # Diet Preferences
+    # Comprehensive Diet Preferences (matching Diet Preferences page structure)
     st.markdown("---")
     st.markdown("## 🥗 Diet Preferences")
-    st.markdown("*Customize your food preferences and dietary requirements.*")
+    st.markdown("*Customize your food preferences and dietary requirements for precise meal planning.*")
     
-    # Dietary restrictions
-    restrict_col1, restrict_col2 = st.columns(2)
+    # Use tabs for better organization
+    diet_tab1, diet_tab2, diet_tab3, diet_tab4 = st.tabs(["🚫 Restrictions & Allergies", "🍽️ Food Preferences", "🌶️ Flavors & Seasonings", "📦 Meal Sourcing"])
     
-    with restrict_col1:
-        st.markdown("**Dietary Restrictions & Allergies**")
-        dietary_restrictions = st.multiselect(
-            "Select any that apply:",
-            ["Vegetarian", "Vegan", "Pescatarian", "Gluten-Free", "Dairy-Free", 
-             "Nut-Free", "Soy-Free", "Low-Sodium", "Low-Sugar", "Keto", "Paleo"],
-            default=[]
-        )
+    with diet_tab1:
+        st.markdown("### 🚫 Dietary Restrictions & Allergies")
         
-        food_allergies = st.text_area(
-            "Food Allergies/Intolerances",
-            placeholder="List any specific foods you cannot eat...",
-            height=80
-        )
-    
-    with restrict_col2:
-        st.markdown("**Cuisine Preferences**")
-        cuisine_preferences = st.multiselect(
-            "What cuisines do you enjoy?",
-            ["American", "Italian", "Mexican", "Asian", "Indian", "Mediterranean", 
-             "Middle Eastern", "Thai", "Japanese", "French", "Greek", "Korean"],
-            default=["American", "Italian", "Mexican"]
-        )
+        restrict_col1, restrict_col2 = st.columns(2)
         
-        cooking_time = st.selectbox("Cooking Time Preference", [
-            "Quick (15-30 min)", "Medium (30-60 min)", "Longer (60+ min)", "No preference"
-        ])
-    
-    # Food preferences
-    st.markdown("**Food Preferences**")
-    food_col1, food_col2, food_col3 = st.columns(3)
-    
-    with food_col1:
-        st.markdown("*Preferred Proteins*")
-        proteins = st.multiselect(
-            "Select preferred proteins:",
-            ["Chicken", "Beef", "Pork", "Fish", "Salmon", "Shrimp", "Eggs", 
-             "Tofu", "Tempeh", "Beans", "Lentils", "Greek Yogurt", "Cottage Cheese"],
-            default=["Chicken", "Fish", "Eggs"]
-        )
-    
-    with food_col2:
-        st.markdown("*Preferred Carbs*")
-        carbs = st.multiselect(
-            "Select preferred carbs:",
-            ["Rice", "Pasta", "Bread", "Oats", "Quinoa", "Sweet Potato", 
-             "Regular Potato", "Fruit", "Vegetables", "Beans", "Lentils"],
-            default=["Rice", "Oats", "Sweet Potato"]
-        )
-    
-    with food_col3:
-        st.markdown("*Preferred Fats*")
-        fats = st.multiselect(
-            "Select preferred fats:",
-            ["Olive Oil", "Avocado", "Nuts", "Seeds", "Butter", "Coconut Oil", 
-             "Fatty Fish", "Cheese", "Nut Butters"],
-            default=["Olive Oil", "Avocado", "Nuts"]
-        )
-    
-    # Flavor preferences
-    st.markdown("**Flavor & Spice Preferences**")
-    flavor_col1, flavor_col2 = st.columns(2)
-    
-    with flavor_col1:
-        spice_level = st.selectbox("Spice Level", [
-            "Mild (no spice)", "Medium (some heat)", "Spicy (lots of heat)", "Very Spicy (extreme heat)"
-        ])
+        with restrict_col1:
+            st.markdown("**Dietary Restrictions**")
+            dietary_restrictions = st.multiselect(
+                "Select any that apply:",
+                ["Vegetarian", "Vegan", "Pescatarian", "Gluten-Free", "Dairy-Free", 
+                 "Nut-Free", "Soy-Free", "Low-Sodium", "Low-Sugar", "Keto", "Paleo", "Halal", "Kosher"],
+                default=[],
+                key="standalone_dietary_restrictions"
+            )
+            
+            food_allergies = st.text_area(
+                "Food Allergies/Intolerances (SAFETY CRITICAL)",
+                placeholder="List any specific foods you cannot eat due to allergies...",
+                height=80,
+                key="standalone_food_allergies"
+            )
         
-        flavor_profiles = st.multiselect(
-            "Favorite Flavor Profiles:",
-            ["Savory", "Sweet", "Sour", "Bitter", "Umami", "Herbal", "Smoky", "Citrusy"],
-            default=["Savory", "Herbal"]
-        )
+        with restrict_col2:
+            st.markdown("**Cuisine Preferences**")
+            cuisine_preferences = st.multiselect(
+                "What cuisines do you enjoy?",
+                ["American", "Italian", "Mexican", "Asian", "Indian", "Mediterranean", 
+                 "Middle Eastern", "Thai", "Japanese", "French", "Greek", "Korean", "Spanish", "Ethiopian"],
+                default=["American", "Italian", "Mexican"],
+                key="standalone_cuisine_preferences"
+            )
+            
+            cooking_time = st.selectbox("Cooking Time Preference", [
+                "Quick (15-30 min)", "Medium (30-60 min)", "Longer (60+ min)", "No preference"
+            ], key="standalone_cooking_time")
     
-    with flavor_col2:
-        cooking_style = st.selectbox("Cooking Style Preference", [
-            "Simple & clean", "Bold & flavorful", "Comfort food", "Gourmet", "Healthy focus"
-        ])
+    with diet_tab2:
+        st.markdown("### 🍽️ Food Preferences")
         
-        meal_variety = st.selectbox("Meal Variety Level", [
-            "Keep it simple (similar meals)", "Some variety", "High variety", "Maximum variety"
-        ])
-    
-    # Practical preferences
-    st.markdown("**Practical Preferences**")
-    practical_col1, practical_col2 = st.columns(2)
-    
-    with practical_col1:
-        cooking_for = st.selectbox("Cooking For", [
-            "Just myself", "2 people", "3-4 people", "Family (5+ people)"
-        ])
+        food_col1, food_col2, food_col3 = st.columns(3)
         
-        leftover_preference = st.selectbox("Leftover Preference", [
-            "Love leftovers", "Okay with leftovers occasionally", "Prefer fresh meals daily"
-        ])
-    
-    with practical_col2:
-        budget_level = st.selectbox("Budget Level", [
-            "Budget-conscious", "Moderate budget", "Higher budget", "No budget constraints"
-        ])
+        with food_col1:
+            st.markdown("**Preferred Proteins**")
+            proteins = st.multiselect(
+                "Select preferred proteins:",
+                ["Chicken", "Beef", "Pork", "Fish", "Salmon", "Shrimp", "Eggs", 
+                 "Tofu", "Tempeh", "Beans", "Lentils", "Greek Yogurt", "Cottage Cheese", "Protein Powder"],
+                default=["Chicken", "Fish", "Eggs"],
+                key="standalone_proteins"
+            )
         
-        meal_prep_interest = st.selectbox("Meal Prep Interest", [
-            "No meal prep", "Some meal prep", "Heavy meal prep", "Batch cooking"
-        ])
+        with food_col2:
+            st.markdown("**Preferred Carbs**")
+            carbs = st.multiselect(
+                "Select preferred carbs:",
+                ["Rice", "Pasta", "Bread", "Oats", "Quinoa", "Sweet Potato", 
+                 "Regular Potato", "Fruit", "Vegetables", "Beans", "Lentils", "Barley", "Bulgur"],
+                default=["Rice", "Oats", "Sweet Potato"],
+                key="standalone_carbs"
+            )
+        
+        with food_col3:
+            st.markdown("**Preferred Fats**")
+            fats = st.multiselect(
+                "Select preferred fats:",
+                ["Olive Oil", "Avocado", "Nuts", "Seeds", "Butter", "Coconut Oil", 
+                 "Ghee", "Nut Butters", "Cheese", "Fatty Fish"],
+                default=["Olive Oil", "Avocado", "Nuts"],
+                key="standalone_fats"
+            )
+    
+    with diet_tab3:
+        st.markdown("### 🌶️ Flavors & Seasonings")
+        
+        flavor_col1, flavor_col2 = st.columns(2)
+        
+        with flavor_col1:
+            st.markdown("**Spice Level**")
+            spice_level = st.selectbox("How spicy do you like your food?", [
+                "No spice", "Mild", "Medium", "Hot", "Very Hot"
+            ], index=2, key="standalone_spice_level")
+            
+            st.markdown("**Preferred Seasonings**")
+            preferred_seasonings = st.multiselect(
+                "What seasonings do you enjoy?",
+                ["Salt", "Black Pepper", "Garlic", "Onion", "Herbs", "Lemon", "Paprika", "Cumin", "Oregano", "Basil"],
+                default=["Salt", "Black Pepper", "Garlic"],
+                key="standalone_seasonings"
+            )
+        
+        with flavor_col2:
+            st.markdown("**Flavor Profiles**")
+            flavor_profiles = st.multiselect(
+                "What flavor profiles do you prefer?",
+                ["Savory", "Sweet", "Umami", "Tangy", "Smoky", "Fresh", "Rich", "Light"],
+                default=["Savory", "Fresh"],
+                key="standalone_flavor_profiles"
+            )
+            
+            st.markdown("**Cooking Enhancers**")
+            cooking_enhancers = st.multiselect(
+                "What cooking enhancers do you use?",
+                ["Olive Oil", "Butter", "Stock/Broth", "Wine", "Vinegar", "Citrus", "Soy Sauce", "Hot Sauce"],
+                default=["Olive Oil", "Stock/Broth"],
+                key="standalone_cooking_enhancers"
+            )
+    
+    with diet_tab4:
+        st.markdown("### 📦 Meal Sourcing Preferences")
+        
+        source_col1, source_col2 = st.columns(2)
+        
+        with source_col1:
+            st.markdown("**Meal Preparation Interest**")
+            home_cooking_interest = st.selectbox("Home cooking interest level", [
+                "Low", "Moderate", "High", "Very High"
+            ], index=2, key="standalone_home_cooking")
+            
+            meal_prep_interest = st.selectbox("Meal prep interest level", [
+                "Not interested", "Some meal prep", "Moderate meal prep", "Heavy meal prep"
+            ], index=1, key="standalone_meal_prep")
+        
+        with source_col2:
+            st.markdown("**Convenience Options**")
+            meal_delivery_interest = st.selectbox("Meal delivery interest level", [
+                "Not interested", "Occasional", "Moderate", "Frequent"
+            ], index=1, key="standalone_meal_delivery")
+            
+            grocery_shopping_interest = st.selectbox("Grocery shopping interest level", [
+                "Low", "Moderate", "High", "Very High"
+            ], index=2, key="standalone_grocery_shopping")
+    
+    # Collect all diet preferences for comprehensive AI prompt
+    diet_preferences = {
+        'dietary_restrictions': dietary_restrictions,
+        'food_allergies': food_allergies,
+        'cuisine_preferences': cuisine_preferences,
+        'cooking_time_preference': cooking_time,
+        'proteins': proteins,
+        'carbs': carbs,
+        'fats': fats,
+        'spice_level': spice_level,
+        'preferred_seasonings': preferred_seasonings,
+        'flavor_profiles': flavor_profiles,
+        'cooking_enhancers': cooking_enhancers,
+        'home_cooking_interest': home_cooking_interest,
+        'meal_prep_interest': meal_prep_interest,
+        'meal_delivery_interest': meal_delivery_interest,
+        'grocery_shopping_interest': grocery_shopping_interest
+    }
     
     # Calculate energy needs based on selections
     st.markdown("---")
@@ -1399,14 +1545,15 @@ if 'generated_standalone_plan' in st.session_state:
         if st.button("🛒 Generate Grocery List", use_container_width=True):
             # Extract all ingredients for grocery list
             grocery_items = []
-            if meal_plan:
-                for meal_type, meal_data in meal_plan.items():
-                    for ingredient in meal_data.get('ingredients', []):
-                        grocery_items.append({
-                            'Item': ingredient.get('item', 'Unknown'),
-                            'Amount': ingredient.get('amount', 'N/A'),
-                            'Meal': meal_type.title()
-                        })
+            if meal_plan and 'meals' in meal_plan:
+                for meal in meal_plan['meals']:
+                    if isinstance(meal, dict) and 'recipe' in meal:
+                        for ingredient in meal['recipe'].get('ingredients', []):
+                            grocery_items.append({
+                                'Item': ingredient.get('item', 'Unknown'),
+                                'Amount': ingredient.get('amount', 'N/A'),
+                                'Meal': meal.get('meal_type', 'Unknown').title()
+                            })
             
             if grocery_items:
                 st.markdown("### 🛒 Grocery List")
