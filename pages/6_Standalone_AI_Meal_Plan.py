@@ -202,19 +202,33 @@ REQUIREMENTS:
 
 **CRITICAL ACCURACY REQUIREMENTS - MUST BE FOLLOWED**:
 1. Daily totals MUST be within ±1% of daily targets (not ±3% or higher) - EXTREMELY STRICT
-2. If any macro is outside ±1%, INCREASE ingredient portions significantly or add calorie-dense ingredients
-3. Use PRECISE serving sizes in grams/ounces when possible (e.g., "150g chicken breast" not "1 chicken breast")
+2. If any macro is outside ±1%, INCREASE ingredient portions significantly or add calorie-dense ingredients like:
+   - LARGER protein portions (250g+ chicken breast, 200g+ fish, 6+ eggs)
+   - CALORIE-DENSE additions (nuts, oils, avocado, cheese, protein powder)
+   - HIGHER quantities of all ingredients to reach targets
+3. Use PRECISE serving sizes in grams/ounces when possible (e.g., "200g chicken breast" not "1 chicken breast")
 4. Verify nutritional calculations using standard USDA values for each ingredient
 5. For protein: Use 6-8oz portions of meat/fish, add protein powder, Greek yogurt, eggs
-6. For carbs: Use specific amounts (e.g., "200g cooked rice", "80g oats", "2 medium bananas")
-7. For fats: Use precise amounts (e.g., "15ml olive oil", "30g almonds", "1/2 medium avocado")
+6. For carbs: Use specific amounts (e.g., "250g cooked rice", "100g oats", "2 large bananas")
+7. For fats: Use precise amounts (e.g., "20ml olive oil", "40g almonds", "1 large avocado")
 8. Calculate each ingredient's macros individually and sum them accurately
 9. Include profile summary explaining how user preferences influenced meal selections
 10. Add workout annotations showing pre/post-workout meal optimizations
 11. Use descriptive meal names that reflect the actual recipe content
-12. Provide clear, step-by-step cooking instructions with cooking times
-13. Organize grocery ingredients by category for easy shopping
-14. Show individual meal targets vs actual to demonstrate precision
+12. **DETAILED COOKING INSTRUCTIONS REQUIRED**:
+    - Provide step-by-step instructions with cooking times and temperatures
+    - Include specific seasoning amounts and when to add them
+    - Explain cooking techniques clearly (sauté, grill, roast, etc.)
+    - Add preparation tips and cooking order
+    - Include texture and doneness indicators
+13. **FLAVOR ENHANCEMENT REQUIREMENTS**:
+    - Use specific seasonings from user preferences in every recipe
+    - Include seasoning amounts (e.g., "1 tsp garlic powder", "1/2 tsp salt")
+    - Add flavor-building steps (sauté garlic, brown proteins, etc.)
+    - Incorporate cooking enhancers naturally into recipes
+    - Make meals taste amazing, not bland or boring
+14. Organize grocery ingredients by category for easy shopping
+15. Show individual meal targets vs actual to demonstrate precision
 """
 
         # Add supplementation context for macro precision
@@ -265,6 +279,21 @@ REQUIREMENTS:
             flavor_context += f"- CRITICAL: Use these seasonings and flavors in ALL recipes to match user taste preferences\n"
             flavor_context += f"- Include specific seasoning instructions in cooking steps\n"
             flavor_context += f"- Make meals taste amazing using user's preferred flavors\n"
+        
+        # Add comprehensive cooking instruction requirements
+        cooking_instructions_context = f"""
+**DETAILED COOKING INSTRUCTIONS REQUIREMENTS**:
+- Include exact cooking temperatures (e.g., "375°F oven", "medium-high heat")
+- Specify cooking times (e.g., "cook for 12-15 minutes until golden")
+- Add seasoning amounts (e.g., "1 tsp garlic powder", "1/2 tsp salt", "2 tbsp olive oil")
+- Include preparation steps (e.g., "season chicken and let marinate 10 minutes")
+- Add flavor-building techniques (e.g., "sauté onions until fragrant", "brown protein on both sides")
+- Specify doneness indicators (e.g., "until internal temp reaches 165°F", "until vegetables are tender")
+- Include finishing touches (e.g., "garnish with fresh herbs", "drizzle with lemon juice")
+- Make instructions detailed enough for a beginner to follow successfully
+- Use user's preferred seasonings: {', '.join(diet_preferences.get('preferred_seasonings', ['Salt', 'Black Pepper', 'Garlic Powder']))}
+- Adjust spice level to: {diet_preferences.get('spice_level', 'Medium')}
+"""
 
         # Add seasonal context
         seasonal_context = ""
@@ -330,6 +359,7 @@ REQUIREMENTS:
 
 {supplementation_context}
 {flavor_context}
+{cooking_instructions_context}
 {location_context}
 {seasonal_context}
 
@@ -359,13 +389,24 @@ REQUIREMENTS:
                     st.warning(f"⚠️ Attempt {attempt + 1}: Macro accuracy insufficient. Regenerating...")
                     # Add stronger requirement in follow-up prompt
                     correction_prompt = f"""
-                    CRITICAL: The previous meal plan had macro accuracy issues. You MUST hit these exact targets:
+                    CRITICAL FAILURE: The previous meal plan had macro accuracy issues. You MUST hit these exact targets:
                     - Calories: {daily_totals['calories']} (±1% = {daily_totals['calories'] * 0.99:.0f} - {daily_totals['calories'] * 1.01:.0f})
                     - Protein: {daily_totals['protein']}g (±1% = {daily_totals['protein'] * 0.99:.0f} - {daily_totals['protein'] * 1.01:.0f}g)
                     - Carbs: {daily_totals['carbs']}g (±1% = {daily_totals['carbs'] * 0.99:.0f} - {daily_totals['carbs'] * 1.01:.0f}g)
                     - Fat: {daily_totals['fat']}g (±1% = {daily_totals['fat'] * 0.99:.0f} - {daily_totals['fat'] * 1.01:.0f}g)
                     
-                    INCREASE PORTION SIZES AGGRESSIVELY. Add more oil, nuts, protein powder, larger meat portions.
+                    MANDATORY CORRECTIONS:
+                    1. DOUBLE OR TRIPLE ingredient portions to hit targets
+                    2. Add calorie-dense ingredients: 40g+ nuts, 25ml+ olive oil, 2+ scoops protein powder, 1+ avocado
+                    3. Use LARGE protein portions: 250g+ chicken breast, 200g+ fish, 6+ eggs, 300g+ Greek yogurt
+                    4. DETAILED COOKING INSTRUCTIONS with exact steps, temperatures, and timing
+                    5. SPECIFIC SEASONING AMOUNTS and flavor-building techniques
+                    
+                    FLAVOR REQUIREMENTS:
+                    - Spice level: {diet_preferences.get('spice_level', 'Medium')} - adjust heat accordingly
+                    - Use seasonings: {', '.join(diet_preferences.get('preferred_seasonings', ['Salt', 'Black Pepper', 'Garlic Powder']))}
+                    - Include amounts: "1 tsp garlic powder", "1/2 tsp salt", "1 tbsp olive oil"
+                    - Add techniques: "sauté until fragrant", "season and marinate", "brown the protein"
                     
                     {enhanced_prompt}
                     """
