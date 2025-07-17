@@ -217,6 +217,22 @@ REQUIREMENTS:
 14. Show individual meal targets vs actual to demonstrate precision
 """
 
+        # Add supplementation context for macro precision
+        supplementation_context = ""
+        if diet_preferences.get('supplementation_preferences'):
+            supp_prefs = diet_preferences['supplementation_preferences']
+            supplementation_context += f"\n**SUPPLEMENTATION FOR MACRO PRECISION**:\n"
+            if supp_prefs.get('protein_powder') and supp_prefs['protein_powder'] != "Not interested":
+                supplementation_context += f"- Protein Powder: {supp_prefs['protein_powder']} ({supp_prefs.get('protein_powder_type', 'Standard')})\n"
+                supplementation_context += f"- USE PROTEIN POWDER to hit protein targets precisely - typical serving = 25-30g protein\n"
+            if supp_prefs.get('creatine') and supp_prefs['creatine'] != "Not interested":
+                supplementation_context += f"- Creatine: {supp_prefs['creatine']} - include in meal planning\n"
+            if supp_prefs.get('pre_workout') and supp_prefs['pre_workout'] != "Not interested":
+                supplementation_context += f"- Pre-workout: {supp_prefs['pre_workout']} - consider in pre-workout meals\n"
+            if supp_prefs.get('other_supplements'):
+                supplementation_context += f"- Other supplements: {', '.join(supp_prefs['other_supplements'])}\n"
+            supplementation_context += f"- CRITICAL: Use supplements strategically to hit exact macro targets, especially protein powder for protein goals\n"
+
         # Add location-based context if enabled
         location_context = ""
         if diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False):
@@ -266,6 +282,14 @@ REQUIREMENTS:
 - Sum all individual ingredient macros to verify totals
 - If total is outside ±1% range, adjust portions immediately
 
+**MACRO PRECISION STRATEGIES**:
+- If protein is low: Add protein powder (25-30g protein per scoop), increase meat portions, add eggs
+- If calories are low: Add oils (1 tbsp olive oil = 120 calories), nuts, avocado, larger portions
+- If carbs are low: Increase rice/pasta portions, add fruits, oats, bread
+- If fat is low: Add nuts, oils, avocado, cheese, fatty fish
+- NEVER submit a plan that's outside the acceptable ranges
+
+{supplementation_context}
 {location_context}
 {seasonal_context}
 
@@ -339,6 +363,30 @@ def validate_standalone_meal_plan_accuracy(meal_plan, target_totals):
         # Check each macro
         macros = ['calories', 'protein', 'carbs', 'fat']
         accuracy_issues = []
+        
+        for macro in macros:
+            generated = generated_totals.get(macro, 0)
+            target = target_totals.get(macro, 0)
+            
+            if target > 0:
+                deviation = abs(generated - target) / target
+                if deviation > tolerance:
+                    accuracy_issues.append(f"{macro}: {generated} vs {target} (±{deviation:.1%})")
+                    print(f"⚠️ Standalone meal plan macro accuracy issues (±1% tolerance):")
+                    print(f"  - {macro}: {generated} vs {target} (±{deviation:.1%})")
+        
+        # If there are accuracy issues, log them
+        if accuracy_issues:
+            print("⚠️ Standalone meal plan macro accuracy issues (±1% tolerance):")
+            for issue in accuracy_issues:
+                print(f"  - {issue}")
+            return False
+        
+        return True
+        
+    except Exception as e:
+        print(f"Validation error: {e}")
+        return False
         
         for macro in macros:
             generated = generated_totals.get(macro, 0)
@@ -817,7 +865,7 @@ with st.form("standalone_meal_plan_form"):
     st.markdown("*Customize your food preferences and dietary requirements for precise meal planning.*")
     
     # Use tabs for better organization
-    diet_tab1, diet_tab2, diet_tab3, diet_tab4, diet_tab5 = st.tabs(["🚫 Restrictions & Allergies", "🍽️ Food Preferences", "🌶️ Flavors & Seasonings", "📦 Meal Sourcing", "📍 Location & Restaurants"])
+    diet_tab1, diet_tab2, diet_tab3, diet_tab4, diet_tab5, diet_tab6 = st.tabs(["🚫 Restrictions & Allergies", "🍽️ Food Preferences", "🌶️ Flavors & Seasonings", "💊 Supplementation", "📦 Meal Sourcing", "📍 Location & Restaurants"])
     
     with diet_tab1:
         st.markdown("### 🚫 Dietary Restrictions & Allergies")
@@ -927,6 +975,56 @@ with st.form("standalone_meal_plan_form"):
             )
     
     with diet_tab4:
+        st.markdown("### 💊 Supplementation Preferences")
+        st.markdown("*Specify supplements you use to help dial in macro precision*")
+        
+        supp_col1, supp_col2 = st.columns(2)
+        
+        with supp_col1:
+            st.markdown("**Protein Supplements**")
+            protein_powder = st.selectbox("Protein powder usage", [
+                "Not interested", "Occasional use", "Regular use", "Daily use"
+            ], index=0, key="standalone_protein_powder")
+            
+            if protein_powder != "Not interested":
+                protein_powder_type = st.selectbox("Protein powder type", [
+                    "Whey protein", "Casein protein", "Plant-based protein", "Collagen protein", "Mixed protein"
+                ], key="standalone_protein_powder_type")
+            else:
+                protein_powder_type = ""
+            
+            st.markdown("**Performance Supplements**")
+            creatine = st.selectbox("Creatine usage", [
+                "Not interested", "Occasional use", "Regular use", "Daily use"
+            ], index=0, key="standalone_creatine")
+            
+            pre_workout = st.selectbox("Pre-workout usage", [
+                "Not interested", "Occasional use", "Regular use", "Daily use"
+            ], index=0, key="standalone_pre_workout")
+        
+        with supp_col2:
+            st.markdown("**Health & Wellness Supplements**")
+            multivitamin = st.selectbox("Multivitamin usage", [
+                "Not interested", "Occasional use", "Regular use", "Daily use"
+            ], index=0, key="standalone_multivitamin")
+            
+            omega3 = st.selectbox("Omega-3 usage", [
+                "Not interested", "Occasional use", "Regular use", "Daily use"
+            ], index=0, key="standalone_omega3")
+            
+            vitamin_d = st.selectbox("Vitamin D usage", [
+                "Not interested", "Occasional use", "Regular use", "Daily use"
+            ], index=0, key="standalone_vitamin_d")
+            
+            st.markdown("**Other Supplements**")
+            other_supplements = st.text_area(
+                "Other supplements you use regularly",
+                placeholder="e.g., BCAAs, glutamine, magnesium, probiotics",
+                help="List any other supplements that should be considered in meal planning",
+                key="standalone_other_supplements"
+            )
+
+    with diet_tab5:
         st.markdown("### 📦 Meal Sourcing Preferences")
         
         source_col1, source_col2 = st.columns(2)
@@ -951,7 +1049,7 @@ with st.form("standalone_meal_plan_form"):
                 "Low", "Moderate", "High", "Very High"
             ], index=2, key="standalone_grocery_shopping")
     
-    with diet_tab5:
+    with diet_tab6:
         st.markdown("### 📍 Location & Restaurant Preferences")
         st.markdown("*Help us recommend location-appropriate meals and nearby restaurant options*")
         
@@ -1424,15 +1522,16 @@ with st.form("standalone_meal_plan_form"):
             'leftovers_preference': 'Okay with leftovers occasionally',
             'meal_prep_interest': meal_prep_interest,
             
-            # Extended preferences to match comprehensive Diet Preferences page
+            # Enhanced supplementation preferences for macro precision
             'supplementation_preferences': {
-                'creatine': 'Not interested',
-                'protein_powder': 'Not interested', 
-                'pre_workout': 'Not interested',
-                'multivitamin': 'Not interested',
-                'omega3': 'Not interested',
-                'vitamin_d': 'Not interested',
-                'other_supplements': []
+                'creatine': creatine,
+                'protein_powder': protein_powder,
+                'protein_powder_type': protein_powder_type,
+                'pre_workout': pre_workout,
+                'multivitamin': multivitamin,
+                'omega3': omega3,
+                'vitamin_d': vitamin_d,
+                'other_supplements': other_supplements.split(',') if other_supplements else []
             },
             'preferred_seasonings': ['Salt', 'Black Pepper', 'Garlic Powder', 'Oregano'],
             'cooking_enhancers': ['Olive Oil', 'Lemon Juice', 'Garlic'],

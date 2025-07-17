@@ -102,6 +102,20 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 17, 2025 - SUPPLEMENTATION PREFERENCES ENHANCEMENT: Precise Macro Targeting**:
+  - Added comprehensive supplementation preferences tab to standalone meal planner
+  - Integrated protein powder, creatine, pre-workout, and wellness supplements tracking
+  - Enhanced AI prompts to strategically use supplements for exact macro precision
+  - Added specific protein powder type selection (whey, casein, plant-based, collagen)
+  - Strengthened macro accuracy validation with iterative regeneration system
+  - Enhanced correction prompts for failed macro attempts with aggressive portion adjustments
+  - Temperature reduced to 0.01 for maximum calculation consistency
+  - Added supplementation context to AI prompts for intelligent supplement integration
+  - Improved validation logging to track macro accuracy issues in real-time
+  - Enhanced system to use supplements strategically for hitting exact macro targets
+  - Added detailed supplement usage tracking (not interested, occasional, regular, daily)
+  - Improved PDF export now working correctly with datetime handling resolved
+
 - **July 17, 2025 - LOCATION-BASED MEAL PLANNING INTEGRATION: Intelligent Location Features**:
   - Added comprehensive location-based features to Standalone AI Meal Plan page
   - New Location & Restaurants tab with zip code input for primary and work locations
