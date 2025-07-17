@@ -160,11 +160,30 @@ class FitomicsPDF(FPDF):
             avg_carbs = daily_totals.get('carbs', 0)
             avg_fat = daily_totals.get('fat', 0)
         else:
+            # Calculate totals from actual meal data
+            avg_calories = 0
+            avg_protein = 0
+            avg_carbs = 0
+            avg_fat = 0
+            
+            # Get totals from meal plan data if available
+            if hasattr(plan_info, 'get') and plan_info.get('meal_data'):
+                meal_data = plan_info['meal_data']
+                if isinstance(meal_data, list):
+                    for meal in meal_data:
+                        if 'recipe' in meal and 'macros' in meal['recipe']:
+                            macros = meal['recipe']['macros']
+                            avg_calories += macros.get('calories', 0)
+                            avg_protein += macros.get('protein', 0)
+                            avg_carbs += macros.get('carbs', 0)
+                            avg_fat += macros.get('fat', 0)
+            
             # Fallback to calculated averages if daily_totals not available
-            avg_calories = plan_info.get('total_calories', 0) / 7 if plan_info.get('total_calories') else 0
-            avg_protein = plan_info.get('total_protein', 0) / 7 if plan_info.get('total_protein') else 0
-            avg_carbs = plan_info.get('total_carbs', 0) / 7 if plan_info.get('total_carbs') else 0
-            avg_fat = plan_info.get('total_fat', 0) / 7 if plan_info.get('total_fat') else 0
+            if avg_calories == 0:
+                avg_calories = plan_info.get('total_calories', 0) / 7 if plan_info.get('total_calories') else 0
+                avg_protein = plan_info.get('total_protein', 0) / 7 if plan_info.get('total_protein') else 0
+                avg_carbs = plan_info.get('total_carbs', 0) / 7 if plan_info.get('total_carbs') else 0
+                avg_fat = plan_info.get('total_fat', 0) / 7 if plan_info.get('total_fat') else 0
         
         self.cell(0, 6, f"Average Daily Calories: {avg_calories:.0f}", 0, 1, 'L')
         self.cell(0, 6, f"Average Daily Protein: {avg_protein:.1f}g", 0, 1, 'L')
@@ -408,7 +427,7 @@ class FitomicsPDF(FPDF):
                 for item in sorted(items):
                     self.cell(0, 5, f"• {item}", 0, 1, 'L')
 
-def export_meal_plan_pdf(meal_data, user_preferences=None):
+def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
     """Export complete meal plan with grocery list to branded PDF"""
     try:
         print("Starting PDF creation...")
@@ -477,17 +496,23 @@ def export_meal_plan_pdf(meal_data, user_preferences=None):
                     total_carbs += float(macros.get('carbs', 0) or 0)
                     total_fat += float(macros.get('fat', 0) or 0)
         
-        plan_info = {
-            'total_calories': int(total_calories),
-            'total_protein': round(total_protein, 1),
-            'total_carbs': round(total_carbs, 1),
-            'total_fat': round(total_fat, 1),
-            'diet_preferences': user_preferences or {}
-        }
+        # Use passed plan_info or create default
+        if not plan_info:
+            plan_info = {
+                'total_calories': int(total_calories),
+                'total_protein': round(total_protein, 1),
+                'total_carbs': round(total_carbs, 1),
+                'total_fat': round(total_fat, 1),
+                'diet_preferences': user_preferences or {}
+            }
+        
+        # Add meal data to plan_info for macro calculation
+        if 'meal_data' not in plan_info:
+            plan_info['meal_data'] = meal_data
         
         print("Adding title page...")
         # Add title page
-        pdf.add_title_page({}, plan_info)
+        pdf.add_title_page(user_preferences or {}, plan_info)
         
         print("Adding meals page...")
         # Add meals page

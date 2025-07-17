@@ -1963,7 +1963,13 @@ if 'generated_standalone_plan' in st.session_state:
                 if meal_plan and 'daily_totals' in meal_plan:
                     user_info['daily_totals'] = meal_plan['daily_totals']
                 
-                pdf_path = export_meal_plan_pdf(meal_data_for_pdf, user_info)
+                # Create plan_info with meal data for PDF calculation
+                plan_info = {
+                    'meal_data': meal_data_for_pdf,
+                    'daily_totals': meal_plan.get('daily_totals', {}) if meal_plan else {}
+                }
+                
+                pdf_path = export_meal_plan_pdf(meal_data_for_pdf, user_info, plan_info)
                 
                 if pdf_path and os.path.exists(pdf_path):
                     st.success("✅ PDF generated successfully!")
