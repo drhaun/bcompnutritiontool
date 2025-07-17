@@ -102,6 +102,20 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 17, 2025 - COMPREHENSIVE DIET PREFERENCES INTEGRATION: Enhanced AI Meal Planning Accuracy**:
+  - Integrated ALL Diet Preferences page information into both Advanced and Standalone AI meal planners
+  - Added comprehensive dietary restrictions, food allergies, and disliked foods with safety-critical handling
+  - Included detailed supplementation preferences (creatine, protein powder, pre-workout, vitamins, etc.)
+  - Enhanced seasoning and flavor preferences with specific seasonings and cooking enhancers
+  - Added variety control preferences with repetition, weekly structure, and cooking variety options
+  - Integrated location-based preferences with zip codes, favorite restaurants, and grocery stores
+  - Added micronutrient optimization focus areas and seasonal ingredient preferences
+  - Enhanced meal sourcing preferences for delivery, home cooking, and grocery shopping
+  - Improved AI prompts with comprehensive user context for more accurate and personalized meal plans
+  - Maintained ±3% macro accuracy requirements while adding extensive personalization features
+  - Both Advanced and Standalone AI meal planners now access complete Diet Preferences data structure
+  - Enhanced PDF export with comprehensive text cleaning for special character compatibility
+
 - **July 13, 2025 - CRITICAL FIX: Resolved KeyError 'calories' in Advanced AI Meal Plan**:
   - Fixed critical production bug where Advanced AI Meal Plan was trying to access non-existent 'calories' key in meal_targets
   - Updated data structure access to correctly use daily_totals instead of meal_targets for macro target retrieval

@@ -48,7 +48,8 @@ NUTRITION TARGETS:
 
 DIETARY PREFERENCES & RESTRICTIONS:
 - Dietary restrictions: {diet_preferences.get('dietary_restrictions', [])}
-- Food allergies: {diet_preferences.get('food_allergies', 'None')}
+- Food allergies: {diet_preferences.get('food_allergies', 'None')} (STRICTLY AVOID - SAFETY CRITICAL)
+- Disliked foods: {diet_preferences.get('disliked_foods', [])}
 - Cuisine preferences: {diet_preferences.get('cuisine_preferences', [])}
 - Preferred proteins: {diet_preferences.get('proteins', [])}
 - Preferred carbs: {diet_preferences.get('carbs', [])}
@@ -62,6 +63,31 @@ DIETARY PREFERENCES & RESTRICTIONS:
 - Cooking for: {diet_preferences.get('cooking_for', 'Just myself')}
 - Leftovers preference: {diet_preferences.get('leftovers_preference', 'Okay with leftovers occasionally')}
 - Meal prep interest: {diet_preferences.get('meal_prep_interest', 'Some meal prep')}
+
+SUPPLEMENTATION PREFERENCES:
+- Creatine: {diet_preferences.get('supplementation_preferences', {}).get('creatine', 'Not interested')}
+- Protein powder: {diet_preferences.get('supplementation_preferences', {}).get('protein_powder', 'Not interested')}
+- Pre-workout: {diet_preferences.get('supplementation_preferences', {}).get('pre_workout', 'Not interested')}
+- Multivitamin: {diet_preferences.get('supplementation_preferences', {}).get('multivitamin', 'Not interested')}
+- Omega-3: {diet_preferences.get('supplementation_preferences', {}).get('omega3', 'Not interested')}
+- Vitamin D: {diet_preferences.get('supplementation_preferences', {}).get('vitamin_d', 'Not interested')}
+- Other supplements: {', '.join(diet_preferences.get('supplementation_preferences', {}).get('other_supplements', [])[:3])}
+
+SEASONING & FLAVOR PREFERENCES:
+- Preferred seasonings: {', '.join(diet_preferences.get('preferred_seasonings', [])[:8])}
+- Cooking enhancers: {', '.join(diet_preferences.get('cooking_enhancers', [])[:8])}
+- Flavor profiles: {', '.join(diet_preferences.get('flavor_profile', [])[:5])}
+
+MEAL SOURCING PREFERENCES:
+- Meal delivery interest: {diet_preferences.get('meal_delivery_interest', 'Moderate')}
+- Home cooking interest: {diet_preferences.get('home_cooking_interest', 'High')}
+- Grocery shopping interest: {diet_preferences.get('grocery_shopping_interest', 'High')}
+
+VARIETY PREFERENCES:
+- Variety level: {diet_preferences.get('variety_level', 'Moderate Variety')}
+- Repetition preference: {diet_preferences.get('repetition_preference', 'I like some repetition but with variations')}
+- Weekly structure: {diet_preferences.get('weekly_structure', 'Mix of routine and variety')}
+- Cooking variety: {diet_preferences.get('cooking_variety', 'Some variety in cooking methods')}
 
 LOCATION-BASED PREFERENCES:
 - Location Features Enabled: {diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False)}
@@ -949,10 +975,11 @@ with st.form("standalone_meal_plan_form"):
                 'fat': int(target_fat * percentage)
             }
         
-        # Prepare comprehensive preferences
+        # Prepare comprehensive preferences matching Diet Preferences page structure
         diet_preferences = {
             'dietary_restrictions': dietary_restrictions,
             'food_allergies': food_allergies,
+            'disliked_foods': [],  # Could be extended to collect this in UI
             'cuisine_preferences': cuisine_preferences,
             'proteins': proteins,
             'carbs': carbs,
@@ -965,7 +992,46 @@ with st.form("standalone_meal_plan_form"):
             'budget_preference': budget_level,
             'cooking_for': cooking_for,
             'leftovers_preference': leftover_preference,
-            'meal_prep_interest': meal_prep_interest
+            'meal_prep_interest': meal_prep_interest,
+            
+            # Extended preferences to match comprehensive Diet Preferences page
+            'supplementation_preferences': {
+                'creatine': 'Not interested',
+                'protein_powder': 'Not interested', 
+                'pre_workout': 'Not interested',
+                'multivitamin': 'Not interested',
+                'omega3': 'Not interested',
+                'vitamin_d': 'Not interested',
+                'other_supplements': []
+            },
+            'preferred_seasonings': ['Salt', 'Black Pepper', 'Garlic Powder', 'Oregano'],
+            'cooking_enhancers': ['Olive Oil', 'Lemon Juice', 'Garlic'],
+            'flavor_profile': flavor_profiles,
+            'meal_delivery_interest': 'Moderate',
+            'home_cooking_interest': 'High',
+            'grocery_shopping_interest': 'High',
+            'variety_level': meal_variety,
+            'repetition_preference': 'I like some repetition but with variations',
+            'weekly_structure': 'Mix of routine and variety',
+            'cooking_variety': 'Some variety in cooking methods',
+            'location_based_preferences': {
+                'enable_location_features': False,
+                'primary_zip_code': '',
+                'work_zip_code': '',
+                'favorite_restaurants': [],
+                'favorite_grocery_stores': [],
+                'convenience_stores': [],
+                'travel_routes': []
+            },
+            'enhanced_preferences': {
+                'micronutrient_focus': [],
+                'seasonal_ingredients': True,
+                'current_season': 'Auto-detect',
+                'ingredient_substitutions': True,
+                'meal_prep_coordination': 'Some coordination - Share ingredients across meals',
+                'local_cuisine_integration': False,
+                'preferred_produce_seasons': []
+            }
         }
         
         # Prepare enhanced meal config

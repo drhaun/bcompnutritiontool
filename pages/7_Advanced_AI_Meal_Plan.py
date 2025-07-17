@@ -51,28 +51,41 @@ BODY COMPOSITION GOALS:
 - Timeline: {st.session_state.get('timeline_weeks', 'Not specified')} weeks
 """
     
-    # Enhanced dietary preferences context
+    # Enhanced dietary preferences context with ALL Diet Preferences information
     dietary_restrictions = diet_preferences.get('dietary_restrictions', [])
     diet_context = f"""
 DIETARY PREFERENCES & RESTRICTIONS:
 - Dietary Restrictions: {', '.join(dietary_restrictions) if dietary_restrictions else 'None'}
-- Allergies: {', '.join(diet_preferences.get('allergies', []))}
-- Disliked Foods: {', '.join(diet_preferences.get('disliked_foods', [])[:5])}
+- Allergies: {', '.join(diet_preferences.get('allergies', []))} (STRICTLY AVOID - SAFETY CRITICAL)
+- Disliked Foods: {', '.join(diet_preferences.get('disliked_foods', [])[:8])}
 
 FOOD PREFERENCES:
-- Preferred Proteins: {', '.join(diet_preferences.get('preferred_proteins', [])[:5])}
-- Preferred Carbs: {', '.join(diet_preferences.get('preferred_carbs', [])[:5])}
-- Preferred Fats: {', '.join(diet_preferences.get('preferred_fats', [])[:5])}
-- Preferred Vegetables: {', '.join(diet_preferences.get('preferred_vegetables', [])[:5])}
-- Preferred Cuisines: {', '.join(diet_preferences.get('cuisine_preferences', [])[:3])}
+- Preferred Proteins: {', '.join(diet_preferences.get('preferred_proteins', [])[:8])}
+- Preferred Carbs: {', '.join(diet_preferences.get('preferred_carbs', [])[:8])}
+- Preferred Fats: {', '.join(diet_preferences.get('preferred_fats', [])[:8])}
+- Preferred Vegetables: {', '.join(diet_preferences.get('preferred_vegetables', [])[:8])}
+- Preferred Cuisines: {', '.join(diet_preferences.get('cuisine_preferences', [])[:5])}
 
-PRACTICAL PREFERENCES:
-- Cooking Time: {diet_preferences.get('cooking_time_preference', 'Not specified')}
-- Budget: {diet_preferences.get('budget_preference', 'Not specified')}
-- Cooking For: {diet_preferences.get('cooking_for', 'Not specified')}
-- Leftovers Preference: {diet_preferences.get('leftovers_preference', 'Not specified')}
+SUPPLEMENTATION PREFERENCES:
+- Creatine: {diet_preferences.get('supplementation_preferences', {}).get('creatine', 'Not interested')}
+- Protein Powder: {diet_preferences.get('supplementation_preferences', {}).get('protein_powder', 'Not interested')}
+- Pre-Workout: {diet_preferences.get('supplementation_preferences', {}).get('pre_workout', 'Not interested')}
+- Multivitamin: {diet_preferences.get('supplementation_preferences', {}).get('multivitamin', 'Not interested')}
+- Omega-3: {diet_preferences.get('supplementation_preferences', {}).get('omega3', 'Not interested')}
+- Vitamin D: {diet_preferences.get('supplementation_preferences', {}).get('vitamin_d', 'Not interested')}
+- Other Supplements: {', '.join(diet_preferences.get('supplementation_preferences', {}).get('other_supplements', [])[:3])}
+
+MEAL SOURCING PREFERENCES:
+- Meal Delivery Interest: {diet_preferences.get('meal_delivery_interest', 'Moderate')}
 - Home Cooking Interest: {diet_preferences.get('home_cooking_interest', 'High')}
+- Grocery Shopping Interest: {diet_preferences.get('grocery_shopping_interest', 'High')}
 - Meal Frequency: {diet_preferences.get('meal_frequency', 'Not specified')} meals/day
+
+SEASONING & FLAVOR PREFERENCES:
+- Spice Level: {diet_preferences.get('spice_level', 'Medium')}
+- Flavor Profiles: {', '.join(diet_preferences.get('flavor_profile', [])[:5])}
+- Preferred Seasonings: {', '.join(diet_preferences.get('preferred_seasonings', [])[:8])}
+- Cooking Enhancers: {', '.join(diet_preferences.get('cooking_enhancers', [])[:8])}
 
 VARIETY PREFERENCES:
 - Variety Level: {diet_preferences.get('variety_level', 'Moderate Variety')}
@@ -84,17 +97,25 @@ LOCATION-BASED PREFERENCES:
 - Location Features Enabled: {diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False)}
 - Primary Zip Code: {diet_preferences.get('location_based_preferences', {}).get('primary_zip_code', 'Not specified')}
 - Work Zip Code: {diet_preferences.get('location_based_preferences', {}).get('work_zip_code', 'Not specified')}
-- Favorite Restaurants: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_restaurants', [])[:3])}
-- Favorite Grocery Stores: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_grocery_stores', [])[:3])}
+- Favorite Restaurants: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_restaurants', [])[:5])}
+- Favorite Grocery Stores: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_grocery_stores', [])[:5])}
+- Convenience Stores: {', '.join(diet_preferences.get('location_based_preferences', {}).get('convenience_stores', [])[:3])}
+- Travel Routes: {', '.join(diet_preferences.get('location_based_preferences', {}).get('travel_routes', [])[:3])}
 
 ENHANCED PREFERENCES:
-- Micronutrient Focus: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('micronutrient_focus', [])[:5])}
+- Micronutrient Focus: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('micronutrient_focus', [])[:8])}
 - Seasonal Ingredients: {diet_preferences.get('enhanced_preferences', {}).get('seasonal_ingredients', True)}
 - Current Season: {diet_preferences.get('enhanced_preferences', {}).get('current_season', 'Auto-detect')}
 - Ingredient Substitutions: {diet_preferences.get('enhanced_preferences', {}).get('ingredient_substitutions', True)}
 - Meal Prep Coordination: {diet_preferences.get('enhanced_preferences', {}).get('meal_prep_coordination', 'Some coordination')}
 - Local Cuisine Integration: {diet_preferences.get('enhanced_preferences', {}).get('local_cuisine_integration', False)}
-- Preferred Seasonal Produce: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('preferred_produce_seasons', [])[:2])}
+- Preferred Seasonal Produce: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('preferred_produce_seasons', [])[:4])}
+
+PRACTICAL PREFERENCES:
+- Cooking Time: {diet_preferences.get('cooking_time_preference', 'Not specified')}
+- Budget: {diet_preferences.get('budget_preference', 'Not specified')}
+- Cooking For: {diet_preferences.get('cooking_for', 'Not specified')}
+- Leftovers Preference: {diet_preferences.get('leftovers_preference', 'Not specified')}
 """
     
     for day, day_data in weekly_targets.items():
