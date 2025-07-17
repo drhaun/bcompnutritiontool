@@ -69,8 +69,10 @@ This application helps you plan and track your body composition and nutrition go
 3. **Diet Preferences**: Set your food preferences, dietary restrictions, allergies, and flavor preferences
 4. **Weekly Schedule**: Plan your workout schedule, meal timing, and daily activities
 5. **Nutrition Targets**: Review calculated nutrition targets and customize if needed
-6. **Standalone AI Meal Plan**: Quick meal planning without full setup (single day)
-7. **Advanced AI Meal Plan**: Complete weekly meal plans with AI integration
+6. **Advanced AI Meal Plan**: Complete weekly meal plans with AI integration
+7. **DIY Meal Planning**: Manual meal planning with macro tracking
+8. **Daily Monitoring**: Track daily progress and adjustments
+9. **Progress Dashboard**: View comprehensive progress analytics and trends
 
 ## Additional Features:
 

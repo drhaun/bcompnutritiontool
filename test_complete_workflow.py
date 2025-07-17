@@ -7,82 +7,8 @@ import os
 import json
 sys.path.append('.')
 
-def test_standalone_ai_meal_planner():
-    """Test the standalone AI meal planner system"""
-    print("Testing Standalone AI Meal Planner...")
-    
-    # Import the function from the actual module
-    try:
-        from pages.standalone_ai_meal_plan import generate_standalone_meal_plan, get_openai_client
-        
-        # Test data
-        meal_targets = {
-            'calories': 2400,
-            'protein': 180,
-            'carbs': 240,
-            'fat': 80
-        }
-        
-        diet_preferences = {
-            'dietary_restrictions': ['None'],
-            'cuisine_preferences': ['American'],
-            'proteins': ['Chicken', 'Beef'],
-            'carbs': ['Rice', 'Pasta'],
-            'fats': ['Olive Oil', 'Nuts']
-        }
-        
-        meal_config = {
-            'user_profile': {
-                'name': 'Test User',
-                'age': 30,
-                'gender': 'Male',
-                'weight_kg': 80,
-                'height_cm': 180,
-                'tdee': 2400,
-                'goal_type': 'Muscle Building'
-            },
-            'wake_time': '07:00',
-            'sleep_time': '23:00',
-            'has_workout': True,
-            'workout_details': [{'time': '18:00', 'type': 'Strength Training', 'duration': 60}],
-            'num_meals': 3,
-            'num_snacks': 1
-        }
-        
-        # Test enhanced prompt structure
-        enhanced_prompt = f"""
-**MACRO TARGETS - MUST HIT EXACTLY (±3% tolerance)**:
-- Calories: {meal_targets['calories']} (Range: {meal_targets['calories'] * 0.97:.0f} - {meal_targets['calories'] * 1.03:.0f})
-- Protein: {meal_targets['protein']}g (Range: {meal_targets['protein'] * 0.97:.0f} - {meal_targets['protein'] * 1.03:.0f}g)
-- Carbs: {meal_targets['carbs']}g (Range: {meal_targets['carbs'] * 0.97:.0f} - {meal_targets['carbs'] * 1.03:.0f}g)
-- Fat: {meal_targets['fat']}g (Range: {meal_targets['fat'] * 0.97:.0f} - {meal_targets['fat'] * 1.03:.0f}g)
-
-**PORTION SIZE GUIDELINES TO HIT TARGETS**:
-- For {meal_targets['calories']} calories: Use large portions, add oils, nuts, and calorie-dense ingredients
-- For {meal_targets['protein']}g protein: Use 6-8oz meat portions, add protein powder, Greek yogurt
-- For {meal_targets['carbs']}g carbs: Use 1-2 cups rice/pasta, multiple fruits, large oat portions
-- For {meal_targets['fat']}g fat: Use 2-4 tbsp oils, nuts, avocado, nut butters
-        """
-        
-        print("✅ Standalone AI Meal Planner imports successful")
-        print("✅ Enhanced prompt structure validated")
-        print("✅ Test data structure prepared")
-        
-        # Test OpenAI client
-        client = get_openai_client()
-        if client:
-            print("✅ OpenAI client ready for standalone meal planning")
-        else:
-            print("❌ OpenAI client not available")
-        
-        return True
-        
-    except ImportError as e:
-        print(f"❌ Import error: {e}")
-        return False
-    except Exception as e:
-        print(f"❌ Test error: {e}")
-        return False
+# Standalone AI Meal Planner functionality has been removed
+# Test functions related to standalone meal planning are no longer needed
 
 def test_advanced_ai_meal_planner():
     """Test the advanced AI meal planner system"""
@@ -203,17 +129,15 @@ def main():
     print("=" * 50)
     
     # Test each system
-    standalone_ok = test_standalone_ai_meal_planner()
     advanced_ok = test_advanced_ai_meal_planner()
     pdf_ok = test_pdf_export_functionality()
     
     print("\n" + "=" * 50)
     print("Complete Workflow Test Results:")
-    print(f"✅ Standalone AI Meal Planner: {'READY' if standalone_ok else 'ERROR'}")
     print(f"✅ Advanced AI Meal Planner: {'READY' if advanced_ok else 'ERROR'}")
     print(f"✅ PDF Export Functionality: {'READY' if pdf_ok else 'ERROR'}")
     
-    if standalone_ok and advanced_ok and pdf_ok:
+    if advanced_ok and pdf_ok:
         print("\n🎉 ALL SYSTEMS READY!")
         print("✅ Enhanced macro accuracy requirements implemented")
         print("✅ Aggressive portion size guidelines in place")

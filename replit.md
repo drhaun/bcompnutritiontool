@@ -102,67 +102,23 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
-- **July 17, 2025 - DYNAMIC MEAL NAMING SYSTEM: User-Driven Meal Structure**:
-  - Implemented dynamic meal naming based on user's meal/snack selections instead of static breakfast/lunch/dinner
-  - Updated Standalone AI Meal Plan to use meal_1, meal_2, snack_1, snack_2 format based on user selections
-  - Enhanced AI prompts to use exact meal_type values: meal_1, meal_2, etc. instead of generic meal names
-  - Updated meal display tabs to show "Meal 1", "Meal 2", "Snack 1", "Snack 2" for better user experience
-  - Fixed meal plan generation to respect user's selected number of meals and snacks
-  - Enhanced meal target distribution to calculate portions based on selected meal/snack configuration
-  - Added critical instruction to AI prompts to use only dynamic meal names, never breakfast/lunch/dinner
-  - Updated meal plan JSON format to use user-selected meal structure throughout system
-  - System now generates appropriate meal names based on user selections: 2 meals + 1 snack = meal_1, meal_2, snack_1
-  - Enhanced meal context system to work with dynamic meal naming for better personalization
-
-- **July 17, 2025 - SUPPLEMENTATION PREFERENCES ENHANCEMENT: Precise Macro Targeting**:
-  - Added comprehensive supplementation preferences tab to standalone meal planner
-  - Integrated protein powder, creatine, pre-workout, and wellness supplements tracking
-  - Enhanced AI prompts to strategically use supplements for exact macro precision
-  - Added specific protein powder type selection (whey, casein, plant-based, collagen)
-  - Strengthened macro accuracy validation with iterative regeneration system
-  - Enhanced correction prompts for failed macro attempts with aggressive portion adjustments
-  - Temperature reduced to 0.01 for maximum calculation consistency
-  - Added supplementation context to AI prompts for intelligent supplement integration
-  - Improved validation logging to track macro accuracy issues in real-time
-  - Enhanced system to use supplements strategically for hitting exact macro targets
-  - Added detailed supplement usage tracking (not interested, occasional, regular, daily)
-  - Improved PDF export now working correctly with datetime handling resolved
-
-- **July 17, 2025 - LOCATION-BASED MEAL PLANNING INTEGRATION: Intelligent Location Features**:
-  - Added comprehensive location-based features to Standalone AI Meal Plan page
-  - New Location & Restaurants tab with zip code input for primary and work locations
-  - Travel routes tracking for portable meal and restaurant recommendations along common routes
-  - Favorite restaurants integration with macro-friendly menu suggestions
-  - Favorite grocery stores with shopping tips and ingredient availability optimization
-  - Convenience store options for quick meals and emergency snacks
-  - Seasonal ingredient preferences with auto-detection of current season (Summer, Fall, Winter, Spring)
-  - Enhanced AI prompts to intelligently use location data for personalized meal planning
-  - Location-based recommendations display in grocery lists showing restaurant options, store tips, and convenience options
-  - Enhanced meal planning accuracy with location-appropriate ingredient suggestions
-  - Fixed missing utility functions (calculate_protein_grams, calculate_carb_grams, calculate_fat_grams) for nutrition calculations
-  - Comprehensive testing confirms all location features working correctly with proper data structure handling
-  - AI now provides restaurant-specific menu recommendations based on user's favorite locations
-  - Seasonal produce integration ensures ingredient suggestions match current season and location
-  - Enhanced grocery list generation with location-specific store recommendations and seasonal ingredient focus
-
-- **July 17, 2025 - COMPREHENSIVE STANDALONE AI MEAL PLAN ENHANCEMENT: Enhanced Precision & User Experience**:
-  - Completely revamped Standalone AI Meal Plan page with comprehensive features matching Weekly Schedule page
-  - Enhanced workout scheduling to support multiple daily workouts with detailed time blocks like Weekly Schedule
-  - Implemented dynamic meal context builder matching Weekly Schedule page with detailed prep preferences, locations, and time ranges
-  - Added comprehensive Diet Preferences section with 4 organized tabs: Restrictions & Allergies, Food Preferences, Flavors & Seasonings, and Meal Sourcing
-  - Enhanced AI prompt precision from ±3% to ±1% macro accuracy tolerance for extremely precise meal planning
-  - Added detailed serving size requirements using precise grams/ounces (e.g., "150g chicken breast" vs "1 chicken breast")
-  - Implemented USDA nutritional database calculation requirements for ingredient-level macro accuracy
-  - Enhanced AI prompts with calculation verification requirements and portion adjustment guidelines
-  - Fixed grocery list generation AttributeError by updating data structure access for new meal plan format
-  - Added comprehensive seasoning, flavor profile, and cooking enhancer preferences integration
-  - Enhanced meal sourcing preferences with home cooking, meal prep, delivery, and grocery shopping interest levels
-  - Structured page to match Diet Preferences page organization for consistent user experience
-  - Added precision calculation requirements forcing AI to show calculation work for each ingredient
-  - Updated validation system to use strict 1% tolerance instead of 3% for maximum accuracy
-  - Enhanced PDF export compatibility with new comprehensive meal plan structure
-  - Improved meal context system to provide more detailed context for AI meal generation
-  - Added comprehensive user preference collection for more personalized and accurate meal plans
+- **July 17, 2025 - STREAMLINED WORKFLOW FOCUS: Comprehensive App Refinement**:
+  - Removed Standalone AI Meal Plan and backup pages to focus on comprehensive workflow
+  - Reorganized page structure to emphasize full body composition planning journey
+  - Updated workflow to 9 core pages: App Overview, Initial Setup, Body Composition Goals, Diet Preferences, Weekly Schedule, Nutrition Targets, Advanced AI Meal Plan, DIY Meal Planning, Daily Monitoring, Progress Dashboard
+  - Enhanced AI meal planning accuracy with aggressive macro targeting (±1% tolerance)
+  - Added detailed cooking instruction requirements with exact temperatures and timing
+  - Integrated comprehensive flavor enhancement with specific seasoning amounts
+  - Strengthened validation system with multi-attempt correction prompts for exact macro targeting
+  - Fixed critical PDF export macro calculation bug that was showing incorrect values
+  - Enhanced PDF export to use actual meal plan daily_totals instead of calculated averages
+  - Added meal_data reference to PDF calculation for accurate macro display
+  - Improved plan_info parameter handling for correct macro value display in PDF exports
+  - Cleaned up test files and removed obsolete standalone meal planner references
+  - Updated App Overview to reflect new focused workflow structure
+  - Enhanced AI prompts with calorie-dense ingredient strategies and portion corrections
+  - Added specific seasoning requirements and cooking techniques integration
+  - Improved macro accuracy targeting with aggressive portion size adjustments
 
 - **July 17, 2025 - COMPREHENSIVE DIET PREFERENCES INTEGRATION: Enhanced AI Meal Planning Accuracy**:
   - Integrated ALL Diet Preferences page information into both Advanced and Standalone AI meal planners
