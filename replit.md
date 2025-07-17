@@ -102,6 +102,23 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 17, 2025 - LOCATION-BASED MEAL PLANNING INTEGRATION: Intelligent Location Features**:
+  - Added comprehensive location-based features to Standalone AI Meal Plan page
+  - New Location & Restaurants tab with zip code input for primary and work locations
+  - Travel routes tracking for portable meal and restaurant recommendations along common routes
+  - Favorite restaurants integration with macro-friendly menu suggestions
+  - Favorite grocery stores with shopping tips and ingredient availability optimization
+  - Convenience store options for quick meals and emergency snacks
+  - Seasonal ingredient preferences with auto-detection of current season (Summer, Fall, Winter, Spring)
+  - Enhanced AI prompts to intelligently use location data for personalized meal planning
+  - Location-based recommendations display in grocery lists showing restaurant options, store tips, and convenience options
+  - Enhanced meal planning accuracy with location-appropriate ingredient suggestions
+  - Fixed missing utility functions (calculate_protein_grams, calculate_carb_grams, calculate_fat_grams) for nutrition calculations
+  - Comprehensive testing confirms all location features working correctly with proper data structure handling
+  - AI now provides restaurant-specific menu recommendations based on user's favorite locations
+  - Seasonal produce integration ensures ingredient suggestions match current season and location
+  - Enhanced grocery list generation with location-specific store recommendations and seasonal ingredient focus
+
 - **July 17, 2025 - COMPREHENSIVE STANDALONE AI MEAL PLAN ENHANCEMENT: Enhanced Precision & User Experience**:
   - Completely revamped Standalone AI Meal Plan page with comprehensive features matching Weekly Schedule page
   - Enhanced workout scheduling to support multiple daily workouts with detailed time blocks like Weekly Schedule
