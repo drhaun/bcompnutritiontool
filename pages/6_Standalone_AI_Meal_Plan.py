@@ -285,12 +285,43 @@ REQUIREMENTS:
         
         meal_plan = json.loads(response.choices[0].message.content)
         
-        # Validate macro accuracy and provide feedback
-        if validate_standalone_meal_plan_accuracy(meal_plan, daily_totals):
-            return meal_plan
-        else:
-            st.warning("⚠️ Meal plan generated but may have macro accuracy issues. Check the results carefully.")
-            return meal_plan
+        # Validate macro accuracy and regenerate if needed
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            if validate_standalone_meal_plan_accuracy(meal_plan, daily_totals):
+                return meal_plan
+            else:
+                if attempt < max_attempts - 1:
+                    st.warning(f"⚠️ Attempt {attempt + 1}: Macro accuracy insufficient. Regenerating...")
+                    # Add stronger requirement in follow-up prompt
+                    correction_prompt = f"""
+                    CRITICAL: The previous meal plan had macro accuracy issues. You MUST hit these exact targets:
+                    - Calories: {daily_totals['calories']} (±1% = {daily_totals['calories'] * 0.99:.0f} - {daily_totals['calories'] * 1.01:.0f})
+                    - Protein: {daily_totals['protein']}g (±1% = {daily_totals['protein'] * 0.99:.0f} - {daily_totals['protein'] * 1.01:.0f}g)
+                    - Carbs: {daily_totals['carbs']}g (±1% = {daily_totals['carbs'] * 0.99:.0f} - {daily_totals['carbs'] * 1.01:.0f}g)
+                    - Fat: {daily_totals['fat']}g (±1% = {daily_totals['fat'] * 0.99:.0f} - {daily_totals['fat'] * 1.01:.0f}g)
+                    
+                    INCREASE PORTION SIZES AGGRESSIVELY. Add more oil, nuts, protein powder, larger meat portions.
+                    
+                    {enhanced_prompt}
+                    """
+                    
+                    response = openai_client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[
+                            {"role": "system", "content": "You are a professional nutritionist. You MUST create meal plans within ±1% of targets. If below targets, INCREASE portions aggressively. Use calorie-dense ingredients: oils, nuts, protein powder, large meat portions. NEVER submit plans below target ranges."},
+                            {"role": "user", "content": correction_prompt}
+                        ],
+                        response_format={"type": "json_object"},
+                        temperature=0.05,  # Even lower temperature for precision
+                        max_tokens=4000
+                    )
+                    meal_plan = json.loads(response.choices[0].message.content)
+                else:
+                    st.error("⚠️ Unable to generate meal plan with sufficient macro accuracy after 3 attempts.")
+                    return meal_plan
+        
+        return meal_plan
             
     except Exception as e:
         st.error(f"AI meal generation failed: {e}")
@@ -1729,10 +1760,11 @@ if 'generated_standalone_plan' in st.session_state:
                                 meal_data_for_pdf.append(meal_info)
                 
                 # Get user preferences for PDF
+                from datetime import datetime as dt
                 user_info = {
                     'name': 'Fitomics User',
                     'plan_type': 'Standalone Meal Plan',
-                    'generation_date': datetime.now().strftime('%B %d, %Y')
+                    'generation_date': dt.now().strftime('%B %d, %Y')
                 }
                 
                 pdf_path = export_meal_plan_pdf(meal_data_for_pdf, user_info)
@@ -1745,7 +1777,7 @@ if 'generated_standalone_plan' in st.session_state:
                         st.download_button(
                             label="⬇️ Download PDF",
                             data=pdf_file.read(),
-                            file_name=f"fitomics_meal_plan_{datetime.now().strftime('%Y%m%d')}.pdf",
+                            file_name=f"fitomics_meal_plan_{dt.now().strftime('%Y%m%d')}.pdf",
                             mime="application/pdf",
                             use_container_width=True
                         )
