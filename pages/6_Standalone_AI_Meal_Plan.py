@@ -466,28 +466,188 @@ if has_workout:
             "calories": workout_calories
         })
 
+# Goal selection (outside form for dynamic updates)
+st.markdown("---")
+st.markdown("## 🎯 Daily Goal")
+st.markdown("*What's your goal for today? This will adjust your nutrition targets.*")
+
+goal_type = st.selectbox(
+    "What's your goal for today?",
+    options=[
+        "Maintain Weight",
+        "Lose Weight (0.5-1 lb/week)",
+        "Lose Weight (1-2 lbs/week)",
+        "Gain Weight (0.5-1 lb/week)",
+        "Gain Weight (1-2 lbs/week)"
+    ],
+    index=0
+)
+
+# Meal and snack configuration (outside form for dynamic updates)
+st.markdown("---")
+st.markdown("## 🍽️ Meal Configuration")
+st.markdown("*How many meals and snacks would you like today? This will configure your meal contexts.*")
+
+meal_config_col1, meal_config_col2 = st.columns(2)
+
+with meal_config_col1:
+    # Meal timing preferences
+    num_meals = st.selectbox("Number of Main Meals", [2, 3, 4], index=1)
+    num_snacks = st.selectbox("Number of Snacks", [0, 1, 2, 3], index=1)
+
+with meal_config_col2:
+    # Activity level for the day
+    day_activity = st.selectbox("Today's Activity Level", [
+        "Sedentary (desk work, minimal movement)",
+        "Light Activity (some walking, desk work)",
+        "Moderate Activity (regular movement, errands)",
+        "Active Day (lots of walking, physical tasks)",
+        "Very Active (physical job, lots of movement)"
+    ], index=2)
+
+# Enhanced Meal Context Builder (dynamic based on meal/snack selection)
+st.markdown("---")
+st.markdown("## 🍽️ Meal Context Builder")
+st.markdown("*Configure each meal and snack based on your selections above.*")
+
+# Initialize meal contexts storage
+if 'standalone_meal_contexts_detailed' not in st.session_state:
+    st.session_state.standalone_meal_contexts_detailed = {}
+
+meal_contexts = {}
+meal_names = ["First Meal", "Second Meal", "Third Meal", "Fourth Meal"]
+
+# Process main meals with detailed context
+for i in range(num_meals):
+    meal_key = f"meal_{i+1}"
+    meal_name = meal_names[i] if i < len(meal_names) else f"Meal {i+1}"
+    
+    with st.expander(f"🍽️ **{meal_name}** Configuration", expanded=False):
+        # 1. Prep type
+        st.write("**How will you prepare this meal?**")
+        prep_type = st.selectbox(
+            "Preparation method:",
+            options=[
+                "🧑‍🍳 Cook from scratch",
+                "🍱 Use leftovers/pre-prepped ingredients",
+                "🥡 Pickup or takeout",
+                "🚚 Meal delivery (ready-to-eat)",
+                "🥪 Quick & easy (sandwiches, simple assembly)"
+            ],
+            key=f"prep_type_{meal_key}"
+        )
+        
+        # 2. Prep time (conditional)
+        if prep_type == "🧑‍🍳 Cook from scratch":
+            prep_time = st.selectbox(
+                "Cooking time preference:",
+                options=[
+                    "⚡ Quick (15-30 min)",
+                    "🕐 Medium (30-60 min)",
+                    "🕑 Longer (60+ min)"
+                ],
+                key=f"prep_time_{meal_key}"
+            )
+        else:
+            prep_time = None
+        
+        # 3. Location
+        st.write("**Where will you eat this meal?**")
+        location = st.multiselect(
+            "Location options:",
+            options=[
+                "🏠 Home",
+                "🏢 Work/Office",
+                "🚗 Car/Commute",
+                "🏃‍♂️ Gym/Fitness Center",
+                "🍽️ Restaurant",
+                "🌳 Outdoor/On-the-go"
+            ],
+            default=["🏠 Home"],
+            key=f"location_{meal_key}"
+        )
+        
+        # 4. Time range
+        st.write("**What time do you typically eat this meal?**")
+        time_range_options = [
+            "Early Morning (5:00-8:00 AM)",
+            "Morning (8:00-11:00 AM)", 
+            "Midday (11:00 AM-2:00 PM)",
+            "Afternoon (2:00-5:00 PM)",
+            "Evening (5:00-8:00 PM)",
+            "Night (8:00-11:00 PM)"
+        ]
+        time_range = st.selectbox(
+            "Typical time range:",
+            time_range_options,
+            index=min(i, len(time_range_options)-1),
+            key=f"time_range_{meal_key}"
+        )
+        
+        # Store detailed context
+        st.session_state.standalone_meal_contexts_detailed[meal_key] = {
+            "meal": meal_name,
+            "prep_type": prep_type.split(" ", 1)[1] if prep_type else None,
+            "prep_time": prep_time.split(" ", 1)[1] if prep_time else None,
+            "location": [loc.split(" ", 1)[1] for loc in location] if location else [],
+            "time_range": time_range
+        }
+        
+        # Create simplified context for AI
+        if prep_type == "🧑‍🍳 Cook from scratch":
+            context = f"Home cooking - {prep_time}" if prep_time else "Home cooking"
+        elif prep_type == "🍱 Use leftovers/pre-prepped ingredients":
+            context = "Meal prep/leftovers"
+        elif prep_type == "🥡 Pickup or takeout":
+            context = "Takeout/restaurant"
+        elif prep_type == "🚚 Meal delivery (ready-to-eat)":
+            context = "Meal delivery"
+        else:
+            context = "Quick & easy"
+        
+        meal_contexts[meal_key] = context
+
+# Process snacks with simplified context
+snack_names = ["First Snack", "Second Snack", "Third Snack"]
+for i in range(num_snacks):
+    snack_key = f"snack_{i+1}"
+    snack_name = snack_names[i] if i < len(snack_names) else f"Snack {i+1}"
+    
+    with st.expander(f"🍿 **{snack_name}** Configuration", expanded=False):
+        st.write("**What type of snack do you prefer?**")
+        snack_type = st.selectbox(
+            "Snack preference:",
+            options=[
+                "🥜 Protein-focused (nuts, protein bar, Greek yogurt)",
+                "🍎 Fresh & light (fruit, vegetables, light snacks)",
+                "🍪 Comfort food (cookies, crackers, comfort snacks)",
+                "🥤 Liquid/shake (protein shake, smoothie, drink)",
+                "🏃‍♂️ Pre/post workout (energy bar, banana, recovery snack)"
+            ],
+            key=f"snack_type_{snack_key}"
+        )
+        
+        # Create context for AI
+        if "Protein-focused" in snack_type:
+            context = "Protein snack"
+        elif "Fresh & light" in snack_type:
+            context = "Healthy snack"
+        elif "Comfort food" in snack_type:
+            context = "Comfort snack"
+        elif "Liquid/shake" in snack_type:
+            context = "Liquid snack"
+        else:
+            context = "Workout snack"
+        
+        meal_contexts[snack_key] = context
+
 # Create meal plan form for preferences and generation
 with st.form("standalone_meal_plan_form"):
     st.markdown("## 📋 Meal Plan Configuration")
     st.markdown("*Configure your meal preferences and schedule for AI generation.*")
     
-    # Goal selection first
-    st.markdown("### 🎯 Daily Goal")
-    goal_type = st.selectbox(
-        "What's your goal for today?",
-        options=[
-            "Maintain Weight",
-            "Lose Weight (0.5-1 lb/week)",
-            "Lose Weight (1-2 lbs/week)",
-            "Gain Weight (0.5-1 lb/week)",
-            "Gain Weight (1-2 lbs/week)"
-        ],
-        index=0
-    )
-    
     # Day Schedule Planning
-    st.markdown("---")
-    st.markdown("## 📅 Daily Schedule Planning")
+    st.markdown("### 📅 Daily Schedule Planning")
     st.markdown("*Tell us about your day so we can optimize meal timing and content.*")
     
     schedule_col1, schedule_col2 = st.columns(2)
@@ -506,29 +666,13 @@ with st.form("standalone_meal_plan_form"):
             st.info("No workouts scheduled for today")
     
     with schedule_col2:
-        # Meal timing preferences
-        num_meals = st.selectbox("Number of Main Meals", [2, 3, 4], index=1)
-        num_snacks = st.selectbox("Number of Snacks", [0, 1, 2, 3], index=1)
+        # Show meal configuration summary
+        st.success(f"✅ {num_meals} meals and {num_snacks} snacks configured")
+        st.write(f"**Today's Activity:** {day_activity}")
+        st.write(f"**Goal:** {goal_type}")
         
-        # Activity level for the day
-        day_activity = st.selectbox("Today's Activity Level", [
-            "Sedentary (desk work, minimal movement)",
-            "Light Activity (some walking, desk work)",
-            "Moderate Activity (regular movement, errands)",
-            "Active Day (lots of walking, physical tasks)",
-            "Very Active (physical job, lots of movement)"
-        ], index=2)
-        
-        # Enhanced Meal Context Builder (matching Weekly Schedule page)
-        st.markdown("**🍽️ Meal Context Builder**")
-        st.write("Answer a few simple questions for each meal to create personalized meal planning contexts.")
-        
-        # Initialize meal contexts storage
-        if 'standalone_meal_contexts_detailed' not in st.session_state:
-            st.session_state.standalone_meal_contexts_detailed = {}
-        
-        meal_contexts = {}
-        meal_names = ["First Meal", "Second Meal", "Third Meal", "Fourth Meal"]
+
+
         
         # Process meals with detailed context
         for i in range(num_meals):
