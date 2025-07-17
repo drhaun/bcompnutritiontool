@@ -384,8 +384,87 @@ with personal_col2:
         ],
         index=2
     )
-    
 
+# Workout planning section (outside form for dynamic updates)
+st.markdown("---")
+st.markdown("## 💪 Workout Planning")
+st.markdown("*Configure your workout schedule to optimize meal timing and content.*")
+
+has_workout = st.checkbox("I'm working out today", value=False)
+workout_details = []
+pre_workout_preference = None
+post_workout_preference = None
+
+if has_workout:
+    workout_col1, workout_col2 = st.columns(2)
+    
+    with workout_col1:
+        # Number of workouts
+        num_workouts = st.selectbox("Number of workouts today", [1, 2, 3], index=0)
+        
+        # Workout meal timing preferences
+        st.markdown("**🏋️ Workout Meal Timing**")
+        pre_workout_preference = st.selectbox("Pre-workout meal preference", [
+            "Fasted training (no pre-workout meal)",
+            "Light snack 30-60 min before (banana, toast)",
+            "Small meal 1-2 hours before (moderate protein/carbs, low fat/fiber)",
+            "Regular meal 2+ hours before"
+        ], index=2)
+        
+        post_workout_preference = st.selectbox("Post-workout meal preference", [
+            "Immediate recovery snack/shake within 30 min",
+            "Full meal within 1 hour (high protein/carbs)",
+            "Regular meal timing (no special timing)"
+        ], index=1)
+    
+    with workout_col2:
+        # Workout proximity guidance
+        st.info("""
+        **Workout Meal Timing Guidelines:**
+        • **Pre-workout (1-2 hours)**: Moderate protein, moderate-high carbs, LOW fat & fiber
+        • **Post-workout (within 1 hour)**: High protein, high carbs, moderate fat, easily digestible
+        • **Avoid large meals within 1 hour before intense exercise**
+        • **Liquid/light options preferred around workout times**
+        """)
+    
+    # Individual workout details
+    for i in range(num_workouts):
+        workout_num = i + 1
+        st.markdown(f"**Workout {workout_num} Details:**")
+        
+        detail_col1, detail_col2 = st.columns(2)
+        
+        with detail_col1:
+            workout_time = st.selectbox(f"Workout {workout_num} Time", [
+                "Early Morning (5-7 AM)", "Morning (7-9 AM)", "Mid-Morning (9-11 AM)",
+                "Lunch Time (11 AM-1 PM)", "Afternoon (1-4 PM)", "Evening (4-7 PM)",
+                "Night (7-9 PM)", "Late Night (9-11 PM)"
+            ], index=1 if i == 0 else 5, key=f"workout_{workout_num}_time")
+            
+            workout_type = st.selectbox(f"Workout {workout_num} Type", [
+                "Cardio (Running, Cycling, etc.)",
+                "Strength Training",
+                "HIIT/Circuit Training",
+                "Yoga/Pilates",
+                "Sports/Recreation",
+                "Mixed Training"
+            ], key=f"workout_{workout_num}_type")
+        
+        with detail_col2:
+            workout_duration = st.selectbox(f"Workout {workout_num} Duration", [
+                "15-30 minutes", "30-45 minutes", "45-60 minutes", "60-90 minutes", "90+ minutes"
+            ], index=1, key=f"workout_{workout_num}_duration")
+            
+            workout_calories = st.number_input(f"Workout {workout_num} Calories Burned", 
+                                             min_value=50, max_value=1500, value=300, step=25,
+                                             key=f"workout_{workout_num}_calories")
+        
+        workout_details.append({
+            "time": workout_time,
+            "type": workout_type,
+            "duration": workout_duration,
+            "calories": workout_calories
+        })
 
 # Create meal plan form for preferences and generation
 with st.form("standalone_meal_plan_form"):
@@ -418,106 +497,13 @@ with st.form("standalone_meal_plan_form"):
         wake_time = st.time_input("Wake Time", value=time(7, 0))
         sleep_time = st.time_input("Sleep Time", value=time(23, 0))
         
-        # Workout planning with enhanced timing guidance
-        has_workout = st.checkbox("I'm working out today", value=True)
+        # Show workout summary if configured
         if has_workout:
-            # Option for multiple workouts
-            multiple_workouts = st.checkbox("I'm working out more than once today")
-            
-            if multiple_workouts:
-                st.markdown("**First Workout:**")
-                workout_time_1 = st.selectbox("First Workout Time", [
-                    "Early Morning (5-7 AM)", "Morning (7-9 AM)", "Mid-Morning (9-11 AM)",
-                    "Lunch Time (11 AM-1 PM)", "Afternoon (1-4 PM)", "Evening (4-7 PM)",
-                    "Night (7-9 PM)", "Late Night (9-11 PM)"
-                ], index=1, key="workout1_time")
-                
-                workout_type_1 = st.selectbox("First Workout Type", [
-                    "Cardio (Running, Cycling, etc.)",
-                    "Strength Training",
-                    "HIIT/Circuit Training",
-                    "Yoga/Pilates",
-                    "Sports/Recreation",
-                    "Mixed Training"
-                ], key="workout1_type")
-                
-                workout_duration_1 = st.selectbox("First Workout Duration", [
-                    "15-30 minutes", "30-45 minutes", "45-60 minutes", "60-90 minutes", "90+ minutes"
-                ], index=1, key="workout1_duration")
-                
-                st.markdown("**Second Workout:**")
-                workout_time_2 = st.selectbox("Second Workout Time", [
-                    "Early Morning (5-7 AM)", "Morning (7-9 AM)", "Mid-Morning (9-11 AM)",
-                    "Lunch Time (11 AM-1 PM)", "Afternoon (1-4 PM)", "Evening (4-7 PM)",
-                    "Night (7-9 PM)", "Late Night (9-11 PM)"
-                ], index=5, key="workout2_time")
-                
-                workout_type_2 = st.selectbox("Second Workout Type", [
-                    "Cardio (Running, Cycling, etc.)",
-                    "Strength Training",
-                    "HIIT/Circuit Training",
-                    "Yoga/Pilates",
-                    "Sports/Recreation",
-                    "Mixed Training"
-                ], key="workout2_type")
-                
-                workout_duration_2 = st.selectbox("Second Workout Duration", [
-                    "15-30 minutes", "30-45 minutes", "45-60 minutes", "60-90 minutes", "90+ minutes"
-                ], index=1, key="workout2_duration")
-                
-                workout_details = [
-                    {"time": workout_time_1, "type": workout_type_1, "duration": workout_duration_1},
-                    {"time": workout_time_2, "type": workout_type_2, "duration": workout_duration_2}
-                ]
-            else:
-                workout_time = st.selectbox("Workout Time", [
-                    "Early Morning (5-7 AM)", "Morning (7-9 AM)", "Mid-Morning (9-11 AM)",
-                    "Lunch Time (11 AM-1 PM)", "Afternoon (1-4 PM)", "Evening (4-7 PM)",
-                    "Night (7-9 PM)", "Late Night (9-11 PM)"
-                ], index=1)
-                
-                workout_type = st.selectbox("Workout Type", [
-                    "Cardio (Running, Cycling, etc.)",
-                    "Strength Training",
-                    "HIIT/Circuit Training",
-                    "Yoga/Pilates",
-                    "Sports/Recreation",
-                    "Mixed Training"
-                ])
-                
-                workout_duration = st.selectbox("Workout Duration", [
-                    "15-30 minutes", "30-45 minutes", "45-60 minutes", "60-90 minutes", "90+ minutes"
-                ], index=1)
-                
-                workout_details = [{"time": workout_time, "type": workout_type, "duration": workout_duration}]
-            
-            # Workout meal timing preferences
-            st.markdown("**🏋️ Workout Meal Timing**")
-            pre_workout_preference = st.selectbox("Pre-workout meal preference", [
-                "Fasted training (no pre-workout meal)",
-                "Light snack 30-60 min before (banana, toast)",
-                "Small meal 1-2 hours before (moderate protein/carbs, low fat/fiber)",
-                "Regular meal 2+ hours before"
-            ], index=2)
-            
-            post_workout_preference = st.selectbox("Post-workout meal preference", [
-                "Immediate recovery snack/shake within 30 min",
-                "Full meal within 1 hour (high protein/carbs)",
-                "Regular meal timing (no special timing)"
-            ], index=1)
-            
-            # Workout proximity guidance
-            st.info("""
-            **Workout Meal Timing Guidelines:**
-            • **Pre-workout (1-2 hours)**: Moderate protein, moderate-high carbs, LOW fat & fiber
-            • **Post-workout (within 1 hour)**: High protein, high carbs, moderate fat, easily digestible
-            • **Avoid large meals within 1 hour before intense exercise**
-            • **Liquid/light options preferred around workout times**
-            """)
+            st.success(f"✅ {len(workout_details)} workout(s) configured")
+            for i, workout in enumerate(workout_details):
+                st.write(f"**Workout {i+1}:** {workout['type']} at {workout['time']} ({workout['duration']})")
         else:
-            workout_details = []
-            pre_workout_preference = None
-            post_workout_preference = None
+            st.info("No workouts scheduled for today")
     
     with schedule_col2:
         # Meal timing preferences
