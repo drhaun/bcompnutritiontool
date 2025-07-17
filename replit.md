@@ -102,6 +102,18 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 17, 2025 - DYNAMIC MEAL NAMING SYSTEM: User-Driven Meal Structure**:
+  - Implemented dynamic meal naming based on user's meal/snack selections instead of static breakfast/lunch/dinner
+  - Updated Standalone AI Meal Plan to use meal_1, meal_2, snack_1, snack_2 format based on user selections
+  - Enhanced AI prompts to use exact meal_type values: meal_1, meal_2, etc. instead of generic meal names
+  - Updated meal display tabs to show "Meal 1", "Meal 2", "Snack 1", "Snack 2" for better user experience
+  - Fixed meal plan generation to respect user's selected number of meals and snacks
+  - Enhanced meal target distribution to calculate portions based on selected meal/snack configuration
+  - Added critical instruction to AI prompts to use only dynamic meal names, never breakfast/lunch/dinner
+  - Updated meal plan JSON format to use user-selected meal structure throughout system
+  - System now generates appropriate meal names based on user selections: 2 meals + 1 snack = meal_1, meal_2, snack_1
+  - Enhanced meal context system to work with dynamic meal naming for better personalization
+
 - **July 17, 2025 - SUPPLEMENTATION PREFERENCES ENHANCEMENT: Precise Macro Targeting**:
   - Added comprehensive supplementation preferences tab to standalone meal planner
   - Integrated protein powder, creatine, pre-workout, and wellness supplements tracking

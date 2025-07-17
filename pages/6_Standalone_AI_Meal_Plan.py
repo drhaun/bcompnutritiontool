@@ -167,7 +167,7 @@ REQUIREMENTS:
   }},
   "meals": [
     {{
-      "meal_type": "breakfast/lunch/dinner/snack",
+      "meal_type": "meal_1/meal_2/snack_1/etc",
       "name": "Descriptive meal name (e.g., 'Protein-Packed Breakfast Bowl', 'Post-Workout Recovery Lunch')",
       "timing": "suggested time",
       "context": "context description",
@@ -276,13 +276,36 @@ REQUIREMENTS:
                 seasonal_context += f"- Preferred Seasonal Produce: {', '.join(enhanced_prefs['preferred_produce_seasons'])}\n"
             seasonal_context += f"- Use seasonal ingredients appropriate for the current season\n"
 
+        # Generate dynamic meal names based on user selections
+        meal_names = []
+        for i in range(num_meals):
+            meal_names.append(f"meal_{i+1}")
+        
+        snack_names = []
+        for i in range(num_snacks):
+            snack_names.append(f"snack_{i+1}")
+        
+        all_meal_names = meal_names + snack_names
+        
+        # Create meal target details for the prompt
+        meal_target_details = []
+        for meal_name in all_meal_names:
+            if meal_name in meal_targets:
+                targets = meal_targets[meal_name]
+                meal_target_details.append(f"- {meal_name}: {targets['calories']} cal, {targets['protein']}g protein, {targets['carbs']}g carbs, {targets['fat']}g fat")
+        
         # Add specific macro targets with enhanced precision requirements
         enhanced_prompt = f"""
-**MACRO TARGETS - MUST HIT EXACTLY (±1% tolerance MAXIMUM)**:
+**MEAL STRUCTURE - USER SELECTED {num_meals} MEALS + {num_snacks} SNACKS**:
+{chr(10).join(meal_target_details)}
+
+**DAILY MACRO TARGETS - MUST HIT EXACTLY (±1% tolerance MAXIMUM)**:
 - Calories: {daily_totals['calories']} (Acceptable range: {daily_totals['calories'] * 0.99:.0f} - {daily_totals['calories'] * 1.01:.0f})
 - Protein: {daily_totals['protein']}g (Acceptable range: {daily_totals['protein'] * 0.99:.0f} - {daily_totals['protein'] * 1.01:.0f}g)
 - Carbs: {daily_totals['carbs']}g (Acceptable range: {daily_totals['carbs'] * 0.99:.0f} - {daily_totals['carbs'] * 1.01:.0f}g)
 - Fat: {daily_totals['fat']}g (Acceptable range: {daily_totals['fat'] * 0.99:.0f} - {daily_totals['fat'] * 1.01:.0f}g)
+
+**CRITICAL**: Use ONLY these meal_type values in your JSON response: {', '.join(all_meal_names)}. Do NOT use breakfast, lunch, dinner, etc. Each meal must use one of these exact values.
 
 **PRECISE PORTION SIZE GUIDELINES**:
 - For {daily_totals['calories']} calories: Calculate exact portions using calorie-dense ingredients
@@ -1758,7 +1781,19 @@ if 'generated_standalone_plan' in st.session_state:
         else:
             # Legacy format with meal types as keys
             meal_types = list(meal_plan.keys())
-        meal_tabs = st.tabs([meal_type.title() for meal_type in meal_types])
+        # Create user-friendly tab names
+        tab_names = []
+        for meal_type in meal_types:
+            if meal_type.startswith('meal_'):
+                meal_num = meal_type.split('_')[1]
+                tab_names.append(f"Meal {meal_num}")
+            elif meal_type.startswith('snack_'):
+                snack_num = meal_type.split('_')[1]
+                tab_names.append(f"Snack {snack_num}")
+            else:
+                tab_names.append(meal_type.title())
+        
+        meal_tabs = st.tabs(tab_names)
         
         for i, meal_type in enumerate(meal_types):
             with meal_tabs[i]:
