@@ -415,4 +415,4 @@ with tips_col2:
     """)
 
 # Session management
-add_session_controls("hydration_calculator")
+add_session_controls()
