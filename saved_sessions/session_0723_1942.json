@@ -1,0 +1,4095 @@
+{
+  "timestamp": "2025-07-23T19:42:33.770678",
+  "user_info": {
+    "name": "Cody",
+    "gender": "Male",
+    "dob": "11/03/1987",
+    "age": 38,
+    "height_cm": 175.26,
+    "height_inches": 69,
+    "height_ft": 5,
+    "height_in": 9,
+    "weight_kg": 90.71858188712795,
+    "weight_lbs": 200.0,
+    "body_fat_percentage": 20.0,
+    "activity_level": "Sedentary (office job, <2 hours exercise per week)",
+    "raw_activity_level": "Sedentary (0-5k steps/day)",
+    "workouts_per_week": 3,
+    "workout_frequency": "2-3 workouts per week",
+    "workout_calories": 300,
+    "goal_focus": "Lose fat",
+    "performance_preference": "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal.",
+    "body_comp_preference": "I don't want to lose any muscle mass while losing body fat.",
+    "lifestyle_commitment": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase.",
+    "tracking_commitment": "I am committed to tracking regularly",
+    "commitment_level": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently.",
+    "use_imperial": true,
+    "tdee": 2309.644411216964
+  },
+  "goal_info": {
+    "goal_type": "Lose fat",
+    "target_fat_mass_lbs": 25.0,
+    "target_ffm_lbs": 160.0,
+    "target_body_fat": 13.513513513513514,
+    "target_fmi": 3.6918211287863536,
+    "target_ffmi": 23.627655224232665,
+    "weekly_weight_pct": -0.0075,
+    "weekly_fat_pct": 0.85,
+    "target_weight_lbs": 185.0,
+    "timeline_weeks": 10,
+    "start_date": "2025-07-23",
+    "target_energy": 1561
+  },
+  "diet_preferences": {
+    "dietary_restrictions": [
+      "Gluten-Free",
+      "Low-FODMAP"
+    ],
+    "cuisine_preferences": [
+      "American",
+      "Italian",
+      "Mexican",
+      "Asian",
+      "Mediterranean",
+      "Japanese",
+      "Greek"
+    ],
+    "preferred_proteins": [
+      "Chicken Breast",
+      "Turkey",
+      "Lean Beef",
+      "Ground Beef",
+      "Salmon",
+      "White Fish",
+      "Lentils",
+      "Protein Powder",
+      "Shrimp",
+      "Eggs",
+      "Greek Yogurt",
+      "Cottage Cheese",
+      "Black Beans",
+      "Chickpeas"
+    ],
+    "preferred_carbs": [
+      "Brown Rice",
+      "White Rice",
+      "Quinoa",
+      "Oats",
+      "Sweet Potato",
+      "Regular Potato",
+      "Pasta",
+      "Bread",
+      "Tortillas",
+      "Fruits",
+      "Vegetables",
+      "Legumes"
+    ],
+    "preferred_fats": [
+      "Olive Oil",
+      "Coconut Oil",
+      "Butter",
+      "Avocado",
+      "Nuts",
+      "Seeds",
+      "Nut Butters",
+      "Fatty Fish",
+      "Cheese",
+      "Cream"
+    ],
+    "preferred_vegetables": [
+      "Spinach",
+      "Broccoli",
+      "Cauliflower",
+      "Carrots",
+      "Bell Peppers",
+      "Zucchini",
+      "Cucumber",
+      "Tomatoes",
+      "Onions",
+      "Garlic",
+      "Mushrooms",
+      "Green Beans"
+    ],
+    "disliked_foods": [
+      "Brussels, Peas, Asparagus, Dates, Cauliflower"
+    ],
+    "allergies": [],
+    "meal_frequency": 3,
+    "cooking_time_preference": "Quick (under 30 min)",
+    "budget_preference": "Moderate",
+    "wants_home_cooking": "Yes",
+    "home_cooking_percentage": 0,
+    "grocery_method": "In-store",
+    "grocery_delivery_percentage": 0,
+    "wants_meal_delivery": "No",
+    "meal_delivery_percentage": 0,
+    "primary_zip_code": "35007",
+    "travel_frequency": "Sometimes",
+    "meal_delivery_interest": "High",
+    "home_cooking_interest": "Low",
+    "grocery_shopping_interest": "Low",
+    "cooking_for": "Myself + partner (2 people)",
+    "leftovers_preference": "Okay with leftovers occasionally",
+    "supplementation_preference": "Open to supplements",
+    "acceptable_supplements": [],
+    "supplementation_preferences": {
+      "creatine": "Already taking",
+      "protein_powder": "Already taking",
+      "pre_workout": "Already taking",
+      "multivitamin": "Already taking",
+      "omega3": "Already taking",
+      "vitamin_d": "Already taking",
+      "other_supplements": []
+    },
+    "variety_level": "High Variety",
+    "repetition_preference": "I like some repetition but with variations",
+    "weekly_structure": "Mix of routine and variety",
+    "cooking_variety": "Some variety in cooking methods",
+    "spice_level": "Medium",
+    "flavor_profile": [
+      "Savory/Umami",
+      "Herbal"
+    ],
+    "preferred_seasonings": [
+      "Salt",
+      "Black Pepper",
+      "Garlic Powder",
+      "Oregano"
+    ],
+    "cooking_enhancers": [
+      "Olive Oil",
+      "Lemon Juice",
+      "Garlic"
+    ],
+    "location_based_preferences": {
+      "enable_location_features": true,
+      "primary_zip_code": "35124",
+      "work_zip_code": "35007",
+      "travel_routes": [
+        "Home to Work",
+        "Home to Gym"
+      ],
+      "favorite_restaurants": [
+        "Chipotle",
+        "City Bowls"
+      ],
+      "favorite_grocery_stores": [
+        "Walmart"
+      ],
+      "convenience_stores": []
+    },
+    "enhanced_preferences": {
+      "micronutrient_focus": [
+        "Omega-3 Fatty Acids",
+        "Fiber",
+        "Potassium",
+        "Zinc",
+        "Magnesium",
+        "Iron"
+      ],
+      "seasonal_ingredients": true,
+      "local_cuisine_integration": true,
+      "ingredient_substitutions": true,
+      "meal_prep_coordination": "Some coordination - Share ingredients across meals",
+      "current_season": "Auto-detect",
+      "preferred_produce_seasons": []
+    }
+  },
+  "weekly_schedule_v2": {
+    "Monday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 937
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 937
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        }
+      ],
+      "workouts": [
+        {
+          "type": "Resistance Training",
+          "time": "Early Morning (5:00-8:00 AM)",
+          "duration": 60,
+          "intensity": "High"
+        }
+      ],
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    },
+    "Tuesday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 937
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 937
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        }
+      ],
+      "workouts": [
+        {
+          "type": "Resistance Training",
+          "time": "Early Morning (5:00-8:00 AM)",
+          "duration": 60,
+          "intensity": "High"
+        }
+      ],
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    },
+    "Wednesday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 937
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 937
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        }
+      ],
+      "workouts": [
+        {
+          "type": "Resistance Training",
+          "time": "Early Morning (5:00-8:00 AM)",
+          "duration": 60,
+          "intensity": "High"
+        }
+      ],
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    },
+    "Thursday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 937
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 937
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        }
+      ],
+      "workouts": [
+        {
+          "type": "Resistance Training",
+          "time": "Early Morning (5:00-8:00 AM)",
+          "duration": 60,
+          "intensity": "High"
+        }
+      ],
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    },
+    "Friday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 937
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 937
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        }
+      ],
+      "workouts": [
+        {
+          "type": "Resistance Training",
+          "time": "Early Morning (5:00-8:00 AM)",
+          "duration": 60,
+          "intensity": "High"
+        }
+      ],
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    },
+    "Saturday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 757
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 757
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 504
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 504
+        }
+      ],
+      "workouts": [],
+      "total_calories": 2526,
+      "base_tdee": 2526,
+      "workout_calories": 0,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    },
+    "Sunday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 757
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 757
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 504
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 504
+        }
+      ],
+      "workouts": [],
+      "total_calories": 2526,
+      "base_tdee": 2526,
+      "workout_calories": 0,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    }
+  },
+  "confirmed_weekly_schedule": {
+    "Monday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 937
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 937
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        }
+      ],
+      "workouts": [
+        {
+          "type": "Resistance Training",
+          "time": "Early Morning (5:00-8:00 AM)",
+          "duration": 60,
+          "intensity": "High"
+        }
+      ],
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    },
+    "Tuesday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 937
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 937
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        }
+      ],
+      "workouts": [
+        {
+          "type": "Resistance Training",
+          "time": "Early Morning (5:00-8:00 AM)",
+          "duration": 60,
+          "intensity": "High"
+        }
+      ],
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    },
+    "Wednesday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 937
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 937
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        }
+      ],
+      "workouts": [
+        {
+          "type": "Resistance Training",
+          "time": "Early Morning (5:00-8:00 AM)",
+          "duration": 60,
+          "intensity": "High"
+        }
+      ],
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    },
+    "Thursday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 937
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 937
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        }
+      ],
+      "workouts": [
+        {
+          "type": "Resistance Training",
+          "time": "Early Morning (5:00-8:00 AM)",
+          "duration": 60,
+          "intensity": "High"
+        }
+      ],
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    },
+    "Friday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 937
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 937
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 624
+        }
+      ],
+      "workouts": [
+        {
+          "type": "Resistance Training",
+          "time": "Early Morning (5:00-8:00 AM)",
+          "duration": 60,
+          "intensity": "High"
+        }
+      ],
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    },
+    "Saturday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 757
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 757
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 504
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 504
+        }
+      ],
+      "workouts": [],
+      "total_calories": 2526,
+      "base_tdee": 2526,
+      "workout_calories": 0,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    },
+    "Sunday": {
+      "meals": [
+        {
+          "type": "meal",
+          "name": "First Meal of Day",
+          "context": "Meal Prep",
+          "calories": 757
+        },
+        {
+          "type": "meal",
+          "name": "Second Meal of Day",
+          "context": "Takeout/Delivery",
+          "calories": 757
+        },
+        {
+          "type": "snack",
+          "name": "First Snack of Day",
+          "context": "Office/Work",
+          "calories": 504
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Office/Work",
+          "calories": 504
+        }
+      ],
+      "workouts": [],
+      "total_calories": 2526,
+      "base_tdee": 2526,
+      "workout_calories": 0,
+      "sleep_schedule": {
+        "wake_time": "05:00",
+        "bed_time": "20:00",
+        "sleep_hours": 9.0
+      },
+      "work_schedule": {
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "type": "Remote Work"
+      },
+      "preferences": {
+        "pre_workout_meal": false,
+        "pre_workout_snack": true,
+        "post_workout_meal": true,
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Open to liquid calories"
+      },
+      "detailed_meal_contexts": {
+        "meal_1": {
+          "meal": "First Meal of Day",
+          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_time": "<5 minutes",
+          "location": [
+            "At home"
+          ],
+          "time_range": "Early Morning (5:00-8:00 AM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_2": {
+          "meal": "Second Meal of Day",
+          "prep_type": "Meal delivery (ready-to-eat)",
+          "prep_time": null,
+          "location": [
+            "At home"
+          ],
+          "time_range": "Evening (5:00-8:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "meal_3": {
+          "meal": "Third Meal of Day",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true,
+          "variations": null
+        },
+        "snack_1": {
+          "meal": "First Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Morning (8:00-11:00 AM)",
+          "consistency": true
+        },
+        "snack_2": {
+          "meal": "Second Snack of Day",
+          "prep_type": "Office/work snack",
+          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "consistency": true
+        }
+      }
+    }
+  },
+  "meal_contexts_detailed": {
+    "meal_1": {
+      "meal": "First Meal of Day",
+      "prep_type": "Cook from scratch",
+      "prep_time": "<5 minutes",
+      "location": [],
+      "time_range": "Early Morning (5:00-8:00 AM)",
+      "consistency": true,
+      "variations": null
+    },
+    "meal_2": {
+      "meal": "Second Meal of Day",
+      "prep_type": "Cook from scratch",
+      "prep_time": "<5 minutes",
+      "location": [],
+      "time_range": "Morning (8:00-11:00 AM)",
+      "consistency": true,
+      "variations": null
+    },
+    "meal_3": {
+      "meal": "Third Meal of Day",
+      "prep_type": "Cook from scratch",
+      "prep_time": "<5 minutes",
+      "location": [],
+      "time_range": "Midday (11:00 AM-2:00 PM)",
+      "consistency": true,
+      "variations": null
+    },
+    "snack_1": {
+      "meal": "First Snack of Day",
+      "prep_type": "Prepare at home",
+      "time_range": "Morning (8:00-11:00 AM)",
+      "consistency": true
+    },
+    "snack_2": {
+      "meal": "Second Snack of Day",
+      "prep_type": "Prepare at home",
+      "time_range": "Midday (11:00 AM-2:00 PM)",
+      "consistency": true
+    }
+  },
+  "use_imperial": true,
+  "gender": "Male",
+  "dob": "11/03/1987",
+  "age": 38,
+  "height_cm": 175.26,
+  "height_ft": 5,
+  "height_in": 9,
+  "weight_kg": 90.71858188712795,
+  "weight_lbs": 200.0,
+  "body_fat_percentage": 20.0,
+  "goal_focus": "Lose fat",
+  "activity_level": "Sedentary (office job, <2 hours exercise per week)",
+  "workout_frequency": "2-3 workouts per week",
+  "workout_calories": 300,
+  "lifestyle_commitment": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase.",
+  "tracking_commitment": "I am committed to tracking regularly",
+  "body_fat_pct": 20.0,
+  "target_bf": 13.513513513513514,
+  "target_fat": 25.0,
+  "target_ffm": 160.0,
+  "target_weight": 0.0,
+  "target_fmi": 3.6918211287863536,
+  "target_ffmi": 23.627655224232665,
+  "targets_set": true,
+  "timeline_weeks": 10,
+  "target_weight_lbs": 185.0,
+  "goal_type": "Lose fat",
+  "weekly_weight_pct": -0.0075,
+  "performance_preference": "",
+  "body_comp_preference": "",
+  "commitment_level": "",
+  "selected_proteins": [
+    "Chicken Breast",
+    "Turkey",
+    "Lean Beef",
+    "Ground Beef",
+    "Salmon",
+    "White Fish",
+    "Lentils",
+    "Protein Powder",
+    "Shrimp",
+    "Eggs",
+    "Greek Yogurt",
+    "Cottage Cheese",
+    "Black Beans",
+    "Chickpeas"
+  ],
+  "selected_carbs": [
+    "Brown Rice",
+    "White Rice",
+    "Quinoa",
+    "Oats",
+    "Sweet Potato",
+    "Regular Potato",
+    "Pasta",
+    "Bread",
+    "Tortillas",
+    "Fruits",
+    "Vegetables",
+    "Legumes"
+  ],
+  "selected_fats": [
+    "Olive Oil",
+    "Coconut Oil",
+    "Butter",
+    "Avocado",
+    "Nuts",
+    "Seeds",
+    "Nut Butters",
+    "Fatty Fish",
+    "Cheese",
+    "Cream"
+  ],
+  "selected_vegetables": [
+    "Spinach",
+    "Broccoli",
+    "Cauliflower",
+    "Carrots",
+    "Bell Peppers",
+    "Zucchini",
+    "Cucumber",
+    "Tomatoes",
+    "Onions",
+    "Garlic",
+    "Mushrooms",
+    "Green Beans"
+  ],
+  "selected_cuisines": [
+    "American",
+    "Italian",
+    "Mexican",
+    "Asian",
+    "Mediterranean",
+    "Japanese",
+    "Greek"
+  ],
+  "dietary_restrictions": [
+    "Gluten-Free",
+    "Low-FODMAP"
+  ],
+  "allergies": [],
+  "meal_sourcing_preference": "",
+  "cooking_for": "Myself + partner (2 people)",
+  "leftover_preference": "",
+  "spice_level": "Medium",
+  "flavor_profile": [
+    "Savory/Umami",
+    "Herbal"
+  ],
+  "preferred_seasonings": [
+    "Salt",
+    "Black Pepper",
+    "Garlic Powder",
+    "Oregano"
+  ],
+  "cooking_enhancers": [
+    "Olive Oil",
+    "Lemon Juice",
+    "Garlic"
+  ],
+  "variety_preference": "High Variety",
+  "repetition_preference": "I like some repetition but with variations",
+  "weekly_structure": "Mix of routine and variety",
+  "cooking_variety": "Some variety in cooking methods",
+  "daily_activities": {},
+  "sleep_schedule": {},
+  "workout_schedule": {},
+  "meal_schedule": {},
+  "weekly_workout_count": 0,
+  "selected_workout_days": [],
+  "day_specific_nutrition": {
+    "Monday": {
+      "calories": 2377.5716994311942,
+      "protein": 200,
+      "carbs": 232,
+      "fat": 73
+    },
+    "Tuesday": {
+      "calories": 2377.5716994311942,
+      "protein": 200,
+      "carbs": 232,
+      "fat": 73
+    },
+    "Wednesday": {
+      "calories": 2377.5716994311942,
+      "protein": 200,
+      "carbs": 232,
+      "fat": 73
+    },
+    "Thursday": {
+      "calories": 2377.5716994311942,
+      "protein": 200,
+      "carbs": 232,
+      "fat": 73
+    },
+    "Friday": {
+      "calories": 2377.5716994311942,
+      "protein": 200,
+      "carbs": 232,
+      "fat": 73
+    },
+    "Saturday": {
+      "calories": 1777.5716994311942,
+      "protein": 200,
+      "carbs": 82,
+      "fat": 73
+    },
+    "Sunday": {
+      "calories": 1777.5716994311942,
+      "protein": 200,
+      "carbs": 82,
+      "fat": 73
+    }
+  },
+  "day_tdee_values": {
+    "Monday": 3126,
+    "Tuesday": 3126,
+    "Wednesday": 3126,
+    "Thursday": 3126,
+    "Friday": 3126,
+    "Saturday": 2526,
+    "Sunday": 2526
+  },
+  "recommended_rates": {},
+  "nutrition_plan": {
+    "weekly_adjustments": [
+      {
+        "message": "Decrease daily calories by 341 kcal to stay on track.",
+        "calorie_adjustment": -341,
+        "protein_adjustment": 0,
+        "carbs_adjustment": -60,
+        "fat_adjustment": -11,
+        "date": "2025-05-11"
+      }
+    ]
+  },
+  "tdee": 2869.503268805152,
+  "setup_complete": true,
+  "body_composition_complete": false,
+  "diet_preferences_complete": false,
+  "weekly_schedule_complete": false,
+  "nutrition_targets_complete": false,
+  "ai_meal_plan": {},
+  "generated_weekly_meal_plan": {
+    "Monday": {
+      "day": "Monday",
+      "profile_summary": "This meal plan is tailored to meet the user's precise macro targets while adhering to gluten-free and low-FODMAP dietary restrictions. Preferred proteins and carbs are incorporated, with a focus on high variety and quick preparation. Meals are optimized around the user's early morning workout schedule.",
+      "workout_annotations": {
+        "has_workout": true,
+        "workout_details": "Early Morning (5:00-8:00 AM) Resistance Training",
+        "peri_workout_meals": [
+          {
+            "meal_name": "Pre-Workout Energy Boost",
+            "timing": "pre-workout",
+            "optimization": "Low fat, moderate carbs, and protein to fuel workout"
+          },
+          {
+            "meal_name": "Post-Workout Recovery Lunch",
+            "timing": "post-workout",
+            "optimization": "High protein and carbs to aid muscle recovery"
+          }
+        ]
+      },
+      "meals": [
+        {
+          "name": "Pre-Workout Energy Boost",
+          "time": "04:30",
+          "context": "Meal Prep",
+          "workout_annotation": "PRE-WORKOUT",
+          "ingredients": [
+            {
+              "item": "Banana",
+              "amount": "1 medium (118g)",
+              "calories": 105,
+              "protein": 1.3,
+              "carbs": 27,
+              "fat": 0.3
+            },
+            {
+              "item": "Whey Protein Isolate",
+              "amount": "1 scoop (30g)",
+              "calories": 120,
+              "protein": 25,
+              "carbs": 2,
+              "fat": 1
+            },
+            {
+              "item": "Almond Milk",
+              "amount": "1 cup (240ml)",
+              "calories": 30,
+              "protein": 1,
+              "carbs": 1,
+              "fat": 2.5
+            }
+          ],
+          "instructions": "Blend the banana, whey protein isolate, and almond milk until smooth. Consume 30 minutes before workout.",
+          "total_macros": {
+            "calories": 255,
+            "protein": 27.3,
+            "carbs": 30,
+            "fat": 3.8
+          },
+          "meal_targets": {
+            "calories": 237,
+            "protein": 20,
+            "carbs": 23,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b17.6%",
+            "protein": "\u00b136.5%",
+            "carbs": "\u00b130.4%",
+            "fat": "\u00b145.7%"
+          }
+        },
+        {
+          "name": "Post-Workout Recovery Lunch",
+          "time": "09:00",
+          "context": "Takeout/Delivery",
+          "workout_annotation": "POST-WORKOUT",
+          "ingredients": [
+            {
+              "item": "Grilled Chicken Breast",
+              "amount": "200g",
+              "calories": 330,
+              "protein": 62,
+              "carbs": 0,
+              "fat": 7
+            },
+            {
+              "item": "Quinoa",
+              "amount": "1 cup cooked (185g)",
+              "calories": 222,
+              "protein": 8,
+              "carbs": 39,
+              "fat": 3.5
+            },
+            {
+              "item": "Avocado",
+              "amount": "1/2 medium (68g)",
+              "calories": 114,
+              "protein": 1.5,
+              "carbs": 6,
+              "fat": 10.5
+            },
+            {
+              "item": "Olive Oil",
+              "amount": "1 tbsp (15ml)",
+              "calories": 120,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 14
+            }
+          ],
+          "instructions": "Combine grilled chicken, cooked quinoa, and sliced avocado. Drizzle with olive oil and season with salt and pepper.",
+          "total_macros": {
+            "calories": 786,
+            "protein": 71.5,
+            "carbs": 45,
+            "fat": 35
+          },
+          "meal_targets": {
+            "calories": 594,
+            "protein": 50,
+            "carbs": 58,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b132.3%",
+            "protein": "\u00b143%",
+            "carbs": "\u00b122.4%",
+            "fat": "\u00b194.4%"
+          }
+        },
+        {
+          "name": "Office Snack: Nutty Protein Boost",
+          "time": "12:00",
+          "context": "Office/Work",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Greek Yogurt",
+              "amount": "200g",
+              "calories": 120,
+              "protein": 20,
+              "carbs": 8,
+              "fat": 0
+            },
+            {
+              "item": "Almonds",
+              "amount": "28g",
+              "calories": 164,
+              "protein": 6,
+              "carbs": 6,
+              "fat": 14
+            }
+          ],
+          "instructions": "Mix Greek yogurt with almonds for a crunchy, protein-rich snack.",
+          "total_macros": {
+            "calories": 284,
+            "protein": 26,
+            "carbs": 14,
+            "fat": 14
+          },
+          "meal_targets": {
+            "calories": 237,
+            "protein": 20,
+            "carbs": 23,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b119.8%",
+            "protein": "\u00b130%",
+            "carbs": "\u00b139.1%",
+            "fat": "\u00b1100%"
+          }
+        },
+        {
+          "name": "Office Snack: Chocolate Protein Shake",
+          "time": "15:00",
+          "context": "Office/Work",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Whey Protein Isolate",
+              "amount": "1 scoop (30g)",
+              "calories": 120,
+              "protein": 25,
+              "carbs": 2,
+              "fat": 1
+            },
+            {
+              "item": "Cocoa Powder",
+              "amount": "1 tbsp (5g)",
+              "calories": 12,
+              "protein": 1,
+              "carbs": 3,
+              "fat": 0.5
+            },
+            {
+              "item": "Almond Milk",
+              "amount": "1 cup (240ml)",
+              "calories": 30,
+              "protein": 1,
+              "carbs": 1,
+              "fat": 2.5
+            }
+          ],
+          "instructions": "Blend whey protein, cocoa powder, and almond milk until smooth. Enjoy as a refreshing protein shake.",
+          "total_macros": {
+            "calories": 162,
+            "protein": 27,
+            "carbs": 6,
+            "fat": 4
+          },
+          "meal_targets": {
+            "calories": 237,
+            "protein": 20,
+            "carbs": 23,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b131.6%",
+            "protein": "\u00b135%",
+            "carbs": "\u00b173.9%",
+            "fat": "\u00b142.9%"
+          }
+        }
+      ],
+      "daily_totals": {
+        "calories": 1487,
+        "protein": 151.8,
+        "carbs": 95,
+        "fat": 56.8
+      },
+      "daily_targets": {
+        "calories": 2377.5716994311942,
+        "protein": 200,
+        "carbs": 232,
+        "fat": 73
+      },
+      "accuracy_summary": {
+        "calories": "\u00b137.5%",
+        "protein": "\u00b124.1%",
+        "carbs": "\u00b159.1%",
+        "fat": "\u00b122.2%"
+      },
+      "grocery_ingredients": [
+        {
+          "item": "Banana",
+          "total_amount": "1 medium",
+          "category": "carbs"
+        },
+        {
+          "item": "Whey Protein Isolate",
+          "total_amount": "2 scoops",
+          "category": "protein"
+        },
+        {
+          "item": "Almond Milk",
+          "total_amount": "2 cups",
+          "category": "fats"
+        },
+        {
+          "item": "Grilled Chicken Breast",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Quinoa",
+          "total_amount": "1 cup cooked",
+          "category": "carbs"
+        },
+        {
+          "item": "Avocado",
+          "total_amount": "1/2 medium",
+          "category": "fats"
+        },
+        {
+          "item": "Olive Oil",
+          "total_amount": "1 tbsp",
+          "category": "fats"
+        },
+        {
+          "item": "Greek Yogurt",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Almonds",
+          "total_amount": "28g",
+          "category": "fats"
+        },
+        {
+          "item": "Cocoa Powder",
+          "total_amount": "1 tbsp",
+          "category": "carbs"
+        }
+      ]
+    },
+    "Tuesday": {
+      "day": "Tuesday",
+      "profile_summary": "This meal plan is tailored to meet the user's precise macro targets while adhering to gluten-free and low-FODMAP dietary restrictions. Preferred proteins like chicken and salmon are used, with a focus on high variety and quick preparation. Meals are optimized around the user's early morning workout, ensuring adequate protein and carbs for recovery.",
+      "workout_annotations": {
+        "has_workout": true,
+        "workout_details": "Early Morning (5:00-8:00 AM) Resistance Training",
+        "peri_workout_meals": [
+          {
+            "meal_name": "Post-Workout Recovery Lunch",
+            "timing": "post-workout",
+            "optimization": "High protein and carbs to aid muscle recovery and replenish glycogen stores."
+          }
+        ]
+      },
+      "meals": [
+        {
+          "name": "Savory Chicken and Quinoa Bowl",
+          "time": "12:00",
+          "context": "Meal Prep",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Chicken Breast",
+              "amount": "200g",
+              "calories": 330,
+              "protein": 62,
+              "carbs": 0,
+              "fat": 7
+            },
+            {
+              "item": "Quinoa",
+              "amount": "150g",
+              "calories": 222,
+              "protein": 8,
+              "carbs": 39,
+              "fat": 4
+            },
+            {
+              "item": "Olive Oil",
+              "amount": "1 tbsp",
+              "calories": 119,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 14
+            },
+            {
+              "item": "Spinach",
+              "amount": "100g",
+              "calories": 23,
+              "protein": 3,
+              "carbs": 4,
+              "fat": 0
+            },
+            {
+              "item": "Bell Peppers",
+              "amount": "100g",
+              "calories": 31,
+              "protein": 1,
+              "carbs": 6,
+              "fat": 0
+            }
+          ],
+          "instructions": "Cook quinoa according to package instructions. Grill chicken breast seasoned with salt, pepper, and garlic powder. Saut\u00e9 spinach and bell peppers in olive oil until tender. Combine all ingredients in a bowl.",
+          "total_macros": {
+            "calories": 725,
+            "protein": 74,
+            "carbs": 49,
+            "fat": 25
+          },
+          "meal_targets": {
+            "calories": 594,
+            "protein": 50,
+            "carbs": 58,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b122%",
+            "protein": "\u00b148%",
+            "carbs": "\u00b115%",
+            "fat": "\u00b139%"
+          }
+        },
+        {
+          "name": "Chipotle-Inspired Turkey Bowl",
+          "time": "12:00",
+          "context": "Takeout/Delivery",
+          "workout_annotation": "POST-WORKOUT",
+          "ingredients": [
+            {
+              "item": "Ground Turkey",
+              "amount": "200g",
+              "calories": 320,
+              "protein": 42,
+              "carbs": 0,
+              "fat": 18
+            },
+            {
+              "item": "Brown Rice",
+              "amount": "150g",
+              "calories": 165,
+              "protein": 4,
+              "carbs": 34,
+              "fat": 1
+            },
+            {
+              "item": "Avocado",
+              "amount": "100g",
+              "calories": 160,
+              "protein": 2,
+              "carbs": 9,
+              "fat": 15
+            },
+            {
+              "item": "Tomatoes",
+              "amount": "100g",
+              "calories": 18,
+              "protein": 1,
+              "carbs": 4,
+              "fat": 0
+            },
+            {
+              "item": "Olive Oil",
+              "amount": "1 tbsp",
+              "calories": 119,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 14
+            }
+          ],
+          "instructions": "Cook brown rice as per instructions. Saut\u00e9 ground turkey with olive oil, salt, pepper, and oregano. Dice tomatoes and avocado. Assemble all ingredients in a bowl.",
+          "total_macros": {
+            "calories": 782,
+            "protein": 49,
+            "carbs": 47,
+            "fat": 48
+          },
+          "meal_targets": {
+            "calories": 594,
+            "protein": 50,
+            "carbs": 58,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b132%",
+            "protein": "\u00b12%",
+            "carbs": "\u00b119%",
+            "fat": "\u00b1167%"
+          }
+        },
+        {
+          "name": "Protein-Packed Greek Yogurt Snack",
+          "time": "12:00",
+          "context": "Office/Work",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Greek Yogurt",
+              "amount": "200g",
+              "calories": 120,
+              "protein": 20,
+              "carbs": 8,
+              "fat": 0
+            },
+            {
+              "item": "Almonds",
+              "amount": "30g",
+              "calories": 174,
+              "protein": 6,
+              "carbs": 6,
+              "fat": 15
+            },
+            {
+              "item": "Blueberries",
+              "amount": "50g",
+              "calories": 29,
+              "protein": 0,
+              "carbs": 7,
+              "fat": 0
+            }
+          ],
+          "instructions": "Mix Greek yogurt with almonds and blueberries. Serve chilled.",
+          "total_macros": {
+            "calories": 323,
+            "protein": 26,
+            "carbs": 21,
+            "fat": 15
+          },
+          "meal_targets": {
+            "calories": 237,
+            "protein": 20,
+            "carbs": 23,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b136%",
+            "protein": "\u00b130%",
+            "carbs": "\u00b19%",
+            "fat": "\u00b1114%"
+          }
+        },
+        {
+          "name": "Nut Butter and Banana Snack",
+          "time": "12:00",
+          "context": "Office/Work",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Banana",
+              "amount": "100g",
+              "calories": 89,
+              "protein": 1,
+              "carbs": 23,
+              "fat": 0
+            },
+            {
+              "item": "Peanut Butter",
+              "amount": "30g",
+              "calories": 188,
+              "protein": 8,
+              "carbs": 6,
+              "fat": 16
+            }
+          ],
+          "instructions": "Slice banana and spread peanut butter on top. Serve as a quick snack.",
+          "total_macros": {
+            "calories": 277,
+            "protein": 9,
+            "carbs": 29,
+            "fat": 16
+          },
+          "meal_targets": {
+            "calories": 237,
+            "protein": 20,
+            "carbs": 23,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b117%",
+            "protein": "\u00b155%",
+            "carbs": "\u00b126%",
+            "fat": "\u00b1129%"
+          }
+        }
+      ],
+      "daily_totals": {
+        "calories": 2107,
+        "protein": 158,
+        "carbs": 146,
+        "fat": 104
+      },
+      "daily_targets": {
+        "calories": 2377.5716994311942,
+        "protein": 200,
+        "carbs": 232,
+        "fat": 73
+      },
+      "accuracy_summary": {
+        "calories": "\u00b111%",
+        "protein": "\u00b121%",
+        "carbs": "\u00b137%",
+        "fat": "\u00b142%"
+      },
+      "grocery_ingredients": [
+        {
+          "item": "Chicken Breast",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Quinoa",
+          "total_amount": "150g",
+          "category": "carbs"
+        },
+        {
+          "item": "Olive Oil",
+          "total_amount": "2 tbsp",
+          "category": "fats"
+        },
+        {
+          "item": "Spinach",
+          "total_amount": "100g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Bell Peppers",
+          "total_amount": "100g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Ground Turkey",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Brown Rice",
+          "total_amount": "150g",
+          "category": "carbs"
+        },
+        {
+          "item": "Avocado",
+          "total_amount": "100g",
+          "category": "fats"
+        },
+        {
+          "item": "Tomatoes",
+          "total_amount": "100g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Greek Yogurt",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Almonds",
+          "total_amount": "30g",
+          "category": "fats"
+        },
+        {
+          "item": "Blueberries",
+          "total_amount": "50g",
+          "category": "carbs"
+        },
+        {
+          "item": "Banana",
+          "total_amount": "100g",
+          "category": "carbs"
+        },
+        {
+          "item": "Peanut Butter",
+          "total_amount": "30g",
+          "category": "fats"
+        }
+      ]
+    },
+    "Wednesday": {
+      "day": "Wednesday",
+      "profile_summary": "This meal plan is tailored to meet the user's precise macro targets while adhering to gluten-free and low-FODMAP dietary restrictions. Preferred proteins and carbs are incorporated, with a focus on quick preparation and high variety. Meals are optimized around the user's early morning workout schedule.",
+      "workout_annotations": {
+        "has_workout": true,
+        "workout_details": "Early Morning Resistance Training (5:00-8:00 AM)",
+        "peri_workout_meals": [
+          {
+            "meal_name": "Post-Workout Recovery Lunch",
+            "timing": "post-workout",
+            "optimization": "High protein and carbs to aid muscle recovery and replenish glycogen stores."
+          }
+        ]
+      },
+      "meals": [
+        {
+          "name": "Savory Chicken and Quinoa Bowl",
+          "time": "12:00",
+          "context": "Meal Prep",
+          "workout_annotation": "POST-WORKOUT",
+          "ingredients": [
+            {
+              "item": "Chicken Breast",
+              "amount": "200g",
+              "calories": 330,
+              "protein": 62,
+              "carbs": 0,
+              "fat": 7
+            },
+            {
+              "item": "Quinoa",
+              "amount": "150g",
+              "calories": 222,
+              "protein": 8,
+              "carbs": 39,
+              "fat": 3.5
+            },
+            {
+              "item": "Olive Oil",
+              "amount": "1 tbsp",
+              "calories": 119,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 14
+            },
+            {
+              "item": "Spinach",
+              "amount": "100g",
+              "calories": 23,
+              "protein": 3,
+              "carbs": 4,
+              "fat": 0.4
+            },
+            {
+              "item": "Bell Peppers",
+              "amount": "100g",
+              "calories": 31,
+              "protein": 1,
+              "carbs": 7,
+              "fat": 0.3
+            }
+          ],
+          "instructions": "Cook quinoa according to package instructions. Grill chicken breast seasoned with salt, pepper, and garlic powder. Saut\u00e9 spinach and bell peppers in olive oil until tender. Combine all ingredients in a bowl.",
+          "total_macros": {
+            "calories": 725,
+            "protein": 74,
+            "carbs": 50,
+            "fat": 25.2
+          },
+          "meal_targets": {
+            "calories": 594,
+            "protein": 50,
+            "carbs": 58,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b122%",
+            "protein": "\u00b148%",
+            "carbs": "\u00b114%",
+            "fat": "\u00b140%"
+          }
+        },
+        {
+          "name": "Mediterranean Salmon Plate",
+          "time": "18:00",
+          "context": "Takeout/Delivery",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Salmon",
+              "amount": "200g",
+              "calories": 416,
+              "protein": 44,
+              "carbs": 0,
+              "fat": 28
+            },
+            {
+              "item": "Brown Rice",
+              "amount": "150g",
+              "calories": 165,
+              "protein": 4,
+              "carbs": 34,
+              "fat": 1.5
+            },
+            {
+              "item": "Olive Oil",
+              "amount": "1 tbsp",
+              "calories": 119,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 14
+            },
+            {
+              "item": "Cucumber",
+              "amount": "100g",
+              "calories": 16,
+              "protein": 1,
+              "carbs": 4,
+              "fat": 0.1
+            },
+            {
+              "item": "Tomatoes",
+              "amount": "100g",
+              "calories": 18,
+              "protein": 1,
+              "carbs": 4,
+              "fat": 0.2
+            }
+          ],
+          "instructions": "Grill salmon with olive oil, salt, and pepper. Serve with cooked brown rice, sliced cucumber, and tomatoes.",
+          "total_macros": {
+            "calories": 734,
+            "protein": 50,
+            "carbs": 42,
+            "fat": 43.8
+          },
+          "meal_targets": {
+            "calories": 594,
+            "protein": 50,
+            "carbs": 58,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b124%",
+            "protein": "\u00b10%",
+            "carbs": "\u00b128%",
+            "fat": "\u00b1143%"
+          }
+        },
+        {
+          "name": "Nutty Protein Snack",
+          "time": "15:00",
+          "context": "Office/Work",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Protein Powder",
+              "amount": "1 scoop (30g)",
+              "calories": 120,
+              "protein": 24,
+              "carbs": 3,
+              "fat": 1
+            },
+            {
+              "item": "Almonds",
+              "amount": "30g",
+              "calories": 174,
+              "protein": 6,
+              "carbs": 6,
+              "fat": 15
+            }
+          ],
+          "instructions": "Mix protein powder with water or milk of choice. Serve with a side of almonds.",
+          "total_macros": {
+            "calories": 294,
+            "protein": 30,
+            "carbs": 9,
+            "fat": 16
+          },
+          "meal_targets": {
+            "calories": 237,
+            "protein": 20,
+            "carbs": 23,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b124%",
+            "protein": "\u00b150%",
+            "carbs": "\u00b161%",
+            "fat": "\u00b1129%"
+          }
+        },
+        {
+          "name": "Greek Yogurt and Berries",
+          "time": "21:00",
+          "context": "Office/Work",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Greek Yogurt",
+              "amount": "200g",
+              "calories": 120,
+              "protein": 20,
+              "carbs": 8,
+              "fat": 4
+            },
+            {
+              "item": "Mixed Berries",
+              "amount": "100g",
+              "calories": 57,
+              "protein": 1,
+              "carbs": 14,
+              "fat": 0.3
+            },
+            {
+              "item": "Chia Seeds",
+              "amount": "15g",
+              "calories": 73,
+              "protein": 3,
+              "carbs": 6,
+              "fat": 5
+            }
+          ],
+          "instructions": "Mix Greek yogurt with berries and sprinkle chia seeds on top.",
+          "total_macros": {
+            "calories": 250,
+            "protein": 24,
+            "carbs": 28,
+            "fat": 9.3
+          },
+          "meal_targets": {
+            "calories": 237,
+            "protein": 20,
+            "carbs": 23,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b15%",
+            "protein": "\u00b120%",
+            "carbs": "\u00b122%",
+            "fat": "\u00b133%"
+          }
+        }
+      ],
+      "daily_totals": {
+        "calories": 2003,
+        "protein": 178,
+        "carbs": 129,
+        "fat": 94.3
+      },
+      "daily_targets": {
+        "calories": 2377.5716994311942,
+        "protein": 200,
+        "carbs": 232,
+        "fat": 73
+      },
+      "accuracy_summary": {
+        "calories": "\u00b116%",
+        "protein": "\u00b111%",
+        "carbs": "\u00b144%",
+        "fat": "\u00b129%"
+      },
+      "grocery_ingredients": [
+        {
+          "item": "Chicken Breast",
+          "total_amount": "400g",
+          "category": "protein"
+        },
+        {
+          "item": "Quinoa",
+          "total_amount": "150g",
+          "category": "carbs"
+        },
+        {
+          "item": "Olive Oil",
+          "total_amount": "2 tbsp",
+          "category": "fats"
+        },
+        {
+          "item": "Spinach",
+          "total_amount": "100g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Bell Peppers",
+          "total_amount": "100g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Salmon",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Brown Rice",
+          "total_amount": "150g",
+          "category": "carbs"
+        },
+        {
+          "item": "Cucumber",
+          "total_amount": "100g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Tomatoes",
+          "total_amount": "100g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Protein Powder",
+          "total_amount": "1 scoop",
+          "category": "protein"
+        },
+        {
+          "item": "Almonds",
+          "total_amount": "30g",
+          "category": "fats"
+        },
+        {
+          "item": "Greek Yogurt",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Mixed Berries",
+          "total_amount": "100g",
+          "category": "carbs"
+        },
+        {
+          "item": "Chia Seeds",
+          "total_amount": "15g",
+          "category": "fats"
+        }
+      ]
+    },
+    "Thursday": {
+      "day": "Thursday",
+      "profile_summary": "This meal plan is designed to meet the user's precise macro targets while adhering to gluten-free and low-FODMAP dietary restrictions. Preferred proteins like chicken and salmon are used, and meals are optimized around the user's early morning workout schedule. High variety is maintained with a mix of cuisines and cooking methods.",
+      "workout_annotations": {
+        "has_workout": true,
+        "workout_details": "Early Morning (5:00-8:00 AM) Resistance Training",
+        "peri_workout_meals": [
+          {
+            "meal_name": "Post-Workout Recovery Lunch",
+            "timing": "post-workout",
+            "optimization": "High protein and carbs to aid muscle recovery and replenish glycogen stores."
+          }
+        ]
+      },
+      "meals": [
+        {
+          "name": "Protein-Packed Breakfast Bowl",
+          "time": "07:30",
+          "context": "Meal Prep",
+          "workout_annotation": "PRE-WORKOUT",
+          "ingredients": [
+            {
+              "item": "Oats",
+              "amount": "80g",
+              "calories": 311,
+              "protein": 10.8,
+              "carbs": 54.4,
+              "fat": 5.6
+            },
+            {
+              "item": "Whey Protein Powder",
+              "amount": "30g",
+              "calories": 120,
+              "protein": 24,
+              "carbs": 3,
+              "fat": 1.5
+            },
+            {
+              "item": "Almond Milk",
+              "amount": "240ml",
+              "calories": 30,
+              "protein": 1,
+              "carbs": 1,
+              "fat": 2.5
+            },
+            {
+              "item": "Blueberries",
+              "amount": "100g",
+              "calories": 57,
+              "protein": 0.7,
+              "carbs": 14.5,
+              "fat": 0.3
+            },
+            {
+              "item": "Almond Butter",
+              "amount": "15g",
+              "calories": 98,
+              "protein": 2.5,
+              "carbs": 3.5,
+              "fat": 9
+            }
+          ],
+          "instructions": "Combine oats and almond milk in a bowl and microwave for 2-3 minutes. Stir in protein powder until smooth. Top with blueberries and almond butter.",
+          "total_macros": {
+            "calories": 616,
+            "protein": 39,
+            "carbs": 76.4,
+            "fat": 18.9
+          },
+          "meal_targets": {
+            "calories": 594,
+            "protein": 50,
+            "carbs": 58,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b13.7%",
+            "protein": "\u00b122%",
+            "carbs": "\u00b131.7%",
+            "fat": "\u00b15%"
+          }
+        },
+        {
+          "name": "Post-Workout Recovery Lunch",
+          "time": "12:00",
+          "context": "Takeout/Delivery",
+          "workout_annotation": "POST-WORKOUT",
+          "ingredients": [
+            {
+              "item": "Grilled Chicken Breast",
+              "amount": "200g",
+              "calories": 330,
+              "protein": 62,
+              "carbs": 0,
+              "fat": 7
+            },
+            {
+              "item": "Brown Rice",
+              "amount": "150g",
+              "calories": 165,
+              "protein": 3.5,
+              "carbs": 34.5,
+              "fat": 1.5
+            },
+            {
+              "item": "Steamed Broccoli",
+              "amount": "100g",
+              "calories": 35,
+              "protein": 2.4,
+              "carbs": 7,
+              "fat": 0.4
+            },
+            {
+              "item": "Olive Oil",
+              "amount": "10g",
+              "calories": 88,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 10
+            }
+          ],
+          "instructions": "Grill chicken breast until fully cooked. Serve with steamed broccoli and brown rice. Drizzle olive oil over the dish for added flavor.",
+          "total_macros": {
+            "calories": 618,
+            "protein": 67.9,
+            "carbs": 41.5,
+            "fat": 18.9
+          },
+          "meal_targets": {
+            "calories": 594,
+            "protein": 50,
+            "carbs": 58,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b14%",
+            "protein": "\u00b135.8%",
+            "carbs": "\u00b128.4%",
+            "fat": "\u00b15%"
+          }
+        },
+        {
+          "name": "Midday Energy Snack",
+          "time": "15:00",
+          "context": "Office/Work",
+          "ingredients": [
+            {
+              "item": "Greek Yogurt",
+              "amount": "200g",
+              "calories": 120,
+              "protein": 20,
+              "carbs": 8,
+              "fat": 0
+            },
+            {
+              "item": "Mixed Nuts",
+              "amount": "30g",
+              "calories": 180,
+              "protein": 5,
+              "carbs": 6,
+              "fat": 16
+            }
+          ],
+          "instructions": "Mix Greek yogurt with a handful of mixed nuts for a quick and nutritious snack.",
+          "total_macros": {
+            "calories": 300,
+            "protein": 25,
+            "carbs": 14,
+            "fat": 16
+          },
+          "meal_targets": {
+            "calories": 237,
+            "protein": 20,
+            "carbs": 23,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b126.6%",
+            "protein": "\u00b125%",
+            "carbs": "\u00b139.1%",
+            "fat": "\u00b1128.6%"
+          }
+        },
+        {
+          "name": "Evening Protein Boost",
+          "time": "18:00",
+          "context": "Office/Work",
+          "ingredients": [
+            {
+              "item": "Turkey Slices",
+              "amount": "100g",
+              "calories": 135,
+              "protein": 30,
+              "carbs": 0,
+              "fat": 2
+            },
+            {
+              "item": "Rice Cakes",
+              "amount": "2 cakes",
+              "calories": 70,
+              "protein": 1.5,
+              "carbs": 14,
+              "fat": 0.5
+            },
+            {
+              "item": "Avocado",
+              "amount": "50g",
+              "calories": 80,
+              "protein": 1,
+              "carbs": 4,
+              "fat": 7.5
+            }
+          ],
+          "instructions": "Layer turkey slices on rice cakes and top with avocado slices for a satisfying snack.",
+          "total_macros": {
+            "calories": 285,
+            "protein": 32.5,
+            "carbs": 18,
+            "fat": 10
+          },
+          "meal_targets": {
+            "calories": 237,
+            "protein": 20,
+            "carbs": 23,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b120.3%",
+            "protein": "\u00b162.5%",
+            "carbs": "\u00b121.7%",
+            "fat": "\u00b142.9%"
+          }
+        }
+      ],
+      "daily_totals": {
+        "calories": 1819,
+        "protein": 164.4,
+        "carbs": 149.9,
+        "fat": 63.8
+      },
+      "daily_targets": {
+        "calories": 2377.5716994311942,
+        "protein": 200,
+        "carbs": 232,
+        "fat": 73
+      },
+      "accuracy_summary": {
+        "calories": "\u00b123.5%",
+        "protein": "\u00b117.8%",
+        "carbs": "\u00b135.4%",
+        "fat": "\u00b112.6%"
+      },
+      "grocery_ingredients": [
+        {
+          "item": "Oats",
+          "total_amount": "80g",
+          "category": "carbs"
+        },
+        {
+          "item": "Whey Protein Powder",
+          "total_amount": "30g",
+          "category": "protein"
+        },
+        {
+          "item": "Almond Milk",
+          "total_amount": "240ml",
+          "category": "fats"
+        },
+        {
+          "item": "Blueberries",
+          "total_amount": "100g",
+          "category": "carbs"
+        },
+        {
+          "item": "Almond Butter",
+          "total_amount": "15g",
+          "category": "fats"
+        },
+        {
+          "item": "Grilled Chicken Breast",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Brown Rice",
+          "total_amount": "150g",
+          "category": "carbs"
+        },
+        {
+          "item": "Steamed Broccoli",
+          "total_amount": "100g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Olive Oil",
+          "total_amount": "10g",
+          "category": "fats"
+        },
+        {
+          "item": "Greek Yogurt",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Mixed Nuts",
+          "total_amount": "30g",
+          "category": "fats"
+        },
+        {
+          "item": "Turkey Slices",
+          "total_amount": "100g",
+          "category": "protein"
+        },
+        {
+          "item": "Rice Cakes",
+          "total_amount": "2 cakes",
+          "category": "carbs"
+        },
+        {
+          "item": "Avocado",
+          "total_amount": "50g",
+          "category": "fats"
+        }
+      ]
+    },
+    "Friday": {
+      "day": "Friday",
+      "profile_summary": "This meal plan is tailored to meet the user's precise macro targets while adhering to gluten-free and low-FODMAP dietary restrictions. Preferred proteins like chicken and salmon are used, with a focus on American and Mediterranean cuisines. Meals are optimized around the user's early morning workout, ensuring proper nutrient timing for recovery and performance.",
+      "workout_annotations": {
+        "has_workout": true,
+        "workout_details": "Early Morning (5:00-8:00 AM) Resistance Training",
+        "peri_workout_meals": [
+          {
+            "meal_name": "Post-Workout Recovery Lunch",
+            "timing": "post-workout",
+            "optimization": "High protein and carbs to replenish energy and support muscle recovery"
+          }
+        ]
+      },
+      "meals": [
+        {
+          "name": "Protein-Packed Breakfast Bowl",
+          "time": "07:30",
+          "context": "Meal Prep",
+          "workout_annotation": "PRE-WORKOUT",
+          "ingredients": [
+            {
+              "item": "Oats",
+              "amount": "80g",
+              "calories": 311,
+              "protein": 11,
+              "carbs": 54,
+              "fat": 6
+            },
+            {
+              "item": "Whey Protein Powder",
+              "amount": "30g",
+              "calories": 120,
+              "protein": 24,
+              "carbs": 3,
+              "fat": 1
+            },
+            {
+              "item": "Almond Milk",
+              "amount": "240ml",
+              "calories": 30,
+              "protein": 1,
+              "carbs": 1,
+              "fat": 2
+            },
+            {
+              "item": "Blueberries",
+              "amount": "100g",
+              "calories": 57,
+              "protein": 0.7,
+              "carbs": 14,
+              "fat": 0.3
+            },
+            {
+              "item": "Chia Seeds",
+              "amount": "15g",
+              "calories": 72,
+              "protein": 3,
+              "carbs": 6,
+              "fat": 5
+            }
+          ],
+          "instructions": "Combine oats and almond milk in a bowl. Microwave for 2-3 minutes until cooked. Stir in protein powder. Top with blueberries and chia seeds.",
+          "total_macros": {
+            "calories": 590,
+            "protein": 39.7,
+            "carbs": 78,
+            "fat": 14.3
+          },
+          "meal_targets": {
+            "calories": 594,
+            "protein": 50,
+            "carbs": 58,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b10.7%",
+            "protein": "\u00b120.6%",
+            "carbs": "\u00b134.5%",
+            "fat": "\u00b120.6%"
+          }
+        },
+        {
+          "name": "Post-Workout Recovery Lunch",
+          "time": "12:00",
+          "context": "Takeout/Delivery",
+          "workout_annotation": "POST-WORKOUT",
+          "ingredients": [
+            {
+              "item": "Grilled Chicken Breast",
+              "amount": "200g",
+              "calories": 330,
+              "protein": 62,
+              "carbs": 0,
+              "fat": 7
+            },
+            {
+              "item": "Quinoa",
+              "amount": "150g",
+              "calories": 222,
+              "protein": 8,
+              "carbs": 39,
+              "fat": 4
+            },
+            {
+              "item": "Avocado",
+              "amount": "100g",
+              "calories": 160,
+              "protein": 2,
+              "carbs": 9,
+              "fat": 15
+            },
+            {
+              "item": "Spinach",
+              "amount": "50g",
+              "calories": 12,
+              "protein": 1.5,
+              "carbs": 2,
+              "fat": 0.2
+            },
+            {
+              "item": "Olive Oil",
+              "amount": "10ml",
+              "calories": 88,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 10
+            }
+          ],
+          "instructions": "Grill chicken breast until fully cooked. Cook quinoa according to package instructions. Toss spinach with olive oil. Serve chicken over quinoa, topped with avocado and spinach.",
+          "total_macros": {
+            "calories": 812,
+            "protein": 73.5,
+            "carbs": 50,
+            "fat": 36.2
+          },
+          "meal_targets": {
+            "calories": 594,
+            "protein": 50,
+            "carbs": 58,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b136.7%",
+            "protein": "\u00b147%",
+            "carbs": "\u00b113.8%",
+            "fat": "\u00b1101.1%"
+          }
+        },
+        {
+          "name": "Afternoon Energy Snack",
+          "time": "15:00",
+          "context": "Office/Work",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Greek Yogurt",
+              "amount": "200g",
+              "calories": 120,
+              "protein": 20,
+              "carbs": 8,
+              "fat": 4
+            },
+            {
+              "item": "Almonds",
+              "amount": "30g",
+              "calories": 174,
+              "protein": 6,
+              "carbs": 6,
+              "fat": 15
+            }
+          ],
+          "instructions": "Mix Greek yogurt with almonds for a quick and nutritious snack.",
+          "total_macros": {
+            "calories": 294,
+            "protein": 26,
+            "carbs": 14,
+            "fat": 19
+          },
+          "meal_targets": {
+            "calories": 237,
+            "protein": 20,
+            "carbs": 23,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b124%",
+            "protein": "\u00b130%",
+            "carbs": "\u00b139.1%",
+            "fat": "\u00b1171.4%"
+          }
+        },
+        {
+          "name": "Evening Protein Boost",
+          "time": "19:00",
+          "context": "Office/Work",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Salmon",
+              "amount": "150g",
+              "calories": 280,
+              "protein": 30,
+              "carbs": 0,
+              "fat": 18
+            },
+            {
+              "item": "Sweet Potato",
+              "amount": "200g",
+              "calories": 180,
+              "protein": 4,
+              "carbs": 41,
+              "fat": 0.3
+            },
+            {
+              "item": "Broccoli",
+              "amount": "100g",
+              "calories": 34,
+              "protein": 3,
+              "carbs": 7,
+              "fat": 0.4
+            },
+            {
+              "item": "Butter",
+              "amount": "10g",
+              "calories": 72,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 8
+            }
+          ],
+          "instructions": "Bake salmon and sweet potato in the oven at 200\u00b0C for 20 minutes. Steam broccoli. Serve salmon with sweet potato and broccoli, topped with melted butter.",
+          "total_macros": {
+            "calories": 566,
+            "protein": 37,
+            "carbs": 48,
+            "fat": 26.7
+          },
+          "meal_targets": {
+            "calories": 237,
+            "protein": 20,
+            "carbs": 23,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b1138.4%",
+            "protein": "\u00b185%",
+            "carbs": "\u00b1108.7%",
+            "fat": "\u00b1281.4%"
+          }
+        }
+      ],
+      "daily_totals": {
+        "calories": 2262,
+        "protein": 176.2,
+        "carbs": 190,
+        "fat": 96.2
+      },
+      "daily_targets": {
+        "calories": 2377.5716994311942,
+        "protein": 200,
+        "carbs": 232,
+        "fat": 73
+      },
+      "accuracy_summary": {
+        "calories": "\u00b14.9%",
+        "protein": "\u00b111.9%",
+        "carbs": "\u00b118.1%",
+        "fat": "\u00b131.8%"
+      },
+      "grocery_ingredients": [
+        {
+          "item": "Oats",
+          "total_amount": "80g",
+          "category": "carbs"
+        },
+        {
+          "item": "Whey Protein Powder",
+          "total_amount": "30g",
+          "category": "protein"
+        },
+        {
+          "item": "Almond Milk",
+          "total_amount": "240ml",
+          "category": "carbs"
+        },
+        {
+          "item": "Blueberries",
+          "total_amount": "100g",
+          "category": "carbs"
+        },
+        {
+          "item": "Chia Seeds",
+          "total_amount": "15g",
+          "category": "fats"
+        },
+        {
+          "item": "Grilled Chicken Breast",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Quinoa",
+          "total_amount": "150g",
+          "category": "carbs"
+        },
+        {
+          "item": "Avocado",
+          "total_amount": "100g",
+          "category": "fats"
+        },
+        {
+          "item": "Spinach",
+          "total_amount": "50g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Olive Oil",
+          "total_amount": "10ml",
+          "category": "fats"
+        },
+        {
+          "item": "Greek Yogurt",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Almonds",
+          "total_amount": "30g",
+          "category": "fats"
+        },
+        {
+          "item": "Salmon",
+          "total_amount": "150g",
+          "category": "protein"
+        },
+        {
+          "item": "Sweet Potato",
+          "total_amount": "200g",
+          "category": "carbs"
+        },
+        {
+          "item": "Broccoli",
+          "total_amount": "100g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Butter",
+          "total_amount": "10g",
+          "category": "fats"
+        }
+      ]
+    },
+    "Saturday": {
+      "day": "Saturday",
+      "profile_summary": "This meal plan is tailored to meet the user's precise macro targets while adhering to gluten-free and low-FODMAP dietary restrictions. Preferred proteins like chicken and salmon are used, along with preferred carbs such as rice and sweet potatoes. The plan incorporates a high variety of meals with a focus on American and Mediterranean cuisines, using seasonal ingredients and local restaurant options for convenience.",
+      "workout_annotations": {
+        "has_workout": false,
+        "workout_details": "",
+        "peri_workout_meals": []
+      },
+      "meals": [
+        {
+          "name": "Savory Chicken and Quinoa Bowl",
+          "time": "12:00",
+          "context": "Meal Prep",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Chicken Breast",
+              "amount": "200g",
+              "calories": 330,
+              "protein": 62,
+              "carbs": 0,
+              "fat": 7
+            },
+            {
+              "item": "Quinoa",
+              "amount": "100g",
+              "calories": 120,
+              "protein": 4,
+              "carbs": 21,
+              "fat": 2
+            },
+            {
+              "item": "Olive Oil",
+              "amount": "1 tbsp",
+              "calories": 120,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 14
+            },
+            {
+              "item": "Spinach",
+              "amount": "50g",
+              "calories": 12,
+              "protein": 1,
+              "carbs": 2,
+              "fat": 0
+            }
+          ],
+          "instructions": "Cook quinoa according to package instructions. Grill chicken breast seasoned with salt, pepper, and garlic powder. In a pan, heat olive oil and saut\u00e9 spinach until wilted. Combine all ingredients in a bowl and serve.",
+          "total_macros": {
+            "calories": 582,
+            "protein": 67,
+            "carbs": 23,
+            "fat": 23
+          },
+          "meal_targets": {
+            "calories": 444,
+            "protein": 50,
+            "carbs": 20,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b131%",
+            "protein": "\u00b134%",
+            "carbs": "\u00b115%",
+            "fat": "\u00b128%"
+          }
+        },
+        {
+          "name": "Mediterranean Salmon Plate",
+          "time": "18:00",
+          "context": "Takeout/Delivery",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Salmon Fillet",
+              "amount": "200g",
+              "calories": 400,
+              "protein": 40,
+              "carbs": 0,
+              "fat": 28
+            },
+            {
+              "item": "Brown Rice",
+              "amount": "100g",
+              "calories": 112,
+              "protein": 3,
+              "carbs": 23,
+              "fat": 1
+            },
+            {
+              "item": "Avocado",
+              "amount": "50g",
+              "calories": 80,
+              "protein": 1,
+              "carbs": 4,
+              "fat": 7
+            },
+            {
+              "item": "Cucumber",
+              "amount": "50g",
+              "calories": 8,
+              "protein": 0,
+              "carbs": 2,
+              "fat": 0
+            }
+          ],
+          "instructions": "Bake salmon seasoned with oregano and lemon juice. Cook brown rice as per instructions. Slice avocado and cucumber. Serve salmon over rice with avocado and cucumber on the side.",
+          "total_macros": {
+            "calories": 600,
+            "protein": 44,
+            "carbs": 29,
+            "fat": 36
+          },
+          "meal_targets": {
+            "calories": 444,
+            "protein": 50,
+            "carbs": 20,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b135%",
+            "protein": "\u00b112%",
+            "carbs": "\u00b145%",
+            "fat": "\u00b1100%"
+          }
+        },
+        {
+          "name": "Protein-Packed Greek Yogurt Snack",
+          "time": "15:00",
+          "context": "Office/Work",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Greek Yogurt",
+              "amount": "200g",
+              "calories": 120,
+              "protein": 20,
+              "carbs": 8,
+              "fat": 0
+            },
+            {
+              "item": "Almonds",
+              "amount": "30g",
+              "calories": 174,
+              "protein": 6,
+              "carbs": 6,
+              "fat": 15
+            }
+          ],
+          "instructions": "Mix Greek yogurt with almonds. Serve chilled.",
+          "total_macros": {
+            "calories": 294,
+            "protein": 26,
+            "carbs": 14,
+            "fat": 15
+          },
+          "meal_targets": {
+            "calories": 177,
+            "protein": 20,
+            "carbs": 8,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b166%",
+            "protein": "\u00b130%",
+            "carbs": "\u00b175%",
+            "fat": "\u00b1114%"
+          }
+        },
+        {
+          "name": "Nut Butter and Banana Snack",
+          "time": "21:00",
+          "context": "Office/Work",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Banana",
+              "amount": "100g",
+              "calories": 89,
+              "protein": 1,
+              "carbs": 23,
+              "fat": 0
+            },
+            {
+              "item": "Peanut Butter",
+              "amount": "30g",
+              "calories": 180,
+              "protein": 8,
+              "carbs": 6,
+              "fat": 16
+            }
+          ],
+          "instructions": "Slice banana and spread peanut butter on top. Serve as a quick snack.",
+          "total_macros": {
+            "calories": 269,
+            "protein": 9,
+            "carbs": 29,
+            "fat": 16
+          },
+          "meal_targets": {
+            "calories": 177,
+            "protein": 20,
+            "carbs": 8,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b152%",
+            "protein": "\u00b155%",
+            "carbs": "\u00b1263%",
+            "fat": "\u00b1129%"
+          }
+        }
+      ],
+      "daily_totals": {
+        "calories": 1745,
+        "protein": 146,
+        "carbs": 95,
+        "fat": 90
+      },
+      "daily_targets": {
+        "calories": 1777.5716994311942,
+        "protein": 200,
+        "carbs": 82,
+        "fat": 73
+      },
+      "accuracy_summary": {
+        "calories": "\u00b12%",
+        "protein": "\u00b127%",
+        "carbs": "\u00b116%",
+        "fat": "\u00b123%"
+      },
+      "grocery_ingredients": [
+        {
+          "item": "Chicken Breast",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Quinoa",
+          "total_amount": "100g",
+          "category": "carbs"
+        },
+        {
+          "item": "Olive Oil",
+          "total_amount": "1 tbsp",
+          "category": "fats"
+        },
+        {
+          "item": "Spinach",
+          "total_amount": "50g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Salmon Fillet",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Brown Rice",
+          "total_amount": "100g",
+          "category": "carbs"
+        },
+        {
+          "item": "Avocado",
+          "total_amount": "50g",
+          "category": "fats"
+        },
+        {
+          "item": "Cucumber",
+          "total_amount": "50g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Greek Yogurt",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Almonds",
+          "total_amount": "30g",
+          "category": "fats"
+        },
+        {
+          "item": "Banana",
+          "total_amount": "100g",
+          "category": "carbs"
+        },
+        {
+          "item": "Peanut Butter",
+          "total_amount": "30g",
+          "category": "fats"
+        }
+      ]
+    },
+    "Sunday": {
+      "day": "Sunday",
+      "profile_summary": "This meal plan is tailored to meet the user's precise macro targets while adhering to gluten-free and low-FODMAP dietary restrictions. Preferred proteins like chicken and salmon are used, along with preferred carbs such as rice and sweet potatoes. The plan incorporates a high variety of meals with a focus on quick preparation and moderate budget, aligning with the user's preferences for American, Italian, and Mediterranean cuisines.",
+      "workout_annotations": {
+        "has_workout": false,
+        "workout_details": "",
+        "peri_workout_meals": []
+      },
+      "meals": [
+        {
+          "name": "Savory Chicken and Quinoa Bowl",
+          "time": "12:00",
+          "context": "Meal Prep",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Chicken Breast",
+              "amount": "200g",
+              "calories": 330,
+              "protein": 62,
+              "carbs": 0,
+              "fat": 7
+            },
+            {
+              "item": "Quinoa",
+              "amount": "100g",
+              "calories": 120,
+              "protein": 4,
+              "carbs": 21,
+              "fat": 2
+            },
+            {
+              "item": "Olive Oil",
+              "amount": "1 tbsp",
+              "calories": 120,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 14
+            },
+            {
+              "item": "Spinach",
+              "amount": "50g",
+              "calories": 12,
+              "protein": 1,
+              "carbs": 2,
+              "fat": 0
+            },
+            {
+              "item": "Bell Peppers",
+              "amount": "50g",
+              "calories": 15,
+              "protein": 0,
+              "carbs": 3,
+              "fat": 0
+            }
+          ],
+          "instructions": "Cook quinoa according to package instructions. Season chicken breast with salt, pepper, and garlic powder, then grill until fully cooked. Saut\u00e9 spinach and bell peppers in olive oil until tender. Combine all ingredients in a bowl and serve.",
+          "total_macros": {
+            "calories": 597,
+            "protein": 67,
+            "carbs": 26,
+            "fat": 23
+          },
+          "meal_targets": {
+            "calories": 444,
+            "protein": 50,
+            "carbs": 20,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b134.5%",
+            "protein": "\u00b134%",
+            "carbs": "\u00b130%",
+            "fat": "\u00b127.8%"
+          }
+        },
+        {
+          "name": "Salmon and Sweet Potato Delight",
+          "time": "18:00",
+          "context": "Takeout/Delivery",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Salmon",
+              "amount": "150g",
+              "calories": 280,
+              "protein": 40,
+              "carbs": 0,
+              "fat": 18
+            },
+            {
+              "item": "Sweet Potato",
+              "amount": "150g",
+              "calories": 130,
+              "protein": 2,
+              "carbs": 31,
+              "fat": 0
+            },
+            {
+              "item": "Butter",
+              "amount": "1 tbsp",
+              "calories": 102,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 12
+            },
+            {
+              "item": "Broccoli",
+              "amount": "100g",
+              "calories": 34,
+              "protein": 3,
+              "carbs": 7,
+              "fat": 0
+            }
+          ],
+          "instructions": "Bake salmon at 400\u00b0F for 15-20 minutes. Boil sweet potatoes until tender, then mash with butter. Steam broccoli until bright green and tender. Serve salmon with mashed sweet potatoes and broccoli.",
+          "total_macros": {
+            "calories": 546,
+            "protein": 45,
+            "carbs": 38,
+            "fat": 30
+          },
+          "meal_targets": {
+            "calories": 444,
+            "protein": 50,
+            "carbs": 20,
+            "fat": 18
+          },
+          "accuracy_check": {
+            "calories": "\u00b123%",
+            "protein": "\u00b110%",
+            "carbs": "\u00b190%",
+            "fat": "\u00b166.7%"
+          }
+        },
+        {
+          "name": "Protein-Packed Greek Yogurt Snack",
+          "time": "15:00",
+          "context": "Office/Work",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Greek Yogurt",
+              "amount": "200g",
+              "calories": 120,
+              "protein": 20,
+              "carbs": 8,
+              "fat": 4
+            },
+            {
+              "item": "Almonds",
+              "amount": "30g",
+              "calories": 174,
+              "protein": 6,
+              "carbs": 6,
+              "fat": 15
+            }
+          ],
+          "instructions": "Mix Greek yogurt with almonds. Serve chilled.",
+          "total_macros": {
+            "calories": 294,
+            "protein": 26,
+            "carbs": 14,
+            "fat": 19
+          },
+          "meal_targets": {
+            "calories": 177,
+            "protein": 20,
+            "carbs": 8,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b166%",
+            "protein": "\u00b130%",
+            "carbs": "\u00b175%",
+            "fat": "\u00b1171%"
+          }
+        },
+        {
+          "name": "Nutty Protein Shake",
+          "time": "21:00",
+          "context": "Office/Work",
+          "workout_annotation": "REGULAR",
+          "ingredients": [
+            {
+              "item": "Protein Powder",
+              "amount": "1 scoop",
+              "calories": 120,
+              "protein": 24,
+              "carbs": 3,
+              "fat": 1
+            },
+            {
+              "item": "Almond Milk",
+              "amount": "250ml",
+              "calories": 30,
+              "protein": 1,
+              "carbs": 1,
+              "fat": 2
+            },
+            {
+              "item": "Peanut Butter",
+              "amount": "1 tbsp",
+              "calories": 94,
+              "protein": 4,
+              "carbs": 3,
+              "fat": 8
+            }
+          ],
+          "instructions": "Blend protein powder, almond milk, and peanut butter until smooth. Serve immediately.",
+          "total_macros": {
+            "calories": 244,
+            "protein": 29,
+            "carbs": 7,
+            "fat": 11
+          },
+          "meal_targets": {
+            "calories": 177,
+            "protein": 20,
+            "carbs": 8,
+            "fat": 7
+          },
+          "accuracy_check": {
+            "calories": "\u00b137.8%",
+            "protein": "\u00b145%",
+            "carbs": "\u00b112.5%",
+            "fat": "\u00b157%"
+          }
+        }
+      ],
+      "daily_totals": {
+        "calories": 1681,
+        "protein": 167,
+        "carbs": 85,
+        "fat": 83
+      },
+      "daily_targets": {
+        "calories": 1777.5716994311942,
+        "protein": 200,
+        "carbs": 82,
+        "fat": 73
+      },
+      "accuracy_summary": {
+        "calories": "\u00b15.4%",
+        "protein": "\u00b116.5%",
+        "carbs": "\u00b13.7%",
+        "fat": "\u00b113.7%"
+      },
+      "grocery_ingredients": [
+        {
+          "item": "Chicken Breast",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Quinoa",
+          "total_amount": "100g",
+          "category": "carbs"
+        },
+        {
+          "item": "Olive Oil",
+          "total_amount": "1 tbsp",
+          "category": "fats"
+        },
+        {
+          "item": "Spinach",
+          "total_amount": "50g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Bell Peppers",
+          "total_amount": "50g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Salmon",
+          "total_amount": "150g",
+          "category": "protein"
+        },
+        {
+          "item": "Sweet Potato",
+          "total_amount": "150g",
+          "category": "carbs"
+        },
+        {
+          "item": "Butter",
+          "total_amount": "1 tbsp",
+          "category": "fats"
+        },
+        {
+          "item": "Broccoli",
+          "total_amount": "100g",
+          "category": "vegetables"
+        },
+        {
+          "item": "Greek Yogurt",
+          "total_amount": "200g",
+          "category": "protein"
+        },
+        {
+          "item": "Almonds",
+          "total_amount": "30g",
+          "category": "fats"
+        },
+        {
+          "item": "Protein Powder",
+          "total_amount": "1 scoop",
+          "category": "protein"
+        },
+        {
+          "item": "Almond Milk",
+          "total_amount": "250ml",
+          "category": "fats"
+        },
+        {
+          "item": "Peanut Butter",
+          "total_amount": "1 tbsp",
+          "category": "fats"
+        }
+      ]
+    }
+  },
+  "session_name": "session_0723_1942"
+}

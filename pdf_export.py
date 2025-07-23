@@ -21,7 +21,7 @@ def clean_text_for_pdf(text):
     text = unicodedata.normalize('NFKD', text)
     
     # Remove or replace problematic characters
-    text = re.sub(r'[^\x00-\x7F]+', '', text)  # Remove non-ASCII characters
+    text = text.replace('•', '-')  # Replace bullet points with dashes
     text = text.replace('–', '-')  # Replace em dash with hyphen
     text = text.replace('—', '-')  # Replace en dash with hyphen
     text = text.replace('"', '"')  # Replace curly quotes
@@ -33,6 +33,10 @@ def clean_text_for_pdf(text):
     text = text.replace('½', '1/2')  # Replace fraction
     text = text.replace('¼', '1/4')
     text = text.replace('¾', '3/4')
+    text = text.replace('™', '')  # Remove trademark symbol
+    text = text.replace('®', '')  # Remove registered symbol
+    text = text.replace('©', '')  # Remove copyright symbol
+    text = re.sub(r'[^\x20-\x7E]', '', text)  # Keep only printable ASCII characters
     
     # Ensure it's encodable in latin-1
     try:
@@ -221,7 +225,7 @@ class FitomicsPDF(FPDF):
             
             self.ln(3)
             self.set_font('Arial', 'I', 8)
-            self.cell(0, 4, 'Format: Actual/Target | ✅ = Within 5% | ⚠️ = Outside 5%', 0, 1, 'L')
+            self.cell(0, 4, clean_text_for_pdf('Format: Actual/Target | Check = Within 5% | Warning = Outside 5%'), 0, 1, 'L')
         
         # Diet preferences
         diet_prefs = plan_info.get('diet_preferences', {})
@@ -425,7 +429,7 @@ class FitomicsPDF(FPDF):
                 self.set_font('Arial', '', 11)
                 self.set_text_color(0, 0, 0)
                 for item in sorted(items):
-                    self.cell(0, 5, f"• {item}", 0, 1, 'L')
+                    self.cell(0, 5, f"- {clean_text_for_pdf(item)}", 0, 1, 'L')
 
 def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
     """Export complete meal plan with grocery list to branded PDF"""
@@ -752,12 +756,12 @@ def export_enhanced_weekly_meal_plan_pdf(weekly_meal_data, user_preferences=None
             
             # Add meals
             for meal in day_data['meals']:
-                meal_name = meal.get('name', 'Meal')
+                meal_name = clean_text_for_pdf(meal.get('name', 'Meal'))
                 meal_macros = meal.get('total_macros', {})
                 meal_ingredients = meal.get('ingredients', [])
-                meal_context = meal.get('context', '')
-                meal_time = meal.get('time', '')
-                workout_annotation = meal.get('workout_annotation', '')
+                meal_context = clean_text_for_pdf(meal.get('context', ''))
+                meal_time = clean_text_for_pdf(meal.get('time', ''))
+                workout_annotation = clean_text_for_pdf(meal.get('workout_annotation', ''))
                 
                 pdf.add_meal_section(
                     meal_type=meal_name,

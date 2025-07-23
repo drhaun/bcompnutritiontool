@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-07-17T14:22:44.023845",
+  "timestamp": "2025-07-23T19:35:25.364343",
   "user_info": {
     "name": "Cody",
     "gender": "Male",
@@ -1588,23 +1588,19 @@
   "meal_contexts_detailed": {
     "meal_1": {
       "meal": "First Meal of Day",
-      "prep_type": "Use leftovers/pre-prepped ingredients",
+      "prep_type": "Cook from scratch",
       "prep_time": "<5 minutes",
-      "location": [
-        "At home"
-      ],
+      "location": [],
       "time_range": "Early Morning (5:00-8:00 AM)",
       "consistency": true,
       "variations": null
     },
     "meal_2": {
       "meal": "Second Meal of Day",
-      "prep_type": "Meal delivery (ready-to-eat)",
-      "prep_time": null,
-      "location": [
-        "At home"
-      ],
-      "time_range": "Evening (5:00-8:00 PM)",
+      "prep_type": "Cook from scratch",
+      "prep_time": "<5 minutes",
+      "location": [],
+      "time_range": "Morning (8:00-11:00 AM)",
       "consistency": true,
       "variations": null
     },
@@ -1619,13 +1615,13 @@
     },
     "snack_1": {
       "meal": "First Snack of Day",
-      "prep_type": "Office/work snack",
+      "prep_type": "Prepare at home",
       "time_range": "Morning (8:00-11:00 AM)",
       "consistency": true
     },
     "snack_2": {
       "meal": "Second Snack of Day",
-      "prep_type": "Office/work snack",
+      "prep_type": "Prepare at home",
       "time_range": "Midday (11:00 AM-2:00 PM)",
       "consistency": true
     }

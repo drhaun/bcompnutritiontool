@@ -44,8 +44,8 @@ USER PROFILE:
     if body_comp_goals:
         user_context += f"""
 BODY COMPOSITION GOALS:
-- Primary Goal: {body_comp_goals.get('goal_type', 'Not specified')}
-- Current Weight: {user_profile.get('weight_lbs', 'Not specified')} lbs
+- Primary Goal: {body_comp_goals.get('goal_type', 'Not specified') if body_comp_goals else 'Not specified'}
+- Current Weight: {user_profile.get('weight_lbs', 'Not specified') if user_profile else 'Not specified'} lbs
 - Target Weight: {st.session_state.get('target_weight_lbs', 'Not specified')} lbs
 - Target Body Fat: {st.session_state.get('target_bf', 'Not specified')}%
 - Timeline: {st.session_state.get('timeline_weeks', 'Not specified')} weeks
@@ -313,17 +313,18 @@ Remember: The user needs these exact macros for precise body composition goals. 
 - Fat: {daily_fat}g (MANDATORY Range: {daily_fat * 0.97:.0f} - {daily_fat * 1.03:.0f}g)
 
 **AGGRESSIVE PORTION SIZE GUIDELINES TO HIT TARGETS**:
-- For {daily_calories} calories: Use LARGE portions, add 3-4 tbsp oils, nuts, avocado, nut butters
-- For {daily_protein}g protein: Use 8-10oz meat portions, add protein powder, Greek yogurt, eggs
-- For {daily_carbs}g carbs: Use 1.5-2 cups rice/pasta, multiple fruits, large oat portions
-- For {daily_fat}g fat: Use 3-4 tbsp oils, nuts, avocado, nut butters, full-fat dairy
+- For {daily_calories} calories: Use LARGE portions, add 4-5 tbsp oils, 2oz nuts, avocado, nut butters
+- For {daily_protein}g protein: Use 10-12oz meat portions, add 2 scoops protein powder, Greek yogurt, eggs
+- For {daily_carbs}g carbs: Use 2-2.5 cups rice/pasta, multiple fruits, large oat portions (2 cups)
+- For {daily_fat}g fat: Use 4-5 tbsp oils, 2oz nuts, whole avocado, nut butters, full-fat dairy
 
-**MANDATORY ACCURACY REQUIREMENTS**:
-1. Calculate totals for each meal BEFORE finalizing ingredients
-2. If any macro is below target, INCREASE portions by 25-50%
-3. Add calorie-dense ingredients: nuts, oils, avocados, nut butters
-4. NEVER submit a meal plan below the mandatory ranges
-5. Double-check all calculations before responding
+**MANDATORY ACCURACY REQUIREMENTS** - FAILURE TO MEET THESE = UNUSABLE MEAL PLAN:
+1. Calculate ingredient macros FIRST, then sum to get meal totals
+2. If ANY macro is below 97% of target, INCREASE portions by 50-100%
+3. Add HIGH-CALORIE ingredients: 2 tbsp olive oil (240 cal), 2oz almonds (330 cal), protein powder
+4. NEVER submit a meal plan below the mandatory ranges - USER WILL REJECT IT
+5. Triple-check all calculations - totals MUST be within ±3%
+6. If below target after first calculation, ADD MORE INGREDIENTS immediately
 
 {prompt}
             """
@@ -335,18 +336,51 @@ Remember: The user needs these exact macros for precise body composition goals. 
                     {"role": "user", "content": enhanced_prompt}
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.1,  # Even lower temperature for maximum calculation consistency
+                temperature=0.05,  # Extremely low temperature for maximum calculation consistency
                 max_tokens=4000  # Increased for more detailed responses and validation
             )
             
             day_plan = json.loads(response.choices[0].message.content)
             
-            # Validate macro accuracy and provide feedback
-            if validate_meal_plan_accuracy(day_plan, day_data, day):
-                weekly_meal_plan[day] = day_plan
-            else:
-                st.warning(f"⚠️ {day} meal plan generated but may have macro accuracy issues. Check the results carefully.")
-                weekly_meal_plan[day] = day_plan
+            # Validate macro accuracy and retry if needed
+            accuracy_valid, accuracy_issues = validate_meal_plan_accuracy(day_plan, day_data, day)
+            
+            # Retry once if accuracy is poor
+            if not accuracy_valid and len(accuracy_issues) > 0:
+                st.warning(f"⚠️ {day} meal plan accuracy issues detected. Retrying with adjusted prompts...")
+                
+                # Enhanced retry prompt with specific corrections
+                retry_prompt = enhanced_prompt + f"""
+                
+**CRITICAL CORRECTIONS NEEDED**:
+{chr(10).join([f"- {issue}" for issue in accuracy_issues])}
+
+**IMMEDIATE ACTIONS REQUIRED**:
+1. INCREASE ALL portions by 30-50% from previous attempt
+2. ADD extra calorie-dense ingredients: nuts, oils, protein powder
+3. BOOST low macros with targeted ingredients
+4. RECALCULATE all totals to ensure ±3% accuracy
+5. DO NOT SUBMIT without meeting all targets
+                """
+                
+                retry_response = openai_client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": f"CRITICAL: Your previous {day} meal plan was REJECTED for accuracy issues. You MUST fix these issues and create a new plan that hits ALL macro targets within ±3%. Increase portions aggressively. Add calorie-dense ingredients. The user needs EXACT macros - failure is not acceptable."},
+                        {"role": "user", "content": retry_prompt}
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.01,  # Even lower for retry
+                    max_tokens=4000
+                )
+                
+                day_plan = json.loads(retry_response.choices[0].message.content)
+                accuracy_valid, accuracy_issues = validate_meal_plan_accuracy(day_plan, day_data, day)
+                
+                if not accuracy_valid:
+                    st.error(f"❌ {day} meal plan still has accuracy issues after retry.")
+            
+            weekly_meal_plan[day] = day_plan
             
         except Exception as e:
             st.error(f"AI meal generation failed for {day}: {e}")
@@ -369,6 +403,7 @@ def validate_meal_plan_accuracy(day_plan, day_targets, day_name):
         # Check each macro
         macros = ['calories', 'protein', 'carbs', 'fat']
         accuracy_issues = []
+        all_accurate = True
         
         for macro in macros:
             generated = generated_totals.get(macro, 0)
@@ -383,14 +418,14 @@ def validate_meal_plan_accuracy(day_plan, day_targets, day_name):
             print(f"⚠️ {day_name} macro accuracy issues:")
             for issue in accuracy_issues:
                 print(f"  - {issue}")
-            return False
+            return False, accuracy_issues
         else:
             print(f"✅ {day_name} macro accuracy validated")
-            return True
+            return True, []
             
     except Exception as e:
         print(f"⚠️ Error validating {day_name} meal plan: {e}")
-        return False
+        return False, [f"Validation error: {e}"]
 
 def generate_ai_meal_plan(meal_targets, diet_preferences, meal_config, openai_client):
     """Generate complete daily AI meal plan using OpenAI (legacy single-day function)"""
