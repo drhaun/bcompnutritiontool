@@ -25,367 +25,351 @@ def get_openai_client():
         pass
     return None
 
-def generate_weekly_ai_meal_plan(weekly_targets, diet_preferences, weekly_schedule, openai_client, user_profile=None, body_comp_goals=None):
-    """Generate complete weekly AI meal plan using OpenAI with comprehensive context"""
-    weekly_meal_plan = {}
+def build_user_profile_context(user_profile, body_comp_goals):
+    """Build comprehensive user profile context for AI prompts"""
+    context = ""
     
-    # Build comprehensive user context for better meal planning
-    user_context = ""
     if user_profile:
-        user_context += f"""
+        context += f"""
 USER PROFILE:
 - Age: {user_profile.get('age', 'Not specified')} years
 - Gender: {user_profile.get('gender', 'Not specified')}
 - Height: {user_profile.get('height_ft', 'Not specified')}'{user_profile.get('height_in', '')}\"
+- Current Weight: {user_profile.get('weight_lbs', 'Not specified')} lbs
 - Activity Level: {user_profile.get('activity_level', 'Not specified')}
-- Experience Level: {user_profile.get('experience_level', 'Not specified')}
+- Goal Focus: {user_profile.get('goal_focus', 'Not specified')}
+- Lifestyle Commitment: {user_profile.get('lifestyle_commitment', 'Not specified')}
 """
     
     if body_comp_goals:
-        user_context += f"""
+        context += f"""
 BODY COMPOSITION GOALS:
 - Primary Goal: {body_comp_goals.get('goal_type', 'Not specified') if body_comp_goals else 'Not specified'}
-- Current Weight: {user_profile.get('weight_lbs', 'Not specified') if user_profile else 'Not specified'} lbs
 - Target Weight: {st.session_state.get('target_weight_lbs', 'Not specified')} lbs
 - Target Body Fat: {st.session_state.get('target_bf', 'Not specified')}%
 - Timeline: {st.session_state.get('timeline_weeks', 'Not specified')} weeks
+- Performance Priority: {st.session_state.get('performance_preference', 'Not specified')}
+- Body Comp Priority: {st.session_state.get('body_comp_preference', 'Not specified')}
 """
     
-    # Enhanced dietary preferences context with ALL Diet Preferences information
+    return context
+
+def build_dietary_context(diet_preferences):
+    """Build comprehensive dietary preferences context"""
     dietary_restrictions = diet_preferences.get('dietary_restrictions', [])
-    diet_context = f"""
-DIETARY PREFERENCES & RESTRICTIONS:
-- Dietary Restrictions: {', '.join(dietary_restrictions) if dietary_restrictions else 'None'}
-- Allergies: {', '.join(diet_preferences.get('allergies', []))} (STRICTLY AVOID - SAFETY CRITICAL)
+    allergies = diet_preferences.get('allergies', [])
+    
+    context = f"""
+DIETARY RESTRICTIONS & SAFETY:
+- Restrictions: {', '.join(dietary_restrictions) if dietary_restrictions else 'None'}
+- ALLERGIES (STRICTLY AVOID): {', '.join(allergies) if allergies else 'None'}
 - Disliked Foods: {', '.join(diet_preferences.get('disliked_foods', [])[:8])}
 
 FOOD PREFERENCES:
-- Preferred Proteins: {', '.join(diet_preferences.get('preferred_proteins', [])[:8])}
-- Preferred Carbs: {', '.join(diet_preferences.get('preferred_carbs', [])[:8])}
-- Preferred Fats: {', '.join(diet_preferences.get('preferred_fats', [])[:8])}
-- Preferred Vegetables: {', '.join(diet_preferences.get('preferred_vegetables', [])[:8])}
-- Preferred Cuisines: {', '.join(diet_preferences.get('cuisine_preferences', [])[:5])}
+- Proteins: {', '.join(diet_preferences.get('preferred_proteins', [])[:8])}
+- Carbs: {', '.join(diet_preferences.get('preferred_carbs', [])[:8])}
+- Fats: {', '.join(diet_preferences.get('preferred_fats', [])[:8])}
+- Vegetables: {', '.join(diet_preferences.get('preferred_vegetables', [])[:8])}
+- Cuisines: {', '.join(diet_preferences.get('cuisine_preferences', [])[:5])}
 
-SUPPLEMENTATION PREFERENCES:
-- Creatine: {diet_preferences.get('supplementation_preferences', {}).get('creatine', 'Not interested')}
-- Protein Powder: {diet_preferences.get('supplementation_preferences', {}).get('protein_powder', 'Not interested')}
-- Pre-Workout: {diet_preferences.get('supplementation_preferences', {}).get('pre_workout', 'Not interested')}
-- Multivitamin: {diet_preferences.get('supplementation_preferences', {}).get('multivitamin', 'Not interested')}
-- Omega-3: {diet_preferences.get('supplementation_preferences', {}).get('omega3', 'Not interested')}
-- Vitamin D: {diet_preferences.get('supplementation_preferences', {}).get('vitamin_d', 'Not interested')}
-- Other Supplements: {', '.join(diet_preferences.get('supplementation_preferences', {}).get('other_supplements', [])[:3])}
-
-MEAL SOURCING PREFERENCES:
-- Meal Delivery Interest: {diet_preferences.get('meal_delivery_interest', 'Moderate')}
-- Home Cooking Interest: {diet_preferences.get('home_cooking_interest', 'High')}
-- Grocery Shopping Interest: {diet_preferences.get('grocery_shopping_interest', 'High')}
-- Meal Frequency: {diet_preferences.get('meal_frequency', 'Not specified')} meals/day
-
-SEASONING & FLAVOR PREFERENCES:
+FLAVOR PREFERENCES:
 - Spice Level: {diet_preferences.get('spice_level', 'Medium')}
 - Flavor Profiles: {', '.join(diet_preferences.get('flavor_profile', [])[:5])}
-- Preferred Seasonings: {', '.join(diet_preferences.get('preferred_seasonings', [])[:8])}
-- Cooking Enhancers: {', '.join(diet_preferences.get('cooking_enhancers', [])[:8])}
+- Seasonings: {', '.join(diet_preferences.get('preferred_seasonings', [])[:8])}
 
-VARIETY PREFERENCES:
+PRACTICAL CONSTRAINTS:
+- Cooking Time: {diet_preferences.get('cooking_time_preference', 'Medium (30-60 min)')}
+- Budget: {diet_preferences.get('budget_preference', 'Moderate')}
+- Cooking For: {diet_preferences.get('cooking_for', 'Just myself')}
+- Leftovers: {diet_preferences.get('leftovers_preference', 'Okay with leftovers occasionally')}
 - Variety Level: {diet_preferences.get('variety_level', 'Moderate Variety')}
-- Repetition Preference: {diet_preferences.get('repetition_preference', 'I like some repetition but with variations')}
-- Weekly Structure: {diet_preferences.get('weekly_structure', 'Mix of routine and variety')}
-- Cooking Variety: {diet_preferences.get('cooking_variety', 'Some variety in cooking methods')}
-
-LOCATION-BASED PREFERENCES:
-- Location Features Enabled: {diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False)}
-- Primary Zip Code: {diet_preferences.get('location_based_preferences', {}).get('primary_zip_code', 'Not specified')}
-- Work Zip Code: {diet_preferences.get('location_based_preferences', {}).get('work_zip_code', 'Not specified')}
-- Favorite Restaurants: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_restaurants', [])[:5])}
-- Favorite Grocery Stores: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_grocery_stores', [])[:5])}
-- Convenience Stores: {', '.join(diet_preferences.get('location_based_preferences', {}).get('convenience_stores', [])[:3])}
-- Travel Routes: {', '.join(diet_preferences.get('location_based_preferences', {}).get('travel_routes', [])[:3])}
-
-ENHANCED PREFERENCES:
-- Micronutrient Focus: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('micronutrient_focus', [])[:8])}
-- Seasonal Ingredients: {diet_preferences.get('enhanced_preferences', {}).get('seasonal_ingredients', True)}
-- Current Season: {diet_preferences.get('enhanced_preferences', {}).get('current_season', 'Auto-detect')}
-- Ingredient Substitutions: {diet_preferences.get('enhanced_preferences', {}).get('ingredient_substitutions', True)}
-- Meal Prep Coordination: {diet_preferences.get('enhanced_preferences', {}).get('meal_prep_coordination', 'Some coordination')}
-- Local Cuisine Integration: {diet_preferences.get('enhanced_preferences', {}).get('local_cuisine_integration', False)}
-- Preferred Seasonal Produce: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('preferred_produce_seasons', [])[:4])}
-
-PRACTICAL PREFERENCES:
-- Cooking Time: {diet_preferences.get('cooking_time_preference', 'Not specified')}
-- Budget: {diet_preferences.get('budget_preference', 'Not specified')}
-- Cooking For: {diet_preferences.get('cooking_for', 'Not specified')}
-- Leftovers Preference: {diet_preferences.get('leftovers_preference', 'Not specified')}
 """
     
-    for day, day_data in weekly_targets.items():
-        try:
-            # Get day-specific schedule information
-            schedule_info = weekly_schedule.get(day, {})
-            
-            # Build comprehensive day-specific prompt
-            prompt = f"""
-Create a complete, personalized meal plan for {day} with the following comprehensive specifications:
+    return context
+
+def step1_generate_meal_structure(day_targets, user_context, dietary_context, schedule_info, openai_client):
+    """Step 1: Generate optimal meal structure and timing for the day"""
+    daily_totals = day_targets.get('daily_totals', {})
+    
+    prompt = f"""
+You are a professional nutritionist. Design an optimal meal structure for this user.
 
 {user_context}
 
-{diet_context}
+{dietary_context}
 
-DAILY NUTRITION TARGETS:
-{json.dumps(day_data['meal_targets'], indent=2)}
+DAILY TARGETS:
+- Calories: {daily_totals.get('calories', 2000)}
+- Protein: {daily_totals.get('protein', 150)}g
+- Carbs: {daily_totals.get('carbs', 200)}g  
+- Fat: {daily_totals.get('fat', 70)}g
 
-DAILY SCHEDULE CONTEXT:
-- Wake time: {schedule_info.get('wake_time', '07:00')}
-- Sleep time: {schedule_info.get('bed_time', '23:00')}
-- Work schedule: {schedule_info.get('work_start', 'N/A')} - {schedule_info.get('work_end', 'N/A')}
-- Workout day: {len(schedule_info.get('workouts', [])) > 0}
-- Workout times: {', '.join([f"{w.get('time', 'N/A')} ({w.get('duration', 0)}min {w.get('type', 'workout')})" for w in schedule_info.get('workouts', [])])}
-- Estimated TDEE: {schedule_info.get('total_calories', 2000)} calories
+SCHEDULE CONTEXT:
+- Workouts: {schedule_info.get('workouts', 'None scheduled')}
+- Meal Contexts: {schedule_info.get('meal_contexts', {})}
 
-MEAL SCHEDULE & CONTEXTS:
-- Scheduled meals with times and contexts from user's weekly schedule
+Design meal structure with:
+1. Optimal number of meals (3-6 based on preferences and schedule)
+2. Meal timing relative to workouts
+3. Macro distribution per meal
+4. Meal purposes (pre-workout, post-workout, etc.)
 
-CRITICAL REQUIREMENTS - MUST BE FOLLOWED EXACTLY:
-
-1. **MACRO ACCURACY (HIGHEST PRIORITY)**:
-   - Each meal MUST match its target macros within ±3% tolerance (not ±5% or ±10%)
-   - Daily totals MUST match daily targets within ±3% tolerance
-   - Calculate each ingredient's exact macros using standard USDA nutrition data
-   - Verify total meal macros add up correctly before including in response
-
-2. **WORKOUT PROXIMITY MEAL TIMING (CRITICAL)**:
-   - If workout is scheduled, optimize meal timing and composition around training
-   - PRE-WORKOUT (1-2 hours before): Moderate protein (20-30g), moderate-high carbs (30-50g), LOW fat (<10g), LOW fiber (<5g)
-   - POST-WORKOUT (within 1 hour): High protein (25-40g), high carbs (40-60g), moderate fat (10-20g), avoid high-fiber foods
-   - DURING WORKOUT WINDOW (±1 hour): Avoid large meals, prefer liquid/easily digestible options
-   - FASTED TRAINING: If user allows, provide post-workout recovery meal emphasis
-   - Consider workout type and duration for carb timing and amounts
-   - Liquid or light, easily digestible meals around hard workouts
-   - Strength training: Emphasize protein timing around workouts
-   - Cardio: Focus on carb availability before and replenishment after
-   - HIIT/Intense: Minimize fat and fiber 2 hours before, prioritize quick recovery after
-
-3. **INGREDIENT PRECISION**:
-   - Use specific quantities: "150g chicken breast" not "1 serving chicken"
-   - Include exact macro values for each ingredient
-   - Use common portion sizes that are easy to measure
-   - Ensure ingredient macros are nutritionally accurate
-
-4. **MEAL CONTEXT OPTIMIZATION**:
-   - Pre-Workout: Lower fat (<10g), moderate carbs (20-40g), some protein (15-25g)
-   - Post-Workout: Higher protein (25-40g), moderate-high carbs (30-50g), lower fat (<15g)
-   - Regular meals: Balanced distribution based on targets
-   - Snacks: Smaller portions, typically 10-25% of daily targets
-
-5. **VARIETY CONTROL**: Apply user's variety preferences - {diet_preferences.get('variety_level', 'Moderate Variety')}
-   - For "Low Variety": Use similar meal structures with minor variations (same proteins, rotate sides)
-   - For "Moderate Variety": Mix familiar and new meals with some repetition (2-3 different proteins per week)
-   - For "High Variety": Create mostly different meals with occasional repeats (different proteins, cooking methods, cuisines)
-   - For "Maximum Variety": Ensure each meal is unique and creative (different proteins, varied cuisines, diverse cooking methods)
-   - ENFORCE VARIETY: Track ingredients used and actively avoid repetition based on user preference level
-
-6. **PRACTICAL CONSIDERATIONS**:
-   - Cooking time: {diet_preferences.get('cooking_time_preference', 'Not specified')}
-   - Budget: {diet_preferences.get('budget_preference', 'Not specified')}
-   - Meal timing around workouts and work schedule
-   - {diet_preferences.get('repetition_preference', 'I like some repetition but with variations')}
-   - {diet_preferences.get('weekly_structure', 'Mix of routine and variety')}
-   - {diet_preferences.get('cooking_variety', 'Some variety in cooking methods')}
-
-7. **FLAVOR AND SEASONING REQUIREMENTS**:
-   - Spice Level: {diet_preferences.get('spice_level', 'Medium')} - adjust heat accordingly
-   - Flavor Profiles: {', '.join(diet_preferences.get('flavor_profile', ['Savory/Umami', 'Herbal']))} - emphasize these tastes
-   - Preferred Seasonings: {', '.join(diet_preferences.get('preferred_seasonings', ['Salt', 'Black Pepper', 'Garlic Powder', 'Oregano']))} - use these in recipes
-   - Cooking Enhancers: {', '.join(diet_preferences.get('cooking_enhancers', ['Olive Oil', 'Lemon Juice', 'Garlic']))} - incorporate these for flavor
-   - Cooking For: {diet_preferences.get('cooking_for', 'Just myself')} - adjust portion sizes accordingly
-   - CRITICAL: Include specific seasoning recommendations in each recipe's instructions
-   - Make meals flavorful and appetizing, not bland or boring
-
-8. **ENHANCED NUTRITIONAL OPTIMIZATION**:
-   - Micronutrient Focus: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('micronutrient_focus', [])[:5])} - prioritize foods rich in these nutrients
-   - Seasonal Ingredients: {diet_preferences.get('enhanced_preferences', {}).get('seasonal_ingredients', True)} - use current season produce when possible
-   - Current Season: {diet_preferences.get('enhanced_preferences', {}).get('current_season', 'Auto-detect')} - adjust ingredient selections accordingly
-   - Ingredient Substitutions: {diet_preferences.get('enhanced_preferences', {}).get('ingredient_substitutions', True)} - offer alternatives when needed
-   - Meal Prep Coordination: {diet_preferences.get('enhanced_preferences', {}).get('meal_prep_coordination', 'Some coordination - Share ingredients across meals')} - coordinate ingredients across meals
-   - Local Cuisine Integration: {diet_preferences.get('enhanced_preferences', {}).get('local_cuisine_integration', False)} - include local restaurant options if enabled
-   - Preferred Seasonal Produce: {', '.join(diet_preferences.get('enhanced_preferences', {}).get('preferred_produce_seasons', [])[:2])} - feature these when in season
-
-9. **LOCATION-BASED MEAL SOURCING** (if enabled):
-   - Location Features: {diet_preferences.get('location_based_preferences', {}).get('enable_location_features', False)}
-   - Primary Zip: {diet_preferences.get('location_based_preferences', {}).get('primary_zip_code', 'Not specified')}
-   - If location features enabled and meal sourcing preferences include delivery/takeout:
-     * Suggest specific restaurants from favorite list: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_restaurants', [])[:3])}
-     * Recommend macro-friendly options from these restaurants
-     * Include grocery store suggestions: {', '.join(diet_preferences.get('location_based_preferences', {}).get('favorite_grocery_stores', [])[:3])}
-     * Consider convenience store options for on-the-go meals
-
-10. **QUALITY ASSURANCE**:
-    - Double-check all calculations before providing response
-    - Ensure daily totals sum correctly across all meals
-    - Verify no ingredient conflicts with dietary restrictions or allergies
-    - Make sure portion sizes are realistic and practical
-    - Validate micronutrient targets are addressed through food choices
-    - Confirm seasonal ingredient availability and appropriateness
-
-**MANDATORY JSON FORMAT** - Follow this structure exactly:
+Return JSON with:
 {{
-  "day": "{day}",
-  "profile_summary": "Brief explanation of how user's preferences influenced this day's meal plan (dietary restrictions, favorite foods, workout timing, etc.)",
-  "workout_annotations": {{
-    "has_workout": true/false,
-    "workout_details": "time and type of workout if applicable",
-    "peri_workout_meals": [
-      {{
-        "meal_name": "name of meal",
-        "timing": "pre-workout/post-workout/during",
-        "optimization": "how this meal is optimized for workout performance"
-      }}
-    ]
-  }},
-  "meals": [
+  "meal_structure": [
     {{
-      "name": "Descriptive meal name (e.g., 'Protein-Packed Breakfast Bowl', 'Post-Workout Recovery Lunch')",
-      "time": "scheduled time",
-      "context": "meal context from schedule",
-      "workout_annotation": "PRE-WORKOUT/POST-WORKOUT/REGULAR (if applicable)",
-      "ingredients": [
-        {{"item": "specific food name", "amount": "exact quantity with unit", "calories": precise_number, "protein": precise_number, "carbs": precise_number, "fat": precise_number}}
-      ],
-      "instructions": "Clear step-by-step preparation instructions (no numbering issues)",
-      "total_macros": {{"calories": sum_of_ingredient_calories, "protein": sum_of_ingredient_protein, "carbs": sum_of_ingredient_carbs, "fat": sum_of_ingredient_fat}},
-      "meal_targets": {{"calories": individual_meal_target_calories, "protein": individual_meal_target_protein, "carbs": individual_meal_target_carbs, "fat": individual_meal_target_fat}},
-      "accuracy_check": {{"calories": "±X%", "protein": "±X%", "carbs": "±X%", "fat": "±X%"}}
+      "meal_name": "Breakfast",
+      "timing": "7:00 AM",
+      "purpose": "Energy start",
+      "target_calories": 500,
+      "target_protein": 30,
+      "target_carbs": 60,
+      "target_fat": 20,
+      "workout_relation": "none"
     }}
   ],
-  "daily_totals": {{"calories": sum_of_all_meal_calories, "protein": sum_of_all_meal_protein, "carbs": sum_of_all_meal_carbs, "fat": sum_of_all_meal_fat}},
-  "daily_targets": {{"calories": target_calories, "protein": target_protein, "carbs": target_carbs, "fat": target_fat}},
-  "accuracy_summary": {{"calories": "±X%", "protein": "±X%", "carbs": "±X%", "fat": "±X%"}},
-  "grocery_ingredients": [
-    {{"item": "ingredient name", "total_amount": "total quantity needed", "category": "protein/carbs/fats/vegetables/seasonings"}}
-  ]
+  "rationale": "Why this structure works for this user"
 }}
-
-**CRITICAL ACCURACY REQUIREMENTS - MUST BE FOLLOWED**:
-1. Daily totals MUST be within ±3% of daily targets (not ±5% or higher)
-2. If any macro is outside ±3%, INCREASE ingredient portions or add calorie-dense ingredients
-3. Use larger portions, nuts, oils, or additional protein sources to boost low macros
-4. Verify all calculations twice before responding
-5. Include profile summary explaining how user preferences influenced meal selections
-6. Add workout annotations showing pre/post-workout meal optimizations
-7. Use descriptive meal names, not generic labels like "First Meal"
-8. Provide clear, well-formatted cooking instructions
-9. Organize grocery ingredients by category for easy shopping
-
-**VALIDATION CHECKLIST** - Verify before responding:
-✓ Each meal's total_macros equals sum of its ingredients
-✓ Daily_totals equals sum of all meal total_macros
-✓ Each meal hits its individual target within ±3%
-✓ Daily totals hit overall targets within ±3% (THIS IS CRITICAL)
-✓ All ingredient amounts are specific and measurable
-✓ All macro values are realistic and nutritionally accurate
-✓ Variety level is properly applied (no excessive repetition)
-✓ Meal context matches daily schedule requirements
-
-**FINAL VALIDATION STEP**:
-Before providing your response:
-1. Calculate the daily totals by summing all meal macros
-2. Compare these totals to the daily targets provided
-3. If any macro is outside ±3% tolerance, INCREASE ingredient portions appropriately
-4. Add calorie-dense ingredients (nuts, oils, larger portions) to boost low macros
-5. Ensure the adjusted totals meet the targets within ±3%
-6. Only then provide your final JSON response
-
-Remember: The user needs these exact macros for precise body composition goals. Accuracy is paramount - err on the side of slightly higher calories rather than lower.
 """
+    
+    response = openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are a nutritionist focused on optimal meal timing and structure. Be precise and scientific."},
+            {"role": "user", "content": prompt}
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.1,
+        max_tokens=1500
+    )
+    
+    return json.loads(response.choices[0].message.content)
 
-            # Add specific macro targets to the beginning of the prompt for extra emphasis
-            daily_totals = day_data.get('daily_totals', {})
-            daily_calories = daily_totals.get('calories', 2000)
-            daily_protein = daily_totals.get('protein', 150)
-            daily_carbs = daily_totals.get('carbs', 200)
-            daily_fat = daily_totals.get('fat', 70)
-            
-            enhanced_prompt = f"""
-**CRITICAL: DAILY MACRO TARGETS FOR {day.upper()} - MUST HIT EXACTLY (±3% tolerance)**:
-- Calories: {daily_calories} (MANDATORY Range: {daily_calories * 0.97:.0f} - {daily_calories * 1.03:.0f})
-- Protein: {daily_protein}g (MANDATORY Range: {daily_protein * 0.97:.0f} - {daily_protein * 1.03:.0f}g)
-- Carbs: {daily_carbs}g (MANDATORY Range: {daily_carbs * 0.97:.0f} - {daily_carbs * 1.03:.0f}g)
-- Fat: {daily_fat}g (MANDATORY Range: {daily_fat * 0.97:.0f} - {daily_fat * 1.03:.0f}g)
+def step2_generate_meal_concepts(meal_structure, user_context, dietary_context, openai_client):
+    """Step 2: Generate specific meal concepts for each meal in the structure"""
+    meal_concepts = []
+    
+    for meal in meal_structure['meal_structure']:
+        prompt = f"""
+Create a specific meal concept for this meal slot.
 
-**AGGRESSIVE PORTION SIZE GUIDELINES TO HIT TARGETS**:
-- For {daily_calories} calories: Use LARGE portions, add 4-5 tbsp oils, 2oz nuts, avocado, nut butters
-- For {daily_protein}g protein: Use 10-12oz meat portions, add 2 scoops protein powder, Greek yogurt, eggs
-- For {daily_carbs}g carbs: Use 2-2.5 cups rice/pasta, multiple fruits, large oat portions (2 cups)
-- For {daily_fat}g fat: Use 4-5 tbsp oils, 2oz nuts, whole avocado, nut butters, full-fat dairy
+{user_context}
 
-**MANDATORY ACCURACY REQUIREMENTS** - FAILURE TO MEET THESE = UNUSABLE MEAL PLAN:
-1. Calculate ingredient macros FIRST, then sum to get meal totals
-2. If ANY macro is below 97% of target, INCREASE portions by 50-100%
-3. Add HIGH-CALORIE ingredients: 2 tbsp olive oil (240 cal), 2oz almonds (330 cal), protein powder
-4. NEVER submit a meal plan below the mandatory ranges - USER WILL REJECT IT
-5. Triple-check all calculations - totals MUST be within ±3%
-6. If below target after first calculation, ADD MORE INGREDIENTS immediately
+{dietary_context}
 
-{prompt}
-            """
-            
-            response = openai_client.chat.completions.create(
-                model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-                messages=[
-                    {"role": "system", "content": f"You are a professional nutritionist and meal planning expert with expertise in precise macro calculations. You MUST create meal plans that exactly match the specified macro targets within ±3% tolerance. If the calculated totals are below targets, you MUST increase ingredient portions aggressively. Add oils, nuts, larger protein portions, and calorie-dense ingredients to hit the exact targets. NEVER submit a meal plan below the target ranges. Prioritize macro accuracy above all other considerations. You are creating a {day} meal plan."},
-                    {"role": "user", "content": enhanced_prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.05,  # Extremely low temperature for maximum calculation consistency
-                max_tokens=4000  # Increased for more detailed responses and validation
-            )
-            
-            day_plan = json.loads(response.choices[0].message.content)
-            
-            # Validate macro accuracy and retry if needed
-            accuracy_valid, accuracy_issues = validate_meal_plan_accuracy(day_plan, day_data, day)
-            
-            # Retry once if accuracy is poor
-            if not accuracy_valid and len(accuracy_issues) > 0:
-                st.warning(f"⚠️ {day} meal plan accuracy issues detected. Retrying with adjusted prompts...")
-                
-                # Enhanced retry prompt with specific corrections
-                retry_prompt = enhanced_prompt + f"""
-                
-**CRITICAL CORRECTIONS NEEDED**:
-{chr(10).join([f"- {issue}" for issue in accuracy_issues])}
+MEAL REQUIREMENTS:
+- Name: {meal['meal_name']}
+- Timing: {meal['timing']}
+- Purpose: {meal['purpose']}
+- Target Calories: {meal['target_calories']}
+- Target Protein: {meal['target_protein']}g
+- Target Carbs: {meal['target_carbs']}g
+- Target Fat: {meal['target_fat']}g
+- Workout Relation: {meal['workout_relation']}
 
-**IMMEDIATE ACTIONS REQUIRED**:
-1. INCREASE ALL portions by 30-50% from previous attempt
-2. ADD extra calorie-dense ingredients: nuts, oils, protein powder
-3. BOOST low macros with targeted ingredients
-4. RECALCULATE all totals to ensure ±3% accuracy
-5. DO NOT SUBMIT without meeting all targets
-                """
-                
-                retry_response = openai_client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[
-                        {"role": "system", "content": f"CRITICAL: Your previous {day} meal plan was REJECTED for accuracy issues. You MUST fix these issues and create a new plan that hits ALL macro targets within ±3%. Increase portions aggressively. Add calorie-dense ingredients. The user needs EXACT macros - failure is not acceptable."},
-                        {"role": "user", "content": retry_prompt}
-                    ],
-                    response_format={"type": "json_object"},
-                    temperature=0.01,  # Even lower for retry
-                    max_tokens=4000
-                )
-                
-                day_plan = json.loads(retry_response.choices[0].message.content)
-                accuracy_valid, accuracy_issues = validate_meal_plan_accuracy(day_plan, day_data, day)
-                
-                if not accuracy_valid:
-                    st.error(f"❌ {day} meal plan still has accuracy issues after retry.")
+Generate a specific meal concept that:
+1. Fits the user's preferences perfectly
+2. Achieves the macro targets
+3. Considers workout timing if applicable
+4. Uses preferred ingredients when possible
+
+Return JSON:
+{{
+  "meal_concept": {{
+    "name": "Specific meal name",
+    "description": "Brief description",
+    "key_ingredients": ["ingredient1", "ingredient2"],
+    "cooking_method": "How it's prepared",
+    "estimated_prep_time": "15 minutes"
+  }}
+}}
+"""
+        
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a chef and nutritionist. Create appealing, practical meal concepts that perfectly match user preferences."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.2,
+            max_tokens=1000
+        )
+        
+        concept_result = json.loads(response.choices[0].message.content)
+        meal_concepts.append({
+            **meal,
+            **concept_result['meal_concept']
+        })
+    
+    return meal_concepts
+
+def step3_generate_precise_recipes(meal_concepts, openai_client):
+    """Step 3: Generate precise recipes with exact portions to hit macro targets"""
+    final_meals = []
+    
+    for meal_concept in meal_concepts:
+        prompt = f"""
+Create a precise recipe for this meal concept with EXACT portions to hit the macro targets.
+
+MEAL CONCEPT:
+- Name: {meal_concept['name']}
+- Description: {meal_concept['description']}
+- Key Ingredients: {meal_concept['key_ingredients']}
+- Cooking Method: {meal_concept['cooking_method']}
+
+EXACT MACRO TARGETS (MUST BE ACHIEVED):
+- Calories: {meal_concept['target_calories']} (±15 calories)
+- Protein: {meal_concept['target_protein']}g (±2g)
+- Carbs: {meal_concept['target_carbs']}g (±3g)
+- Fat: {meal_concept['target_fat']}g (±2g)
+
+Generate precise recipe with:
+1. Exact ingredient amounts (weights in grams/ounces)
+2. Step-by-step cooking instructions
+3. Calculated macros for each ingredient
+4. Total macros that match targets exactly
+
+Return JSON:
+{{
+  "recipe": {{
+    "name": "{meal_concept['name']}",
+    "ingredients": [
+      {{
+        "item": "Chicken breast",
+        "amount": "200g",
+        "calories": 330,
+        "protein": 62,
+        "carbs": 0,
+        "fat": 7.4
+      }}
+    ],
+    "instructions": ["Step 1", "Step 2"],
+    "total_macros": {{
+      "calories": {meal_concept['target_calories']},
+      "protein": {meal_concept['target_protein']},
+      "carbs": {meal_concept['target_carbs']},
+      "fat": {meal_concept['target_fat']}
+    }},
+    "prep_time": "{meal_concept.get('estimated_prep_time', '15 minutes')}",
+    "context": "{meal_concept.get('purpose', '')}",
+    "time": "{meal_concept.get('timing', '')}",
+    "workout_annotation": "{meal_concept.get('workout_relation', '')}"
+  }}
+}}
+"""
+        
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a precision nutritionist. Calculate exact ingredient amounts to hit macro targets perfectly. Use standard nutritional databases for accuracy."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.05,
+            max_tokens=2000
+        )
+        
+        recipe_result = json.loads(response.choices[0].message.content)
+        final_meals.append(recipe_result['recipe'])
+    
+    return final_meals
+
+def step4_validate_and_adjust(final_meals, day_targets):
+    """Step 4: Validate total macros and make adjustments if needed"""
+    # Calculate actual totals
+    total_calories = sum(meal['total_macros']['calories'] for meal in final_meals)
+    total_protein = sum(meal['total_macros']['protein'] for meal in final_meals)
+    total_carbs = sum(meal['total_macros']['carbs'] for meal in final_meals)
+    total_fat = sum(meal['total_macros']['fat'] for meal in final_meals)
+    
+    # Get targets
+    target_totals = day_targets.get('daily_totals', {})
+    target_calories = target_totals.get('calories', 2000)
+    target_protein = target_totals.get('protein', 150)
+    target_carbs = target_totals.get('carbs', 200)
+    target_fat = target_totals.get('fat', 70)
+    
+    # Check accuracy (3% tolerance)
+    tolerance = 0.03
+    adjustments_needed = []
+    
+    if abs(total_calories - target_calories) / target_calories > tolerance:
+        adjustments_needed.append(f"Calories: {total_calories} vs {target_calories}")
+    if abs(total_protein - target_protein) / target_protein > tolerance:
+        adjustments_needed.append(f"Protein: {total_protein}g vs {target_protein}g")
+    if abs(total_carbs - target_carbs) / target_carbs > tolerance:
+        adjustments_needed.append(f"Carbs: {total_carbs}g vs {target_carbs}g")
+    if abs(total_fat - target_fat) / target_fat > tolerance:
+        adjustments_needed.append(f"Fat: {total_fat}g vs {target_fat}g")
+    
+    daily_totals = {
+        'calories': round(total_calories),
+        'protein': round(total_protein, 1),
+        'carbs': round(total_carbs, 1),
+        'fat': round(total_fat, 1)
+    }
+    
+    return {
+        'meals': final_meals,
+        'daily_totals': daily_totals,
+        'accuracy_valid': len(adjustments_needed) == 0,
+        'adjustments_needed': adjustments_needed
+    }
+
+def generate_weekly_ai_meal_plan(weekly_targets, diet_preferences, weekly_schedule, openai_client, user_profile=None, body_comp_goals=None):
+    """Generate complete weekly AI meal plan using step-by-step approach"""
+    weekly_meal_plan = {}
+    
+    # Build reusable contexts
+    user_context = build_user_profile_context(user_profile, body_comp_goals)
+    dietary_context = build_dietary_context(diet_preferences)
+    
+    progress_placeholder = st.empty()
+    
+    for day, day_data in weekly_targets.items():
+        try:
+            progress_placeholder.info(f"🔄 Generating {day} meal plan - Step-by-step approach...")
+            
+            # Get day-specific schedule information
+            schedule_info = weekly_schedule.get(day, {})
+            
+            # Step 1: Generate meal structure
+            st.write(f"**{day} - Step 1:** Designing optimal meal structure...")
+            meal_structure = step1_generate_meal_structure(day_data, user_context, dietary_context, schedule_info, openai_client)
+            
+            # Step 2: Generate meal concepts
+            st.write(f"**{day} - Step 2:** Creating personalized meal concepts...")
+            meal_concepts = step2_generate_meal_concepts(meal_structure, user_context, dietary_context, openai_client)
+            
+            # Step 3: Generate precise recipes
+            st.write(f"**{day} - Step 3:** Calculating precise recipes and portions...")
+            final_meals = step3_generate_precise_recipes(meal_concepts, openai_client)
+            
+            # Step 4: Validate and adjust
+            st.write(f"**{day} - Step 4:** Validating macro accuracy...")
+            day_result = step4_validate_and_adjust(final_meals, day_data)
+            
+            # Create final day plan
+            day_plan = {
+                'meals': day_result['meals'],
+                'daily_totals': day_result['daily_totals'],
+                'meal_structure_rationale': meal_structure.get('rationale', ''),
+                'accuracy_validated': day_result['accuracy_valid']
+            }
+            
+            if day_result['accuracy_valid']:
+                st.success(f"✅ {day} meal plan generated with accurate macros!")
+            else:
+                st.warning(f"⚠️ {day} meal plan needs adjustments: {', '.join(day_result['adjustments_needed'])}")
             
             weekly_meal_plan[day] = day_plan
             
         except Exception as e:
-            st.error(f"AI meal generation failed for {day}: {e}")
+            st.error(f"❌ Error generating {day} meal plan: {e}")
             continue
     
+    progress_placeholder.success("🎉 Weekly meal plan generation complete!")
     return weekly_meal_plan
 
 def validate_meal_plan_accuracy(day_plan, day_targets, day_name):
@@ -403,7 +387,6 @@ def validate_meal_plan_accuracy(day_plan, day_targets, day_name):
         # Check each macro
         macros = ['calories', 'protein', 'carbs', 'fat']
         accuracy_issues = []
-        all_accurate = True
         
         for macro in macros:
             generated = generated_totals.get(macro, 0)
@@ -428,9 +411,9 @@ def validate_meal_plan_accuracy(day_plan, day_targets, day_name):
         return False, [f"Validation error: {e}"]
 
 def generate_ai_meal_plan(meal_targets, diet_preferences, meal_config, openai_client):
-    """Generate complete daily AI meal plan using OpenAI (legacy single-day function)"""
+    """Generate single-day AI meal plan (legacy function for compatibility)"""
     try:
-        # Build comprehensive prompt
+        # Build comprehensive prompt for single day
         prompt = f"""
 Create a complete daily meal plan with the following specifications:
 
@@ -453,116 +436,202 @@ MEAL TIMING:
 - Sleep time: {meal_config.get('sleep_time', '23:00')}
 - Workout time: {meal_config.get('workout_time', 'Morning')}
 - Number of meals: {meal_config.get('num_meals', 3)}
-- Number of snacks: {meal_config.get('num_snacks', 1)}
-- Training day: {meal_config.get('is_training_day', True)}
 
-Please create realistic meals with:
-1. Specific food items and portions
-2. Accurate macro calculations matching targets (±10% tolerance)
-3. Practical cooking instructions
-4. Consideration for meal timing around workouts
-5. Variety and palatability
+Create a meal plan with exact macro calculations matching targets within ±3% tolerance.
 
-Format as JSON with this structure:
+Return JSON format with:
 {{
-  "breakfast": {{
-    "name": "meal name",
-    "ingredients": [
-      {{"item": "food name", "amount": "portion", "calories": number, "protein": number, "carbs": number, "fat": number}}
-    ],
-    "instructions": "cooking steps",
-    "total_macros": {{"calories": number, "protein": number, "carbs": number, "fat": number}},
-    "timing": "suggested time"
-  }},
-  "lunch": {{ ... }},
-  "dinner": {{ ... }},
-  "snack": {{ ... }}
+  "meals": [
+    {{
+      "name": "Breakfast",
+      "time": "7:00 AM",
+      "ingredients": [
+        {{
+          "item": "Oats",
+          "amount": "80g",
+          "calories": 304,
+          "protein": 10.8,
+          "carbs": 54.8,
+          "fat": 6.2
+        }}
+      ],
+      "instructions": ["Step 1", "Step 2"],
+      "total_macros": {{
+        "calories": 500,
+        "protein": 25,
+        "carbs": 60,
+        "fat": 20
+      }}
+    }}
+  ],
+  "daily_totals": {{
+    "calories": {meal_targets.get('calories', 2000)},
+    "protein": {meal_targets.get('protein', 150)},
+    "carbs": {meal_targets.get('carbs', 200)},
+    "fat": {meal_targets.get('fat', 70)}
+  }}
 }}
 """
-
+        
         response = openai_client.chat.completions.create(
-            model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+            model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a nutrition expert who creates precise meal plans with accurate macro calculations."},
+                {"role": "system", "content": "You are a nutritionist. Create precise meal plans with exact macro calculations."},
                 {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"},
-            temperature=0.7
+            temperature=0.1,
+            max_tokens=3000
         )
         
         return json.loads(response.choices[0].message.content)
+        
     except Exception as e:
         st.error(f"AI meal generation failed: {e}")
         return None
 
-# Page Setup
-st.set_page_config(page_title="Advanced AI Meal Plan", layout="wide")
-st.title("🧠 Advanced AI Meal Plan")
-st.markdown("*Generate complete weekly meal plans optimized for your body composition goals, schedule, and preferences*")
+# Main Streamlit UI Code
+st.set_page_config(
+    page_title="Advanced AI Meal Plan",
+    page_icon="🤖",
+    layout="wide"
+)
 
-# Workout proximity meal timing educational section
-with st.expander("🏋️ Workout Meal Timing Guidelines", expanded=False):
-    st.markdown("""
-    **Pre-Workout (1-2 hours before training):**
-    - Moderate protein (20-30g), moderate-high carbs (30-50g)
-    - LOW fat (<10g), LOW fiber (<5g)
-    - Focus on easily digestible foods to prevent GI upset
-    
-    **Post-Workout (within 1 hour after training):**
-    - High protein (25-40g), high carbs (40-60g)
-    - Moderate fat (10-20g), avoid high-fiber foods
-    - Prioritize muscle recovery and glycogen replenishment
-    
-    **During Workout Window (±1 hour of training):**
-    - Avoid large meals that may cause digestive issues
-    - Prefer liquid or easily digestible options
-    - Stay hydrated and avoid foods that cause GI upset
-    
-    **Training Type Considerations:**
-    - **Strength Training:** Emphasize protein timing around workouts for muscle recovery
-    - **Cardio:** Focus on carb availability before and replenishment after
-    - **HIIT/Intense Training:** Minimize fat and fiber 2 hours before, prioritize quick recovery after
-    
-    **Fasted Training:** If you prefer training without eating, post-workout nutrition becomes critical for recovery and muscle protein synthesis.
-    """)
+# Custom CSS for better styling
+st.markdown("""
+<style>
+/* Import Fitomics color scheme */
+:root {
+    --fitomics-navy: #1e3a5f;
+    --fitomics-gold: #d4af37;
+    --fitomics-light-blue: #4a90a4;
+    --fitomics-cream: #f5f5dc;
+}
 
-# Add session management controls to sidebar
+.main-header {
+    background: linear-gradient(135deg, var(--fitomics-navy) 0%, var(--fitomics-light-blue) 100%);
+    padding: 2rem;
+    border-radius: 10px;
+    color: white;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.main-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: white;
+}
+
+.main-header p {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    margin: 0;
+}
+
+.step-card {
+    background: white;
+    border: 2px solid var(--fitomics-gold);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.step-title {
+    color: var(--fitomics-navy);
+    font-weight: 600;
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+}
+
+.progress-bar {
+    background: var(--fitomics-gold);
+    height: 4px;
+    border-radius: 2px;
+    margin: 1rem 0;
+}
+
+.accuracy-badge {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.accuracy-excellent {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.accuracy-good {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.accuracy-needs-work {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Header
+st.markdown("""
+<div class="main-header">
+    <h1>🤖 Advanced AI Meal Plan</h1>
+    <p>Step-by-step AI-powered meal planning with ±3% macro accuracy</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Session controls in sidebar
 add_session_controls()
 
-# Initialize nutrition cache
-if 'nutrition_cache' not in st.session_state:
-    st.session_state.nutrition_cache = NutritionCache()
-
 # Check for required data
-if not st.session_state.get('weekly_schedule_v2') or not st.session_state.get('day_specific_nutrition'):
-    st.warning("⚠️ **Weekly schedule and nutrition targets required**")
-    st.markdown("To generate AI meal plans, you need to complete:")
-    st.markdown("1. **Body Composition Goals** - Set your targets")
-    st.markdown("2. **Weekly Schedule** - Plan your daily activities") 
-    st.markdown("3. **Nutrition Targets** - Calculate daily nutrition needs")
-    st.markdown("4. **Diet Preferences** - Set dietary restrictions and preferences")
+if not all([
+    st.session_state.get('user_info'),
+    st.session_state.get('goal_info'),
+    st.session_state.get('diet_preferences'),
+    st.session_state.get('weekly_schedule_v2'),
+    st.session_state.get('day_specific_nutrition')
+]):
+    st.error("⚠️ **Missing Required Data** - Please complete the following steps first:")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📊 Go to Body Composition Goals", use_container_width=True):
-            st.switch_page("pages/2_Body_Composition_Goals.py")
-    with col2:
-        if st.button("📅 Go to Weekly Schedule", use_container_width=True):
-            st.switch_page("pages/4_Weekly_Schedule.py")
+    missing_steps = []
+    if not st.session_state.get('user_info'):
+        missing_steps.append("• **Initial Setup** - Basic profile information")
+    if not st.session_state.get('goal_info'):
+        missing_steps.append("• **Body Composition Goals** - Target setting")
+    if not st.session_state.get('diet_preferences'):
+        missing_steps.append("• **Diet Preferences** - Food preferences and restrictions")
+    if not st.session_state.get('weekly_schedule_v2'):
+        missing_steps.append("• **Weekly Schedule** - Daily activities and workout timing")
+    if not st.session_state.get('day_specific_nutrition'):
+        missing_steps.append("• **Nutrition Targets** - Macro calculations")
+    
+    for step in missing_steps:
+        st.markdown(step)
+    
+    st.info("👈 Use the sidebar navigation to complete these steps, then return here for AI meal planning.")
     st.stop()
 
 # Display current sync status
 st.success("✅ **Sync Profile Mode Active** - Using your personalized body composition targets and weekly schedule")
 
-# Show comprehensive weekly overview
+# Show comprehensive weekly overview  
 with st.expander("📋 Complete Weekly Overview", expanded=True):
     st.markdown("**Summary of all your selections and calculations:**")
     
     # Get all data sources with correct session state keys
     weekly_schedule = st.session_state.get('weekly_schedule_v2', {})
     day_nutrition = st.session_state.get('day_specific_nutrition', {})
-    body_comp_goals = st.session_state.get('goal_info', {})  # Corrected key name
-    initial_setup = st.session_state.get('user_info', {})  # Corrected key name
+    body_comp_goals = st.session_state.get('goal_info', {})
+    initial_setup = st.session_state.get('user_info', {})
     diet_prefs = st.session_state.get('diet_preferences', {})
     
     # Create comprehensive overview table
@@ -602,665 +671,174 @@ with st.expander("📋 Complete Weekly Overview", expanded=True):
     
     overview_df = pd.DataFrame(overview_data)
     st.dataframe(overview_df, use_container_width=True, hide_index=True)
-    
-    # Calculate and display energy availability information
-    if initial_setup:
-        weight_lbs = initial_setup.get('weight_lbs', 165)
-        weight_kg = weight_lbs / 2.20462
-        body_fat_pct = initial_setup.get('body_fat_percentage', 18)
-        fat_free_mass_kg = weight_kg * (1 - body_fat_pct / 100)
-        
-        # Calculate average energy availability across the week
-        total_calories = sum([float(row['Target Calories']) for row in overview_data if row['Target Calories'] != '0'])
-        avg_calories = total_calories / 7 if total_calories > 0 else 2000
-        
-        # Estimate average exercise calories per day
-        workout_days = len([row for row in overview_data if row['Workout'] != 'Rest Day'])
-        avg_exercise_calories = (workout_days * 350) / 7  # Estimate 350 cal per workout
-        
-        avg_energy_availability = (avg_calories - avg_exercise_calories) / fat_free_mass_kg
-        
-        st.markdown("### ⚡ Weekly Energy Availability Analysis")
-        ea_col1, ea_col2, ea_col3 = st.columns(3)
-        
-        with ea_col1:
-            st.metric("Fat-Free Mass", f"{fat_free_mass_kg:.1f} kg", f"{fat_free_mass_kg * 2.20462:.1f} lbs")
-        
-        with ea_col2:
-            st.metric("Average Daily Calories", f"{avg_calories:.0f}", help="Average across your weekly plan")
-        
-        with ea_col3:
-            st.metric("Energy Availability", f"{avg_energy_availability:.0f} kcal/kg FFM", 
-                     help="Energy available for essential body functions")
-        
-        # EA status indicator
-        if avg_energy_availability >= 45:
-            st.success("✅ **Excellent Energy Availability** - Your plan supports optimal health and performance")
-        elif avg_energy_availability >= 30:
-            st.warning("⚠️ **Moderate Energy Availability** - Monitor for fatigue or performance issues")
-        else:
-            st.error("🚨 **Low Energy Availability** - Consider increasing calorie intake to support health and performance")
-    
-    # Display comprehensive summary information from all previous steps
-    st.markdown("---")
-    st.markdown("### 📋 Complete Setup Summary")
-    st.markdown("*This information will be used to generate your personalized weekly meal plan*")
-    
-    # Create three columns for organized summary
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("**👤 Initial Setup:**")
-        if initial_setup:
-            st.write(f"• **Name:** {initial_setup.get('name', 'Not set')}")
-            st.write(f"• **Age:** {initial_setup.get('age', 'Not set')} years")
-            st.write(f"• **Gender:** {initial_setup.get('gender', 'Not set')}")
-            height_ft = initial_setup.get('height_ft', 0)
-            height_in = initial_setup.get('height_in', 0)
-            if height_ft and height_in:
-                st.write(f"• **Height:** {height_ft}'{height_in}\"")
-            st.write(f"• **Activity Level:** {initial_setup.get('activity_level', 'Not set')}")
-            st.write(f"• **Workout Frequency:** {initial_setup.get('workout_frequency', 'Not set')}")
-            st.write(f"• **Goal Focus:** {initial_setup.get('goal_focus', 'Not set')}")
-        else:
-            st.info("Initial Setup not completed - will use default values")
-            
-        st.markdown("**📊 Body Composition Goals:**")
-        if body_comp_goals:
-            st.write(f"• **Primary Goal:** {body_comp_goals.get('goal_type', 'Not set')}")
-            st.write(f"• **Current Weight:** {initial_setup.get('weight_lbs', 'Not set')} lbs")
-            st.write(f"• **Target Weight:** {st.session_state.get('target_weight_lbs', 'Not set')} lbs")
-            st.write(f"• **Target Body Fat:** {st.session_state.get('target_bf', 'Not set')}%")
-            st.write(f"• **Timeline:** {st.session_state.get('timeline_weeks', 'Not set')} weeks")
-            
-            # Calculate weekly change rate
-            current_weight = initial_setup.get('weight_lbs', 0)
-            target_weight = st.session_state.get('target_weight_lbs', 0)
-            timeline = st.session_state.get('timeline_weeks', 1)
-            if current_weight and target_weight and timeline:
-                weekly_change = (target_weight - current_weight) / timeline
-                change_type = "gain" if weekly_change > 0 else "loss"
-                st.write(f"• **Weekly Target:** {abs(weekly_change):.1f} lbs {change_type}/week")
-        else:
-            st.info("Body Composition Goals not set - will use default targets")
-    
-    with col2:
-        st.markdown("**🥗 Diet Preferences:**")
-        if diet_prefs:
-            # Dietary restrictions from actual session state structure
-            restrictions = diet_prefs.get('dietary_restrictions', [])
-            if restrictions:
-                st.write(f"• **Dietary Restrictions:** {', '.join(restrictions)}")
-            else:
-                st.write("• **Dietary Restrictions:** None")
-            
-            # Allergies
-            allergies = diet_prefs.get('allergies', [])
-            if allergies:
-                st.write(f"• **Allergies:** {', '.join(allergies)}")
-            else:
-                st.write("• **Allergies:** None")
-            
-            # Disliked foods - handle both list and string formats
-            disliked_foods = diet_prefs.get('disliked_foods', [])
-            if disliked_foods:
-                # Handle case where disliked_foods might be a string
-                if isinstance(disliked_foods, str):
-                    disliked_display = disliked_foods
-                else:
-                    disliked_display = ', '.join(disliked_foods[:3]) + ('...' if len(disliked_foods) > 3 else '')
-                st.write(f"• **Disliked Foods:** {disliked_display}")
-            
-            # Food preferences and practical info
-            st.write(f"• **Meal Frequency:** {diet_prefs.get('meal_frequency', 'Not set')} meals/day")
-            st.write(f"• **Cooking Time:** {diet_prefs.get('cooking_time_preference', 'Not set')}")
-            st.write(f"• **Budget:** {diet_prefs.get('budget_preference', 'Not set')}")
-            st.write(f"• **Cooking For:** {diet_prefs.get('cooking_for', 'Not set')}")
-            st.write(f"• **Leftovers:** {diet_prefs.get('leftovers_preference', 'Not set')}")
-            
-            # Variety and flavor preferences
-            variety_level = diet_prefs.get('variety_level', 'Not set')
-            spice_level = diet_prefs.get('spice_level', 'Not set')
-            
-            st.write(f"• **Variety Level:** {variety_level}")
-            st.write(f"• **Spice Level:** {spice_level}")
-            
-            # Flavor profiles
-            flavor_profiles = diet_prefs.get('flavor_profile', [])
-            if flavor_profiles:
-                st.write(f"• **Flavor Profiles:** {', '.join(flavor_profiles[:2])}{'...' if len(flavor_profiles) > 2 else ''}")
-            
-            # Preferred seasonings
-            preferred_seasonings = diet_prefs.get('preferred_seasonings', [])
-            if preferred_seasonings:
-                st.write(f"• **Preferred Seasonings:** {', '.join(preferred_seasonings[:3])}{'...' if len(preferred_seasonings) > 3 else ''}")
-            
-            # Preferred foods
-            preferred_proteins = diet_prefs.get('preferred_proteins', [])
-            preferred_carbs = diet_prefs.get('preferred_carbs', [])
-            preferred_fats = diet_prefs.get('preferred_fats', [])
-            preferred_vegetables = diet_prefs.get('preferred_vegetables', [])
-            
-            if preferred_proteins:
-                st.write(f"• **Preferred Proteins:** {', '.join(preferred_proteins[:3])}{'...' if len(preferred_proteins) > 3 else ''}")
-            if preferred_carbs:
-                st.write(f"• **Preferred Carbs:** {', '.join(preferred_carbs[:3])}{'...' if len(preferred_carbs) > 3 else ''}")
-            if preferred_fats:
-                st.write(f"• **Preferred Fats:** {', '.join(preferred_fats[:3])}{'...' if len(preferred_fats) > 3 else ''}")
-            if preferred_vegetables:
-                st.write(f"• **Preferred Vegetables:** {', '.join(preferred_vegetables[:3])}{'...' if len(preferred_vegetables) > 3 else ''}")
-                
-            # Cuisine preferences (correct key name)
-            preferred_cuisines = diet_prefs.get('cuisine_preferences', [])
-            if preferred_cuisines:
-                st.write(f"• **Preferred Cuisines:** {', '.join(preferred_cuisines[:3])}{'...' if len(preferred_cuisines) > 3 else ''}")
-            
-            # Enhanced preferences section
-            enhanced_prefs = diet_prefs.get('enhanced_preferences', {})
-            if enhanced_prefs:
-                st.markdown("**🔬 Enhanced Features:**")
-                
-                # Micronutrient focus
-                micronutrient_focus = enhanced_prefs.get('micronutrient_focus', [])
-                if micronutrient_focus:
-                    st.write(f"• **Micronutrient Focus:** {', '.join(micronutrient_focus[:3])}{'...' if len(micronutrient_focus) > 3 else ''}")
-                
-                # Seasonal and location preferences
-                seasonal_ingredients = enhanced_prefs.get('seasonal_ingredients', False)
-                current_season = enhanced_prefs.get('current_season', 'Auto-detect')
-                st.write(f"• **Seasonal Ingredients:** {'Yes' if seasonal_ingredients else 'No'} ({current_season})")
-                
-                meal_prep_coordination = enhanced_prefs.get('meal_prep_coordination', 'Not set')
-                st.write(f"• **Meal Prep Coordination:** {meal_prep_coordination}")
-                
-                local_cuisine = enhanced_prefs.get('local_cuisine_integration', False)
-                st.write(f"• **Local Cuisine Integration:** {'Yes' if local_cuisine else 'No'}")
-                
-                ingredient_substitutions = enhanced_prefs.get('ingredient_substitutions', False)
-                st.write(f"• **Ingredient Substitutions:** {'Yes' if ingredient_substitutions else 'No'}")
-            
-            # Location-based preferences
-            location_prefs = diet_prefs.get('location_based_preferences', {})
-            if location_prefs and location_prefs.get('enable_location_features'):
-                st.markdown("**📍 Location Features:**")
-                primary_zip = location_prefs.get('primary_zip_code', '')
-                work_zip = location_prefs.get('work_zip_code', '')
-                if primary_zip:
-                    st.write(f"• **Primary Zip Code:** {primary_zip}")
-                if work_zip:
-                    st.write(f"• **Work Zip Code:** {work_zip}")
-                
-                favorite_restaurants = location_prefs.get('favorite_restaurants', [])
-                if favorite_restaurants:
-                    st.write(f"• **Favorite Restaurants:** {', '.join(favorite_restaurants[:2])}{'...' if len(favorite_restaurants) > 2 else ''}")
-                
-                favorite_stores = location_prefs.get('favorite_grocery_stores', [])
-                if favorite_stores:
-                    st.write(f"• **Favorite Grocery Stores:** {', '.join(favorite_stores[:2])}{'...' if len(favorite_stores) > 2 else ''}")
-        else:
-            st.warning("Diet Preferences not set")
-    
-    with col3:
-        st.markdown("**📅 Weekly Schedule Summary:**")
-        if weekly_schedule:
-            # Calculate weekly totals
-            total_workouts = 0
-            total_meals = 0
-            total_snacks = 0
-            workout_days = []
-            rest_days = []
-            
-            for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
-                schedule = weekly_schedule.get(day, {})
-                workouts = schedule.get('workouts', [])
-                meals = schedule.get('meals', [])
-                
-                if workouts:
-                    total_workouts += len(workouts)
-                    workout_days.append(day)
-                else:
-                    rest_days.append(day)
-                    
-                total_meals += len([m for m in meals if m.get('type') == 'meal'])
-                total_snacks += len([m for m in meals if m.get('type') == 'snack'])
-            
-            st.write(f"• **Workout Days:** {total_workouts} workouts/week")
-            if workout_days:
-                st.write(f"  └ {', '.join(workout_days[:3])}{'...' if len(workout_days) > 3 else ''}")
-            
-            st.write(f"• **Meals per Day:** {total_meals // 7} average")
-            st.write(f"• **Snacks per Day:** {total_snacks // 7} average")
-            
-            # Show sleep and wake patterns
-            sample_day = next(iter(weekly_schedule.values())) if weekly_schedule else {}
-            wake_time = sample_day.get('wake_time', 'Not set')
-            bed_time = sample_day.get('bed_time', 'Not set')
-            st.write(f"• **Wake Time:** {wake_time}")
-            st.write(f"• **Sleep Time:** {bed_time}")
-            
-            # Work schedule
-            work_start = sample_day.get('work_start', 'Not set')
-            work_end = sample_day.get('work_end', 'Not set')
-            if work_start != 'Not set' and work_end != 'Not set':
-                st.write(f"• **Work Schedule:** {work_start} - {work_end}")
-        else:
-            st.warning("Weekly Schedule not completed")
-            
-        st.markdown("**🎯 Nutrition Targets Summary:**")
-        if day_nutrition:
-            # Calculate average targets
-            total_days = len(day_nutrition)
-            avg_calories = sum(day.get('calories', 0) for day in day_nutrition.values()) / total_days
-            avg_protein = sum(day.get('protein', 0) for day in day_nutrition.values()) / total_days
-            avg_carbs = sum(day.get('carbs', 0) for day in day_nutrition.values()) / total_days
-            avg_fat = sum(day.get('fat', 0) for day in day_nutrition.values()) / total_days
-            
-            st.write(f"• **Average Daily Calories:** {avg_calories:,.0f}")
-            st.write(f"• **Average Protein:** {avg_protein:.0f}g")
-            st.write(f"• **Average Carbs:** {avg_carbs:.0f}g")
-            st.write(f"• **Average Fat:** {avg_fat:.0f}g")
-            
-            # Show range
-            min_cal = min(day.get('calories', 0) for day in day_nutrition.values())
-            max_cal = max(day.get('calories', 0) for day in day_nutrition.values())
-            if min_cal != max_cal:
-                st.write(f"• **Calorie Range:** {min_cal:,.0f} - {max_cal:,.0f}")
-        else:
-            st.warning("Nutrition Targets not calculated")
 
-# Step 1: Dietary Preferences
+# AI Meal Planning Section
 st.markdown("---")
-st.markdown("## 1. Dietary Preferences")
+st.markdown("## 🤖 Step-by-Step AI Meal Plan Generation")
 
-# Use existing preferences if available
-existing_prefs = st.session_state.get('diet_preferences', {})
+# OpenAI integration check
+openai_client = get_openai_client()
+if not openai_client:
+    st.error("🔑 **OpenAI API Key Required** - Please provide your OpenAI API key to generate AI meal plans.")
+    st.info("Add your OpenAI API key in the Replit Secrets tab as 'OPENAI_API_KEY'")
+    st.stop()
 
-if existing_prefs:
-    st.info("Using preferences from Diet Preferences page")
-    with st.expander("View Current Preferences", expanded=False):
-        # Use correct key names from Diet Preferences page
-        dietary_restrictions = existing_prefs.get('dietary_restrictions', [])
-        if dietary_restrictions:
-            st.write("**Dietary Restrictions:** " + ", ".join(dietary_restrictions))
-        else:
-            st.write("**Dietary Restrictions:** None")
+st.info("**New Step-by-Step Approach:** AI meal planning now builds your plan incrementally with better personalization and macro accuracy.")
+
+# Generate meal plan button
+if st.button("🚀 Generate Weekly AI Meal Plan (Step-by-Step)", type="primary", use_container_width=True):
+    with st.spinner("Generating your personalized weekly meal plan..."):
+        # Get required data
+        weekly_targets = st.session_state.get('day_specific_nutrition', {})
+        diet_preferences = st.session_state.get('diet_preferences', {})
+        weekly_schedule = st.session_state.get('weekly_schedule_v2', {})
+        user_profile = st.session_state.get('user_info', {})
+        body_comp_goals = st.session_state.get('goal_info', {})
         
-        allergies = existing_prefs.get('allergies', [])
-        if allergies:
-            st.write("**Allergies:** " + ", ".join(allergies))
+        # Generate meal plan using step-by-step approach
+        weekly_meal_plan = generate_weekly_ai_meal_plan(
+            weekly_targets=weekly_targets,
+            diet_preferences=diet_preferences,
+            weekly_schedule=weekly_schedule,
+            openai_client=openai_client,
+            user_profile=user_profile,
+            body_comp_goals=body_comp_goals
+        )
         
-        st.write(f"**Cooking Time:** {existing_prefs.get('cooking_time_preference', 'Medium (30-60 min)')}")
-        st.write(f"**Budget:** {existing_prefs.get('budget_preference', 'Moderate')}")
-        st.write(f"**Home Cooking Interest:** {existing_prefs.get('home_cooking_interest', 'High')}")
-        st.write(f"**Meal Frequency:** {existing_prefs.get('meal_frequency', 3)}")
-        
-        # Show preferred foods
-        preferred_proteins = existing_prefs.get('preferred_proteins', [])
-        preferred_carbs = existing_prefs.get('preferred_carbs', [])
-        preferred_vegetables = existing_prefs.get('preferred_vegetables', [])
-        preferred_cuisines = existing_prefs.get('cuisine_preferences', [])
-        
-        if preferred_proteins:
-            st.write(f"**Preferred Proteins:** {', '.join(preferred_proteins[:5])}")
-        if preferred_carbs:
-            st.write(f"**Preferred Carbs:** {', '.join(preferred_carbs[:5])}")
-        if preferred_vegetables:
-            st.write(f"**Preferred Vegetables:** {', '.join(preferred_vegetables[:5])}")
-        if preferred_cuisines:
-            st.write(f"**Preferred Cuisines:** {', '.join(preferred_cuisines[:3])}")
-else:
-    st.warning("No dietary preferences set. Using default preferences.")
-    if st.button("📝 Set Diet Preferences", use_container_width=True):
-        st.switch_page("pages/3_Diet_Preferences.py")
+        if weekly_meal_plan:
+            st.session_state['ai_meal_plan'] = weekly_meal_plan
+            st.success("🎉 **Weekly meal plan generated successfully!**")
+            st.rerun()
 
-# Step 2: Weekly Meal Plan Generation
-st.markdown("---")
-st.markdown("## 2. Generate Weekly Meal Plan")
-
-st.markdown("Your AI meal plan will be optimized for:")
-st.markdown("• **Body Composition Goals** - Personalized macro targets for each day")
-st.markdown("• **Daily Schedule** - Meal timing around work, workouts, and activities")
-st.markdown("• **Meal Contexts** - Pre/post-workout, on-the-go, home cooking, etc.")
-st.markdown("• **Weekly Variety** - Different meals each day to prevent boredom")
-
-# Prepare weekly targets for AI generation
-def prepare_weekly_targets():
-    """Prepare weekly meal targets for AI generation"""
-    weekly_targets = {}
-    weekly_schedule = st.session_state.weekly_schedule_v2
-    day_nutrition = st.session_state.day_specific_nutrition
+# Display generated meal plan
+if 'ai_meal_plan' in st.session_state and st.session_state['ai_meal_plan']:
+    meal_plan = st.session_state['ai_meal_plan']
     
-    for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
-        schedule = weekly_schedule.get(day, {})
-        nutrition = day_nutrition.get(day, {})
-        
-        # Calculate meal distribution based on number of meals
-        meals = schedule.get('meals', [])
-        num_meals = len(meals)
-        
-        # Create meal targets based on actual meal schedule
-        meal_targets = {}
-        total_calories = nutrition.get('calories', 2000)  # Using correct key name
-        total_protein = nutrition.get('protein', 150)
-        total_carbs = nutrition.get('carbs', 200)
-        total_fat = nutrition.get('fat', 70)
-        
-        # Distribute macros across scheduled meals
-        for i, meal in enumerate(meals):
-            # Adjust distribution based on meal context and timing
-            if meal['context'] == 'Pre-Workout':
-                cal_pct = 0.15  # Lighter, easily digestible
-            elif meal['context'] == 'Post-Workout':
-                cal_pct = 0.30  # Larger, protein-focused
-            elif 'Breakfast' in meal['name']:
-                cal_pct = 0.25
-            elif 'Lunch' in meal['name']:
-                cal_pct = 0.35
-            elif 'Dinner' in meal['name']:
-                cal_pct = 0.30
-            elif 'Snack' in meal['name']:
-                cal_pct = 0.10
+    st.markdown("## 📋 Your Personalized Weekly Meal Plan")
+    
+    # Display meals for each day
+    for day, day_plan in meal_plan.items():
+        with st.expander(f"📅 {day}", expanded=False):
+            st.markdown(f"**Meal Structure Rationale:** {day_plan.get('meal_structure_rationale', 'Not provided')}")
+            
+            # Show accuracy status
+            if day_plan.get('accuracy_validated', False):
+                st.markdown('<span class="accuracy-badge accuracy-excellent">✅ Macro Accuracy Validated</span>', unsafe_allow_html=True)
             else:
-                cal_pct = 1.0 / num_meals  # Equal distribution if unclear
+                st.markdown('<span class="accuracy-badge accuracy-needs-work">⚠️ Needs Accuracy Review</span>', unsafe_allow_html=True)
             
-            # Handle time conversion from time object to string
-            meal_time = meal.get('time', '12:00')
-            if hasattr(meal_time, 'strftime'):
-                meal_time = meal_time.strftime('%H:%M')
-            elif not isinstance(meal_time, str):
-                meal_time = '12:00'
-            
-            meal_targets[f"{meal['name']}_{i}"] = {
-                'name': meal['name'],
-                'time': meal_time,
-                'context': meal.get('context', 'Regular meal'),
-                'type': meal.get('type', 'meal'),
-                'calories': int(total_calories * cal_pct),
-                'protein': int(total_protein * cal_pct),
-                'carbs': int(total_carbs * cal_pct),
-                'fat': int(total_fat * cal_pct)
-            }
-        
-        weekly_targets[day] = {
-            'meal_targets': meal_targets,
-            'daily_totals': {
-                'calories': total_calories,
-                'protein': total_protein,
-                'carbs': total_carbs,
-                'fat': total_fat
-            }
-        }
-    
-    return weekly_targets
-
-# Generate weekly meal plan
-generation_col1, generation_col2 = st.columns([3, 1])
-
-with generation_col1:
-    if st.button("🚀 Generate Complete Weekly Meal Plan", type="primary", use_container_width=True):
-        openai_client = get_openai_client()
-        
-        if not openai_client:
-            st.error("OpenAI API key not found. Please add your OPENAI_API_KEY to generate AI meal plans.")
-            st.stop()
-        
-        # Prepare weekly targets and comprehensive context
-        weekly_targets = prepare_weekly_targets()
-        weekly_schedule = st.session_state.weekly_schedule_v2
-        diet_prefs = existing_prefs if existing_prefs else {}
-        user_profile = st.session_state.get('user_profile', {})
-        body_comp_goals = st.session_state.get('body_composition_goals', {})
-        
-        with st.spinner("🤖 Creating your personalized weekly meal plan... This may take 1-2 minutes."):
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            weekly_meal_plan = generate_weekly_ai_meal_plan(
-                weekly_targets, diet_prefs, weekly_schedule, openai_client, 
-                user_profile, body_comp_goals
-            )
-            
-            progress_bar.progress(100)
-            status_text.empty()
-            
-            if weekly_meal_plan:
-                st.session_state.generated_weekly_meal_plan = weekly_meal_plan
-                st.success("✅ **Weekly meal plan generated successfully!**")
-                st.rerun()
-
-with generation_col2:
-    st.markdown("**Plan includes:**")
-    st.markdown("• 7 days of meals")
-    st.markdown("• Recipe instructions")
-    st.markdown("• Macro breakdowns")
-    st.markdown("• Grocery list")
-    st.markdown("• PDF export")
-
-# Step 3: Display Generated Weekly Meal Plan
-if 'generated_weekly_meal_plan' in st.session_state:
-    st.markdown("---")
-    st.markdown("## 3. Your Weekly Meal Plan")
-    
-    weekly_meal_plan = st.session_state.generated_weekly_meal_plan
-    
-    # Prepare weekly targets for accuracy comparison
-    weekly_targets = prepare_weekly_targets()
-    
-    # Calculate and display overall accuracy summary
-    st.markdown("### 🎯 Macro Accuracy Summary")
-    
-    accuracy_data = []
-    for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
-        if day in weekly_meal_plan:
-            day_plan = weekly_meal_plan[day]
-            day_targets = weekly_targets.get(day, {})
-            target_totals = day_targets.get('daily_totals', {})
-            generated_totals = day_plan.get('daily_totals', {})
-            
-            # Calculate accuracy for each macro
-            cal_accuracy = "✅" if abs(generated_totals.get('calories', 0) - target_totals.get('calories', 0)) <= target_totals.get('calories', 0) * 0.05 else "⚠️"
-            protein_accuracy = "✅" if abs(generated_totals.get('protein', 0) - target_totals.get('protein', 0)) <= target_totals.get('protein', 0) * 0.05 else "⚠️"
-            carb_accuracy = "✅" if abs(generated_totals.get('carbs', 0) - target_totals.get('carbs', 0)) <= target_totals.get('carbs', 0) * 0.05 else "⚠️"
-            fat_accuracy = "✅" if abs(generated_totals.get('fat', 0) - target_totals.get('fat', 0)) <= target_totals.get('fat', 0) * 0.05 else "⚠️"
-            
-            accuracy_data.append({
-                'Day': day,
-                'Calories': f"{generated_totals.get('calories', 0):.0f} / {target_totals.get('calories', 0):.0f} {cal_accuracy}",
-                'Protein': f"{generated_totals.get('protein', 0):.0f}g / {target_totals.get('protein', 0):.0f}g {protein_accuracy}",
-                'Carbs': f"{generated_totals.get('carbs', 0):.0f}g / {target_totals.get('carbs', 0):.0f}g {carb_accuracy}",
-                'Fat': f"{generated_totals.get('fat', 0):.0f}g / {target_totals.get('fat', 0):.0f}g {fat_accuracy}"
-            })
-    
-    if accuracy_data:
-        accuracy_df = pd.DataFrame(accuracy_data)
-        st.dataframe(accuracy_df, use_container_width=True, hide_index=True)
-        st.caption("Format: Generated / Target | ✅ = Within 5% | ⚠️ = Outside 5%")
-    
-    # Create tabs for each day
-    day_tabs = st.tabs(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
-    
-    for i, day in enumerate(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']):
-        with day_tabs[i]:
-            if day in weekly_meal_plan:
-                day_plan = weekly_meal_plan[day]
+            # Display meals
+            meals = day_plan.get('meals', [])
+            for i, meal in enumerate(meals, 1):
+                st.markdown(f"### {i}. {meal.get('name', 'Unnamed Meal')}")
                 
-                # Display daily summary
-                if 'daily_totals' in day_plan:
-                    totals = day_plan['daily_totals']
+                if meal.get('time'):
+                    st.markdown(f"**Time:** {meal['time']}")
+                if meal.get('context'):
+                    st.markdown(f"**Context:** {meal['context']}")
+                if meal.get('prep_time'):
+                    st.markdown(f"**Prep Time:** {meal['prep_time']}")
+                
+                # Show macros
+                macros = meal.get('total_macros', {})
+                if macros:
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        st.metric("Calories", f"{totals['calories']:,}")
+                        st.metric("Calories", f"{macros.get('calories', 0)}")
                     with col2:
-                        st.metric("Protein", f"{totals['protein']}g")
+                        st.metric("Protein", f"{macros.get('protein', 0)}g")
                     with col3:
-                        st.metric("Carbs", f"{totals['carbs']}g")
+                        st.metric("Carbs", f"{macros.get('carbs', 0)}g")
                     with col4:
-                        st.metric("Fat", f"{totals['fat']}g")
+                        st.metric("Fat", f"{macros.get('fat', 0)}g")
                 
-                # Display meals
-                if 'meals' in day_plan:
-                    for meal in day_plan['meals']:
-                        with st.container():
-                            st.markdown(f"### {meal['name']} - {meal['time']}")
-                            st.markdown(f"**Context:** {meal['context']}")
-                            
-                            # Display ingredients
-                            if 'ingredients' in meal:
-                                st.markdown("**Ingredients:**")
-                                for ingredient in meal['ingredients']:
-                                    st.markdown(f"• {ingredient['amount']} {ingredient['item']} ({ingredient['calories']} cal)")
-                            
-                            # Display instructions
-                            if 'instructions' in meal:
-                                st.markdown("**Instructions:**")
-                                st.markdown(meal['instructions'])
-                            
-                            # Display macros with target comparison
-                            if 'total_macros' in meal:
-                                macros = meal['total_macros']
-                                st.markdown(f"**Macros:** {macros['calories']} cal, {macros['protein']}g protein, {macros['carbs']}g carbs, {macros['fat']}g fat")
-                                
-                                # Show target comparison if available
-                                day_targets = weekly_targets.get(day, {})
-                                meal_targets = day_targets.get('meal_targets', {})
-                                
-                                # Find matching meal target
-                                meal_target = None
-                                for target_key, target_data in meal_targets.items():
-                                    if target_data.get('name') == meal.get('name'):
-                                        meal_target = target_data
-                                        break
-                                
-                                if meal_target:
-                                    # Calculate accuracy
-                                    cal_diff = macros['calories'] - meal_target['calories']
-                                    protein_diff = macros['protein'] - meal_target['protein']
-                                    carb_diff = macros['carbs'] - meal_target['carbs']
-                                    fat_diff = macros['fat'] - meal_target['fat']
-                                    
-                                    # Show comparison
-                                    accuracy_color = "green" if abs(cal_diff) <= meal_target['calories'] * 0.05 else "orange"
-                                    st.markdown(f"**Target:** {meal_target['calories']} cal, {meal_target['protein']}g protein, {meal_target['carbs']}g carbs, {meal_target['fat']}g fat")
-                                    st.markdown(f"**Difference:** <span style='color: {accuracy_color}'>{cal_diff:+.0f} cal, {protein_diff:+.0f}g protein, {carb_diff:+.0f}g carbs, {fat_diff:+.0f}g fat</span>", unsafe_allow_html=True)
-                            
-                            st.markdown("---")
-            else:
-                st.warning(f"No meal plan generated for {day}")
+                # Show ingredients
+                ingredients = meal.get('ingredients', [])
+                if ingredients:
+                    st.markdown("**Ingredients:**")
+                    for ingredient in ingredients:
+                        st.markdown(f"• {ingredient.get('amount', '')} {ingredient.get('item', 'Unknown ingredient')}")
+                
+                # Show instructions
+                instructions = meal.get('instructions', [])
+                if instructions:
+                    st.markdown("**Instructions:**")
+                    for j, instruction in enumerate(instructions, 1):
+                        st.markdown(f"{j}. {instruction}")
+                
+                st.markdown("---")
+            
+            # Show daily totals
+            daily_totals = day_plan.get('daily_totals', {})
+            if daily_totals:
+                st.markdown("### 📊 Daily Totals")
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Calories", f"{daily_totals.get('calories', 0)}")
+                with col2:
+                    st.metric("Total Protein", f"{daily_totals.get('protein', 0)}g")
+                with col3:
+                    st.metric("Total Carbs", f"{daily_totals.get('carbs', 0)}g")
+                with col4:
+                    st.metric("Total Fat", f"{daily_totals.get('fat', 0)}g")
     
-    # Step 4: Export Options
+    # Export options
     st.markdown("---")
-    st.markdown("## 4. Export Your Meal Plan")
+    st.markdown("## 📄 Export Options")
     
-    export_col1, export_col2, export_col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     
-    with export_col1:
+    with col1:
         if st.button("📄 Export to PDF", use_container_width=True):
-            with st.spinner("Generating PDF meal plan..."):
-                try:
-                    # Prepare meal data for PDF export
-                    meal_data_for_pdf = []
-                    all_ingredients = {}
-                    
-                    for day, day_plan in weekly_meal_plan.items():
-                        if 'meals' in day_plan:
-                            for meal in day_plan['meals']:
-                                meal_info = {
-                                    'day': day,
-                                    'meal_type': meal['name'],
-                                    'time': meal['time'],
-                                    'context': meal['context'],
-                                    'recipe': {
-                                        'name': meal['name'],
-                                        'ingredients': meal.get('ingredients', []),
-                                        'instructions': meal.get('instructions', ''),
-                                        'macros': meal.get('total_macros', {})
-                                    }
-                                }
-                                meal_data_for_pdf.append(meal_info)
-                                
-                                # Collect ingredients for grocery list
-                                if 'ingredients' in meal:
-                                    for ingredient in meal['ingredients']:
-                                        item = ingredient['item']
-                                        amount = ingredient['amount']
-                                        if item in all_ingredients:
-                                            all_ingredients[item] += f", {amount}"
-                                        else:
-                                            all_ingredients[item] = amount
-                    
-                    # Get user preferences for PDF including profile summary
-                    user_profile = st.session_state.get('user_info', {})
-                    goal_info = st.session_state.get('goal_info', {})
-                    diet_preferences = st.session_state.get('diet_preferences', {})
-                    
-                    user_info = {
-                        'name': user_profile.get('name', 'Fitomics User'),
-                        'plan_type': 'Weekly Meal Plan',
-                        'generation_date': datetime.now().strftime('%B %d, %Y'),
-                        'profile': user_profile,
-                        'goals': goal_info,
-                        'diet_preferences': diet_preferences
-                    }
-                    
-                    # Validate meal data before PDF generation
-                    if not meal_data_for_pdf:
-                        st.error("No meal data available for PDF export. Please generate a meal plan first.")
-                        st.stop()
-                    
-                    # Generate PDF using enhanced export function
-                    from pdf_export import export_enhanced_weekly_meal_plan_pdf
-                    pdf_path = export_enhanced_weekly_meal_plan_pdf(weekly_meal_plan, user_info)
-                    
-                    if pdf_path and os.path.exists(pdf_path):
-                        st.success("✅ PDF generated successfully!")
-                        
-                        # Provide download link
-                        with open(pdf_path, "rb") as pdf_file:
-                            st.download_button(
-                                label="⬇️ Download PDF Meal Plan",
-                                data=pdf_file.read(),
-                                file_name=f"fitomics_weekly_meal_plan_{datetime.now().strftime('%Y%m%d')}.pdf",
-                                mime="application/pdf",
-                                use_container_width=True
-                            )
-                    else:
-                        st.error("Failed to generate PDF. Please try again.")
-                        
-                except Exception as e:
-                    st.error(f"PDF generation error: {str(e)}")
-                    st.error("Please ensure your meal plan has been generated successfully before exporting.")
+            try:
+                # Get comprehensive plan info
+                plan_info = {
+                    'user_profile': st.session_state.get('user_info', {}),
+                    'body_comp_goals': st.session_state.get('goal_info', {}),
+                    'diet_preferences': st.session_state.get('diet_preferences', {}),
+                    'weekly_schedule': st.session_state.get('weekly_schedule_v2', {}),
+                    'day_specific_nutrition': st.session_state.get('day_specific_nutrition', {})
+                }
+                
+                pdf_buffer = export_meal_plan_pdf(meal_plan, plan_info)
+                
+                if pdf_buffer:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+                    st.download_button(
+                        label="📥 Download PDF",
+                        data=pdf_buffer,
+                        file_name=f"fitomics_meal_plan_{timestamp}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+                    st.success("✅ PDF generated successfully!")
+                else:
+                    st.error("❌ Failed to generate PDF")
+            except Exception as e:
+                st.error(f"❌ PDF export failed: {str(e)}")
     
-    with export_col2:
+    with col2:
         if st.button("🛒 Generate Grocery List", use_container_width=True):
             # Generate consolidated grocery list
-            all_ingredients = {}
+            grocery_items = {}
             
-            for day, day_plan in weekly_meal_plan.items():
-                if 'meals' in day_plan:
-                    for meal in day_plan['meals']:
-                        if 'ingredients' in meal:
-                            for ingredient in meal['ingredients']:
-                                item = ingredient['item']
-                                amount = ingredient['amount']
-                                if item in all_ingredients:
-                                    # Try to combine amounts if possible
-                                    all_ingredients[item].append(amount)
-                                else:
-                                    all_ingredients[item] = [amount]
+            for day, day_plan in meal_plan.items():
+                meals = day_plan.get('meals', [])
+                for meal in meals:
+                    ingredients = meal.get('ingredients', [])
+                    for ingredient in ingredients:
+                        item_name = ingredient.get('item', 'Unknown')
+                        amount = ingredient.get('amount', '')
+                        
+                        if item_name in grocery_items:
+                            grocery_items[item_name].append(f"{day}: {amount}")
+                        else:
+                            grocery_items[item_name] = [f"{day}: {amount}"]
             
-            # Display grocery list
-            st.markdown("### 🛒 Weekly Grocery List")
-            grocery_items = []
-            for item, amounts in all_ingredients.items():
-                # Combine amounts
-                combined_amount = ", ".join(amounts)
-                grocery_items.append(f"• {item}: {combined_amount}")
-                
-            grocery_text = "\n".join(grocery_items)
-            st.text_area("Copy your grocery list:", grocery_text, height=300)
-    
-    with export_col3:
-        if st.button("🔄 Generate New Plan", use_container_width=True):
-            if 'generated_weekly_meal_plan' in st.session_state:
-                del st.session_state.generated_weekly_meal_plan
-            st.rerun()
+            st.markdown("### 🛒 Consolidated Grocery List")
+            for item, amounts in grocery_items.items():
+                st.markdown(f"**{item}**")
+                for amount in amounts:
+                    st.markdown(f"  • {amount}")
+else:
+    st.info("👆 Click the button above to generate your personalized weekly meal plan using our new step-by-step AI approach!")

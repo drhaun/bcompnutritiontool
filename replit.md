@@ -102,6 +102,20 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
+- **July 27, 2025 - CRITICAL ARCHITECTURAL CHANGE: Step-by-Step AI Meal Planning Implementation**:
+  - Completely restructured Advanced AI Meal Plan from single large prompt to incremental step-by-step approach
+  - Implemented 4-step meal planning process: Meal Structure → Meal Concepts → Precise Recipes → Validation
+  - Enhanced personalization by building user context and dietary preferences into separate focused prompts
+  - Added real-time progress tracking showing each step of the meal planning process
+  - Improved macro accuracy validation with ±3% tolerance requirements and specific feedback
+  - Reduced AI temperature to 0.05-0.1 for maximum calculation consistency
+  - Created modular functions: build_user_profile_context(), build_dietary_context(), step1-4 functions
+  - Added comprehensive meal structure rationale and accuracy validation badges
+  - Enhanced UI with step-by-step progress indicators and detailed meal plan display
+  - Maintained PDF export compatibility with new step-by-step meal plan format
+  - Fixed session management and removed orphaned code from previous single-prompt approach
+  - Updated workflow to provide much better control over personalization and macro targeting accuracy
+
 - **July 17, 2025 - HYDRATION CALCULATOR INTEGRATION: Science-Based Fluid Needs Assessment**:
   - Added comprehensive hydration calculator as page 10 in the workflow
   - Calculates personalized fluid needs based on body weight, exercise intensity, and duration
