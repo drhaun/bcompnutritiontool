@@ -15,24 +15,18 @@ from session_manager import add_session_controls
 
 # OpenAI Integration
 def get_openai_client():
-    """Get OpenAI client - try multiple configurations"""
+    """Get OpenAI client with production configuration"""
     try:
         import openai
         api_key = os.environ.get('OPENAI_API_KEY')
-        org_id = os.environ.get('OPENAI_ORGANIZATION_ID')
-        project_id = os.environ.get('OPENAI_PROJECT_ID')
         
         if api_key:
-            # Try with full configuration first
-            try:
-                return openai.OpenAI(
-                    api_key=api_key,
-                    organization=org_id,
-                    project=project_id
-                )
-            except:
-                # Fallback to just API key if org/project cause issues
-                return openai.OpenAI(api_key=api_key)
+            # Use exact configuration from production test
+            return openai.OpenAI(
+                api_key=api_key,
+                organization="org-pcvyQ5OkA65PHwySXie14IDI",
+                project="proj_uEFGQaGWPJEJOIqrnKvRuwW3"
+            )
     except ImportError:
         pass
     return None
