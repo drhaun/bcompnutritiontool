@@ -783,13 +783,6 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                     st.session_state['meal_plan_stage'] = 'start'
                     st.stop()
                 
-                # Debug input data
-                st.write(f"DEBUG: monday_data type: {type(monday_data)}")
-                st.write(f"DEBUG: monday_schedule type: {type(monday_schedule)}")
-                st.write(f"DEBUG: user_profile type: {type(user_profile)}")
-                st.write(f"DEBUG: body_comp_goals type: {type(body_comp_goals)}")
-                st.write(f"DEBUG: diet_preferences type: {type(diet_preferences)}")
-                
                 # Build contexts
                 user_context = build_user_profile_context(user_profile, body_comp_goals)
                 diet_context = build_dietary_context(diet_preferences)
@@ -803,9 +796,6 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                     meal_structure = step1_generate_meal_structure(
                         monday_data, user_context, diet_context, monday_schedule, openai_client
                     )
-                    st.write(f"DEBUG: meal_structure type: {type(meal_structure)}")
-                    if meal_structure:
-                        st.write(f"DEBUG: meal_structure keys: {meal_structure.keys() if isinstance(meal_structure, dict) else 'Not a dict'}")
                 except Exception as e:
                     st.error(f"Step 1 error: {e}")
                     raise
@@ -816,7 +806,6 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                     meal_concepts = step2_generate_meal_concepts(
                         meal_structure, user_context, diet_context, openai_client
                     )
-                    st.write(f"DEBUG: meal_concepts type: {type(meal_concepts)}, length: {len(meal_concepts) if isinstance(meal_concepts, list) else 'Not a list'}")
                 except Exception as e:
                     st.error(f"Step 2 error: {e}")
                     raise
@@ -827,7 +816,6 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                     precise_meals = step3_generate_precise_recipes(
                         meal_concepts, openai_client
                     )
-                    st.write(f"DEBUG: precise_meals type: {type(precise_meals)}, length: {len(precise_meals) if isinstance(precise_meals, list) else 'Not a list'}")
                 except Exception as e:
                     st.error(f"Step 3 error: {e}")
                     raise
@@ -836,9 +824,6 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                 progress_placeholder.info("✅ Step 4: Validating macro accuracy...")
                 try:
                     final_result = step4_validate_and_adjust(precise_meals, monday_data)
-                    st.write(f"DEBUG: final_result type: {type(final_result)}")
-                    if isinstance(final_result, dict):
-                        st.write(f"DEBUG: final_result keys: {final_result.keys()}")
                 except Exception as e:
                     st.error(f"Step 4 error: {e}")
                     raise
