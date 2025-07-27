@@ -753,6 +753,12 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
         
         if monday_data:
             try:
+                # Check OpenAI client
+                if not openai_client:
+                    st.error("OpenAI client not initialized. Please check API key.")
+                    st.session_state['meal_plan_stage'] = 'start'
+                    st.stop()
+                
                 # Build contexts
                 user_context = build_user_profile_context(user_profile, body_comp_goals)
                 diet_context = build_dietary_context(diet_preferences)
@@ -762,34 +768,68 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                 
                 # Step 1: Meal Structure
                 progress_placeholder.info("🏗️ Step 1: Designing optimal meal structure...")
-                meal_structure = step1_generate_meal_structure(
-                    monday_data, monday_schedule, user_context, diet_context, openai_client
-                )
+                try:
+                    meal_structure = step1_generate_meal_structure(
+                        monday_data, monday_schedule, user_context, diet_context, openai_client
+                    )
+                    st.write(f"DEBUG: meal_structure type: {type(meal_structure)}")
+                    if meal_structure:
+                        st.write(f"DEBUG: meal_structure keys: {meal_structure.keys() if isinstance(meal_structure, dict) else 'Not a dict'}")
+                except Exception as e:
+                    st.error(f"Step 1 error: {e}")
+                    raise
                 
                 # Step 2: Meal Concepts  
                 progress_placeholder.info("💡 Step 2: Creating personalized meal concepts...")
-                meal_concepts = step2_generate_meal_concepts(
-                    meal_structure, user_context, diet_context, openai_client
-                )
+                try:
+                    meal_concepts = step2_generate_meal_concepts(
+                        meal_structure, user_context, diet_context, openai_client
+                    )
+                    st.write(f"DEBUG: meal_concepts type: {type(meal_concepts)}, length: {len(meal_concepts) if isinstance(meal_concepts, list) else 'Not a list'}")
+                except Exception as e:
+                    st.error(f"Step 2 error: {e}")
+                    raise
                 
                 # Step 3: Precise Recipes
                 progress_placeholder.info("🍳 Step 3: Calculating precise recipes...")
-                precise_meals = step3_generate_precise_recipes(
-                    meal_concepts, openai_client
-                )
+                try:
+                    precise_meals = step3_generate_precise_recipes(
+                        meal_concepts, openai_client
+                    )
+                    st.write(f"DEBUG: precise_meals type: {type(precise_meals)}, length: {len(precise_meals) if isinstance(precise_meals, list) else 'Not a list'}")
+                except Exception as e:
+                    st.error(f"Step 3 error: {e}")
+                    raise
                 
                 # Step 4: Validation
                 progress_placeholder.info("✅ Step 4: Validating macro accuracy...")
-                final_result = step4_validate_and_adjust(precise_meals, monday_data)
+                try:
+                    final_result = step4_validate_and_adjust(precise_meals, monday_data)
+                    st.write(f"DEBUG: final_result type: {type(final_result)}")
+                    if isinstance(final_result, dict):
+                        st.write(f"DEBUG: final_result keys: {final_result.keys()}")
+                except Exception as e:
+                    st.error(f"Step 4 error: {e}")
+                    raise
                 
                 # Create comprehensive Monday plan with reasoning
+                # Ensure meal_structure is a dict
+                if isinstance(meal_structure, str):
+                    rationale = "Meal structure generated successfully"
+                else:
+                    rationale = meal_structure.get('rationale', 'Meal structure generated successfully') if isinstance(meal_structure, dict) else "Meal structure generated successfully"
+                
+                # Ensure final_result is a dict
+                if not isinstance(final_result, dict):
+                    final_result = {'meals': [], 'daily_totals': {}, 'accuracy_valid': False, 'adjustments_needed': []}
+                
                 monday_plan = {
                     'day': 'Monday',
-                    'meals': final_result['meals'],
-                    'daily_totals': final_result['daily_totals'],
-                    'meal_structure_rationale': meal_structure.get('rationale', ''),
+                    'meals': final_result.get('meals', []),
+                    'daily_totals': final_result.get('daily_totals', {}),
+                    'meal_structure_rationale': rationale,
                     'meal_concepts_reasoning': 'Generated personalized meal concepts based on user preferences',
-                    'accuracy_validated': final_result['accuracy_valid'],
+                    'accuracy_validated': final_result.get('accuracy_valid', False),
                     'adjustments_made': final_result.get('adjustments_needed', []),
                     'schedule_context': monday_schedule,
                     'nutrition_targets': monday_data
