@@ -15,14 +15,19 @@ from session_manager import add_session_controls
 
 # OpenAI Integration
 def get_openai_client():
-    """Get OpenAI client - project-scoped keys work independently"""
+    """Get OpenAI client with organization and project credentials"""
     try:
         import openai
         api_key = os.environ.get('OPENAI_API_KEY')
+        org_id = os.environ.get('OPENAI_ORGANIZATION_ID')
+        project_id = os.environ.get('OPENAI_PROJECT_ID')
         
         if api_key:
-            # Project-scoped keys (sk-proj-*) contain project info embedded
-            return openai.OpenAI(api_key=api_key)
+            return openai.OpenAI(
+                api_key=api_key,
+                organization=org_id,
+                project=project_id
+            )
     except ImportError:
         pass
     return None

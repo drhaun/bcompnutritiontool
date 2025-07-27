@@ -15,7 +15,17 @@ def test_openai():
     print(f"✓ API Key: {api_key[:20]}...")
     
     try:
-        client = openai.OpenAI(api_key=api_key)
+        org_id = os.environ.get('OPENAI_ORGANIZATION_ID')
+        project_id = os.environ.get('OPENAI_PROJECT_ID')
+        
+        print(f"✓ Organization ID: {org_id}")
+        print(f"✓ Project ID: {project_id}")
+        
+        client = openai.OpenAI(
+            api_key=api_key,
+            organization=org_id,
+            project=project_id
+        )
         
         # Simple test
         response = client.chat.completions.create(
