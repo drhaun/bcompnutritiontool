@@ -143,7 +143,11 @@ Return JSON with:
         max_tokens=1500
     )
     
-    return json.loads(response.choices[0].message.content)
+    try:
+        result = json.loads(response.choices[0].message.content or "{}")
+        return result
+    except json.JSONDecodeError:
+        return {"meal_structure": [], "rationale": "Error parsing meal structure"}
 
 def step2_generate_meal_concepts(meal_structure, user_context, dietary_context, openai_client):
     """Step 2: Generate specific meal concepts for each meal in the structure"""
@@ -196,7 +200,10 @@ Return JSON:
             max_tokens=1000
         )
         
-        concept_result = json.loads(response.choices[0].message.content)
+        try:
+            concept_result = json.loads(response.choices[0].message.content or "{}")
+        except json.JSONDecodeError:
+            concept_result = {"meal_concept": {"name": "Error", "description": "Parse error", "key_ingredients": [], "cooking_method": "N/A", "estimated_prep_time": "N/A"}}
         meal_concepts.append({
             **meal,
             **concept_result['meal_concept']
@@ -270,8 +277,29 @@ Return JSON:
             max_tokens=2000
         )
         
-        recipe_result = json.loads(response.choices[0].message.content)
-        final_meals.append(recipe_result['recipe'])
+        try:
+            recipe_result = json.loads(response.choices[0].message.content or "{}")
+            final_meals.append(recipe_result.get('recipe', {
+                'name': 'Error',
+                'ingredients': [],
+                'instructions': ['Parse error'],
+                'total_macros': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
+                'prep_time': 'N/A',
+                'context': '',
+                'time': '',
+                'workout_annotation': ''
+            }))
+        except json.JSONDecodeError:
+            final_meals.append({
+                'name': 'Error',
+                'ingredients': [],
+                'instructions': ['JSON parse error'],
+                'total_macros': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
+                'prep_time': 'N/A',
+                'context': '',
+                'time': '',
+                'workout_annotation': ''
+            })
     
     return final_meals
 
