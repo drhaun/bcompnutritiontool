@@ -9,15 +9,24 @@ def debug_openai_connection():
     """Comprehensive OpenAI API debugging"""
     
     api_key = os.environ.get('OPENAI_API_KEY')
+    org_id = os.environ.get('OPENAI_ORGANIZATION_ID')
+    project_id = os.environ.get('OPENAI_PROJECT_ID')
+    
     if not api_key:
         print("❌ No OPENAI_API_KEY found in environment")
         return False
     
     print(f"✓ API Key found (length: {len(api_key)})")
     print(f"✓ Key prefix: {api_key[:15]}...")
+    print(f"✓ Organization ID: {org_id[:10] + '...' if org_id and len(org_id) > 10 else org_id}")
+    print(f"✓ Project ID: {project_id[:10] + '...' if project_id and len(project_id) > 10 else project_id}")
     
     try:
-        client = openai.OpenAI(api_key=api_key)
+        client = openai.OpenAI(
+            api_key=api_key,
+            organization=org_id,
+            project=project_id
+        )
         
         # Test 1: Simple completion
         print("\n🧪 Testing simple completion...")
