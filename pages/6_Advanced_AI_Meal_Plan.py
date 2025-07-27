@@ -798,7 +798,9 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                     )
                 except Exception as e:
                     st.error(f"Step 1 error: {e}")
-                    raise
+                    progress_placeholder.error("❌ Unable to generate meal structure due to API issue")
+                    st.session_state['meal_plan_stage'] = 'start'
+                    st.stop()
                 
                 # Step 2: Meal Concepts  
                 progress_placeholder.info("💡 Step 2: Creating personalized meal concepts...")
@@ -808,7 +810,9 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                     )
                 except Exception as e:
                     st.error(f"Step 2 error: {e}")
-                    raise
+                    progress_placeholder.error("❌ Unable to generate meal concepts due to API issue")
+                    st.session_state['meal_plan_stage'] = 'start'
+                    st.stop()
                 
                 # Step 3: Precise Recipes
                 progress_placeholder.info("🍳 Step 3: Calculating precise recipes...")
@@ -818,7 +822,9 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                     )
                 except Exception as e:
                     st.error(f"Step 3 error: {e}")
-                    raise
+                    progress_placeholder.error("❌ Unable to generate precise recipes due to API issue")
+                    st.session_state['meal_plan_stage'] = 'start'
+                    st.stop()
                 
                 # Step 4: Validation
                 progress_placeholder.info("✅ Step 4: Validating macro accuracy...")
