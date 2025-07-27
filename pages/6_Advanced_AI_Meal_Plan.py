@@ -27,6 +27,13 @@ def get_openai_client():
 
 def build_user_profile_context(user_profile, body_comp_goals):
     """Build comprehensive user profile context for AI prompts"""
+    
+    # Ensure inputs are dictionaries
+    if not isinstance(user_profile, dict):
+        user_profile = {}
+    if not isinstance(body_comp_goals, dict):
+        body_comp_goals = {}
+    
     context = ""
     
     if user_profile:
@@ -56,6 +63,11 @@ BODY COMPOSITION GOALS:
 
 def build_dietary_context(diet_preferences):
     """Build comprehensive dietary preferences context"""
+    
+    # Ensure input is a dictionary
+    if not isinstance(diet_preferences, dict):
+        diet_preferences = {}
+    
     dietary_restrictions = diet_preferences.get('dietary_restrictions', [])
     allergies = diet_preferences.get('allergies', [])
     
@@ -89,7 +101,19 @@ PRACTICAL CONSTRAINTS:
 
 def step1_generate_meal_structure(day_targets, user_context, dietary_context, schedule_info, openai_client):
     """Step 1: Generate optimal meal structure and timing for the day"""
-    daily_totals = day_targets.get('daily_totals', {})
+    
+    # Ensure inputs are dictionaries
+    if not isinstance(day_targets, dict):
+        day_targets = {}
+    if not isinstance(schedule_info, dict):
+        schedule_info = {}
+    
+    daily_totals = day_targets.get('daily_totals', {
+        'calories': 2000,
+        'protein': 150,
+        'carbs': 200,
+        'fat': 70
+    })
     
     prompt = f"""
 You are a professional nutritionist. Design an optimal meal structure for this user.
@@ -759,6 +783,13 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                     st.session_state['meal_plan_stage'] = 'start'
                     st.stop()
                 
+                # Debug input data
+                st.write(f"DEBUG: monday_data type: {type(monday_data)}")
+                st.write(f"DEBUG: monday_schedule type: {type(monday_schedule)}")
+                st.write(f"DEBUG: user_profile type: {type(user_profile)}")
+                st.write(f"DEBUG: body_comp_goals type: {type(body_comp_goals)}")
+                st.write(f"DEBUG: diet_preferences type: {type(diet_preferences)}")
+                
                 # Build contexts
                 user_context = build_user_profile_context(user_profile, body_comp_goals)
                 diet_context = build_dietary_context(diet_preferences)
@@ -770,7 +801,7 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                 progress_placeholder.info("🏗️ Step 1: Designing optimal meal structure...")
                 try:
                     meal_structure = step1_generate_meal_structure(
-                        monday_data, monday_schedule, user_context, diet_context, openai_client
+                        monday_data, user_context, diet_context, monday_schedule, openai_client
                     )
                     st.write(f"DEBUG: meal_structure type: {type(meal_structure)}")
                     if meal_structure:
