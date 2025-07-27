@@ -122,6 +122,9 @@ This is a comprehensive Streamlit-based web application for body composition pla
   - System fully implemented and ready for testing once OpenAI API credits are available
   - All architectural improvements complete - requires API quota to demonstrate functionality
   - Persistent quota errors encountered despite multiple fresh API keys - suggests account-level billing issue
+  - API key appears to be project-scoped (sk-proj-*) but embedded project ID doesn't exist in user's organization
+  - Both organization/project specification and standalone key usage fail with project validation errors
+  - System architecturally ready - awaiting valid OpenAI API access resolution
 
 - **July 17, 2025 - HYDRATION CALCULATOR INTEGRATION: Science-Based Fluid Needs Assessment**:
   - Added comprehensive hydration calculator as page 10 in the workflow
