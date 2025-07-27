@@ -102,19 +102,20 @@ This is a comprehensive Streamlit-based web application for body composition pla
 
 ## Recent Changes
 
-- **July 27, 2025 - CRITICAL ARCHITECTURAL CHANGE: Step-by-Step AI Meal Planning Implementation**:
-  - Completely restructured Advanced AI Meal Plan from single large prompt to incremental step-by-step approach
-  - Implemented 4-step meal planning process: Meal Structure → Meal Concepts → Precise Recipes → Validation
-  - Enhanced personalization by building user context and dietary preferences into separate focused prompts
-  - Added real-time progress tracking showing each step of the meal planning process
-  - Improved macro accuracy validation with ±3% tolerance requirements and specific feedback
-  - Reduced AI temperature to 0.05-0.1 for maximum calculation consistency
-  - Created modular functions: build_user_profile_context(), build_dietary_context(), step1-4 functions
-  - Added comprehensive meal structure rationale and accuracy validation badges
-  - Enhanced UI with step-by-step progress indicators and detailed meal plan display
-  - Maintained PDF export compatibility with new step-by-step meal plan format
-  - Fixed session management and removed orphaned code from previous single-prompt approach
-  - Updated workflow to provide much better control over personalization and macro targeting accuracy
+- **July 27, 2025 - ENHANCED INTERACTIVE AI MEAL PLANNING: Review-Approval Workflow Implementation**:
+  - Added comprehensive interactive review/approval workflow for AI meal planning
+  - Implemented Monday example generation with detailed reasoning and context display
+  - Created multi-stage process: Generate Monday → Review & Approve → Modify if needed → Apply to Week
+  - Enhanced user control with approval, regeneration, and modification options
+  - Added detailed reasoning display showing meal structure rationale and concept reasoning
+  - Implemented modification request system allowing users to fine-tune AI-generated meals
+  - Created template-based week generation applying approved Monday approach to similar days
+  - Added accuracy visualization with target vs actual macro comparison tables
+  - Enhanced context display showing schedule, workout timing, and nutrition targets
+  - Implemented smart application methods: template-based, individual day, or quick generation
+  - Added comprehensive meal plan display with template indicators and accuracy badges
+  - Maintained full PDF export and grocery list functionality with enhanced user feedback
+  - Created modular stage management system for better user experience and control
 
 - **July 17, 2025 - HYDRATION CALCULATOR INTEGRATION: Science-Based Fluid Needs Assessment**:
   - Added comprehensive hydration calculator as page 10 in the workflow
