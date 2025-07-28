@@ -125,6 +125,7 @@ This is a comprehensive Streamlit-based web application for body composition pla
   - API key appears to be project-scoped (sk-proj-*) but embedded project ID doesn't exist in user's organization
   - Both organization/project specification and standalone key usage fail with project validation errors
   - System architecturally ready - awaiting valid OpenAI API access resolution
+  - **July 28, 2025 - OPENAI QUOTA ISSUE DIAGNOSED**: Comprehensive testing reveals project-scoped API key (sk-proj-*) successfully authenticates and retrieves models but fails all completion requests with quota errors. Issue is project-level billing/quota configuration, not code-related. All 44 available chat models accessible but zero completion quota allocated to project proj_uEFGQaGWPJEJOIqrnKvRuwW3. Enhanced meal planning system fully ready for immediate operation once project billing resolved.
 
 - **July 17, 2025 - HYDRATION CALCULATOR INTEGRATION: Science-Based Fluid Needs Assessment**:
   - Added comprehensive hydration calculator as page 10 in the workflow
