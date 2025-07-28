@@ -2,8 +2,10 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import re
 from datetime import datetime, time
 import copy
+from typing import Dict, List
 
 # Import our modules
 import utils
@@ -970,6 +972,12 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
         
         accuracy_df = pd.DataFrame(accuracy_data)
         st.dataframe(accuracy_df, use_container_width=True, hide_index=True)
+        
+        # Add FDC verification and adjustment interface
+        st.markdown("### 🎯 Interactive Meal Adjustments")
+        st.info("Use the controls below to adjust ingredient portions and improve macro accuracy!")
+        
+        display_meal_adjustment_interface(monday_plan, nutrition_targets)
     
     # User feedback and approval
     st.markdown("### 🎯 Your Feedback")
@@ -1560,3 +1568,274 @@ if 'ai_meal_plan' in st.session_state and st.session_state['ai_meal_plan']:
                     st.markdown(f"  • {amount}")
 else:
     st.info("👆 Click the button above to generate your personalized weekly meal plan using our new step-by-step AI approach!")
+
+# FDC Integration Functions
+def get_fdc_nutrition(ingredient_name: str, amount_grams: float) -> Dict:
+    """Get nutrition data with FDC verification"""
+    try:
+        # Search FDC database
+        search_results = fdc_api.search_foods(ingredient_name, page_size=5)
+        
+        if search_results and len(search_results) > 0:
+            # Use the first result (most relevant)
+            food_item = search_results[0]
+            nutrition = extract_nutrition_from_fdc(food_item, amount_grams)
+            nutrition['fdc_verified'] = True
+            nutrition['fdc_description'] = food_item.get('description', ingredient_name)
+            return nutrition
+        
+    except Exception as e:
+        st.warning(f"FDC lookup failed for {ingredient_name}: {e}")
+    
+    # Fallback to estimated nutrition
+    return get_fallback_nutrition(ingredient_name, amount_grams)
+
+def extract_nutrition_from_fdc(food_item: Dict, amount_grams: float) -> Dict:
+    """Extract nutrition from FDC food item"""
+    nutrition = {
+        'name': food_item.get('description', 'Unknown'),
+        'amount': f"{amount_grams}g",
+        'calories': 0,
+        'protein': 0,
+        'carbs': 0,
+        'fat': 0
+    }
+    
+    # Extract from foodNutrients if available
+    nutrients = food_item.get('foodNutrients', [])
+    
+    nutrient_mapping = {
+        1008: 'calories',  # Energy
+        1003: 'protein',   # Protein  
+        1005: 'carbs',     # Carbohydrates
+        1004: 'fat'        # Total lipid (fat)
+    }
+    
+    for nutrient in nutrients:
+        nutrient_id = nutrient.get('nutrientId')
+        if nutrient_id in nutrient_mapping:
+            value = nutrient.get('value', 0)
+            # Scale from per 100g to requested amount
+            scaled_value = (value * amount_grams) / 100
+            nutrition[nutrient_mapping[nutrient_id]] = round(scaled_value, 1)
+    
+    return nutrition
+
+def get_fallback_nutrition(ingredient_name: str, amount_grams: float) -> Dict:
+    """Fallback nutrition estimates"""
+    
+    fallback_db = {
+        'chicken breast': {'calories': 165, 'protein': 31, 'carbs': 0, 'fat': 3.6},
+        'ground turkey': {'calories': 189, 'protein': 27, 'carbs': 0, 'fat': 8},
+        'salmon': {'calories': 206, 'protein': 22, 'carbs': 0, 'fat': 12},
+        'eggs': {'calories': 155, 'protein': 13, 'carbs': 1, 'fat': 11},
+        'greek yogurt': {'calories': 97, 'protein': 10, 'carbs': 4, 'fat': 5},
+        'brown rice': {'calories': 123, 'protein': 2.6, 'carbs': 23, 'fat': 0.9},
+        'quinoa': {'calories': 120, 'protein': 4.4, 'carbs': 22, 'fat': 1.9},
+        'oats': {'calories': 68, 'protein': 2.4, 'carbs': 12, 'fat': 1.4},
+        'sweet potato': {'calories': 86, 'protein': 1.6, 'carbs': 20, 'fat': 0.1},
+        'broccoli': {'calories': 34, 'protein': 2.8, 'carbs': 7, 'fat': 0.4},
+        'spinach': {'calories': 23, 'protein': 2.9, 'carbs': 3.6, 'fat': 0.4},
+        'avocado': {'calories': 160, 'protein': 2, 'carbs': 9, 'fat': 15},
+        'almonds': {'calories': 576, 'protein': 21, 'carbs': 22, 'fat': 49},
+        'olive oil': {'calories': 884, 'protein': 0, 'carbs': 0, 'fat': 100},
+        'banana': {'calories': 89, 'protein': 1.1, 'carbs': 23, 'fat': 0.3}
+    }
+    
+    # Find best match
+    ingredient_lower = ingredient_name.lower()
+    base_nutrition = None
+    
+    for food_key, nutrition in fallback_db.items():
+        if food_key in ingredient_lower or ingredient_lower in food_key:
+            base_nutrition = nutrition
+            break
+    
+    if not base_nutrition:
+        # Generic fallback
+        base_nutrition = {'calories': 100, 'protein': 5, 'carbs': 15, 'fat': 3}
+    
+    # Scale to requested amount
+    scaling_factor = amount_grams / 100
+    
+    return {
+        'name': ingredient_name,
+        'amount': f"{amount_grams}g",
+        'calories': round(base_nutrition['calories'] * scaling_factor, 1),
+        'protein': round(base_nutrition['protein'] * scaling_factor, 1),
+        'carbs': round(base_nutrition['carbs'] * scaling_factor, 1),
+        'fat': round(base_nutrition['fat'] * scaling_factor, 1),
+        'fdc_verified': False
+    }
+
+def parse_amount_to_grams(amount_str: str) -> float:
+    """Parse amount string to grams"""
+    # Extract numbers
+    numbers = re.findall(r'\d+(?:\.\d+)?', amount_str)
+    if not numbers:
+        return 100.0
+    
+    amount = float(numbers[0])
+    amount_lower = amount_str.lower()
+    
+    # Convert to grams
+    if 'cup' in amount_lower:
+        return amount * 240  # 1 cup ≈ 240g
+    elif 'tbsp' in amount_lower or 'tablespoon' in amount_lower:
+        return amount * 15
+    elif 'tsp' in amount_lower or 'teaspoon' in amount_lower:
+        return amount * 5
+    elif 'oz' in amount_lower:
+        return amount * 28.35
+    elif 'lb' in amount_lower or 'pound' in amount_lower:
+        return amount * 453.6
+    else:
+        return amount  # Assume grams
+
+def display_meal_adjustment_interface(monday_plan: Dict, nutrition_targets: Dict):
+    """Display interactive meal adjustment interface"""
+    
+    st.markdown("#### 🔧 Adjust Individual Meals")
+    
+    meals = monday_plan.get('meals', [])
+    
+    for i, meal in enumerate(meals):
+        meal_key = f"monday_meal_{i}"
+        
+        with st.expander(f"🍽️ {meal.get('name', f'Meal {i+1}')} - Adjust Portions", expanded=False):
+            
+            # Initialize adjustment state
+            if f"{meal_key}_adjustments" not in st.session_state:
+                st.session_state[f"{meal_key}_adjustments"] = {}
+                
+                # Process ingredients and get FDC data
+                ingredients = meal.get('ingredients', [])
+                for ingredient in ingredients:
+                    ing_name = ingredient.get('item', 'Unknown')
+                    amount_str = ingredient.get('amount', '100g')
+                    amount_grams = parse_amount_to_grams(amount_str)
+                    
+                    # Get FDC nutrition data
+                    nutrition_data = get_fdc_nutrition(ing_name, amount_grams)
+                    
+                    st.session_state[f"{meal_key}_adjustments"][ing_name] = {
+                        'factor': 1.0,
+                        'nutrition': nutrition_data,
+                        'original_amount': amount_grams
+                    }
+            
+            # Display adjustment controls
+            col1, col2 = st.columns([3, 2])
+            
+            with col1:
+                st.markdown("**Ingredient Portions:**")
+                
+                updated_ingredients = []
+                for ing_name, ing_data in st.session_state[f"{meal_key}_adjustments"].items():
+                    current_factor = ing_data['factor']
+                    nutrition = ing_data['nutrition']
+                    
+                    # FDC verification indicator
+                    verified_icon = "✅" if nutrition.get('fdc_verified', False) else "📊"
+                    
+                    new_factor = st.slider(
+                        f"{verified_icon} {ing_name} ({nutrition['amount']})",
+                        min_value=0.1,
+                        max_value=3.0,
+                        value=current_factor,
+                        step=0.05,
+                        key=f"{meal_key}_{ing_name}_slider",
+                        help=f"{'FDC verified nutrition' if nutrition.get('fdc_verified') else 'Estimated nutrition'}"
+                    )
+                    
+                    # Update factor
+                    st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = new_factor
+                    
+                    # Calculate adjusted nutrition
+                    adjusted_nutrition = {
+                        'name': nutrition['name'],
+                        'amount': f"{nutrition.get('original_amount', 100) * new_factor:.0f}g",
+                        'calories': round(nutrition['calories'] * new_factor, 1),
+                        'protein': round(nutrition['protein'] * new_factor, 1),
+                        'carbs': round(nutrition['carbs'] * new_factor, 1),
+                        'fat': round(nutrition['fat'] * new_factor, 1),
+                        'fdc_verified': nutrition.get('fdc_verified', False)
+                    }
+                    
+                    updated_ingredients.append(adjusted_nutrition)
+            
+            with col2:
+                # Calculate updated meal totals
+                meal_totals = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+                for ing in updated_ingredients:
+                    for macro in meal_totals:
+                        meal_totals[macro] += ing.get(macro, 0)
+                
+                st.markdown("**Updated Meal Totals:**")
+                for macro, value in meal_totals.items():
+                    unit = "" if macro == "calories" else "g"
+                    st.metric(macro.title(), f"{value:.1f}{unit}")
+                
+                # Quick adjustment buttons
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    if st.button("🎯 Auto-Fix", key=f"{meal_key}_auto"):
+                        # Auto-adjust portions (simple scaling approach)
+                        meal_targets = get_meal_portion_targets(nutrition_targets, len(meals), i)
+                        auto_adjust_meal_portions(meal_key, meal_targets, meal_totals)
+                        st.rerun()
+                
+                with col_b:
+                    if st.button("🔄 Reset", key=f"{meal_key}_reset"):
+                        for ing_name in st.session_state[f"{meal_key}_adjustments"]:
+                            st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = 1.0
+                        st.rerun()
+            
+            # Display ingredient table
+            if updated_ingredients:
+                st.markdown("**Ingredient Breakdown:**")
+                display_ingredient_table(updated_ingredients)
+
+def get_meal_portion_targets(daily_targets: Dict, total_meals: int, meal_index: int) -> Dict:
+    """Get rough targets for individual meal"""
+    # Simple even distribution for now
+    return {
+        'calories': daily_targets.get('calories', 2000) / total_meals,
+        'protein': daily_targets.get('protein', 150) / total_meals,
+        'carbs': daily_targets.get('carbs', 200) / total_meals,
+        'fat': daily_targets.get('fat', 70) / total_meals
+    }
+
+def auto_adjust_meal_portions(meal_key: str, targets: Dict, actuals: Dict):
+    """Auto-adjust ingredient portions to hit targets"""
+    scaling_factors = []
+    for macro in ['calories', 'protein', 'carbs', 'fat']:
+        if actuals.get(macro, 0) > 0 and targets.get(macro, 0) > 0:
+            factor = targets[macro] / actuals[macro]
+            scaling_factors.append(factor)
+    
+    if scaling_factors:
+        avg_scaling = sum(scaling_factors) / len(scaling_factors)
+        
+        # Apply to all ingredients
+        for ing_name in st.session_state[f"{meal_key}_adjustments"]:
+            current = st.session_state[f"{meal_key}_adjustments"][ing_name]['factor']
+            st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = current * avg_scaling
+
+def display_ingredient_table(ingredients: List[Dict]):
+    """Display detailed ingredient table"""
+    data = []
+    for ing in ingredients:
+        verified_status = "✅ FDC" if ing.get('fdc_verified', False) else "📊 Est"
+        data.append({
+            'Ingredient': ing['name'],
+            'Amount': ing['amount'],
+            'Calories': ing.get('calories', 0),
+            'Protein (g)': ing.get('protein', 0),
+            'Carbs (g)': ing.get('carbs', 0),
+            'Fat (g)': ing.get('fat', 0),
+            'Source': verified_status
+        })
+    
+    df = pd.DataFrame(data)
+    st.dataframe(df, use_container_width=True, hide_index=True)
