@@ -996,10 +996,76 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                     for ingredient in ingredients:
                         ing_name = ingredient.get('item', 'Unknown')
                         amount_str = ingredient.get('amount', '100g')
-                        amount_grams = parse_amount_to_grams(amount_str)
+                        # Simple amount parsing inline
+                        numbers = re.findall(r'\d+(?:\.\d+)?', amount_str)
+                        if numbers:
+                            amount = float(numbers[0])
+                            amount_lower = amount_str.lower()
+                            if 'cup' in amount_lower:
+                                amount_grams = amount * 240
+                            elif 'tbsp' in amount_lower:
+                                amount_grams = amount * 15
+                            elif 'tsp' in amount_lower:
+                                amount_grams = amount * 5
+                            elif 'oz' in amount_lower:
+                                amount_grams = amount * 28.35
+                            else:
+                                amount_grams = amount
+                        else:
+                            amount_grams = 100.0
                         
-                        # Get FDC nutrition data
-                        nutrition_data = get_fdc_nutrition(ing_name, amount_grams)
+                        # Get FDC nutrition data with inline function
+                        try:
+                            search_results = fdc_api.search_foods(ing_name, page_size=5)
+                            if search_results and len(search_results) > 0:
+                                food_item = search_results[0]
+                                nutrients = food_item.get('foodNutrients', [])
+                                
+                                nutrition_data = {
+                                    'name': food_item.get('description', ing_name),
+                                    'amount': f"{amount_grams}g",
+                                    'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0,
+                                    'fdc_verified': True
+                                }
+                                
+                                nutrient_mapping = {1008: 'calories', 1003: 'protein', 1005: 'carbs', 1004: 'fat'}
+                                for nutrient in nutrients:
+                                    nutrient_id = nutrient.get('nutrientId')
+                                    if nutrient_id in nutrient_mapping:
+                                        value = nutrient.get('value', 0)
+                                        scaled_value = (value * amount_grams) / 100
+                                        nutrition_data[nutrient_mapping[nutrient_id]] = round(scaled_value, 1)
+                            else:
+                                raise Exception("No FDC results")
+                        except:
+                            # Fallback nutrition
+                            fallback_db = {
+                                'chicken breast': {'calories': 165, 'protein': 31, 'carbs': 0, 'fat': 3.6},
+                                'brown rice': {'calories': 123, 'protein': 2.6, 'carbs': 23, 'fat': 0.9},
+                                'broccoli': {'calories': 34, 'protein': 2.8, 'carbs': 7, 'fat': 0.4},
+                                'olive oil': {'calories': 884, 'protein': 0, 'carbs': 0, 'fat': 100}
+                            }
+                            
+                            ingredient_lower = ing_name.lower()
+                            base_nutrition = None
+                            for food_key, nutrition in fallback_db.items():
+                                if food_key in ingredient_lower:
+                                    base_nutrition = nutrition
+                                    break
+                            
+                            if not base_nutrition:
+                                base_nutrition = {'calories': 100, 'protein': 5, 'carbs': 15, 'fat': 3}
+                            
+                            scaling_factor = amount_grams / 100
+                            nutrition_data = {
+                                'name': ing_name,
+                                'amount': f"{amount_grams}g",
+                                'calories': round(base_nutrition['calories'] * scaling_factor, 1),
+                                'protein': round(base_nutrition['protein'] * scaling_factor, 1),
+                                'carbs': round(base_nutrition['carbs'] * scaling_factor, 1),
+                                'fat': round(base_nutrition['fat'] * scaling_factor, 1),
+                                'fdc_verified': False
+                            }
                         
                         st.session_state[f"{meal_key}_adjustments"][ing_name] = {
                             'factor': 1.0,
@@ -1064,8 +1130,24 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                     with col_a:
                         if st.button("🎯 Auto-Fix", key=f"{meal_key}_auto"):
                             # Auto-adjust portions (simple scaling approach)
-                            meal_targets = get_meal_portion_targets(nutrition_targets, len(meals), i)
-                            auto_adjust_meal_portions(meal_key, meal_targets, meal_totals)
+                            meal_targets = {
+                                'calories': nutrition_targets.get('calories', 2000) / len(meals),
+                                'protein': nutrition_targets.get('protein', 150) / len(meals),
+                                'carbs': nutrition_targets.get('carbs', 200) / len(meals),
+                                'fat': nutrition_targets.get('fat', 70) / len(meals)
+                            }
+                            
+                            scaling_factors = []
+                            for macro in ['calories', 'protein', 'carbs', 'fat']:
+                                if meal_totals.get(macro, 0) > 0 and meal_targets.get(macro, 0) > 0:
+                                    factor = meal_targets[macro] / meal_totals[macro]
+                                    scaling_factors.append(factor)
+                            
+                            if scaling_factors:
+                                avg_scaling = sum(scaling_factors) / len(scaling_factors)
+                                for ing_name in st.session_state[f"{meal_key}_adjustments"]:
+                                    current = st.session_state[f"{meal_key}_adjustments"][ing_name]['factor']
+                                    st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = current * avg_scaling
                             st.rerun()
                     
                     with col_b:
@@ -1077,7 +1159,22 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                 # Display ingredient table
                 if updated_ingredients:
                     st.markdown("**Ingredient Breakdown:**")
-                    display_ingredient_table(updated_ingredients)
+                    # Display ingredient table inline
+                    data = []
+                    for ing in updated_ingredients:
+                        verified_status = "✅ FDC" if ing.get('fdc_verified', False) else "📊 Est"
+                        data.append({
+                            'Ingredient': ing['name'],
+                            'Amount': ing['amount'],
+                            'Calories': ing.get('calories', 0),
+                            'Protein (g)': ing.get('protein', 0),
+                            'Carbs (g)': ing.get('carbs', 0),
+                            'Fat (g)': ing.get('fat', 0),
+                            'Source': verified_status
+                        })
+                    
+                    df = pd.DataFrame(data)
+                    st.dataframe(df, use_container_width=True, hide_index=True)
     
     # User feedback and approval
     st.markdown("### 🎯 Your Feedback")
