@@ -977,7 +977,107 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
         st.markdown("### 🎯 Interactive Meal Adjustments")
         st.info("Use the controls below to adjust ingredient portions and improve macro accuracy!")
         
-        display_meal_adjustment_interface(monday_plan, nutrition_targets)
+        # Display meal adjustment interface inline
+        st.markdown("#### 🔧 Adjust Individual Meals")
+        
+        meals = monday_plan.get('meals', [])
+        
+        for i, meal in enumerate(meals):
+            meal_key = f"monday_meal_{i}"
+            
+            with st.expander(f"🍽️ {meal.get('name', f'Meal {i+1}')} - Adjust Portions", expanded=False):
+                
+                # Initialize adjustment state
+                if f"{meal_key}_adjustments" not in st.session_state:
+                    st.session_state[f"{meal_key}_adjustments"] = {}
+                    
+                    # Process ingredients and get FDC data
+                    ingredients = meal.get('ingredients', [])
+                    for ingredient in ingredients:
+                        ing_name = ingredient.get('item', 'Unknown')
+                        amount_str = ingredient.get('amount', '100g')
+                        amount_grams = parse_amount_to_grams(amount_str)
+                        
+                        # Get FDC nutrition data
+                        nutrition_data = get_fdc_nutrition(ing_name, amount_grams)
+                        
+                        st.session_state[f"{meal_key}_adjustments"][ing_name] = {
+                            'factor': 1.0,
+                            'nutrition': nutrition_data,
+                            'original_amount': amount_grams
+                        }
+                
+                # Display adjustment controls
+                col1, col2 = st.columns([3, 2])
+                
+                with col1:
+                    st.markdown("**Ingredient Portions:**")
+                    
+                    updated_ingredients = []
+                    for ing_name, ing_data in st.session_state[f"{meal_key}_adjustments"].items():
+                        current_factor = ing_data['factor']
+                        nutrition = ing_data['nutrition']
+                        
+                        # FDC verification indicator
+                        verified_icon = "✅" if nutrition.get('fdc_verified', False) else "📊"
+                        
+                        new_factor = st.slider(
+                            f"{verified_icon} {ing_name} ({nutrition['amount']})",
+                            min_value=0.1,
+                            max_value=3.0,
+                            value=current_factor,
+                            step=0.05,
+                            key=f"{meal_key}_{ing_name}_slider",
+                            help=f"{'FDC verified nutrition' if nutrition.get('fdc_verified') else 'Estimated nutrition'}"
+                        )
+                        
+                        # Update factor
+                        st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = new_factor
+                        
+                        # Calculate adjusted nutrition
+                        adjusted_nutrition = {
+                            'name': nutrition['name'],
+                            'amount': f"{nutrition.get('original_amount', 100) * new_factor:.0f}g",
+                            'calories': round(nutrition['calories'] * new_factor, 1),
+                            'protein': round(nutrition['protein'] * new_factor, 1),
+                            'carbs': round(nutrition['carbs'] * new_factor, 1),
+                            'fat': round(nutrition['fat'] * new_factor, 1),
+                            'fdc_verified': nutrition.get('fdc_verified', False)
+                        }
+                        
+                        updated_ingredients.append(adjusted_nutrition)
+                
+                with col2:
+                    # Calculate updated meal totals
+                    meal_totals = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+                    for ing in updated_ingredients:
+                        for macro in meal_totals:
+                            meal_totals[macro] += ing.get(macro, 0)
+                    
+                    st.markdown("**Updated Meal Totals:**")
+                    for macro, value in meal_totals.items():
+                        unit = "" if macro == "calories" else "g"
+                        st.metric(macro.title(), f"{value:.1f}{unit}")
+                    
+                    # Quick adjustment buttons
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        if st.button("🎯 Auto-Fix", key=f"{meal_key}_auto"):
+                            # Auto-adjust portions (simple scaling approach)
+                            meal_targets = get_meal_portion_targets(nutrition_targets, len(meals), i)
+                            auto_adjust_meal_portions(meal_key, meal_targets, meal_totals)
+                            st.rerun()
+                    
+                    with col_b:
+                        if st.button("🔄 Reset", key=f"{meal_key}_reset"):
+                            for ing_name in st.session_state[f"{meal_key}_adjustments"]:
+                                st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = 1.0
+                            st.rerun()
+                
+                # Display ingredient table
+                if updated_ingredients:
+                    st.markdown("**Ingredient Breakdown:**")
+                    display_ingredient_table(updated_ingredients)
     
     # User feedback and approval
     st.markdown("### 🎯 Your Feedback")
@@ -1692,109 +1792,7 @@ def parse_amount_to_grams(amount_str: str) -> float:
     else:
         return amount  # Assume grams
 
-def display_meal_adjustment_interface(monday_plan: Dict, nutrition_targets: Dict):
-    """Display interactive meal adjustment interface"""
-    
-    st.markdown("#### 🔧 Adjust Individual Meals")
-    
-    meals = monday_plan.get('meals', [])
-    
-    for i, meal in enumerate(meals):
-        meal_key = f"monday_meal_{i}"
-        
-        with st.expander(f"🍽️ {meal.get('name', f'Meal {i+1}')} - Adjust Portions", expanded=False):
-            
-            # Initialize adjustment state
-            if f"{meal_key}_adjustments" not in st.session_state:
-                st.session_state[f"{meal_key}_adjustments"] = {}
-                
-                # Process ingredients and get FDC data
-                ingredients = meal.get('ingredients', [])
-                for ingredient in ingredients:
-                    ing_name = ingredient.get('item', 'Unknown')
-                    amount_str = ingredient.get('amount', '100g')
-                    amount_grams = parse_amount_to_grams(amount_str)
-                    
-                    # Get FDC nutrition data
-                    nutrition_data = get_fdc_nutrition(ing_name, amount_grams)
-                    
-                    st.session_state[f"{meal_key}_adjustments"][ing_name] = {
-                        'factor': 1.0,
-                        'nutrition': nutrition_data,
-                        'original_amount': amount_grams
-                    }
-            
-            # Display adjustment controls
-            col1, col2 = st.columns([3, 2])
-            
-            with col1:
-                st.markdown("**Ingredient Portions:**")
-                
-                updated_ingredients = []
-                for ing_name, ing_data in st.session_state[f"{meal_key}_adjustments"].items():
-                    current_factor = ing_data['factor']
-                    nutrition = ing_data['nutrition']
-                    
-                    # FDC verification indicator
-                    verified_icon = "✅" if nutrition.get('fdc_verified', False) else "📊"
-                    
-                    new_factor = st.slider(
-                        f"{verified_icon} {ing_name} ({nutrition['amount']})",
-                        min_value=0.1,
-                        max_value=3.0,
-                        value=current_factor,
-                        step=0.05,
-                        key=f"{meal_key}_{ing_name}_slider",
-                        help=f"{'FDC verified nutrition' if nutrition.get('fdc_verified') else 'Estimated nutrition'}"
-                    )
-                    
-                    # Update factor
-                    st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = new_factor
-                    
-                    # Calculate adjusted nutrition
-                    adjusted_nutrition = {
-                        'name': nutrition['name'],
-                        'amount': f"{nutrition.get('original_amount', 100) * new_factor:.0f}g",
-                        'calories': round(nutrition['calories'] * new_factor, 1),
-                        'protein': round(nutrition['protein'] * new_factor, 1),
-                        'carbs': round(nutrition['carbs'] * new_factor, 1),
-                        'fat': round(nutrition['fat'] * new_factor, 1),
-                        'fdc_verified': nutrition.get('fdc_verified', False)
-                    }
-                    
-                    updated_ingredients.append(adjusted_nutrition)
-            
-            with col2:
-                # Calculate updated meal totals
-                meal_totals = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
-                for ing in updated_ingredients:
-                    for macro in meal_totals:
-                        meal_totals[macro] += ing.get(macro, 0)
-                
-                st.markdown("**Updated Meal Totals:**")
-                for macro, value in meal_totals.items():
-                    unit = "" if macro == "calories" else "g"
-                    st.metric(macro.title(), f"{value:.1f}{unit}")
-                
-                # Quick adjustment buttons
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    if st.button("🎯 Auto-Fix", key=f"{meal_key}_auto"):
-                        # Auto-adjust portions (simple scaling approach)
-                        meal_targets = get_meal_portion_targets(nutrition_targets, len(meals), i)
-                        auto_adjust_meal_portions(meal_key, meal_targets, meal_totals)
-                        st.rerun()
-                
-                with col_b:
-                    if st.button("🔄 Reset", key=f"{meal_key}_reset"):
-                        for ing_name in st.session_state[f"{meal_key}_adjustments"]:
-                            st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = 1.0
-                        st.rerun()
-            
-            # Display ingredient table
-            if updated_ingredients:
-                st.markdown("**Ingredient Breakdown:**")
-                display_ingredient_table(updated_ingredients)
+# Remove duplicate function definition
 
 def get_meal_portion_targets(daily_targets: Dict, total_meals: int, meal_index: int) -> Dict:
     """Get rough targets for individual meal"""
