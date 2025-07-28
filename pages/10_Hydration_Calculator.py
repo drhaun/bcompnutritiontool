@@ -375,7 +375,7 @@ with col2:
             "Environment Temperature (°C)",
             min_value=-10.0,
             max_value=50.0,
-            value=st.session_state.hydration_data['environment_temp'],
+            value=float(st.session_state.hydration_data['environment_temp']),
             step=1.0,
             help="Temperature of your exercise environment"
         )
