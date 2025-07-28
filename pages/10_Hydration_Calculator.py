@@ -373,20 +373,20 @@ with col2:
     if unit_system == 'metric':
         temp_input = st.number_input(
             "Environment Temperature (°C)",
-            min_value=-10,
-            max_value=50,
+            min_value=-10.0,
+            max_value=50.0,
             value=st.session_state.hydration_data['environment_temp'],
-            step=1,
+            step=1.0,
             help="Temperature of your exercise environment"
         )
         temp_c = temp_input
     else:
         temp_f = st.number_input(
             "Environment Temperature (°F)",
-            min_value=14,
-            max_value=122,
+            min_value=14.0,
+            max_value=122.0,
             value=celsius_to_fahrenheit(st.session_state.hydration_data['environment_temp']),
-            step=1,
+            step=1.0,
             help="Temperature of your exercise environment"
         )
         temp_c = fahrenheit_to_celsius(temp_f)
@@ -397,7 +397,7 @@ with col2:
         "Humidity (%)",
         min_value=10,
         max_value=100,
-        value=st.session_state.hydration_data['environment_humidity'],
+        value=int(st.session_state.hydration_data['environment_humidity']),
         step=5,
         help="Relative humidity of your exercise environment"
     )
@@ -411,10 +411,10 @@ if st.session_state.hydration_data['advanced_mode']:
     with col1:
         st.session_state.hydration_data['altitude'] = st.number_input(
             "Altitude (meters)",
-            min_value=0,
-            max_value=5000,
-            value=st.session_state.hydration_data['altitude'],
-            step=100,
+            min_value=0.0,
+            max_value=5000.0,
+            value=float(st.session_state.hydration_data['altitude']),
+            step=100.0,
             help="Altitude affects sweat rate and fluid needs"
         )
     
