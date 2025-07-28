@@ -69,17 +69,20 @@ This application helps you plan and track your body composition and nutrition go
 3. **Diet Preferences**: Set your food preferences, dietary restrictions, allergies, and flavor preferences
 4. **Weekly Schedule**: Plan your workout schedule, meal timing, and daily activities
 5. **Nutrition Targets**: Review calculated nutrition targets and customize if needed
-6. **Advanced AI Meal Plan**: Complete weekly meal plans with AI integration
-7. **DIY Meal Planning**: Manual meal planning with macro tracking
-8. **Daily Monitoring**: Track daily progress and adjustments
-9. **Progress Dashboard**: View comprehensive progress analytics and trends
-10. **Hydration Calculator**: Calculate personalized hydration needs for exercise and daily life
+6. **Advanced AI Meal Plan**: Complete weekly meal plans with AI integration  
+7. **Enhanced AI Meal Plan**: FDC-verified nutrition with interactive macro adjustments
+8. **DIY Meal Planning**: Manual meal planning with macro tracking
+9. **Daily Monitoring**: Track daily progress and adjustments
+10. **Progress Dashboard**: View comprehensive progress analytics and trends
+11. **Hydration Calculator**: Calculate personalized hydration needs for exercise and daily life
 
 ## Additional Features:
 
 - **Session Management**: Save and load your progress at any step
 - **PDF Export**: Generate branded meal plans with grocery lists
 - **Macro Accuracy**: AI-powered meal planning with precise macro targeting (±3% tolerance)
+- **FDC Nutrition Verification**: USDA database integration for accurate nutrition data
+- **Interactive Portion Adjustments**: Real-time sliders to hit exact macro targets
 - **Flavor Customization**: Seasoning and spice preferences for better meal variety
 - **Progress Tracking**: Monitor your body composition journey
 - **Hydration Calculator**: Personalized fluid intake recommendations for exercise and daily needs

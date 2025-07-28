@@ -11,6 +11,9 @@ import re
 from datetime import datetime
 from typing import Dict, List
 from openai import OpenAI
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from fdc_api import search_foods
 
 st.set_page_config(page_title="Enhanced AI Meal Plan", page_icon="🧠", layout="wide")
@@ -243,8 +246,12 @@ class EnhancedMealPlanner:
                 temperature=0.1
             )
             
-            result = response.choices[0].message.content.strip()
-            result = result.replace('```json', '').replace('```', '').strip()
+            result = response.choices[0].message.content
+            if result:
+                result = result.strip()
+                result = result.replace('```json', '').replace('```', '').strip()
+            else:
+                result = '{"meal_name": "Error", "ingredients": [], "instructions": ""}'
             
             meal_concept = json.loads(result)
             
@@ -442,7 +449,7 @@ def auto_adjust_portions(meal_key: str, targets: Dict, actuals: Dict):
 
 # Main App
 def main():
-    st.title("🧠 Enhanced AI Meal Planning")
+    st.title("🎯 Enhanced AI Meal Planning")
     st.markdown("**FDC-verified nutrition with interactive adjustments for perfect macro accuracy**")
     
     # Initialize planner
@@ -451,6 +458,32 @@ def main():
     if not planner.openai_client:
         st.error("OpenAI API not configured. Please check your API keys.")
         st.stop()
+    
+    # Add demo meal for immediate testing
+    if st.button("🚀 Load Demo Meal for Testing", type="secondary"):
+        demo_meal = {
+            'meal_name': 'Grilled Chicken & Rice Bowl',
+            'ingredients': [
+                {'name': 'chicken breast', 'amount': '150g', 'calories': 247, 'protein': 46, 'carbs': 0, 'fat': 5, 'fdc_verified': True},
+                {'name': 'brown rice', 'amount': '100g', 'calories': 123, 'protein': 3, 'carbs': 23, 'fat': 1, 'fdc_verified': True},
+                {'name': 'broccoli', 'amount': '80g', 'calories': 27, 'protein': 2, 'carbs': 6, 'fat': 0, 'fdc_verified': True},
+                {'name': 'olive oil', 'amount': '10g', 'calories': 88, 'protein': 0, 'carbs': 0, 'fat': 10, 'fdc_verified': True}
+            ],
+            'instructions': 'Grill chicken, steam rice, sauté broccoli with olive oil.',
+            'fdc_verified_count': 4
+        }
+        
+        demo_targets = {
+            'calories': 600,
+            'protein': 45,
+            'carbs': 60,
+            'fat': 15
+        }
+        
+        st.session_state['generated_meal'] = demo_meal
+        st.session_state['target_macros'] = demo_targets
+        st.success("Demo meal loaded! Scroll down to see adjustment controls.")
+        st.rerun()
     
     # Sample meal generation
     with st.expander("🎯 Generate Sample Meal", expanded=True):
@@ -490,9 +523,12 @@ def main():
                 st.session_state['target_macros'] = target_macros
                 st.success(f"✅ Generated {meal_data['meal_name']} with {meal_data['fdc_verified_count']}/{len(meal_data['ingredients'])} FDC-verified ingredients")
     
-    # Display meal adjuster if meal exists
+    # Always display adjustment interface if meal exists
     if 'generated_meal' in st.session_state and 'target_macros' in st.session_state:
         st.markdown("---")
+        st.markdown("## 🎯 Interactive Meal Adjustment")
+        st.info("Use the sliders below to adjust ingredient portions and hit your exact macro targets!")
+        
         adjusted_meal = display_meal_adjuster(
             st.session_state['generated_meal'], 
             st.session_state['target_macros'], 
