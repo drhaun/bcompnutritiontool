@@ -244,12 +244,22 @@ Return JSON:
     return meal_concepts
 
 def get_fdc_nutrition_data(ingredients_list):
-    """Get real FDC nutrition data for ingredient list"""
+    """Get real FDC nutrition data for ingredient list with comprehensive fallbacks"""
     nutrition_database = {}
     
     for ingredient in ingredients_list:
+        st.write(f"   📊 Looking up: {ingredient}")
+        
+        # Initialize with fallback first
+        fallback_nutrition = get_fallback_nutrition_per_100g(ingredient)
+        nutrition_database[ingredient] = {
+            'fdc_description': ingredient,
+            'per_100g': fallback_nutrition,
+            'source': 'fallback'
+        }
+        
         try:
-            search_results = fdc_api.search_foods(ingredient, page_size=3)
+            search_results = fdc_api.search_foods(ingredient, page_size=5)
             if search_results and len(search_results) > 0:
                 food_item = search_results[0]
                 nutrients = food_item.get('foodNutrients', [])
@@ -258,48 +268,115 @@ def get_fdc_nutrition_data(ingredients_list):
                 nutrition = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
                 nutrient_mapping = {1008: 'calories', 1003: 'protein', 1005: 'carbs', 1004: 'fat'}
                 
+                nutrients_found = 0
                 for nutrient in nutrients:
                     nutrient_id = nutrient.get('nutrientId')
                     if nutrient_id in nutrient_mapping:
-                        nutrition[nutrient_mapping[nutrient_id]] = round(nutrient.get('value', 0), 1)
+                        value = nutrient.get('value', 0)
+                        if value > 0:  # Only count non-zero values
+                            nutrition[nutrient_mapping[nutrient_id]] = round(value, 1)
+                            nutrients_found += 1
                 
-                nutrition_database[ingredient] = {
-                    'fdc_description': food_item.get('description', ingredient),
-                    'per_100g': nutrition
-                }
+                # Only use FDC data if we found meaningful nutrition info
+                if nutrients_found >= 2:  # At least 2 macros found
+                    nutrition_database[ingredient] = {
+                        'fdc_description': food_item.get('description', ingredient),
+                        'per_100g': nutrition,
+                        'source': 'fdc'
+                    }
+                    st.write(f"   ✅ FDC found: {nutrition}")
+                else:
+                    st.write(f"   📊 FDC incomplete, using fallback: {fallback_nutrition}")
+            else:
+                st.write(f"   📊 No FDC results, using fallback: {fallback_nutrition}")
+                
         except Exception as e:
-            # Fallback nutrition data
-            nutrition_database[ingredient] = {
-                'fdc_description': ingredient,
-                'per_100g': get_fallback_nutrition_per_100g(ingredient)
-            }
+            st.write(f"   ⚠️ FDC error for {ingredient}: {str(e)}, using fallback")
     
     return nutrition_database
 
 def get_fallback_nutrition_per_100g(ingredient):
-    """Fallback nutrition per 100g"""
+    """Comprehensive fallback nutrition per 100g with fuzzy matching"""
     fallback_db = {
+        # Proteins
         'chicken breast': {'calories': 165, 'protein': 31, 'carbs': 0, 'fat': 3.6},
+        'chicken': {'calories': 165, 'protein': 31, 'carbs': 0, 'fat': 3.6},
         'ground turkey': {'calories': 189, 'protein': 27, 'carbs': 0, 'fat': 8},
+        'turkey': {'calories': 189, 'protein': 27, 'carbs': 0, 'fat': 8},
         'salmon': {'calories': 206, 'protein': 22, 'carbs': 0, 'fat': 12},
+        'fish': {'calories': 206, 'protein': 22, 'carbs': 0, 'fat': 12},
         'eggs': {'calories': 155, 'protein': 13, 'carbs': 1, 'fat': 11},
+        'egg': {'calories': 155, 'protein': 13, 'carbs': 1, 'fat': 11},
         'greek yogurt': {'calories': 97, 'protein': 10, 'carbs': 4, 'fat': 5},
+        'yogurt': {'calories': 97, 'protein': 10, 'carbs': 4, 'fat': 5},
+        'cottage cheese': {'calories': 98, 'protein': 11, 'carbs': 3.4, 'fat': 4.3},
+        'cheese': {'calories': 113, 'protein': 7, 'carbs': 1, 'fat': 9},
+        'tofu': {'calories': 76, 'protein': 8, 'carbs': 1.9, 'fat': 4.8},
+        'beef': {'calories': 250, 'protein': 26, 'carbs': 0, 'fat': 15},
+        'pork': {'calories': 242, 'protein': 27, 'carbs': 0, 'fat': 14},
+        
+        # Carbs
         'brown rice': {'calories': 123, 'protein': 2.6, 'carbs': 23, 'fat': 0.9},
+        'rice': {'calories': 130, 'protein': 2.7, 'carbs': 28, 'fat': 0.3},
         'quinoa': {'calories': 120, 'protein': 4.4, 'carbs': 22, 'fat': 1.9},
         'oats': {'calories': 68, 'protein': 2.4, 'carbs': 12, 'fat': 1.4},
+        'oatmeal': {'calories': 68, 'protein': 2.4, 'carbs': 12, 'fat': 1.4},
         'sweet potato': {'calories': 86, 'protein': 1.6, 'carbs': 20, 'fat': 0.1},
+        'potato': {'calories': 77, 'protein': 2, 'carbs': 17, 'fat': 0.1},
+        'bread': {'calories': 265, 'protein': 9, 'carbs': 49, 'fat': 3.2},
+        'pasta': {'calories': 131, 'protein': 5, 'carbs': 25, 'fat': 1.1},
+        'banana': {'calories': 89, 'protein': 1.1, 'carbs': 23, 'fat': 0.3},
+        'apple': {'calories': 52, 'protein': 0.3, 'carbs': 14, 'fat': 0.2},
+        'berries': {'calories': 57, 'protein': 0.7, 'carbs': 14, 'fat': 0.3},
+        
+        # Vegetables
         'broccoli': {'calories': 34, 'protein': 2.8, 'carbs': 7, 'fat': 0.4},
+        'spinach': {'calories': 23, 'protein': 2.9, 'carbs': 3.6, 'fat': 0.4},
+        'kale': {'calories': 35, 'protein': 2.9, 'carbs': 4.4, 'fat': 1.5},
+        'lettuce': {'calories': 15, 'protein': 1.4, 'carbs': 2.9, 'fat': 0.2},
+        'tomato': {'calories': 18, 'protein': 0.9, 'carbs': 3.9, 'fat': 0.2},
+        'cucumber': {'calories': 16, 'protein': 0.7, 'carbs': 4, 'fat': 0.1},
+        'bell pepper': {'calories': 31, 'protein': 1, 'carbs': 7, 'fat': 0.3},
+        'carrot': {'calories': 41, 'protein': 0.9, 'carbs': 10, 'fat': 0.2},
+        'onion': {'calories': 40, 'protein': 1.1, 'carbs': 9.3, 'fat': 0.1},
+        
+        # Fats
         'avocado': {'calories': 160, 'protein': 2, 'carbs': 9, 'fat': 15},
         'almonds': {'calories': 576, 'protein': 21, 'carbs': 22, 'fat': 49},
-        'olive oil': {'calories': 884, 'protein': 0, 'carbs': 0, 'fat': 100}
+        'nuts': {'calories': 576, 'protein': 21, 'carbs': 22, 'fat': 49},
+        'walnuts': {'calories': 654, 'protein': 15, 'carbs': 14, 'fat': 65},
+        'olive oil': {'calories': 884, 'protein': 0, 'carbs': 0, 'fat': 100},
+        'oil': {'calories': 884, 'protein': 0, 'carbs': 0, 'fat': 100},
+        'butter': {'calories': 717, 'protein': 0.9, 'carbs': 0.1, 'fat': 81},
+        'peanut butter': {'calories': 588, 'protein': 25, 'carbs': 20, 'fat': 50},
+        'seeds': {'calories': 486, 'protein': 19, 'carbs': 23, 'fat': 42}
     }
     
     ingredient_lower = ingredient.lower()
+    
+    # First try exact matches
+    if ingredient_lower in fallback_db:
+        return fallback_db[ingredient_lower]
+    
+    # Then try partial matches
     for key, nutrition in fallback_db.items():
         if key in ingredient_lower or ingredient_lower in key:
             return nutrition
     
-    return {'calories': 100, 'protein': 5, 'carbs': 15, 'fat': 3}
+    # Fuzzy matching for common food patterns
+    if any(word in ingredient_lower for word in ['meat', 'protein', 'chicken', 'beef', 'fish']):
+        return {'calories': 200, 'protein': 25, 'carbs': 0, 'fat': 10}
+    elif any(word in ingredient_lower for word in ['vegetable', 'veggie', 'green']):
+        return {'calories': 25, 'protein': 2, 'carbs': 5, 'fat': 0.2}
+    elif any(word in ingredient_lower for word in ['fruit', 'berry']):
+        return {'calories': 50, 'protein': 0.5, 'carbs': 12, 'fat': 0.2}
+    elif any(word in ingredient_lower for word in ['grain', 'cereal', 'carb']):
+        return {'calories': 120, 'protein': 3, 'carbs': 25, 'fat': 1}
+    elif any(word in ingredient_lower for word in ['fat', 'oil', 'nut']):
+        return {'calories': 600, 'protein': 15, 'carbs': 10, 'fat': 55}
+    
+    # Default fallback
+    return {'calories': 150, 'protein': 8, 'carbs': 15, 'fat': 5}
 
 def step3_generate_precise_recipes(meal_concepts, openai_client):
     """Step 3: Generate precise recipes with REAL FDC nutrition data"""
@@ -322,7 +399,7 @@ def step3_generate_precise_recipes(meal_concepts, openai_client):
         
         # Create nutrition data string for prompt
         nutrition_data_str = "\n".join([
-            f"- {ingredient}: {data['fdc_description']} - Per 100g: {data['per_100g']['calories']} cal, {data['per_100g']['protein']}g protein, {data['per_100g']['carbs']}g carbs, {data['per_100g']['fat']}g fat"
+            f"- {ingredient}: {data['fdc_description']} [{data.get('source', 'unknown')}] - Per 100g: {data['per_100g']['calories']} cal, {data['per_100g']['protein']}g protein, {data['per_100g']['carbs']}g carbs, {data['per_100g']['fat']}g fat"
             for ingredient, data in nutrition_db.items()
         ])
         
