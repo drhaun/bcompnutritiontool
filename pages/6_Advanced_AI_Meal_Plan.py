@@ -248,20 +248,30 @@ def step3_generate_precise_recipes(meal_concepts, openai_client):
     final_meals = []
     
     for meal_concept in meal_concepts:
+        # Build prompt without nested f-strings
+        meal_name = meal_concept['name']
+        meal_description = meal_concept['description']
+        key_ingredients = meal_concept['key_ingredients']
+        cooking_method = meal_concept['cooking_method']
+        target_calories = meal_concept['target_calories']
+        target_protein = meal_concept['target_protein']
+        target_carbs = meal_concept['target_carbs']
+        target_fat = meal_concept['target_fat']
+        
         prompt = f"""
 Create a precise recipe for this meal concept with EXACT portions to hit the macro targets.
 
 MEAL CONCEPT:
-- Name: {meal_concept['name']}
-- Description: {meal_concept['description']}
-- Key Ingredients: {meal_concept['key_ingredients']}
-- Cooking Method: {meal_concept['cooking_method']}
+- Name: {meal_name}
+- Description: {meal_description}
+- Key Ingredients: {key_ingredients}
+- Cooking Method: {cooking_method}
 
 EXACT MACRO TARGETS (MUST BE ACHIEVED):
-- Calories: {meal_concept['target_calories']} (±15 calories)
-- Protein: {meal_concept['target_protein']}g (±2g)
-- Carbs: {meal_concept['target_carbs']}g (±3g)
-- Fat: {meal_concept['target_fat']}g (±2g)
+- Calories: {target_calories} (±15 calories)
+- Protein: {target_protein}g (±2g)
+- Carbs: {target_carbs}g (±3g)
+- Fat: {target_fat}g (±2g)
 
 Generate precise recipe with:
 1. Exact ingredient amounts (weights in grams/ounces)
@@ -269,31 +279,31 @@ Generate precise recipe with:
 3. Calculated macros for each ingredient
 4. Total macros that match targets exactly
 
-Return JSON:
+Return JSON with this structure:
 {{
   "recipe": {{
-    "name": "{meal_concept['name']}",
+    "name": "meal name",
     "ingredients": [
       {{
-        "item": "Chicken breast",
-        "amount": "200g",
-        "calories": 330,
-        "protein": 62,
-        "carbs": 0,
-        "fat": 7.4
+        "item": "ingredient name",
+        "amount": "amount with unit",
+        "calories": number,
+        "protein": number,
+        "carbs": number,
+        "fat": number
       }}
     ],
     "instructions": ["Step 1", "Step 2"],
     "total_macros": {{
-      "calories": {meal_concept['target_calories']},
-      "protein": {meal_concept['target_protein']},
-      "carbs": {meal_concept['target_carbs']},
-      "fat": {meal_concept['target_fat']}
+      "calories": {target_calories},
+      "protein": {target_protein},
+      "carbs": {target_carbs},
+      "fat": {target_fat}
     }},
-    "prep_time": "{meal_concept.get('estimated_prep_time', '15 minutes')}",
-    "context": "{meal_concept.get('purpose', '')}",
-    "time": "{meal_concept.get('timing', '')}",
-    "workout_annotation": "{meal_concept.get('workout_relation', '')}"
+    "prep_time": "preparation time",
+    "context": "meal purpose", 
+    "time": "meal timing",
+    "workout_annotation": "workout relation"
   }}
 }}
 """
