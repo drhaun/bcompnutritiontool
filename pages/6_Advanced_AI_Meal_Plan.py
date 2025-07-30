@@ -243,11 +243,73 @@ Return JSON:
     
     return meal_concepts
 
+def get_fdc_nutrition_data(ingredients_list):
+    """Get real FDC nutrition data for ingredient list"""
+    nutrition_database = {}
+    
+    for ingredient in ingredients_list:
+        try:
+            search_results = fdc_api.search_foods(ingredient, page_size=3)
+            if search_results and len(search_results) > 0:
+                food_item = search_results[0]
+                nutrients = food_item.get('foodNutrients', [])
+                
+                # Extract per 100g nutrition
+                nutrition = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+                nutrient_mapping = {1008: 'calories', 1003: 'protein', 1005: 'carbs', 1004: 'fat'}
+                
+                for nutrient in nutrients:
+                    nutrient_id = nutrient.get('nutrientId')
+                    if nutrient_id in nutrient_mapping:
+                        nutrition[nutrient_mapping[nutrient_id]] = round(nutrient.get('value', 0), 1)
+                
+                nutrition_database[ingredient] = {
+                    'fdc_description': food_item.get('description', ingredient),
+                    'per_100g': nutrition
+                }
+        except Exception as e:
+            # Fallback nutrition data
+            nutrition_database[ingredient] = {
+                'fdc_description': ingredient,
+                'per_100g': get_fallback_nutrition_per_100g(ingredient)
+            }
+    
+    return nutrition_database
+
+def get_fallback_nutrition_per_100g(ingredient):
+    """Fallback nutrition per 100g"""
+    fallback_db = {
+        'chicken breast': {'calories': 165, 'protein': 31, 'carbs': 0, 'fat': 3.6},
+        'ground turkey': {'calories': 189, 'protein': 27, 'carbs': 0, 'fat': 8},
+        'salmon': {'calories': 206, 'protein': 22, 'carbs': 0, 'fat': 12},
+        'eggs': {'calories': 155, 'protein': 13, 'carbs': 1, 'fat': 11},
+        'greek yogurt': {'calories': 97, 'protein': 10, 'carbs': 4, 'fat': 5},
+        'brown rice': {'calories': 123, 'protein': 2.6, 'carbs': 23, 'fat': 0.9},
+        'quinoa': {'calories': 120, 'protein': 4.4, 'carbs': 22, 'fat': 1.9},
+        'oats': {'calories': 68, 'protein': 2.4, 'carbs': 12, 'fat': 1.4},
+        'sweet potato': {'calories': 86, 'protein': 1.6, 'carbs': 20, 'fat': 0.1},
+        'broccoli': {'calories': 34, 'protein': 2.8, 'carbs': 7, 'fat': 0.4},
+        'avocado': {'calories': 160, 'protein': 2, 'carbs': 9, 'fat': 15},
+        'almonds': {'calories': 576, 'protein': 21, 'carbs': 22, 'fat': 49},
+        'olive oil': {'calories': 884, 'protein': 0, 'carbs': 0, 'fat': 100}
+    }
+    
+    ingredient_lower = ingredient.lower()
+    for key, nutrition in fallback_db.items():
+        if key in ingredient_lower or ingredient_lower in key:
+            return nutrition
+    
+    return {'calories': 100, 'protein': 5, 'carbs': 15, 'fat': 3}
+
 def step3_generate_precise_recipes(meal_concepts, openai_client):
-    """Step 3: Generate precise recipes with exact portions to hit macro targets"""
+    """Step 3: Generate precise recipes with REAL FDC nutrition data"""
     final_meals = []
     
     for meal_concept in meal_concepts:
+        # Get real FDC nutrition data for ingredients
+        st.write(f"🔍 Looking up nutrition data for {meal_concept['name']}...")
+        nutrition_db = get_fdc_nutrition_data(meal_concept['key_ingredients'])
+        
         # Build prompt without nested f-strings
         meal_name = meal_concept['name']
         meal_description = meal_concept['description']
@@ -258,8 +320,14 @@ def step3_generate_precise_recipes(meal_concepts, openai_client):
         target_carbs = meal_concept['target_carbs']
         target_fat = meal_concept['target_fat']
         
+        # Create nutrition data string for prompt
+        nutrition_data_str = "\n".join([
+            f"- {ingredient}: {data['fdc_description']} - Per 100g: {data['per_100g']['calories']} cal, {data['per_100g']['protein']}g protein, {data['per_100g']['carbs']}g carbs, {data['per_100g']['fat']}g fat"
+            for ingredient, data in nutrition_db.items()
+        ])
+        
         prompt = f"""
-Create a precise recipe for this meal concept with EXACT portions to hit the macro targets.
+Create a precise recipe for this meal concept with EXACT portions to hit the macro targets using REAL nutrition data.
 
 MEAL CONCEPT:
 - Name: {meal_name}
@@ -267,17 +335,21 @@ MEAL CONCEPT:
 - Key Ingredients: {key_ingredients}
 - Cooking Method: {cooking_method}
 
-EXACT MACRO TARGETS (MUST BE ACHIEVED):
-- Calories: {target_calories} (±15 calories)
-- Protein: {target_protein}g (±2g)
-- Carbs: {target_carbs}g (±3g)
-- Fat: {target_fat}g (±2g)
+REAL NUTRITION DATA (per 100g):
+{nutrition_data_str}
 
-Generate precise recipe with:
-1. Exact ingredient amounts (weights in grams/ounces)
-2. Step-by-step cooking instructions
-3. Calculated macros for each ingredient
-4. Total macros that match targets exactly
+EXACT MACRO TARGETS (MUST BE ACHIEVED):
+- Calories: {target_calories} (±10 calories)
+- Protein: {target_protein}g (±1g)
+- Carbs: {target_carbs}g (±2g)
+- Fat: {target_fat}g (±1g)
+
+CRITICAL INSTRUCTIONS:
+1. Use ONLY the nutrition data provided above
+2. Calculate exact gram amounts to hit targets precisely
+3. Show your math: (amount_in_grams / 100) × per_100g_value
+4. Verify totals add up to targets exactly
+5. Adjust portions until targets are met within tolerance
 
 Return JSON with this structure:
 {{
@@ -311,12 +383,12 @@ Return JSON with this structure:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a precision nutritionist. Calculate exact ingredient amounts to hit macro targets perfectly. Use standard nutritional databases for accuracy."},
+                {"role": "system", "content": "You are a precision nutritionist with access to REAL food database nutrition data. Calculate EXACT gram amounts using the provided per-100g nutrition values. Show your calculations and verify totals match targets exactly. NEVER estimate - use only the provided data."},
                 {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"},
-            temperature=0.05,
-            max_tokens=2000
+            temperature=0.0,  # Zero temperature for maximum precision
+            max_tokens=2500
         )
         
         try:
