@@ -619,13 +619,12 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
         if all_ingredients:
             pdf.add_grocery_list(all_ingredients)
         
-        # Save PDF with error handling
-        filename = f"fitomics_meal_plan_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
-        
-        print(f"Saving PDF as {filename}...")
-        pdf.output(filename)
+        # Return PDF as bytes buffer for download
+        print("Creating PDF buffer...")
+        pdf_string = pdf.output(dest='S')
+        pdf_output = pdf_string.encode('latin1') if isinstance(pdf_string, str) else pdf_string
         print("PDF created successfully!")
-        return filename
+        return pdf_output
         
     except Exception as e:
         print(f"Error creating PDF: {e}")
