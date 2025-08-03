@@ -5,11 +5,11 @@ Works directly with existing Fitomics codebase
 import streamlit as st
 import copy
 from typing import Dict, List, Tuple
-from precision_macro_optimizer import create_precision_optimizer
+from simple_effective_optimizer import create_simple_effective_optimizer
 
 class EnhancedMealPlannerSimple:
     def __init__(self):
-        self.optimizer = create_precision_optimizer()
+        self.optimizer = create_simple_effective_optimizer()
         
     def auto_adjust_meal_precise(self, meal_data: Dict, target_macros: Dict) -> Dict:
         """
@@ -29,8 +29,8 @@ class EnhancedMealPlannerSimple:
         
         # Run optimization
         try:
-            optimized_ingredients, achieved_macros = self.optimizer.optimize_meal_precise(
-                ingredients, target_macros, user_preferences
+            optimized_ingredients, achieved_macros = self.optimizer.optimize_meal_smart(
+                ingredients, target_macros
             )
             
             # Update meal data
@@ -89,8 +89,8 @@ class EnhancedMealPlannerSimple:
             ingredients = meal.get('recipe', {}).get('ingredients', [])
             if ingredients:
                 try:
-                    optimized_ingredients, achieved_macros = self.optimizer.optimize_meal_precise(
-                        ingredients, adjusted_targets, user_preferences
+                    optimized_ingredients, achieved_macros = self.optimizer.optimize_meal_smart(
+                        ingredients, adjusted_targets
                     )
                     
                     # Update meal
