@@ -1358,13 +1358,14 @@ elif st.session_state['meal_plan_stage'] == 'generating_modified_monday':
             user_context = build_user_profile_context(user_profile, body_comp_goals)
             diet_context = build_dietary_context(diet_preferences)
             
-            # Add modification context
+            # Add modification context with safe string handling
+            current_meals_json = json.dumps(current_plan.get('meals', []), indent=2)
             modification_context = f"""
 USER MODIFICATION REQUEST:
 {modification_request}
 
 CURRENT MEAL PLAN TO MODIFY:
-{json.dumps(current_plan.get('meals', []), indent=2)}
+{current_meals_json}
 
 INSTRUCTIONS:
 - Apply the user's requested modifications while maintaining macro accuracy
@@ -1373,7 +1374,10 @@ INSTRUCTIONS:
 - Ensure all modifications align with nutritional targets and dietary preferences
 """
             
-            # Generate modified plan
+            # Generate modified plan with safe string handling
+            monday_data_json = json.dumps(monday_data, indent=2)
+            monday_schedule_json = json.dumps(monday_schedule, indent=2)
+            
             modified_prompt = f"""
 {user_context}
 
@@ -1382,10 +1386,10 @@ INSTRUCTIONS:
 {modification_context}
 
 DAY-SPECIFIC TARGETS FOR MONDAY:
-{json.dumps(monday_data, indent=2)}
+{monday_data_json}
 
 MONDAY SCHEDULE CONTEXT:
-{json.dumps(monday_schedule, indent=2)}
+{monday_schedule_json}
 
 Create a modified meal plan that incorporates the user's feedback while maintaining ±3% macro accuracy.
 
@@ -1502,6 +1506,12 @@ elif st.session_state['meal_plan_stage'] == 'generating_week':
                     monday_structure = monday_plan.get('meal_structure_rationale', '')
                     monday_meals = monday_plan.get('meals', [])
                     
+                    # Build day prompt with safe string handling
+                    day_name = day.upper()
+                    monday_meals_json = json.dumps(monday_meals, indent=2)
+                    day_data_json = json.dumps(day_data, indent=2) 
+                    day_schedule_json = json.dumps(day_schedule, indent=2)
+                    
                     day_prompt = f"""
 {user_context}
 
@@ -1509,13 +1519,13 @@ elif st.session_state['meal_plan_stage'] == 'generating_week':
 
 APPROVED MONDAY TEMPLATE:
 Structure Rationale: {monday_structure}
-Meals: {json.dumps(monday_meals, indent=2)}
+Meals: {monday_meals_json}
 
-DAY-SPECIFIC TARGETS FOR {day.upper()}:
-{json.dumps(day_data, indent=2)}
+DAY-SPECIFIC TARGETS FOR {day_name}:
+{day_data_json}
 
-{day.upper()} SCHEDULE CONTEXT:
-{json.dumps(day_schedule, indent=2)}
+{day_name} SCHEDULE CONTEXT:
+{day_schedule_json}
 
 APPLICATION METHOD: {application_method}
 
