@@ -1361,97 +1361,59 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                         st.metric(macro.title(), f"{value:.1f}{unit}")
                     
                     # Quick adjustment buttons  
-                    col_a, col_b = st.columns(2)
-                    
-
-                    
-                    with col_a:
-                        ai_precision_key = f"monday_meal_{i}_ai_precision_{hash(str(meal_targets))}"
-                        if st.button("🤖 AI Precision", key=ai_precision_key, help="Intelligent macro optimizer with ±1% accuracy", type="primary"):
-                            # Create enhanced meal planner
-                            try:
-                                enhanced_planner = create_enhanced_meal_planner_simple()
-                                
-                                # Prepare meal data in the correct format
-                                meal_data = {
-                                    "meal_type": meal_name,
-                                    "recipe": {
-                                        "name": meal.get('name', meal_name),
-                                        "ingredients": [
-                                            {
-                                                "name": ing['name'],
-                                                "amount": ing['amount']
-                                            }
-                                            for ing in updated_ingredients
-                                        ],
-                                        "macros": meal_totals
-                                    }
+                    st.markdown("**Quick Actions:**")
+                    ai_precision_key = f"monday_meal_{i}_ai_precision_{hash(str(meal_targets))}"
+                    if st.button("🤖 AI Precision", key=ai_precision_key, help="Intelligent macro optimizer with ±1% accuracy", type="primary"):
+                        # Use direct simple optimizer
+                        try:
+                            from simple_effective_optimizer import create_simple_effective_optimizer
+                            optimizer = create_simple_effective_optimizer()
+                            
+                            # Prepare ingredients for optimization
+                            ingredients_for_opt = [
+                                {
+                                    "name": ing['name'],
+                                    "amount": ing['amount']
                                 }
+                                for ing in updated_ingredients
+                            ]
+                            
+                            # Run optimization with correct targets
+                            optimized_ingredients_list, achieved_macros = optimizer.optimize_meal_smart(ingredients_for_opt, meal_targets)
                                 
-                                # Use intelligent optimization
-                                optimized_meal = enhanced_planner.auto_adjust_meal_precise(meal_data, meal_targets)
+                            # Update the adjustments with optimized ingredients
+                            if optimized_ingredients_list:
+                                # Clear current adjustments
+                                st.session_state[f"{meal_key}_adjustments"] = {}
                                 
-                                # Update the adjustments with optimized ingredients
-                                optimized_ingredients = optimized_meal.get('recipe', {}).get('ingredients', [])
-                                
-                                if optimized_ingredients:
-                                    # Clear current adjustments
-                                    st.session_state[f"{meal_key}_adjustments"] = {}
+                                # Add optimized ingredients with proper nutrition calculation
+                                for opt_ing in optimized_ingredients_list:
+                                    ing_name = opt_ing.get('name', 'Unknown')
+                                    ing_amount = opt_ing.get('amount', '100g')
                                     
-                                    # Add optimized ingredients with proper nutrition calculation
-                                    for opt_ing in optimized_ingredients:
-                                        ing_name = opt_ing.get('name', 'Unknown')
-                                        ing_amount = opt_ing.get('amount', '100g')
-                                        
-                                        # Calculate actual nutrition using FDC database
-                                        from fdc_database_loader import fdc_db
-                                        fdc_nutrition = fdc_db.get_nutrition(ing_name.lower())
-                                        
-                                        if fdc_nutrition:
-                                            # Parse amount to grams for calculation
-                                            amount_grams = enhanced_planner.optimizer._parse_amount(ing_amount, ing_name)
-                                            factor = amount_grams / 100.0
-                                            
-                                            # Calculate nutrition based on actual amount
-                                            nutrition_data = {
-                                                'name': ing_name,
-                                                'amount': ing_amount,
-                                                'calories': round(fdc_nutrition.get('calories', 0) * factor, 1),
-                                                'protein': round(fdc_nutrition.get('protein', 0) * factor, 1),
-                                                'carbs': round(fdc_nutrition.get('carbs', 0) * factor, 1),
-                                                'fat': round(fdc_nutrition.get('fat', 0) * factor, 1),
-                                                'fdc_verified': True
-                                            }
-                                        else:
-                                            # Fallback to optimizer's calculation or defaults
-                                            nutrition_data = {
-                                                'name': ing_name,
-                                                'amount': ing_amount,
-                                                'calories': opt_ing.get('calories', 0),
-                                                'protein': opt_ing.get('protein', 0),
-                                                'carbs': opt_ing.get('carbs', 0),
-                                                'fat': opt_ing.get('fat', 0),
-                                                'fdc_verified': False
-                                            }
-                                        
-                                        st.session_state[f"{meal_key}_adjustments"][ing_name] = {
-                                            'factor': 1.0,  # Already optimized
-                                            'nutrition': nutrition_data
-                                        }
+                                    # Calculate nutrition for this optimized ingredient
+                                    nutrition_data = {
+                                        'name': ing_name,
+                                        'amount': ing_amount,
+                                        'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0
+                                    }
                                     
-                                    st.success("✅ **AI Precision Complete!** Meal optimized with FDC nutrition data")
-                                    st.rerun()
+                                    # Get nutrition from optimizer calculation
+                                    single_ing_macros = optimizer._calculate_macros([opt_ing])
+                                    nutrition_data.update(single_ing_macros)
+                                    
+                                    st.session_state[f"{meal_key}_adjustments"][ing_name] = {
+                                        'factor': 1.0,  # Already optimized
+                                        'nutrition': nutrition_data
+                                    }
+                                    
                                 
-                            except Exception as e:
-                                st.error(f"AI optimization failed: {str(e)}")
-                                st.info("Falling back to simple auto-fix...")
-                    
-                    with col_b:
-                        reset_key = f"monday_meal_{i}_reset_{hash(str(meal_targets))}"
-                        if st.button("🔄 Reset", key=reset_key):
-                            for ing_name in st.session_state[f"{meal_key}_adjustments"]:
-                                st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = 1.0
-                            st.rerun()
+                                st.success(f"✅ **AI Precision Complete!** Optimized to {achieved_macros['calories']:.0f} cal, {achieved_macros['protein']:.0f}g protein")
+                                st.rerun()
+                                
+                        except Exception as e:
+                            st.error(f"AI optimization failed: {str(e)}")
+                            st.info("Try adjusting portions manually with the sliders above.")
                 
                 # Display ingredient table
                 if updated_ingredients:
