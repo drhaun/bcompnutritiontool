@@ -14,6 +14,7 @@ import macro_validator
 from nutrition_cache import NutritionCache
 from pdf_export import export_meal_plan_pdf
 from session_manager import add_session_controls
+from enhanced_ai_meal_planning_simple import create_enhanced_meal_planner_simple
 
 # OpenAI Integration
 def get_openai_client():
@@ -1135,9 +1136,79 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
         accuracy_df = pd.DataFrame(accuracy_data)
         st.dataframe(accuracy_df, use_container_width=True, hide_index=True)
         
-        # Add simplified meal adjustment interface
-        st.markdown("### 🔧 Adjust Individual Meals")
-        st.info("Fine-tune ingredient portions to hit exact macro targets for each meal.")
+        # Add intelligent meal adjustment interface
+        st.markdown("### 🔧 Intelligent Meal Optimization")
+        st.info("**New AI Precision Feature**: Use the 🤖 AI Precision button for intelligent macro targeting with ±1% accuracy, or manually adjust portions.")
+        
+        # Add bulk optimization option
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown("**🎯 Bulk Optimization Options:**")
+        with col2:
+            if st.button("🤖 Optimize All Meals", type="primary", help="Apply AI precision to all meals at once"):
+                try:
+                    enhanced_planner = create_enhanced_meal_planner_simple()
+                    
+                    # Prepare daily meal data
+                    daily_meal_data = []
+                    for i, meal in enumerate(meals):
+                        meal_name = f"Meal {i+1}" if i < 3 else f"Snack {i-2}"
+                        
+                        meal_data = {
+                            "meal_type": meal_name,
+                            "recipe": {
+                                "name": meal.get('name', meal_name),
+                                "ingredients": [
+                                    {"name": ing.get('item', 'Unknown'), "amount": ing.get('amount', '100g')}
+                                    for ing in meal.get('ingredients', [])
+                                ],
+                                "macros": {
+                                    "calories": sum(ing.get('calories', 0) for ing in meal.get('ingredients', [])),
+                                    "protein": sum(ing.get('protein', 0) for ing in meal.get('ingredients', [])),
+                                    "carbs": sum(ing.get('carbs', 0) for ing in meal.get('ingredients', [])),
+                                    "fat": sum(ing.get('fat', 0) for ing in meal.get('ingredients', []))
+                                }
+                            }
+                        }
+                        daily_meal_data.append(meal_data)
+                    
+                    # Optimize entire day
+                    optimized_meals, achieved_totals, report = enhanced_planner.optimize_full_day_plan(
+                        daily_meal_data, nutrition_targets, st.session_state.get('diet_preferences', {})
+                    )
+                    
+                    st.success(f"🎉 All meals optimized successfully!")
+                    st.info(report)
+                    
+                    # Update session state with optimized meals
+                    for i, optimized_meal in enumerate(optimized_meals):
+                        meal_key = f"monday_meal_{i}"
+                        optimized_ingredients = optimized_meal.get('recipe', {}).get('ingredients', [])
+                        
+                        if optimized_ingredients:
+                            st.session_state[f"{meal_key}_adjustments"] = {}
+                            
+                            for opt_ing in optimized_ingredients:
+                                ing_name = opt_ing.get('name', 'Unknown')
+                                nutrition_data = {
+                                    'name': ing_name,
+                                    'amount': opt_ing.get('amount', '100g'),
+                                    'calories': opt_ing.get('calories', 0),
+                                    'protein': opt_ing.get('protein', 0),
+                                    'carbs': opt_ing.get('carbs', 0),
+                                    'fat': opt_ing.get('fat', 0)
+                                }
+                                
+                                st.session_state[f"{meal_key}_adjustments"][ing_name] = {
+                                    'factor': 1.0,
+                                    'nutrition': nutrition_data
+                                }
+                    
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"Bulk optimization failed: {str(e)}")
+                    st.info("Try optimizing meals individually using the 🤖 AI Precision buttons below.")
         
         meals = monday_plan.get('meals', [])
         
@@ -1248,12 +1319,13 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                         unit = "" if macro == "calories" else "g"
                         st.metric(macro.title(), f"{value:.1f}{unit}")
                     
-                    # Quick adjustment buttons
-                    col_a, col_b = st.columns(2)
+                    # Quick adjustment buttons  
+                    col_a, col_b, col_c = st.columns(3)
+                    
                     with col_a:
                         auto_fix_key = f"monday_meal_{i}_auto_fix_{hash(str(meal_targets))}"
                         if st.button("🎯 Auto-Fix", key=auto_fix_key):
-                            # Auto-adjust portions based on calorie target
+                            # Simple auto-adjust portions based on calorie target
                             meal_target_calories = nutrition_targets.get('calories', 2000) / len(meals)
                             
                             if meal_totals.get('calories', 0) > 0 and meal_target_calories > 0:
@@ -1267,6 +1339,64 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                                 st.rerun()
                     
                     with col_b:
+                        ai_precision_key = f"monday_meal_{i}_ai_precision_{hash(str(meal_targets))}"
+                        if st.button("🤖 AI Precision", key=ai_precision_key, help="Intelligent macro optimizer with ±1% accuracy"):
+                            # Create enhanced meal planner
+                            try:
+                                enhanced_planner = create_enhanced_meal_planner_simple()
+                                
+                                # Prepare meal data in the correct format
+                                meal_data = {
+                                    "meal_type": meal_name,
+                                    "recipe": {
+                                        "name": meal.get('name', meal_name),
+                                        "ingredients": [
+                                            {
+                                                "name": ing['name'],
+                                                "amount": ing['amount']
+                                            }
+                                            for ing in updated_ingredients
+                                        ],
+                                        "macros": meal_totals
+                                    }
+                                }
+                                
+                                # Use intelligent optimization
+                                optimized_meal = enhanced_planner.auto_adjust_meal_precise(meal_data, meal_targets)
+                                
+                                # Update the adjustments with optimized ingredients
+                                optimized_ingredients = optimized_meal.get('recipe', {}).get('ingredients', [])
+                                
+                                if optimized_ingredients:
+                                    # Clear current adjustments
+                                    st.session_state[f"{meal_key}_adjustments"] = {}
+                                    
+                                    # Add optimized ingredients
+                                    for opt_ing in optimized_ingredients:
+                                        ing_name = opt_ing.get('name', 'Unknown')
+                                        
+                                        # Calculate nutrition data for optimized ingredient
+                                        nutrition_data = {
+                                            'name': ing_name,
+                                            'amount': opt_ing.get('amount', '100g'),
+                                            'calories': opt_ing.get('calories', 0),
+                                            'protein': opt_ing.get('protein', 0),
+                                            'carbs': opt_ing.get('carbs', 0),
+                                            'fat': opt_ing.get('fat', 0)
+                                        }
+                                        
+                                        st.session_state[f"{meal_key}_adjustments"][ing_name] = {
+                                            'factor': 1.0,  # Already optimized
+                                            'nutrition': nutrition_data
+                                        }
+                                    
+                                    st.rerun()
+                                
+                            except Exception as e:
+                                st.error(f"AI optimization failed: {str(e)}")
+                                st.info("Falling back to simple auto-fix...")
+                    
+                    with col_c:
                         reset_key = f"monday_meal_{i}_reset_{hash(str(meal_targets))}"
                         if st.button("🔄 Reset", key=reset_key):
                             for ing_name in st.session_state[f"{meal_key}_adjustments"]:

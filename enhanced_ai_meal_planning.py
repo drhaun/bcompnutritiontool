@@ -1,311 +1,294 @@
-#!/usr/bin/env python3
 """
-Enhanced AI Meal Planning with FDC API Integration and User Adjustments
+Enhanced AI Meal Planning with Intelligent Macro Optimization
+Integrates advanced optimization algorithms for ±1% macro accuracy
 """
-
-import os
+import streamlit as st
+import pandas as pd
 import json
-import requests
-from typing import Dict, List, Optional, Tuple
-from openai import OpenAI
-from fdc_api import search_foods
+import copy
+from typing import Dict, List, Tuple, Optional
+import numpy as np
+
+# Import optimization engine
+from intelligent_macro_optimizer import MacroOptimizer
 
 class EnhancedMealPlanner:
     def __init__(self):
-        self.openai_client = OpenAI(
-            api_key=os.environ.get('OPENAI_API_KEY'),
-            organization=os.environ.get('OPENAI_ORGANIZATION_ID'),
-            project=os.environ.get('OPENAI_PROJECT_ID')
-        )
-        self.fdc_api_key = os.environ.get('FDC_API_KEY')
-    
-    def get_accurate_nutrition(self, ingredient_name: str, amount_grams: float) -> Dict:
-        """Get accurate nutrition data from FDC API"""
-        try:
-            # Search for the ingredient
-            search_results = search_foods(ingredient_name)
-            
-            if not search_results:
-                return self._fallback_nutrition(ingredient_name, amount_grams)
-            
-            # Get the most relevant food item
-            food_item = search_results[0]
-            
-            # Extract nutrition from the food item and scale to requested amount
-            nutrition = self._extract_nutrition_from_search_result(food_item, amount_grams)
-            nutrition['name'] = ingredient_name
-            nutrition['amount'] = f"{amount_grams}g"
-            nutrition['fdc_verified'] = True
-            
-            return nutrition
-            
-        except Exception as e:
-            print(f"FDC API error for {ingredient_name}: {e}")
-            return self._fallback_nutrition(ingredient_name, amount_grams)
-    
-    def _extract_nutrition_from_search_result(self, food_item: Dict, amount_grams: float) -> Dict:
-        """Extract and scale nutrition data from FDC search result"""
-        nutrition = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+        self.optimizer = MacroOptimizer()
         
-        # Try to extract from foodNutrients if available
-        if 'foodNutrients' in food_item:
-            nutrients = food_item['foodNutrients']
-            
-            # Standard nutrient IDs from FDC
-            nutrient_map = {
-                1008: 'calories',  # Energy
-                1003: 'protein',   # Protein
-                1005: 'carbs',     # Carbohydrates
-                1004: 'fat'        # Total lipid (fat)
-            }
-            
-            for nutrient in nutrients:
-                nutrient_id = nutrient.get('nutrientId')
-                if nutrient_id in nutrient_map:
-                    value = nutrient.get('value', 0)
-                    # Convert from per 100g to requested amount
-                    scaled_value = (value * amount_grams) / 100
-                    nutrition[nutrient_map[nutrient_id]] = round(scaled_value, 1)
-        
-        return nutrition
-    
-    def _fallback_nutrition(self, ingredient_name: str, amount_grams: float) -> Dict:
-        """Fallback nutrition estimates when FDC API fails"""
-        # Basic nutrition estimates per 100g
-        fallback_data = {
-            'chicken breast': {'calories': 165, 'protein': 31, 'carbs': 0, 'fat': 3.6},
-            'brown rice': {'calories': 123, 'protein': 2.6, 'carbs': 23, 'fat': 0.9},
-            'quinoa': {'calories': 120, 'protein': 4.4, 'carbs': 22, 'fat': 1.9},
-            'salmon': {'calories': 206, 'protein': 22, 'carbs': 0, 'fat': 12},
-            'broccoli': {'calories': 34, 'protein': 2.8, 'carbs': 7, 'fat': 0.4},
-            'avocado': {'calories': 160, 'protein': 2, 'carbs': 9, 'fat': 15},
-            'olive oil': {'calories': 884, 'protein': 0, 'carbs': 0, 'fat': 100},
-            'sweet potato': {'calories': 86, 'protein': 1.6, 'carbs': 20, 'fat': 0.1}
-        }
-        
-        base_nutrition = fallback_data.get(ingredient_name.lower(), 
-                                         {'calories': 100, 'protein': 5, 'carbs': 15, 'fat': 3})
-        
-        # Scale to requested amount
-        scaling_factor = amount_grams / 100
-        nutrition = {
-            'name': ingredient_name,
-            'amount': f"{amount_grams}g",
-            'calories': round(base_nutrition['calories'] * scaling_factor, 1),
-            'protein': round(base_nutrition['protein'] * scaling_factor, 1),
-            'carbs': round(base_nutrition['carbs'] * scaling_factor, 1),
-            'fat': round(base_nutrition['fat'] * scaling_factor, 1),
-            'fdc_verified': False
-        }
-        
-        return nutrition
-    
-    def generate_accurate_meal(self, meal_context: Dict, target_macros: Dict) -> Dict:
-        """Generate a meal with FDC-verified nutrition accuracy"""
-        
-        # Step 1: AI generates initial meal concept
-        meal_concept = self._generate_meal_concept(meal_context, target_macros)
-        
-        # Step 2: Get accurate nutrition for each ingredient
-        accurate_ingredients = []
-        total_nutrition = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
-        
-        for ingredient in meal_concept['ingredients']:
-            # Extract amount in grams
-            amount_grams = self._parse_amount_to_grams(ingredient['amount'])
-            
-            # Get accurate nutrition from FDC
-            accurate_nutrition = self.get_accurate_nutrition(ingredient['name'], amount_grams)
-            accurate_ingredients.append(accurate_nutrition)
-            
-            # Update totals
-            for macro in ['calories', 'protein', 'carbs', 'fat']:
-                total_nutrition[macro] += accurate_nutrition[macro]
-        
-        # Step 3: Adjust portions to hit targets precisely
-        adjusted_ingredients = self._adjust_portions_for_targets(
-            accurate_ingredients, target_macros, total_nutrition
-        )
-        
-        # Recalculate final totals
-        final_totals = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
-        for ingredient in adjusted_ingredients:
-            for macro in ['calories', 'protein', 'carbs', 'fat']:
-                final_totals[macro] += ingredient[macro]
-        
-        return {
-            'meal_name': meal_concept['meal_name'],
-            'ingredients': adjusted_ingredients,
-            'instructions': meal_concept['instructions'],
-            'nutrition_totals': final_totals,
-            'accuracy_notes': self._calculate_accuracy(target_macros, final_totals),
-            'fdc_verified_count': sum(1 for ing in adjusted_ingredients if ing.get('fdc_verified', False))
-        }
-    
-    def _generate_meal_concept(self, meal_context: Dict, target_macros: Dict) -> Dict:
-        """Generate initial meal concept with AI"""
-        
-        prompt = f"""
-        Create a meal concept for the following context:
-        
-        Meal Context: {meal_context.get('meal_type', 'Main meal')}
-        Workout Timing: {meal_context.get('workout_timing', 'None')}
-        Dietary Preferences: {meal_context.get('dietary_preferences', 'None')}
-        
-        Target Macros:
-        - Calories: {target_macros['calories']}
-        - Protein: {target_macros['protein']}g
-        - Carbs: {target_macros['carbs']}g  
-        - Fat: {target_macros['fat']}g
-        
-        Return ONLY JSON with this structure:
-        {{
-            "meal_name": "Descriptive meal name",
-            "ingredients": [
-                {{"name": "ingredient_name", "amount": "150g"}},
-                {{"name": "ingredient_name", "amount": "100g"}}
-            ],
-            "instructions": "Step-by-step cooking instructions"
-        }}
-        
-        Focus on common, whole food ingredients that can be found in FDC database.
+    def optimize_meal_for_targets(self, 
+                                 meal_data: Dict, 
+                                 target_macros: Dict,
+                                 user_preferences: Dict = None,
+                                 tolerance: float = 0.01) -> Tuple[Dict, Dict, str]:
+        """
+        Optimize a meal to hit precise macro targets
+        Returns: (optimized_meal, achieved_macros, optimization_report)
         """
         
-        response = self.openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a nutrition expert. Return only valid JSON without markdown."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=600,
-            temperature=0.1
+        # Extract ingredients from meal data
+        ingredients = meal_data.get('recipe', {}).get('ingredients', [])
+        if not ingredients:
+            return meal_data, {}, "No ingredients to optimize"
+        
+        # Get current macros
+        current_macros = self.optimizer.calculate_current_macros(ingredients)
+        
+        # Check if optimization is needed
+        if self._within_acceptable_range(current_macros, target_macros, tolerance * 5):  # Use 5x tolerance for pre-check
+            return meal_data, current_macros, "Already within acceptable range"
+        
+        # Run intelligent optimization
+        try:
+            optimized_ingredients, achieved_macros = self.optimizer.optimize_meal_macros(
+                ingredients, target_macros, user_preferences, tolerance
+            )
+            
+            # Update meal data with optimized ingredients
+            optimized_meal = copy.deepcopy(meal_data)
+            optimized_meal['recipe']['ingredients'] = optimized_ingredients
+            optimized_meal['recipe']['macros'] = achieved_macros
+            
+            # Generate optimization report
+            report = self._generate_optimization_report(
+                current_macros, achieved_macros, target_macros, 
+                len(ingredients), len(optimized_ingredients)
+            )
+            
+            return optimized_meal, achieved_macros, report
+            
+        except Exception as e:
+            return meal_data, current_macros, f"Optimization failed: {str(e)}"
+    
+    def optimize_full_day_plan(self, 
+                              daily_meals: List[Dict], 
+                              daily_targets: Dict,
+                              user_preferences: Dict = None) -> Tuple[List[Dict], Dict, str]:
+        """
+        Optimize all meals in a day to collectively hit daily macro targets
+        """
+        
+        if not daily_meals:
+            return daily_meals, {}, "No meals to optimize"
+        
+        # Calculate targets per meal (distributed approach)
+        meal_count = len(daily_meals)
+        protein_per_meal = daily_targets.get('protein', 120) / meal_count
+        carbs_per_meal = daily_targets.get('carbs', 150) / meal_count
+        fat_per_meal = daily_targets.get('fat', 60) / meal_count
+        calories_per_meal = daily_targets.get('calories', 1800) / meal_count
+        
+        # Adjust based on meal type
+        optimized_meals = []
+        total_achieved = {"protein": 0, "carbs": 0, "fat": 0, "calories": 0}
+        optimization_reports = []
+        
+        for i, meal in enumerate(daily_meals):
+            meal_type = meal.get('meal_type', 'Meal').lower()
+            
+            # Adjust targets based on meal type
+            if 'breakfast' in meal_type:
+                # Higher protein for breakfast
+                meal_targets = {
+                    "protein": protein_per_meal * 1.2,
+                    "carbs": carbs_per_meal * 1.1,
+                    "fat": fat_per_meal * 0.9,
+                    "calories": calories_per_meal
+                }
+            elif 'lunch' in meal_type:
+                # Balanced lunch
+                meal_targets = {
+                    "protein": protein_per_meal,
+                    "carbs": carbs_per_meal,
+                    "fat": fat_per_meal,
+                    "calories": calories_per_meal
+                }
+            elif 'dinner' in meal_type:
+                # Higher protein, moderate carbs for dinner
+                meal_targets = {
+                    "protein": protein_per_meal * 1.3,
+                    "carbs": carbs_per_meal * 0.8,
+                    "fat": fat_per_meal * 1.1,
+                    "calories": calories_per_meal
+                }
+            elif 'snack' in meal_type:
+                # Light snack
+                meal_targets = {
+                    "protein": protein_per_meal * 0.6,
+                    "carbs": carbs_per_meal * 0.7,
+                    "fat": fat_per_meal * 0.8,
+                    "calories": calories_per_meal * 0.6
+                }
+            else:
+                # Default balanced
+                meal_targets = {
+                    "protein": protein_per_meal,
+                    "carbs": carbs_per_meal,
+                    "fat": fat_per_meal,
+                    "calories": calories_per_meal
+                }
+            
+            # Optimize this meal
+            optimized_meal, achieved_macros, report = self.optimize_meal_for_targets(
+                meal, meal_targets, user_preferences
+            )
+            
+            optimized_meals.append(optimized_meal)
+            optimization_reports.append(f"{meal_type.title()}: {report}")
+            
+            # Add to daily totals
+            for macro in ["protein", "carbs", "fat", "calories"]:
+                total_achieved[macro] += achieved_macros.get(macro, 0)
+        
+        # Generate comprehensive report
+        daily_report = self._generate_daily_optimization_report(
+            total_achieved, daily_targets, optimization_reports
         )
         
-        result = response.choices[0].message.content.strip()
-        # Clean markdown if present
-        result = result.replace('```json', '').replace('```', '').strip()
-        
-        return json.loads(result)
+        return optimized_meals, total_achieved, daily_report
     
-    def _parse_amount_to_grams(self, amount_str: str) -> float:
-        """Parse amount string to grams"""
-        import re
+    def auto_adjust_meal_precise(self, meal_data: Dict, target_macros: Dict) -> Dict:
+        """
+        Auto-adjust meal with maximum precision - main interface for UI
+        """
+        user_preferences = st.session_state.get('diet_preferences', {})
         
-        # Extract number from amount string
-        numbers = re.findall(r'\d+(?:\.\d+)?', amount_str)
-        if not numbers:
-            return 100.0  # Default
+        optimized_meal, achieved_macros, report = self.optimize_meal_for_targets(
+            meal_data, target_macros, user_preferences
+        )
         
-        amount = float(numbers[0])
-        
-        # Convert to grams if needed
-        if 'cup' in amount_str.lower():
-            # Rough conversion: 1 cup = 240g for liquids, 200g for solids
-            return amount * 200
-        elif 'tbsp' in amount_str.lower() or 'tablespoon' in amount_str.lower():
-            return amount * 15
-        elif 'tsp' in amount_str.lower() or 'teaspoon' in amount_str.lower():
-            return amount * 5
-        elif 'oz' in amount_str.lower():
-            return amount * 28.35
-        else:
-            # Assume grams
-            return amount
-    
-    def _adjust_portions_for_targets(self, ingredients: List[Dict], 
-                                   targets: Dict, current_totals: Dict) -> List[Dict]:
-        """Adjust ingredient portions to hit macro targets precisely"""
-        
-        # Calculate scaling factors for each macro
-        scaling_factors = {}
-        for macro in ['calories', 'protein', 'carbs', 'fat']:
-            if current_totals[macro] > 0:
-                scaling_factors[macro] = targets[macro] / current_totals[macro]
-            else:
-                scaling_factors[macro] = 1.0
-        
-        # Use average scaling factor to avoid extreme adjustments
-        avg_scaling = sum(scaling_factors.values()) / len(scaling_factors)
-        
-        # Apply scaling to all ingredients
-        adjusted_ingredients = []
-        for ingredient in ingredients:
-            # Parse current amount
-            current_grams = self._parse_amount_to_grams(ingredient['amount'])
+        # Display optimization results in UI
+        if report and "Already within" not in report:
+            st.success(f"**Meal Optimized for Precision**")
             
-            # Apply scaling
-            new_grams = current_grams * avg_scaling
+            # Show before/after comparison
+            original_macros = self.optimizer.calculate_current_macros(
+                meal_data.get('recipe', {}).get('ingredients', [])
+            )
             
-            # Get nutrition for new amount
-            adjusted_nutrition = self.get_accurate_nutrition(ingredient['name'], new_grams)
-            adjusted_ingredients.append(adjusted_nutrition)
-        
-        return adjusted_ingredients
-    
-    def _calculate_accuracy(self, targets: Dict, actuals: Dict) -> Dict:
-        """Calculate accuracy percentages"""
-        accuracy = {}
-        for macro in ['calories', 'protein', 'carbs', 'fat']:
-            if targets[macro] > 0:
-                deviation = ((actuals[macro] - targets[macro]) / targets[macro]) * 100
-                accuracy[macro] = {
-                    'target': targets[macro],
-                    'actual': round(actuals[macro], 1),
-                    'deviation_percent': round(deviation, 1),
-                    'status': 'Good' if abs(deviation) <= 5 else 'Needs adjustment'
-                }
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("**Original**")
+                for macro in ["protein", "carbs", "fat", "calories"]:
+                    st.write(f"{macro.title()}: {original_macros.get(macro, 0):.1f}")
+            
+            with col2:
+                st.markdown("**Target**")
+                for macro in ["protein", "carbs", "fat", "calories"]:
+                    st.write(f"{macro.title()}: {target_macros.get(macro, 0):.1f}")
+            
+            with col3:
+                st.markdown("**Achieved**")
+                for macro in ["protein", "carbs", "fat", "calories"]:
+                    value = achieved_macros.get(macro, 0)
+                    target = target_macros.get(macro, 1)
+                    error = abs(value - target) / target * 100
+                    
+                    if error <= 1:
+                        color = "green"
+                        status = "✅"
+                    elif error <= 3:
+                        color = "blue"
+                        status = "🔵"
+                    else:
+                        color = "orange"
+                        status = "⚠️"
+                    
+                    st.markdown(f":{color}[{macro.title()}: {value:.1f} {status}]")
+            
+            # Show optimization summary
+            max_error = max(abs(achieved_macros.get(macro, 0) - target_macros.get(macro, 1)) / 
+                           target_macros.get(macro, 1) * 100 
+                           for macro in ["protein", "carbs", "fat", "calories"])
+            
+            if max_error <= 1:
+                st.success(f"🎯 **EXCELLENT**: ±{max_error:.1f}% precision achieved!")
+            elif max_error <= 3:
+                st.info(f"🎯 **GOOD**: ±{max_error:.1f}% precision (target: ±1%)")
             else:
-                accuracy[macro] = {
-                    'target': targets[macro],
-                    'actual': round(actuals[macro], 1),
-                    'deviation_percent': 0,
-                    'status': 'Good'
-                }
+                st.warning(f"🎯 **ACCEPTABLE**: ±{max_error:.1f}% precision")
+            
+            # Show ingredient changes
+            original_ingredients = [ing['name'] for ing in meal_data.get('recipe', {}).get('ingredients', [])]
+            optimized_ingredients = [ing['name'] for ing in optimized_meal.get('recipe', {}).get('ingredients', [])]
+            
+            added_ingredients = [ing for ing in optimized_ingredients if ing not in original_ingredients]
+            if added_ingredients:
+                st.info(f"**Added ingredients**: {', '.join(added_ingredients)}")
         
-        return accuracy
-
-def test_enhanced_meal_planning():
-    """Test the enhanced meal planning system"""
-    planner = EnhancedMealPlanner()
+        return optimized_meal
     
-    # Test meal context
-    meal_context = {
-        'meal_type': 'Post-workout lunch',
-        'workout_timing': 'Post-workout',
-        'dietary_preferences': 'High protein'
-    }
-    
-    # Test targets
-    target_macros = {
-        'calories': 600,
-        'protein': 45,
-        'carbs': 60,
-        'fat': 15
-    }
-    
-    print("Testing Enhanced AI Meal Planning with FDC Integration")
-    print("=" * 55)
-    
-    try:
-        meal = planner.generate_accurate_meal(meal_context, target_macros)
-        
-        print(f"Generated Meal: {meal['meal_name']}")
-        print(f"FDC Verified Ingredients: {meal['fdc_verified_count']}/{len(meal['ingredients'])}")
-        print(f"\nIngredients:")
-        for ing in meal['ingredients']:
-            verified = "✓" if ing.get('fdc_verified', False) else "○"
-            print(f"  {verified} {ing['name']}: {ing['amount']} - {ing['calories']}cal, {ing['protein']}p, {ing['carbs']}c, {ing['fat']}f")
-        
-        print(f"\nNutrition Totals:")
-        for macro, data in meal['accuracy_notes'].items():
-            print(f"  {macro.title()}: {data['actual']} (target: {data['target']}) - {data['deviation_percent']}% - {data['status']}")
-        
-        print(f"\nSystem ready for production use with FDC integration!")
+    def _within_acceptable_range(self, current: Dict, target: Dict, tolerance: float) -> bool:
+        """Check if current macros are within acceptable range"""
+        for macro in ["protein", "carbs", "fat", "calories"]:
+            target_val = target.get(macro, 0)
+            current_val = current.get(macro, 0)
+            
+            if target_val > 0:
+                error = abs(current_val - target_val) / target_val
+                if error > tolerance:
+                    return False
         return True
+    
+    def _generate_optimization_report(self, original: Dict, achieved: Dict, target: Dict, 
+                                    original_ingredients: int, final_ingredients: int) -> str:
+        """Generate detailed optimization report"""
         
-    except Exception as e:
-        print(f"Error: {e}")
-        return False
+        improvements = []
+        for macro in ["protein", "carbs", "fat", "calories"]:
+            orig_error = abs(original.get(macro, 0) - target.get(macro, 1)) / target.get(macro, 1) * 100
+            final_error = abs(achieved.get(macro, 0) - target.get(macro, 1)) / target.get(macro, 1) * 100
+            
+            if final_error < orig_error:
+                improvements.append(f"{macro}: {orig_error:.1f}% → {final_error:.1f}%")
+        
+        added_ingredients = final_ingredients - original_ingredients
+        
+        report = f"Optimized with {added_ingredients} additional ingredients. "
+        if improvements:
+            report += f"Improved: {', '.join(improvements[:2])}"
+        
+        max_final_error = max(abs(achieved.get(macro, 0) - target.get(macro, 1)) / 
+                             target.get(macro, 1) * 100 
+                             for macro in ["protein", "carbs", "fat", "calories"])
+        
+        if max_final_error <= 1:
+            report += " - EXCELLENT precision achieved!"
+        elif max_final_error <= 3:
+            report += " - GOOD precision achieved!"
+        
+        return report
+    
+    def _generate_daily_optimization_report(self, achieved: Dict, target: Dict, 
+                                          meal_reports: List[str]) -> str:
+        """Generate comprehensive daily optimization report"""
+        
+        daily_accuracy = {}
+        for macro in ["protein", "carbs", "fat", "calories"]:
+            target_val = target.get(macro, 1)
+            achieved_val = achieved.get(macro, 0)
+            error_pct = abs(achieved_val - target_val) / target_val * 100
+            daily_accuracy[macro] = error_pct
+        
+        max_error = max(daily_accuracy.values())
+        
+        report = f"Daily Optimization Complete\n"
+        report += f"Maximum error: {max_error:.1f}%\n"
+        
+        if max_error <= 1:
+            report += "Status: EXCELLENT - ±1% precision achieved!\n"
+        elif max_error <= 3:
+            report += "Status: GOOD - Within ±3% tolerance\n"
+        else:
+            report += "Status: ACCEPTABLE - Further optimization possible\n"
+        
+        report += f"\nMeal-by-meal results:\n"
+        for meal_report in meal_reports[:3]:  # Limit to first 3 meals
+            report += f"• {meal_report}\n"
+        
+        return report
 
-if __name__ == "__main__":
-    test_enhanced_meal_planning()
+def create_enhanced_meal_planner():
+    """Factory function to create enhanced meal planner"""
+    return EnhancedMealPlanner()
