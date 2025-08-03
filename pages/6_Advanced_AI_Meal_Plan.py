@@ -623,11 +623,19 @@ def generate_ai_meal_plan(meal_targets, diet_preferences, meal_config, openai_cl
     """Generate single-day AI meal plan (legacy function for compatibility)"""
     try:
         # Build comprehensive prompt for single day
+        target_calories = meal_targets.get('calories', 2000)
+        target_protein = meal_targets.get('protein', 150)
+        target_carbs = meal_targets.get('carbs', 200)
+        target_fat = meal_targets.get('fat', 70)
+        
         prompt = f"""
 Create a complete daily meal plan with the following specifications:
 
 NUTRITION TARGETS:
-{json.dumps(meal_targets, indent=2)}
+- Calories: {target_calories}
+- Protein: {target_protein}g
+- Carbs: {target_carbs}g
+- Fat: {target_fat}g
 
 DIETARY PREFERENCES:
 - Vegetarian: {diet_preferences.get('vegetarian', False)}
@@ -674,10 +682,10 @@ Return JSON format with:
     }}
   ],
   "daily_totals": {{
-    "calories": {meal_targets.get('calories', 2000)},
-    "protein": {meal_targets.get('protein', 150)},
-    "carbs": {meal_targets.get('carbs', 200)},
-    "fat": {meal_targets.get('fat', 70)}
+    "calories": {target_calories},
+    "protein": {target_protein},
+    "carbs": {target_carbs},
+    "fat": {target_fat}
   }}
 }}
 """
