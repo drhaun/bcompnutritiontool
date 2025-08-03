@@ -1218,9 +1218,22 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
             with st.expander(f"🍽️ {meal_name} - Adjust Portions", expanded=False):
                 
                 # Get specific meal targets from Nutrition Targets page
-                # Use the actual meal targets configured by the user
-                final_targets = st.session_state.get('final_nutrition_targets', {})
-                per_meal_macros = final_targets.get('per_meal_macros', {})
+                meal_targets = None
+                
+                # Method 1: Load from saved file if not in session state
+                if not st.session_state.get('per_meal_macros'):
+                    targets_file = 'data/nutrition_targets.json'
+                    if os.path.exists(targets_file):
+                        try:
+                            with open(targets_file, 'r') as f:
+                                saved_targets = json.load(f)
+                            st.session_state.per_meal_macros = saved_targets.get('per_meal_macros', {})
+                            st.session_state.final_nutrition_targets = saved_targets
+                        except:
+                            pass
+                
+                # Method 2: Check per_meal_macros in session state
+                per_meal_macros = st.session_state.get('per_meal_macros', {})
                 monday_meals = per_meal_macros.get('Monday', [])
                 
                 if monday_meals and i < len(monday_meals):
@@ -1231,14 +1244,33 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                         'carbs': target_meal.get('carbs', 40),
                         'fat': target_meal.get('fat', 15)
                     }
-                else:
-                    # Fallback to equal distribution
+                    st.success(f"✅ Using YOUR targets: {meal_targets['calories']} cal, {meal_targets['protein']}g protein")
+                
+                # Method 3: Check final_nutrition_targets if Method 2 failed
+                if meal_targets is None:
+                    final_targets = st.session_state.get('final_nutrition_targets', {})
+                    final_per_meal = final_targets.get('per_meal_macros', {})
+                    final_monday = final_per_meal.get('Monday', [])
+                    
+                    if final_monday and i < len(final_monday):
+                        target_meal = final_monday[i]
+                        meal_targets = {
+                            'calories': target_meal.get('calories', 400),
+                            'protein': target_meal.get('protein', 30),
+                            'carbs': target_meal.get('carbs', 40),
+                            'fat': target_meal.get('fat', 15)
+                        }
+                        st.success(f"✅ Using saved targets: {meal_targets['calories']} cal, {meal_targets['protein']}g protein")
+                
+                # Method 4: Fallback to equal distribution
+                if meal_targets is None:
                     meal_targets = {
                         'calories': nutrition_targets.get('calories', 2000) / len(meals),
                         'protein': nutrition_targets.get('protein', 150) / len(meals),
                         'carbs': nutrition_targets.get('carbs', 200) / len(meals),
                         'fat': nutrition_targets.get('fat', 70) / len(meals)
                     }
+                    st.error(f"❌ NO SPECIFIC TARGETS FOUND! Using fallback: {meal_targets['calories']:.0f} cal. Please visit Nutrition Targets page and confirm your targets!")
                 
                 # Display meal targets prominently
                 st.markdown("**🎯 Meal Targets:**")
