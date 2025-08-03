@@ -1314,27 +1314,13 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                         st.metric(macro.title(), f"{value:.1f}{unit}")
                     
                     # Quick adjustment buttons  
-                    col_a, col_b, col_c = st.columns(3)
+                    col_a, col_b = st.columns(2)
+                    
+
                     
                     with col_a:
-                        auto_fix_key = f"monday_meal_{i}_auto_fix_{hash(str(meal_targets))}"
-                        if st.button("🎯 Auto-Fix", key=auto_fix_key):
-                            # Simple auto-adjust portions based on calorie target
-                            meal_target_calories = nutrition_targets.get('calories', 2000) / len(meals)
-                            
-                            if meal_totals.get('calories', 0) > 0 and meal_target_calories > 0:
-                                scale_factor = meal_target_calories / meal_totals['calories']
-                                
-                                # Apply scaling to all ingredients
-                                for ing_name in st.session_state[f"{meal_key}_adjustments"]:
-                                    st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = scale_factor
-                                
-                                st.success(f"Auto-adjusted portions by {scale_factor:.2f}x!")
-                                st.rerun()
-                    
-                    with col_b:
                         ai_precision_key = f"monday_meal_{i}_ai_precision_{hash(str(meal_targets))}"
-                        if st.button("🤖 AI Precision", key=ai_precision_key, help="Intelligent macro optimizer with ±1% accuracy"):
+                        if st.button("🤖 AI Precision", key=ai_precision_key, help="Intelligent macro optimizer with ±1% accuracy", type="primary"):
                             # Create enhanced meal planner
                             try:
                                 enhanced_planner = create_enhanced_meal_planner_simple()
@@ -1365,32 +1351,55 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                                     # Clear current adjustments
                                     st.session_state[f"{meal_key}_adjustments"] = {}
                                     
-                                    # Add optimized ingredients
+                                    # Add optimized ingredients with proper nutrition calculation
                                     for opt_ing in optimized_ingredients:
                                         ing_name = opt_ing.get('name', 'Unknown')
+                                        ing_amount = opt_ing.get('amount', '100g')
                                         
-                                        # Calculate nutrition data for optimized ingredient
-                                        nutrition_data = {
-                                            'name': ing_name,
-                                            'amount': opt_ing.get('amount', '100g'),
-                                            'calories': opt_ing.get('calories', 0),
-                                            'protein': opt_ing.get('protein', 0),
-                                            'carbs': opt_ing.get('carbs', 0),
-                                            'fat': opt_ing.get('fat', 0)
-                                        }
+                                        # Calculate actual nutrition using FDC database
+                                        from fdc_database_loader import fdc_db
+                                        fdc_nutrition = fdc_db.get_nutrition(ing_name.lower())
+                                        
+                                        if fdc_nutrition:
+                                            # Parse amount to grams for calculation
+                                            amount_grams = enhanced_planner.optimizer._parse_amount(ing_amount, ing_name)
+                                            factor = amount_grams / 100.0
+                                            
+                                            # Calculate nutrition based on actual amount
+                                            nutrition_data = {
+                                                'name': ing_name,
+                                                'amount': ing_amount,
+                                                'calories': round(fdc_nutrition.get('calories', 0) * factor, 1),
+                                                'protein': round(fdc_nutrition.get('protein', 0) * factor, 1),
+                                                'carbs': round(fdc_nutrition.get('carbs', 0) * factor, 1),
+                                                'fat': round(fdc_nutrition.get('fat', 0) * factor, 1),
+                                                'fdc_verified': True
+                                            }
+                                        else:
+                                            # Fallback to optimizer's calculation or defaults
+                                            nutrition_data = {
+                                                'name': ing_name,
+                                                'amount': ing_amount,
+                                                'calories': opt_ing.get('calories', 0),
+                                                'protein': opt_ing.get('protein', 0),
+                                                'carbs': opt_ing.get('carbs', 0),
+                                                'fat': opt_ing.get('fat', 0),
+                                                'fdc_verified': False
+                                            }
                                         
                                         st.session_state[f"{meal_key}_adjustments"][ing_name] = {
                                             'factor': 1.0,  # Already optimized
                                             'nutrition': nutrition_data
                                         }
                                     
+                                    st.success("✅ **AI Precision Complete!** Meal optimized with FDC nutrition data")
                                     st.rerun()
                                 
                             except Exception as e:
                                 st.error(f"AI optimization failed: {str(e)}")
                                 st.info("Falling back to simple auto-fix...")
                     
-                    with col_c:
+                    with col_b:
                         reset_key = f"monday_meal_{i}_reset_{hash(str(meal_targets))}"
                         if st.button("🔄 Reset", key=reset_key):
                             for ing_name in st.session_state[f"{meal_key}_adjustments"]:
