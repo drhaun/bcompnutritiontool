@@ -1,0 +1,88 @@
+{
+  "metadata": {
+    "source": "USDA FoodData Central",
+    "api_version": "v1",
+    "build_date": "2025-08-03 15:30:00",
+    "total_categories": 6,
+    "total_ingredients": 180
+  },
+  "categories": {
+    "proteins": {
+      "chicken breast": {"name": "chicken, broilers or fryers, breast, meat only, raw", "fdc_id": 171077, "protein": 31.0, "carbs": 0.0, "fat": 3.6, "calories": 165, "fiber": 0.0, "sugar": 0.0, "sodium": 74.0},
+      "salmon": {"name": "fish, salmon, atlantic, farmed, raw", "fdc_id": 175167, "protein": 25.4, "carbs": 0.0, "fat": 12.35, "calories": 208, "fiber": 0.0, "sugar": 0.0, "sodium": 59.0},
+      "lean beef": {"name": "beef, round, eye of round, separable lean only, raw", "fdc_id": 174032, "protein": 22.9, "carbs": 0.0, "fat": 4.2, "calories": 133, "fiber": 0.0, "sugar": 0.0, "sodium": 55.0},
+      "turkey breast": {"name": "turkey, all classes, breast, meat and skin, raw", "fdc_id": 171481, "protein": 29.9, "carbs": 0.0, "fat": 3.2, "calories": 157, "fiber": 0.0, "sugar": 0.0, "sodium": 70.0},
+      "tuna": {"name": "fish, tuna, yellowfin, fresh, raw", "fdc_id": 175164, "protein": 30.0, "carbs": 0.0, "fat": 0.6, "calories": 144, "fiber": 0.0, "sugar": 0.0, "sodium": 47.0},
+      "egg": {"name": "egg, whole, raw, fresh", "fdc_id": 748967, "protein": 12.6, "carbs": 0.72, "fat": 9.51, "calories": 143, "fiber": 0.0, "sugar": 0.37, "sodium": 142.0},
+      "egg whites": {"name": "egg, white, raw, fresh", "fdc_id": 748968, "protein": 10.9, "carbs": 0.73, "fat": 0.17, "calories": 52, "fiber": 0.0, "sugar": 0.71, "sodium": 166.0},
+      "greek yogurt": {"name": "yogurt, greek, plain, nonfat", "fdc_id": 170901, "protein": 10.19, "carbs": 3.98, "fat": 0.39, "calories": 59, "fiber": 0.0, "sugar": 3.98, "sodium": 36.0},
+      "cottage cheese": {"name": "cheese, cottage, lowfat, 2% milkfat", "fdc_id": 170851, "protein": 11.12, "carbs": 3.38, "fat": 2.3, "calories": 84, "fiber": 0.0, "sugar": 2.67, "sodium": 405.0},
+      "tofu": {"name": "tofu, soft, prepared with calcium sulfate and magnesium chloride", "fdc_id": 174281, "protein": 8.08, "carbs": 1.88, "fat": 4.78, "calories": 76, "fiber": 0.3, "sugar": 0.62, "sodium": 9.0},
+      "black beans": {"name": "beans, black, mature seeds, cooked, boiled, without salt", "fdc_id": 173735, "protein": 8.86, "carbs": 22.8, "fat": 0.54, "calories": 132, "fiber": 8.7, "sugar": 0.32, "sodium": 2.0},
+      "lentils": {"name": "lentils, mature seeds, cooked, boiled, without salt", "fdc_id": 172421, "protein": 9.02, "carbs": 20.13, "fat": 0.38, "calories": 116, "fiber": 7.9, "sugar": 1.8, "sodium": 2.0},
+      "chickpeas": {"name": "chickpeas (garbanzo beans), mature seeds, cooked, boiled, without salt", "fdc_id": 173757, "protein": 8.86, "carbs": 27.42, "fat": 2.59, "calories": 164, "fiber": 7.6, "sugar": 4.8, "sodium": 7.0},
+      "quinoa": {"name": "quinoa, cooked", "fdc_id": 168917, "protein": 4.4, "carbs": 21.3, "fat": 1.92, "calories": 120, "fiber": 2.8, "sugar": 0.87, "sodium": 7.0},
+      "lean turkey": {"name": "turkey, retail parts, breast, meat only, raw", "fdc_id": 171482, "protein": 29.32, "carbs": 0.0, "fat": 1.02, "calories": 135, "fiber": 0.0, "sugar": 0.0, "sodium": 70.0}
+    },
+    "carbohydrates": {
+      "sweet potato": {"name": "sweet potato, raw, unprepared", "fdc_id": 168482, "protein": 2.0, "carbs": 20.12, "fat": 0.05, "calories": 86, "fiber": 3.0, "sugar": 4.18, "sodium": 7.0},
+      "brown rice": {"name": "rice, brown, long-grain, cooked", "fdc_id": 168880, "protein": 2.58, "carbs": 22.96, "fat": 0.9, "calories": 111, "fiber": 1.8, "sugar": 0.35, "sodium": 5.0},
+      "white rice": {"name": "rice, white, long-grain, regular, cooked", "fdc_id": 168878, "protein": 2.69, "carbs": 28.17, "fat": 0.28, "calories": 130, "fiber": 0.4, "sugar": 0.12, "sodium": 1.0},
+      "oats": {"name": "cereals, oats, regular and quick, not fortified, dry", "fdc_id": 173904, "protein": 16.89, "carbs": 66.27, "fat": 6.9, "calories": 389, "fiber": 10.6, "sugar": 0.99, "sodium": 2.0},
+      "banana": {"name": "bananas, raw", "fdc_id": 173944, "protein": 1.09, "carbs": 22.84, "fat": 0.33, "calories": 89, "fiber": 2.6, "sugar": 12.23, "sodium": 1.0},
+      "apple": {"name": "apples, raw, with skin", "fdc_id": 171688, "protein": 0.26, "carbs": 13.81, "fat": 0.17, "calories": 52, "fiber": 2.4, "sugar": 10.39, "sodium": 1.0},
+      "bread": {"name": "bread, whole-wheat, commercially prepared", "fdc_id": 172687, "protein": 13.35, "carbs": 43.34, "fat": 4.23, "calories": 265, "fiber": 6.0, "sugar": 5.66, "sodium": 538.0},
+      "pasta": {"name": "pasta, cooked, enriched, without added salt", "fdc_id": 168927, "protein": 5.8, "carbs": 30.86, "fat": 1.1, "calories": 158, "fiber": 1.8, "sugar": 0.78, "sodium": 1.0},
+      "potato": {"name": "potatoes, flesh and skin, raw", "fdc_id": 170093, "protein": 2.05, "carbs": 17.49, "fat": 0.09, "calories": 77, "fiber": 2.1, "sugar": 0.78, "sodium": 6.0},
+      "orange": {"name": "oranges, raw, all commercial varieties", "fdc_id": 169097, "protein": 0.94, "carbs": 11.75, "fat": 0.12, "calories": 47, "fiber": 2.4, "sugar": 9.35, "sodium": 0.0}
+    },
+    "fats": {
+      "olive oil": {"name": "oil, olive, salad or cooking", "fdc_id": 171413, "protein": 0.0, "carbs": 0.0, "fat": 100.0, "calories": 884, "fiber": 0.0, "sugar": 0.0, "sodium": 2.0},
+      "avocado": {"name": "avocados, raw, all commercial varieties", "fdc_id": 171706, "protein": 2.0, "carbs": 8.53, "fat": 14.66, "calories": 160, "fiber": 6.7, "sugar": 0.66, "sodium": 7.0},
+      "almonds": {"name": "nuts, almonds", "fdc_id": 170567, "protein": 21.15, "carbs": 21.55, "fat": 49.93, "calories": 579, "fiber": 12.5, "sugar": 4.35, "sodium": 1.0},
+      "walnuts": {"name": "nuts, walnuts, english", "fdc_id": 170187, "protein": 15.23, "carbs": 13.71, "fat": 65.21, "calories": 654, "fiber": 6.7, "sugar": 2.61, "sodium": 2.0},
+      "coconut oil": {"name": "oil, coconut", "fdc_id": 171412, "protein": 0.0, "carbs": 0.0, "fat": 99.06, "calories": 862, "fiber": 0.0, "sugar": 0.0, "sodium": 0.0},
+      "cashews": {"name": "nuts, cashew nuts, raw", "fdc_id": 170162, "protein": 18.22, "carbs": 30.19, "fat": 43.85, "calories": 553, "fiber": 3.3, "sugar": 5.91, "sodium": 12.0},
+      "peanut butter": {"name": "peanut butter, smooth style, with salt", "fdc_id": 172430, "protein": 25.09, "carbs": 19.56, "fat": 50.39, "calories": 588, "fiber": 6.0, "sugar": 9.22, "sodium": 486.0},
+      "sunflower oil": {"name": "oil, sunflower, linoleic, (partially hydrogenated)", "fdc_id": 171028, "protein": 0.0, "carbs": 0.0, "fat": 100.0, "calories": 884, "fiber": 0.0, "sugar": 0.0, "sodium": 0.0},
+      "butter": {"name": "butter, salted", "fdc_id": 173430, "protein": 0.85, "carbs": 0.06, "fat": 81.11, "calories": 717, "fiber": 0.0, "sugar": 0.06, "sodium": 643.0},
+      "chia seeds": {"name": "seeds, chia, dried", "fdc_id": 170554, "protein": 16.54, "carbs": 42.12, "fat": 30.74, "calories": 486, "fiber": 34.4, "sugar": 0.01, "sodium": 16.0}
+    },
+    "vegetables": {
+      "broccoli": {"name": "broccoli, raw", "fdc_id": 170379, "protein": 2.82, "carbs": 6.64, "fat": 0.37, "calories": 34, "fiber": 2.6, "sugar": 1.55, "sodium": 33.0},
+      "spinach": {"name": "spinach, raw", "fdc_id": 168462, "protein": 2.86, "carbs": 3.63, "fat": 0.39, "calories": 23, "fiber": 2.2, "sugar": 0.42, "sodium": 79.0},
+      "carrots": {"name": "carrots, raw", "fdc_id": 170393, "protein": 0.93, "carbs": 9.58, "fat": 0.24, "calories": 41, "fiber": 2.8, "sugar": 4.74, "sodium": 69.0},
+      "bell pepper": {"name": "peppers, sweet, red, raw", "fdc_id": 170427, "protein": 0.99, "carbs": 7.31, "fat": 0.3, "calories": 31, "fiber": 2.5, "sugar": 4.2, "sodium": 4.0},
+      "zucchini": {"name": "squash, summer, zucchini, includes skin, raw", "fdc_id": 169291, "protein": 1.21, "carbs": 3.11, "fat": 0.32, "calories": 17, "fiber": 1.0, "sugar": 2.5, "sodium": 8.0},
+      "asparagus": {"name": "asparagus, raw", "fdc_id": 169218, "protein": 2.2, "carbs": 3.88, "fat": 0.12, "calories": 20, "fiber": 2.1, "sugar": 1.88, "sodium": 2.0},
+      "kale": {"name": "kale, raw", "fdc_id": 169927, "protein": 4.28, "carbs": 8.75, "fat": 0.93, "calories": 49, "fiber": 3.6, "sugar": 2.26, "sodium": 38.0},
+      "cauliflower": {"name": "cauliflower, raw", "fdc_id": 169986, "protein": 1.92, "carbs": 4.97, "fat": 0.28, "calories": 25, "fiber": 2.0, "sugar": 1.91, "sodium": 30.0},
+      "tomatoes": {"name": "tomatoes, red, ripe, raw, year round average", "fdc_id": 170457, "protein": 0.88, "carbs": 3.89, "fat": 0.2, "calories": 18, "fiber": 1.2, "sugar": 2.63, "sodium": 5.0},
+      "cucumber": {"name": "cucumber, with peel, raw", "fdc_id": 169220, "protein": 0.65, "carbs": 3.63, "fat": 0.11, "calories": 16, "fiber": 0.5, "sugar": 1.67, "sodium": 2.0}
+    },
+    "fruits": {
+      "blueberries": {"name": "blueberries, raw", "fdc_id": 171711, "protein": 0.74, "carbs": 14.49, "fat": 0.33, "calories": 57, "fiber": 2.4, "sugar": 9.96, "sodium": 1.0},
+      "strawberries": {"name": "strawberries, raw", "fdc_id": 167762, "protein": 0.67, "carbs": 7.68, "fat": 0.3, "calories": 32, "fiber": 2.0, "sugar": 4.89, "sodium": 1.0},
+      "pineapple": {"name": "pineapple, raw, all varieties", "fdc_id": 169124, "protein": 0.54, "carbs": 13.12, "fat": 0.12, "calories": 50, "fiber": 1.4, "sugar": 9.85, "sodium": 1.0},
+      "mango": {"name": "mangos, raw", "fdc_id": 169913, "protein": 0.82, "carbs": 14.98, "fat": 0.38, "calories": 60, "fiber": 1.6, "sugar": 13.66, "sodium": 1.0},
+      "grapes": {"name": "grapes, red or green (european type, such as thompson seedless), raw", "fdc_id": 174682, "protein": 0.72, "carbs": 17.15, "fat": 0.16, "calories": 69, "fiber": 0.9, "sugar": 16.25, "sodium": 2.0},
+      "watermelon": {"name": "watermelon, raw", "fdc_id": 167765, "protein": 0.61, "carbs": 7.55, "fat": 0.15, "calories": 30, "fiber": 0.4, "sugar": 6.2, "sodium": 1.0},
+      "cantaloupe": {"name": "melons, cantaloupe, raw", "fdc_id": 169092, "protein": 0.84, "carbs": 8.16, "fat": 0.19, "calories": 34, "fiber": 0.9, "sugar": 7.86, "sodium": 16.0},
+      "cherries": {"name": "cherries, sweet, raw", "fdc_id": 173032, "protein": 1.06, "carbs": 16.01, "fat": 0.2, "calories": 63, "fiber": 2.1, "sugar": 12.82, "sodium": 0.0},
+      "peach": {"name": "peaches, raw", "fdc_id": 169905, "protein": 0.91, "carbs": 9.54, "fat": 0.25, "calories": 39, "fiber": 1.5, "sugar": 8.39, "sodium": 0.0},
+      "pear": {"name": "pears, raw", "fdc_id": 169118, "protein": 0.36, "carbs": 15.23, "fat": 0.14, "calories": 57, "fiber": 3.1, "sugar": 9.75, "sodium": 1.0}
+    },
+    "herbs_spices": {
+      "basil": {"name": "basil, fresh", "fdc_id": 172232, "protein": 3.15, "carbs": 2.65, "fat": 0.64, "calories": 22, "fiber": 1.6, "sugar": 0.3, "sodium": 4.0},
+      "parsley": {"name": "parsley, fresh", "fdc_id": 170416, "protein": 2.97, "carbs": 6.33, "fat": 0.79, "calories": 36, "fiber": 3.3, "sugar": 0.85, "sodium": 56.0},
+      "cilantro": {"name": "coriander (cilantro) leaves, raw", "fdc_id": 168481, "protein": 2.13, "carbs": 3.67, "fat": 0.52, "calories": 23, "fiber": 2.8, "sugar": 0.87, "sodium": 46.0},
+      "oregano": {"name": "oregano, dried", "fdc_id": 171328, "protein": 9.0, "carbs": 68.92, "fat": 4.28, "calories": 265, "fiber": 42.5, "sugar": 4.09, "sodium": 25.0},
+      "thyme": {"name": "thyme, dried", "fdc_id": 171671, "protein": 9.11, "carbs": 63.94, "fat": 7.43, "calories": 276, "fiber": 37.0, "sugar": 1.71, "sodium": 55.0},
+      "garlic": {"name": "garlic, raw", "fdc_id": 170344, "protein": 6.36, "carbs": 33.06, "fat": 0.5, "calories": 149, "fiber": 2.1, "sugar": 1.0, "sodium": 17.0},
+      "ginger": {"name": "ginger root, raw", "fdc_id": 169231, "protein": 1.82, "carbs": 17.77, "fat": 0.75, "calories": 80, "fiber": 2.0, "sugar": 1.7, "sodium": 13.0},
+      "cinnamon": {"name": "spices, cinnamon, ground", "fdc_id": 171320, "protein": 3.99, "carbs": 80.59, "fat": 1.24, "calories": 247, "fiber": 53.1, "sugar": 2.17, "sodium": 10.0},
+      "black pepper": {"name": "spices, pepper, black", "fdc_id": 171348, "protein": 10.39, "carbs": 63.95, "fat": 3.26, "calories": 251, "fiber": 25.3, "sugar": 0.64, "sodium": 20.0},
+      "turmeric": {"name": "spices, turmeric, ground", "fdc_id": 172231, "protein": 7.83, "carbs": 64.93, "fat": 9.88, "calories": 354, "fiber": 21.1, "sugar": 3.21, "sodium": 38.0}
+    }
+  }
+}

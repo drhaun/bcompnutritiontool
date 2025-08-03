@@ -1,13 +1,19 @@
 """
 Simplified Intelligent Macro Optimizer
-Works with existing Fitomics codebase without external dependencies
+Works with existing Fitomics codebase using FDC database
 """
 import copy
+import json
+import os
 from typing import Dict, List, Tuple, Optional
+from fdc_database_loader import fdc_db
 
 class SimpleMacroOptimizer:
     def __init__(self):
-        # Built-in nutrition database for reliable optimization
+        # Use FDC database for authentic nutrition data
+        self.fdc_loader = fdc_db
+        
+        # Backup built-in nutrition database for reliability
         self.nutrition_db = {
             # Proteins
             "chicken breast": {"protein": 31.0, "carbs": 0.0, "fat": 3.6, "calories": 165},
@@ -102,7 +108,18 @@ class SimpleMacroOptimizer:
         """Get nutrition data per 100g for ingredient"""
         name_clean = ingredient_name.lower().strip()
         
-        # Direct lookup
+        # Try FDC database first for authentic data
+        fdc_nutrition = self.fdc_loader.get_nutrition(name_clean)
+        if fdc_nutrition:
+            # Convert FDC format to our format
+            return {
+                "protein": fdc_nutrition.get("protein", 0),
+                "carbs": fdc_nutrition.get("carbs", 0),
+                "fat": fdc_nutrition.get("fat", 0),
+                "calories": fdc_nutrition.get("calories", 0)
+            }
+        
+        # Fallback to built-in database
         if name_clean in self.nutrition_db:
             return self.nutrition_db[name_clean]
         
@@ -111,7 +128,7 @@ class SimpleMacroOptimizer:
             if any(word in name_clean for word in db_name.split()) and len(db_name.split()) > 1:
                 return nutrition
         
-        # Fallback estimates based on ingredient type
+        # Final fallback estimates based on ingredient type
         if any(meat in name_clean for meat in ["chicken", "turkey", "beef", "pork"]):
             return {"protein": 25, "carbs": 0, "fat": 5, "calories": 150}
         elif any(fish in name_clean for fish in ["salmon", "tuna", "cod", "fish"]):
@@ -171,54 +188,50 @@ class SimpleMacroOptimizer:
         # Step 3: Start with original ingredients
         optimized_ingredients = copy.deepcopy(ingredients)
         
-        # Step 4: Add complementary ingredients for significant gaps
+        # Step 4: Smart ingredient addition with precision targeting
         dietary_restrictions = user_preferences.get("dietary_restrictions", []) if user_preferences else []
         allergies = user_preferences.get("allergies", []) if user_preferences else []
         
-        # Add protein if gap > 5g
-        if protein_gap > 5:
-            protein_ingredient = self._select_best_ingredient(
-                self.protein_boosters, "protein", protein_gap, dietary_restrictions, allergies
-            )
-            if protein_ingredient:
-                nutrition = self.get_nutrition_per_100g(protein_ingredient)
-                amount_needed = min(200, max(20, (protein_gap / nutrition["protein"]) * 100))
-                
-                optimized_ingredients.append({
-                    "name": protein_ingredient.title(),
-                    "amount": self._format_amount(amount_needed, protein_ingredient)
-                })
+        # Only add ingredients if gaps are significant and achievable
+        ingredients_added = 0
+        max_additions = 2  # Limit additions to maintain meal coherence
         
-        # Add carbs if gap > 8g
-        if carbs_gap > 8:
-            carb_ingredient = self._select_best_ingredient(
-                self.carb_boosters, "carbs", carbs_gap, dietary_restrictions, allergies
-            )
-            if carb_ingredient:
-                nutrition = self.get_nutrition_per_100g(carb_ingredient)
-                amount_needed = min(300, max(30, (carbs_gap / nutrition["carbs"]) * 100))
-                
-                optimized_ingredients.append({
-                    "name": carb_ingredient.title(),
-                    "amount": self._format_amount(amount_needed, carb_ingredient)
-                })
+        # Prioritize the biggest gaps first
+        gaps = [
+            (abs(protein_gap), "protein", protein_gap, self.protein_boosters),
+            (abs(carbs_gap), "carbs", carbs_gap, self.carb_boosters), 
+            (abs(fat_gap), "fat", fat_gap, self.fat_boosters)
+        ]
+        gaps.sort(reverse=True)  # Start with biggest gap
         
-        # Add fat if gap > 3g
-        if fat_gap > 3:
-            fat_ingredient = self._select_best_ingredient(
-                self.fat_boosters, "fat", fat_gap, dietary_restrictions, allergies
-            )
-            if fat_ingredient:
-                nutrition = self.get_nutrition_per_100g(fat_ingredient)
-                amount_needed = min(50, max(5, (fat_gap / nutrition["fat"]) * 100))
+        for gap_size, macro_type, gap_value, boosters in gaps:
+            if ingredients_added >= max_additions:
+                break
                 
-                optimized_ingredients.append({
-                    "name": fat_ingredient.title(),
-                    "amount": self._format_amount(amount_needed, fat_ingredient)
-                })
+            # Only add if gap is significant (>10% of target) and positive
+            target_value = target_macros.get(macro_type, 30)
+            if gap_value > target_value * 0.1 and gap_value > 0:
+                
+                ingredient = self._select_best_ingredient(
+                    boosters, macro_type, gap_value, dietary_restrictions, allergies
+                )
+                
+                if ingredient:
+                    nutrition = self.get_nutrition_per_100g(ingredient)
+                    macro_per_100g = nutrition.get(macro_type, 0)
+                    
+                    if macro_per_100g > 0:
+                        # Calculate precise amount needed for this gap
+                        amount_needed = min(150, max(10, (gap_value / macro_per_100g) * 100))
+                        
+                        optimized_ingredients.append({
+                            "name": ingredient.title(),
+                            "amount": self._format_amount(amount_needed, ingredient)
+                        })
+                        ingredients_added += 1
         
-        # Step 5: Fine-tune existing ingredients if needed
-        optimized_ingredients = self._fine_tune_portions(optimized_ingredients, target_macros)
+        # Step 5: Precise portion optimization
+        optimized_ingredients = self._precise_portion_optimization(optimized_ingredients, target_macros)
         
         # Calculate final macros
         final_macros = self.calculate_current_macros(optimized_ingredients)
@@ -275,25 +288,81 @@ class SimpleMacroOptimizer:
         
         return best_candidate
     
-    def _fine_tune_portions(self, ingredients: List[Dict], target_macros: Dict[str, float]) -> List[Dict]:
-        """Fine-tune ingredient portions to better hit targets"""
+    def _precise_portion_optimization(self, ingredients: List[Dict], target_macros: Dict[str, float]) -> List[Dict]:
+        """Precise mathematical optimization of ingredient portions"""
         
-        current_macros = self.calculate_current_macros(ingredients)
-        target_calories = target_macros.get("calories", 400)
-        current_calories = current_macros.get("calories", 0)
-        
-        # If we're reasonably close on calories, apply minor scaling
-        if current_calories > 0 and abs(current_calories - target_calories) / target_calories < 0.2:
-            scale_factor = target_calories / current_calories
+        # Multiple optimization passes for precision
+        for iteration in range(3):
+            current_macros = self.calculate_current_macros(ingredients)
             
-            # Apply scaling to all ingredients
-            for ingredient in ingredients:
-                amount_str = ingredient.get("amount", "100g")
-                amount_grams = self.parse_amount_to_grams(amount_str, ingredient.get("name", ""))
-                new_amount_grams = amount_grams * scale_factor
-                ingredient["amount"] = self._format_amount(new_amount_grams, ingredient.get("name", ""))
+            # Calculate errors
+            calories_error = (current_macros.get("calories", 0) - target_macros.get("calories", 400)) / target_macros.get("calories", 400)
+            protein_error = (current_macros.get("protein", 0) - target_macros.get("protein", 30)) / target_macros.get("protein", 30)
+            carbs_error = (current_macros.get("carbs", 0) - target_macros.get("carbs", 40)) / target_macros.get("carbs", 40)
+            fat_error = (current_macros.get("fat", 0) - target_macros.get("fat", 15)) / target_macros.get("fat", 15)
+            
+            # If within ±5% tolerance, we're done
+            max_error = max(abs(calories_error), abs(protein_error), abs(carbs_error), abs(fat_error))
+            if max_error < 0.05:
+                break
+            
+            # Apply targeted adjustments
+            if abs(calories_error) > 0.02:  # 2% tolerance for calories
+                # Scale all ingredients by calorie adjustment
+                scale_factor = 1 - (calories_error * 0.5)  # Conservative adjustment
+                scale_factor = max(0.5, min(1.5, scale_factor))  # Safety bounds
+                
+                for ingredient in ingredients:
+                    amount_str = ingredient.get("amount", "100g")
+                    amount_grams = self.parse_amount_to_grams(amount_str, ingredient.get("name", ""))
+                    new_amount_grams = amount_grams * scale_factor
+                    ingredient["amount"] = self._format_amount(new_amount_grams, ingredient.get("name", ""))
+            
+            else:
+                # Fine-tune individual macro contributors
+                if abs(protein_error) > 0.02:
+                    self._adjust_macro_contributors(ingredients, "protein", protein_error)
+                if abs(carbs_error) > 0.02:
+                    self._adjust_macro_contributors(ingredients, "carbs", carbs_error)
+                if abs(fat_error) > 0.02:
+                    self._adjust_macro_contributors(ingredients, "fat", fat_error)
         
         return ingredients
+    
+    def _adjust_macro_contributors(self, ingredients: List[Dict], macro_type: str, error: float):
+        """Adjust ingredients that contribute most to a specific macro"""
+        
+        # Find ingredients that contribute significantly to this macro
+        contributors = []
+        for ingredient in ingredients:
+            name = ingredient.get("name", "")
+            amount_str = ingredient.get("amount", "100g")
+            amount_grams = self.parse_amount_to_grams(amount_str, name)
+            nutrition = self.get_nutrition_per_100g(name)
+            
+            macro_contribution = nutrition.get(macro_type, 0) * (amount_grams / 100)
+            if macro_contribution > 1:  # Significant contributor
+                contributors.append((ingredient, macro_contribution))
+        
+        if contributors:
+            # Sort by contribution and adjust top contributors
+            contributors.sort(key=lambda x: x[1], reverse=True)
+            
+            # Adjust top 2 contributors
+            for i, (ingredient, contribution) in enumerate(contributors[:2]):
+                if i == 0:
+                    # Primary contributor gets larger adjustment
+                    adjustment_factor = 1 - (error * 0.3)
+                else:
+                    # Secondary contributor gets smaller adjustment
+                    adjustment_factor = 1 - (error * 0.15)
+                
+                adjustment_factor = max(0.3, min(2.0, adjustment_factor))  # Safety bounds
+                
+                amount_str = ingredient.get("amount", "100g")
+                amount_grams = self.parse_amount_to_grams(amount_str, ingredient.get("name", ""))
+                new_amount_grams = amount_grams * adjustment_factor
+                ingredient["amount"] = self._format_amount(new_amount_grams, ingredient.get("name", ""))
     
     def _format_amount(self, grams: float, ingredient_name: str) -> str:
         """Format amount back to appropriate unit"""
