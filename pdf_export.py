@@ -21,7 +21,10 @@ def clean_text_for_pdf(text):
     text = unicodedata.normalize('NFKD', text)
     
     # Remove or replace problematic characters
-    text = text.replace('•', '-')  # Replace bullet points with dashes
+    text = text.replace('•', '- ')  # Replace bullet points with dashes  
+    text = text.replace('\u2022', '- ')  # Unicode bullet point
+    text = text.replace('\u25cf', '- ')  # Black circle
+    text = text.replace('\u25cb', '- ')  # White circle
     text = text.replace('–', '-')  # Replace em dash with hyphen
     text = text.replace('—', '-')  # Replace en dash with hyphen
     text = text.replace('"', '"')  # Replace curly quotes
@@ -36,6 +39,7 @@ def clean_text_for_pdf(text):
     text = text.replace('™', '')  # Remove trademark symbol
     text = text.replace('®', '')  # Remove registered symbol
     text = text.replace('©', '')  # Remove copyright symbol
+    # More aggressive ASCII cleanup - remove ALL unicode characters
     text = re.sub(r'[^\x20-\x7E]', '', text)  # Keep only printable ASCII characters
     
     # Ensure it's encodable in latin-1
@@ -595,7 +599,7 @@ class FitomicsPDF(FPDF):
                     self.cell(0, 6, f"- {clean_text_for_pdf(name)}:", 0, 1, 'L')
                     self.set_font('Arial', '', 10)
                     for amount in amounts:
-                        self.cell(0, 4, f"  • {clean_text_for_pdf(amount)}", 0, 1, 'L')
+                        self.cell(0, 4, f"  - {clean_text_for_pdf(amount)}", 0, 1, 'L')
                     self.set_font('Arial', '', 11)
                 else:
                     # Single amount
