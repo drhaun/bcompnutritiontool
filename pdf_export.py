@@ -374,7 +374,7 @@ class FitomicsPDF(FPDF):
         self.ln(8)
         
     def add_grocery_list(self, all_ingredients):
-        """Add consolidated grocery list with smart grouping"""
+        """Add consolidated grocery list with proper totaling"""
         self.add_page()
         
         self.set_font('Arial', 'B', 18)
@@ -382,8 +382,9 @@ class FitomicsPDF(FPDF):
         self.cell(0, 12, 'CONSOLIDATED GROCERY LIST', 0, 1, 'L')
         self.ln(5)
         
-        # Consolidate ingredients by name with smart amount handling
+        # Properly consolidate ingredients by name and sum amounts
         consolidated = {}
+        
         for ingredient in all_ingredients:
             if isinstance(ingredient, dict):
                 name = ingredient.get('name', ingredient.get('item', ''))
@@ -396,34 +397,71 @@ class FitomicsPDF(FPDF):
                 # Clean and normalize the name
                 clean_name = name.strip().title()
                 
-                # Store amounts, trying to intelligently combine similar units
-                if clean_name in consolidated:
-                    if isinstance(consolidated[clean_name], list):
-                        consolidated[clean_name].append(amount_str)
-                    else:
-                        consolidated[clean_name] = [consolidated[clean_name], amount_str]
-                else:
-                    consolidated[clean_name] = amount_str
+                # Parse amount and unit
+                amount_parts = amount_str.strip().split()
+                if len(amount_parts) >= 1:
+                    # Try to extract numeric amount
+                    try:
+                        # Extract numeric value
+                        amount_clean = amount_parts[0].replace('g', '').replace('ml', '').replace('tbsp', '').replace('large', '')
+                        numeric_amount = float(amount_clean)
+                        
+                        # Extract unit properly
+                        if 'g' in amount_str:
+                            unit = 'g'
+                        elif 'ml' in amount_str:
+                            unit = 'ml'
+                        elif 'tbsp' in amount_str:
+                            unit = ' tbsp'
+                        elif 'large' in amount_str:
+                            unit = ' large'
+                        else:
+                            unit = ' ' + ' '.join(amount_parts[1:]) if len(amount_parts) > 1 else ''
+                            
+                        # Store in consolidated with proper totaling
+                        if clean_name in consolidated:
+                            # Add to existing total
+                            existing_amount, existing_unit = consolidated[clean_name]
+                            if existing_unit == unit:
+                                consolidated[clean_name] = (existing_amount + numeric_amount, unit)
+                            else:
+                                # Different units - keep separate for now
+                                consolidated[f"{clean_name} ({unit})"] = (numeric_amount, unit)
+                        else:
+                            consolidated[clean_name] = (numeric_amount, unit)
+                    except ValueError:
+                        # Non-numeric amount - store as string
+                        if clean_name in consolidated:
+                            if isinstance(consolidated[clean_name], list):
+                                consolidated[clean_name].append(amount_str)
+                            else:
+                                consolidated[clean_name] = [consolidated[clean_name], amount_str]
+                        else:
+                            consolidated[clean_name] = amount_str
         
-        # Sort and display in a more readable format
-        self.set_font('Arial', 'B', 12)
+        # Sort and display with proper totals
+        self.set_font('Arial', '', 11)
         self.set_text_color(0, 0, 0)
         
         for name, amounts in sorted(consolidated.items()):
             if name:
-                self.set_font('Arial', 'B', 11)
-                if isinstance(amounts, list):
-                    # Show total needed across all meals
-                    total_line = f"**{clean_text_for_pdf(name)}**"
-                    self.cell(0, 6, total_line, 0, 1, 'L')
-                    
-                    # Show breakdown by usage
+                if isinstance(amounts, tuple):
+                    # Numeric total
+                    total_amount, unit = amounts
+                    if total_amount == int(total_amount):
+                        total_amount = int(total_amount)
+                    total_str = f"{total_amount}{unit}" if unit else str(total_amount)
+                    self.cell(0, 6, f"- {clean_text_for_pdf(name)}: {total_str}", 0, 1, 'L')
+                elif isinstance(amounts, list):
+                    # Multiple non-numeric amounts
+                    self.cell(0, 6, f"- {clean_text_for_pdf(name)}:", 0, 1, 'L')
                     self.set_font('Arial', '', 10)
                     for amount in amounts:
-                        self.cell(0, 4, f"  - {clean_text_for_pdf(amount)}", 0, 1, 'L')
+                        self.cell(0, 4, f"  • {clean_text_for_pdf(amount)}", 0, 1, 'L')
+                    self.set_font('Arial', '', 11)
                 else:
                     # Single amount
-                    self.cell(0, 6, f"**{clean_text_for_pdf(name)}**: {clean_text_for_pdf(amounts)}", 0, 1, 'L')
+                    self.cell(0, 6, f"- {clean_text_for_pdf(name)}: {clean_text_for_pdf(amounts)}", 0, 1, 'L')
     
     def add_organized_grocery_list(self, all_ingredients):
         """Add organized grocery list by category"""
