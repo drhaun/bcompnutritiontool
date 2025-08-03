@@ -1718,7 +1718,7 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("📄 Export to PDF", use_container_width=True):
+            if st.button("📄 Export to PDF", key="pdf_export_final_view", use_container_width=True):
                 try:
                     # Get comprehensive plan info
                     plan_info = {
@@ -1738,6 +1738,7 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
                             data=pdf_buffer,
                             file_name=f"fitomics_meal_plan_{timestamp}.pdf",
                             mime="application/pdf",
+                            key="download_pdf_final_view",
                             use_container_width=True
                         )
                         st.success("✅ PDF generated successfully!")
@@ -1747,7 +1748,7 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
                     st.error(f"❌ PDF export failed: {str(e)}")
         
         with col2:
-            if st.button("🛒 Generate Grocery List", use_container_width=True):
+            if st.button("🛒 Generate Grocery List", key="grocery_list_week_complete", use_container_width=True):
                 # Generate consolidated grocery list
                 grocery_items = {}
                 
@@ -1771,7 +1772,7 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
                         st.markdown(f"  • {amount}")
         
         with col3:
-            if st.button("🔄 Generate New Plan", use_container_width=True):
+            if st.button("🔄 Generate New Plan", key="new_plan_week_complete", use_container_width=True):
                 # Clear all meal planning session state
                 for key in ['meal_plan_stage', 'monday_plan', 'approved_days', 'ai_meal_plan']:
                     if key in st.session_state:
@@ -1866,7 +1867,7 @@ if 'ai_meal_plan' in st.session_state and st.session_state['ai_meal_plan']:
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("📄 Export to PDF", use_container_width=True):
+        if st.button("📄 Export to PDF", key="pdf_export_week_complete", use_container_width=True):
             try:
                 # Get comprehensive plan info
                 plan_info = {
@@ -1886,6 +1887,7 @@ if 'ai_meal_plan' in st.session_state and st.session_state['ai_meal_plan']:
                         data=pdf_buffer,
                         file_name=f"fitomics_meal_plan_{timestamp}.pdf",
                         mime="application/pdf",
+                        key="download_pdf_week_complete",
                         use_container_width=True
                     )
                     st.success("✅ PDF generated successfully!")
@@ -1895,7 +1897,7 @@ if 'ai_meal_plan' in st.session_state and st.session_state['ai_meal_plan']:
                 st.error(f"❌ PDF export failed: {str(e)}")
     
     with col2:
-        if st.button("🛒 Generate Grocery List", use_container_width=True):
+        if st.button("🛒 Generate Grocery List", key="grocery_list_final_display", use_container_width=True):
             # Generate consolidated grocery list
             grocery_items = {}
             
