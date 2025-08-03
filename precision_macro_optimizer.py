@@ -30,14 +30,22 @@ class PrecisionMacroOptimizer:
         current_macros = self._calculate_macros(ingredients)
         gaps = self._calculate_gaps(current_macros, targets)
         
-        # Step 2: If already precise, return as-is
-        if self._is_within_tolerance(current_macros, targets, tolerance=0.03):
-            return ingredients, current_macros
+        # Step 2: If already reasonably close (±5%), only make minor adjustments
+        if self._is_within_tolerance(current_macros, targets, tolerance=0.05):
+            # Make conservative adjustments only
+            optimized_ingredients = self._conservative_optimization(ingredients, targets, current_macros)
+            final_macros = self._calculate_macros(optimized_ingredients)
+            return optimized_ingredients, final_macros
         
-        # Step 3: Mathematical optimization approach
-        optimized_ingredients = self._mathematical_optimization(ingredients, targets, gaps, user_preferences)
+        # Step 3: If targets are much smaller than current, adjust targets upward (don't shrink meals drastically)
+        adjusted_targets = self._adjust_targets_intelligently(current_macros, targets)
         
-        # Step 4: Validate and return
+        # Step 4: Mathematical optimization with adjusted targets
+        optimized_ingredients = self._mathematical_optimization(ingredients, adjusted_targets, 
+                                                               self._calculate_gaps(current_macros, adjusted_targets), 
+                                                               user_preferences)
+        
+        # Step 5: Validate and return
         final_macros = self._calculate_macros(optimized_ingredients)
         
         return optimized_ingredients, final_macros
@@ -352,6 +360,46 @@ class PrecisionMacroOptimizer:
             return f"{kg}kg"
         else:
             return f"{round(grams)}g"
+    
+    def _adjust_targets_intelligently(self, current: Dict[str, float], targets: Dict[str, float]) -> Dict[str, float]:
+        """Adjust targets to prevent drastic meal shrinking"""
+        adjusted = copy.deepcopy(targets)
+        
+        for macro in ["protein", "carbs", "fat", "calories"]:
+            current_val = current.get(macro, 0)
+            target_val = targets.get(macro, 0)
+            
+            # If target is more than 25% smaller than current, adjust target upward
+            if target_val > 0 and current_val > target_val * 1.25:
+                # Set target to 85% of current value instead of the drastic reduction
+                adjusted[macro] = current_val * 0.85
+        
+        return adjusted
+    
+    def _conservative_optimization(self, ingredients: List[Dict], targets: Dict[str, float], 
+                                 current: Dict[str, float]) -> List[Dict]:
+        """Make only conservative portion adjustments when already close to targets"""
+        
+        result = copy.deepcopy(ingredients)
+        
+        # Calculate overall scale factor based on calories (most stable metric)
+        current_calories = current.get("calories", 1)
+        target_calories = targets.get("calories", current_calories)
+        
+        if current_calories > 0:
+            scale_factor = target_calories / current_calories
+            # Limit scaling to ±15% for conservative adjustment
+            scale_factor = max(0.85, min(1.15, scale_factor))
+            
+            # Apply gentle scaling to all ingredients
+            for ingredient in result:
+                amount_str = ingredient.get("amount", "100g")
+                name = ingredient.get("name", "")
+                amount_grams = self._parse_amount(amount_str, name)
+                new_amount_grams = amount_grams * scale_factor
+                ingredient["amount"] = self._format_amount(new_amount_grams, name)
+        
+        return result
     
     def calculate_current_macros(self, ingredients: List[Dict]) -> Dict[str, float]:
         """Legacy method name for compatibility - delegates to _calculate_macros"""
