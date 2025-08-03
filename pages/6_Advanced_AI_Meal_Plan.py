@@ -1139,18 +1139,15 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
         with col1:
             st.markdown("**🎯 Bulk Optimization Options:**")
         with col2:
-            if st.button("🚀 Optimize All Meals", type="primary", help="One-click optimization for all meals"):
+            if st.button("⚡ Quick Fix All", type="primary", help="Auto-adjust all meal portions"):
                 try:
-                    from simple_effective_optimizer import create_simple_effective_optimizer
-                    optimizer = create_simple_effective_optimizer()
+                    # Simple bulk scaling for all meals
+                    total_fixed = 0
+                    results = []
                     
-                    optimization_results = []
-                    total_optimized = 0
-                    
-                    # Get per-meal targets from session state
+                    # Get per-meal targets
                     per_meal_targets = st.session_state.get('per_meal_macros', {})
                     
-                    # Optimize each meal individually
                     for i, meal in enumerate(meals):
                         meal_key = f"monday_meal_{i}"
                         meal_name = ["Breakfast", "Lunch", "Dinner", "Mid-Morning Snack", "Afternoon Snack"][i]
@@ -1160,58 +1157,49 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                             "calories": 400, "protein": 30, "carbs": 40, "fat": 15
                         })
                         
-                        # Prepare ingredients for optimization
-                        ingredients_for_opt = [
-                            {
-                                "name": ing.get('item', 'Unknown'),
-                                "amount": ing.get('amount', '100g')
-                            }
-                            for ing in meal.get('ingredients', [])
-                        ]
-                        
-                        if ingredients_for_opt:
-                            # Run optimization
-                            optimized_ingredients, achieved_macros = optimizer.optimize_meal_smart(
-                                ingredients_for_opt, meal_targets
-                            )
+                        # Check if meal has adjustments
+                        if f"{meal_key}_adjustments" in st.session_state:
+                            adjustments = st.session_state[f"{meal_key}_adjustments"]
                             
-                            # Update session state with optimized results
-                            st.session_state[f"{meal_key}_adjustments"] = {}
+                            # Calculate current totals
+                            current_totals = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+                            for ing_name, adj_data in adjustments.items():
+                                factor = adj_data['factor']
+                                nutrition = adj_data['nutrition']
+                                for macro in current_totals:
+                                    current_totals[macro] += nutrition.get(macro, 0) * factor
                             
-                            for opt_ing in optimized_ingredients:
-                                ing_name = opt_ing.get('name', 'Unknown')
-                                ing_amount = opt_ing.get('amount', '100g')
+                            # Calculate and apply scaling
+                            target_calories = meal_targets.get('calories', 400)
+                            current_calories = current_totals.get('calories', 1)
+                            
+                            if current_calories > 0:
+                                scale_factor = target_calories / current_calories
+                                scale_factor = max(0.5, min(2.0, scale_factor))  # Reasonable limits
                                 
-                                # Calculate nutrition data
-                                single_ing_macros = optimizer._calculate_macros([opt_ing])
-                                nutrition_data = {
-                                    'name': ing_name,
-                                    'amount': ing_amount,
-                                    'calories': single_ing_macros.get('calories', 0),
-                                    'protein': single_ing_macros.get('protein', 0),
-                                    'carbs': single_ing_macros.get('carbs', 0),
-                                    'fat': single_ing_macros.get('fat', 0)
-                                }
+                                # Apply scaling to all ingredients in this meal
+                                for ing_name in adjustments:
+                                    current_factor = adjustments[ing_name]['factor']
+                                    new_factor = current_factor * scale_factor
+                                    st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = round(new_factor, 2)
                                 
-                                st.session_state[f"{meal_key}_adjustments"][ing_name] = {
-                                    'factor': 1.0,  # Already optimized
-                                    'nutrition': nutrition_data
-                                }
-                            
-                            optimization_results.append(f"✅ {meal_name}: {achieved_macros['calories']:.0f} cal, {achieved_macros['protein']:.0f}g protein")
-                            total_optimized += 1
+                                projected_calories = current_calories * scale_factor
+                                projected_protein = current_totals.get('protein', 0) * scale_factor
+                                
+                                results.append(f"✅ {meal_name}: {projected_calories:.0f} cal, {projected_protein:.0f}g protein")
+                                total_fixed += 1
                     
-                    if total_optimized > 0:
-                        st.success(f"🎉 Successfully optimized {total_optimized} meals!")
-                        for result in optimization_results:
+                    if total_fixed > 0:
+                        st.success(f"🎉 Quick-fixed {total_fixed} meals!")
+                        for result in results:
                             st.write(result)
                         st.rerun()
                     else:
-                        st.warning("No meals found to optimize")
+                        st.warning("No meals found to fix")
                     
                 except Exception as e:
-                    st.error(f"Bulk optimization failed: {str(e)}")
-                    st.info("Try optimizing meals individually using the AI Precision buttons below.")
+                    st.error(f"Bulk fix failed: {str(e)}")
+                    st.info("Try using individual Quick Fix buttons below.")
         
         meals = monday_plan.get('meals', [])
         
@@ -1371,82 +1359,51 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                     
                     # Quick adjustment buttons  
                     st.markdown("**Quick Actions:**")
-                    # Auto-optimize button with smarter state management
-                    auto_opt_key = f"auto_optimize_{meal_key}_{hash(str(meal_targets))}"
+                    # Simple reliable optimization button
+                    simple_opt_key = f"simple_opt_{meal_key}_{i}"
                     
-                    if st.button("🚀 Auto-Optimize", key=auto_opt_key, help="One-click macro optimization", type="primary"):
+                    if st.button("⚡ Quick Fix", key=simple_opt_key, help="Auto-adjust portions to hit targets", type="primary"):
+                        # Simple proportion-based optimization (no complex database calls)
                         try:
-                            from simple_effective_optimizer import create_simple_effective_optimizer
+                            # Calculate current totals from displayed ingredients
+                            current_totals = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+                            for ing in updated_ingredients:
+                                for macro in current_totals:
+                                    current_totals[macro] += ing.get(macro, 0)
                             
-                            # Initialize optimizer once
-                            if f"{meal_key}_optimizer" not in st.session_state:
-                                st.session_state[f"{meal_key}_optimizer"] = create_simple_effective_optimizer()
+                            # Calculate scaling factors needed
+                            target_calories = meal_targets.get('calories', 400)
+                            current_calories = current_totals.get('calories', 1)
                             
-                            optimizer = st.session_state[f"{meal_key}_optimizer"]
-                            
-                            # Get original meal ingredients directly from the meal data
-                            original_ingredients = []
-                            meal = meals[i]
-                            for ing in meal.get('ingredients', []):
-                                original_ingredients.append({
-                                    "name": ing.get('item', 'Unknown'),
-                                    "amount": ing.get('amount', '100g')
-                                })
-                            
-                            if not original_ingredients:
-                                st.warning("No ingredients found to optimize")
-                            
-                            else:
-                                # Run optimization with persistent state
-                                with st.spinner("Optimizing meal..."):
-                                    optimized_ingredients, achieved_macros = optimizer.optimize_meal_smart(
-                                        original_ingredients, meal_targets
-                                    )
+                            if current_calories > 0:
+                                scale_factor = target_calories / current_calories
+                                # Limit to reasonable range
+                                scale_factor = max(0.5, min(2.0, scale_factor))
                                 
-                                # Update adjustments in one atomic operation
-                                if optimized_ingredients:
-                                    new_adjustments = {}
-                                    
-                                    for opt_ing in optimized_ingredients:
-                                        ing_name = opt_ing.get('name', 'Unknown')
-                                        ing_amount = opt_ing.get('amount', '100g')
-                                        
-                                        # Get precise nutrition calculation
-                                        single_nutrition = optimizer._calculate_macros([opt_ing])
-                                        
-                                        nutrition_data = {
-                                            'name': ing_name,
-                                            'amount': ing_amount,
-                                            'calories': round(single_nutrition.get('calories', 0), 1),
-                                            'protein': round(single_nutrition.get('protein', 0), 1),
-                                            'carbs': round(single_nutrition.get('carbs', 0), 1),
-                                            'fat': round(single_nutrition.get('fat', 0), 1),
-                                            'optimized': True
-                                        }
-                                        
-                                        new_adjustments[ing_name] = {
-                                            'factor': 1.0,
-                                            'nutrition': nutrition_data
-                                        }
-                                    
-                                    # Atomic state update
-                                    st.session_state[f"{meal_key}_adjustments"] = new_adjustments
-                                    st.session_state[f"{meal_key}_optimized"] = True
-                                    st.session_state[f"{meal_key}_achieved"] = achieved_macros
-                                    
-                                    # Show immediate feedback without rerun
-                                    st.success(f"✅ Optimized: {achieved_macros['calories']:.0f} cal, {achieved_macros['protein']:.0f}g protein (±{abs(achieved_macros['calories'] - meal_targets['calories'])/meal_targets['calories']*100:.1f}%)")
-                                    
-                                    # Force refresh of the interface
-                                    st.rerun()
-                                else:
-                                    st.error("Optimization failed - no ingredients returned")
-                                        
+                                # Apply scaling to all ingredients
+                                for ing_name in st.session_state[f"{meal_key}_adjustments"]:
+                                    current_factor = st.session_state[f"{meal_key}_adjustments"][ing_name]['factor']
+                                    new_factor = current_factor * scale_factor
+                                    st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = round(new_factor, 2)
+                                
+                                # Calculate projected results
+                                projected_calories = current_calories * scale_factor
+                                projected_protein = current_totals.get('protein', 0) * scale_factor
+                                
+                                st.success(f"✅ Quick Fix Applied: {projected_calories:.0f} cal, {projected_protein:.0f}g protein (×{scale_factor:.2f})")
+                                st.rerun()
+                            else:
+                                st.error("Cannot optimize - no calories detected")
+                                
                         except Exception as e:
-                            st.error(f"Optimization error: {str(e)}")
-                            # Clear any partial state
-                            if f"{meal_key}_optimizer" in st.session_state:
-                                del st.session_state[f"{meal_key}_optimizer"]
+                            st.error(f"Quick fix failed: {str(e)}")
+                    
+                    # Reset button 
+                    if st.button("🔄 Reset", key=f"reset_{meal_key}_{i}", help="Reset all portions to original"):
+                        for ing_name in st.session_state[f"{meal_key}_adjustments"]:
+                            st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = 1.0
+                        st.success("✅ Reset to original portions")
+                        st.rerun()
                 
                 # Display ingredient table
                 if updated_ingredients:
