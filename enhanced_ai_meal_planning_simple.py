@@ -22,7 +22,7 @@ class EnhancedMealPlannerSimple:
             return meal_data
         
         # Get current macros
-        current_macros = self.optimizer.calculate_current_macros(ingredients)
+        current_macros = self.optimizer._calculate_macros(ingredients)
         
         # Get user preferences
         user_preferences = st.session_state.get('diet_preferences', {})

@@ -352,6 +352,10 @@ class PrecisionMacroOptimizer:
             return f"{kg}kg"
         else:
             return f"{round(grams)}g"
+    
+    def calculate_current_macros(self, ingredients: List[Dict]) -> Dict[str, float]:
+        """Legacy method name for compatibility - delegates to _calculate_macros"""
+        return self._calculate_macros(ingredients)
 
 def create_precision_optimizer():
     """Factory function to create precision optimizer"""

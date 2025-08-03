@@ -1051,15 +1051,9 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
         schedule_context = monday_plan.get('schedule_context', {})
         if schedule_context:
             st.markdown("**Monday Schedule Context:**")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Wake Time", schedule_context.get('wake_time', 'N/A'))
-            with col2:
-                st.metric("Sleep Time", schedule_context.get('bed_time', 'N/A'))
-            with col3:
-                workouts = schedule_context.get('workouts', [])
-                workout_text = f"{len(workouts)} workout(s)" if workouts else "Rest day"
-                st.metric("Workouts", workout_text)
+            workouts = schedule_context.get('workouts', [])
+            workout_text = f"{len(workouts)} workout(s)" if workouts else "Rest day"
+            st.markdown(f"**Workouts:** {workout_text}")
     
     # Show generated meals
     st.markdown("### 🍽️ Generated Monday Meals")
