@@ -1217,13 +1217,28 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
             
             with st.expander(f"🍽️ {meal_name} - Adjust Portions", expanded=False):
                 
-                # Calculate meal-level targets (divide daily targets by number of meals)
-                meal_targets = {
-                    'calories': nutrition_targets.get('calories', 2000) / len(meals),
-                    'protein': nutrition_targets.get('protein', 150) / len(meals),
-                    'carbs': nutrition_targets.get('carbs', 200) / len(meals),
-                    'fat': nutrition_targets.get('fat', 70) / len(meals)
-                }
+                # Get specific meal targets from Nutrition Targets page
+                # Use the actual meal targets configured by the user
+                final_targets = st.session_state.get('final_nutrition_targets', {})
+                per_meal_macros = final_targets.get('per_meal_macros', {})
+                monday_meals = per_meal_macros.get('Monday', [])
+                
+                if monday_meals and i < len(monday_meals):
+                    target_meal = monday_meals[i]
+                    meal_targets = {
+                        'calories': target_meal.get('calories', 400),
+                        'protein': target_meal.get('protein', 30),
+                        'carbs': target_meal.get('carbs', 40),
+                        'fat': target_meal.get('fat', 15)
+                    }
+                else:
+                    # Fallback to equal distribution
+                    meal_targets = {
+                        'calories': nutrition_targets.get('calories', 2000) / len(meals),
+                        'protein': nutrition_targets.get('protein', 150) / len(meals),
+                        'carbs': nutrition_targets.get('carbs', 200) / len(meals),
+                        'fat': nutrition_targets.get('fat', 70) / len(meals)
+                    }
                 
                 # Display meal targets prominently
                 st.markdown("**🎯 Meal Targets:**")

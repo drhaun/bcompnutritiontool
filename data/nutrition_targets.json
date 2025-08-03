@@ -43,11 +43,12 @@
   "customized": false,
   "day_specific_meals": {
     "Monday": {
-      "meal_count": 2,
+      "meal_count": 3,
       "snack_count": 2,
       "use_custom_timing": false,
       "meal_times": [
-        "08:00",
+        "07:00",
+        "12:00",
         "18:00"
       ]
     }
@@ -55,8 +56,8 @@
   "weekly_meal_summary": [
     {
       "Day": "Monday",
-      "Meals": 2,
-      "Times": "08:00, 18:00"
+      "Meals": 3,
+      "Times": "07:00, 12:00, 18:00"
     },
     {
       "Day": "Tuesday",
