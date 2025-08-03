@@ -244,18 +244,23 @@ class FitomicsPDF(FPDF):
             for pref in prefs:
                 self.cell(0, 6, f"- {pref}", 0, 1, 'L')
                 
-    def add_meal_section(self, meal_type, recipe, macros, ingredients, meal_context=None, meal_time=None, workout_annotation=None):
+    def add_meal_section(self, meal_type, recipe, macros, ingredients, meal_context=None, meal_time=None, workout_annotation=None, day_name=None):
         """Add a meal section with recipe and ingredients"""
-        # Meal title
+        # Meal title with day context
         self.set_font('Arial', 'B', 16)
         self.set_text_color(41, 84, 144)
-        self.cell(0, 10, clean_text_for_pdf(meal_type).upper(), 0, 1, 'L')
+        if day_name:
+            title = f"{day_name.upper()} - {clean_text_for_pdf(meal_type).upper()}"
+        else:
+            title = clean_text_for_pdf(meal_type).upper()
+        self.cell(0, 10, title, 0, 1, 'L')
         
-        # Recipe name
-        self.set_font('Arial', 'B', 14)
-        self.set_text_color(0, 0, 0)
-        recipe_name = recipe.get('name', recipe.get('title', 'Custom Meal'))
-        self.cell(0, 8, clean_text_for_pdf(recipe_name), 0, 1, 'L')
+        # Recipe name (only if different from meal type)
+        recipe_name = recipe.get('name', recipe.get('title', ''))
+        if recipe_name and recipe_name.lower() != meal_type.lower():
+            self.set_font('Arial', 'B', 12)
+            self.set_text_color(0, 0, 0)
+            self.cell(0, 6, clean_text_for_pdf(recipe_name), 0, 1, 'L')
         
         # Add meal context and time if available
         if meal_context or meal_time:
@@ -330,25 +335,54 @@ class FitomicsPDF(FPDF):
             self.set_font('Arial', '', 10)
             if isinstance(instructions, list):
                 for i, instruction in enumerate(instructions, 1):
-                    self.cell(0, 5, f"{i}. {clean_text_for_pdf(instruction)}", 0, 1, 'L')
+                    instruction_text = clean_text_for_pdf(instruction)
+                    # Handle long instructions by wrapping text
+                    if len(instruction_text) > 100:
+                        # Split into multiple lines
+                        words = instruction_text.split()
+                        current_line = f"{i}. "
+                        for word in words:
+                            if len(current_line + word) > 95:
+                                self.cell(0, 4, current_line, 0, 1, 'L')
+                                current_line = "   " + word + " "
+                            else:
+                                current_line += word + " "
+                        if current_line.strip():
+                            self.cell(0, 4, current_line, 0, 1, 'L')
+                    else:
+                        self.cell(0, 4, f"{i}. {instruction_text}", 0, 1, 'L')
             else:
                 # Split text instructions into lines
                 lines = str(instructions).split('. ')
                 for i, line in enumerate(lines, 1):
                     if line.strip():
-                        self.cell(0, 5, f"{i}. {clean_text_for_pdf(line.strip())}", 0, 1, 'L')
+                        line_text = clean_text_for_pdf(line.strip())
+                        if len(line_text) > 100:
+                            words = line_text.split()
+                            current_line = f"{i}. "
+                            for word in words:
+                                if len(current_line + word) > 95:
+                                    self.cell(0, 4, current_line, 0, 1, 'L')
+                                    current_line = "   " + word + " "
+                                else:
+                                    current_line += word + " "
+                            if current_line.strip():
+                                self.cell(0, 4, current_line, 0, 1, 'L')
+                        else:
+                            self.cell(0, 4, f"{i}. {line_text}", 0, 1, 'L')
         
         self.ln(8)
         
     def add_grocery_list(self, all_ingredients):
-        """Add consolidated grocery list"""
+        """Add consolidated grocery list with smart grouping"""
         self.add_page()
         
         self.set_font('Arial', 'B', 18)
         self.set_text_color(41, 84, 144)
-        self.cell(0, 12, 'GROCERY LIST', 0, 1, 'L')
+        self.cell(0, 12, 'CONSOLIDATED GROCERY LIST', 0, 1, 'L')
+        self.ln(5)
         
-        # Consolidate ingredients by name
+        # Consolidate ingredients by name with smart amount handling
         consolidated = {}
         for ingredient in all_ingredients:
             if isinstance(ingredient, dict):
@@ -359,28 +393,37 @@ class FitomicsPDF(FPDF):
                 if not name or not amount_str:
                     continue
                 
-                # Store amounts as strings to preserve units (like "200g", "1 cup")
-                if name in consolidated:
-                    if isinstance(consolidated[name], list):
-                        consolidated[name].append(amount_str)
+                # Clean and normalize the name
+                clean_name = name.strip().title()
+                
+                # Store amounts, trying to intelligently combine similar units
+                if clean_name in consolidated:
+                    if isinstance(consolidated[clean_name], list):
+                        consolidated[clean_name].append(amount_str)
                     else:
-                        consolidated[name] = [consolidated[name], amount_str]
+                        consolidated[clean_name] = [consolidated[clean_name], amount_str]
                 else:
-                    consolidated[name] = amount_str
+                    consolidated[clean_name] = amount_str
         
-        # Sort and display
-        self.set_font('Arial', '', 11)
+        # Sort and display in a more readable format
+        self.set_font('Arial', 'B', 12)
         self.set_text_color(0, 0, 0)
         
         for name, amounts in sorted(consolidated.items()):
             if name:
+                self.set_font('Arial', 'B', 11)
                 if isinstance(amounts, list):
-                    # Multiple amounts for same ingredient
-                    combined_amounts = ", ".join(amounts)
-                    self.cell(0, 6, f"- {clean_text_for_pdf(name)}: {clean_text_for_pdf(combined_amounts)}", 0, 1, 'L')
+                    # Show total needed across all meals
+                    total_line = f"**{clean_text_for_pdf(name)}**"
+                    self.cell(0, 6, total_line, 0, 1, 'L')
+                    
+                    # Show breakdown by usage
+                    self.set_font('Arial', '', 10)
+                    for amount in amounts:
+                        self.cell(0, 4, f"  • {clean_text_for_pdf(amount)}", 0, 1, 'L')
                 else:
                     # Single amount
-                    self.cell(0, 6, f"- {clean_text_for_pdf(name)}: {clean_text_for_pdf(amounts)}", 0, 1, 'L')
+                    self.cell(0, 6, f"**{clean_text_for_pdf(name)}**: {clean_text_for_pdf(amounts)}", 0, 1, 'L')
     
     def add_organized_grocery_list(self, all_ingredients):
         """Add organized grocery list by category"""
@@ -528,48 +571,88 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
         
         all_ingredients = []
         
-        # Handle both dictionary and list formats
-        if isinstance(meal_data, dict):
-            items_to_process = meal_data.items()
-        else:
-            items_to_process = enumerate(meal_data)
+        # Check if this is weekly meal data (has day names as keys)
+        if isinstance(meal_data, dict) and any(day in meal_data for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']):
+            # Organize meals by day for better PDF structure
+            days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
             
-        for meal_identifier, meal_info in items_to_process:
-            if isinstance(meal_identifier, int):
-                meal_type = meal_info.get('meal_type', meal_info.get('name', f'Meal {meal_identifier + 1}'))
-            else:
-                meal_type = meal_identifier
-                
-            print(f"Processing meal: {meal_type}")
-            
-            # Handle different meal data structures from AI response
-            if 'meals' in meal_info:
-                # This is a daily meal plan with multiple meals
-                for submeal in meal_info['meals']:
-                    submeal_name = submeal.get('name', 'Meal')
-                    submeal_macros = submeal.get('total_macros', {})
-                    submeal_ingredients = submeal.get('ingredients', [])
+            for day in days_order:
+                if day not in meal_data:
+                    continue
                     
-                    # Add meal section to PDF with context
+                day_data = meal_data[day]
+                print(f"Processing {day}")
+                
+                # Add day header
+                pdf.ln(10)
+                pdf.set_font('Arial', 'B', 20)
+                pdf.set_text_color(41, 84, 144)
+                pdf.cell(0, 12, f"{day.upper()}", 0, 1, 'L')
+                pdf.ln(5)
+                
+                # Process meals for this day
+                meals = day_data.get('meals', [])
+                for i, meal_info in enumerate(meals):
+                    if not meal_info:
+                        continue
+                        
+                    # Use simple meal naming
+                    if i < 3:
+                        meal_type = f"Meal {i+1}"
+                    else:
+                        meal_type = f"Snack {i-2}"
+                    
+                    print(f"  Processing {meal_type}")
+                    
+                    # Extract meal components
+                    meal_name = meal_info.get('name', meal_type)
+                    meal_time = meal_info.get('time', '')
+                    meal_context = meal_info.get('context', '')
+                    ingredients = meal_info.get('ingredients', [])
+                    instructions = meal_info.get('instructions', [])
+                    total_macros = meal_info.get('total_macros', {})
+                    
+                    # Create recipe structure for PDF
+                    recipe = {
+                        'name': meal_name,
+                        'ingredients': ingredients,
+                        'instructions': instructions
+                    }
+                    
+                    # Add to PDF with day context
                     pdf.add_meal_section(
-                        meal_type=submeal_name,
-                        recipe=submeal,
-                        macros=submeal_macros,
-                        ingredients=submeal_ingredients,
-                        meal_context=submeal.get('context'),
-                        meal_time=submeal.get('time')
+                        meal_type=meal_type,
+                        recipe=recipe,
+                        macros=total_macros,
+                        ingredients=ingredients,
+                        meal_context=meal_context,
+                        meal_time=meal_time,
+                        day_name=day
                     )
                     
                     # Collect ingredients for grocery list
-                    for ingredient in submeal_ingredients:
+                    for ingredient in ingredients:
                         if isinstance(ingredient, dict):
                             all_ingredients.append({
                                 'name': ingredient.get('item', ''),
                                 'amount': ingredient.get('amount', ''),
                                 'unit': 'serving'
                             })
-                continue
+        else:
+            # Handle legacy single-day or non-daily format
+            if isinstance(meal_data, dict):
+                items_to_process = meal_data.items()
             else:
+                items_to_process = enumerate(meal_data)
+                
+            for meal_identifier, meal_info in items_to_process:
+                if isinstance(meal_identifier, int):
+                    meal_type = meal_info.get('meal_type', meal_info.get('name', f'Meal {meal_identifier + 1}'))
+                else:
+                    meal_type = meal_identifier
+                    
+                print(f"Processing meal: {meal_type}")
+                
                 # Handle recipe structure from AI meal planning
                 if 'recipe' in meal_info:
                     recipe = meal_info['recipe']
