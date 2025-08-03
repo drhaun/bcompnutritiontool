@@ -420,7 +420,7 @@ class FitomicsPDF(FPDF):
                     # Show breakdown by usage
                     self.set_font('Arial', '', 10)
                     for amount in amounts:
-                        self.cell(0, 4, f"  • {clean_text_for_pdf(amount)}", 0, 1, 'L')
+                        self.cell(0, 4, f"  - {clean_text_for_pdf(amount)}", 0, 1, 'L')
                 else:
                     # Single amount
                     self.cell(0, 6, f"**{clean_text_for_pdf(name)}**: {clean_text_for_pdf(amounts)}", 0, 1, 'L')
