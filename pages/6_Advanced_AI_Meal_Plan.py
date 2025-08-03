@@ -379,13 +379,11 @@ def get_fallback_nutrition_per_100g(ingredient):
     return {'calories': 150, 'protein': 8, 'carbs': 15, 'fat': 5}
 
 def step3_generate_precise_recipes(meal_concepts, openai_client):
-    """Step 3: Generate precise recipes with REAL FDC nutrition data"""
+    """Step 3: Generate precise recipes with accurate macro targeting"""
     final_meals = []
     
     for meal_concept in meal_concepts:
-        # Get real FDC nutrition data for ingredients
-        st.write(f"🔍 Looking up nutrition data for {meal_concept['name']}...")
-        nutrition_db = get_fdc_nutrition_data(meal_concept['key_ingredients'])
+        st.write(f"🍳 Creating precise recipe for {meal_concept['name']}...")
         
         # Build prompt without nested f-strings
         meal_name = meal_concept['name']
@@ -397,14 +395,8 @@ def step3_generate_precise_recipes(meal_concepts, openai_client):
         target_carbs = meal_concept['target_carbs']
         target_fat = meal_concept['target_fat']
         
-        # Create nutrition data string for prompt
-        nutrition_data_str = "\n".join([
-            f"- {ingredient}: {data['fdc_description']} [{data.get('source', 'unknown')}] - Per 100g: {data['per_100g']['calories']} cal, {data['per_100g']['protein']}g protein, {data['per_100g']['carbs']}g carbs, {data['per_100g']['fat']}g fat"
-            for ingredient, data in nutrition_db.items()
-        ])
-        
         prompt = f"""
-Create a precise recipe for this meal concept with EXACT portions to hit the macro targets using REAL nutrition data.
+Create a precise recipe for this meal concept with EXACT portions to hit the macro targets.
 
 MEAL CONCEPT:
 - Name: {meal_name}
@@ -412,21 +404,19 @@ MEAL CONCEPT:
 - Key Ingredients: {key_ingredients}
 - Cooking Method: {cooking_method}
 
-REAL NUTRITION DATA (per 100g):
-{nutrition_data_str}
-
 EXACT MACRO TARGETS (MUST BE ACHIEVED):
-- Calories: {target_calories} (±10 calories)
+- Calories: {target_calories} (±5 calories)
 - Protein: {target_protein}g (±1g)
-- Carbs: {target_carbs}g (±2g)
+- Carbs: {target_carbs}g (±1g)
 - Fat: {target_fat}g (±1g)
 
 CRITICAL INSTRUCTIONS:
-1. Use ONLY the nutrition data provided above
-2. Calculate exact gram amounts to hit targets precisely
-3. Show your math: (amount_in_grams / 100) × per_100g_value
-4. Verify totals add up to targets exactly
-5. Adjust portions until targets are met within tolerance
+1. Use standard USDA nutrition values for all ingredients
+2. Calculate exact gram/ounce amounts to hit targets precisely
+3. Include realistic portion sizes (e.g., 150g chicken breast, 100g rice, 1 tbsp olive oil)
+4. Verify your math - ingredient totals must add up to targets exactly
+5. If targets can't be met exactly, prioritize protein first, then calories, then carbs and fat
+6. Use common cooking measurements when possible but include gram weights for precision
 
 Return JSON with this structure:
 {{
@@ -460,12 +450,12 @@ Return JSON with this structure:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a precision nutritionist with access to REAL food database nutrition data. Calculate EXACT gram amounts using the provided per-100g nutrition values. Show your calculations and verify totals match targets exactly. NEVER estimate - use only the provided data."},
+                {"role": "system", "content": "You are a precision nutritionist. Calculate EXACT ingredient amounts to hit macro targets perfectly. Use standard USDA nutrition values and verify your math. Prioritize accuracy over creativity."},
                 {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"},
             temperature=0.0,  # Zero temperature for maximum precision
-            max_tokens=2500
+            max_tokens=2000
         )
         
         try:
@@ -1132,12 +1122,9 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
         accuracy_df = pd.DataFrame(accuracy_data)
         st.dataframe(accuracy_df, use_container_width=True, hide_index=True)
         
-        # Add FDC verification and adjustment interface
-        st.markdown("### 🎯 Interactive Meal Adjustments")
-        st.info("Use the controls below to adjust ingredient portions and improve macro accuracy!")
-        
-        # Display meal adjustment interface inline
-        st.markdown("#### 🔧 Adjust Individual Meals")
+        # Add simplified meal adjustment interface
+        st.markdown("### 🔧 Adjust Individual Meals")
+        st.info("Fine-tune ingredient portions to hit exact macro targets for each meal.")
         
         meals = monday_plan.get('meals', [])
         
@@ -1146,90 +1133,49 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
             
             with st.expander(f"🍽️ {meal.get('name', f'Meal {i+1}')} - Adjust Portions", expanded=False):
                 
-                # Initialize adjustment state
+                # Calculate meal-level targets (divide daily targets by number of meals)
+                meal_targets = {
+                    'calories': nutrition_targets.get('calories', 2000) / len(meals),
+                    'protein': nutrition_targets.get('protein', 150) / len(meals),
+                    'carbs': nutrition_targets.get('carbs', 200) / len(meals),
+                    'fat': nutrition_targets.get('fat', 70) / len(meals)
+                }
+                
+                # Display meal targets prominently
+                st.markdown("**🎯 Meal Targets:**")
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Calories", f"{meal_targets['calories']:.0f}")
+                with col2:
+                    st.metric("Protein", f"{meal_targets['protein']:.0f}g")
+                with col3:
+                    st.metric("Carbs", f"{meal_targets['carbs']:.0f}g")
+                with col4:
+                    st.metric("Fat", f"{meal_targets['fat']:.0f}g")
+                
+                st.markdown("---")
+                
+                # Initialize adjustment state using AI-generated ingredient data
                 if f"{meal_key}_adjustments" not in st.session_state:
                     st.session_state[f"{meal_key}_adjustments"] = {}
                     
-                    # Process ingredients and get FDC data
                     ingredients = meal.get('ingredients', [])
                     for ingredient in ingredients:
                         ing_name = ingredient.get('item', 'Unknown')
-                        amount_str = ingredient.get('amount', '100g')
-                        # Simple amount parsing inline
-                        numbers = re.findall(r'\d+(?:\.\d+)?', amount_str)
-                        if numbers:
-                            amount = float(numbers[0])
-                            amount_lower = amount_str.lower()
-                            if 'cup' in amount_lower:
-                                amount_grams = amount * 240
-                            elif 'tbsp' in amount_lower:
-                                amount_grams = amount * 15
-                            elif 'tsp' in amount_lower:
-                                amount_grams = amount * 5
-                            elif 'oz' in amount_lower:
-                                amount_grams = amount * 28.35
-                            else:
-                                amount_grams = amount
-                        else:
-                            amount_grams = 100.0
                         
-                        # Get FDC nutrition data with inline function
-                        try:
-                            search_results = fdc_api.search_foods(ing_name, page_size=5)
-                            if search_results and len(search_results) > 0:
-                                food_item = search_results[0]
-                                nutrients = food_item.get('foodNutrients', [])
-                                
-                                nutrition_data = {
-                                    'name': food_item.get('description', ing_name),
-                                    'amount': f"{amount_grams}g",
-                                    'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0,
-                                    'fdc_verified': True
-                                }
-                                
-                                nutrient_mapping = {1008: 'calories', 1003: 'protein', 1005: 'carbs', 1004: 'fat'}
-                                for nutrient in nutrients:
-                                    nutrient_id = nutrient.get('nutrientId')
-                                    if nutrient_id in nutrient_mapping:
-                                        value = nutrient.get('value', 0)
-                                        scaled_value = (value * amount_grams) / 100
-                                        nutrition_data[nutrient_mapping[nutrient_id]] = round(scaled_value, 1)
-                            else:
-                                raise Exception("No FDC results")
-                        except:
-                            # Fallback nutrition
-                            fallback_db = {
-                                'chicken breast': {'calories': 165, 'protein': 31, 'carbs': 0, 'fat': 3.6},
-                                'brown rice': {'calories': 123, 'protein': 2.6, 'carbs': 23, 'fat': 0.9},
-                                'broccoli': {'calories': 34, 'protein': 2.8, 'carbs': 7, 'fat': 0.4},
-                                'olive oil': {'calories': 884, 'protein': 0, 'carbs': 0, 'fat': 100}
-                            }
-                            
-                            ingredient_lower = ing_name.lower()
-                            base_nutrition = None
-                            for food_key, nutrition in fallback_db.items():
-                                if food_key in ingredient_lower:
-                                    base_nutrition = nutrition
-                                    break
-                            
-                            if not base_nutrition:
-                                base_nutrition = {'calories': 100, 'protein': 5, 'carbs': 15, 'fat': 3}
-                            
-                            scaling_factor = amount_grams / 100
-                            nutrition_data = {
-                                'name': ing_name,
-                                'amount': f"{amount_grams}g",
-                                'calories': round(base_nutrition['calories'] * scaling_factor, 1),
-                                'protein': round(base_nutrition['protein'] * scaling_factor, 1),
-                                'carbs': round(base_nutrition['carbs'] * scaling_factor, 1),
-                                'fat': round(base_nutrition['fat'] * scaling_factor, 1),
-                                'fdc_verified': False
-                            }
+                        # Use AI-generated nutrition data directly
+                        nutrition_data = {
+                            'name': ing_name,
+                            'amount': ingredient.get('amount', '100g'),
+                            'calories': ingredient.get('calories', 0),
+                            'protein': ingredient.get('protein', 0),
+                            'carbs': ingredient.get('carbs', 0),
+                            'fat': ingredient.get('fat', 0)
+                        }
                         
                         st.session_state[f"{meal_key}_adjustments"][ing_name] = {
                             'factor': 1.0,
-                            'nutrition': nutrition_data,
-                            'original_amount': amount_grams
+                            'nutrition': nutrition_data
                         }
                 
                 # Display adjustment controls
@@ -1243,17 +1189,14 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                         current_factor = ing_data['factor']
                         nutrition = ing_data['nutrition']
                         
-                        # FDC verification indicator
-                        verified_icon = "✅" if nutrition.get('fdc_verified', False) else "📊"
-                        
                         new_factor = st.slider(
-                            f"{verified_icon} {ing_name} ({nutrition['amount']})",
+                            f"🥄 {ing_name} ({nutrition['amount']})",
                             min_value=0.1,
                             max_value=3.0,
                             value=current_factor,
                             step=0.05,
                             key=f"{meal_key}_{ing_name}_slider",
-                            help=f"{'FDC verified nutrition' if nutrition.get('fdc_verified') else 'Estimated nutrition'}"
+                            help="Adjust portion size (1.0 = original portion)"
                         )
                         
                         # Update factor
@@ -1262,12 +1205,11 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                         # Calculate adjusted nutrition
                         adjusted_nutrition = {
                             'name': nutrition['name'],
-                            'amount': f"{nutrition.get('original_amount', 100) * new_factor:.0f}g",
+                            'amount': nutrition['amount'],  # Keep original amount display
                             'calories': round(nutrition['calories'] * new_factor, 1),
                             'protein': round(nutrition['protein'] * new_factor, 1),
                             'carbs': round(nutrition['carbs'] * new_factor, 1),
-                            'fat': round(nutrition['fat'] * new_factor, 1),
-                            'fdc_verified': nutrition.get('fdc_verified', False)
+                            'fat': round(nutrition['fat'] * new_factor, 1)
                         }
                         
                         updated_ingredients.append(adjusted_nutrition)
