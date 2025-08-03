@@ -150,7 +150,7 @@ Return JSON with:
 {{
   "meal_structure": [
     {{
-      "meal_name": "Breakfast",
+      "meal_name": "Meal 1",
       "timing": "7:00 AM",
       "purpose": "Energy start",
       "target_calories": 500,
@@ -660,7 +660,7 @@ Return JSON format with:
 {{
   "meals": [
     {{
-      "name": "Breakfast",
+      "name": "Meal 1",
       "time": "7:00 AM",
       "ingredients": [
         {{
@@ -1066,7 +1066,12 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
     meals = monday_plan.get('meals', [])
     for i, meal in enumerate(meals):
         with st.container():
-            st.markdown(f"#### {i+1}. {meal.get('name', 'Unnamed Meal')}")
+            # Use simple meal naming
+            if i < 3:
+                meal_name = f"Meal {i+1}"
+            else:
+                meal_name = f"Snack {i-2}"
+            st.markdown(f"#### {meal_name}")
             
             col1, col2 = st.columns([2, 1])
             
@@ -1139,7 +1144,13 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
         for i, meal in enumerate(meals):
             meal_key = f"monday_meal_{i}"
             
-            with st.expander(f"🍽️ {meal.get('name', f'Meal {i+1}')} - Adjust Portions", expanded=False):
+            # Use simple meal naming for adjustment interface
+            if i < 3:
+                meal_name = f"Meal {i+1}"
+            else:
+                meal_name = f"Snack {i-2}"
+            
+            with st.expander(f"🍽️ {meal_name} - Adjust Portions", expanded=False):
                 
                 # Calculate meal-level targets (divide daily targets by number of meals)
                 meal_targets = {
@@ -1536,33 +1547,55 @@ Based on the approved Monday template, create a {day} meal plan that:
 Return JSON format with the same structure as Monday but adapted for {day}.
 """
                     
-                    # Generate day plan
-                    response = openai_client.chat.completions.create(
-                        model="gpt-4o",
-                        messages=[
-                            {"role": "system", "content": "You are a nutritionist. Create day-specific meal plans based on approved templates while maintaining macro accuracy."},
-                            {"role": "user", "content": day_prompt}
-                        ],
-                        response_format={"type": "json_object"},
-                        temperature=0.05,
-                        max_tokens=3000
-                    )
-                    
-                    day_result = json.loads(response.choices[0].message.content or "{}")
-                    
-                    # Create day plan structure
-                    day_plan = {
-                        'day': day,
-                        'meals': day_result.get('meals', []),
-                        'daily_totals': day_result.get('daily_totals', {}),
-                        'meal_structure_rationale': f"Based on approved Monday template: {monday_structure}",
-                        'accuracy_validated': True,  # Assume validated since based on approved template
-                        'schedule_context': day_schedule,
-                        'nutrition_targets': day_data,
-                        'generated_from_template': True
-                    }
-                    
-                    full_week_plan[day] = day_plan
+                    try:
+                        # Generate day plan
+                        response = openai_client.chat.completions.create(
+                            model="gpt-4o",
+                            messages=[
+                                {"role": "system", "content": "You are a nutritionist. Create day-specific meal plans based on approved templates while maintaining macro accuracy. Use simple meal names like 'Meal 1', 'Meal 2', 'Snack 1'."},
+                                {"role": "user", "content": day_prompt}
+                            ],
+                            response_format={"type": "json_object"},
+                            temperature=0.05,
+                            max_tokens=3000
+                        )
+                        
+                        response_content = response.choices[0].message.content
+                        if not response_content:
+                            st.warning(f"Empty response for {day}, skipping...")
+                            continue
+                            
+                        day_result = json.loads(response_content)
+                        
+                        # Ensure meals have simple names
+                        meals = day_result.get('meals', [])
+                        for i, meal in enumerate(meals):
+                            if i < 3:
+                                meal['name'] = f"Meal {i+1}"
+                            else:
+                                meal['name'] = f"Snack {i-2}"
+                        
+                        # Create day plan structure
+                        day_plan = {
+                            'day': day,
+                            'meals': meals,
+                            'daily_totals': day_result.get('daily_totals', {}),
+                            'meal_structure_rationale': f"Based on approved Monday template: {monday_structure}",
+                            'accuracy_validated': True,  # Assume validated since based on approved template
+                            'schedule_context': day_schedule,
+                            'nutrition_targets': day_data,
+                            'generated_from_template': True
+                        }
+                        
+                        full_week_plan[day] = day_plan
+                        st.write(f"✅ Generated {day} successfully")
+                        
+                    except json.JSONDecodeError as e:
+                        st.error(f"JSON decode error for {day}: {e}")
+                        continue
+                    except Exception as e:
+                        st.error(f"Error generating {day}: {e}")
+                        continue
             
             # Save complete week plan
             st.session_state['ai_meal_plan'] = full_week_plan
@@ -1618,10 +1651,15 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
                 else:
                     st.markdown('<span class="accuracy-badge accuracy-needs-work">⚠️ Needs Accuracy Review</span>', unsafe_allow_html=True)
                 
-                # Display meals
+                # Display meals with simple numbering
                 meals = day_plan.get('meals', [])
                 for i, meal in enumerate(meals, 1):
-                    st.markdown(f"### {i}. {meal.get('name', 'Unnamed Meal')}")
+                    # Use simple meal naming: Meal 1, Meal 2, etc.
+                    if i <= 3:
+                        meal_label = f"Meal {i}"
+                    else:
+                        meal_label = f"Snack {i-3}"
+                    st.markdown(f"### {meal_label}")
                     
                     if meal.get('time'):
                         st.markdown(f"**Time:** {meal['time']}")
