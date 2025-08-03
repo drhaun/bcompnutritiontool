@@ -1197,13 +1197,16 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                         current_factor = ing_data['factor']
                         nutrition = ing_data['nutrition']
                         
+                        # Create unique key using meal index and ingredient name
+                        unique_key = f"monday_meal_{i}_{ing_name.replace(' ', '_').replace('(', '').replace(')', '')}_slider_{hash(str(nutrition))}"
+                        
                         new_factor = st.slider(
                             f"🥄 {ing_name} ({nutrition['amount']})",
                             min_value=0.1,
                             max_value=3.0,
                             value=current_factor,
                             step=0.05,
-                            key=f"{meal_key}_{ing_name}_slider",
+                            key=unique_key,
                             help="Adjust portion size (1.0 = original portion)"
                         )
                         
@@ -1237,30 +1240,24 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                     # Quick adjustment buttons
                     col_a, col_b = st.columns(2)
                     with col_a:
-                        if st.button("🎯 Auto-Fix", key=f"{meal_key}_auto"):
-                            # Auto-adjust portions (simple scaling approach)
-                            meal_targets = {
-                                'calories': nutrition_targets.get('calories', 2000) / len(meals),
-                                'protein': nutrition_targets.get('protein', 150) / len(meals),
-                                'carbs': nutrition_targets.get('carbs', 200) / len(meals),
-                                'fat': nutrition_targets.get('fat', 70) / len(meals)
-                            }
+                        auto_fix_key = f"monday_meal_{i}_auto_fix_{hash(str(meal_targets))}"
+                        if st.button("🎯 Auto-Fix", key=auto_fix_key):
+                            # Auto-adjust portions based on calorie target
+                            meal_target_calories = nutrition_targets.get('calories', 2000) / len(meals)
                             
-                            scaling_factors = []
-                            for macro in ['calories', 'protein', 'carbs', 'fat']:
-                                if meal_totals.get(macro, 0) > 0 and meal_targets.get(macro, 0) > 0:
-                                    factor = meal_targets[macro] / meal_totals[macro]
-                                    scaling_factors.append(factor)
-                            
-                            if scaling_factors:
-                                avg_scaling = sum(scaling_factors) / len(scaling_factors)
+                            if meal_totals.get('calories', 0) > 0 and meal_target_calories > 0:
+                                scale_factor = meal_target_calories / meal_totals['calories']
+                                
+                                # Apply scaling to all ingredients
                                 for ing_name in st.session_state[f"{meal_key}_adjustments"]:
-                                    current = st.session_state[f"{meal_key}_adjustments"][ing_name]['factor']
-                                    st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = current * avg_scaling
-                            st.rerun()
+                                    st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = scale_factor
+                                
+                                st.success(f"Auto-adjusted portions by {scale_factor:.2f}x!")
+                                st.rerun()
                     
                     with col_b:
-                        if st.button("🔄 Reset", key=f"{meal_key}_reset"):
+                        reset_key = f"monday_meal_{i}_reset_{hash(str(meal_targets))}"
+                        if st.button("🔄 Reset", key=reset_key):
                             for ing_name in st.session_state[f"{meal_key}_adjustments"]:
                                 st.session_state[f"{meal_key}_adjustments"][ing_name]['factor'] = 1.0
                             st.rerun()

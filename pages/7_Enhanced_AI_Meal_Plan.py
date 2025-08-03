@@ -308,13 +308,16 @@ def display_meal_adjuster(meal_data: Dict, target_macros: Dict, meal_key: str) -
             # FDC verification indicator
             verified_icon = "✅" if ingredient.get('fdc_verified', False) else "📊"
             
+            # Create unique key to prevent duplicates
+            unique_key = f"{meal_key}_{ing_name.replace(' ', '_').replace('(', '').replace(')', '')}_slider_{hash(str(ingredient))}"
+            
             new_factor = st.slider(
                 f"{verified_icon} {ing_name} ({ingredient['amount']})",
                 min_value=0.1,
                 max_value=3.0,
                 value=current_factor,
                 step=0.05,
-                key=f"{meal_key}_{ing_name}_slider",
+                key=unique_key,
                 help=f"{'FDC verified nutrition' if ingredient.get('fdc_verified') else 'Estimated nutrition'}"
             )
             
