@@ -1,21 +1,21 @@
 {
-  "timestamp": "2025-08-06T02:04:26.137593",
+  "timestamp": "2025-08-24T19:45:05.397013",
   "user_info": {
-    "name": "Daniel",
+    "name": "Cody",
     "gender": "Male",
-    "dob": "07/07/1993",
-    "age": 32,
-    "height_cm": 170.18,
-    "height_inches": 67,
+    "dob": "12/12/1990",
+    "age": 34,
+    "height_cm": 175.26,
+    "height_inches": 69,
     "height_ft": 5,
-    "height_in": 7,
-    "weight_kg": 81.64672369841516,
-    "weight_lbs": 180.0,
-    "body_fat_percentage": 18.0,
+    "height_in": 9,
+    "weight_kg": 90.71858188712795,
+    "weight_lbs": 200.0,
+    "body_fat_percentage": 20.0,
     "activity_level": "Lightly Active (light exercise 2-3 times per week)",
     "raw_activity_level": "Light Active (5-10k steps/day)",
-    "workouts_per_week": 5,
-    "workout_frequency": "4-5 workouts per week",
+    "workouts_per_week": 7,
+    "workout_frequency": "6+ workouts per week",
     "workout_calories": 300,
     "goal_focus": "Lose fat",
     "performance_preference": "I want to maximally support my performance and recovery from training as this matters more to me than my body composition goal.",
@@ -24,36 +24,34 @@
     "tracking_commitment": "I am committed to tracking regularly",
     "commitment_level": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently.",
     "use_imperial": true,
-    "tdee": 2586.2875401389224
+    "tdee": 2826.6461259480093
   },
   "goal_info": {
     "goal_type": "Lose fat",
     "target_fat_mass_lbs": 21.0,
-    "target_ffm_lbs": 148.48,
-    "target_body_fat": 12.390842577295256,
-    "target_fmi": 3.289035137243826,
-    "target_ffmi": 23.25504462752206,
+    "target_ffm_lbs": 159.0,
+    "target_body_fat": 11.666666666666666,
+    "target_fmi": 3.1011297481805364,
+    "target_ffmi": 23.47998237908121,
     "weekly_weight_pct": -0.0075,
     "weekly_fat_pct": 0.85,
-    "target_weight_lbs": 169.48,
-    "timeline_weeks": 8,
-    "start_date": "2025-08-06",
-    "target_energy": 1930
+    "target_weight_lbs": 180.0,
+    "timeline_weeks": 14,
+    "start_date": "2025-08-24",
+    "target_energy": 2114
   },
   "diet_preferences": {
-    "dietary_restrictions": [],
+    "dietary_restrictions": [
+      "None"
+    ],
     "cuisine_preferences": [
       "American",
       "Italian",
       "Mexican",
       "Asian",
       "Mediterranean",
-      "Indian",
-      "Thai",
       "Japanese",
-      "French",
-      "Greek",
-      "Middle Eastern"
+      "Greek"
     ],
     "preferred_proteins": [
       "Chicken Breast",
@@ -61,7 +59,6 @@
       "Turkey",
       "Lean Beef",
       "Ground Beef",
-      "Pork",
       "Salmon",
       "Tuna",
       "White Fish",
@@ -69,8 +66,6 @@
       "Eggs",
       "Greek Yogurt",
       "Cottage Cheese",
-      "Tofu",
-      "Tempeh",
       "Lentils",
       "Chickpeas",
       "Black Beans",
@@ -88,9 +83,7 @@
       "Tortillas",
       "Fruits",
       "Vegetables",
-      "Legumes",
-      "Barley",
-      "Buckwheat"
+      "Legumes"
     ],
     "preferred_fats": [
       "Olive Oil",
@@ -117,9 +110,7 @@
       "Onions",
       "Garlic",
       "Mushrooms",
-      "Asparagus",
-      "Green Beans",
-      "Brussels Sprouts"
+      "Green Beans"
     ],
     "disliked_foods": [],
     "allergies": [],
@@ -150,9 +141,9 @@
       "vitamin_d": "Already taking",
       "other_supplements": []
     },
-    "variety_level": "Low Variety",
-    "repetition_preference": "I enjoy eating the same meals regularly",
-    "weekly_structure": "Same breakfast, lunch, and dinner daily",
+    "variety_level": "High Variety",
+    "repetition_preference": "I prefer different meals but can repeat favorites",
+    "weekly_structure": "Mix of routine and variety",
     "cooking_variety": "Some variety in cooking methods",
     "spice_level": "Medium",
     "flavor_profile": [
@@ -210,20 +201,26 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 752
+          "context": "Healthy Snack",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 624
         }
       ],
       "workouts": [
@@ -231,49 +228,45 @@
           "type": "Resistance Training",
           "time": "Early Morning (5:00-8:00 AM)",
           "duration": 60,
-          "intensity": "Moderate"
+          "intensity": "High"
         }
       ],
-      "total_calories": 2822,
-      "base_tdee": 2372,
-      "workout_calories": 450,
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -288,8 +281,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -305,20 +298,26 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 752
+          "context": "Healthy Snack",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 624
         }
       ],
       "workouts": [
@@ -326,49 +325,45 @@
           "type": "Resistance Training",
           "time": "Early Morning (5:00-8:00 AM)",
           "duration": 60,
-          "intensity": "Moderate"
+          "intensity": "High"
         }
       ],
-      "total_calories": 2822,
-      "base_tdee": 2372,
-      "workout_calories": 450,
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -383,8 +378,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -400,20 +395,26 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 752
+          "context": "Healthy Snack",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 624
         }
       ],
       "workouts": [
@@ -421,49 +422,45 @@
           "type": "Resistance Training",
           "time": "Early Morning (5:00-8:00 AM)",
           "duration": 60,
-          "intensity": "Moderate"
+          "intensity": "High"
         }
       ],
-      "total_calories": 2822,
-      "base_tdee": 2372,
-      "workout_calories": 450,
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -478,8 +475,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -495,20 +492,26 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 752
+          "context": "Healthy Snack",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 624
         }
       ],
       "workouts": [
@@ -516,49 +519,45 @@
           "type": "Resistance Training",
           "time": "Early Morning (5:00-8:00 AM)",
           "duration": 60,
-          "intensity": "Moderate"
+          "intensity": "High"
         }
       ],
-      "total_calories": 2822,
-      "base_tdee": 2372,
-      "workout_calories": 450,
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -573,8 +572,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -590,70 +589,65 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 752
-        }
-      ],
-      "workouts": [
+          "context": "Healthy Snack",
+          "calories": 504
+        },
         {
-          "type": "Resistance Training",
-          "time": "Early Morning (5:00-8:00 AM)",
-          "duration": 60,
-          "intensity": "Moderate"
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 504
         }
       ],
-      "total_calories": 2822,
-      "base_tdee": 2372,
-      "workout_calories": 450,
+      "workouts": [],
+      "total_calories": 2526,
+      "base_tdee": 2526,
+      "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -668,8 +662,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -685,70 +679,65 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 752
-        }
-      ],
-      "workouts": [
+          "context": "Healthy Snack",
+          "calories": 504
+        },
         {
-          "type": "Resistance Training",
-          "time": "Early Morning (5:00-8:00 AM)",
-          "duration": 60,
-          "intensity": "Moderate"
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 504
         }
       ],
-      "total_calories": 2822,
-      "base_tdee": 2372,
-      "workout_calories": 450,
+      "workouts": [],
+      "total_calories": 2526,
+      "base_tdee": 2526,
+      "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -763,8 +752,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -780,63 +769,65 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 948
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 948
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 632
+          "context": "Healthy Snack",
+          "calories": 504
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 504
         }
       ],
       "workouts": [],
-      "total_calories": 2372,
-      "base_tdee": 2372,
+      "total_calories": 2526,
+      "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -851,8 +842,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -870,20 +861,26 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 752
+          "context": "Healthy Snack",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 624
         }
       ],
       "workouts": [
@@ -891,49 +888,45 @@
           "type": "Resistance Training",
           "time": "Early Morning (5:00-8:00 AM)",
           "duration": 60,
-          "intensity": "Moderate"
+          "intensity": "High"
         }
       ],
-      "total_calories": 2822,
-      "base_tdee": 2372,
-      "workout_calories": 450,
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -948,8 +941,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -965,20 +958,26 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 752
+          "context": "Healthy Snack",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 624
         }
       ],
       "workouts": [
@@ -986,49 +985,45 @@
           "type": "Resistance Training",
           "time": "Early Morning (5:00-8:00 AM)",
           "duration": 60,
-          "intensity": "Moderate"
+          "intensity": "High"
         }
       ],
-      "total_calories": 2822,
-      "base_tdee": 2372,
-      "workout_calories": 450,
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -1043,8 +1038,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -1060,20 +1055,26 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 752
+          "context": "Healthy Snack",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 624
         }
       ],
       "workouts": [
@@ -1081,49 +1082,45 @@
           "type": "Resistance Training",
           "time": "Early Morning (5:00-8:00 AM)",
           "duration": 60,
-          "intensity": "Moderate"
+          "intensity": "High"
         }
       ],
-      "total_calories": 2822,
-      "base_tdee": 2372,
-      "workout_calories": 450,
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -1138,8 +1135,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -1155,20 +1152,26 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 752
+          "context": "Healthy Snack",
+          "calories": 624
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 624
         }
       ],
       "workouts": [
@@ -1176,49 +1179,45 @@
           "type": "Resistance Training",
           "time": "Early Morning (5:00-8:00 AM)",
           "duration": 60,
-          "intensity": "Moderate"
+          "intensity": "High"
         }
       ],
-      "total_calories": 2822,
-      "base_tdee": 2372,
-      "workout_calories": 450,
+      "total_calories": 3126,
+      "base_tdee": 2526,
+      "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -1233,8 +1232,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -1250,70 +1249,65 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 752
-        }
-      ],
-      "workouts": [
+          "context": "Healthy Snack",
+          "calories": 504
+        },
         {
-          "type": "Resistance Training",
-          "time": "Early Morning (5:00-8:00 AM)",
-          "duration": 60,
-          "intensity": "Moderate"
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 504
         }
       ],
-      "total_calories": 2822,
-      "base_tdee": 2372,
-      "workout_calories": 450,
+      "workouts": [],
+      "total_calories": 2526,
+      "base_tdee": 2526,
+      "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -1328,8 +1322,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -1345,70 +1339,65 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 1128
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 752
-        }
-      ],
-      "workouts": [
+          "context": "Healthy Snack",
+          "calories": 504
+        },
         {
-          "type": "Resistance Training",
-          "time": "Early Morning (5:00-8:00 AM)",
-          "duration": 60,
-          "intensity": "Moderate"
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 504
         }
       ],
-      "total_calories": 2822,
-      "base_tdee": 2372,
-      "workout_calories": 450,
+      "workouts": [],
+      "total_calories": 2526,
+      "base_tdee": 2526,
+      "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -1423,8 +1412,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -1440,63 +1429,65 @@
         {
           "type": "meal",
           "name": "First Meal of Day",
-          "context": "Meal Prep",
-          "calories": 948
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
-          "context": "Takeout/Delivery",
-          "calories": 948
+          "context": "Home Cooking",
+          "calories": 757
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
-          "context": "Office/Work",
-          "calories": 632
+          "context": "Healthy Snack",
+          "calories": 504
+        },
+        {
+          "type": "snack",
+          "name": "Second Snack of Day",
+          "context": "Healthy Snack",
+          "calories": 504
         }
       ],
       "workouts": [],
-      "total_calories": 2372,
-      "base_tdee": 2372,
+      "total_calories": 2526,
+      "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "06:00",
-        "bed_time": "22:00",
-        "sleep_hours": 8.0
+        "wake_time": "04:30",
+        "bed_time": "20:00",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
-        "start_time": "06:15",
+        "start_time": "09:00",
         "end_time": "17:00",
-        "type": "Hybrid Work"
+        "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": false,
-        "pre_workout_snack": true,
+        "pre_workout_meal": true,
+        "pre_workout_snack": false,
         "post_workout_meal": true,
-        "energy_management": "Higher energy for workouts",
-        "liquid_calories": "Allow some liquid calories"
+        "energy_management": "Steady energy throughout day",
+        "liquid_calories": "Minimize liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
           "meal": "First Meal of Day",
-          "prep_type": "Use leftovers/pre-prepped ingredients",
+          "prep_type": "Cook from scratch",
           "prep_time": "<5 minutes",
-          "location": [
-            "At home"
-          ],
-          "time_range": "Morning (8:00-11:00 AM)",
+          "location": [],
+          "time_range": "Early Morning (5:00-8:00 AM)",
           "consistency": true,
           "variations": null
         },
         "meal_2": {
           "meal": "Second Meal of Day",
-          "prep_type": "Meal delivery (ready-to-eat)",
-          "prep_time": null,
-          "location": [
-            "At home"
-          ],
-          "time_range": "Evening (5:00-8:00 PM)",
+          "prep_type": "Cook from scratch",
+          "prep_time": "<5 minutes",
+          "location": [],
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true,
           "variations": null
         },
@@ -1511,8 +1502,8 @@
         },
         "snack_1": {
           "meal": "First Snack of Day",
-          "prep_type": "Office/work snack",
-          "time_range": "Midday (11:00 AM-2:00 PM)",
+          "prep_type": "Prepare at home",
+          "time_range": "Morning (8:00-11:00 AM)",
           "consistency": true
         },
         "snack_2": {
@@ -1527,23 +1518,19 @@
   "meal_contexts_detailed": {
     "meal_1": {
       "meal": "First Meal of Day",
-      "prep_type": "Use leftovers/pre-prepped ingredients",
+      "prep_type": "Cook from scratch",
       "prep_time": "<5 minutes",
-      "location": [
-        "At home"
-      ],
-      "time_range": "Morning (8:00-11:00 AM)",
+      "location": [],
+      "time_range": "Early Morning (5:00-8:00 AM)",
       "consistency": true,
       "variations": null
     },
     "meal_2": {
       "meal": "Second Meal of Day",
-      "prep_type": "Meal delivery (ready-to-eat)",
-      "prep_time": null,
-      "location": [
-        "At home"
-      ],
-      "time_range": "Evening (5:00-8:00 PM)",
+      "prep_type": "Cook from scratch",
+      "prep_time": "<5 minutes",
+      "location": [],
+      "time_range": "Morning (8:00-11:00 AM)",
       "consistency": true,
       "variations": null
     },
@@ -1558,8 +1545,8 @@
     },
     "snack_1": {
       "meal": "First Snack of Day",
-      "prep_type": "Office/work snack",
-      "time_range": "Midday (11:00 AM-2:00 PM)",
+      "prep_type": "Prepare at home",
+      "time_range": "Morning (8:00-11:00 AM)",
       "consistency": true
     },
     "snack_2": {
@@ -1571,30 +1558,30 @@
   },
   "use_imperial": true,
   "gender": "Male",
-  "dob": "07/07/1993",
-  "age": 32,
-  "height_cm": 170.18,
+  "dob": "12/12/1990",
+  "age": 34,
+  "height_cm": 175.26,
   "height_ft": 5,
-  "height_in": 7,
-  "weight_kg": 81.64672369841516,
-  "weight_lbs": 180.0,
-  "body_fat_percentage": 18.0,
+  "height_in": 9,
+  "weight_kg": 90.71858188712795,
+  "weight_lbs": 200.0,
+  "body_fat_percentage": 20.0,
   "goal_focus": "Lose fat",
   "activity_level": "Lightly Active (light exercise 2-3 times per week)",
-  "workout_frequency": "4-5 workouts per week",
+  "workout_frequency": "6+ workouts per week",
   "workout_calories": 300,
   "lifestyle_commitment": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase.",
   "tracking_commitment": "I am committed to tracking regularly",
-  "body_fat_pct": 18.0,
-  "target_bf": 12.390842577295256,
+  "body_fat_pct": 20.0,
+  "target_bf": 11.666666666666666,
   "target_fat": 21.0,
-  "target_ffm": 148.48,
+  "target_ffm": 159.0,
   "target_weight": 0.0,
-  "target_fmi": 3.289035137243826,
-  "target_ffmi": 23.25504462752206,
+  "target_fmi": 3.1011297481805364,
+  "target_ffmi": 23.47998237908121,
   "targets_set": true,
-  "timeline_weeks": 8,
-  "target_weight_lbs": 169.48,
+  "timeline_weeks": 14,
+  "target_weight_lbs": 180.0,
   "goal_type": "Lose fat",
   "weekly_weight_pct": -0.0075,
   "performance_preference": "",
@@ -1606,7 +1593,6 @@
     "Turkey",
     "Lean Beef",
     "Ground Beef",
-    "Pork",
     "Salmon",
     "Tuna",
     "White Fish",
@@ -1614,8 +1600,6 @@
     "Eggs",
     "Greek Yogurt",
     "Cottage Cheese",
-    "Tofu",
-    "Tempeh",
     "Lentils",
     "Chickpeas",
     "Black Beans",
@@ -1633,9 +1617,7 @@
     "Tortillas",
     "Fruits",
     "Vegetables",
-    "Legumes",
-    "Barley",
-    "Buckwheat"
+    "Legumes"
   ],
   "selected_fats": [
     "Olive Oil",
@@ -1662,9 +1644,7 @@
     "Onions",
     "Garlic",
     "Mushrooms",
-    "Asparagus",
-    "Green Beans",
-    "Brussels Sprouts"
+    "Green Beans"
   ],
   "selected_cuisines": [
     "American",
@@ -1672,14 +1652,12 @@
     "Mexican",
     "Asian",
     "Mediterranean",
-    "Indian",
-    "Thai",
     "Japanese",
-    "French",
-    "Greek",
-    "Middle Eastern"
+    "Greek"
   ],
-  "dietary_restrictions": [],
+  "dietary_restrictions": [
+    "None"
+  ],
   "allergies": [],
   "meal_sourcing_preference": "",
   "cooking_for": "Myself + partner (2 people)",
@@ -1700,9 +1678,9 @@
     "Lemon Juice",
     "Garlic"
   ],
-  "variety_preference": "Low Variety",
-  "repetition_preference": "I enjoy eating the same meals regularly",
-  "weekly_structure": "Same breakfast, lunch, and dinner daily",
+  "variety_preference": "High Variety",
+  "repetition_preference": "I prefer different meals but can repeat favorites",
+  "weekly_structure": "Mix of routine and variety",
   "cooking_variety": "Some variety in cooking methods",
   "daily_activities": {},
   "sleep_schedule": {},
@@ -1755,13 +1733,13 @@
     }
   },
   "day_tdee_values": {
-    "Monday": 2822,
-    "Tuesday": 2822,
-    "Wednesday": 2822,
-    "Thursday": 2822,
-    "Friday": 2822,
-    "Saturday": 2822,
-    "Sunday": 2372
+    "Monday": 3126,
+    "Tuesday": 3126,
+    "Wednesday": 3126,
+    "Thursday": 3126,
+    "Friday": 2526,
+    "Saturday": 2526,
+    "Sunday": 2526
   },
   "recommended_rates": {},
   "nutrition_plan": {
@@ -1776,7 +1754,7 @@
       }
     ]
   },
-  "tdee": 2586.2875401389224,
+  "tdee": 2826.6461259480093,
   "setup_complete": true,
   "body_composition_complete": false,
   "diet_preferences_complete": false,

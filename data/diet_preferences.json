@@ -1,17 +1,15 @@
 {
-  "dietary_restrictions": [],
+  "dietary_restrictions": [
+    "None"
+  ],
   "cuisine_preferences": [
     "American",
     "Italian",
     "Mexican",
     "Asian",
     "Mediterranean",
-    "Indian",
-    "Thai",
     "Japanese",
-    "French",
-    "Greek",
-    "Middle Eastern"
+    "Greek"
   ],
   "preferred_proteins": [
     "Chicken Breast",
@@ -19,7 +17,6 @@
     "Turkey",
     "Lean Beef",
     "Ground Beef",
-    "Pork",
     "Salmon",
     "Tuna",
     "White Fish",
@@ -27,8 +24,6 @@
     "Eggs",
     "Greek Yogurt",
     "Cottage Cheese",
-    "Tofu",
-    "Tempeh",
     "Lentils",
     "Chickpeas",
     "Black Beans",
@@ -46,9 +41,7 @@
     "Tortillas",
     "Fruits",
     "Vegetables",
-    "Legumes",
-    "Barley",
-    "Buckwheat"
+    "Legumes"
   ],
   "preferred_fats": [
     "Olive Oil",
@@ -75,9 +68,7 @@
     "Onions",
     "Garlic",
     "Mushrooms",
-    "Asparagus",
-    "Green Beans",
-    "Brussels Sprouts"
+    "Green Beans"
   ],
   "disliked_foods": [],
   "allergies": [],
@@ -108,9 +99,9 @@
     "vitamin_d": "Already taking",
     "other_supplements": []
   },
-  "variety_level": "Low Variety",
-  "repetition_preference": "I enjoy eating the same meals regularly",
-  "weekly_structure": "Same breakfast, lunch, and dinner daily",
+  "variety_level": "High Variety",
+  "repetition_preference": "I prefer different meals but can repeat favorites",
+  "weekly_structure": "Mix of routine and variety",
   "cooking_variety": "Some variety in cooking methods",
   "spice_level": "Medium",
   "flavor_profile": [
