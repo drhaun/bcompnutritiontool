@@ -1,32 +1,38 @@
 {
-  "dietary_restrictions": [
-    "Gluten-Free",
-    "Low-FODMAP"
-  ],
+  "dietary_restrictions": [],
   "cuisine_preferences": [
     "American",
     "Italian",
     "Mexican",
     "Asian",
     "Mediterranean",
+    "Indian",
+    "Thai",
     "Japanese",
-    "Greek"
+    "French",
+    "Greek",
+    "Middle Eastern"
   ],
   "preferred_proteins": [
     "Chicken Breast",
+    "Chicken Thighs",
     "Turkey",
     "Lean Beef",
     "Ground Beef",
+    "Pork",
     "Salmon",
+    "Tuna",
     "White Fish",
-    "Lentils",
-    "Protein Powder",
     "Shrimp",
     "Eggs",
     "Greek Yogurt",
     "Cottage Cheese",
+    "Tofu",
+    "Tempeh",
+    "Lentils",
+    "Chickpeas",
     "Black Beans",
-    "Chickpeas"
+    "Protein Powder"
   ],
   "preferred_carbs": [
     "Brown Rice",
@@ -40,7 +46,9 @@
     "Tortillas",
     "Fruits",
     "Vegetables",
-    "Legumes"
+    "Legumes",
+    "Barley",
+    "Buckwheat"
   ],
   "preferred_fats": [
     "Olive Oil",
@@ -56,6 +64,7 @@
   ],
   "preferred_vegetables": [
     "Spinach",
+    "Kale",
     "Broccoli",
     "Cauliflower",
     "Carrots",
@@ -66,11 +75,11 @@
     "Onions",
     "Garlic",
     "Mushrooms",
-    "Green Beans"
+    "Asparagus",
+    "Green Beans",
+    "Brussels Sprouts"
   ],
-  "disliked_foods": [
-    "Brussels, Peas, Asparagus, Dates, Cauliflower, pork"
-  ],
+  "disliked_foods": [],
   "allergies": [],
   "meal_frequency": 3,
   "cooking_time_preference": "Quick (under 30 min)",
@@ -99,9 +108,9 @@
     "vitamin_d": "Already taking",
     "other_supplements": []
   },
-  "variety_level": "High Variety",
-  "repetition_preference": "I like some repetition but with variations",
-  "weekly_structure": "Mix of routine and variety",
+  "variety_level": "Low Variety",
+  "repetition_preference": "I enjoy eating the same meals regularly",
+  "weekly_structure": "Same breakfast, lunch, and dinner daily",
   "cooking_variety": "Some variety in cooking methods",
   "spice_level": "Medium",
   "flavor_profile": [
