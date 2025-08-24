@@ -585,6 +585,15 @@ for i in range(snacks_per_day):
             horizontal=True
         )
         
+        # Initialize time_range_options if not defined
+        if 'time_range_options' not in locals():
+            time_range_options = [
+                "Early Morning (5:00-7:00)", "Morning (7:00-9:00)", "Mid-Morning (9:00-11:00)",
+                "Late Morning (11:00-13:00)", "Early Afternoon (13:00-15:00)", 
+                "Mid-Afternoon (15:00-17:00)", "Late Afternoon (17:00-19:00)",
+                "Early Evening (19:00-21:00)", "Evening (21:00-23:00)", "Late Evening (23:00-1:00)"
+            ]
+        
         # Snack timing
         snack_time_range = st.selectbox(
             "Typical time:",

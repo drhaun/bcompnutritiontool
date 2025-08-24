@@ -232,8 +232,21 @@ with dashboard_tab:
     
     insights = []
     
-    # Weight trend insights
-    if 'weekly_stats' in locals() and len(weekly_stats) >= 2:
+    # Weight trend insights - initialize weekly_stats if not available
+    weekly_stats = None
+    if len(data_for_plotting) >= 7:
+        # Create weekly statistics
+        data_for_plotting_copy = data_for_plotting.copy()
+        data_for_plotting_copy['week'] = data_for_plotting_copy['date'].dt.isocalendar().week
+        data_for_plotting_copy['year'] = data_for_plotting_copy['date'].dt.isocalendar().year
+        data_for_plotting_copy['year_week'] = data_for_plotting_copy['year'].astype(str) + "-" + data_for_plotting_copy['week'].astype(str)
+        
+        weekly_stats = data_for_plotting_copy.groupby('year_week').agg({
+            'weight_lbs': ['mean', lambda x: x.iloc[-1] - x.iloc[0] if len(x) > 1 else 0]
+        }).reset_index()
+        weekly_stats.columns = ['year_week', 'avg_weight', 'weekly_weight_change']
+    
+    if weekly_stats is not None and len(weekly_stats) >= 2:
         recent_weekly_change = weekly_stats.iloc[0]['weekly_weight_change']
         if goal_type == "lose_fat":
             if recent_weekly_change > 0:
@@ -867,7 +880,7 @@ with photo_gallery_tab:
             filtered_photos = photo_df
         
         # Group photos by date
-        dates = filtered_photos['date'].unique()
+        dates = filtered_photos['date'].unique().tolist()
         
         for date in dates:
             st.markdown(f"### {date}")
@@ -892,7 +905,8 @@ with photo_gallery_tab:
                     has_photos = True
                     with cols[i]:
                         st.markdown(f"**{photo_type.capitalize()} View**")
-                        st.image(type_photos.iloc[0]['filepath'], use_column_width=True)
+                        filepath = type_photos.iloc[0]['filepath']
+                        st.image(filepath, use_column_width=True)
                         
                         # Add a delete button for each photo
                         if st.button(f"Delete {photo_type.capitalize()} Photo", key=f"delete_{date}_{photo_type}"):
@@ -905,10 +919,12 @@ with photo_gallery_tab:
                                     os.remove(filepath)
                                 
                                 # Remove from dataframe
-                                photo_df = photo_df[~((photo_df['date'] == date) & (photo_df['photo_type'] == photo_type))]
+                                utils.get_progress_photos_df()  # Refresh the dataframe
+                                updated_photo_df = utils.get_progress_photos_df()
+                                updated_photo_df = updated_photo_df[~((updated_photo_df['date'] == date) & (updated_photo_df['photo_type'] == photo_type))]
                                 
                                 # Save updated dataframe
-                                photo_df.to_csv('data/progress_photos.csv', index=False)
+                                updated_photo_df.to_csv('data/progress_photos.csv', index=False)
                                 
                                 st.success(f"Deleted {photo_type} photo for {date}")
                                 st.rerun()
@@ -940,8 +956,8 @@ with photo_gallery_tab:
                         st.error(f"Error deleting photo file: {e}")
                 
                 # Clear the dataframe
-                photo_df = pd.DataFrame(columns=photo_df.columns)
-                photo_df.to_csv('data/progress_photos.csv', index=False)
+                empty_df = pd.DataFrame(columns=['date', 'photo_type', 'filepath'])
+                empty_df.to_csv('data/progress_photos.csv', index=False)
                 
                 # Reset confirmation
                 st.session_state.gallery_confirm_delete_all = False

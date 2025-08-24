@@ -640,6 +640,14 @@ if st.session_state.get('show_ffmi_info', False):
         st.session_state.show_ffmi_info = False
         st.rerun()
 
+# Initialize target variables with default values
+target_bf = current_bf
+target_fat_mass_lbs = current_fat_mass_lbs
+target_ffm_lbs = current_fat_free_mass_lbs
+target_fmi = current_fmi
+target_ffmi = current_ffmi
+target_weight_lbs = current_weight_lbs
+
 # Get target values from session state if targets have been set
 if st.session_state.targets_set:
     # Get values from session state
@@ -753,6 +761,12 @@ st.write("### Timeline and Rate Settings")
 st.write("Set the timeline and target rate for your body composition changes:")
 
 col1, col2 = st.columns(2)
+
+# Initialize default values for timeline variables
+timeline_weeks = 12
+start_date = datetime.now().date()
+weekly_weight_pct = 0.005
+weekly_fat_pct = 0.85 if goal_type == "Lose fat" else 0.25
 
 with col1:
     # Only show timeline settings if targets are set
@@ -972,9 +986,6 @@ with col1:
             
     else:
         st.info("Set your target values above to configure your timeline and rate settings.")
-        # Set default values that won't be used
-        weekly_weight_pct = 0.005
-        weekly_fat_pct = 0.85 if goal_type == "Lose fat" else 0.25
 
 with col2:
     # Only show timeline settings if targets are set
@@ -1040,6 +1051,9 @@ with col2:
 # SECTION 6: Weekly Progress Table
 st.markdown("---")
 st.subheader("Projected Weekly Progress")
+
+# Initialize progress_df with empty DataFrame
+progress_df = pd.DataFrame()
 
 # Only show progress table if targets are set
 if st.session_state.targets_set and timeline_weeks > 0:

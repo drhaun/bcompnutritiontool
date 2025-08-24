@@ -983,6 +983,13 @@ if customize_day in st.session_state.day_specific_nutrition:
     display_carbs = suggested_nutrition.get('carbs', final_carbs)
     display_fat = suggested_nutrition.get('fat', final_fat)
     
+    # Calculate fat-free mass if not available
+    if 'fat_free_mass_kg' not in locals():
+        user_info = st.session_state.get('user_info', {})
+        weight_kg = user_info.get('weight_kg', 70)
+        body_fat = user_info.get('body_fat', 15)
+        fat_free_mass_kg = weight_kg * (1 - body_fat / 100)
+    
     # Calculate enhanced metrics for this day
     display_protein_per_kg = display_protein / weight_kg
     display_protein_per_ffm = display_protein / fat_free_mass_kg

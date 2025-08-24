@@ -664,8 +664,8 @@ if not st.session_state.daily_records.empty:
     
     # Get dates for selection
     dates = recent_data[['date', 'date_display']].copy()
-    # Sort by date in descending order - pass by as a string instead of a list
-    dates = dates.sort_values(by='date', ascending=False)
+    # Sort by date in descending order
+    dates = dates.sort_values('date', ascending=False)
     date_options = dates['date_display'].tolist()
     date_values = dates['date'].tolist()
     
@@ -859,7 +859,7 @@ if len(st.session_state.daily_records) >= 7:
             
             if len(corr_data) >= 3:  # Need at least 3 data points for meaningful correlation
                 # Calculate correlation matrix using Pearson method
-                correlation = corr_data.corr(method='pearson')
+                correlation = corr_data.corr()
                 
                 # Create a visualization for the correlations
                 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))

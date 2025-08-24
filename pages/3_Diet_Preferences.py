@@ -553,6 +553,20 @@ if dietary_submit:
 
 # Update sourcing preferences if form was submitted
 if sourcing_submit:
+    # Initialize location variables with defaults
+    if 'primary_zip' not in locals():
+        primary_zip = ""
+    if 'work_zip' not in locals():
+        work_zip = ""
+    if 'travel_routes' not in locals():
+        travel_routes = ""
+    if 'favorite_restaurants' not in locals():
+        favorite_restaurants = ""
+    if 'favorite_grocery' not in locals():
+        favorite_grocery = ""
+    if 'convenience_stores' not in locals():
+        convenience_stores = ""
+    
     # Process location-based preferences
     location_preferences = {
         'enable_location_features': enable_location,
