@@ -186,12 +186,14 @@ class FitomicsPDF(FPDF):
                             avg_carbs += macros.get('carbs', 0)
                             avg_fat += macros.get('fat', 0)
             
-            # Fallback to calculated averages if daily_totals not available
-            if avg_calories == 0:
-                avg_calories = plan_info.get('total_calories', 0) / 7 if plan_info.get('total_calories') else 0
-                avg_protein = plan_info.get('total_protein', 0) / 7 if plan_info.get('total_protein') else 0
-                avg_carbs = plan_info.get('total_carbs', 0) / 7 if plan_info.get('total_carbs') else 0
-                avg_fat = plan_info.get('total_fat', 0) / 7 if plan_info.get('total_fat') else 0
+            # Use the calculated averages from meal plan data
+            if plan_info:
+                avg_calories = plan_info.get('avg_calories', 0)
+                avg_protein = plan_info.get('avg_protein', 0)
+                avg_carbs = plan_info.get('avg_carbs', 0)
+                avg_fat = plan_info.get('avg_fat', 0)
+            else:
+                avg_calories = avg_protein = avg_carbs = avg_fat = 0
         
         self.cell(0, 6, f"Average Daily Calories: {avg_calories:.0f}", 0, 1, 'L')
         self.cell(0, 6, f"Average Daily Protein: {avg_protein:.1f}g", 0, 1, 'L')
@@ -678,50 +680,65 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
         
         pdf = FitomicsPDF()
         
-        # Safely extract plan info with error handling
+        # Extract personalized data from the AI-generated meal plan
         total_calories = 0
         total_protein = 0
         total_carbs = 0
         total_fat = 0
+        days_count = 0
         
-        print(f"Processing {len(meal_data)} meals...")
+        print(f"Processing {len(meal_data)} days...")
         
-        # Handle both dictionary and list formats
+        # Handle the AI meal plan format (dict with days as keys)
         if isinstance(meal_data, dict):
-            meals_to_process = meal_data.values()
+            # This is the AI meal plan format: {'Monday': {...}, 'Tuesday': {...}, ...}
+            for day, day_plan in meal_data.items():
+                if isinstance(day_plan, dict):
+                    daily_totals = day_plan.get('daily_totals', {})
+                    if daily_totals:
+                        total_calories += float(daily_totals.get('calories', 0) or 0)
+                        total_protein += float(daily_totals.get('protein', 0) or 0)
+                        total_carbs += float(daily_totals.get('carbs', 0) or 0)
+                        total_fat += float(daily_totals.get('fat', 0) or 0)
+                        days_count += 1
+            
+            meals_to_process = meal_data
         else:
+            # Legacy format - list of meals
             meals_to_process = meal_data
             
-        for meal in meals_to_process:
-            # Handle different meal data structures
-            if isinstance(meal, dict):
-                # Check for recipe structure first
-                if 'recipe' in meal and isinstance(meal['recipe'], dict):
-                    recipe_macros = meal['recipe'].get('macros', {})
-                    total_calories += float(recipe_macros.get('calories', 0) or 0)
-                    total_protein += float(recipe_macros.get('protein', 0) or 0)
-                    total_carbs += float(recipe_macros.get('carbs', 0) or 0)
-                    total_fat += float(recipe_macros.get('fat', 0) or 0)
-                    continue
-                
-                # Try different possible macro locations
-                macros = meal.get('macros', meal.get('total_macros', {}))
-                if not macros and 'calories' in meal:
-                    macros = meal  # The meal itself contains the macros
+        # Only process legacy format if it's not already processed
+        if not isinstance(meal_data, dict) or not any(day in meal_data for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']):
+            for meal in meals_to_process:
+                # Handle different meal data structures (legacy format)
+                if isinstance(meal, dict):
+                    # Check for recipe structure first
+                    if 'recipe' in meal and isinstance(meal['recipe'], dict):
+                        recipe_macros = meal['recipe'].get('macros', {})
+                        total_calories += float(recipe_macros.get('calories', 0) or 0)
+                        total_protein += float(recipe_macros.get('protein', 0) or 0)
+                        total_carbs += float(recipe_macros.get('carbs', 0) or 0)
+                        total_fat += float(recipe_macros.get('fat', 0) or 0)
+                        continue
                     
-                # Handle meals array from AI response
-                if 'meals' in meal:
-                    for submeal in meal['meals']:
-                        submacros = submeal.get('total_macros', {})
-                        total_calories += float(submacros.get('calories', 0) or 0)
-                        total_protein += float(submacros.get('protein', 0) or 0)
-                        total_carbs += float(submacros.get('carbs', 0) or 0)
-                        total_fat += float(submacros.get('fat', 0) or 0)
-                else:
-                    total_calories += float(macros.get('calories', 0) or 0)
-                    total_protein += float(macros.get('protein', 0) or 0)
-                    total_carbs += float(macros.get('carbs', 0) or 0)
-                    total_fat += float(macros.get('fat', 0) or 0)
+                    # Try different possible macro locations
+                    macros = meal.get('macros', meal.get('total_macros', {}))
+                    if not macros and 'calories' in meal:
+                        macros = meal  # The meal itself contains the macros
+                        
+                    # Handle meals array from AI response
+                    if 'meals' in meal:
+                        for submeal in meal['meals']:
+                            submacros = submeal.get('total_macros', {})
+                            total_calories += float(submacros.get('calories', 0) or 0)
+                            total_protein += float(submacros.get('protein', 0) or 0)
+                            total_carbs += float(submacros.get('carbs', 0) or 0)
+                            total_fat += float(submacros.get('fat', 0) or 0)
+                    else:
+                        total_calories += float(macros.get('calories', 0) or 0)
+                        total_protein += float(macros.get('protein', 0) or 0)
+                        total_carbs += float(macros.get('carbs', 0) or 0)
+                        total_fat += float(macros.get('fat', 0) or 0)
         
         # Use passed plan_info or create default
         if not plan_info:
@@ -736,6 +753,31 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
         # Add meal data to plan_info for macro calculation
         if 'meal_data' not in plan_info:
             plan_info['meal_data'] = meal_data
+        
+        # Calculate averages for title page
+        if days_count > 0:
+            avg_calories = total_calories / days_count
+            avg_protein = total_protein / days_count
+            avg_carbs = total_carbs / days_count
+            avg_fat = total_fat / days_count
+        else:
+            avg_calories = avg_protein = avg_carbs = avg_fat = 0
+        
+        print(f"Calculated averages: {avg_calories:.0f} cal, {avg_protein:.1f}g protein")
+        
+        # Update plan_info with accurate totals and averages
+        if plan_info:
+            plan_info.update({
+                'avg_calories': avg_calories,
+                'avg_protein': avg_protein,  
+                'avg_carbs': avg_carbs,
+                'avg_fat': avg_fat,
+                'total_calories': total_calories,
+                'total_protein': total_protein,  
+                'total_carbs': total_carbs,
+                'total_fat': total_fat,
+                'days_count': days_count
+            })
         
         print("Adding title page...")
         # Add title page
