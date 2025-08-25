@@ -464,28 +464,47 @@ if confirmed_schedule:
         distribution_calories = target_calories
         st.info(f"Based on base targets ({distribution_calories:,.0f} calories/day)")
     
-    # Fixed distribution based on Fitomics standards
-    if meal_count > 0 and snack_count >= 0:
-        # Fitomics standard targets
-        MEAL_CALORIES = 656
-        MEAL_PROTEIN = 50
-        SNACK_CALORIES = 328  
-        SNACK_PROTEIN = 25
+    # Calculate personalized distribution based on user's targets
+    if meal_count > 0 or snack_count > 0:
+        # Use 75% of calories for meals, 25% for snacks (standard distribution)
+        meal_percentage = 0.75
+        snack_percentage = 0.25
         
+        # Initialize variables
+        calories_per_meal = 0
+        calories_per_snack = 0
+        total_from_structure = 0
+        
+        # Calculate per-meal and per-snack targets from user's personalized goals
         if meal_count > 0:
-            st.write(f"• **Each meal:** {MEAL_CALORIES} calories, {MEAL_PROTEIN}g protein")
+            calories_per_meal = int((distribution_calories * meal_percentage) / meal_count)
+            # Estimate protein based on overall protein target distribution
+            if 'day_specific_nutrition' in st.session_state and len(st.session_state.day_specific_nutrition) > 0:
+                avg_protein = sum(day.get('protein', 150) for day in st.session_state.day_specific_nutrition.values()) / len(st.session_state.day_specific_nutrition)
+                protein_per_meal = int((avg_protein * meal_percentage) / meal_count)
+            else:
+                protein_per_meal = int((150 * meal_percentage) / meal_count)  # Default estimate
+            
+            st.write(f"• **Each meal:** ~{calories_per_meal:,} calories, ~{protein_per_meal}g protein")
             st.caption("Main meals provide substantial nutrition for sustained energy")
+            total_from_structure += meal_count * calories_per_meal
         
         if snack_count > 0:
-            st.write(f"• **Each snack:** {SNACK_CALORIES} calories, {SNACK_PROTEIN}g protein")
+            calories_per_snack = int((distribution_calories * snack_percentage) / snack_count)
+            if 'day_specific_nutrition' in st.session_state and len(st.session_state.day_specific_nutrition) > 0:
+                avg_protein = sum(day.get('protein', 150) for day in st.session_state.day_specific_nutrition.values()) / len(st.session_state.day_specific_nutrition)
+                protein_per_snack = int((avg_protein * snack_percentage) / snack_count)
+            else:
+                protein_per_snack = int((150 * snack_percentage) / snack_count)  # Default estimate
+                
+            st.write(f"• **Each snack:** ~{calories_per_snack:,} calories, ~{protein_per_snack}g protein")
             st.caption("Snacks bridge between meals with balanced macros")
+            total_from_structure += snack_count * calories_per_snack
         
-        # Calculate total from fixed targets
-        total_from_structure = (meal_count * MEAL_CALORIES) + (snack_count * SNACK_CALORIES)
-        st.info(f"**Total from structure:** {total_from_structure:,} calories/day")
-        
-        if abs(total_from_structure - distribution_calories) > 200:
-            st.warning(f"Note: Your target is {distribution_calories:,.0f} cal/day. The meal structure provides {total_from_structure:,} cal/day. The AI will adjust portions to match your exact targets.")
+        # Show total from personalized targets
+        if total_from_structure > 0:
+            st.info(f"**Total from structure:** ~{total_from_structure:,} calories/day")
+            st.caption("These are personalized targets based on your body composition goals and activity level.")
     
 else:
     st.info("Complete your Weekly Schedule to see your personalized meal and snack structure here.")
@@ -942,25 +961,33 @@ if customize_day not in st.session_state.per_meal_macros:
         suggested_carbs = final_carbs
         suggested_fat = final_fat
     
-    # Fixed Fitomics target values
-    MEAL_CALORIES = 656
-    MEAL_PROTEIN = 50
-    SNACK_CALORIES = 328
-    SNACK_PROTEIN = 25
+    # Calculate per-meal/snack targets based on user's personalized daily targets
+    # Use 75% of calories for meals, 25% for snacks (standard distribution)
+    meal_percentage = 0.75
+    snack_percentage = 0.25
     
-    # Calculate carbs and fat based on fixed protein and calorie targets
-    def calculate_meal_macros(calories, protein):
-        protein_calories = protein * 4
-        remaining_calories = calories - protein_calories
-        # Split remaining between carbs (55%) and fat (45%)
-        carb_calories = remaining_calories * 0.55
-        fat_calories = remaining_calories * 0.45
-        carbs = carb_calories / 4
-        fat = fat_calories / 9
-        return carbs, fat
+    # Calculate individual meal/snack targets from the user's personalized targets
+    if selected_day_meal_count > 0:
+        calories_per_meal = (suggested_calories * meal_percentage) / selected_day_meal_count
+        protein_per_meal = (suggested_protein * meal_percentage) / selected_day_meal_count
+        carbs_per_meal = (suggested_carbs * meal_percentage) / selected_day_meal_count
+        fat_per_meal = (suggested_fat * meal_percentage) / selected_day_meal_count
+    else:
+        calories_per_meal = 0
+        protein_per_meal = 0
+        carbs_per_meal = 0
+        fat_per_meal = 0
     
-    meal_carbs, meal_fat = calculate_meal_macros(MEAL_CALORIES, MEAL_PROTEIN)
-    snack_carbs, snack_fat = calculate_meal_macros(SNACK_CALORIES, SNACK_PROTEIN)
+    if selected_day_snack_count > 0:
+        calories_per_snack = (suggested_calories * snack_percentage) / selected_day_snack_count
+        protein_per_snack = (suggested_protein * snack_percentage) / selected_day_snack_count
+        carbs_per_snack = (suggested_carbs * snack_percentage) / selected_day_snack_count
+        fat_per_snack = (suggested_fat * snack_percentage) / selected_day_snack_count
+    else:
+        calories_per_snack = 0
+        protein_per_snack = 0
+        carbs_per_snack = 0
+        fat_per_snack = 0
     
     # Add meals with fixed targets
     meal_names = ["Breakfast", "Lunch", "Dinner", "Mid-Morning", "Afternoon", "Evening", "Pre-Dinner", "Night"]
@@ -971,10 +998,10 @@ if customize_day not in st.session_state.per_meal_macros:
         default_eating_occasions.append({
             "name": meal_name,
             "type": "meal",
-            "calories": MEAL_CALORIES,
-            "protein": MEAL_PROTEIN,
-            "carbs": meal_carbs,
-            "fat": meal_fat,
+            "calories": calories_per_meal,
+            "protein": protein_per_meal,
+            "carbs": carbs_per_meal,
+            "fat": fat_per_meal,
             "time": selected_day_settings.get('meal_times', ["07:00", "12:00", "18:00"])[i] if i < len(selected_day_settings.get('meal_times', [])) else ["07:00", "12:00", "18:00", "16:00", "19:00"][i] if i < 5 else "12:00"
         })
     
@@ -986,10 +1013,10 @@ if customize_day not in st.session_state.per_meal_macros:
         default_eating_occasions.append({
             "name": snack_name,
             "type": "snack",
-            "calories": SNACK_CALORIES,
-            "protein": SNACK_PROTEIN,
-            "carbs": snack_carbs,
-            "fat": snack_fat,
+            "calories": calories_per_snack,
+            "protein": protein_per_snack,
+            "carbs": carbs_per_snack,
+            "fat": fat_per_snack,
             "time": selected_day_settings.get('snack_times', ["10:00", "15:00", "20:00"])[i] if i < len(selected_day_settings.get('snack_times', [])) else ["10:00", "15:00", "20:00", "21:00"][i] if i < 4 else "15:00"
         })
     

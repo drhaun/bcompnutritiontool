@@ -137,19 +137,19 @@ DAILY TARGETS:
 - Carbs: {daily_totals.get('carbs', 200)}g  
 - Fat: {daily_totals.get('fat', 70)}g
 
-FITOMICS STANDARD TARGETS PER MEAL:
-- Main Meals: 656 calories, 50g protein each
-- Snacks: 328 calories, 25g protein each
-- Standard structure: 3 meals + 2 snacks per day
+MEAL DISTRIBUTION APPROACH:
+- Distribute 75% of daily calories/macros across main meals
+- Distribute 25% of daily calories/macros across snacks
+- Standard structure: 3 meals + 2 snacks per day (adjust if user prefers different)
 
 SCHEDULE CONTEXT:
 - Workouts: {schedule_info.get('workouts', 'None scheduled')}
 - Meal Contexts: {schedule_info.get('meal_contexts', {})}
 
-Design meal structure using Fitomics standards:
-1. Use 3 meals (656 cal/50g protein each) + 2 snacks (328 cal/25g protein each)
+Design meal structure using proportional distribution:
+1. Divide daily targets appropriately across meals (75%) and snacks (25%)
 2. Optimal timing relative to workouts
-3. Calculate remaining carbs/fat to hit calorie targets
+3. Ensure each meal/snack hits its proportional macro targets
 4. Meal purposes (pre-workout, post-workout, etc.)
 
 Return JSON with:
@@ -203,11 +203,11 @@ DAILY TARGETS:
 - Carbs: {day_targets.get('carbs', 250)}g
 - Fat: {day_targets.get('fat', 80)}g
 
-FITOMICS REQUIREMENTS:
-- Exactly 3 meals: Each 656 calories, 50g protein
-- Exactly 2 snacks: Each 328 calories, 25g protein
-- Total structure: 2624 calories, 200g protein from meals+snacks
-- Calculate carbs and fat to match remaining calories
+MEAL STRUCTURE REQUIREMENTS:
+- 3 meals: Each gets ~25% of daily calories/macros (75% total for meals)
+- 2 snacks: Each gets ~12.5% of daily calories/macros (25% total for snacks)
+- Example for 2000 cal day: 3 meals @ ~500 cal each, 2 snacks @ ~250 cal each
+- Calculate exact portions based on the specific daily targets above
 
 SCHEDULE: {json.dumps(schedule_info, indent=2)}
 
@@ -247,7 +247,7 @@ Return JSON:
     response = openai_client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": "You are a nutritionist creating precise meal plans using Fitomics standards (656 cal/50g protein per meal, 328 cal/25g protein per snack). Be accurate with macros."},
+            {"role": "system", "content": "You are a nutritionist creating precise meal plans. Distribute 75% of daily calories/macros across 3 meals (25% each) and 25% across 2 snacks (12.5% each). Be accurate with macro calculations."},
             {"role": "user", "content": prompt}
         ],
         response_format={"type": "json_object"},
@@ -258,14 +258,8 @@ Return JSON:
     try:
         result = json.loads(response.choices[0].message.content or "{}")
         
-        # Ensure meals follow Fitomics standards
-        for i, meal in enumerate(result.get('meals', [])):
-            if i < 3:  # Main meals
-                meal['total_macros']['calories'] = 656
-                meal['total_macros']['protein'] = 50
-            else:  # Snacks
-                meal['total_macros']['calories'] = 328
-                meal['total_macros']['protein'] = 25
+        # Don't override the AI's calculated values - they should already be proportional
+        # The AI has been instructed to use the 75%/25% distribution
         
         return result
     except json.JSONDecodeError:
@@ -314,7 +308,7 @@ Return JSON:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a chef and nutritionist. Create appealing, practical meal concepts that EXACTLY match Fitomics targets: 656 cal/50g protein for meals, 328 cal/25g protein for snacks."},
+                {"role": "system", "content": "You are a chef and nutritionist. Create appealing, practical meal concepts that match the specified macro targets for each meal/snack. Use the exact targets provided."},
                 {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"},
@@ -1044,13 +1038,16 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                 
                 # Use quick generation for speed
                 progress_placeholder = st.empty()
-                progress_placeholder.info("⚡ Generating optimized Monday meal plan with Fitomics standards...")
+                progress_placeholder.info("⚡ Generating optimized Monday meal plan based on your personalized targets...")
                 
                 try:
                     # Use the new quick generation function
                     final_result = generate_quick_meal_plan(
                         monday_data, user_context, diet_context, monday_schedule, openai_client
                     )
+                    
+                    # Initialize meal_structure for later use
+                    meal_structure = {}
                     
                     if not final_result:
                         # Fallback to step-by-step if quick fails
