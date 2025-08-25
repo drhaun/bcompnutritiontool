@@ -286,7 +286,8 @@ class FitomicsPDF(FPDF):
         sleep_time = schedule_info.get('sleep_time', '10:00 PM')
         workout_time = schedule_info.get('workout_time', '6:00 PM')
         
-        if daily_plans or True:  # Always show the table, even with defaults
+        # Always show the table
+        if True:
             self.ln(15)
             self.set_font('Arial', 'B', 14)
             self.set_text_color(41, 84, 144)
@@ -768,7 +769,7 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
             }
         
         # Add meal data to plan_info for macro calculation
-        if 'meal_data' not in plan_info:
+        if plan_info and isinstance(plan_info, dict) and 'meal_data' not in plan_info:
             plan_info['meal_data'] = meal_data
         
         # Calculate averages for title page
