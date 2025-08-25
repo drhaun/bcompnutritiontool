@@ -1,7 +1,7 @@
 {
-  "calories": 2206.143128002623,
+  "calories": 2291.857413716909,
   "protein": 200.0,
-  "carbs": 189.14285714285714,
+  "carbs": 210.57142857142858,
   "fat": 73.0,
   "meal_distribution": [
     {
@@ -43,42 +43,6 @@
         "08:00",
         "18:00"
       ]
-    },
-    "Tuesday": {
-      "meal_count": 2,
-      "snack_count": 2,
-      "use_custom_timing": false,
-      "meal_times": [
-        "08:00",
-        "18:00"
-      ]
-    },
-    "Wednesday": {
-      "meal_count": 2,
-      "snack_count": 2,
-      "use_custom_timing": false,
-      "meal_times": [
-        "08:00",
-        "18:00"
-      ]
-    },
-    "Thursday": {
-      "meal_count": 2,
-      "snack_count": 2,
-      "use_custom_timing": false,
-      "meal_times": [
-        "08:00",
-        "18:00"
-      ]
-    },
-    "Friday": {
-      "meal_count": 2,
-      "snack_count": 2,
-      "use_custom_timing": false,
-      "meal_times": [
-        "08:00",
-        "18:00"
-      ]
     }
   },
   "weekly_meal_summary": [
@@ -89,23 +53,23 @@
     },
     {
       "Day": "Tuesday",
-      "Meals": 2,
-      "Times": "08:00, 18:00"
+      "Meals": 3,
+      "Times": "07:00, 12:00, 18:00"
     },
     {
       "Day": "Wednesday",
-      "Meals": 2,
-      "Times": "08:00, 18:00"
+      "Meals": 3,
+      "Times": "07:00, 12:00, 18:00"
     },
     {
       "Day": "Thursday",
-      "Meals": 2,
-      "Times": "08:00, 18:00"
+      "Meals": 3,
+      "Times": "07:00, 12:00, 18:00"
     },
     {
       "Day": "Friday",
-      "Meals": 2,
-      "Times": "08:00, 18:00"
+      "Meals": 3,
+      "Times": "07:00, 12:00, 18:00"
     },
     {
       "Day": "Saturday",

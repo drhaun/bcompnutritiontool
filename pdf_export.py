@@ -678,16 +678,14 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
         if not meal_data:
             raise ValueError("No meal data provided for PDF export")
         
-        # Debug: Print first few items to understand structure
+        # Debug: Print summary of meal data structure
         if meal_data:
-            print("First meal data sample:")
-            if isinstance(meal_data, list) and len(meal_data) > 0:
-                print(json.dumps(meal_data[0], indent=2, default=str))
-            elif isinstance(meal_data, dict):
-                first_key = list(meal_data.keys())[0] if meal_data else None
-                if first_key:
-                    print(f"First key: {first_key}")
-                    print(json.dumps(meal_data[first_key], indent=2, default=str))
+            if isinstance(meal_data, dict):
+                print(f"Processing meal plan with {len(meal_data)} day(s)")
+                for day in meal_data:
+                    if isinstance(meal_data[day], dict):
+                        meals_count = len(meal_data[day].get('meals', []))
+                        print(f"  {day}: {meals_count} meals/snacks")
         
         pdf = FitomicsPDF()
         
@@ -924,18 +922,18 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
                 recipe = meal_info.get('recipe', meal_info)
                 macros = meal_info.get('macros', meal_info.get('total_macros', {}))
                 ingredients = meal_info.get('ingredient_details', meal_info.get('ingredients', []))
-            
-            if ingredients:
-                all_ingredients.extend(ingredients)
-            
-            pdf.add_meal_section(
-                meal_type=meal_type,
-                recipe=recipe,
-                macros=macros,
-                ingredients=ingredients,
-                meal_context=meal_info.get('context'),
-                meal_time=meal_info.get('time')
-            )
+                
+                if ingredients:
+                    all_ingredients.extend(ingredients)
+                
+                pdf.add_meal_section(
+                    meal_type=meal_type,
+                    recipe=recipe,
+                    macros=macros,
+                    ingredients=ingredients,
+                    meal_context=meal_info.get('context'),
+                    meal_time=meal_info.get('time')
+                )
         
         print(f"Adding grocery list with {len(all_ingredients)} ingredients...")
         # Add grocery list on new page
