@@ -21,11 +21,33 @@ st.set_page_config(
 utils.load_data()
 
 # Check if user has completed the previous steps
-if (not st.session_state.user_info['gender'] or 
+if (not st.session_state.user_info.get('gender') or 
     not st.session_state.goal_info.get('goal_type') or 
-    not st.session_state.nutrition_plan.get('target_calories')):
-    st.warning("Please complete the Initial Setup, Body Composition Goals, and Nutrition Plan first!")
+    not st.session_state.get('day_specific_nutrition')):
+    st.warning("Please complete the Initial Setup, Body Composition Goals, and Nutrition Targets first!")
     st.stop()
+
+# Get average nutrition targets from day_specific_nutrition
+if st.session_state.get('day_specific_nutrition'):
+    days_nutrition = st.session_state.day_specific_nutrition
+    avg_calories = sum(d.get('calories', 2000) for d in days_nutrition.values()) / len(days_nutrition) if days_nutrition else 2000
+    avg_protein = sum(d.get('protein', 100) for d in days_nutrition.values()) / len(days_nutrition) if days_nutrition else 100
+    avg_carbs = sum(d.get('carbs', 200) for d in days_nutrition.values()) / len(days_nutrition) if days_nutrition else 200
+    avg_fat = sum(d.get('fat', 70) for d in days_nutrition.values()) / len(days_nutrition) if days_nutrition else 70
+else:
+    avg_calories = 2000
+    avg_protein = 100
+    avg_carbs = 200
+    avg_fat = 70
+
+# Store in a format compatible with old code
+if 'nutrition_plan' not in st.session_state:
+    st.session_state.nutrition_plan = {}
+
+st.session_state.nutrition_plan['target_calories'] = avg_calories
+st.session_state.nutrition_plan['target_protein'] = avg_protein
+st.session_state.nutrition_plan['target_carbs'] = avg_carbs
+st.session_state.nutrition_plan['target_fat'] = avg_fat
 
 st.title("Daily Monitoring")
 st.markdown("Track your daily weight, nutrition intake, and progress photos to monitor your progress.")
@@ -191,7 +213,7 @@ with tracking_tab:
                 "Calories Consumed",
                 min_value=0.0,
                 max_value=10000.0,
-                value=float(st.session_state.nutrition_plan.get('target_calories', 2000)),
+                value=float(avg_calories),
                 step=50.0
             )
             
@@ -199,7 +221,7 @@ with tracking_tab:
                 "Protein (g)",
                 min_value=0.0,
                 max_value=500.0,
-                value=float(st.session_state.nutrition_plan.get('target_protein', 100)),
+                value=float(avg_protein),
                 step=5.0
             )
             
@@ -207,7 +229,7 @@ with tracking_tab:
                 "Carbohydrates (g)",
                 min_value=0.0,
                 max_value=1000.0,
-                value=float(st.session_state.nutrition_plan.get('target_carbs', 200)),
+                value=float(avg_carbs),
                 step=5.0
             )
             
@@ -215,7 +237,7 @@ with tracking_tab:
                 "Fat (g)",
                 min_value=0.0,
                 max_value=500.0,
-                value=float(st.session_state.nutrition_plan.get('target_fat', 70)),
+                value=float(avg_fat),
                 step=5.0
             )
             
@@ -665,7 +687,7 @@ if not st.session_state.daily_records.empty:
     # Get dates for selection
     dates = recent_data[['date', 'date_display']].copy()
     # Sort by date in descending order
-    dates = dates.sort_values('date', ascending=False)
+    dates = dates.sort_values(by='date', ascending=False)
     date_options = dates['date_display'].tolist()
     date_values = dates['date'].tolist()
     
@@ -859,7 +881,7 @@ if len(st.session_state.daily_records) >= 7:
             
             if len(corr_data) >= 3:  # Need at least 3 data points for meaningful correlation
                 # Calculate correlation matrix using Pearson method
-                correlation = corr_data.corr()
+                correlation = corr_data.corr(method='pearson')
                 
                 # Create a visualization for the correlations
                 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
