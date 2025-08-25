@@ -286,9 +286,13 @@ with tracking_tab:
             date_str = log_date.strftime('%Y-%m-%d')
             
             # Check if there's already an entry for this date
-            existing_idx = st.session_state.daily_records[
-                st.session_state.daily_records['date'] == date_str
-            ].index
+            # First check if DataFrame is empty or doesn't have 'date' column
+            if st.session_state.daily_records.empty or 'date' not in st.session_state.daily_records.columns:
+                existing_idx = []
+            else:
+                existing_idx = st.session_state.daily_records[
+                    st.session_state.daily_records['date'] == date_str
+                ].index
             
             new_entry = {
                 'date': date_str,

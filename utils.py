@@ -1402,9 +1402,11 @@ def load_data():
             try:
                 st.session_state.daily_records = pd.read_csv('data/daily_records.csv')
             except pd.errors.EmptyDataError:
-                st.session_state.daily_records = pd.DataFrame()  # Initialize as empty DataFrame
+                # Initialize as empty DataFrame with proper columns
+                st.session_state.daily_records = pd.DataFrame(columns=['date', 'weight_kg', 'weight_lbs', 'calories', 'protein', 'carbs', 'fat', 'mood', 'mood_value', 'energy', 'energy_value', 'sleep_hours', 'stress', 'stress_value', 'workout_done', 'workout_intensity', 'workout_type'])
         else:
-            st.session_state.daily_records = pd.DataFrame()  # Initialize as empty DataFrame
+            # Initialize as empty DataFrame with proper columns
+            st.session_state.daily_records = pd.DataFrame(columns=['date', 'weight_kg', 'weight_lbs', 'calories', 'protein', 'carbs', 'fat', 'mood', 'mood_value', 'energy', 'energy_value', 'sleep_hours', 'stress', 'stress_value', 'workout_done', 'workout_intensity', 'workout_type'])
         
         # Initialize progress photos tracking
         if not os.path.exists('data/progress_photos.csv'):
