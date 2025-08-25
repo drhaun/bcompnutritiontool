@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-24T19:45:05.397013",
+  "timestamp": "2025-08-25T22:20:46.209329",
   "user_info": {
     "name": "Cody",
     "gender": "Male",
@@ -12,19 +12,19 @@
     "weight_kg": 90.71858188712795,
     "weight_lbs": 200.0,
     "body_fat_percentage": 20.0,
-    "activity_level": "Lightly Active (light exercise 2-3 times per week)",
-    "raw_activity_level": "Light Active (5-10k steps/day)",
-    "workouts_per_week": 7,
+    "activity_level": "Sedentary (office job, <2 hours exercise per week)",
+    "raw_activity_level": "Sedentary (0-5k steps/day)",
+    "workouts_per_week": 6,
     "workout_frequency": "6+ workouts per week",
     "workout_calories": 300,
     "goal_focus": "Lose fat",
-    "performance_preference": "I want to maximally support my performance and recovery from training as this matters more to me than my body composition goal.",
+    "performance_preference": "I'm ok if my performance and recovery from training aren't as good during this phase in order to achieve my body composition goal.",
     "body_comp_preference": "I don't want to lose any muscle mass while losing body fat.",
     "lifestyle_commitment": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase.",
     "tracking_commitment": "I am committed to tracking regularly",
     "commitment_level": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, consuming adequate protein, macronutrients, and micronutrients this phase. I'm also willing to track my nutrition and bodyweight consistently.",
     "use_imperial": true,
-    "tdee": 2826.6461259480093
+    "tdee": 2462.2158397883927
   },
   "goal_info": {
     "goal_type": "Lose fat",
@@ -37,8 +37,8 @@
     "weekly_fat_pct": 0.85,
     "target_weight_lbs": 180.0,
     "timeline_weeks": 14,
-    "start_date": "2025-08-24",
-    "target_energy": 2114
+    "start_date": "2025-08-25",
+    "target_energy": 1749
   },
   "diet_preferences": {
     "dietary_restrictions": [
@@ -235,8 +235,8 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -245,11 +245,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -332,8 +332,8 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -342,11 +342,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -429,8 +429,8 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -439,11 +439,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -526,8 +526,8 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -536,11 +536,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -590,34 +590,41 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 624
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 624
         }
       ],
-      "workouts": [],
-      "total_calories": 2526,
+      "workouts": [
+        {
+          "type": "Resistance Training",
+          "time": "Early Morning (5:00-8:00 AM)",
+          "duration": 60,
+          "intensity": "High"
+        }
+      ],
+      "total_calories": 3126,
       "base_tdee": 2526,
-      "workout_calories": 0,
+      "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -626,11 +633,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -706,8 +713,8 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -716,11 +723,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -796,8 +803,8 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -806,11 +813,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -895,8 +902,8 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -905,11 +912,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -992,8 +999,8 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -1002,11 +1009,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -1089,8 +1096,8 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -1099,11 +1106,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -1186,8 +1193,8 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -1196,11 +1203,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -1250,34 +1257,41 @@
           "type": "meal",
           "name": "First Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 937
         },
         {
           "type": "meal",
           "name": "Second Meal of Day",
           "context": "Home Cooking",
-          "calories": 757
+          "calories": 937
         },
         {
           "type": "snack",
           "name": "First Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 624
         },
         {
           "type": "snack",
           "name": "Second Snack of Day",
           "context": "Healthy Snack",
-          "calories": 504
+          "calories": 624
         }
       ],
-      "workouts": [],
-      "total_calories": 2526,
+      "workouts": [
+        {
+          "type": "Resistance Training",
+          "time": "Early Morning (5:00-8:00 AM)",
+          "duration": 60,
+          "intensity": "High"
+        }
+      ],
+      "total_calories": 3126,
       "base_tdee": 2526,
-      "workout_calories": 0,
+      "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -1286,11 +1300,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -1366,8 +1380,8 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -1376,11 +1390,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -1456,8 +1470,8 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "04:30",
-        "bed_time": "20:00",
+        "wake_time": "05:00",
+        "bed_time": "20:30",
         "sleep_hours": 8.5
       },
       "work_schedule": {
@@ -1466,11 +1480,11 @@
         "type": "Remote Work"
       },
       "preferences": {
-        "pre_workout_meal": true,
+        "pre_workout_meal": false,
         "pre_workout_snack": false,
         "post_workout_meal": true,
         "energy_management": "Steady energy throughout day",
-        "liquid_calories": "Minimize liquid calories"
+        "liquid_calories": "Allow some liquid calories"
       },
       "detailed_meal_contexts": {
         "meal_1": {
@@ -1567,7 +1581,7 @@
   "weight_lbs": 200.0,
   "body_fat_percentage": 20.0,
   "goal_focus": "Lose fat",
-  "activity_level": "Lightly Active (light exercise 2-3 times per week)",
+  "activity_level": "Sedentary (office job, <2 hours exercise per week)",
   "workout_frequency": "6+ workouts per week",
   "workout_calories": 300,
   "lifestyle_commitment": "I am committed to prioritizing adequate sleep, performing resistance exercise/cardio at least 4 days per week, and consuming adequate protein, macronutrients, and micronutrients this phase.",
@@ -1737,7 +1751,7 @@
     "Tuesday": 3126,
     "Wednesday": 3126,
     "Thursday": 3126,
-    "Friday": 2526,
+    "Friday": 3126,
     "Saturday": 2526,
     "Sunday": 2526
   },
@@ -1754,7 +1768,7 @@
       }
     ]
   },
-  "tdee": 2826.6461259480093,
+  "tdee": 2462.2158397883927,
   "setup_complete": true,
   "body_composition_complete": false,
   "diet_preferences_complete": false,

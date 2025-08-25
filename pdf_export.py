@@ -256,30 +256,29 @@ class FitomicsPDF(FPDF):
     def add_weekly_overview_table(self, plan_info, user_info):
         """Add comprehensive weekly overview table similar to Advanced AI Meal Plan page"""
         
-        # Check if we have daily plans data
-        daily_plans = []
-        if plan_info and 'daily_plans' in plan_info:
-            daily_plans = plan_info['daily_plans']
-        elif plan_info and 'meal_data' in plan_info:
-            # Convert meal data to daily format if needed
-            meal_data = plan_info['meal_data']
-            if isinstance(meal_data, list):
-                # Group meals by day
-                days_data = {}
-                for meal in meal_data:
-                    day = meal.get('day', 'Monday')
-                    if day not in days_data:
-                        days_data[day] = {'meals': []}
-                    days_data[day]['meals'].append(meal)
-                
-                # Convert to daily_plans format
-                daily_plans = [{'day': day, **data} for day, data in days_data.items()]
+        # Get the actual meal plan data (AI-generated meals by day)
+        meal_plan_data = {}
+        if isinstance(plan_info, dict):
+            # Direct meal plan data passed
+            for key, value in plan_info.items():
+                if key in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
+                    meal_plan_data[key] = value
         
-        # Get default values from user preferences
-        default_tdee = user_info.get('daily_targets', {}).get('calories', 2000) if user_info else 2000
-        default_protein = user_info.get('daily_targets', {}).get('protein', 150) if user_info else 150
-        default_carbs = user_info.get('daily_targets', {}).get('carbs', 200) if user_info else 200
-        default_fat = user_info.get('daily_targets', {}).get('fat', 70) if user_info else 70
+        # Get personalized nutrition targets from plan_info
+        day_specific_nutrition = {}
+        weekly_schedule = {}
+        if user_info and isinstance(user_info, dict):
+            day_specific_nutrition = user_info.get('day_specific_nutrition', {})
+            weekly_schedule = user_info.get('weekly_schedule', {})
+        elif plan_info and isinstance(plan_info, dict):
+            day_specific_nutrition = plan_info.get('day_specific_nutrition', {})
+            weekly_schedule = plan_info.get('weekly_schedule', {})
+        
+        # Get default values from base targets (fallback only)
+        default_tdee = 2000
+        default_protein = 150
+        default_carbs = 200
+        default_fat = 70
         
         # Get schedule info if available
         schedule_info = user_info.get('schedule_info', {}) if user_info else {}
@@ -315,44 +314,55 @@ class FitomicsPDF(FPDF):
             self.set_font('Arial', '', 6)
             
             for day_name in days:
-                # Find data for this day
-                day_data = None
-                for plan in daily_plans:
-                    if plan.get('day', '').lower() == day_name.lower():
-                        day_data = plan
-                        break
+                # Get the personalized targets for this day
+                day_nutrition = day_specific_nutrition.get(day_name, {})
+                day_schedule_data = weekly_schedule.get(day_name, {})
                 
-                # Calculate values for this day
-                if day_data and 'meals' in day_data:
-                    meals = day_data['meals']
-                    meal_count = len([m for m in meals if m.get('meal_type', '').lower() in ['breakfast', 'lunch', 'dinner']])
-                    snack_count = len([m for m in meals if 'snack' in m.get('meal_type', '').lower()])
-                    
-                    # Calculate actual totals if macros available
-                    total_calories = sum(m.get('recipe', {}).get('macros', {}).get('calories', 0) for m in meals)
-                    total_protein = sum(m.get('recipe', {}).get('macros', {}).get('protein', 0) for m in meals)
-                    total_carbs = sum(m.get('recipe', {}).get('macros', {}).get('carbs', 0) for m in meals)
-                    total_fat = sum(m.get('recipe', {}).get('macros', {}).get('fat', 0) for m in meals)
-                    
-                    # Use calculated values if available, otherwise defaults
-                    target_cal = int(total_calories) if total_calories > 0 else default_tdee
-                    protein = int(total_protein) if total_protein > 0 else default_protein
-                    carbs = int(total_carbs) if total_carbs > 0 else default_carbs
-                    fat = int(total_fat) if total_fat > 0 else default_fat
+                # Get actual target values from personalized data
+                if day_nutrition:
+                    target_cal = int(day_nutrition.get('calories', default_tdee))
+                    protein = int(day_nutrition.get('protein', default_protein))
+                    carbs = int(day_nutrition.get('carbs', default_carbs))
+                    fat = int(day_nutrition.get('fat', default_fat))
+                    tdee = int(day_nutrition.get('tdee', target_cal))  # Use TDEE if available
                 else:
-                    # Default values
-                    meal_count = 3
-                    snack_count = 2
-                    target_cal = default_tdee
-                    protein = default_protein
-                    carbs = default_carbs
-                    fat = default_fat
+                    # Try to get from meal plan daily totals
+                    if day_name in meal_plan_data:
+                        daily_totals = meal_plan_data[day_name].get('daily_totals', {})
+                        if daily_totals:
+                            target_cal = int(daily_totals.get('calories', default_tdee))
+                            protein = int(daily_totals.get('protein', default_protein))
+                            carbs = int(daily_totals.get('carbs', default_carbs))
+                            fat = int(daily_totals.get('fat', default_fat))
+                            tdee = target_cal  # Use target calories as TDEE approximation
+                        else:
+                            target_cal = default_tdee
+                            protein = default_protein
+                            carbs = default_carbs
+                            fat = default_fat
+                            tdee = default_tdee
+                    else:
+                        target_cal = default_tdee
+                        protein = default_protein
+                        carbs = default_carbs
+                        fat = default_fat
+                        tdee = default_tdee
                 
-                # Get day-specific schedule if available
-                day_schedule = day_data.get('schedule', {}) if day_data else {}
-                day_wake = day_schedule.get('wake_time', wake_time)
-                day_sleep = day_schedule.get('sleep_time', sleep_time)
-                day_workout = day_schedule.get('workout_time', workout_time)
+                # Get meal/snack counts from schedule
+                meal_count = day_schedule_data.get('meal_count', 3)
+                snack_count = day_schedule_data.get('snack_count', 2)
+                
+                # Get day-specific schedule from weekly_schedule
+                day_wake = day_schedule_data.get('wake_time', '7:00 AM')
+                day_sleep = day_schedule_data.get('sleep_time', '10:00 PM')
+                
+                # Get workout info
+                day_workouts = day_schedule_data.get('workouts', [])
+                if day_workouts and len(day_workouts) > 0:
+                    first_workout = day_workouts[0]
+                    day_workout = first_workout.get('time', 'None')
+                else:
+                    day_workout = 'Rest'
                 
                 # Format times (remove seconds, ensure short format)
                 def format_time(time_str):
@@ -362,16 +372,16 @@ class FitomicsPDF(FPDF):
                     time_str = str(time_str).replace(':00 ', ' ').replace(':00', '')
                     return time_str[:8]  # Limit length
                 
-                # Row data
+                # Row data - use real personalized values
                 row_data = [
                     day_name[:3],  # Day (abbreviated)
-                    str(target_cal),  # TDEE
-                    str(target_cal),  # Target Calories (same as TDEE)
-                    f"{protein}g",  # Protein
-                    f"{carbs}g",  # Carbs  
-                    f"{fat}g",  # Fat
-                    str(meal_count),  # Meals
-                    str(snack_count),  # Snacks
+                    str(tdee),  # TDEE (actual calculated TDEE)
+                    str(target_cal),  # Target Calories (adjusted for goal)
+                    f"{protein}g",  # Protein (personalized)
+                    f"{carbs}g",  # Carbs (personalized)
+                    f"{fat}g",  # Fat (personalized)
+                    str(meal_count),  # Meals (from schedule)
+                    str(snack_count),  # Snacks (from schedule)
                     format_time(day_workout),  # Workout
                     format_time(day_wake),  # Wake
                     format_time(day_sleep)  # Sleep
@@ -740,14 +750,21 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
                         total_carbs += float(macros.get('carbs', 0) or 0)
                         total_fat += float(macros.get('fat', 0) or 0)
         
-        # Use passed plan_info or create default
-        if not plan_info:
-            plan_info = {
-                'total_calories': int(total_calories),
-                'total_protein': round(total_protein, 1),
-                'total_carbs': round(total_carbs, 1),
-                'total_fat': round(total_fat, 1),
-                'diet_preferences': user_preferences or {}
+        # Properly structure user_info from plan_info
+        user_info = {}
+        if plan_info and isinstance(plan_info, dict):
+            user_info = {
+                'profile': plan_info.get('user_profile', {}),
+                'goals': plan_info.get('body_comp_goals', {}),
+                'day_specific_nutrition': plan_info.get('day_specific_nutrition', {}),
+                'weekly_schedule': plan_info.get('weekly_schedule', {}),
+                'diet_preferences': plan_info.get('diet_preferences', {}),
+                'daily_totals': {
+                    'calories': int(total_calories) if days_count > 0 else 0,
+                    'protein': round(total_protein, 1) if days_count > 0 else 0,
+                    'carbs': round(total_carbs, 1) if days_count > 0 else 0,
+                    'fat': round(total_fat, 1) if days_count > 0 else 0
+                }
             }
         
         # Add meal data to plan_info for macro calculation
@@ -780,8 +797,8 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
             })
         
         print("Adding title page...")
-        # Add title page
-        pdf.add_title_page(user_preferences or {}, plan_info)
+        # Add title page with properly structured data
+        pdf.add_title_page(user_info, meal_data)
         
         print("Adding meals page...")
         # Add meals page
