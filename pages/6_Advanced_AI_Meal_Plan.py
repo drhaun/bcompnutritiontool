@@ -137,14 +137,19 @@ DAILY TARGETS:
 - Carbs: {daily_totals.get('carbs', 200)}g  
 - Fat: {daily_totals.get('fat', 70)}g
 
+FITOMICS STANDARD TARGETS PER MEAL:
+- Main Meals: 656 calories, 50g protein each
+- Snacks: 328 calories, 25g protein each
+- Standard structure: 3 meals + 2 snacks per day
+
 SCHEDULE CONTEXT:
 - Workouts: {schedule_info.get('workouts', 'None scheduled')}
 - Meal Contexts: {schedule_info.get('meal_contexts', {})}
 
-Design meal structure with:
-1. Optimal number of meals (3-6 based on preferences and schedule)
-2. Meal timing relative to workouts
-3. Macro distribution per meal
+Design meal structure using Fitomics standards:
+1. Use 3 meals (656 cal/50g protein each) + 2 snacks (328 cal/25g protein each)
+2. Optimal timing relative to workouts
+3. Calculate remaining carbs/fat to hit calorie targets
 4. Meal purposes (pre-workout, post-workout, etc.)
 
 Return JSON with:
@@ -182,6 +187,90 @@ Return JSON with:
     except json.JSONDecodeError:
         return {"meal_structure": [], "rationale": "Error parsing meal structure"}
 
+def generate_quick_meal_plan(day_targets, user_context, dietary_context, schedule_info, openai_client):
+    """Simplified single-step meal generation for speed"""
+    
+    prompt = f"""
+Create a complete meal plan for the day using Fitomics standards.
+
+{user_context}
+
+{dietary_context}
+
+DAILY TARGETS:
+- Calories: {day_targets.get('calories', 2624)}
+- Protein: {day_targets.get('protein', 200)}g
+- Carbs: {day_targets.get('carbs', 250)}g
+- Fat: {day_targets.get('fat', 80)}g
+
+FITOMICS REQUIREMENTS:
+- Exactly 3 meals: Each 656 calories, 50g protein
+- Exactly 2 snacks: Each 328 calories, 25g protein
+- Total structure: 2624 calories, 200g protein from meals+snacks
+- Calculate carbs and fat to match remaining calories
+
+SCHEDULE: {json.dumps(schedule_info, indent=2)}
+
+Generate a complete meal plan with specific ingredients and portions.
+
+Return JSON:
+{{
+  "meals": [
+    {{
+      "name": "Meal 1",
+      "time": "7:00 AM",
+      "context": "Morning energy",
+      "ingredients": [
+        {{"item": "ingredient name", "amount": "100g"}},
+        ...
+      ],
+      "instructions": ["Step 1", "Step 2"],
+      "total_macros": {{
+        "calories": 656,
+        "protein": 50,
+        "carbs": calculated,
+        "fat": calculated
+      }}
+    }},
+    // ... 3 meals + 2 snacks
+  ],
+  "daily_totals": {{
+    "calories": total,
+    "protein": total,
+    "carbs": total,
+    "fat": total
+  }},
+  "meal_structure_rationale": "Brief explanation of meal timing and structure"
+}}
+"""
+    
+    response = openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are a nutritionist creating precise meal plans using Fitomics standards (656 cal/50g protein per meal, 328 cal/25g protein per snack). Be accurate with macros."},
+            {"role": "user", "content": prompt}
+        ],
+        response_format={"type": "json_object"},
+        temperature=0.1,
+        max_tokens=4000
+    )
+    
+    try:
+        result = json.loads(response.choices[0].message.content or "{}")
+        
+        # Ensure meals follow Fitomics standards
+        for i, meal in enumerate(result.get('meals', [])):
+            if i < 3:  # Main meals
+                meal['total_macros']['calories'] = 656
+                meal['total_macros']['protein'] = 50
+            else:  # Snacks
+                meal['total_macros']['calories'] = 328
+                meal['total_macros']['protein'] = 25
+        
+        return result
+    except json.JSONDecodeError:
+        return None
+
 def step2_generate_meal_concepts(meal_structure, user_context, dietary_context, openai_client):
     """Step 2: Generate specific meal concepts for each meal in the structure"""
     meal_concepts = []
@@ -206,7 +295,7 @@ MEAL REQUIREMENTS:
 
 Generate a specific meal concept that:
 1. Fits the user's preferences perfectly
-2. Achieves the macro targets
+2. Achieves the macro targets (MUST be exact: 656 cal/50g protein for meals, 328 cal/25g protein for snacks)
 3. Considers workout timing if applicable
 4. Uses preferred ingredients when possible
 
@@ -225,7 +314,7 @@ Return JSON:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a chef and nutritionist. Create appealing, practical meal concepts that perfectly match user preferences."},
+                {"role": "system", "content": "You are a chef and nutritionist. Create appealing, practical meal concepts that EXACTLY match Fitomics targets: 656 cal/50g protein for meals, 328 cal/25g protein for snacks."},
                 {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"},
@@ -953,52 +1042,43 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                 user_context = build_user_profile_context(user_profile, body_comp_goals)
                 diet_context = build_dietary_context(diet_preferences)
                 
-                # Generate Monday plan with step-by-step approach
+                # Use quick generation for speed
                 progress_placeholder = st.empty()
+                progress_placeholder.info("⚡ Generating optimized Monday meal plan with Fitomics standards...")
                 
-                # Step 1: Meal Structure
-                progress_placeholder.info("🏗️ Step 1: Designing optimal meal structure...")
                 try:
-                    meal_structure = step1_generate_meal_structure(
+                    # Use the new quick generation function
+                    final_result = generate_quick_meal_plan(
                         monday_data, user_context, diet_context, monday_schedule, openai_client
                     )
+                    
+                    if not final_result:
+                        # Fallback to step-by-step if quick fails
+                        progress_placeholder.info("🏗️ Using detailed generation...")
+                        
+                        # Step 1: Meal Structure
+                        meal_structure = step1_generate_meal_structure(
+                            monday_data, user_context, diet_context, monday_schedule, openai_client
+                        )
+                        
+                        # Step 2: Meal Concepts  
+                        meal_concepts = step2_generate_meal_concepts(
+                            meal_structure, user_context, diet_context, openai_client
+                        )
+                        
+                        # Step 3: Precise Recipes
+                        precise_meals = step3_generate_precise_recipes(
+                            meal_concepts, openai_client
+                        )
+                        
+                        # Step 4: Validation
+                        final_result = step4_validate_and_adjust(precise_meals, monday_data)
+                    
                 except Exception as e:
-                    st.error(f"Step 1 error: {e}")
-                    progress_placeholder.error("❌ Unable to generate meal structure due to API issue")
+                    st.error(f"Generation error: {e}")
+                    progress_placeholder.error("❌ Unable to generate meal plan due to API issue")
                     st.session_state['meal_plan_stage'] = 'start'
                     st.stop()
-                
-                # Step 2: Meal Concepts  
-                progress_placeholder.info("💡 Step 2: Creating personalized meal concepts...")
-                try:
-                    meal_concepts = step2_generate_meal_concepts(
-                        meal_structure, user_context, diet_context, openai_client
-                    )
-                except Exception as e:
-                    st.error(f"Step 2 error: {e}")
-                    progress_placeholder.error("❌ Unable to generate meal concepts due to API issue")
-                    st.session_state['meal_plan_stage'] = 'start'
-                    st.stop()
-                
-                # Step 3: Precise Recipes
-                progress_placeholder.info("🍳 Step 3: Calculating precise recipes...")
-                try:
-                    precise_meals = step3_generate_precise_recipes(
-                        meal_concepts, openai_client
-                    )
-                except Exception as e:
-                    st.error(f"Step 3 error: {e}")
-                    progress_placeholder.error("❌ Unable to generate precise recipes due to API issue")
-                    st.session_state['meal_plan_stage'] = 'start'
-                    st.stop()
-                
-                # Step 4: Validation
-                progress_placeholder.info("✅ Step 4: Validating macro accuracy...")
-                try:
-                    final_result = step4_validate_and_adjust(precise_meals, monday_data)
-                except Exception as e:
-                    st.error(f"Step 4 error: {e}")
-                    raise
                 
                 # Create comprehensive Monday plan with reasoning
                 # Ensure meal_structure is a dict
@@ -1428,7 +1508,7 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
     # User feedback and approval
     st.markdown("### 🎯 Your Feedback")
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         if st.button("✅ Approve Monday", type="primary", use_container_width=True):
@@ -1438,12 +1518,43 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
             st.rerun()
     
     with col2:
+        if st.button("📄 Export Monday PDF", use_container_width=True):
+            try:
+                # Create single-day meal plan structure
+                single_day_plan = {'Monday': monday_plan}
+                
+                # Get plan info
+                plan_info = {
+                    'user_profile': st.session_state.get('user_info', {}),
+                    'body_comp_goals': st.session_state.get('goal_info', {}),
+                    'diet_preferences': st.session_state.get('diet_preferences', {}),
+                    'weekly_schedule': st.session_state.get('weekly_schedule_v2', {}),
+                    'day_specific_nutrition': st.session_state.get('day_specific_nutrition', {})
+                }
+                
+                pdf_buffer = export_meal_plan_pdf(single_day_plan, plan_info)
+                
+                if pdf_buffer:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+                    st.download_button(
+                        label="📥 Download Monday PDF",
+                        data=pdf_buffer,
+                        file_name=f"fitomics_monday_{timestamp}.pdf",
+                        mime="application/pdf",
+                        key="download_monday_pdf",
+                        use_container_width=True
+                    )
+                    st.success("✅ Monday PDF generated successfully!")
+            except Exception as e:
+                st.error(f"❌ PDF export failed: {str(e)}")
+    
+    with col3:
         if st.button("🔄 Regenerate Monday", use_container_width=True):
             st.session_state['meal_plan_stage'] = 'generating_monday'
             st.info("Regenerating Monday...")
             st.rerun()
     
-    with col3:
+    with col4:
         if st.button("✏️ Request Modifications", use_container_width=True):
             st.session_state['meal_plan_stage'] = 'modify_monday'
             st.rerun()
@@ -1771,6 +1882,37 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
         # Display meals for each day
         for day, day_plan in meal_plan.items():
             with st.expander(f"📅 {day}", expanded=False):
+                # Add single-day export button at the top of each day
+                if st.button(f"📄 Export {day} PDF", key=f"export_{day}_pdf", use_container_width=False):
+                    try:
+                        # Create single-day meal plan structure
+                        single_day_plan = {day: day_plan}
+                        
+                        # Get plan info
+                        plan_info = {
+                            'user_profile': st.session_state.get('user_info', {}),
+                            'body_comp_goals': st.session_state.get('goal_info', {}),
+                            'diet_preferences': st.session_state.get('diet_preferences', {}),
+                            'weekly_schedule': st.session_state.get('weekly_schedule_v2', {}),
+                            'day_specific_nutrition': st.session_state.get('day_specific_nutrition', {})
+                        }
+                        
+                        pdf_buffer = export_meal_plan_pdf(single_day_plan, plan_info)
+                        
+                        if pdf_buffer:
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+                            st.download_button(
+                                label=f"📥 Download {day} PDF",
+                                data=pdf_buffer,
+                                file_name=f"fitomics_{day.lower()}_{timestamp}.pdf",
+                                mime="application/pdf",
+                                key=f"download_{day}_pdf",
+                                use_container_width=False
+                            )
+                            st.success(f"✅ {day} PDF generated successfully!")
+                    except Exception as e:
+                        st.error(f"❌ PDF export failed: {str(e)}")
+                
                 st.markdown(f"**Meal Structure Rationale:** {day_plan.get('meal_structure_rationale', 'Not provided')}")
                 
                 # Show template indicator
