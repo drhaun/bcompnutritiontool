@@ -9,7 +9,13 @@ from scipy.optimize import minimize
 
 # Import custom modules
 sys.path.append(os.path.abspath(os.path.dirname(__file__) + '/../'))
-import fdc_api
+from common_foods_database import (
+    get_all_foods, 
+    get_food_by_category,
+    calculate_nutrition_for_amount, 
+    search_foods,
+    get_foods_by_macro_profile
+)
 from recipe_database import get_recipe_database, display_recipe_card, load_sample_recipes
 
 # Set page config
@@ -280,8 +286,8 @@ def calculate_optimal_portions(selected_foods, target_macros):
     Returns:
     - Dict with food names as keys and portion sizes as values
     """
-    # Extract target values
-    target_calories = target_macros.get('target_calories', 0)
+    # Extract target values - fix key names for calories
+    target_calories = target_macros.get('calories', target_macros.get('target_calories', 0))
     target_protein = target_macros.get('protein', 0)
     target_carbs = target_macros.get('carbs', 0) 
     target_fat = target_macros.get('fat', 0)
@@ -330,48 +336,25 @@ def calculate_optimal_portions(selected_foods, target_macros):
         # If optimization fails, return default portions
         return {food['name']: 100 for food in selected_foods}
 
-# Common food options for each category
-COMMON_PROTEIN_SOURCES = [
-    {"name": "Chicken Breast", "calories": 165, "protein": 31, "carbs": 0, "fat": 3.6},
-    {"name": "Turkey Breast", "calories": 135, "protein": 30, "carbs": 0, "fat": 1},
-    {"name": "Salmon", "calories": 208, "protein": 20, "carbs": 0, "fat": 13},
-    {"name": "Lean Beef", "calories": 250, "protein": 26, "carbs": 0, "fat": 17},
-    {"name": "Tuna", "calories": 130, "protein": 29, "carbs": 0, "fat": 1},
-    {"name": "Egg Whites", "calories": 52, "protein": 11, "carbs": 0.7, "fat": 0.2},
-    {"name": "Whole Eggs", "calories": 143, "protein": 12.6, "carbs": 0.7, "fat": 9.5},
-    {"name": "Greek Yogurt", "calories": 100, "protein": 17, "carbs": 6, "fat": 0.5},
-    {"name": "Cottage Cheese", "calories": 98, "protein": 11, "carbs": 3.4, "fat": 4.3},
-    {"name": "Tofu", "calories": 144, "protein": 17, "carbs": 2.8, "fat": 8.6},
-    {"name": "Tempeh", "calories": 195, "protein": 20, "carbs": 7.6, "fat": 11.4},
-    {"name": "Whey Protein", "calories": 120, "protein": 25, "carbs": 3, "fat": 2},
-    {"name": "Plant Protein", "calories": 120, "protein": 24, "carbs": 5, "fat": 2}
-]
+# Get food options from the database
+def get_food_options():
+    """Get food options from local database"""
+    all_foods = get_all_foods()
+    proteins = get_food_by_category("proteins")
+    carbs = get_food_by_category("carbs")
+    fats = get_food_by_category("fats")
+    
+    # Convert to list format needed by optimizer
+    protein_sources = [{"name": name, **nutrition} for name, nutrition in proteins.items()]
+    carb_sources = [{"name": name, **nutrition} for name, nutrition in carbs.items()]
+    fat_sources = [{"name": name, **nutrition} for name, nutrition in fats.items()]
+    
+    return protein_sources, carb_sources, fat_sources
 
-COMMON_CARB_SOURCES = [
-    {"name": "White Rice", "calories": 130, "protein": 2.7, "carbs": 28, "fat": 0.3},
-    {"name": "Brown Rice", "calories": 112, "protein": 2.6, "carbs": 22.9, "fat": 0.9},
-    {"name": "Sweet Potato", "calories": 86, "protein": 1.6, "carbs": 20.1, "fat": 0.1},
-    {"name": "White Potato", "calories": 77, "protein": 2, "carbs": 17, "fat": 0.1},
-    {"name": "Oats", "calories": 389, "protein": 16.9, "carbs": 66.3, "fat": 6.9},
-    {"name": "Quinoa", "calories": 120, "protein": 4.4, "carbs": 21.3, "fat": 1.9},
-    {"name": "Whole Wheat Bread", "calories": 247, "protein": 13, "carbs": 41, "fat": 3.4},
-    {"name": "Whole Wheat Pasta", "calories": 174, "protein": 7.5, "carbs": 37, "fat": 0.8},
-    {"name": "Beans", "calories": 341, "protein": 21, "carbs": 62, "fat": 1.2},
-    {"name": "Lentils", "calories": 116, "protein": 9, "carbs": 20, "fat": 0.4},
-    {"name": "Banana", "calories": 89, "protein": 1.1, "carbs": 22.8, "fat": 0.3},
-    {"name": "Rice Cakes", "calories": 35, "protein": 0.7, "carbs": 7.3, "fat": 0.3}
-]
+# Get food lists from database
+COMMON_PROTEIN_SOURCES, COMMON_CARB_SOURCES, COMMON_FAT_SOURCES = get_food_options()
 
-COMMON_FAT_SOURCES = [
-    {"name": "Avocado", "calories": 160, "protein": 2, "carbs": 8.5, "fat": 14.7},
-    {"name": "Olive Oil", "calories": 884, "protein": 0, "carbs": 0, "fat": 100},
-    {"name": "Coconut Oil", "calories": 862, "protein": 0, "carbs": 0, "fat": 100},
-    {"name": "Almonds", "calories": 576, "protein": 21, "carbs": 22, "fat": 49},
-    {"name": "Walnuts", "calories": 654, "protein": 15, "carbs": 14, "fat": 65},
-    {"name": "Chia Seeds", "calories": 486, "protein": 17, "carbs": 42, "fat": 31},
-    {"name": "Flax Seeds", "calories": 534, "protein": 18, "carbs": 29, "fat": 42},
-    {"name": "Nut Butter", "calories": 588, "protein": 25, "carbs": 20, "fat": 50},
-    {"name": "Cheese", "calories": 402, "protein": 25, "carbs": 1.3, "fat": 33},
+# Additional hardcoded items for compatibility
     {"name": "Full Fat Yogurt", "calories": 61, "protein": 3.5, "carbs": 4.7, "fat": 3.3}
 ]
 
@@ -475,7 +458,7 @@ if 'day_specific_nutrition' in st.session_state and st.session_state.day_specifi
         st.subheader(f"Daily Nutrition Targets for {selected_day}")
         target_cols = st.columns(4)
         with target_cols[0]:
-            st.metric("Calories", f"{targets.get('target_calories', 0):.0f} kcal")
+            st.metric("Calories", f"{targets.get('calories', 0):.0f} kcal")
         with target_cols[1]:
             st.metric("Protein", f"{targets.get('protein', 0):.0f}g")
         with target_cols[2]:
@@ -514,7 +497,7 @@ for meal_num in range(1, total_meals + 1):
     if has_nutrition_targets and selected_day in st.session_state.day_specific_nutrition:
         targets = st.session_state.day_specific_nutrition[selected_day]
         meal_targets = {
-            'target_calories': targets.get('target_calories', 0) / total_meals,  # Equal calorie distribution
+            'calories': targets.get('calories', 0) / total_meals,  # Equal calorie distribution
             'protein': targets.get('protein', 0) * meal_info['protein'],
             'carbs': targets.get('carbs', 0) * meal_info['carbs'],
             'fat': targets.get('fat', 0) * meal_info['fat']
@@ -529,7 +512,7 @@ Fat: {meal_info['fat']*100:.0f}% ({meal_targets['fat']:.0f}g)""")
         st.write("**Meal-Specific Targets:**")
         meal_target_cols = st.columns(4)
         with meal_target_cols[0]:
-            st.metric("Calories", f"{meal_targets['target_calories']:.0f} kcal")
+            st.metric("Calories", f"{meal_targets['calories']:.0f} kcal")
         with meal_target_cols[1]:
             st.metric("Protein", f"{meal_targets['protein']:.0f}g")
         with meal_target_cols[2]:
@@ -1098,7 +1081,7 @@ Fat: {meal_info['fat']*100:.0f}% ({meal_targets['fat']:.0f}g)""")
         if has_nutrition_targets and selected_day in st.session_state.day_specific_nutrition:
             targets = st.session_state.day_specific_nutrition[selected_day]
             meal_targets = {
-                'target_calories': targets.get('target_calories', 0) * meal_info['protein'],
+                'calories': targets.get('calories', 0) * meal_info['protein'],
                 'protein': targets.get('protein', 0) * meal_info['protein'],
                 'carbs': targets.get('carbs', 0) * meal_info['carbs'],
                 'fat': targets.get('fat', 0) * meal_info['fat']
@@ -1189,8 +1172,8 @@ Fat: {meal_info['fat']*100:.0f}% ({meal_targets['fat']:.0f}g)""")
             
             with meal_cols[0]:
                 cal_pct = 0
-                if meal_targets['target_calories'] > 0:
-                    cal_pct = (meal_nutrition['calories'] / meal_targets['target_calories']) * 100
+                if meal_targets['calories'] > 0:
+                    cal_pct = (meal_nutrition['calories'] / meal_targets['calories']) * 100
                 st.metric("Calories", f"{meal_nutrition['calories']:.0f} kcal", f"{cal_pct:.0f}% of target")
             
             with meal_cols[1]:
@@ -1222,7 +1205,7 @@ Fat: {meal_info['fat']*100:.0f}% ({meal_targets['fat']:.0f}g)""")
             daily_nutrition['fat'] += meal_nutrition['fat']
             
             # Calculate remaining macros for this meal
-            remaining_calories = targets.get('target_calories', 0) - daily_nutrition['calories']
+            remaining_calories = targets.get('calories', 0) - daily_nutrition['calories']
             remaining_protein = targets.get('protein', 0) - daily_nutrition['protein']
             remaining_carbs = targets.get('carbs', 0) - daily_nutrition['carbs']
             remaining_fat = targets.get('fat', 0) - daily_nutrition['fat']
@@ -1290,7 +1273,7 @@ if selected_day in st.session_state.meal_plan and st.session_state.meal_plan[sel
             if has_nutrition_targets and selected_day in st.session_state.day_specific_nutrition:
                 targets = st.session_state.day_specific_nutrition[selected_day]
                 meal_targets = {
-                    'target_calories': targets.get('target_calories', 0) * meal_info.get('protein', 1/total_meals),
+                    'calories': targets.get('calories', 0) * meal_info.get('protein', 1/total_meals),
                     'protein': targets.get('protein', 0) * meal_info.get('protein', 1/total_meals),
                     'carbs': targets.get('carbs', 0) * meal_info.get('carbs', 1/total_meals),
                     'fat': targets.get('fat', 0) * meal_info.get('fat', 1/total_meals)
@@ -1338,8 +1321,8 @@ if selected_day in st.session_state.meal_plan and st.session_state.meal_plan[sel
         
         with total_cols[0]:
             cal_pct = 0
-            if targets.get('target_calories', 0) > 0:
-                cal_pct = (daily_nutrition['calories'] / targets['target_calories']) * 100
+            if targets.get('calories', 0) > 0:
+                cal_pct = (daily_nutrition['calories'] / targets['calories']) * 100
             st.metric("Calories", f"{daily_nutrition['calories']:.0f} kcal", f"{cal_pct:.0f}% of target")
         
         with total_cols[1]:
