@@ -354,10 +354,6 @@ def get_food_options():
 # Get food lists from database
 COMMON_PROTEIN_SOURCES, COMMON_CARB_SOURCES, COMMON_FAT_SOURCES = get_food_options()
 
-# Additional hardcoded items for compatibility
-    {"name": "Full Fat Yogurt", "calories": 61, "protein": 3.5, "carbs": 4.7, "fat": 3.3}
-]
-
 COMMON_VEGETABLE_SOURCES = [
     {"name": "Broccoli", "calories": 34, "protein": 2.8, "carbs": 7, "fat": 0.4},
     {"name": "Spinach", "calories": 23, "protein": 2.9, "carbs": 3.6, "fat": 0.4},
