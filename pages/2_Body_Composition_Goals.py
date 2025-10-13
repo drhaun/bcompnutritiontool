@@ -82,10 +82,8 @@ st.markdown("Define your body composition targets and timeline.")
 add_session_controls()
 
 # Check if initial setup is complete, otherwise redirect
-# Temporarily bypassed for testing
-if False and ("setup_complete" not in st.session_state or not st.session_state.setup_complete):
+if "user_info" not in st.session_state or not st.session_state.user_info:
     st.error("Please complete the Initial Setup first.")
-    st.link_button("Go to Initial Setup", url="Initial_Setup")
     st.stop()
 
 # Initialize session state variables with user_info if available
@@ -1117,7 +1115,8 @@ with st.form(key="save_goal_form"):
             if 'progress_df' in locals() and not progress_df.empty:
                 week0_data = progress_df[progress_df['Week'] == 0]
                 if not week0_data.empty and 'Daily Energy Target (kcal)' in week0_data.columns:
-                    target_energy = int(week0_data['Daily Energy Target (kcal)'].iloc[0])
+                    # Use .values to get numpy array then index it
+                    target_energy = int(week0_data['Daily Energy Target (kcal)'].values[0])
                     st.session_state.goal_info['target_energy'] = target_energy
             
             # Save to data file

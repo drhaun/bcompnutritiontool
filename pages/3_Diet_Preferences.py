@@ -553,29 +553,24 @@ if dietary_submit:
 
 # Update sourcing preferences if form was submitted
 if sourcing_submit:
-    # Initialize location variables with defaults
-    if 'primary_zip' not in locals():
-        primary_zip = ""
-    if 'work_zip' not in locals():
-        work_zip = ""
-    if 'travel_routes' not in locals():
-        travel_routes = ""
-    if 'favorite_restaurants' not in locals():
-        favorite_restaurants = ""
-    if 'favorite_grocery' not in locals():
-        favorite_grocery = ""
-    if 'convenience_stores' not in locals():
-        convenience_stores = ""
+    # Initialize location variables with defaults if they don't exist
+    # (they only exist if enable_location was True when form was rendered)
+    primary_zip = locals().get('primary_zip', '')
+    work_zip = locals().get('work_zip', '')
+    travel_routes = locals().get('travel_routes', '')
+    favorite_restaurants = locals().get('favorite_restaurants', '')
+    favorite_grocery = locals().get('favorite_grocery', '')
+    convenience_stores = locals().get('convenience_stores', '')
     
     # Process location-based preferences
     location_preferences = {
         'enable_location_features': enable_location,
         'primary_zip_code': primary_zip if enable_location else '',
         'work_zip_code': work_zip if enable_location else '',
-        'travel_routes': [route.strip() for route in travel_routes.split('\n') if route.strip()] if enable_location else [],
-        'favorite_restaurants': [restaurant.strip() for restaurant in favorite_restaurants.split('\n') if restaurant.strip()] if enable_location else [],
-        'favorite_grocery_stores': [store.strip() for store in favorite_grocery.split('\n') if store.strip()] if enable_location else [],
-        'convenience_stores': [store.strip() for store in convenience_stores.split('\n') if store.strip()] if enable_location else []
+        'travel_routes': [route.strip() for route in travel_routes.split('\n') if route.strip()] if enable_location and travel_routes else [],
+        'favorite_restaurants': [restaurant.strip() for restaurant in favorite_restaurants.split('\n') if restaurant.strip()] if enable_location and favorite_restaurants else [],
+        'favorite_grocery_stores': [store.strip() for store in favorite_grocery.split('\n') if store.strip()] if enable_location and favorite_grocery else [],
+        'convenience_stores': [store.strip() for store in convenience_stores.split('\n') if store.strip()] if enable_location and convenience_stores else []
     }
     
     st.session_state.diet_preferences.update({

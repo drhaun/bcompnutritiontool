@@ -879,8 +879,9 @@ with photo_gallery_tab:
         else:
             filtered_photos = photo_df
         
-        # Group photos by date
-        dates = filtered_photos['date'].unique().tolist()
+        # Group photos by date - convert to list directly
+        dates = filtered_photos['date'].unique() if isinstance(filtered_photos['date'], pd.Series) else []
+        dates = list(dates) if hasattr(dates, '__iter__') else []
         
         for date in dates:
             st.markdown(f"### {date}")
@@ -905,14 +906,15 @@ with photo_gallery_tab:
                     has_photos = True
                     with cols[i]:
                         st.markdown(f"**{photo_type.capitalize()} View**")
-                        filepath = type_photos.iloc[0]['filepath']
-                        st.image(filepath, use_column_width=True)
+                        # Get first row's filepath
+                        filepath = type_photos['filepath'].values[0] if len(type_photos) > 0 else ""
+                        st.image(filepath, use_container_width=True)
                         
                         # Add a delete button for each photo
                         if st.button(f"Delete {photo_type.capitalize()} Photo", key=f"delete_{date}_{photo_type}"):
                             try:
-                                # Get the filepath
-                                filepath = type_photos.iloc[0]['filepath']
+                                # Get the filepath using values
+                                filepath = type_photos['filepath'].values[0] if len(type_photos) > 0 else ""
                                 
                                 # Delete the file if it exists
                                 if os.path.exists(filepath):
@@ -955,8 +957,8 @@ with photo_gallery_tab:
                     except Exception as e:
                         st.error(f"Error deleting photo file: {e}")
                 
-                # Clear the dataframe
-                empty_df = pd.DataFrame(columns=['date', 'photo_type', 'filepath'])
+                # Clear the dataframe - properly create empty DataFrame
+                empty_df = pd.DataFrame({'date': [], 'photo_type': [], 'filepath': []})
                 empty_df.to_csv('data/progress_photos.csv', index=False)
                 
                 # Reset confirmation

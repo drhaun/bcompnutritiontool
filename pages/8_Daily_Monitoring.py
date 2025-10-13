@@ -691,7 +691,7 @@ if not st.session_state.daily_records.empty:
     # Get dates for selection
     dates = recent_data[['date', 'date_display']].copy()
     # Sort by date in descending order
-    dates = dates.sort_values(by='date', ascending=False)
+    dates = dates.sort_values('date', ascending=False)
     date_options = dates['date_display'].tolist()
     date_values = dates['date'].tolist()
     
@@ -884,8 +884,8 @@ if len(st.session_state.daily_records) >= 7:
             corr_data = corr_data[numeric_columns].dropna()
             
             if len(corr_data) >= 3:  # Need at least 3 data points for meaningful correlation
-                # Calculate correlation matrix using Pearson method
-                correlation = corr_data.corr(method='pearson')
+                # Calculate correlation matrix
+                correlation = corr_data.corr()
                 
                 # Create a visualization for the correlations
                 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
@@ -897,7 +897,7 @@ if len(st.session_state.daily_records) >= 7:
                 # Plot mood correlations
                 if 'mood_value' in correlation.columns:
                     mood_corr = correlation['mood_value'].drop('mood_value')
-                    # Sort values
+                    # Sort values - use Series sort_values without 'by'
                     mood_corr = mood_corr.sort_values(ascending=False)
                     colors = ['green' if x >= 0 else 'red' for x in mood_corr]
                     ax1.barh(mood_corr.index, mood_corr.values, color=colors)
@@ -918,7 +918,7 @@ if len(st.session_state.daily_records) >= 7:
                 # Plot energy correlations
                 if 'energy_value' in correlation.columns:
                     energy_corr = correlation['energy_value'].drop('energy_value')
-                    # Sort values
+                    # Sort values - use Series sort_values without 'by'
                     energy_corr = energy_corr.sort_values(ascending=False)
                     colors = ['green' if x >= 0 else 'red' for x in energy_corr]
                     ax2.barh(energy_corr.index, energy_corr.values, color=colors)
