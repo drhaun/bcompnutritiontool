@@ -265,12 +265,17 @@ class FitomicsPDF(FPDF):
                     meal_plan_data[key] = value
         
         # Get personalized nutrition targets from plan_info
+        # These are the USER'S TARGETS, not the meal plan totals
         day_specific_nutrition = {}
         weekly_schedule = {}
+        
+        # First try to get from user_info (this is the structured data passed in)
         if user_info and isinstance(user_info, dict):
             day_specific_nutrition = user_info.get('day_specific_nutrition', {})
             weekly_schedule = user_info.get('weekly_schedule', {})
-        elif plan_info and isinstance(plan_info, dict):
+            
+        # Fall back to plan_info if user_info doesn't have it
+        if not day_specific_nutrition and plan_info and isinstance(plan_info, dict):
             day_specific_nutrition = plan_info.get('day_specific_nutrition', {})
             weekly_schedule = plan_info.get('weekly_schedule', {})
         
@@ -319,7 +324,8 @@ class FitomicsPDF(FPDF):
                 day_nutrition = day_specific_nutrition.get(day_name, {})
                 day_schedule_data = weekly_schedule.get(day_name, {})
                 
-                # Get actual target values from personalized data
+                # Get actual target values from personalized data ONLY
+                # The weekly overview should show TARGETS, not actual meal totals
                 if day_nutrition:
                     target_cal = int(day_nutrition.get('calories', default_tdee))
                     protein = int(day_nutrition.get('protein', default_protein))
@@ -327,27 +333,13 @@ class FitomicsPDF(FPDF):
                     fat = int(day_nutrition.get('fat', default_fat))
                     tdee = int(day_nutrition.get('tdee', target_cal))  # Use TDEE if available
                 else:
-                    # Try to get from meal plan daily totals
-                    if day_name in meal_plan_data:
-                        daily_totals = meal_plan_data[day_name].get('daily_totals', {})
-                        if daily_totals:
-                            target_cal = int(daily_totals.get('calories', default_tdee))
-                            protein = int(daily_totals.get('protein', default_protein))
-                            carbs = int(daily_totals.get('carbs', default_carbs))
-                            fat = int(daily_totals.get('fat', default_fat))
-                            tdee = target_cal  # Use target calories as TDEE approximation
-                        else:
-                            target_cal = default_tdee
-                            protein = default_protein
-                            carbs = default_carbs
-                            fat = default_fat
-                            tdee = default_tdee
-                    else:
-                        target_cal = default_tdee
-                        protein = default_protein
-                        carbs = default_carbs
-                        fat = default_fat
-                        tdee = default_tdee
+                    # No personalized targets available - use defaults
+                    # DO NOT use meal plan totals here as they are actuals, not targets
+                    target_cal = default_tdee
+                    protein = default_protein
+                    carbs = default_carbs
+                    fat = default_fat
+                    tdee = default_tdee
                 
                 # Get meal/snack counts from schedule
                 meal_count = day_schedule_data.get('meal_count', 3)
@@ -398,6 +390,65 @@ class FitomicsPDF(FPDF):
             self.set_font('Arial', 'I', 7)
             self.set_text_color(100, 100, 100)
             self.cell(0, 4, 'Note: TDEE = Total Daily Energy Expenditure | Times shown in local format', 0, 1, 'L')
+            
+            # Add actual vs target comparison if meal plan data is available
+            if meal_plan_data:
+                self.add_actual_vs_target_comparison(meal_plan_data, day_specific_nutrition)
+    
+    def add_actual_vs_target_comparison(self, meal_plan_data, day_specific_nutrition):
+        """Add a comparison table showing actual meal plan totals vs targets"""
+        self.ln(10)
+        self.set_font('Arial', 'B', 12)
+        self.set_text_color(41, 84, 144)
+        self.cell(0, 8, 'ACTUAL VS TARGET COMPARISON', 0, 1, 'L')
+        self.ln(3)
+        
+        # Table headers
+        self.set_font('Arial', 'B', 8)
+        col_widths = [30, 25, 25, 25, 25, 25, 25]  # Day + 3 pairs of actual/target
+        headers = ['Day', 'Cal Target', 'Cal Actual', 'Pro Target', 'Pro Actual', 'Carb Target', 'Carb Actual']
+        for i, header in enumerate(headers):
+            self.cell(col_widths[i], 6, header, 1, 0, 'C')
+        self.ln()
+        
+        # Data rows
+        self.set_font('Arial', '', 7)
+        days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        
+        for day_name in days:
+            # Get targets
+            day_targets = day_specific_nutrition.get(day_name, {})
+            target_cal = day_targets.get('calories', 0)
+            target_pro = day_targets.get('protein', 0)
+            target_carb = day_targets.get('carbs', 0)
+            
+            # Get actuals from meal plan
+            actual_cal = actual_pro = actual_carb = 0
+            if day_name in meal_plan_data:
+                daily_totals = meal_plan_data[day_name].get('daily_totals', {})
+                actual_cal = daily_totals.get('calories', 0)
+                actual_pro = daily_totals.get('protein', 0)
+                actual_carb = daily_totals.get('carbs', 0)
+            
+            # Format row
+            row_data = [
+                day_name[:3],
+                f"{int(target_cal)}" if target_cal else "-",
+                f"{int(actual_cal)}" if actual_cal else "-",
+                f"{int(target_pro)}g" if target_pro else "-",
+                f"{int(actual_pro)}g" if actual_pro else "-",
+                f"{int(target_carb)}g" if target_carb else "-",
+                f"{int(actual_carb)}g" if actual_carb else "-"
+            ]
+            
+            for i, cell_data in enumerate(row_data):
+                self.cell(col_widths[i], 5, cell_data, 1, 0, 'C')
+            self.ln()
+        
+        self.ln(2)
+        self.set_font('Arial', 'I', 7)
+        self.set_text_color(100, 100, 100)
+        self.cell(0, 4, 'Note: Targets are your personalized nutrition goals. Actuals are from the AI-generated meal plan.', 0, 1, 'L')
                 
     def add_meal_section(self, meal_type, recipe, macros, ingredients, meal_context=None, meal_time=None, workout_annotation=None, day_name=None):
         """Add a meal section with recipe and ingredients"""

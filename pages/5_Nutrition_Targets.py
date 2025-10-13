@@ -254,7 +254,8 @@ for i, day in enumerate(days_of_week):
         'calories': day_target_calories,
         'protein': day_macros['protein'],
         'carbs': day_macros['carbs'],
-        'fat': day_macros['fat']
+        'fat': day_macros['fat'],
+        'tdee': day_tdee  # Include TDEE for accurate PDF display
     }
 
 df = pd.DataFrame(days_data)
