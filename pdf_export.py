@@ -97,6 +97,8 @@ class FitomicsPDF(FPDF):
         
     def add_title_page(self, user_info, plan_info):
         """Add a branded title page"""
+        # Store user_info for use in other methods
+        self.user_info = user_info
         self.add_page()
         
         # Main title
@@ -201,6 +203,7 @@ class FitomicsPDF(FPDF):
         self.cell(0, 6, f"Average Daily Fat: {avg_fat:.1f}g", 0, 1, 'L')
         
         # Add weekly overview table if daily plans are available
+        # Note: plan_info parameter here is actually meal_data, user_info has the real user data
         self.add_weekly_overview_table(plan_info, user_info)
         
         # Add accuracy comparison if target data is available
@@ -276,6 +279,10 @@ class FitomicsPDF(FPDF):
             
             # Debug logging
             print(f"DEBUG in add_weekly_overview_table: Found {len(day_specific_nutrition)} days in day_specific_nutrition")
+            if day_specific_nutrition:
+                for day in list(day_specific_nutrition.keys())[:2]:  # Show first 2 days
+                    print(f"  {day} data: {day_specific_nutrition[day]}")
+            
             if not day_specific_nutrition:
                 print("WARNING: day_specific_nutrition is empty in user_info")
                 # Try session state as last resort
@@ -284,8 +291,10 @@ class FitomicsPDF(FPDF):
                     day_specific_nutrition = st.session_state.get('day_specific_nutrition', {})
                     if day_specific_nutrition:
                         print(f"INFO: Retrieved from session state in add_weekly_overview_table: {len(day_specific_nutrition)} days")
-                except:
-                    pass
+                        for day in list(day_specific_nutrition.keys())[:2]:
+                            print(f"  {day} data from session: {day_specific_nutrition[day]}")
+                except Exception as e:
+                    print(f"ERROR accessing session state: {e}")
         
         # Get default values from base targets (fallback only)
         default_tdee = 2000
@@ -913,6 +922,8 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
         print("Adding title page...")
         # Add title page with properly structured data
         pdf.add_title_page(user_info, meal_data)
+        
+        print(f"DEBUG before adding meals: user_info has day_specific_nutrition with {len(user_info.get('day_specific_nutrition', {}))} days")
         
         print("Adding meals page...")
         # Add meals page
