@@ -264,20 +264,20 @@ class FitomicsPDF(FPDF):
                 if key in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
                     meal_plan_data[key] = value
         
-        # Get personalized nutrition targets from plan_info
+        # Get personalized nutrition targets from user_info FIRST
         # These are the USER'S TARGETS, not the meal plan totals
         day_specific_nutrition = {}
         weekly_schedule = {}
         
-        # First try to get from user_info (this is the structured data passed in)
+        # Get from user_info (this is the structured data passed in)
         if user_info and isinstance(user_info, dict):
             day_specific_nutrition = user_info.get('day_specific_nutrition', {})
             weekly_schedule = user_info.get('weekly_schedule', {})
             
-        # Fall back to plan_info if user_info doesn't have it
-        if not day_specific_nutrition and plan_info and isinstance(plan_info, dict):
-            day_specific_nutrition = plan_info.get('day_specific_nutrition', {})
-            weekly_schedule = plan_info.get('weekly_schedule', {})
+            # Debug logging
+            print(f"DEBUG in add_weekly_overview_table: Found {len(day_specific_nutrition)} days in day_specific_nutrition")
+            if not day_specific_nutrition:
+                print("WARNING: day_specific_nutrition is empty in user_info")
         
         # Get default values from base targets (fallback only)
         default_tdee = 2000
@@ -721,6 +721,9 @@ class FitomicsPDF(FPDF):
 def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
     """Export complete meal plan with grocery list to branded PDF"""
     try:
+        # Import streamlit to access session state if plan_info is incomplete
+        import streamlit as st
+        
         print("Starting PDF creation...")
         print(f"Meal data type: {type(meal_data)}")
         print(f"Meal data length: {len(meal_data) if meal_data else 'None'}")
@@ -803,10 +806,21 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
         # Properly structure user_info from plan_info
         user_info = {}
         if plan_info and isinstance(plan_info, dict):
+            # Try to get day_specific_nutrition from plan_info first
+            day_nutrition = plan_info.get('day_specific_nutrition', {})
+            
+            # If empty, try to get from session state directly as a fallback
+            if not day_nutrition:
+                try:
+                    day_nutrition = st.session_state.get('day_specific_nutrition', {})
+                    print(f"INFO: Retrieved day_specific_nutrition from session state: {len(day_nutrition)} days")
+                except:
+                    print("WARNING: Could not access session state for day_specific_nutrition")
+            
             user_info = {
                 'profile': plan_info.get('user_profile', {}),
                 'goals': plan_info.get('body_comp_goals', {}),
-                'day_specific_nutrition': plan_info.get('day_specific_nutrition', {}),
+                'day_specific_nutrition': day_nutrition,
                 'weekly_schedule': plan_info.get('weekly_schedule', {}),
                 'diet_preferences': plan_info.get('diet_preferences', {}),
                 'daily_totals': {
@@ -816,21 +830,53 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
                     'fat': round(total_fat, 1) if days_count > 0 else 0
                 }
             }
+            
+            # Debug: Log what data we received
+            print(f"DEBUG: day_specific_nutrition has {len(user_info.get('day_specific_nutrition', {}))} days")
+            if user_info.get('day_specific_nutrition'):
+                sample_day = list(user_info['day_specific_nutrition'].keys())[0] if user_info['day_specific_nutrition'] else None
+                if sample_day:
+                    data = user_info['day_specific_nutrition'][sample_day]
+                    print(f"  Sample - {sample_day}: calories={data.get('calories')}, protein={data.get('protein')}, carbs={data.get('carbs')}, fat={data.get('fat')}, tdee={data.get('tdee')}")
+            else:
+                print("WARNING: day_specific_nutrition is completely empty!")
         
         # Add meal data to plan_info for macro calculation
         if plan_info and isinstance(plan_info, dict) and 'meal_data' not in plan_info:
             plan_info['meal_data'] = meal_data
         
-        # Calculate averages for title page
-        if days_count > 0:
-            avg_calories = total_calories / days_count
-            avg_protein = total_protein / days_count
-            avg_carbs = total_carbs / days_count
-            avg_fat = total_fat / days_count
+        # Calculate averages from day_specific_nutrition targets (not meal plan actuals)
+        # This ensures the first page shows the average of the user's TARGETS
+        if user_info.get('day_specific_nutrition'):
+            day_nutrition = user_info['day_specific_nutrition']
+            days_with_data = [day for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] 
+                              if day in day_nutrition and day_nutrition[day].get('calories')]
+            
+            if days_with_data:
+                avg_calories = sum(day_nutrition[day].get('calories', 0) for day in days_with_data) / len(days_with_data)
+                avg_protein = sum(day_nutrition[day].get('protein', 0) for day in days_with_data) / len(days_with_data)
+                avg_carbs = sum(day_nutrition[day].get('carbs', 0) for day in days_with_data) / len(days_with_data)
+                avg_fat = sum(day_nutrition[day].get('fat', 0) for day in days_with_data) / len(days_with_data)
+            else:
+                # Fall back to meal plan averages if no target data
+                if days_count > 0:
+                    avg_calories = total_calories / days_count
+                    avg_protein = total_protein / days_count
+                    avg_carbs = total_carbs / days_count
+                    avg_fat = total_fat / days_count
+                else:
+                    avg_calories = avg_protein = avg_carbs = avg_fat = 0
         else:
-            avg_calories = avg_protein = avg_carbs = avg_fat = 0
+            # Fall back to meal plan averages if no target data
+            if days_count > 0:
+                avg_calories = total_calories / days_count
+                avg_protein = total_protein / days_count
+                avg_carbs = total_carbs / days_count
+                avg_fat = total_fat / days_count
+            else:
+                avg_calories = avg_protein = avg_carbs = avg_fat = 0
         
-        print(f"Calculated averages: {avg_calories:.0f} cal, {avg_protein:.1f}g protein")
+        print(f"Calculated averages from targets: {avg_calories:.0f} cal, {avg_protein:.1f}g protein")
         
         # Update plan_info with accurate totals and averages
         if plan_info:
