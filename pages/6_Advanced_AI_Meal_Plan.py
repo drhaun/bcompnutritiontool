@@ -15,6 +15,15 @@ from nutrition_cache import NutritionCache
 from pdf_export import export_meal_plan_pdf
 from session_manager import add_session_controls
 from enhanced_ai_meal_planning_simple import create_enhanced_meal_planner_simple
+from ai_meal_plan_utils import (
+    safe_api_call,
+    safe_json_parse,
+    validate_meal_macros,
+    consolidate_meal_plan_display,
+    display_meal,
+    export_single_day_pdf,
+    build_meal_prompt
+)
 
 # OpenAI Integration
 def get_openai_client():
@@ -22,14 +31,18 @@ def get_openai_client():
     try:
         import openai
         api_key = os.environ.get('OPENAI_API_KEY')
+        org_id = os.environ.get('OPENAI_ORGANIZATION_ID')
+        project_id = os.environ.get('OPENAI_PROJECT_ID')
         
         if api_key:
-            # Use exact configuration from production test
-            return openai.OpenAI(
-                api_key=api_key,
-                organization="org-pcvyQ5OkA65PHwySXie14IDI",
-                project="proj_uEFGQaGWPJEJOIqrnKvRuwW3"
-            )
+            # Use environment variables for secure configuration
+            client_kwargs = {'api_key': api_key}
+            if org_id:
+                client_kwargs['organization'] = org_id
+            if project_id:
+                client_kwargs['project'] = project_id
+            
+            return openai.OpenAI(**client_kwargs)
     except ImportError:
         pass
     return None
@@ -182,9 +195,9 @@ Return JSON with:
     )
     
     try:
-        result = json.loads(response.choices[0].message.content or "{}")
-        return result
-    except json.JSONDecodeError:
+        return safe_json_parse(response.choices[0].message.content, 
+                              {"meal_structure": [], "rationale": "Default meal structure"})
+    except:
         return {"meal_structure": [], "rationale": "Error parsing meal structure"}
 
 def generate_quick_meal_plan(day_targets, user_context, dietary_context, schedule_info, openai_client):
@@ -256,14 +269,14 @@ Return JSON:
     )
     
     try:
-        result = json.loads(response.choices[0].message.content or "{}")
+        result = safe_json_parse(response.choices[0].message.content, {})
         
         # Don't override the AI's calculated values - they should already be proportional
         # The AI has been instructed to use the 75%/25% distribution
         
         return result
-    except json.JSONDecodeError:
-        return None
+    except:
+        return safe_json_parse(response.choices[0].message.content if response else "", None)
 
 def step2_generate_meal_concepts(meal_structure, user_context, dietary_context, openai_client):
     """Step 2: Generate specific meal concepts for each meal in the structure"""
@@ -317,8 +330,9 @@ Return JSON:
         )
         
         try:
-            concept_result = json.loads(response.choices[0].message.content or "{}")
-        except json.JSONDecodeError:
+            concept_result = safe_json_parse(response.choices[0].message.content, 
+                                           {"meal_concept": {"name": "Default Meal", "description": "Standard meal", "key_ingredients": [], "cooking_method": "Standard", "estimated_prep_time": "30 min"}})
+        except:
             concept_result = {"meal_concept": {"name": "Error", "description": "Parse error", "key_ingredients": [], "cooking_method": "N/A", "estimated_prep_time": "N/A"}}
         meal_concepts.append({
             **meal,
@@ -543,7 +557,8 @@ Return JSON with this structure:
         )
         
         try:
-            recipe_result = json.loads(response.choices[0].message.content or "{}")
+            recipe_result = safe_json_parse(response.choices[0].message.content, 
+                                           {"recipe": {"name": "Default Recipe", "ingredients": [], "instructions": [], "total_macros": {"calories": 0, "protein": 0, "carbs": 0, "fat": 0}}})
             final_meals.append(recipe_result.get('recipe', {
                 'name': 'Error',
                 'ingredients': [],
@@ -554,17 +569,20 @@ Return JSON with this structure:
                 'time': '',
                 'workout_annotation': ''
             }))
-        except json.JSONDecodeError:
-            final_meals.append({
-                'name': 'Error',
-                'ingredients': [],
-                'instructions': ['JSON parse error'],
-                'total_macros': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
-                'prep_time': 'N/A',
-                'context': '',
-                'time': '',
-                'workout_annotation': ''
-            })
+        except:
+            parsed = safe_json_parse(response.choices[0].message.content if response else "", None)
+            if not parsed:
+                parsed = {
+                    'name': 'Error',
+                    'ingredients': [],
+                    'instructions': ['JSON parse error'],
+                    'total_macros': {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0},
+                    'prep_time': 'N/A',
+                    'context': '',
+                    'time': '',
+                    'workout_annotation': ''
+                }
+            final_meals.append(parsed)
     
     return final_meals
 
@@ -785,7 +803,7 @@ Return JSON format with:
             max_tokens=3000
         )
         
-        return json.loads(response.choices[0].message.content)
+        return safe_json_parse(response.choices[0].message.content, {})
         
     except Exception as e:
         st.error(f"AI meal generation failed: {e}")
@@ -1655,7 +1673,7 @@ Return JSON format with the same meal structure but with requested modifications
                 max_tokens=3000
             )
             
-            modified_result = json.loads(response.choices[0].message.content or "{}")
+            modified_result = safe_json_parse(response.choices[0].message.content, {})
             
             # Update Monday plan with modifications
             st.session_state['monday_plan']['meals'] = modified_result.get('meals', [])
@@ -1805,7 +1823,7 @@ Return JSON format with the same structure as Monday but adapted for {day}.
                             st.warning(f"Empty response for {day}, skipping...")
                             continue
                             
-                        day_result = json.loads(response_content)
+                        day_result = safe_json_parse(response_content, {})
                         
                         # Ensure meals have simple names
                         meals = day_result.get('meals', [])
@@ -1922,51 +1940,10 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
                 else:
                     st.markdown('<span class="accuracy-badge accuracy-needs-work">⚠️ Needs Accuracy Review</span>', unsafe_allow_html=True)
                 
-                # Display meals with simple numbering
+                # Display meals using utility function
                 meals = day_plan.get('meals', [])
                 for i, meal in enumerate(meals, 1):
-                    # Use simple meal naming: Meal 1, Meal 2, etc.
-                    if i <= 3:
-                        meal_label = f"Meal {i}"
-                    else:
-                        meal_label = f"Snack {i-3}"
-                    st.markdown(f"### {meal_label}")
-                    
-                    if meal.get('time'):
-                        st.markdown(f"**Time:** {meal['time']}")
-                    if meal.get('context'):
-                        st.markdown(f"**Context:** {meal['context']}")
-                    if meal.get('prep_time'):
-                        st.markdown(f"**Prep Time:** {meal['prep_time']}")
-                    
-                    # Show macros
-                    macros = meal.get('total_macros', {})
-                    if macros:
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            st.metric("Calories", f"{macros.get('calories', 0)}")
-                        with col2:
-                            st.metric("Protein", f"{macros.get('protein', 0)}g")
-                        with col3:
-                            st.metric("Carbs", f"{macros.get('carbs', 0)}g")
-                        with col4:
-                            st.metric("Fat", f"{macros.get('fat', 0)}g")
-                    
-                    # Show ingredients
-                    ingredients = meal.get('ingredients', [])
-                    if ingredients:
-                        st.markdown("**Ingredients:**")
-                        for ingredient in ingredients:
-                            st.markdown(f"• {ingredient.get('amount', '')} {ingredient.get('item', 'Unknown ingredient')}")
-                    
-                    # Show instructions
-                    instructions = meal.get('instructions', [])
-                    if instructions:
-                        st.markdown("**Instructions:**")
-                        for j, instruction in enumerate(instructions, 1):
-                            st.markdown(f"{j}. {instruction}")
-                    
-                    st.markdown("---")
+                    display_meal(meal, i)
                 
                 # Show daily totals
                 daily_totals = day_plan.get('daily_totals', {})
