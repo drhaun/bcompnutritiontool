@@ -203,7 +203,7 @@ class FitomicsPDF(FPDF):
         self.cell(0, 6, f"Average Daily Fat: {avg_fat:.1f}g", 0, 1, 'L')
         
         # Add weekly overview table if daily plans are available
-        # Note: plan_info parameter here is actually meal_data, user_info has the real user data
+        # plan_info now contains the actual plan_info with meal_data nested inside
         self.add_weekly_overview_table(plan_info, user_info)
         
         # Add accuracy comparison if target data is available
@@ -921,7 +921,8 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
         
         print("Adding title page...")
         # Add title page with properly structured data
-        pdf.add_title_page(user_info, meal_data)
+        # Pass plan_info (which has avg_calories, etc.) instead of meal_data
+        pdf.add_title_page(user_info, plan_info)
         
         print(f"DEBUG before adding meals: user_info has day_specific_nutrition with {len(user_info.get('day_specific_nutrition', {}))} days")
         
