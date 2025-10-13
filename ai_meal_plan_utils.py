@@ -127,6 +127,49 @@ def consolidate_meal_plan_display(meal_plan: Dict, day: str, show_export: bool =
     for i, meal in enumerate(meals, 1):
         display_meal(meal, i)
 
+def display_macros(macros: Dict, label: str = None, show_delta: bool = False, targets: Dict = None):
+    """
+    Display macro nutrients in a standardized format
+    
+    Args:
+        macros: Dictionary with calories, protein, carbs, fat
+        label: Optional label to display above macros
+        show_delta: Whether to show percentage of target
+        targets: Target values for calculating percentages
+    """
+    if label:
+        st.markdown(f"**{label}:**")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if show_delta and targets and targets.get('calories', 0) > 0:
+            pct = (macros.get('calories', 0) / targets['calories']) * 100
+            st.metric("Calories", f"{macros.get('calories', 0):.0f}", f"{pct:.0f}% of target")
+        else:
+            st.metric("Calories", f"{macros.get('calories', 0):.0f}")
+    
+    with col2:
+        if show_delta and targets and targets.get('protein', 0) > 0:
+            pct = (macros.get('protein', 0) / targets['protein']) * 100
+            st.metric("Protein", f"{macros.get('protein', 0):.1f}g", f"{pct:.0f}% of target")
+        else:
+            st.metric("Protein", f"{macros.get('protein', 0):.1f}g")
+    
+    with col3:
+        if show_delta and targets and targets.get('carbs', 0) > 0:
+            pct = (macros.get('carbs', 0) / targets['carbs']) * 100
+            st.metric("Carbs", f"{macros.get('carbs', 0):.1f}g", f"{pct:.0f}% of target")
+        else:
+            st.metric("Carbs", f"{macros.get('carbs', 0):.1f}g")
+    
+    with col4:
+        if show_delta and targets and targets.get('fat', 0) > 0:
+            pct = (macros.get('fat', 0) / targets['fat']) * 100
+            st.metric("Fat", f"{macros.get('fat', 0):.1f}g", f"{pct:.0f}% of target")
+        else:
+            st.metric("Fat", f"{macros.get('fat', 0):.1f}g")
+
 def display_meal(meal: Dict, index: int):
     """
     Display a single meal with consistent formatting
@@ -151,18 +194,10 @@ def display_meal(meal: Dict, index: int):
     if meal.get('prep_time'):
         st.markdown(f"**Prep Time:** {meal['prep_time']}")
     
-    # Macros display
+    # Macros display using our utility function
     macros = meal.get('total_macros', {})
     if macros:
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Calories", f"{macros.get('calories', 0):.0f}")
-        with col2:
-            st.metric("Protein", f"{macros.get('protein', 0):.1f}g")
-        with col3:
-            st.metric("Carbs", f"{macros.get('carbs', 0):.1f}g")
-        with col4:
-            st.metric("Fat", f"{macros.get('fat', 0):.1f}g")
+        display_macros(macros)
     
     # Ingredients
     ingredients = meal.get('ingredients', [])

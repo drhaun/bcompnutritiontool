@@ -21,6 +21,7 @@ from ai_meal_plan_utils import (
     validate_meal_macros,
     consolidate_meal_plan_display,
     display_meal,
+    display_macros,
     export_single_day_pdf,
     build_meal_prompt
 )
@@ -816,87 +817,13 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS for better styling
+# Simplified CSS
 st.markdown("""
 <style>
-/* Import Fitomics color scheme */
-:root {
-    --fitomics-navy: #1e3a5f;
-    --fitomics-gold: #d4af37;
-    --fitomics-light-blue: #4a90a4;
-    --fitomics-cream: #f5f5dc;
-}
-
-.main-header {
-    background: linear-gradient(135deg, var(--fitomics-navy) 0%, var(--fitomics-light-blue) 100%);
-    padding: 2rem;
-    border-radius: 10px;
-    color: white;
-    text-align: center;
-    margin-bottom: 2rem;
-}
-
-.main-header h1 {
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-    color: white;
-}
-
-.main-header p {
-    font-size: 1.2rem;
-    opacity: 0.9;
-    margin: 0;
-}
-
-.step-card {
-    background: white;
-    border: 2px solid var(--fitomics-gold);
-    border-radius: 10px;
-    padding: 1.5rem;
-    margin: 1rem 0;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.step-title {
-    color: var(--fitomics-navy);
-    font-weight: 600;
-    font-size: 1.3rem;
-    margin-bottom: 1rem;
-}
-
-.progress-bar {
-    background: var(--fitomics-gold);
-    height: 4px;
-    border-radius: 2px;
-    margin: 1rem 0;
-}
-
-.accuracy-badge {
-    display: inline-block;
-    padding: 0.3rem 0.8rem;
-    border-radius: 20px;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-
-.accuracy-excellent {
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.accuracy-good {
-    background: #fff3cd;
-    color: #856404;
-    border: 1px solid #ffeaa7;
-}
-
-.accuracy-needs-work {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
+.main-header {background: linear-gradient(135deg, #1e3a5f, #4a90a4); padding: 2rem; color: white; text-align: center; border-radius: 10px;}
+.accuracy-badge {padding: 0.3rem 0.8rem; border-radius: 20px; font-weight: 600;}
+.accuracy-excellent {background: #d4edda; color: #155724;}
+.accuracy-needs-work {background: #f8d7da; color: #721c24;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1365,16 +1292,7 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                     st.error(f"❌ NO SPECIFIC TARGETS FOUND! Using fallback: {meal_targets['calories']:.0f} cal. Please visit Nutrition Targets page and confirm your targets!")
                 
                 # Display meal targets prominently
-                st.markdown("**🎯 Meal Targets:**")
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Calories", f"{meal_targets['calories']:.0f}")
-                with col2:
-                    st.metric("Protein", f"{meal_targets['protein']:.0f}g")
-                with col3:
-                    st.metric("Carbs", f"{meal_targets['carbs']:.0f}g")
-                with col4:
-                    st.metric("Fat", f"{meal_targets['fat']:.0f}g")
+                display_macros(meal_targets, label="🎯 Meal Targets")
                 
                 st.markdown("---")
                 
@@ -1948,16 +1866,7 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
                 # Show daily totals
                 daily_totals = day_plan.get('daily_totals', {})
                 if daily_totals:
-                    st.markdown("### 📊 Daily Totals")
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.metric("Total Calories", f"{daily_totals.get('calories', 0)}")
-                    with col2:
-                        st.metric("Total Protein", f"{daily_totals.get('protein', 0)}g")
-                    with col3:
-                        st.metric("Total Carbs", f"{daily_totals.get('carbs', 0)}g")
-                    with col4:
-                        st.metric("Total Fat", f"{daily_totals.get('fat', 0)}g")
+                    display_macros(daily_totals, label="📊 Daily Totals")
         
         # Export options
         st.markdown("---")
@@ -2068,15 +1977,7 @@ if 'ai_meal_plan' in st.session_state and st.session_state['ai_meal_plan']:
                 # Show macros
                 macros = meal.get('total_macros', {})
                 if macros:
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.metric("Calories", f"{macros.get('calories', 0)}")
-                    with col2:
-                        st.metric("Protein", f"{macros.get('protein', 0)}g")
-                    with col3:
-                        st.metric("Carbs", f"{macros.get('carbs', 0)}g")
-                    with col4:
-                        st.metric("Fat", f"{macros.get('fat', 0)}g")
+                    display_macros(macros)
                 
                 # Show ingredients
                 ingredients = meal.get('ingredients', [])
@@ -2097,16 +1998,7 @@ if 'ai_meal_plan' in st.session_state and st.session_state['ai_meal_plan']:
             # Show daily totals
             daily_totals = day_plan.get('daily_totals', {})
             if daily_totals:
-                st.markdown("### 📊 Daily Totals")
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Total Calories", f"{daily_totals.get('calories', 0)}")
-                with col2:
-                    st.metric("Total Protein", f"{daily_totals.get('protein', 0)}g")
-                with col3:
-                    st.metric("Total Carbs", f"{daily_totals.get('carbs', 0)}g")
-                with col4:
-                    st.metric("Total Fat", f"{daily_totals.get('fat', 0)}g")
+                display_macros(daily_totals, label="📊 Daily Totals")
     
     # Export options
     st.markdown("---")
