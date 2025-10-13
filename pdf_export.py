@@ -278,6 +278,14 @@ class FitomicsPDF(FPDF):
             print(f"DEBUG in add_weekly_overview_table: Found {len(day_specific_nutrition)} days in day_specific_nutrition")
             if not day_specific_nutrition:
                 print("WARNING: day_specific_nutrition is empty in user_info")
+                # Try session state as last resort
+                try:
+                    import streamlit as st
+                    day_specific_nutrition = st.session_state.get('day_specific_nutrition', {})
+                    if day_specific_nutrition:
+                        print(f"INFO: Retrieved from session state in add_weekly_overview_table: {len(day_specific_nutrition)} days")
+                except:
+                    pass
         
         # Get default values from base targets (fallback only)
         default_tdee = 2000
@@ -326,15 +334,15 @@ class FitomicsPDF(FPDF):
                 
                 # Get actual target values from personalized data ONLY
                 # The weekly overview should show TARGETS, not actual meal totals
-                if day_nutrition:
+                if day_nutrition and day_nutrition.get('calories'):
                     target_cal = int(day_nutrition.get('calories', default_tdee))
                     protein = int(day_nutrition.get('protein', default_protein))
                     carbs = int(day_nutrition.get('carbs', default_carbs))
                     fat = int(day_nutrition.get('fat', default_fat))
                     tdee = int(day_nutrition.get('tdee', target_cal))  # Use TDEE if available
                 else:
-                    # No personalized targets available - use defaults
-                    # DO NOT use meal plan totals here as they are actuals, not targets
+                    # No personalized targets - indicate this is placeholder data
+                    print(f"WARNING: No personalized data for {day_name}, using defaults")
                     target_cal = default_tdee
                     protein = default_protein
                     carbs = default_carbs
@@ -390,6 +398,13 @@ class FitomicsPDF(FPDF):
             self.set_font('Arial', 'I', 7)
             self.set_text_color(100, 100, 100)
             self.cell(0, 4, 'Note: TDEE = Total Daily Energy Expenditure | Times shown in local format', 0, 1, 'L')
+            
+            # Add warning if using default values
+            if not day_specific_nutrition or len(day_specific_nutrition) == 0:
+                self.ln(2)
+                self.set_font('Arial', 'B', 8)
+                self.set_text_color(255, 0, 0)
+                self.cell(0, 4, '⚠️ WARNING: Using default values. Please complete Nutrition Targets page for personalized data.', 0, 1, 'L')
             
             # Add actual vs target comparison if meal plan data is available
             if meal_plan_data:
@@ -810,12 +825,15 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
             day_nutrition = plan_info.get('day_specific_nutrition', {})
             
             # If empty, try to get from session state directly as a fallback
-            if not day_nutrition:
+            if not day_nutrition or len(day_nutrition) == 0:
                 try:
                     day_nutrition = st.session_state.get('day_specific_nutrition', {})
-                    print(f"INFO: Retrieved day_specific_nutrition from session state: {len(day_nutrition)} days")
-                except:
-                    print("WARNING: Could not access session state for day_specific_nutrition")
+                    if day_nutrition:
+                        print(f"INFO: Retrieved day_specific_nutrition from session state: {len(day_nutrition)} days")
+                    else:
+                        print("WARNING: day_specific_nutrition is empty in session state too")
+                except Exception as e:
+                    print(f"WARNING: Could not access session state: {str(e)}")
             
             user_info = {
                 'profile': plan_info.get('user_profile', {}),
