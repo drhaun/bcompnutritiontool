@@ -404,7 +404,7 @@ class FitomicsPDF(FPDF):
                 self.ln(2)
                 self.set_font('Arial', 'B', 8)
                 self.set_text_color(255, 0, 0)
-                self.cell(0, 4, '⚠️ WARNING: Using default values. Please complete Nutrition Targets page for personalized data.', 0, 1, 'L')
+                self.cell(0, 4, 'WARNING: Using default values. Please complete Nutrition Targets page for personalized data.', 0, 1, 'L')
             
             # Add actual vs target comparison if meal plan data is available
             if meal_plan_data:
