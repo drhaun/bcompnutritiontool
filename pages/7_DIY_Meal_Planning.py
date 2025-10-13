@@ -17,6 +17,7 @@ from common_foods_database import (
     get_foods_by_macro_profile
 )
 from recipe_database import get_recipe_database, display_recipe_card, load_sample_recipes
+import fdc_api
 
 # Set page config
 st.set_page_config(
