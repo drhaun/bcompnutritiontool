@@ -779,6 +779,16 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
         
         print(f"Processing {len(meal_data)} days...")
         
+        # Debug meal_data structure to understand what we're working with
+        if meal_data:
+            first_day = list(meal_data.keys())[0] if meal_data else None
+            if first_day:
+                print(f"DEBUG: First day ({first_day}) structure:")
+                if isinstance(meal_data[first_day], dict):
+                    print(f"  Keys in {first_day} data: {list(meal_data[first_day].keys())}")
+                    if 'nutrition_targets' in meal_data[first_day]:
+                        print(f"  nutrition_targets found: {meal_data[first_day]['nutrition_targets']}")
+        
         # Handle the AI meal plan format (dict with days as keys)
         if isinstance(meal_data, dict):
             # This is the AI meal plan format: {'Monday': {...}, 'Tuesday': {...}, ...}
@@ -833,10 +843,12 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
         # Properly structure user_info from plan_info
         user_info = {}
         if plan_info and isinstance(plan_info, dict):
+            print(f"DEBUG: plan_info keys: {list(plan_info.keys())}")
             # Try to get day_specific_nutrition from plan_info first
             day_nutrition = plan_info.get('day_specific_nutrition', {})
+            print(f"DEBUG: day_specific_nutrition from plan_info has {len(day_nutrition)} days")
             
-            # If empty, try to get from session state directly as a fallback
+            # If empty, try to get from session state directly as a fallback  
             if not day_nutrition or len(day_nutrition) == 0:
                 try:
                     day_nutrition = st.session_state.get('day_specific_nutrition', {})
@@ -848,7 +860,7 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
                     print(f"WARNING: Could not access session state: {str(e)}")
             
             # Last resort: Create default targets from meal plan data
-            if not day_nutrition and meal_data:
+            if not day_nutrition:
                 print("INFO: Creating fallback nutrition targets from meal data")
                 day_nutrition = {}
                 for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
@@ -857,9 +869,11 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
                         # Extract from day_plan nutrition_targets if available
                         if isinstance(day_data, dict) and 'nutrition_targets' in day_data:
                             day_nutrition[day] = day_data['nutrition_targets']
-                        # Or extract from daily_totals
+                            print(f"  Extracted nutrition_targets for {day}: {day_data['nutrition_targets']}")
+                        # Or extract from daily_totals as fallback  
                         elif isinstance(day_data, dict) and 'daily_totals' in day_data:
                             day_nutrition[day] = day_data['daily_totals']
+                            print(f"  Extracted daily_totals for {day}: {day_data['daily_totals']}")
             
             user_info = {
                 'profile': plan_info.get('user_profile', {}),
