@@ -163,7 +163,7 @@ class FitomicsPDF(FPDF):
             avg_protein = daily_totals.get('protein', 0)
             avg_carbs = daily_totals.get('carbs', 0)
             avg_fat = daily_totals.get('fat', 0)
-        elif plan_info.get('daily_totals'):
+        elif plan_info and plan_info.get('daily_totals'):
             daily_totals = plan_info['daily_totals']
             avg_calories = daily_totals.get('calories', 0)
             avg_protein = daily_totals.get('protein', 0)

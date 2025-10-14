@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-10-13T22:00:27.173992",
+  "timestamp": "2025-10-14T16:08:46.892127",
   "user_info": {
     "name": "Cody",
     "gender": "Male",
@@ -235,9 +235,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -332,9 +332,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -429,9 +429,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -526,9 +526,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -616,9 +616,9 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -713,9 +713,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -803,9 +803,9 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -902,9 +902,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -999,9 +999,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -1096,9 +1096,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -1193,9 +1193,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -1283,9 +1283,9 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -1380,9 +1380,9 @@
       "base_tdee": 2526,
       "workout_calories": 600,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
@@ -1470,9 +1470,9 @@
       "base_tdee": 2526,
       "workout_calories": 0,
       "sleep_schedule": {
-        "wake_time": "05:00",
-        "bed_time": "20:00",
-        "sleep_hours": 9.0
+        "wake_time": "07:00",
+        "bed_time": "22:30",
+        "sleep_hours": 8.5
       },
       "work_schedule": {
         "start_time": "09:00",
