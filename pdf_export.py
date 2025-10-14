@@ -98,7 +98,10 @@ class FitomicsPDF(FPDF):
     def add_title_page(self, user_info, plan_info):
         """Add a branded title page"""
         # Store user_info for use in other methods
-        self.user_info = user_info
+        self.user_info = user_info if user_info else {}
+        # Ensure plan_info is never None
+        plan_info = plan_info if plan_info else {}
+        
         self.add_page()
         
         # Main title
@@ -177,7 +180,7 @@ class FitomicsPDF(FPDF):
             avg_fat = 0
             
             # Get totals from meal plan data if available
-            if hasattr(plan_info, 'get') and plan_info.get('meal_data'):
+            if plan_info and plan_info.get('meal_data'):
                 meal_data = plan_info['meal_data']
                 if isinstance(meal_data, list):
                     for meal in meal_data:
