@@ -240,7 +240,7 @@ class FitomicsPDF(FPDF):
             self.cell(0, 4, clean_text_for_pdf('Format: Actual/Target | Check = Within 5% | Warning = Outside 5%'), 0, 1, 'L')
         
         # Diet preferences
-        diet_prefs = plan_info.get('diet_preferences', {})
+        diet_prefs = plan_info.get('diet_preferences', {}) if plan_info else {}
         if any(diet_prefs.values()):
             self.ln(10)
             self.set_font('Arial', 'B', 14)
