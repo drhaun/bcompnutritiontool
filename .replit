@@ -34,12 +34,12 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 36919
-externalPort = 3000
-
-[[ports]]
 localPort = 41579
 externalPort = 3001
+
+[[ports]]
+localPort = 45635
+externalPort = 3000
 
 [agent]
 integrations = ["web_scraper==1.0.0", "python_openai==1.0.0", "python_anthropic==1.0.0"]

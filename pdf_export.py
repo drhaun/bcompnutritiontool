@@ -207,7 +207,7 @@ class FitomicsPDF(FPDF):
         self.add_weekly_overview_table(plan_info, user_info)
         
         # Add accuracy comparison if target data is available
-        if plan_info.get('daily_accuracy_comparison'):
+        if plan_info and plan_info.get('daily_accuracy_comparison'):
             self.ln(10)
             self.set_font('Arial', 'B', 14)
             self.cell(0, 8, 'MACRO ACCURACY COMPARISON', 0, 1, 'L')
