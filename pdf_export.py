@@ -244,6 +244,7 @@ class FitomicsPDF(FPDF):
         
         # Diet preferences
         diet_prefs = plan_info.get('diet_preferences', {}) if plan_info else {}
+        print(f"DEBUG: diet_prefs = {diet_prefs}")
         if any(diet_prefs.values()):
             self.ln(10)
             self.set_font('Arial', 'B', 14)
@@ -351,7 +352,9 @@ class FitomicsPDF(FPDF):
                     protein = int(day_nutrition.get('protein', default_protein))
                     carbs = int(day_nutrition.get('carbs', default_carbs))
                     fat = int(day_nutrition.get('fat', default_fat))
-                    tdee = int(day_nutrition.get('tdee', target_cal))  # Use TDEE if available
+                    # TDEE should match calories (target_cal) if not explicitly provided
+                    tdee = int(day_nutrition.get('tdee', target_cal))
+                    print(f"DEBUG table row {day_name}: TDEE={tdee}, Target={target_cal}, P={protein}, C={carbs}, F={fat}")
                 else:
                     # No personalized targets - indicate this is placeholder data
                     print(f"WARNING: No personalized data for {day_name}, using defaults")
