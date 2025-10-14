@@ -1885,13 +1885,22 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
         with col1:
             if st.button("📄 Export to PDF", key="pdf_export_final_view", use_container_width=True):
                 try:
-                    # Get comprehensive plan info
+                    # Ensure day_specific_nutrition is properly loaded
+                    day_specific_nutrition = st.session_state.get('day_specific_nutrition', {})
+                    
+                    # If missing, try to reconstruct from meal plan data
+                    if not day_specific_nutrition:
+                        for day, day_plan in meal_plan.items():
+                            if 'nutrition_targets' in day_plan:
+                                day_specific_nutrition[day] = day_plan['nutrition_targets']
+                    
+                    # Get comprehensive plan info with validated data
                     plan_info = {
                         'user_profile': st.session_state.get('user_info', {}),
                         'body_comp_goals': st.session_state.get('goal_info', {}),
                         'diet_preferences': st.session_state.get('diet_preferences', {}),
                         'weekly_schedule': st.session_state.get('weekly_schedule_v2', {}),
-                        'day_specific_nutrition': st.session_state.get('day_specific_nutrition', {})
+                        'day_specific_nutrition': day_specific_nutrition
                     }
                     
                     pdf_buffer = export_meal_plan_pdf(meal_plan, plan_info)

@@ -847,6 +847,20 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
                 except Exception as e:
                     print(f"WARNING: Could not access session state: {str(e)}")
             
+            # Last resort: Create default targets from meal plan data
+            if not day_nutrition and meal_data:
+                print("INFO: Creating fallback nutrition targets from meal data")
+                day_nutrition = {}
+                for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']:
+                    if day in meal_data:
+                        day_data = meal_data[day]
+                        # Extract from day_plan nutrition_targets if available
+                        if isinstance(day_data, dict) and 'nutrition_targets' in day_data:
+                            day_nutrition[day] = day_data['nutrition_targets']
+                        # Or extract from daily_totals
+                        elif isinstance(day_data, dict) and 'daily_totals' in day_data:
+                            day_nutrition[day] = day_data['daily_totals']
+            
             user_info = {
                 'profile': plan_info.get('user_profile', {}),
                 'goals': plan_info.get('body_comp_goals', {}),
