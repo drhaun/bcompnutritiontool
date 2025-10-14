@@ -1465,7 +1465,7 @@ elif st.session_state['meal_plan_stage'] == 'review_monday':
                     'day_specific_nutrition': st.session_state.get('day_specific_nutrition', {})
                 }
                 
-                pdf_buffer = export_meal_plan_pdf(single_day_plan, plan_info)
+                pdf_buffer = export_meal_plan_pdf(single_day_plan, plan_info=plan_info)
                 
                 if pdf_buffer:
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
@@ -1838,7 +1838,7 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
                             'day_specific_nutrition': day_specific_nutrition
                         }
                         
-                        pdf_buffer = export_meal_plan_pdf(single_day_plan, plan_info)
+                        pdf_buffer = export_meal_plan_pdf(single_day_plan, plan_info=plan_info)
                         
                         if pdf_buffer:
                             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
@@ -1903,7 +1903,7 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
                         'day_specific_nutrition': day_specific_nutrition
                     }
                     
-                    pdf_buffer = export_meal_plan_pdf(meal_plan, plan_info)
+                    pdf_buffer = export_meal_plan_pdf(meal_plan, plan_info=plan_info)
                     
                     if pdf_buffer:
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
@@ -2035,7 +2035,7 @@ if 'ai_meal_plan' in st.session_state and st.session_state['ai_meal_plan']:
                     'day_specific_nutrition': st.session_state.get('day_specific_nutrition', {})
                 }
                 
-                pdf_buffer = export_meal_plan_pdf(meal_plan, plan_info)
+                pdf_buffer = export_meal_plan_pdf(meal_plan, plan_info=plan_info)
                 
                 if pdf_buffer:
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
