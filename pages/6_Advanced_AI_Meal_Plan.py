@@ -1696,6 +1696,29 @@ elif st.session_state['meal_plan_stage'] == 'generating_week':
                     day_data_json = json.dumps(day_data, indent=2) 
                     day_schedule_json = json.dumps(day_schedule, indent=2)
                     
+                    # Get variety preferences
+                    variety_level = diet_preferences.get('variety_level', 'Moderate Variety')
+                    repetition_pref = diet_preferences.get('repetition_preference', 'I like some repetition but with variations')
+                    weekly_structure = diet_preferences.get('weekly_structure', 'Mix of routine and variety')
+                    cooking_variety = diet_preferences.get('cooking_variety', 'Some variety in cooking methods')
+                    meal_prep_coord = diet_preferences.get('enhanced_preferences', {}).get('meal_prep_coordination', 'Some coordination - Share ingredients across meals')
+                    
+                    # Build variety instructions based on preferences
+                    if variety_level == "Low Variety" or repetition_pref == "I enjoy eating the same meals regularly":
+                        variety_instruction = "You may reuse similar meals from Monday with slight variations in portions or seasonings."
+                    elif variety_level == "Maximum Variety" or repetition_pref == "I want as much variety as possible":
+                        variety_instruction = "Create COMPLETELY DIFFERENT meals from Monday - no repeated proteins, carb sources, or recipes. Maximum variety is required."
+                    else:
+                        variety_instruction = "Use DIFFERENT foods and recipes from Monday, but you may reuse the same protein or carb types with different preparations."
+                    
+                    # Build meal prep coordination instructions
+                    if "Minimal" in meal_prep_coord:
+                        prep_instruction = "Each meal should be independent with unique ingredients."
+                    elif "Maximum" in meal_prep_coord or "High coordination" in meal_prep_coord:
+                        prep_instruction = "Prioritize ingredient overlap across meals for batch cooking. Reuse proteins, grains, and vegetables where possible."
+                    else:
+                        prep_instruction = "Share some ingredients across meals for efficiency, but maintain reasonable variety."
+                    
                     day_prompt = f"""
 {user_context}
 
@@ -1713,17 +1736,23 @@ DAY-SPECIFIC TARGETS FOR {day_name}:
 
 APPLICATION METHOD: {application_method}
 
+USER VARIETY PREFERENCES:
+- Variety Level: {variety_level}
+- Repetition Preference: {repetition_pref}
+- Weekly Structure: {weekly_structure}
+- Cooking Variety: {cooking_variety}
+- Meal Prep Coordination: {meal_prep_coord}
+
 Based on the approved Monday template, create a {day} meal plan that:
 1. Follows the same successful meal STRUCTURE and timing approach (number of meals, meal timing)
-2. Uses COMPLETELY DIFFERENT foods and recipes from Monday - provide variety and avoid repetition
-3. Adjusts portions to meet {day}'s specific macro targets  
-4. Considers {day}'s unique schedule and workout timing
-5. Maintains the same food preferences and cooking style
-6. Ensures ±3% macro accuracy
+2. VARIETY GUIDELINE: {variety_instruction}
+3. MEAL PREP GUIDELINE: {prep_instruction}
+4. Adjusts portions to meet {day}'s specific macro targets  
+5. Considers {day}'s unique schedule and workout timing
+6. Maintains the same food preferences and cooking style from diet preferences
+7. Ensures ±3% macro accuracy
 
-IMPORTANT: Do NOT repeat any meals from Monday. Create entirely new meal options with different proteins, carbs, and recipes while maintaining the same meal structure.
-
-Return JSON format with the same structure as Monday but with completely different meals adapted for {day}.
+Return JSON format with the same structure as Monday but adapted for {day} following the variety preferences.
 """
                     
                     try:

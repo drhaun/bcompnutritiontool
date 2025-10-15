@@ -54,7 +54,15 @@ def clean_text_for_pdf(text):
 class FitomicsPDF(FPDF):
     def __init__(self):
         super().__init__()
-        self.set_auto_page_break(auto=True, margin=15)
+        self.set_auto_page_break(auto=True, margin=20)
+        
+    def check_page_break(self, height_needed=30):
+        """Check if we need a page break before adding content"""
+        # If less than height_needed mm from bottom, add page break
+        if self.get_y() + height_needed > self.h - 20:
+            self.add_page()
+            return True
+        return False
         
     def header(self):
         """Add Fitomics branded header"""
@@ -247,6 +255,9 @@ class FitomicsPDF(FPDF):
         print(f"DEBUG: diet_prefs = {diet_prefs}")
         
         if diet_prefs:
+            # Check page break before dietary preferences section
+            self.check_page_break(height_needed=50)
+            
             self.ln(10)
             self.set_font('Arial', 'B', 14)
             self.set_text_color(41, 84, 144)
@@ -275,7 +286,7 @@ class FitomicsPDF(FPDF):
                 cuisine_text = ', '.join(cuisines[:10])  # Limit to avoid overflow
                 if len(cuisines) > 10:
                     cuisine_text += f' (+{len(cuisines)-10} more)'
-                self.cell(0, 5, f"  {clean_text_for_pdf(cuisine_text)}", 0, 1, 'L')
+                self.multi_cell(0, 5, f"  {clean_text_for_pdf(cuisine_text)}", 0, 'L')
                 self.ln(2)
             
             # Preferred Proteins
@@ -287,7 +298,7 @@ class FitomicsPDF(FPDF):
                 protein_text = ', '.join(proteins[:12])
                 if len(proteins) > 12:
                     protein_text += f' (+{len(proteins)-12} more)'
-                self.cell(0, 5, f"  {clean_text_for_pdf(protein_text)}", 0, 1, 'L')
+                self.multi_cell(0, 5, f"  {clean_text_for_pdf(protein_text)}", 0, 'L')
                 self.ln(2)
             
             # Preferred Carbs
@@ -299,10 +310,13 @@ class FitomicsPDF(FPDF):
                 carb_text = ', '.join(carbs[:12])
                 if len(carbs) > 12:
                     carb_text += f' (+{len(carbs)-12} more)'
-                self.cell(0, 5, f"  {clean_text_for_pdf(carb_text)}", 0, 1, 'L')
+                self.multi_cell(0, 5, f"  {clean_text_for_pdf(carb_text)}", 0, 'L')
     
     def add_weekly_overview_table(self, plan_info, user_info):
         """Add comprehensive weekly overview table similar to Advanced AI Meal Plan page"""
+        
+        # Check if we need a page break before the table (needs ~60mm)
+        self.check_page_break(height_needed=60)
         
         # Get the actual meal plan data (AI-generated meals by day)
         meal_plan_data = {}
@@ -523,6 +537,9 @@ class FitomicsPDF(FPDF):
                 
     def add_meal_section(self, meal_type, recipe, macros, ingredients, meal_context=None, meal_time=None, workout_annotation=None, day_name=None):
         """Add a meal section with recipe and ingredients"""
+        # Check if we need a page break before meal section
+        self.check_page_break(height_needed=40)
+        
         # Meal title with day context
         self.set_font('Arial', 'B', 16)
         self.set_text_color(41, 84, 144)
@@ -613,40 +630,16 @@ class FitomicsPDF(FPDF):
             if isinstance(instructions, list):
                 for i, instruction in enumerate(instructions, 1):
                     instruction_text = clean_text_for_pdf(instruction)
-                    # Handle long instructions by wrapping text
-                    if len(instruction_text) > 100:
-                        # Split into multiple lines
-                        words = instruction_text.split()
-                        current_line = f"{i}. "
-                        for word in words:
-                            if len(current_line + word) > 95:
-                                self.cell(0, 4, current_line, 0, 1, 'L')
-                                current_line = "   " + word + " "
-                            else:
-                                current_line += word + " "
-                        if current_line.strip():
-                            self.cell(0, 4, current_line, 0, 1, 'L')
-                    else:
-                        self.cell(0, 4, f"{i}. {instruction_text}", 0, 1, 'L')
+                    # Use multi_cell for automatic text wrapping
+                    self.multi_cell(0, 5, f"{i}. {instruction_text}", 0, 'L')
             else:
                 # Split text instructions into lines
                 lines = str(instructions).split('. ')
                 for i, line in enumerate(lines, 1):
                     if line.strip():
                         line_text = clean_text_for_pdf(line.strip())
-                        if len(line_text) > 100:
-                            words = line_text.split()
-                            current_line = f"{i}. "
-                            for word in words:
-                                if len(current_line + word) > 95:
-                                    self.cell(0, 4, current_line, 0, 1, 'L')
-                                    current_line = "   " + word + " "
-                                else:
-                                    current_line += word + " "
-                            if current_line.strip():
-                                self.cell(0, 4, current_line, 0, 1, 'L')
-                        else:
-                            self.cell(0, 4, f"{i}. {line_text}", 0, 1, 'L')
+                        # Use multi_cell for automatic text wrapping
+                        self.multi_cell(0, 5, f"{i}. {line_text}", 0, 'L')
         
         self.ln(8)
         
