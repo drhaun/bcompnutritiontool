@@ -242,23 +242,64 @@ class FitomicsPDF(FPDF):
             self.set_font('Arial', 'I', 8)
             self.cell(0, 4, clean_text_for_pdf('Format: Actual/Target | Check = Within 5% | Warning = Outside 5%'), 0, 1, 'L')
         
-        # Diet preferences
+        # Diet preferences - updated to match actual data structure
         diet_prefs = plan_info.get('diet_preferences', {}) if plan_info else {}
         print(f"DEBUG: diet_prefs = {diet_prefs}")
-        if any(diet_prefs.values()):
+        
+        if diet_prefs:
             self.ln(10)
             self.set_font('Arial', 'B', 14)
+            self.set_text_color(41, 84, 144)
             self.cell(0, 8, 'DIETARY PREFERENCES', 0, 1, 'L')
+            self.set_text_color(0, 0, 0)
+            self.ln(3)
             
-            self.set_font('Arial', '', 12)
-            prefs = []
-            if diet_prefs.get('vegetarian'): prefs.append('Vegetarian')
-            if diet_prefs.get('vegan'): prefs.append('Vegan')
-            if diet_prefs.get('gluten_free'): prefs.append('Gluten-Free')
-            if diet_prefs.get('dairy_free'): prefs.append('Dairy-Free')
+            self.set_font('Arial', '', 10)
             
-            for pref in prefs:
-                self.cell(0, 6, f"- {pref}", 0, 1, 'L')
+            # Dietary Restrictions
+            restrictions = diet_prefs.get('dietary_restrictions', [])
+            if restrictions and restrictions != ['None']:
+                self.set_font('Arial', 'B', 10)
+                self.cell(0, 5, 'Dietary Restrictions:', 0, 1, 'L')
+                self.set_font('Arial', '', 10)
+                for restriction in restrictions:
+                    self.cell(0, 5, f"  - {clean_text_for_pdf(restriction)}", 0, 1, 'L')
+                self.ln(2)
+            
+            # Cuisine Preferences
+            cuisines = diet_prefs.get('cuisine_preferences', [])
+            if cuisines:
+                self.set_font('Arial', 'B', 10)
+                self.cell(0, 5, 'Cuisine Preferences:', 0, 1, 'L')
+                self.set_font('Arial', '', 10)
+                cuisine_text = ', '.join(cuisines[:10])  # Limit to avoid overflow
+                if len(cuisines) > 10:
+                    cuisine_text += f' (+{len(cuisines)-10} more)'
+                self.cell(0, 5, f"  {clean_text_for_pdf(cuisine_text)}", 0, 1, 'L')
+                self.ln(2)
+            
+            # Preferred Proteins
+            proteins = diet_prefs.get('preferred_proteins', [])
+            if proteins:
+                self.set_font('Arial', 'B', 10)
+                self.cell(0, 5, 'Preferred Proteins:', 0, 1, 'L')
+                self.set_font('Arial', '', 10)
+                protein_text = ', '.join(proteins[:12])
+                if len(proteins) > 12:
+                    protein_text += f' (+{len(proteins)-12} more)'
+                self.cell(0, 5, f"  {clean_text_for_pdf(protein_text)}", 0, 1, 'L')
+                self.ln(2)
+            
+            # Preferred Carbs
+            carbs = diet_prefs.get('preferred_carbs', [])
+            if carbs:
+                self.set_font('Arial', 'B', 10)
+                self.cell(0, 5, 'Preferred Carbs:', 0, 1, 'L')
+                self.set_font('Arial', '', 10)
+                carb_text = ', '.join(carbs[:12])
+                if len(carbs) > 12:
+                    carb_text += f' (+{len(carbs)-12} more)'
+                self.cell(0, 5, f"  {clean_text_for_pdf(carb_text)}", 0, 1, 'L')
     
     def add_weekly_overview_table(self, plan_info, user_info):
         """Add comprehensive weekly overview table similar to Advanced AI Meal Plan page"""
