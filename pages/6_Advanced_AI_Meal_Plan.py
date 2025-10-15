@@ -277,7 +277,7 @@ Return JSON:
         
         return result
     except:
-        return safe_json_parse(response.choices[0].message.content if response else "", None)
+        return safe_json_parse(response.choices[0].message.content if response else "", {})
 
 def step2_generate_meal_concepts(meal_structure, user_context, dietary_context, openai_client):
     """Step 2: Generate specific meal concepts for each meal in the structure"""
@@ -571,7 +571,7 @@ Return JSON with this structure:
                 'workout_annotation': ''
             }))
         except:
-            parsed = safe_json_parse(response.choices[0].message.content if response else "", None)
+            parsed = safe_json_parse(response.choices[0].message.content if response else "", {})
             if not parsed:
                 parsed = {
                     'name': 'Error',
@@ -1714,13 +1714,16 @@ DAY-SPECIFIC TARGETS FOR {day_name}:
 APPLICATION METHOD: {application_method}
 
 Based on the approved Monday template, create a {day} meal plan that:
-1. Follows the same successful meal structure and timing approach
-2. Adjusts portions to meet {day}'s specific macro targets
-3. Considers {day}'s unique schedule and workout timing
-4. Maintains the same food preferences and cooking style
-5. Ensures ±3% macro accuracy
+1. Follows the same successful meal STRUCTURE and timing approach (number of meals, meal timing)
+2. Uses COMPLETELY DIFFERENT foods and recipes from Monday - provide variety and avoid repetition
+3. Adjusts portions to meet {day}'s specific macro targets  
+4. Considers {day}'s unique schedule and workout timing
+5. Maintains the same food preferences and cooking style
+6. Ensures ±3% macro accuracy
 
-Return JSON format with the same structure as Monday but adapted for {day}.
+IMPORTANT: Do NOT repeat any meals from Monday. Create entirely new meal options with different proteins, carbs, and recipes while maintaining the same meal structure.
+
+Return JSON format with the same structure as Monday but with completely different meals adapted for {day}.
 """
                     
                     try:
