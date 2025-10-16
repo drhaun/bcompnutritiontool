@@ -57,14 +57,16 @@ Preferred communication style: Simple, everyday language.
 - Created reusable utility functions for common operations
 
 ### Phase 4 - Macro Accuracy Precision System (October 16, 2025)
-**Critical Enhancement: Achieved ±3% macro precision target**
-- **Precise Target Calculation**: Pre-calculates exact per-meal/snack macro targets upfront (3 meals @ 25% each, 2 snacks @ 12.5% each) instead of vague percentage instructions
+**Critical Enhancement: Achieved ±3% macro precision with dynamic meal structure**
+- **Dynamic Meal Structure**: System now intelligently determines meal count and timing based on user schedule, workout timing, and preferences (not hard-coded 3+2)
+- **Workout-Aware Distribution**: Leverages step1_generate_meal_structure to optimize macro allocation around training sessions with nutrient timing logic
+- **Precise Target Calculation**: Each meal receives specific macro targets from AI-determined structure (e.g., pre-workout meal gets higher carbs)
 - **Robust Data Sourcing**: Fixed data extraction to read from both direct structure (calories/protein/carbs/fat keys) and nested daily_totals structure
-- **Explicit Type Classification**: AI now includes explicit "type" field ("meal" or "snack") with normalized validation (.strip().lower()) to prevent misclassification
-- **Comprehensive Validation**: Implemented dual-layer validation checking both daily totals AND individual meal/snack macros against ±3% tolerance
-- **Iterative Correction**: Added 3-attempt retry mechanism that regenerates plans until accuracy_validated=True or max attempts reached
-- **Removed Conflicts**: Eliminated hard-coded sample macro values (656 cal/50g protein) that contradicted actual user targets
-- **Enhanced AI Prompting**: Updated prompts to explicitly require ±3% accuracy with specific gram targets per meal/snack type
+- **Explicit Type Classification**: AI includes explicit "type" field ("meal" or "snack") with normalized validation (.strip().lower()) to prevent misclassification
+- **Comprehensive Validation**: Dual-layer validation checks both daily totals AND individual meal/snack macros against their specific targets (±3% tolerance)
+- **Iterative Correction**: 3-attempt retry mechanism regenerates plans until accuracy_validated=True or max attempts reached
+- **Variable Meal Support**: Works with any meal structure (2 meals, 4 meals, 5 meals + snacks, etc.) based on schedule optimization
+- **Enhanced AI Prompting**: Updated prompts to explicitly require ±3% accuracy with specific gram targets per meal from dynamic structure
 
 ## External Dependencies
 
