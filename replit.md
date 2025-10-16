@@ -67,6 +67,7 @@ Preferred communication style: Simple, everyday language.
 - **Iterative Correction**: 3-attempt retry mechanism regenerates plans until accuracy_validated=True or max attempts reached
 - **Variable Meal Support**: Works with any meal structure (2 meals, 4 meals, 5 meals + snacks, etc.) based on schedule optimization
 - **Enhanced AI Prompting**: Updated prompts to explicitly require ±3% accuracy with specific gram targets per meal from dynamic structure
+- **Critical Bug Fix (Oct 16)**: Fixed key name mismatch (`accuracy_valid` → `accuracy_validated`) that was preventing validation results from propagating to retry logic, causing inaccurate meals to be accepted on first attempt without retries
 
 ## External Dependencies
 
