@@ -1030,10 +1030,37 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                 progress_placeholder.info("⚡ Generating optimized Monday meal plan based on your personalized targets...")
                 
                 try:
-                    # Use the new quick generation function
-                    final_result = generate_quick_meal_plan(
-                        monday_data, user_context, diet_context, monday_schedule, openai_client
-                    )
+                    # Use the new quick generation function with retry for accuracy
+                    final_result = None
+                    max_attempts = 3
+                    
+                    for attempt in range(max_attempts):
+                        if attempt > 0:
+                            progress_placeholder.info(f"🔄 Attempt {attempt + 1}/{max_attempts}: Regenerating for better macro accuracy...")
+                        
+                        result = generate_quick_meal_plan(
+                            monday_data, user_context, diet_context, monday_schedule, openai_client
+                        )
+                        
+                        # Check if result is valid and accurate
+                        if result and result.get('accuracy_validated', False):
+                            final_result = result
+                            progress_placeholder.success(f"✅ Accurate meal plan generated (Attempt {attempt + 1})")
+                            break
+                        elif result and not result.get('accuracy_validated', False):
+                            # Store last result even if not perfect
+                            final_result = result
+                            if attempt < max_attempts - 1:
+                                progress_placeholder.warning(f"⚠️ Attempt {attempt + 1} had macro deviations, retrying...")
+                            else:
+                                progress_placeholder.error("❌ Maximum attempts reached. Showing best result available.")
+                        else:
+                            if attempt < max_attempts - 1:
+                                progress_placeholder.warning(f"⚠️ Attempt {attempt + 1} failed, retrying...")
+                    
+                    # If still no result after all attempts, try fallback
+                    if not final_result:
+                        final_result = result  # Use last attempt
                     
                     # Initialize meal_structure for later use
                     meal_structure = {}
