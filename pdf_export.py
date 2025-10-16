@@ -734,6 +734,97 @@ class FitomicsPDF(FPDF):
                     # Single amount
                     self.cell(0, 6, f"- {clean_text_for_pdf(name)}: {clean_text_for_pdf(amounts)}", 0, 1, 'L')
     
+    def add_weekly_meal_grid(self, meal_data):
+        """Add horizontal grid view of all meals across the week"""
+        self.add_page()
+        
+        self.set_font('Arial', 'B', 18)
+        self.set_text_color(41, 84, 144)
+        self.cell(0, 12, 'WEEKLY MEAL OVERVIEW', 0, 1, 'L')
+        self.ln(8)
+        
+        # Check if this is weekly meal data
+        if not isinstance(meal_data, dict):
+            return
+            
+        days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        days_in_plan = [day for day in days_order if day in meal_data]
+        
+        if not days_in_plan:
+            return
+        
+        # Determine max number of meals across all days
+        max_meals = 0
+        for day in days_in_plan:
+            day_data = meal_data.get(day, {})
+            meals_count = len(day_data.get('meals', []))
+            max_meals = max(max_meals, meals_count)
+        
+        # Set up grid dimensions
+        # Column widths: first column for meal names, then equal width for each day
+        first_col_width = 28
+        day_col_width = (190 - first_col_width) / len(days_in_plan)  # Divide remaining width
+        row_height = 8
+        
+        # Add header row with day names
+        self.set_font('Arial', 'B', 8)
+        self.set_text_color(255, 255, 255)
+        self.set_fill_color(41, 84, 144)  # Dark blue
+        
+        self.cell(first_col_width, row_height, '', 1, 0, 'C', True)  # Empty corner cell
+        for day in days_in_plan:
+            self.cell(day_col_width, row_height, day[:3], 1, 0, 'C', True)  # Abbreviated day names
+        self.ln()
+        
+        # Add rows for each meal/snack slot
+        self.set_font('Arial', '', 7)
+        self.set_text_color(0, 0, 0)
+        
+        for meal_idx in range(max_meals):
+            # Determine meal type label
+            if meal_idx < 3:
+                meal_label = f"Meal {meal_idx + 1}"
+            else:
+                meal_label = f"Snack {meal_idx - 2}"
+            
+            # Alternate row colors for readability
+            if meal_idx % 2 == 0:
+                self.set_fill_color(245, 245, 245)  # Light gray
+                fill = True
+            else:
+                fill = False
+            
+            # Add meal label in first column
+            self.set_font('Arial', 'B', 7)
+            self.cell(first_col_width, row_height, meal_label, 1, 0, 'L', fill)
+            
+            # Add meal names for each day
+            self.set_font('Arial', '', 6)
+            for day in days_in_plan:
+                day_data = meal_data.get(day, {})
+                meals = day_data.get('meals', [])
+                
+                if meal_idx < len(meals):
+                    meal_info = meals[meal_idx]
+                    meal_name = meal_info.get('name', '')
+                    
+                    # Truncate long names to fit
+                    if len(meal_name) > 22:
+                        meal_name = meal_name[:19] + '...'
+                    
+                    self.cell(day_col_width, row_height, clean_text_for_pdf(meal_name), 1, 0, 'C', fill)
+                else:
+                    self.cell(day_col_width, row_height, '-', 1, 0, 'C', fill)  # Empty cell
+            
+            self.ln()
+        
+        self.ln(5)
+        
+        # Add legend
+        self.set_font('Arial', 'I', 8)
+        self.set_text_color(100, 100, 100)
+        self.cell(0, 5, 'This grid shows your weekly meal variety at a glance', 0, 1, 'L')
+    
     def add_organized_grocery_list(self, all_ingredients):
         """Add organized grocery list by category"""
         self.add_page()
@@ -1130,6 +1221,11 @@ def export_meal_plan_pdf(meal_data, user_preferences=None, plan_info=None):
                     meal_context=meal_info.get('context'),
                     meal_time=meal_info.get('time')
                 )
+        
+        # Add weekly meal grid if this is a weekly plan
+        if isinstance(meal_data, dict) and any(day in meal_data for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']):
+            print("Adding weekly meal grid...")
+            pdf.add_weekly_meal_grid(meal_data)
         
         print(f"Adding grocery list with {len(all_ingredients)} ingredients...")
         # Add grocery list on new page
