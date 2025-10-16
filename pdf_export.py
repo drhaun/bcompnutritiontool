@@ -735,7 +735,7 @@ class FitomicsPDF(FPDF):
                     self.cell(0, 6, f"- {clean_text_for_pdf(name)}: {clean_text_for_pdf(amounts)}", 0, 1, 'L')
     
     def add_weekly_meal_grid(self, meal_data):
-        """Add horizontal grid view of all meals across the week"""
+        """Add horizontal grid view of all meals with ingredients, portions, and macros"""
         self.add_page()
         
         self.set_font('Arial', 'B', 18)
@@ -760,24 +760,22 @@ class FitomicsPDF(FPDF):
             meals_count = len(day_data.get('meals', []))
             max_meals = max(max_meals, meals_count)
         
-        # Set up grid dimensions
-        # Column widths: first column for meal names, then equal width for each day
-        first_col_width = 28
-        day_col_width = (190 - first_col_width) / len(days_in_plan)  # Divide remaining width
-        row_height = 8
+        # Set up grid dimensions - larger cells for detailed content
+        first_col_width = 22
+        day_col_width = (190 - first_col_width) / len(days_in_plan)
+        base_row_height = 20  # Taller rows for multiple lines
         
         # Add header row with day names
-        self.set_font('Arial', 'B', 8)
+        self.set_font('Arial', 'B', 7)
         self.set_text_color(255, 255, 255)
         self.set_fill_color(41, 84, 144)  # Dark blue
         
-        self.cell(first_col_width, row_height, '', 1, 0, 'C', True)  # Empty corner cell
+        self.cell(first_col_width, 8, '', 1, 0, 'C', True)  # Empty corner cell
         for day in days_in_plan:
-            self.cell(day_col_width, row_height, day[:3], 1, 0, 'C', True)  # Abbreviated day names
+            self.cell(day_col_width, 8, day[:3], 1, 0, 'C', True)
         self.ln()
         
         # Add rows for each meal/snack slot
-        self.set_font('Arial', '', 7)
         self.set_text_color(0, 0, 0)
         
         for meal_idx in range(max_meals):
@@ -787,43 +785,80 @@ class FitomicsPDF(FPDF):
             else:
                 meal_label = f"Snack {meal_idx - 2}"
             
-            # Alternate row colors for readability
+            # Alternate row colors
             if meal_idx % 2 == 0:
-                self.set_fill_color(245, 245, 245)  # Light gray
+                self.set_fill_color(245, 245, 245)
                 fill = True
             else:
                 fill = False
             
-            # Add meal label in first column
-            self.set_font('Arial', 'B', 7)
-            self.cell(first_col_width, row_height, meal_label, 1, 0, 'L', fill)
+            # Store starting Y position for this row
+            start_y = self.get_y()
+            start_x = self.get_x()
             
-            # Add meal names for each day
-            self.set_font('Arial', '', 6)
-            for day in days_in_plan:
+            # Add meal label in first column
+            self.set_font('Arial', 'B', 6)
+            self.multi_cell(first_col_width, 4, meal_label, 1, 'L', fill)
+            
+            # Calculate max height needed for this row
+            max_height = self.get_y() - start_y
+            
+            # Process each day's meal content
+            for day_idx, day in enumerate(days_in_plan):
                 day_data = meal_data.get(day, {})
                 meals = day_data.get('meals', [])
                 
+                # Reset to start position for this cell
+                self.set_xy(start_x + first_col_width + (day_idx * day_col_width), start_y)
+                
                 if meal_idx < len(meals):
                     meal_info = meals[meal_idx]
-                    meal_name = meal_info.get('name', '')
                     
-                    # Truncate long names to fit
-                    if len(meal_name) > 22:
-                        meal_name = meal_name[:19] + '...'
+                    # Build meal content: ingredients + macros
+                    ingredients = meal_info.get('ingredients', [])
+                    macros = meal_info.get('total_macros', {})
                     
-                    self.cell(day_col_width, row_height, clean_text_for_pdf(meal_name), 1, 0, 'C', fill)
+                    # Format ingredients (top 3-4 main items)
+                    ingredient_lines = []
+                    for i, ing in enumerate(ingredients[:4]):  # Limit to 4 ingredients
+                        if isinstance(ing, dict):
+                            item = ing.get('item', '')
+                            amount = ing.get('amount', '')
+                            # Shorten ingredient names
+                            if len(item) > 15:
+                                item = item[:12] + '...'
+                            ingredient_lines.append(f"{item} {amount}")
+                    
+                    # Format macros
+                    cal = macros.get('calories', 0)
+                    prot = macros.get('protein', 0)
+                    carb = macros.get('carbs', 0)
+                    fat = macros.get('fat', 0)
+                    
+                    # Build cell content
+                    cell_content = "\n".join(ingredient_lines)
+                    if len(ingredients) > 4:
+                        cell_content += f"\n+{len(ingredients)-4} more"
+                    cell_content += f"\n{int(cal)}cal P{int(prot)} C{int(carb)} F{int(fat)}"
+                    
+                    self.set_font('Arial', '', 5)
+                    self.multi_cell(day_col_width, 3.5, clean_text_for_pdf(cell_content), 1, 'L', fill)
+                    
+                    # Track max height
+                    cell_height = self.get_y() - start_y
+                    max_height = max(max_height, cell_height)
                 else:
-                    self.cell(day_col_width, row_height, '-', 1, 0, 'C', fill)  # Empty cell
+                    self.multi_cell(day_col_width, base_row_height, '-', 1, 'C', fill)
             
-            self.ln()
+            # Move to next row position
+            self.set_xy(start_x, start_y + max_height)
         
         self.ln(5)
         
         # Add legend
         self.set_font('Arial', 'I', 8)
         self.set_text_color(100, 100, 100)
-        self.cell(0, 5, 'This grid shows your weekly meal variety at a glance', 0, 1, 'L')
+        self.cell(0, 5, 'Weekly meal comparison with ingredients, portions, and macros', 0, 1, 'L')
     
     def add_organized_grocery_list(self, all_ingredients):
         """Add organized grocery list by category"""
