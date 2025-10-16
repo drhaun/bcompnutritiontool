@@ -2034,6 +2034,257 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
                 if daily_totals:
                     display_macros(daily_totals, label="📊 Daily Totals")
         
+        # NEW: Interactive Weekly Grid View & Customization
+        st.markdown("---")
+        st.markdown("## 🎛️ Customize Your Week")
+        
+        # Initialize modified meal plan if not exists
+        if 'modified_meal_plan' not in st.session_state:
+            st.session_state['modified_meal_plan'] = meal_plan.copy()
+        
+        # Tabs for different views
+        tab1, tab2 = st.tabs(["📊 Weekly Grid View", "🔄 Customize Meals"])
+        
+        with tab1:
+            st.markdown("### Weekly Meal Overview - All Days at a Glance")
+            
+            # Get all unique meal slots across the week
+            max_meals = max(len(st.session_state['modified_meal_plan'][day].get('meals', [])) 
+                          for day in st.session_state['modified_meal_plan'])
+            
+            # Create grid layout
+            days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            
+            for meal_idx in range(max_meals):
+                # Meal slot header
+                if meal_idx < 3:
+                    st.markdown(f"#### Meal {meal_idx + 1}")
+                else:
+                    st.markdown(f"#### Snack {meal_idx - 2}")
+                
+                # Create columns for each day
+                cols = st.columns(7)
+                
+                for col_idx, day in enumerate(days_order):
+                    if day in st.session_state['modified_meal_plan']:
+                        day_plan = st.session_state['modified_meal_plan'][day]
+                        meals = day_plan.get('meals', [])
+                        
+                        with cols[col_idx]:
+                            st.markdown(f"**{day[:3]}**")
+                            
+                            if meal_idx < len(meals):
+                                meal = meals[meal_idx]
+                                
+                                # Display ingredients (top 3)
+                                ingredients = meal.get('ingredients', [])
+                                for i, ing in enumerate(ingredients[:3]):
+                                    if isinstance(ing, dict):
+                                        st.caption(f"• {ing.get('item', '')} {ing.get('amount', '')}")
+                                
+                                if len(ingredients) > 3:
+                                    st.caption(f"+{len(ingredients)-3} more")
+                                
+                                # Display macros
+                                macros = meal.get('total_macros', {})
+                                st.caption(f"🔥 {int(macros.get('calories', 0))}cal")
+                                st.caption(f"P{int(macros.get('protein', 0))} C{int(macros.get('carbs', 0))} F{int(macros.get('fat', 0))}")
+                            else:
+                                st.caption("-")
+                
+                st.markdown("---")
+        
+        with tab2:
+            st.markdown("### Regenerate or Swap Ingredients")
+            st.info("💡 Select a day and meal to regenerate or customize ingredients while maintaining macro targets")
+            
+            # Day selector
+            selected_day = st.selectbox(
+                "Select Day",
+                options=['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+                key="customize_day_selector"
+            )
+            
+            if selected_day in st.session_state['modified_meal_plan']:
+                day_plan = st.session_state['modified_meal_plan'][selected_day]
+                meals = day_plan.get('meals', [])
+                
+                # Meal selector
+                meal_options = []
+                for i, meal in enumerate(meals):
+                    if i < 3:
+                        meal_options.append(f"Meal {i+1}")
+                    else:
+                        meal_options.append(f"Snack {i-2}")
+                
+                selected_meal_idx = st.selectbox(
+                    "Select Meal to Customize",
+                    options=range(len(meal_options)),
+                    format_func=lambda x: meal_options[x],
+                    key="customize_meal_selector"
+                )
+                
+                if selected_meal_idx is not None and selected_meal_idx < len(meals):
+                    selected_meal = meals[selected_meal_idx]
+                    
+                    st.markdown(f"#### Current: {meal_options[selected_meal_idx]}")
+                    
+                    # Display current meal
+                    col1, col2 = st.columns([2, 1])
+                    
+                    with col1:
+                        st.markdown("**Current Ingredients:**")
+                        for ing in selected_meal.get('ingredients', []):
+                            if isinstance(ing, dict):
+                                st.markdown(f"• {ing.get('item', '')} - {ing.get('amount', '')}")
+                    
+                    with col2:
+                        st.markdown("**Target Macros:**")
+                        macros = selected_meal.get('total_macros', {})
+                        st.markdown(f"Calories: {int(macros.get('calories', 0))}")
+                        st.markdown(f"Protein: {int(macros.get('protein', 0))}g")
+                        st.markdown(f"Carbs: {int(macros.get('carbs', 0))}g")
+                        st.markdown(f"Fat: {int(macros.get('fat', 0))}g")
+                    
+                    # Regenerate button
+                    if st.button(f"🔄 Regenerate {meal_options[selected_meal_idx]}", key=f"regen_{selected_day}_{selected_meal_idx}"):
+                        with st.spinner("Regenerating meal with same macro targets..."):
+                            try:
+                                # Get current macro targets
+                                target_macros = selected_meal.get('total_macros', {})
+                                target_cal = target_macros.get('calories', 500)
+                                target_protein = target_macros.get('protein', 30)
+                                target_carbs = target_macros.get('carbs', 50)
+                                target_fat = target_macros.get('fat', 20)
+                                
+                                # Get user context
+                                user_profile = st.session_state.get('user_info', {})
+                                body_comp_goals = st.session_state.get('goal_info', {})
+                                diet_preferences = st.session_state.get('diet_preferences', {})
+                                
+                                user_context = build_user_profile_context(user_profile, body_comp_goals)
+                                diet_context = build_dietary_context(diet_preferences)
+                                
+                                # Get existing ingredients to avoid
+                                existing_ingredients = [ing.get('item', '') for ing in selected_meal.get('ingredients', []) if isinstance(ing, dict)]
+                                
+                                # Create prompt for single meal regeneration
+                                regen_prompt = f"""
+{user_context}
+
+{diet_context}
+
+Generate a SINGLE meal that is DIFFERENT from the current one.
+
+AVOID THESE INGREDIENTS (use completely different options):
+{', '.join(existing_ingredients)}
+
+TARGET MACROS (must hit within ±3%):
+- Calories: {target_cal} (±{round(target_cal * 0.03)})
+- Protein: {target_protein}g (±{round(target_protein * 0.03, 1)}g)
+- Carbs: {target_carbs}g (±{round(target_carbs * 0.03, 1)}g)
+- Fat: {target_fat}g (±{round(target_fat * 0.03, 1)}g)
+
+CRITICAL: Use DIFFERENT proteins, carbs, and fats from the avoided list above.
+Calculate exact ingredient portions to hit macro targets within ±3%.
+
+Return JSON:
+{{
+  "name": "Meal name",
+  "ingredients": [
+    {{"item": "ingredient name", "amount": "100g"}},
+    ...
+  ],
+  "instructions": ["Step 1", "Step 2"],
+  "total_macros": {{
+    "calories": {target_cal},
+    "protein": {target_protein},
+    "carbs": {target_carbs},
+    "fat": {target_fat}
+  }}
+}}
+"""
+                                
+                                response = openai_client.chat.completions.create(
+                                    model="gpt-4o",
+                                    messages=[
+                                        {"role": "system", "content": "You are a precision nutritionist. Create meals that hit macro targets within ±3% accuracy using DIFFERENT ingredients than requested to avoid."},
+                                        {"role": "user", "content": regen_prompt}
+                                    ],
+                                    response_format={"type": "json_object"},
+                                    temperature=0.3,
+                                    max_tokens=2000
+                                )
+                                
+                                new_meal = safe_json_parse(response.choices[0].message.content, {})
+                                
+                                if new_meal and 'ingredients' in new_meal:
+                                    # Update the meal in modified_meal_plan
+                                    st.session_state['modified_meal_plan'][selected_day]['meals'][selected_meal_idx] = new_meal
+                                    st.success(f"✅ {meal_options[selected_meal_idx]} regenerated successfully!")
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Failed to generate new meal")
+                                    
+                            except Exception as e:
+                                st.error(f"❌ Error regenerating meal: {str(e)}")
+                    
+                    # Ingredient swap section
+                    st.markdown("---")
+                    st.markdown("#### 🔄 Swap Individual Ingredients")
+                    st.caption("Replace specific ingredients while maintaining meal macros")
+                    
+                    # Show ingredient swap options
+                    ingredients = selected_meal.get('ingredients', [])
+                    if ingredients:
+                        swap_ingredient_idx = st.selectbox(
+                            "Select ingredient to swap",
+                            options=range(len(ingredients)),
+                            format_func=lambda x: f"{ingredients[x].get('item', '')} - {ingredients[x].get('amount', '')}" if isinstance(ingredients[x], dict) else str(ingredients[x]),
+                            key=f"swap_ing_{selected_day}_{selected_meal_idx}"
+                        )
+                        
+                        if swap_ingredient_idx is not None:
+                            current_ing = ingredients[swap_ingredient_idx]
+                            if isinstance(current_ing, dict):
+                                st.info(f"Current: **{current_ing.get('item', '')}** - {current_ing.get('amount', '')}")
+                                
+                                # Categorize ingredient to find similar alternatives
+                                ing_name = current_ing.get('item', '').lower()
+                                
+                                # Define replacement categories
+                                if any(protein in ing_name for protein in ['chicken', 'turkey', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'shrimp']):
+                                    alternatives = ['Chicken Breast', 'Turkey Breast', 'Lean Beef', 'Salmon', 'Tuna', 'Shrimp', 'Tilapia', 'Cod']
+                                elif any(carb in ing_name for carb in ['rice', 'pasta', 'potato', 'bread', 'oats', 'quinoa']):
+                                    alternatives = ['Brown Rice', 'White Rice', 'Sweet Potato', 'Regular Potato', 'Oats', 'Quinoa', 'Whole Wheat Pasta', 'White Pasta']
+                                elif any(fat in ing_name for fat in ['oil', 'butter', 'avocado', 'nuts', 'cheese']):
+                                    alternatives = ['Olive Oil', 'Coconut Oil', 'Butter', 'Avocado', 'Almonds', 'Walnuts', 'Peanut Butter', 'Cheese']
+                                elif any(veg in ing_name for veg in ['broccoli', 'spinach', 'kale', 'carrot', 'pepper', 'zucchini']):
+                                    alternatives = ['Broccoli', 'Spinach', 'Kale', 'Carrots', 'Bell Peppers', 'Zucchini', 'Cauliflower', 'Green Beans']
+                                else:
+                                    alternatives = ['No alternatives available - use regenerate instead']
+                                
+                                selected_alternative = st.selectbox(
+                                    "Choose replacement",
+                                    options=alternatives,
+                                    key=f"alt_{selected_day}_{selected_meal_idx}_{swap_ingredient_idx}"
+                                )
+                                
+                                if st.button("🔁 Swap Ingredient", key=f"swap_btn_{selected_day}_{selected_meal_idx}_{swap_ingredient_idx}"):
+                                    if selected_alternative != 'No alternatives available - use regenerate instead':
+                                        # Keep the same amount for now (would need USDA lookup for precise macro matching)
+                                        new_ingredient = {
+                                            'item': selected_alternative,
+                                            'amount': current_ing.get('amount', '100g')
+                                        }
+                                        
+                                        st.session_state['modified_meal_plan'][selected_day]['meals'][selected_meal_idx]['ingredients'][swap_ingredient_idx] = new_ingredient
+                                        st.success(f"✅ Swapped to {selected_alternative}!")
+                                        st.warning("⚠️ Note: Portion size kept same - macros may vary slightly. Consider regenerating for exact macros.")
+                                        st.rerun()
+                                    else:
+                                        st.info("💡 Use the 'Regenerate' button above for a completely new meal")
+        
         # Export options
         st.markdown("---")
         st.markdown("## 📄 Export Options")
@@ -2043,12 +2294,15 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
         with col1:
             if st.button("📄 Export to PDF", key="pdf_export_final_view", use_container_width=True):
                 try:
+                    # Use modified_meal_plan if it exists, otherwise use original
+                    export_plan = st.session_state.get('modified_meal_plan', meal_plan)
+                    
                     # Ensure day_specific_nutrition is properly loaded
                     day_specific_nutrition = st.session_state.get('day_specific_nutrition', {})
                     
                     # If missing, try to reconstruct from meal plan data
                     if not day_specific_nutrition:
-                        for day, day_plan in meal_plan.items():
+                        for day, day_plan in export_plan.items():
                             if 'nutrition_targets' in day_plan:
                                 day_specific_nutrition[day] = day_plan['nutrition_targets']
                     
@@ -2061,7 +2315,7 @@ elif st.session_state['meal_plan_stage'] == 'display_final':
                         'day_specific_nutrition': day_specific_nutrition
                     }
                     
-                    pdf_buffer = export_meal_plan_pdf(meal_plan, plan_info=plan_info)
+                    pdf_buffer = export_meal_plan_pdf(export_plan, plan_info=plan_info)
                     
                     if pdf_buffer:
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
