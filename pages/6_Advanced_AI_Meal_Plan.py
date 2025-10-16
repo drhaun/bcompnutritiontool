@@ -205,10 +205,18 @@ def generate_quick_meal_plan(day_targets, user_context, dietary_context, schedul
     """Simplified single-step meal generation for speed with precise macro targeting"""
     
     # Calculate exact macro targets per meal/snack upfront (3 meals = 75%, 2 snacks = 25%)
-    total_cal = day_targets.get('calories', 2624)
-    total_protein = day_targets.get('protein', 200)
-    total_carbs = day_targets.get('carbs', 250)
-    total_fat = day_targets.get('fat', 80)
+    # day_targets comes from day_specific_nutrition[day] which has direct keys or daily_totals structure
+    if 'daily_totals' in day_targets:
+        total_cal = day_targets['daily_totals'].get('calories', 2624)
+        total_protein = day_targets['daily_totals'].get('protein', 200)
+        total_carbs = day_targets['daily_totals'].get('carbs', 250)
+        total_fat = day_targets['daily_totals'].get('fat', 80)
+    else:
+        # Direct structure from day_specific_nutrition
+        total_cal = day_targets.get('calories', 2624)
+        total_protein = day_targets.get('protein', 200)
+        total_carbs = day_targets.get('carbs', 250)
+        total_fat = day_targets.get('fat', 80)
     
     # Each meal gets 25% of daily totals (3 meals = 75%)
     meal_cal = round(total_cal * 0.25)
@@ -254,11 +262,12 @@ SCHEDULE: {json.dumps(schedule_info, indent=2)}
 
 Generate a complete meal plan with specific ingredients and exact portions to hit macro targets.
 
-Return JSON:
+Return JSON (3 meals with type="meal" + 2 snacks with type="snack"):
 {{
   "meals": [
     {{
-      "name": "Meal 1",
+      "name": "Breakfast",
+      "type": "meal",
       "time": "7:00 AM",
       "context": "Morning energy",
       "ingredients": [
@@ -273,7 +282,18 @@ Return JSON:
         "fat": {meal_fat}
       }}
     }},
-    // ... 3 meals with targets above + 2 snacks with targets above
+    {{
+      "name": "Morning Snack",
+      "type": "snack",
+      ...
+      "total_macros": {{
+        "calories": {snack_cal},
+        "protein": {snack_protein},
+        "carbs": {snack_carbs},
+        "fat": {snack_fat}
+      }}
+    }},
+    // ... Continue for all 3 meals + 2 snacks
   ],
   "daily_totals": {{
     "calories": {total_cal},
@@ -288,7 +308,7 @@ Return JSON:
     response = openai_client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": f"You are a precision nutritionist. Create meal plans that hit macro targets within ±3% accuracy. Use exact portions and calculations. Each of 3 meals must have {meal_cal}cal/{meal_protein}g protein/{meal_carbs}g carbs/{meal_fat}g fat. Each of 2 snacks must have {snack_cal}cal/{snack_protein}g protein/{snack_carbs}g carbs/{snack_fat}g fat."},
+            {"role": "system", "content": f"You are a precision nutritionist. Create meal plans that hit macro targets within ±3% accuracy. CRITICAL: Use exact portions and calculations. ALWAYS include a 'type' field for each entry: type='meal' for main meals, type='snack' for snacks. 3 meals must have type='meal' and {meal_cal}cal/{meal_protein}g protein/{meal_carbs}g carbs/{meal_fat}g fat each. 2 snacks must have type='snack' and {snack_cal}cal/{snack_protein}g protein/{snack_carbs}g carbs/{snack_fat}g fat each."},
             {"role": "user", "content": prompt}
         ],
         response_format={"type": "json_object"},
@@ -299,25 +319,55 @@ Return JSON:
     try:
         result = safe_json_parse(response.choices[0].message.content, {})
         
-        # Validate macro accuracy
+        # Validate macro accuracy - check both daily totals AND per-meal accuracy
+        validation_passed = True
+        
         if result.get('daily_totals'):
             daily_totals = result['daily_totals']
-            deviations = {}
+            daily_deviations = {}
+            
+            # Check daily totals
             for macro in ['calories', 'protein', 'carbs', 'fat']:
-                target = day_targets.get(macro, 0)
+                target = total_cal if macro == 'calories' else (total_protein if macro == 'protein' else (total_carbs if macro == 'carbs' else total_fat))
                 actual = daily_totals.get(macro, 0)
                 if target > 0:
                     deviation = abs(actual - target) / target
-                    deviations[macro] = deviation
+                    daily_deviations[macro] = deviation
                     if deviation > 0.03:  # Over 3% tolerance
-                        st.warning(f"⚠️ {macro.title()} deviation: {deviation*100:.1f}% (Target: {target}, Actual: {actual})")
+                        st.warning(f"⚠️ Daily {macro.title()} deviation: {deviation*100:.1f}% (Target: {target}, Actual: {actual})")
+                        validation_passed = False
             
-            # Flag if validation fails
-            if any(d > 0.03 for d in deviations.values()):
-                result['accuracy_validated'] = False
-                st.error("Macro accuracy validation failed - regeneration recommended")
+            # Check per-meal/snack accuracy
+            meals = result.get('meals', [])
+            for i, meal in enumerate(meals, 1):
+                meal_macros = meal.get('total_macros', {})
+                meal_name = meal.get('name', f'Meal {i}')
+                meal_type = meal.get('type', 'meal')  # Default to meal if not specified
+                
+                # Normalize type for case-insensitive comparison
+                meal_type_normalized = str(meal_type).strip().lower()
+                
+                # Determine targets based on explicit type field
+                if meal_type_normalized == 'snack':
+                    targets = {'calories': snack_cal, 'protein': snack_protein, 'carbs': snack_carbs, 'fat': snack_fat}
+                else:
+                    targets = {'calories': meal_cal, 'protein': meal_protein, 'carbs': meal_carbs, 'fat': meal_fat}
+                
+                # Validate each macro for this meal
+                for macro, target in targets.items():
+                    actual = meal_macros.get(macro, 0)
+                    if target > 0:
+                        deviation = abs(actual - target) / target
+                        if deviation > 0.03:
+                            st.warning(f"⚠️ {meal_name} {macro} deviation: {deviation*100:.1f}% (Target: {target}, Actual: {actual})")
+                            validation_passed = False
+            
+            # Set validation flag
+            result['accuracy_validated'] = validation_passed
+            if not validation_passed:
+                st.error("❌ Macro accuracy validation failed - regeneration needed")
             else:
-                result['accuracy_validated'] = True
+                st.success("✅ All macros within ±3% tolerance!")
         
         return result
     except:
