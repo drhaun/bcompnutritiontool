@@ -56,6 +56,16 @@ Preferred communication style: Simple, everyday language.
 - Reduced Advanced AI Meal Plan from 2364 to 2232 lines while preserving all features
 - Created reusable utility functions for common operations
 
+### Phase 4 - Macro Accuracy Precision System (October 16, 2025)
+**Critical Enhancement: Achieved ±3% macro precision target**
+- **Precise Target Calculation**: Pre-calculates exact per-meal/snack macro targets upfront (3 meals @ 25% each, 2 snacks @ 12.5% each) instead of vague percentage instructions
+- **Robust Data Sourcing**: Fixed data extraction to read from both direct structure (calories/protein/carbs/fat keys) and nested daily_totals structure
+- **Explicit Type Classification**: AI now includes explicit "type" field ("meal" or "snack") with normalized validation (.strip().lower()) to prevent misclassification
+- **Comprehensive Validation**: Implemented dual-layer validation checking both daily totals AND individual meal/snack macros against ±3% tolerance
+- **Iterative Correction**: Added 3-attempt retry mechanism that regenerates plans until accuracy_validated=True or max attempts reached
+- **Removed Conflicts**: Eliminated hard-coded sample macro values (656 cal/50g protein) that contradicted actual user targets
+- **Enhanced AI Prompting**: Updated prompts to explicitly require ±3% accuracy with specific gram targets per meal/snack type
+
 ## External Dependencies
 
 ### APIs
