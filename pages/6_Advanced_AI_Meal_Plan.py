@@ -202,7 +202,25 @@ Return JSON with:
         return {"meal_structure": [], "rationale": "Error parsing meal structure"}
 
 def generate_quick_meal_plan(day_targets, user_context, dietary_context, schedule_info, openai_client):
-    """Simplified single-step meal generation for speed"""
+    """Simplified single-step meal generation for speed with precise macro targeting"""
+    
+    # Calculate exact macro targets per meal/snack upfront (3 meals = 75%, 2 snacks = 25%)
+    total_cal = day_targets.get('calories', 2624)
+    total_protein = day_targets.get('protein', 200)
+    total_carbs = day_targets.get('carbs', 250)
+    total_fat = day_targets.get('fat', 80)
+    
+    # Each meal gets 25% of daily totals (3 meals = 75%)
+    meal_cal = round(total_cal * 0.25)
+    meal_protein = round(total_protein * 0.25, 1)
+    meal_carbs = round(total_carbs * 0.25, 1)
+    meal_fat = round(total_fat * 0.25, 1)
+    
+    # Each snack gets 12.5% of daily totals (2 snacks = 25%)
+    snack_cal = round(total_cal * 0.125)
+    snack_protein = round(total_protein * 0.125, 1)
+    snack_carbs = round(total_carbs * 0.125, 1)
+    snack_fat = round(total_fat * 0.125, 1)
     
     prompt = f"""
 Create a complete meal plan for the day using Fitomics standards.
@@ -211,21 +229,30 @@ Create a complete meal plan for the day using Fitomics standards.
 
 {dietary_context}
 
-DAILY TARGETS:
-- Calories: {day_targets.get('calories', 2624)}
-- Protein: {day_targets.get('protein', 200)}g
-- Carbs: {day_targets.get('carbs', 250)}g
-- Fat: {day_targets.get('fat', 80)}g
+DAILY TARGETS (MUST HIT WITHIN ±3%):
+- Calories: {total_cal}
+- Protein: {total_protein}g
+- Carbs: {total_carbs}g
+- Fat: {total_fat}g
 
-MEAL STRUCTURE REQUIREMENTS:
-- 3 meals: Each gets ~25% of daily calories/macros (75% total for meals)
-- 2 snacks: Each gets ~12.5% of daily calories/macros (25% total for snacks)
-- Example for 2000 cal day: 3 meals @ ~500 cal each, 2 snacks @ ~250 cal each
-- Calculate exact portions based on the specific daily targets above
+PRECISE PER-MEAL/SNACK TARGETS (±3% tolerance):
+MEALS (3 total):
+- Calories: {meal_cal} each (±{round(meal_cal * 0.03)})
+- Protein: {meal_protein}g each (±{round(meal_protein * 0.03, 1)}g)
+- Carbs: {meal_carbs}g each (±{round(meal_carbs * 0.03, 1)}g)
+- Fat: {meal_fat}g each (±{round(meal_fat * 0.03, 1)}g)
+
+SNACKS (2 total):
+- Calories: {snack_cal} each (±{round(snack_cal * 0.03)})
+- Protein: {snack_protein}g each (±{round(snack_protein * 0.03, 1)}g)
+- Carbs: {snack_carbs}g each (±{round(snack_carbs * 0.03, 1)}g)
+- Fat: {snack_fat}g each (±{round(snack_fat * 0.03, 1)}g)
+
+CRITICAL: Calculate exact ingredient portions to hit these targets within ±3%. Do not use approximate values.
 
 SCHEDULE: {json.dumps(schedule_info, indent=2)}
 
-Generate a complete meal plan with specific ingredients and portions.
+Generate a complete meal plan with specific ingredients and exact portions to hit macro targets.
 
 Return JSON:
 {{
@@ -240,19 +267,19 @@ Return JSON:
       ],
       "instructions": ["Step 1", "Step 2"],
       "total_macros": {{
-        "calories": 656,
-        "protein": 50,
-        "carbs": calculated,
-        "fat": calculated
+        "calories": {meal_cal},
+        "protein": {meal_protein},
+        "carbs": {meal_carbs},
+        "fat": {meal_fat}
       }}
     }},
-    // ... 3 meals + 2 snacks
+    // ... 3 meals with targets above + 2 snacks with targets above
   ],
   "daily_totals": {{
-    "calories": total,
-    "protein": total,
-    "carbs": total,
-    "fat": total
+    "calories": {total_cal},
+    "protein": {total_protein},
+    "carbs": {total_carbs},
+    "fat": {total_fat}
   }},
   "meal_structure_rationale": "Brief explanation of meal timing and structure"
 }}
@@ -261,7 +288,7 @@ Return JSON:
     response = openai_client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": "You are a nutritionist creating precise meal plans. Distribute 75% of daily calories/macros across 3 meals (25% each) and 25% across 2 snacks (12.5% each). Be accurate with macro calculations."},
+            {"role": "system", "content": f"You are a precision nutritionist. Create meal plans that hit macro targets within ±3% accuracy. Use exact portions and calculations. Each of 3 meals must have {meal_cal}cal/{meal_protein}g protein/{meal_carbs}g carbs/{meal_fat}g fat. Each of 2 snacks must have {snack_cal}cal/{snack_protein}g protein/{snack_carbs}g carbs/{snack_fat}g fat."},
             {"role": "user", "content": prompt}
         ],
         response_format={"type": "json_object"},
@@ -272,8 +299,25 @@ Return JSON:
     try:
         result = safe_json_parse(response.choices[0].message.content, {})
         
-        # Don't override the AI's calculated values - they should already be proportional
-        # The AI has been instructed to use the 75%/25% distribution
+        # Validate macro accuracy
+        if result.get('daily_totals'):
+            daily_totals = result['daily_totals']
+            deviations = {}
+            for macro in ['calories', 'protein', 'carbs', 'fat']:
+                target = day_targets.get(macro, 0)
+                actual = daily_totals.get(macro, 0)
+                if target > 0:
+                    deviation = abs(actual - target) / target
+                    deviations[macro] = deviation
+                    if deviation > 0.03:  # Over 3% tolerance
+                        st.warning(f"⚠️ {macro.title()} deviation: {deviation*100:.1f}% (Target: {target}, Actual: {actual})")
+            
+            # Flag if validation fails
+            if any(d > 0.03 for d in deviations.values()):
+                result['accuracy_validated'] = False
+                st.error("Macro accuracy validation failed - regeneration recommended")
+            else:
+                result['accuracy_validated'] = True
         
         return result
     except:
@@ -303,7 +347,7 @@ MEAL REQUIREMENTS:
 
 Generate a specific meal concept that:
 1. Fits the user's preferences perfectly
-2. Achieves the macro targets (MUST be exact: 656 cal/50g protein for meals, 328 cal/25g protein for snacks)
+2. Achieves the exact macro targets listed above (within ±3%)
 3. Considers workout timing if applicable
 4. Uses preferred ingredients when possible
 
