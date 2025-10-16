@@ -375,8 +375,9 @@ class FitomicsPDF(FPDF):
             self.cell(0, 8, 'WEEKLY OVERVIEW', 0, 1, 'L')
             self.ln(5)
             
-            # Set up table dimensions (adjust for landscape-style table)
-            col_widths = [20, 20, 22, 18, 16, 16, 16, 16, 18, 18, 20]  # Total: 200
+            # Set up table dimensions (adjusted to fit within page width)
+            # PDF content width is ~190mm for A4 with margins
+            col_widths = [18, 18, 20, 17, 15, 14, 15, 15, 17, 16, 18]  # Total: 183
             row_height = 5
             
             # Table headers
