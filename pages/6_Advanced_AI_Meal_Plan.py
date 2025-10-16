@@ -723,7 +723,7 @@ def step4_validate_and_adjust(final_meals, day_targets):
     return {
         'meals': final_meals,
         'daily_totals': daily_totals,
-        'accuracy_valid': len(adjustments_needed) == 0,
+        'accuracy_validated': len(adjustments_needed) == 0,
         'adjustments_needed': adjustments_needed
     }
 
@@ -765,10 +765,10 @@ def generate_weekly_ai_meal_plan(weekly_targets, diet_preferences, weekly_schedu
                 'meals': day_result['meals'],
                 'daily_totals': day_result['daily_totals'],
                 'meal_structure_rationale': meal_structure.get('rationale', ''),
-                'accuracy_validated': day_result['accuracy_valid']
+                'accuracy_validated': day_result['accuracy_validated']
             }
             
-            if day_result['accuracy_valid']:
+            if day_result['accuracy_validated']:
                 st.success(f"✅ {day} meal plan generated with accurate macros!")
             else:
                 st.warning(f"⚠️ {day} meal plan needs adjustments: {', '.join(day_result['adjustments_needed'])}")
@@ -1086,6 +1086,7 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                 try:
                     # Use the new quick generation function with retry for accuracy
                     final_result = None
+                    result = None
                     max_attempts = 3
                     
                     for attempt in range(max_attempts):
@@ -1156,7 +1157,7 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                 
                 # Ensure final_result is a dict
                 if not isinstance(final_result, dict):
-                    final_result = {'meals': [], 'daily_totals': {}, 'accuracy_valid': False, 'adjustments_needed': []}
+                    final_result = {'meals': [], 'daily_totals': {}, 'accuracy_validated': False, 'adjustments_needed': []}
                 
                 monday_plan = {
                     'day': 'Monday',
@@ -1164,7 +1165,7 @@ elif st.session_state['meal_plan_stage'] == 'generating_monday':
                     'daily_totals': final_result.get('daily_totals', {}),
                     'meal_structure_rationale': rationale,
                     'meal_concepts_reasoning': 'Generated personalized meal concepts based on user preferences',
-                    'accuracy_validated': final_result.get('accuracy_valid', False),
+                    'accuracy_validated': final_result.get('accuracy_validated', False),
                     'adjustments_made': final_result.get('adjustments_needed', []),
                     'schedule_context': monday_schedule,
                     'nutrition_targets': monday_data
