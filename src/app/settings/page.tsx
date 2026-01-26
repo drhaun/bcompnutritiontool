@@ -8,7 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
+import { useFitomicsStore } from '@/lib/store';
 import { 
   Settings, 
   Link2, 
@@ -19,7 +27,9 @@ import {
   XCircle,
   ExternalLink,
   Calendar,
-  Activity
+  Activity,
+  UserCircle,
+  ArrowRight
 } from 'lucide-react';
 
 interface CronometerClient {
@@ -32,6 +42,7 @@ interface CronometerClient {
 
 export default function SettingsPage() {
   const searchParams = useSearchParams();
+  const { clients: fitomicsClients, updateClient } = useFitomicsStore();
   const [isLoading, setIsLoading] = useState(true);
   const [cronometerStatus, setCronometerStatus] = useState<{
     configured: boolean;
@@ -40,6 +51,45 @@ export default function SettingsPage() {
   } | null>(null);
   const [clients, setClients] = useState<CronometerClient[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [linkingClientId, setLinkingClientId] = useState<number | null>(null);
+  const [selectedFitomicsClient, setSelectedFitomicsClient] = useState<string>('');
+
+  // Get active Fitomics clients
+  const activeFitomicsClients = fitomicsClients.filter(c => c.status === 'active');
+
+  // Get linked Fitomics client for a Cronometer client
+  const getLinkedFitomicsClient = (cronometerClientId: number) => {
+    return fitomicsClients.find(c => c.cronometerClientId === cronometerClientId);
+  };
+
+  // Link a Cronometer client to a Fitomics client
+  const linkClient = (cronometerClient: CronometerClient, fitomicsClientId: string) => {
+    if (!fitomicsClientId) return;
+    
+    const fitomicsClient = fitomicsClients.find(c => c.id === fitomicsClientId);
+    if (!fitomicsClient) return;
+    
+    updateClient(fitomicsClientId, {
+      cronometerClientId: cronometerClient.client_id,
+      cronometerClientName: cronometerClient.name,
+    });
+    
+    toast.success(`Linked ${cronometerClient.name} to ${fitomicsClient.name}`);
+    setLinkingClientId(null);
+    setSelectedFitomicsClient('');
+  };
+
+  // Unlink a Cronometer client
+  const unlinkClient = (cronometerClientId: number) => {
+    const fitomicsClient = getLinkedFitomicsClient(cronometerClientId);
+    if (fitomicsClient) {
+      updateClient(fitomicsClient.id, {
+        cronometerClientId: undefined,
+        cronometerClientName: undefined,
+      });
+      toast.success(`Unlinked ${fitomicsClient.name} from Cronometer`);
+    }
+  };
 
   // Check for OAuth callback messages
   useEffect(() => {
@@ -222,31 +272,109 @@ export default function SettingsPage() {
                       <p className="text-sm">Invite clients from the Cronometer dashboard</p>
                     </div>
                   ) : (
-                    <ScrollArea className="h-[300px]">
-                      <div className="space-y-2">
-                        {clients.map((client) => (
-                          <div 
-                            key={client.client_id}
-                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
-                          >
-                            <div>
-                              <p className="font-medium">{client.name}</p>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                {client.email && <span>{client.email}</span>}
-                                <span className="text-xs">ID: {client.client_id}</span>
+                    <ScrollArea className="h-[400px]">
+                      <div className="space-y-3">
+                        {clients.map((client) => {
+                          const linkedClient = getLinkedFitomicsClient(client.client_id);
+                          const isLinking = linkingClientId === client.client_id;
+                          
+                          return (
+                            <div 
+                              key={client.client_id}
+                              className={`p-3 border rounded-lg ${linkedClient ? 'border-green-200 bg-green-50/50' : ''}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium">{client.name}</p>
+                                    {getStatusBadge(client.status)}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    {client.email && <span>{client.email}</span>}
+                                    <span className="text-xs">ID: {client.client_id}</span>
+                                  </div>
+                                </div>
+                                
+                                {linkedClient ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="text-right">
+                                      <div className="flex items-center gap-1 text-sm text-green-700">
+                                        <Link2 className="h-3 w-3" />
+                                        <span>Linked to</span>
+                                      </div>
+                                      <p className="font-medium text-green-800">{linkedClient.name}</p>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => unlinkClient(client.client_id)}
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    >
+                                      <Unlink className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ) : isLinking ? (
+                                  <div className="flex items-center gap-2">
+                                    <Select
+                                      value={selectedFitomicsClient}
+                                      onValueChange={setSelectedFitomicsClient}
+                                    >
+                                      <SelectTrigger className="w-[180px]">
+                                        <SelectValue placeholder="Select client..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {activeFitomicsClients
+                                          .filter(c => !c.cronometerClientId)
+                                          .map((fc) => (
+                                            <SelectItem key={fc.id} value={fc.id}>
+                                              <div className="flex items-center gap-2">
+                                                <UserCircle className="h-3 w-3" />
+                                                {fc.name}
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => linkClient(client, selectedFitomicsClient)}
+                                      disabled={!selectedFitomicsClient}
+                                    >
+                                      Link
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setLinkingClientId(null);
+                                        setSelectedFitomicsClient('');
+                                      }}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setLinkingClientId(client.client_id)}
+                                    disabled={activeFitomicsClients.filter(c => !c.cronometerClientId).length === 0}
+                                  >
+                                    <Link2 className="h-4 w-4 mr-1" />
+                                    Link to Fitomics
+                                  </Button>
+                                )}
                               </div>
+                              
                               {client.last_activity && (
-                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
                                   <Calendar className="h-3 w-3" />
                                   Last active: {client.last_activity}
                                 </p>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
-                              {getStatusBadge(client.status)}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </ScrollArea>
                   )}

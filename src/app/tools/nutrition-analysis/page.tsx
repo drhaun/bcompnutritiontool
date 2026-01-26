@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -41,8 +41,22 @@ import {
   Download,
   Loader2,
   Sparkles,
-  UtensilsCrossed
+  UtensilsCrossed,
+  Link2,
+  Calendar,
+  CloudDownload,
+  User
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { format, subDays } from 'date-fns';
 
 // ============ TYPES ============
 
@@ -680,6 +694,29 @@ export default function NutritionAnalysisPage() {
   const [sampleDayPlan, setSampleDayPlan] = useState<any>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  
+  // Cronometer integration
+  const [cronometerStatus, setCronometerStatus] = useState<{
+    configured: boolean;
+    connected: boolean;
+    userId: string | null;
+  } | null>(null);
+  const [cronometerClients, setCronometerClients] = useState<Array<{
+    client_id: number;
+    name: string;
+    email?: string;
+    status: string;
+  }>>([]);
+  const [selectedCronometerClient, setSelectedCronometerClient] = useState<string>('');
+  const [cronometerDateRange, setCronometerDateRange] = useState<{
+    from: Date;
+    to: Date;
+  }>({
+    from: subDays(new Date(), 7),
+    to: new Date(),
+  });
+  const [isImportingCronometer, setIsImportingCronometer] = useState(false);
+  const [cronometerLoading, setCronometerLoading] = useState(true);
 
   // Custom targets
   const [customTargets, setCustomTargets] = useState({
@@ -688,6 +725,105 @@ export default function NutritionAnalysisPage() {
     carbs: 200,
     fat: 75,
   });
+
+  // Check Cronometer status on mount
+  useEffect(() => {
+    const checkCronometerStatus = async () => {
+      try {
+        const response = await fetch('/api/cronometer/status');
+        const data = await response.json();
+        setCronometerStatus(data);
+        
+        if (data.connected) {
+          const clientsResponse = await fetch('/api/cronometer/clients');
+          if (clientsResponse.ok) {
+            const clientsData = await clientsResponse.json();
+            setCronometerClients(clientsData.clients || []);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check Cronometer status:', error);
+      } finally {
+        setCronometerLoading(false);
+      }
+    };
+    
+    checkCronometerStatus();
+  }, []);
+
+  // Import from Cronometer
+  const handleCronometerImport = useCallback(async () => {
+    if (!cronometerStatus?.connected) {
+      toast.error('Please connect to Cronometer first');
+      return;
+    }
+    
+    setIsImportingCronometer(true);
+    setParseLog([]);
+    
+    try {
+      const params = new URLSearchParams({
+        start: format(cronometerDateRange.from, 'yyyy-MM-dd'),
+        end: format(cronometerDateRange.to, 'yyyy-MM-dd'),
+      });
+      
+      if (selectedCronometerClient) {
+        params.append('client_id', selectedCronometerClient);
+      }
+      
+      const response = await fetch(`/api/cronometer/import?${params.toString()}`);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to import from Cronometer');
+      }
+      
+      const result = await response.json();
+      const logs: string[] = [];
+      logs.push(`Imported ${result.daysImported} days from Cronometer`);
+      logs.push(`Average calories: ${result.data.summary.totalCalories} kcal`);
+      logs.push(`Average protein: ${result.data.summary.totalProtein}g`);
+      setParseLog(logs);
+      
+      // Convert to analysis format
+      const { deficiencies, excesses, allNutrients } = analyzeNutrients(
+        new Map(result.data.dailyAverages.map((n: NutrientData) => [n.name, n.value])),
+        NUTRIENT_TARGETS
+      );
+      
+      // Build the averages map for ratio analysis
+      const averagesMap = new Map<string, number>();
+      for (const nutrient of result.data.dailyAverages) {
+        averagesMap.set(nutrient.name, nutrient.value);
+      }
+      const ratios = analyzeRatios(averagesMap);
+      const recommendations = generateRecommendations(deficiencies, excesses, result.data.topFoods);
+      
+      // Calculate score
+      const defScore = Math.max(0, 100 - deficiencies.reduce((sum: number, d: NutrientIssue) => sum + (100 - d.percentage) * 0.4, 0));
+      const excessScore = Math.max(0, 100 - excesses.filter((e: NutrientIssue) => e.severity !== 'info').reduce((sum: number, e: NutrientIssue) => sum + (e.percentage - 100) * 0.2, 0));
+      const ratioScore = ratios.filter(r => r.status === 'optimal').length / Math.max(ratios.length, 1) * 100;
+      const overallScore = Math.round((defScore * 0.4 + excessScore * 0.3 + ratioScore * 0.3));
+      
+      setAnalysisResult({
+        summary: result.data.summary,
+        dailyAverages: allNutrients,
+        deficiencies,
+        excesses,
+        ratios,
+        recommendations,
+        topFoods: result.data.topFoods,
+        dailyBreakdown: result.data.dailyBreakdown,
+      });
+      
+      toast.success(`Imported ${result.daysImported} days from Cronometer`);
+    } catch (error) {
+      console.error('Cronometer import error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to import from Cronometer');
+    } finally {
+      setIsImportingCronometer(false);
+    }
+  }, [cronometerStatus, cronometerDateRange, selectedCronometerClient]);
 
   // CSV file upload handler
   const handleCSVUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1040,6 +1176,158 @@ export default function NutritionAnalysisPage() {
                     )}
                   </label>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Cronometer Direct Import */}
+            <Card className="border-orange-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CloudDownload className="h-5 w-5 text-orange-500" />
+                  Import from Cronometer
+                </CardTitle>
+                <CardDescription>Direct API import (no file needed)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {cronometerLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : !cronometerStatus?.connected ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Connect your Cronometer Pro account to import data directly
+                    </p>
+                    <Button variant="outline" size="sm" asChild>
+                      <a href="/settings">
+                        <Link2 className="h-4 w-4 mr-2" />
+                        Connect Cronometer
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Client Selector */}
+                    {cronometerClients.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm">Client</Label>
+                        <Select
+                          value={selectedCronometerClient}
+                          onValueChange={setSelectedCronometerClient}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a client (or yourself)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">My own data</SelectItem>
+                            {cronometerClients.map((client) => (
+                              <SelectItem key={client.client_id} value={client.client_id.toString()}>
+                                <div className="flex items-center gap-2">
+                                  <User className="h-3 w-3" />
+                                  {client.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    
+                    {/* Date Range */}
+                    <div className="space-y-2">
+                      <Label className="text-sm">Date Range</Label>
+                      <div className="flex gap-2">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="flex-1 justify-start">
+                              <Calendar className="h-4 w-4 mr-2" />
+                              {format(cronometerDateRange.from, 'MMM d')}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={cronometerDateRange.from}
+                              onSelect={(date) => date && setCronometerDateRange(prev => ({ ...prev, from: date }))}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <span className="self-center text-muted-foreground">to</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="flex-1 justify-start">
+                              <Calendar className="h-4 w-4 mr-2" />
+                              {format(cronometerDateRange.to, 'MMM d')}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={cronometerDateRange.to}
+                              onSelect={(date) => date && setCronometerDateRange(prev => ({ ...prev, to: date }))}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => setCronometerDateRange({
+                            from: subDays(new Date(), 7),
+                            to: new Date(),
+                          })}
+                        >
+                          Last 7 days
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => setCronometerDateRange({
+                            from: subDays(new Date(), 14),
+                            to: new Date(),
+                          })}
+                        >
+                          Last 14 days
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => setCronometerDateRange({
+                            from: subDays(new Date(), 30),
+                            to: new Date(),
+                          })}
+                        >
+                          Last 30 days
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Import Button */}
+                    <Button
+                      onClick={handleCronometerImport}
+                      disabled={isImportingCronometer}
+                      className="w-full bg-orange-500 hover:bg-orange-600"
+                    >
+                      {isImportingCronometer ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Importing...
+                        </>
+                      ) : (
+                        <>
+                          <CloudDownload className="h-4 w-4 mr-2" />
+                          Import Data
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
 

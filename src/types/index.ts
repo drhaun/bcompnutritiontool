@@ -11,6 +11,9 @@ export interface ClientProfile {
   updatedAt: string;
   coachId?: string; // Staff member who created/manages this client
   status: 'active' | 'inactive' | 'archived';
+  // Cronometer integration
+  cronometerClientId?: number; // Linked Cronometer Pro client ID
+  cronometerClientName?: string; // For display purposes
   // All client-specific data stored per profile
   userProfile: Partial<UserProfile>;
   bodyCompGoals: Partial<BodyCompGoals>;
