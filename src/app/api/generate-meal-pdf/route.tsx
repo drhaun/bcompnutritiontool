@@ -89,8 +89,10 @@ const styles = StyleSheet.create({
   },
   timingRow: {
     flexDirection: 'row',
-    gap: 20,
     marginBottom: 15,
+  },
+  timingItemSpacer: {
+    marginRight: 20,
   },
   timingItem: {
     flexDirection: 'row',
@@ -187,7 +189,8 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   highlightBadge: {
-    padding: '4 8',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     backgroundColor: COLORS.primary,
     borderRadius: 4,
     marginRight: 6,
@@ -209,13 +212,15 @@ const styles = StyleSheet.create({
   contextRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
     marginBottom: 15,
   },
   contextBadge: {
-    padding: '4 8',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     backgroundColor: COLORS.primary,
     borderRadius: 4,
+    marginRight: 8,
+    marginBottom: 4,
   },
   contextText: {
     fontSize: 9,

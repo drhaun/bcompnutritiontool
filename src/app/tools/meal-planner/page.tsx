@@ -199,7 +199,7 @@ export default function MealPlannerPage() {
     setGenerationProgress(10);
 
     try {
-      const response = await fetch('/api/generate-single-meal', {
+      const response = await fetch('/api/generate-standalone-meal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

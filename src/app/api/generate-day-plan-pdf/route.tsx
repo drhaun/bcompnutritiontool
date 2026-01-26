@@ -158,13 +158,15 @@ const styles = StyleSheet.create({
   dayContext: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
     marginBottom: 15,
   },
   contextBadge: {
-    padding: '4 8',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     backgroundColor: COLORS.primary,
     borderRadius: 4,
+    marginRight: 8,
+    marginBottom: 4,
   },
   contextText: {
     fontSize: 9,
@@ -222,7 +224,7 @@ const DayPlanPDF: React.FC<DayPlanPDFProps> = ({ clientName, targets, dayContext
         <View style={styles.dayContext}>
           <View style={styles.contextBadge}>
             <Text style={styles.contextText}>
-              {dayContext.dayType === 'workout' ? '🏋️ Workout Day' : '😴 Rest Day'}
+              {dayContext.dayType === 'workout' ? 'Workout Day' : 'Rest Day'}
             </Text>
           </View>
           {dayContext.dayType === 'workout' && (
