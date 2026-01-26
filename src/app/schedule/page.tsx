@@ -417,25 +417,20 @@ export default function SchedulePage() {
     }
   };
 
-  // Check if user has zone-based metabolic data
-  const hasZoneData = userProfile.metabolicAssessment?.hasZoneData && 
-    userProfile.metabolicAssessment?.zoneCaloriesPerMin;
-  
-  // Get zone calories (measured or estimated)
-  const zoneCalories = hasZoneData 
-    ? userProfile.metabolicAssessment!.zoneCaloriesPerMin!
-    : getDefaultZoneCalories(bodyWeightKg);
+  // Use local state for zone data (reflects current UI, not persisted store)
+  // This allows real-time updates as user enters zone data
+  const activeZoneCalories = useZoneData ? zoneCaloriesInput : getDefaultZoneCalories(bodyWeightKg);
   
   const estimateWorkoutCalories = (config: WorkoutConfig): number => {
-    // Priority 1: If user has zone data AND workout has specified zone
-    if (hasZoneData && config.averageZone) {
-      return calculateZoneBasedCalories(config.averageZone, config.duration, zoneCalories);
+    // Priority 1: If zone data is enabled AND workout has specified zone
+    if (useZoneData && config.averageZone) {
+      return calculateZoneBasedCalories(config.averageZone, config.duration, activeZoneCalories);
     }
     
     // Priority 2: Use zone data with estimated zone for workout type
-    if (hasZoneData) {
+    if (useZoneData) {
       const estimatedZone = getTypicalZoneForWorkout(config.type, config.intensity);
-      return calculateZoneBasedCalories(estimatedZone, config.duration, zoneCalories);
+      return calculateZoneBasedCalories(estimatedZone, config.duration, activeZoneCalories);
     }
     
     // Priority 3: Use MET-based calculation (validated, conservative)
