@@ -36,7 +36,9 @@ import {
   MapPin,
   Heart,
   Lightbulb,
-  ShoppingCart
+  ShoppingCart,
+  Download,
+  Loader2
 } from 'lucide-react';
 
 // ============ TYPES ============
@@ -132,6 +134,7 @@ export default function MealPlannerPage() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedMeal, setGeneratedMeal] = useState<GeneratedMeal | null>(null);
   const [alternatives, setAlternatives] = useState<GeneratedMeal[]>([]);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Calculate actual macro calories
   const actualCalories = useMemo(() => {
@@ -319,6 +322,56 @@ export default function MealPlannerPage() {
 
     navigator.clipboard.writeText(text);
     toast.success('Meal copied to clipboard!');
+  };
+
+  // Download PDF
+  const downloadPDF = async () => {
+    if (!generatedMeal) return;
+    
+    setIsDownloading(true);
+    try {
+      const response = await fetch('/api/generate-meal-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meal: generatedMeal,
+          context: {
+            mealType,
+            mealTime,
+            location,
+            cuisine,
+            mealStyle,
+            prepComplexity,
+          },
+          targets: {
+            calories: targetCalories,
+            protein: targetProtein,
+            carbs: targetCarbs,
+            fat: targetFat,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${generatedMeal.name.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('PDF downloaded!');
+    } catch (error) {
+      console.error('PDF download error:', error);
+      toast.error('Failed to download PDF');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -660,6 +713,19 @@ export default function MealPlannerPage() {
                         <Button variant="outline" size="sm" onClick={copyToClipboard}>
                           <Copy className="h-4 w-4 mr-1" />
                           Copy
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={downloadPDF}
+                          disabled={isDownloading}
+                        >
+                          {isDownloading ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4 mr-1" />
+                          )}
+                          PDF
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleGenerate()}>
                           <RefreshCw className="h-4 w-4 mr-1" />
