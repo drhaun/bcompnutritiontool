@@ -51,6 +51,16 @@ export interface MetabolicAssessment {
   useMeasuredBF: boolean;
   measuredBFPercent?: number;
   estimatedBFPercent?: number;
+  
+  // Active Metabolic Rate (Zone-based calorie data from testing)
+  hasZoneData: boolean;
+  zoneCaloriesPerMin?: {
+    zone1: number; // Recovery/Easy (< 60% HRmax)
+    zone2: number; // Aerobic/Base (60-70% HRmax)
+    zone3: number; // Tempo (70-80% HRmax)
+    zone4: number; // Threshold (80-90% HRmax)
+    zone5: number; // VO2max (90%+ HRmax)
+  };
 }
 
 // User Profile Types
@@ -224,12 +234,15 @@ export interface GeneralScheduleSettings {
 }
 
 // Workout configuration for a specific day
+export type TrainingZone = 1 | 2 | 3 | 4 | 5;
+
 export interface WorkoutConfig {
   enabled: boolean;
   type: WorkoutType;
   timeSlot: WorkoutTimeSlot;
   duration: number; // minutes
   intensity: 'Low' | 'Medium' | 'High';
+  averageZone?: TrainingZone; // Average training zone (1-5) if metabolic data available
   estimatedCalories?: number;
 }
 

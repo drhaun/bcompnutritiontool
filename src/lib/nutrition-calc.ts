@@ -110,15 +110,134 @@ export function calculateBMR(
 
 /**
  * Get activity multiplier based on activity level
+ * 
+ * These are MORE CONSERVATIVE than traditional Harris-Benedict multipliers.
+ * Research shows traditional multipliers tend to overestimate NEAT.
+ * 
+ * Conservative multipliers based on:
+ * - Westerterp (2013): "Physical activity and physical activity induced energy expenditure"
+ * - Pontzer et al (2016): Constrained total energy expenditure model
+ * - Typical step-based energy expenditure estimates
+ * 
+ * Traditional vs Conservative:
+ * - Sedentary: 1.2 → 1.1 (desk job, minimal movement)
+ * - Light Active: 1.375 → 1.25 (some walking, light daily activity)
+ * - Active: 1.55 → 1.4 (regular movement, active job or lifestyle)
+ * - Labor Intensive: 1.725 → 1.55 (physically demanding job)
  */
 export function getActivityMultiplier(activityLevel: ActivityLevel): number {
   const multipliers: Record<ActivityLevel, number> = {
-    'Sedentary (0-5k steps/day)': 1.2,
-    'Light Active (5-10k steps/day)': 1.375,
-    'Active (10-15k steps/day)': 1.55,
-    'Labor Intensive (>15k steps/day)': 1.725,
+    'Sedentary (0-5k steps/day)': 1.1,
+    'Light Active (5-10k steps/day)': 1.25,
+    'Active (10-15k steps/day)': 1.4,
+    'Labor Intensive (>15k steps/day)': 1.55,
   };
-  return multipliers[activityLevel] ?? 1.2;
+  return multipliers[activityLevel] ?? 1.1;
+}
+
+/**
+ * Estimate workout calories using MET values (validated approach)
+ * MET = Metabolic Equivalent of Task (1 MET = ~1 kcal/kg/hr)
+ * 
+ * MET values from Compendium of Physical Activities (Ainsworth et al.)
+ */
+export function estimateWorkoutCaloriesMET(
+  workoutType: string,
+  intensity: 'Low' | 'Medium' | 'High',
+  durationMinutes: number,
+  bodyWeightKg: number
+): number {
+  // MET values by workout type and intensity
+  const metValues: Record<string, Record<'Low' | 'Medium' | 'High', number>> = {
+    'Resistance Training': { Low: 3.5, Medium: 5.0, High: 6.0 },
+    'Cardio': { Low: 4.0, Medium: 7.0, High: 10.0 },
+    'HIIT': { Low: 6.0, Medium: 8.0, High: 12.0 },
+    'Yoga/Mobility': { Low: 2.0, Medium: 3.0, High: 4.0 },
+    'Sports': { Low: 4.0, Medium: 6.0, High: 8.0 },
+    'Mixed': { Low: 4.0, Medium: 6.0, High: 8.0 },
+  };
+
+  const met = metValues[workoutType]?.[intensity] ?? 5.0;
+  const durationHours = durationMinutes / 60;
+  
+  // Calories = MET × weight(kg) × duration(hours)
+  return Math.round(met * bodyWeightKg * durationHours);
+}
+
+/**
+ * Calculate workout calories using zone-based metabolic data
+ * Uses actual measured cal/min from metabolic testing
+ */
+export function calculateZoneBasedCalories(
+  zone: 1 | 2 | 3 | 4 | 5,
+  durationMinutes: number,
+  zoneCaloriesPerMin: {
+    zone1: number;
+    zone2: number;
+    zone3: number;
+    zone4: number;
+    zone5: number;
+  }
+): number {
+  const calPerMin = {
+    1: zoneCaloriesPerMin.zone1,
+    2: zoneCaloriesPerMin.zone2,
+    3: zoneCaloriesPerMin.zone3,
+    4: zoneCaloriesPerMin.zone4,
+    5: zoneCaloriesPerMin.zone5,
+  };
+  
+  return Math.round(calPerMin[zone] * durationMinutes);
+}
+
+/**
+ * Get default zone cal/min estimates based on body weight
+ * Used as fallback when no measured data is available
+ * Based on typical metabolic responses (conservative estimates)
+ */
+export function getDefaultZoneCalories(bodyWeightKg: number): {
+  zone1: number;
+  zone2: number;
+  zone3: number;
+  zone4: number;
+  zone5: number;
+} {
+  // Approximate cal/min per kg of body weight for each zone
+  const calPerKgPerMin = {
+    zone1: 0.06,  // ~4-5 cal/min for 70kg
+    zone2: 0.10,  // ~7-8 cal/min for 70kg
+    zone3: 0.14,  // ~10 cal/min for 70kg
+    zone4: 0.18,  // ~12-13 cal/min for 70kg
+    zone5: 0.22,  // ~15-16 cal/min for 70kg
+  };
+  
+  return {
+    zone1: Math.round(calPerKgPerMin.zone1 * bodyWeightKg * 10) / 10,
+    zone2: Math.round(calPerKgPerMin.zone2 * bodyWeightKg * 10) / 10,
+    zone3: Math.round(calPerKgPerMin.zone3 * bodyWeightKg * 10) / 10,
+    zone4: Math.round(calPerKgPerMin.zone4 * bodyWeightKg * 10) / 10,
+    zone5: Math.round(calPerKgPerMin.zone5 * bodyWeightKg * 10) / 10,
+  };
+}
+
+/**
+ * Map workout type and intensity to typical training zone
+ * Used when zone data is available but user hasn't specified zone for workout
+ */
+export function getTypicalZoneForWorkout(
+  workoutType: string,
+  intensity: 'Low' | 'Medium' | 'High'
+): 1 | 2 | 3 | 4 | 5 {
+  const zoneMap: Record<string, Record<'Low' | 'Medium' | 'High', 1 | 2 | 3 | 4 | 5>> = {
+    'Resistance Training': { Low: 2, Medium: 3, High: 3 },
+    'Cardio': { Low: 2, Medium: 3, High: 4 },
+    'HIIT': { Low: 3, Medium: 4, High: 5 },
+    'Yoga/Mobility': { Low: 1, Medium: 2, High: 2 },
+    'Sports': { Low: 2, Medium: 3, High: 4 },
+    'Mixed': { Low: 2, Medium: 3, High: 4 },
+  };
+  
+  return zoneMap[workoutType]?.[intensity] ?? 3;
 }
 
 /**

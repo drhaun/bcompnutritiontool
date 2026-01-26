@@ -50,8 +50,16 @@ import type {
   MealLocation,
   WorkoutConfig,
   MealContext,
-  DaySchedule
+  DaySchedule,
+  TrainingZone
 } from '@/types';
+import { 
+  estimateWorkoutCaloriesMET, 
+  calculateZoneBasedCalories, 
+  getDefaultZoneCalories,
+  getTypicalZoneForWorkout,
+  lbsToKg
+} from '@/lib/nutrition-calc';
 
 // ============ CONSTANTS ============
 
@@ -115,7 +123,7 @@ const MEAL_TIME_RANGES = [
 
 export default function SchedulePage() {
   const router = useRouter();
-  const { userProfile, weeklySchedule, setWeeklySchedule, calculateNutritionTargets } = useFitomicsStore();
+  const { userProfile, weeklySchedule, setWeeklySchedule, calculateNutritionTargets, setUserProfile } = useFitomicsStore();
   
   // Handle hydration mismatch
   const [isHydrated, setIsHydrated] = useState(false);
@@ -177,6 +185,17 @@ export default function SchedulePage() {
   const [defaultSnackPrepMethod, setDefaultSnackPrepMethod] = useState<MealPrepMethod>('leftovers');
   const [defaultSnackPrepTime, setDefaultSnackPrepTime] = useState('<5 min');
   const [defaultSnackLocation, setDefaultSnackLocation] = useState<MealLocation>('home');
+
+  // ============ METABOLIC ZONE DATA STATE ============
+  // Get body weight in kg for calculations (needed before zoneCaloriesInput state)
+  const bodyWeightKg = userProfile.weightKg || lbsToKg(userProfile.weightLbs || 70);
+  
+  const [useZoneData, setUseZoneData] = useState(
+    userProfile.metabolicAssessment?.hasZoneData || false
+  );
+  const [zoneCaloriesInput, setZoneCaloriesInput] = useState(
+    userProfile.metabolicAssessment?.zoneCaloriesPerMin || getDefaultZoneCalories(bodyWeightKg)
+  );
 
   // ============ NUTRIENT TIMING STATE ============
   const [includePreWorkoutMeal, setIncludePreWorkoutMeal] = useState(false);
@@ -398,21 +417,29 @@ export default function SchedulePage() {
     }
   };
 
+  // Check if user has zone-based metabolic data
+  const hasZoneData = userProfile.metabolicAssessment?.hasZoneData && 
+    userProfile.metabolicAssessment?.zoneCaloriesPerMin;
+  
+  // Get zone calories (measured or estimated)
+  const zoneCalories = hasZoneData 
+    ? userProfile.metabolicAssessment!.zoneCaloriesPerMin!
+    : getDefaultZoneCalories(bodyWeightKg);
+  
   const estimateWorkoutCalories = (config: WorkoutConfig): number => {
-    const baseCalories = {
-      'Resistance Training': 8,
-      'Cardio': 10,
-      'HIIT': 12,
-      'Yoga/Mobility': 4,
-      'Sports': 9,
-      'Mixed': 9,
-    };
-    const intensityMultiplier = {
-      'Low': 0.7,
-      'Medium': 1.0,
-      'High': 1.3,
-    };
-    return Math.round(baseCalories[config.type] * config.duration * intensityMultiplier[config.intensity]);
+    // Priority 1: If user has zone data AND workout has specified zone
+    if (hasZoneData && config.averageZone) {
+      return calculateZoneBasedCalories(config.averageZone, config.duration, zoneCalories);
+    }
+    
+    // Priority 2: Use zone data with estimated zone for workout type
+    if (hasZoneData) {
+      const estimatedZone = getTypicalZoneForWorkout(config.type, config.intensity);
+      return calculateZoneBasedCalories(estimatedZone, config.duration, zoneCalories);
+    }
+    
+    // Priority 3: Use MET-based calculation (validated, conservative)
+    return estimateWorkoutCaloriesMET(config.type, config.intensity, config.duration, bodyWeightKg);
   };
 
   // ============ SAVE HANDLER ============
@@ -438,6 +465,22 @@ export default function SchedulePage() {
         mealContexts,
       };
     });
+
+    // Save metabolic zone data if provided
+    if (useZoneData) {
+      setUserProfile({
+        metabolicAssessment: {
+          ...userProfile.metabolicAssessment,
+          useMeasuredRMR: userProfile.metabolicAssessment?.useMeasuredRMR || false,
+          selectedRMREquations: userProfile.metabolicAssessment?.selectedRMREquations || ['mifflin'],
+          useAverageRMR: userProfile.metabolicAssessment?.useAverageRMR || false,
+          calculatedRMR: userProfile.metabolicAssessment?.calculatedRMR || 0,
+          useMeasuredBF: userProfile.metabolicAssessment?.useMeasuredBF || false,
+          hasZoneData: true,
+          zoneCaloriesPerMin: zoneCaloriesInput,
+        }
+      });
+    }
 
     setWeeklySchedule(schedule);
     calculateNutritionTargets();
@@ -719,6 +762,110 @@ export default function SchedulePage() {
                   </CardContent>
                 </Card>
 
+                {/* Metabolic Zone Data */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-[#c19962]" />
+                      Active Metabolic Rate Data
+                    </CardTitle>
+                    <CardDescription>
+                      Enter your cal/min from metabolic testing for more accurate workout calorie estimates
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="useZoneData"
+                        checked={useZoneData}
+                        onCheckedChange={(checked) => setUseZoneData(checked as boolean)}
+                      />
+                      <Label htmlFor="useZoneData">I have metabolic testing data (cal/min by zone)</Label>
+                    </div>
+                    
+                    {useZoneData && (
+                      <div className="grid grid-cols-5 gap-3 pt-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Zone 1 (Easy)</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={zoneCaloriesInput.zone1}
+                            onChange={(e) => setZoneCaloriesInput({
+                              ...zoneCaloriesInput,
+                              zone1: parseFloat(e.target.value) || 0
+                            })}
+                            className="h-8"
+                          />
+                          <span className="text-xs text-muted-foreground">cal/min</span>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Zone 2 (Aerobic)</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={zoneCaloriesInput.zone2}
+                            onChange={(e) => setZoneCaloriesInput({
+                              ...zoneCaloriesInput,
+                              zone2: parseFloat(e.target.value) || 0
+                            })}
+                            className="h-8"
+                          />
+                          <span className="text-xs text-muted-foreground">cal/min</span>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Zone 3 (Tempo)</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={zoneCaloriesInput.zone3}
+                            onChange={(e) => setZoneCaloriesInput({
+                              ...zoneCaloriesInput,
+                              zone3: parseFloat(e.target.value) || 0
+                            })}
+                            className="h-8"
+                          />
+                          <span className="text-xs text-muted-foreground">cal/min</span>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Zone 4 (Threshold)</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={zoneCaloriesInput.zone4}
+                            onChange={(e) => setZoneCaloriesInput({
+                              ...zoneCaloriesInput,
+                              zone4: parseFloat(e.target.value) || 0
+                            })}
+                            className="h-8"
+                          />
+                          <span className="text-xs text-muted-foreground">cal/min</span>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Zone 5 (VO2max)</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={zoneCaloriesInput.zone5}
+                            onChange={(e) => setZoneCaloriesInput({
+                              ...zoneCaloriesInput,
+                              zone5: parseFloat(e.target.value) || 0
+                            })}
+                            className="h-8"
+                          />
+                          <span className="text-xs text-muted-foreground">cal/min</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {!useZoneData && (
+                      <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                        Using MET-based estimates for workout calories. These are conservative and validated but less personalized than metabolic testing data.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
                 {/* Workout Days Selection */}
                 <Card>
                   <CardHeader>
@@ -864,9 +1011,33 @@ export default function SchedulePage() {
                                         </SelectContent>
                                       </Select>
                                     </div>
+                                    {useZoneData && (
+                                      <div className="space-y-2">
+                                        <Label>Avg Zone</Label>
+                                        <Select 
+                                          value={workout.averageZone?.toString() || 'auto'}
+                                          onValueChange={(v) => updateWorkout(day, idx, 'averageZone', v === 'auto' ? undefined : parseInt(v) as TrainingZone)}
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Auto" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="auto">Auto (based on type)</SelectItem>
+                                            <SelectItem value="1">Zone 1 (Easy)</SelectItem>
+                                            <SelectItem value="2">Zone 2 (Aerobic)</SelectItem>
+                                            <SelectItem value="3">Zone 3 (Tempo)</SelectItem>
+                                            <SelectItem value="4">Zone 4 (Threshold)</SelectItem>
+                                            <SelectItem value="5">Zone 5 (VO2max)</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="p-2 bg-muted rounded text-sm text-muted-foreground">
                                     Estimated burn: ~{estimateWorkoutCalories(workout)} calories
+                                    {useZoneData && !workout.averageZone && (
+                                      <span className="text-xs ml-1">(Zone {getTypicalZoneForWorkout(workout.type, workout.intensity)})</span>
+                                    )}
                                   </div>
                                 </div>
                               ))}
