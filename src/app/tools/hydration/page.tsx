@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -300,6 +301,10 @@ export default function HydrationCalculatorPage() {
   const [preExerciseWeight, setPreExerciseWeight] = useState(0);
   const [postExerciseWeight, setPostExerciseWeight] = useState(0);
 
+  // Results state
+  const [hasCalculated, setHasCalculated] = useState(false);
+  const [results, setResults] = useState<HydrationResults | null>(null);
+
   // Unit conversions
   const kgToLbs = (kg: number) => kg * 2.20462;
   const lbsToKg = (lbs: number) => lbs / 2.20462;
@@ -310,8 +315,18 @@ export default function HydrationCalculatorPage() {
   const lToOz = (l: number) => l * 33.814;
   const mlToOz = (ml: number) => ml * 0.033814;
 
-  // Calculate results
-  const results = useMemo((): HydrationResults => {
+  // Calculate results function
+  const calculateHydration = useCallback(() => {
+    // Validation
+    if (weightKg <= 0) {
+      toast.error('Please enter a valid body weight');
+      return;
+    }
+    if (durationMinutes <= 0) {
+      toast.error('Please enter a valid exercise duration');
+      return;
+    }
+
     let sweatRate: number;
     let calculationMethod: 'comprehensive' | 'weight_based' | 'known_rate';
 
@@ -359,7 +374,7 @@ export default function HydrationCalculatorPage() {
     const humidityImpact = getEnvironmentalImpact(humidity, 'humidity');
     const altitudeImpact = getEnvironmentalImpact(altitude, 'altitude') as 'None' | 'Low' | 'Moderate' | 'High';
 
-    return {
+    const calculatedResults: HydrationResults = {
       sweatRate: Math.round(sweatRate * 100) / 100,
       totalFluidLoss: Math.round(totalFluidLoss * 100) / 100,
       sodiumLoss,
@@ -374,6 +389,10 @@ export default function HydrationCalculatorPage() {
       altitudeImpact,
       calculationMethod,
     };
+
+    setResults(calculatedResults);
+    setHasCalculated(true);
+    toast.success('Hydration needs calculated!');
   }, [
     weightKg, durationMinutes, exerciseType, intensity, fluidConsumedL,
     tempC, humidity, altitude, clothing, acclimatization,
@@ -665,104 +684,130 @@ export default function HydrationCalculatorPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Calculate Button */}
+            <Card className="border-blue-300 bg-gradient-to-r from-blue-50 to-transparent">
+              <CardContent className="pt-6">
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  size="lg"
+                  onClick={calculateHydration}
+                >
+                  <Droplets className="mr-2 h-5 w-5" />
+                  Calculate Hydration Needs
+                </Button>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Right Column - Results */}
           <div className="space-y-6">
             {/* Main Results */}
-            <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-transparent">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Droplets className="h-5 w-5 text-blue-500" />
-                  Comprehensive Hydration Results
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-white rounded-lg border shadow-sm">
-                    <p className="text-sm text-muted-foreground mb-1">Estimated Sweat Rate</p>
-                    <p className="text-2xl font-bold text-blue-600">
-                      {measurementSystem === 'metric' 
-                        ? `${results.sweatRate} L/hr`
-                        : `${Math.round(lToOz(results.sweatRate))} fl oz/hr`}
-                    </p>
-                    <Badge variant="secondary" className="mt-1 text-xs">
-                      📍 {results.calculationMethod === 'comprehensive' ? 'Comprehensive' : 
-                          results.calculationMethod === 'weight_based' ? 'Weight-Based' : 'Known Rate'}
-                    </Badge>
+            {!hasCalculated || !results ? (
+              <Card className="h-[400px] flex items-center justify-center border-dashed border-2">
+                <CardContent className="text-center">
+                  <Droplets className="h-16 w-16 text-blue-200 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Calculation Yet</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    Enter your information on the left, then click "Calculate Hydration Needs" to see your personalized results.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-transparent">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Droplets className="h-5 w-5 text-blue-500" />
+                    Comprehensive Hydration Results
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center p-4 bg-white rounded-lg border shadow-sm">
+                      <p className="text-sm text-muted-foreground mb-1">Estimated Sweat Rate</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {measurementSystem === 'metric' 
+                          ? `${results.sweatRate} L/hr`
+                          : `${Math.round(lToOz(results.sweatRate))} fl oz/hr`}
+                      </p>
+                      <Badge variant="secondary" className="mt-1 text-xs">
+                        {results.calculationMethod === 'comprehensive' ? 'Comprehensive' : 
+                            results.calculationMethod === 'weight_based' ? 'Weight-Based' : 'Known Rate'}
+                      </Badge>
+                    </div>
+                    <div className="text-center p-4 bg-white rounded-lg border shadow-sm">
+                      <p className="text-sm text-muted-foreground mb-1">Total Fluid Loss</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {measurementSystem === 'metric'
+                          ? `${results.totalFluidLoss} L`
+                          : `${Math.round(lToOz(results.totalFluidLoss))} fl oz`}
+                      </p>
+                    </div>
+                    <div className="text-center p-4 bg-white rounded-lg border shadow-sm">
+                      <p className="text-sm text-muted-foreground mb-1">Sodium Loss</p>
+                      <p className="text-2xl font-bold text-orange-600">{results.sodiumLoss} mg</p>
+                    </div>
                   </div>
-                  <div className="text-center p-4 bg-white rounded-lg border shadow-sm">
-                    <p className="text-sm text-muted-foreground mb-1">Total Fluid Loss</p>
-                    <p className="text-2xl font-bold text-blue-600">
-                      {measurementSystem === 'metric'
-                        ? `${results.totalFluidLoss} L`
-                        : `${Math.round(lToOz(results.totalFluidLoss))} fl oz`}
-                    </p>
-                  </div>
-                  <div className="text-center p-4 bg-white rounded-lg border shadow-sm">
-                    <p className="text-sm text-muted-foreground mb-1">Sodium Loss</p>
-                    <p className="text-2xl font-bold text-orange-600">{results.sodiumLoss} mg</p>
-                  </div>
-                </div>
 
-                <Separator />
+                  <Separator />
 
-                {/* During Exercise */}
-                <div className="space-y-2">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <Timer className="h-4 w-4 text-[#c19962]" />
-                    During Exercise Hydration Strategy
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                      <p className="text-xs text-muted-foreground">Every 15 minutes</p>
-                      <p className="text-xl font-bold text-blue-700">
-                        {measurementSystem === 'metric'
-                          ? `${results.during15min} mL`
-                          : `${Math.round(mlToOz(results.during15min))} fl oz`}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                      <p className="text-xs text-muted-foreground">Every 20 minutes</p>
-                      <p className="text-xl font-bold text-blue-700">
-                        {measurementSystem === 'metric'
-                          ? `${results.during20min} mL`
-                          : `${Math.round(mlToOz(results.during20min))} fl oz`}
-                      </p>
+                  {/* During Exercise */}
+                  <div className="space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Timer className="h-4 w-4 text-[#c19962]" />
+                      During Exercise Hydration Strategy
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                        <p className="text-xs text-muted-foreground">Every 15 minutes</p>
+                        <p className="text-xl font-bold text-blue-700">
+                          {measurementSystem === 'metric'
+                            ? `${results.during15min} mL`
+                            : `${Math.round(mlToOz(results.during15min))} fl oz`}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                        <p className="text-xs text-muted-foreground">Every 20 minutes</p>
+                        <p className="text-xl font-bold text-blue-700">
+                          {measurementSystem === 'metric'
+                            ? `${results.during20min} mL`
+                            : `${Math.round(mlToOz(results.during20min))} fl oz`}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Post Exercise */}
-                <div className="space-y-2">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <Target className="h-4 w-4 text-[#c19962]" />
-                    Post-Exercise Rehydration Targets
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-green-50 rounded-lg border border-green-100">
-                      <p className="text-xs text-muted-foreground">Minimum Target (125%)</p>
-                      <p className="text-xl font-bold text-green-700">
-                        {measurementSystem === 'metric'
-                          ? `${results.postMinimum} mL`
-                          : `${Math.round(mlToOz(results.postMinimum))} fl oz`}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-green-50 rounded-lg border border-green-100">
-                      <p className="text-xs text-muted-foreground">Optimal Target (150%)</p>
-                      <p className="text-xl font-bold text-green-700">
-                        {measurementSystem === 'metric'
-                          ? `${results.postOptimal} mL`
-                          : `${Math.round(mlToOz(results.postOptimal))} fl oz`}
-                      </p>
+                  {/* Post Exercise */}
+                  <div className="space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Target className="h-4 w-4 text-[#c19962]" />
+                      Post-Exercise Rehydration Targets
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-green-50 rounded-lg border border-green-100">
+                        <p className="text-xs text-muted-foreground">Minimum Target (125%)</p>
+                        <p className="text-xl font-bold text-green-700">
+                          {measurementSystem === 'metric'
+                            ? `${results.postMinimum} mL`
+                            : `${Math.round(mlToOz(results.postMinimum))} fl oz`}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-green-50 rounded-lg border border-green-100">
+                        <p className="text-xs text-muted-foreground">Optimal Target (150%)</p>
+                        <p className="text-xl font-bold text-green-700">
+                          {measurementSystem === 'metric'
+                            ? `${results.postOptimal} mL`
+                            : `${Math.round(mlToOz(results.postOptimal))} fl oz`}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Electrolyte Analysis */}
-            {advancedMode && (
+            {advancedMode && hasCalculated && results && (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -893,7 +938,7 @@ export default function HydrationCalculatorPage() {
             </Card>
 
             {/* Advanced Analysis */}
-            {advancedMode && (
+            {advancedMode && hasCalculated && results && (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
