@@ -33,7 +33,13 @@ import {
   Beaker,
   Timer,
   Target,
-  Lightbulb
+  Lightbulb,
+  Download,
+  Loader2,
+  FlaskConical,
+  UtensilsCrossed,
+  GlassWater,
+  Sparkles
 } from 'lucide-react';
 
 // ============ TYPES ============
@@ -304,6 +310,7 @@ export default function HydrationCalculatorPage() {
   // Results state
   const [hasCalculated, setHasCalculated] = useState(false);
   const [results, setResults] = useState<HydrationResults | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Unit conversions
   const kgToLbs = (kg: number) => kg * 2.20462;
@@ -398,6 +405,54 @@ export default function HydrationCalculatorPage() {
     tempC, humidity, altitude, clothing, acclimatization,
     knownSweatRate, preExerciseWeight, postExerciseWeight
   ]);
+
+  // Download PDF
+  const downloadPDF = async () => {
+    if (!results) return;
+    
+    setIsDownloading(true);
+    try {
+      const response = await fetch('/api/generate-hydration-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          results,
+          inputs: {
+            weightKg,
+            durationMinutes,
+            exerciseType: EXERCISE_TYPES.find(e => e.value === exerciseType)?.label || exerciseType,
+            intensity: INTENSITIES.find(i => i.value === intensity)?.label || intensity,
+            tempC,
+            humidity,
+            altitude,
+            clothing: CLOTHING_TYPES.find(c => c.value === clothing)?.label || clothing,
+            acclimatization: ACCLIMATIZATION.find(a => a.value === acclimatization)?.label || acclimatization,
+          },
+          measurementSystem,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'hydration-plan.pdf';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('PDF downloaded!');
+    } catch (error) {
+      console.error('PDF download error:', error);
+      toast.error('Failed to download PDF');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const getImpactColor = (impact: string) => {
     switch (impact) {
@@ -716,10 +771,25 @@ export default function HydrationCalculatorPage() {
             ) : (
               <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-transparent">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Droplets className="h-5 w-5 text-blue-500" />
-                    Comprehensive Hydration Results
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Droplets className="h-5 w-5 text-blue-500" />
+                      Comprehensive Hydration Results
+                    </CardTitle>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={downloadPDF}
+                      disabled={isDownloading}
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-1" />
+                      )}
+                      PDF
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-3 gap-4">
@@ -864,6 +934,234 @@ export default function HydrationCalculatorPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* DIY Electrolyte Formulations */}
+            {hasCalculated && results && (
+              <Card className="border-[#c19962]">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FlaskConical className="h-5 w-5 text-[#c19962]" />
+                    DIY Electrolyte Formulations
+                  </CardTitle>
+                  <CardDescription>Science-backed homemade alternatives to commercial sports drinks</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Basic Electrolyte Water */}
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <GlassWater className="h-5 w-5 text-blue-600" />
+                      <h5 className="font-semibold text-blue-800">Basic Electrolyte Water</h5>
+                      <Badge variant="secondary" className="text-xs">Quick & Simple</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3">Perfect for workouts under 60 minutes</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-medium text-blue-700 mb-1">Ingredients:</p>
+                        <ul className="text-sm space-y-1">
+                          <li>• 1 liter water</li>
+                          <li>• 1/4 tsp sea salt (~600mg sodium)</li>
+                          <li>• 1/4 tsp lite salt (~350mg potassium)</li>
+                          <li>• Squeeze of lemon (optional)</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-blue-700 mb-1">Nutrition per liter:</p>
+                        <ul className="text-sm space-y-1">
+                          <li>• Sodium: ~600mg</li>
+                          <li>• Potassium: ~350mg</li>
+                          <li>• Calories: ~0</li>
+                          <li>• Cost: ~$0.05</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Performance Sports Drink */}
+                  <div className="p-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg border border-orange-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Sparkles className="h-5 w-5 text-orange-600" />
+                      <h5 className="font-semibold text-orange-800">Performance Sports Drink</h5>
+                      <Badge variant="secondary" className="text-xs">60+ min workouts</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3">Includes carbs for sustained energy during longer sessions</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-medium text-orange-700 mb-1">Ingredients:</p>
+                        <ul className="text-sm space-y-1">
+                          <li>• 1 liter water</li>
+                          <li>• 3 tbsp honey or maple syrup</li>
+                          <li>• 1/4 tsp sea salt</li>
+                          <li>• 1/4 tsp lite salt</li>
+                          <li>• 2 tbsp fresh lemon/lime juice</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-orange-700 mb-1">Nutrition per liter:</p>
+                        <ul className="text-sm space-y-1">
+                          <li>• Sodium: ~600mg</li>
+                          <li>• Potassium: ~400mg</li>
+                          <li>• Carbs: ~45g (6% solution)</li>
+                          <li>• Calories: ~180</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Natural Coconut Recovery */}
+                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <UtensilsCrossed className="h-5 w-5 text-green-600" />
+                      <h5 className="font-semibold text-green-800">Natural Coconut Recovery</h5>
+                      <Badge variant="secondary" className="text-xs">Post-Workout</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3">Whole food approach for recovery hydration</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-medium text-green-700 mb-1">Ingredients:</p>
+                        <ul className="text-sm space-y-1">
+                          <li>• 500ml coconut water</li>
+                          <li>• 500ml water</li>
+                          <li>• 1/8 tsp sea salt</li>
+                          <li>• 1 tbsp honey</li>
+                          <li>• Pinch of magnesium powder (optional)</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-green-700 mb-1">Nutrition per liter:</p>
+                        <ul className="text-sm space-y-1">
+                          <li>• Sodium: ~400mg</li>
+                          <li>• Potassium: ~600mg</li>
+                          <li>• Carbs: ~30g</li>
+                          <li>• Calories: ~140</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Heavy Sweater Formula */}
+                  <div className="p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-lg border border-red-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Zap className="h-5 w-5 text-red-600" />
+                      <h5 className="font-semibold text-red-800">Heavy Sweater Formula</h5>
+                      <Badge variant="secondary" className="text-xs">High Sodium</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3">For those who lose significant sodium through sweat</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-medium text-red-700 mb-1">Ingredients:</p>
+                        <ul className="text-sm space-y-1">
+                          <li>• 1 liter water</li>
+                          <li>• 1/2 tsp sea salt (~1200mg sodium)</li>
+                          <li>• 1/4 tsp lite salt</li>
+                          <li>• 2 tbsp honey</li>
+                          <li>• 1 tbsp apple cider vinegar</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-red-700 mb-1">Nutrition per liter:</p>
+                        <ul className="text-sm space-y-1">
+                          <li>• Sodium: ~1200mg</li>
+                          <li>• Potassium: ~350mg</li>
+                          <li>• Carbs: ~35g</li>
+                          <li>• Calories: ~140</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-muted rounded-lg text-sm">
+                    <p className="flex items-start gap-2">
+                      <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-blue-500" />
+                      <span><strong>Pro Tip:</strong> Make batches ahead and store in the fridge for up to 5 days. Shake well before use. Adjust sweetness and salt to taste preference.</span>
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Practical Hydration Strategies */}
+            {hasCalculated && results && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Target className="h-5 w-5 text-[#c19962]" />
+                    Practical Strategies for Your {durationMinutes}-Minute {EXERCISE_TYPES.find(e => e.value === exerciseType)?.label}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Pre-workout strategy */}
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <h5 className="font-medium mb-2 flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-blue-600" />
+                      Pre-Workout (2 hours before)
+                    </h5>
+                    <ul className="text-sm space-y-1 text-muted-foreground">
+                      <li>• Drink {measurementSystem === 'metric' ? '400-600 mL' : '14-20 fl oz'} of water</li>
+                      <li>• Have a small salty snack (pretzels, crackers with cheese)</li>
+                      <li>• Check urine color - aim for pale yellow</li>
+                    </ul>
+                  </div>
+
+                  {/* During workout strategy */}
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-100">
+                    <h5 className="font-medium mb-2 flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-green-600" />
+                      During Your Workout
+                    </h5>
+                    <ul className="text-sm space-y-1 text-muted-foreground">
+                      <li>• Set {Math.ceil(durationMinutes / 15)} timer reminders every 15 minutes</li>
+                      <li>• Target {measurementSystem === 'metric' ? `${results.during15min} mL` : `${Math.round(mlToOz(results.during15min))} fl oz`} per interval</li>
+                      {durationMinutes > 60 && (
+                        <li>• Use an electrolyte drink (see formulations above)</li>
+                      )}
+                      <li>• Keep fluid at {measurementSystem === 'metric' ? '15-22°C' : '59-72°F'} for optimal absorption</li>
+                    </ul>
+                  </div>
+
+                  {/* Post-workout strategy */}
+                  <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
+                    <h5 className="font-medium mb-2 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-orange-600" />
+                      Post-Workout Recovery (within 2 hours)
+                    </h5>
+                    <ul className="text-sm space-y-1 text-muted-foreground">
+                      <li>• Drink {measurementSystem === 'metric' ? `${results.postOptimal} mL` : `${Math.round(mlToOz(results.postOptimal))} fl oz`} over the next 2-4 hours</li>
+                      <li>• Include sodium-rich foods (soup, salted nuts, cheese)</li>
+                      <li>• Pair with carbs and protein for optimal recovery</li>
+                      <li>• Monitor urine color until it returns to pale yellow</li>
+                    </ul>
+                  </div>
+
+                  {/* Quick recovery foods */}
+                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
+                    <h5 className="font-medium mb-2 flex items-center gap-2">
+                      <UtensilsCrossed className="h-4 w-4 text-purple-600" />
+                      Quick Recovery Food Pairings
+                    </h5>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="font-medium text-purple-700">Sodium-Rich:</p>
+                        <ul className="text-muted-foreground">
+                          <li>• Chicken broth</li>
+                          <li>• Salted nuts</li>
+                          <li>• Cheese & crackers</li>
+                          <li>• Pickles</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="font-medium text-purple-700">Potassium-Rich:</p>
+                        <ul className="text-muted-foreground">
+                          <li>• Banana</li>
+                          <li>• Sweet potato</li>
+                          <li>• Yogurt</li>
+                          <li>• Avocado</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Hydration Protocol */}
             <Card>
