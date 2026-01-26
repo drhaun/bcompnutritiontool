@@ -47,16 +47,18 @@ import {
   CloudDownload,
   User
 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { format, subDays } from 'date-fns';
+import { Check, ChevronsUpDown } from 'lucide-react';
 
 // ============ TYPES ============
 
@@ -707,7 +709,8 @@ export default function NutritionAnalysisPage() {
     email?: string;
     status: string;
   }>>([]);
-  const [selectedCronometerClient, setSelectedCronometerClient] = useState<string>('');
+  const [selectedCronometerClient, setSelectedCronometerClient] = useState<string>('self');
+  const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [cronometerDateRange, setCronometerDateRange] = useState<{
     from: Date;
     to: Date;
@@ -1207,31 +1210,77 @@ export default function NutritionAnalysisPage() {
                   </div>
                 ) : (
                   <>
-                    {/* Client Selector */}
-                    {cronometerClients.length > 0 && (
-                      <div className="space-y-2">
-                        <Label className="text-sm">Client</Label>
-                        <Select
-                          value={selectedCronometerClient}
-                          onValueChange={setSelectedCronometerClient}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a client (or yourself)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="self">My own data</SelectItem>
-                            {cronometerClients.map((client) => (
-                              <SelectItem key={client.client_id} value={client.client_id.toString()}>
-                                <div className="flex items-center gap-2">
-                                  <User className="h-3 w-3" />
-                                  {client.name}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+                    {/* Client Selector - Searchable */}
+                    <div className="space-y-2">
+                      <Label className="text-sm">Client</Label>
+                      <Popover open={clientSearchOpen} onOpenChange={setClientSearchOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={clientSearchOpen}
+                            className="w-full justify-between"
+                          >
+                            <span className="truncate">
+                              {selectedCronometerClient === 'self' 
+                                ? 'My own data'
+                                : cronometerClients.find(c => c.client_id.toString() === selectedCronometerClient)?.name || 'Select client...'}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search clients..." />
+                            <CommandList>
+                              <CommandEmpty>No clients found.</CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  value="self"
+                                  onSelect={() => {
+                                    setSelectedCronometerClient('self');
+                                    setClientSearchOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedCronometerClient === 'self' ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <User className="mr-2 h-4 w-4" />
+                                  My own data
+                                </CommandItem>
+                                {cronometerClients.map((client) => (
+                                  <CommandItem
+                                    key={client.client_id}
+                                    value={`${client.name} ${client.email || ''}`}
+                                    onSelect={() => {
+                                      setSelectedCronometerClient(client.client_id.toString());
+                                      setClientSearchOpen(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selectedCronometerClient === client.client_id.toString() ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <User className="mr-2 h-4 w-4" />
+                                    <div className="flex flex-col">
+                                      <span>{client.name}</span>
+                                      {client.email && (
+                                        <span className="text-xs text-muted-foreground">{client.email}</span>
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                     
                     {/* Date Range */}
                     <div className="space-y-2">

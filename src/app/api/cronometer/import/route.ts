@@ -33,15 +33,44 @@ export async function GET(request: NextRequest) {
   
   try {
     // Fetch diary data with food breakdown
-    const diaryData = await getDiarySummary(
-      { accessToken, clientId },
-      { start, end, food: true }
-    );
+    let diaryData;
+    try {
+      diaryData = await getDiarySummary(
+        { accessToken, clientId },
+        { start, end, food: true }
+      );
+    } catch (diaryError) {
+      console.error('Cronometer diary fetch error:', diaryError);
+      return NextResponse.json(
+        { error: `Failed to fetch diary data: ${diaryError instanceof Error ? diaryError.message : 'Unknown error'}` },
+        { status: 500 }
+      );
+    }
     
-    // Fetch targets for comparison
-    const targets = await getNutritionTargets(
-      { accessToken, clientId }
-    );
+    // Check if we got any data
+    if (!diaryData) {
+      return NextResponse.json({
+        success: true,
+        daysImported: 0,
+        data: {
+          summary: { totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, totalFiber: 0, daysAnalyzed: 0 },
+          dailyAverages: [],
+          topFoods: [],
+          dailyBreakdown: [],
+          rawDays: [],
+        },
+        targets: {},
+        message: 'No diary data found for the selected date range',
+      });
+    }
+    
+    // Fetch targets for comparison (non-critical, use empty if fails)
+    let targets: Record<string, { min?: number; max?: number; unit: string }> = {};
+    try {
+      targets = await getNutritionTargets({ accessToken, clientId });
+    } catch (targetError) {
+      console.warn('Could not fetch Cronometer targets:', targetError);
+    }
     
     // Normalize to array
     const days = Array.isArray(diaryData) ? diaryData : [diaryData];
@@ -51,7 +80,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      daysImported: days.length,
+      daysImported: transformedData.summary.daysAnalyzed,
       data: transformedData,
       targets,
     });
@@ -71,9 +100,27 @@ function transformCronometerData(
   days: CronometerDiarySummary[],
   targets: Record<string, { min?: number; max?: number; unit: string }>
 ) {
-  // Calculate daily averages
-  const validDays = days.filter(d => d.macros.kcal > 0);
+  // Calculate daily averages - filter out days without valid macros data
+  const validDays = days.filter(d => d && d.macros && d.macros.kcal > 0);
   const daysCount = validDays.length || 1;
+  
+  // If no valid days, return empty summary
+  if (validDays.length === 0) {
+    return {
+      summary: {
+        totalCalories: 0,
+        totalProtein: 0,
+        totalCarbs: 0,
+        totalFat: 0,
+        totalFiber: 0,
+        daysAnalyzed: 0,
+      },
+      dailyAverages: [],
+      topFoods: [],
+      dailyBreakdown: [],
+      rawDays: [],
+    };
+  }
   
   // Sum up all nutrients across days
   const totalNutrients: Record<string, number> = {};
