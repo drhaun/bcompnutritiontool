@@ -54,6 +54,7 @@ const toolLinks = [
   { href: '/tools/day-planner', label: 'Day Planner' },
   { href: '/tools/meal-planner', label: 'Meal Planner' },
   { href: '/tools/nutrition-analysis', label: 'Nutrition Analysis' },
+  { href: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
 export function Header() {
@@ -87,7 +88,7 @@ export function Header() {
   // Determine if we're in the workflow
   const currentWorkflowStep = workflowSteps.find(s => pathname === s.href);
   const isInWorkflow = !!currentWorkflowStep;
-  const isToolPage = pathname.startsWith('/tools');
+  const isToolPage = pathname.startsWith('/tools') || pathname === '/settings';
 
   const handleClientSelect = (clientId: string) => {
     if (clientId === 'new') {
@@ -180,11 +181,19 @@ export function Header() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {toolLinks.map((tool) => (
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Tools</DropdownMenuLabel>
+              {toolLinks.filter(t => !t.icon).map((tool) => (
                 <DropdownMenuItem key={tool.href} asChild>
                   <Link href={tool.href}>{tool.label}</Link>
                 </DropdownMenuItem>
               ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/settings" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </nav>
