@@ -1,0 +1,1541 @@
+'use client';
+
+import { useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { 
+  ArrowLeft, 
+  Upload,
+  FileText,
+  FileSpreadsheet,
+  AlertTriangle,
+  AlertCircle,
+  CheckCircle2,
+  TrendingUp,
+  TrendingDown,
+  Zap,
+  Apple,
+  RefreshCw,
+  Info,
+  Target,
+  Beaker,
+  Lightbulb,
+  ArrowRightLeft,
+  ChevronRight,
+  X
+} from 'lucide-react';
+
+// ============ TYPES ============
+
+interface NutrientData {
+  name: string;
+  value: number;
+  unit: string;
+  target: number;
+  percentage: number;
+}
+
+interface DailyNutrients {
+  date: string;
+  nutrients: Record<string, number>;
+  foods: FoodEntry[];
+}
+
+interface FoodEntry {
+  name: string;
+  amount: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  meal: string;
+  category: string;
+}
+
+interface NutrientIssue {
+  nutrient: string;
+  status: 'deficient' | 'low' | 'optimal' | 'high' | 'excess';
+  percentage: number;
+  target: number;
+  actual: number;
+  unit: string;
+  severity: 'critical' | 'warning' | 'info';
+  message: string;
+}
+
+interface RatioAnalysis {
+  name: string;
+  ratio: number;
+  optimal: { min: number; max: number };
+  status: 'optimal' | 'suboptimal' | 'poor';
+  message: string;
+}
+
+interface FoodRecommendation {
+  type: 'add' | 'increase' | 'reduce' | 'swap';
+  food: string;
+  reason: string;
+  nutrients: string[];
+  swapFor?: string;
+}
+
+interface AnalysisResult {
+  summary: {
+    totalCalories: number;
+    totalProtein: number;
+    totalCarbs: number;
+    totalFat: number;
+    totalFiber: number;
+    daysAnalyzed: number;
+    overallScore: number;
+  };
+  dailyAverages: NutrientData[];
+  deficiencies: NutrientIssue[];
+  excesses: NutrientIssue[];
+  ratios: RatioAnalysis[];
+  recommendations: FoodRecommendation[];
+  topFoods: { name: string; count: number; totalCalories: number }[];
+  dailyBreakdown: DailyNutrients[];
+}
+
+// ============ CONSTANTS ============
+
+// Column indices for Cronometer CSV (0-indexed)
+const CSV_COLUMNS = {
+  Day: 0,
+  Time: 1,
+  Group: 2,
+  FoodName: 3,
+  Amount: 4,
+  Energy: 5,
+  Alcohol: 6,
+  Caffeine: 7,
+  Water: 8,
+  B1: 9,
+  B2: 10,
+  B3: 11,
+  B5: 12,
+  B6: 13,
+  B12: 14,
+  Folate: 15,
+  VitaminA: 16,
+  VitaminC: 17,
+  VitaminD: 18,
+  VitaminE: 19,
+  VitaminK: 20,
+  Calcium: 21,
+  Copper: 22,
+  Iron: 23,
+  Magnesium: 24,
+  Manganese: 25,
+  Phosphorus: 26,
+  Potassium: 27,
+  Selenium: 28,
+  Sodium: 29,
+  Zinc: 30,
+  Carbs: 31,
+  Fiber: 32,
+  Starch: 33,
+  Sugars: 34,
+  AddedSugars: 35,
+  NetCarbs: 36,
+  Fat: 37,
+  Cholesterol: 38,
+  Monounsaturated: 39,
+  Polyunsaturated: 40,
+  Saturated: 41,
+  TransFats: 42,
+  Omega3: 43,
+  Omega6: 44,
+  Protein: 52,
+  Category: 57,
+};
+
+// Nutrient targets with RDA values
+const NUTRIENT_TARGETS: Record<string, { target: number; unit: string; minOptimal: number; maxOptimal: number; category: string }> = {
+  'Energy': { target: 2000, unit: 'kcal', minOptimal: 90, maxOptimal: 110, category: 'macro' },
+  'Protein': { target: 150, unit: 'g', minOptimal: 90, maxOptimal: 200, category: 'macro' },
+  'Carbs': { target: 200, unit: 'g', minOptimal: 70, maxOptimal: 130, category: 'macro' },
+  'Fat': { target: 75, unit: 'g', minOptimal: 80, maxOptimal: 130, category: 'macro' },
+  'Fiber': { target: 30, unit: 'g', minOptimal: 80, maxOptimal: 200, category: 'macro' },
+  'B1 (Thiamine)': { target: 1.2, unit: 'mg', minOptimal: 90, maxOptimal: 500, category: 'vitamin' },
+  'B2 (Riboflavin)': { target: 1.3, unit: 'mg', minOptimal: 90, maxOptimal: 500, category: 'vitamin' },
+  'B3 (Niacin)': { target: 16, unit: 'mg', minOptimal: 90, maxOptimal: 250, category: 'vitamin' },
+  'B5 (Pantothenic Acid)': { target: 5, unit: 'mg', minOptimal: 90, maxOptimal: 500, category: 'vitamin' },
+  'B6 (Pyridoxine)': { target: 1.7, unit: 'mg', minOptimal: 90, maxOptimal: 300, category: 'vitamin' },
+  'B12 (Cobalamin)': { target: 2.4, unit: 'µg', minOptimal: 90, maxOptimal: 1000, category: 'vitamin' },
+  'Folate': { target: 400, unit: 'µg', minOptimal: 90, maxOptimal: 250, category: 'vitamin' },
+  'Vitamin A': { target: 900, unit: 'µg', minOptimal: 80, maxOptimal: 300, category: 'vitamin' },
+  'Vitamin C': { target: 90, unit: 'mg', minOptimal: 90, maxOptimal: 2500, category: 'vitamin' },
+  'Vitamin D': { target: 600, unit: 'IU', minOptimal: 90, maxOptimal: 1500, category: 'vitamin' },
+  'Vitamin E': { target: 15, unit: 'mg', minOptimal: 90, maxOptimal: 300, category: 'vitamin' },
+  'Vitamin K': { target: 120, unit: 'µg', minOptimal: 90, maxOptimal: 500, category: 'vitamin' },
+  'Calcium': { target: 1000, unit: 'mg', minOptimal: 90, maxOptimal: 200, category: 'mineral' },
+  'Copper': { target: 0.9, unit: 'mg', minOptimal: 90, maxOptimal: 300, category: 'mineral' },
+  'Iron': { target: 18, unit: 'mg', minOptimal: 90, maxOptimal: 200, category: 'mineral' },
+  'Magnesium': { target: 400, unit: 'mg', minOptimal: 90, maxOptimal: 200, category: 'mineral' },
+  'Manganese': { target: 2.3, unit: 'mg', minOptimal: 90, maxOptimal: 300, category: 'mineral' },
+  'Phosphorus': { target: 700, unit: 'mg', minOptimal: 90, maxOptimal: 250, category: 'mineral' },
+  'Potassium': { target: 2600, unit: 'mg', minOptimal: 90, maxOptimal: 180, category: 'mineral' },
+  'Selenium': { target: 55, unit: 'µg', minOptimal: 90, maxOptimal: 700, category: 'mineral' },
+  'Sodium': { target: 1500, unit: 'mg', minOptimal: 50, maxOptimal: 150, category: 'mineral' },
+  'Zinc': { target: 11, unit: 'mg', minOptimal: 90, maxOptimal: 300, category: 'mineral' },
+  'Omega-3': { target: 1.6, unit: 'g', minOptimal: 90, maxOptimal: 800, category: 'fatty_acid' },
+  'Omega-6': { target: 12, unit: 'g', minOptimal: 70, maxOptimal: 150, category: 'fatty_acid' },
+  'Saturated': { target: 20, unit: 'g', minOptimal: 0, maxOptimal: 100, category: 'fatty_acid' },
+  'Cholesterol': { target: 300, unit: 'mg', minOptimal: 0, maxOptimal: 100, category: 'other' },
+};
+
+const FOOD_NUTRIENT_SOURCES: Record<string, string[]> = {
+  'Iron': ['Red meat', 'Spinach', 'Lentils', 'Fortified cereals', 'Pumpkin seeds', 'Liver'],
+  'Magnesium': ['Dark chocolate', 'Avocado', 'Nuts', 'Legumes', 'Whole grains', 'Spinach'],
+  'Vitamin E': ['Almonds', 'Sunflower seeds', 'Spinach', 'Avocado', 'Olive oil', 'Wheat germ'],
+  'Vitamin K': ['Leafy greens', 'Broccoli', 'Brussels sprouts', 'Fermented foods', 'Green beans'],
+  'Fiber': ['Beans', 'Berries', 'Whole grains', 'Broccoli', 'Avocado', 'Chia seeds'],
+  'Potassium': ['Bananas', 'Potatoes', 'Spinach', 'Beans', 'Avocado', 'Salmon'],
+  'Calcium': ['Dairy', 'Fortified plant milk', 'Sardines', 'Leafy greens', 'Tofu'],
+  'Zinc': ['Oysters', 'Beef', 'Pumpkin seeds', 'Chickpeas', 'Cashews'],
+  'Omega-3': ['Fatty fish', 'Chia seeds', 'Flaxseeds', 'Walnuts', 'Fish oil'],
+  'Vitamin D': ['Fatty fish', 'Egg yolks', 'Fortified foods', 'Mushrooms', 'Supplements'],
+  'Folate': ['Leafy greens', 'Legumes', 'Asparagus', 'Eggs', 'Beets'],
+  'Vitamin A': ['Sweet potatoes', 'Carrots', 'Spinach', 'Liver', 'Eggs'],
+  'B12 (Cobalamin)': ['Meat', 'Fish', 'Eggs', 'Dairy', 'Fortified foods'],
+};
+
+// ============ PARSING FUNCTIONS ============
+
+function parseCSVLine(line: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  values.push(current.trim());
+  return values;
+}
+
+function parseCronometerCSV(csvText: string): DailyNutrients[] {
+  const lines = csvText.split('\n').filter(line => line.trim());
+  if (lines.length < 2) return [];
+
+  // Skip header row
+  const dailyMap = new Map<string, DailyNutrients>();
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    if (values.length < 10) continue;
+
+    const date = values[CSV_COLUMNS.Day];
+    if (!date || date === 'Day') continue; // Skip if header row or empty
+
+    const meal = values[CSV_COLUMNS.Group] || 'Other';
+    const foodName = values[CSV_COLUMNS.FoodName] || '';
+    const amount = values[CSV_COLUMNS.Amount] || '';
+    const category = values[CSV_COLUMNS.Category]?.replace(/"/g, '') || 'Other';
+
+    // Parse numeric values safely
+    const parseNum = (idx: number): number => {
+      const val = values[idx];
+      if (!val || val === '') return 0;
+      const num = parseFloat(val);
+      return isNaN(num) ? 0 : num;
+    };
+
+    // Initialize day if not exists
+    if (!dailyMap.has(date)) {
+      dailyMap.set(date, {
+        date,
+        nutrients: {
+          Energy: 0, Protein: 0, Carbs: 0, Fat: 0, Fiber: 0,
+          'B1 (Thiamine)': 0, 'B2 (Riboflavin)': 0, 'B3 (Niacin)': 0,
+          'B5 (Pantothenic Acid)': 0, 'B6 (Pyridoxine)': 0, 'B12 (Cobalamin)': 0,
+          Folate: 0, 'Vitamin A': 0, 'Vitamin C': 0, 'Vitamin D': 0,
+          'Vitamin E': 0, 'Vitamin K': 0, Calcium: 0, Copper: 0, Iron: 0,
+          Magnesium: 0, Manganese: 0, Phosphorus: 0, Potassium: 0,
+          Selenium: 0, Sodium: 0, Zinc: 0, 'Omega-3': 0, 'Omega-6': 0,
+          Saturated: 0, Cholesterol: 0,
+        },
+        foods: [],
+      });
+    }
+
+    const day = dailyMap.get(date)!;
+
+    // Add food entry
+    const calories = parseNum(CSV_COLUMNS.Energy);
+    if (foodName) {
+      day.foods.push({
+        name: foodName,
+        amount,
+        calories,
+        protein: parseNum(CSV_COLUMNS.Protein),
+        carbs: parseNum(CSV_COLUMNS.Carbs),
+        fat: parseNum(CSV_COLUMNS.Fat),
+        meal,
+        category,
+      });
+    }
+
+    // Aggregate nutrients
+    day.nutrients['Energy'] += calories;
+    day.nutrients['Protein'] += parseNum(CSV_COLUMNS.Protein);
+    day.nutrients['Carbs'] += parseNum(CSV_COLUMNS.Carbs);
+    day.nutrients['Fat'] += parseNum(CSV_COLUMNS.Fat);
+    day.nutrients['Fiber'] += parseNum(CSV_COLUMNS.Fiber);
+    day.nutrients['B1 (Thiamine)'] += parseNum(CSV_COLUMNS.B1);
+    day.nutrients['B2 (Riboflavin)'] += parseNum(CSV_COLUMNS.B2);
+    day.nutrients['B3 (Niacin)'] += parseNum(CSV_COLUMNS.B3);
+    day.nutrients['B5 (Pantothenic Acid)'] += parseNum(CSV_COLUMNS.B5);
+    day.nutrients['B6 (Pyridoxine)'] += parseNum(CSV_COLUMNS.B6);
+    day.nutrients['B12 (Cobalamin)'] += parseNum(CSV_COLUMNS.B12);
+    day.nutrients['Folate'] += parseNum(CSV_COLUMNS.Folate);
+    day.nutrients['Vitamin A'] += parseNum(CSV_COLUMNS.VitaminA);
+    day.nutrients['Vitamin C'] += parseNum(CSV_COLUMNS.VitaminC);
+    day.nutrients['Vitamin D'] += parseNum(CSV_COLUMNS.VitaminD);
+    day.nutrients['Vitamin E'] += parseNum(CSV_COLUMNS.VitaminE);
+    day.nutrients['Vitamin K'] += parseNum(CSV_COLUMNS.VitaminK);
+    day.nutrients['Calcium'] += parseNum(CSV_COLUMNS.Calcium);
+    day.nutrients['Copper'] += parseNum(CSV_COLUMNS.Copper);
+    day.nutrients['Iron'] += parseNum(CSV_COLUMNS.Iron);
+    day.nutrients['Magnesium'] += parseNum(CSV_COLUMNS.Magnesium);
+    day.nutrients['Manganese'] += parseNum(CSV_COLUMNS.Manganese);
+    day.nutrients['Phosphorus'] += parseNum(CSV_COLUMNS.Phosphorus);
+    day.nutrients['Potassium'] += parseNum(CSV_COLUMNS.Potassium);
+    day.nutrients['Selenium'] += parseNum(CSV_COLUMNS.Selenium);
+    day.nutrients['Sodium'] += parseNum(CSV_COLUMNS.Sodium);
+    day.nutrients['Zinc'] += parseNum(CSV_COLUMNS.Zinc);
+    day.nutrients['Omega-3'] += parseNum(CSV_COLUMNS.Omega3);
+    day.nutrients['Omega-6'] += parseNum(CSV_COLUMNS.Omega6);
+    day.nutrients['Saturated'] += parseNum(CSV_COLUMNS.Saturated);
+    day.nutrients['Cholesterol'] += parseNum(CSV_COLUMNS.Cholesterol);
+  }
+
+  return Array.from(dailyMap.values());
+}
+
+function parseCronometerPDF(pdfText: string): DailyNutrients[] {
+  // Extract key data from PDF text format
+  const dailyData: DailyNutrients[] = [];
+  
+  // Look for "Daily Average" section
+  const avgMatch = pdfText.match(/Daily Average.*?Energy\s+([\d,.]+).*?Protein\s+([\d,.]+).*?Carbs\s+([\d,.]+).*?Fat\s+([\d,.]+)/is);
+  
+  // Parse nutrient values from PDF format like "Energy 2195.6 kcal 113%"
+  const extractNutrient = (pattern: RegExp): number => {
+    const match = pdfText.match(pattern);
+    if (match) {
+      return parseFloat(match[1].replace(',', '')) || 0;
+    }
+    return 0;
+  };
+
+  // Create a summary day from PDF data
+  const nutrients: Record<string, number> = {
+    'Energy': extractNutrient(/Energy\s+([\d,.]+)\s*kcal/i),
+    'Protein': extractNutrient(/Protein\s+([\d,.]+)\s*g/i),
+    'Carbs': extractNutrient(/Carbs\s+([\d,.]+)\s*g/i),
+    'Fat': extractNutrient(/Fat\s+([\d,.]+)\s*g/i),
+    'Fiber': extractNutrient(/Fiber\s+([\d,.]+)\s*g/i),
+    'B1 (Thiamine)': extractNutrient(/B1.*?Thiamine.*?([\d,.]+)\s*mg/i),
+    'B2 (Riboflavin)': extractNutrient(/B2.*?Riboflavin.*?([\d,.]+)\s*mg/i),
+    'B3 (Niacin)': extractNutrient(/B3.*?Niacin.*?([\d,.]+)\s*mg/i),
+    'B5 (Pantothenic Acid)': extractNutrient(/B5.*?Pantothenic.*?([\d,.]+)\s*mg/i),
+    'B6 (Pyridoxine)': extractNutrient(/B6.*?Pyridoxine.*?([\d,.]+)\s*mg/i),
+    'B12 (Cobalamin)': extractNutrient(/B12.*?Cobalamin.*?([\d,.]+)\s*[µu]g/i),
+    'Folate': extractNutrient(/Folate\s+([\d,.]+)\s*[µu]g/i),
+    'Vitamin A': extractNutrient(/Vitamin\s*A\s+([\d,.]+)\s*[µu]g/i),
+    'Vitamin C': extractNutrient(/Vitamin\s*C\s+([\d,.]+)\s*mg/i),
+    'Vitamin D': extractNutrient(/Vitamin\s*D\s+([\d,.]+)\s*IU/i),
+    'Vitamin E': extractNutrient(/Vitamin\s*E\s+([\d,.]+)\s*mg/i),
+    'Vitamin K': extractNutrient(/Vitamin\s*K\s+([\d,.]+)\s*[µu]g/i),
+    'Calcium': extractNutrient(/Calcium\s+([\d,.]+)\s*mg/i),
+    'Copper': extractNutrient(/Copper\s+([\d,.]+)\s*mg/i),
+    'Iron': extractNutrient(/Iron\s+([\d,.]+)\s*mg/i),
+    'Magnesium': extractNutrient(/Magnesium\s+([\d,.]+)\s*mg/i),
+    'Manganese': extractNutrient(/Manganese\s+([\d,.]+)\s*mg/i),
+    'Phosphorus': extractNutrient(/Phosphorus\s+([\d,.]+)\s*mg/i),
+    'Potassium': extractNutrient(/Potassium\s+([\d,.]+)\s*mg/i),
+    'Selenium': extractNutrient(/Selenium\s+([\d,.]+)\s*[µu]g/i),
+    'Sodium': extractNutrient(/Sodium\s+([\d,.]+)\s*mg/i),
+    'Zinc': extractNutrient(/Zinc\s+([\d,.]+)\s*mg/i),
+    'Omega-3': extractNutrient(/Omega-?3\s+([\d,.]+)\s*g/i),
+    'Omega-6': extractNutrient(/Omega-?6\s+([\d,.]+)\s*g/i),
+    'Saturated': extractNutrient(/Saturated\s+([\d,.]+)\s*g/i),
+    'Cholesterol': extractNutrient(/Cholesterol\s+([\d,.]+)\s*mg/i),
+  };
+
+  // Extract date range
+  const dateMatch = pdfText.match(/(\w+\s+\d+,\s+\d{4})\s+to\s+(\w+\s+\d+,\s+\d{4})/i);
+  const dateRange = dateMatch ? `${dateMatch[1]} to ${dateMatch[2]}` : 'PDF Report';
+
+  // Only add if we found actual data
+  if (nutrients['Energy'] > 0 || nutrients['Protein'] > 0) {
+    dailyData.push({
+      date: dateRange,
+      nutrients,
+      foods: [], // PDF doesn't have detailed food list in easy format
+    });
+  }
+
+  return dailyData;
+}
+
+// ============ ANALYSIS FUNCTIONS ============
+
+function calculateAverages(dailyData: DailyNutrients[]): Map<string, number> {
+  const averages = new Map<string, number>();
+  
+  if (dailyData.length === 0) return averages;
+
+  // Initialize totals
+  const totals: Record<string, number> = {};
+  
+  for (const day of dailyData) {
+    for (const [nutrient, value] of Object.entries(day.nutrients)) {
+      totals[nutrient] = (totals[nutrient] || 0) + value;
+    }
+  }
+
+  // Calculate averages
+  for (const [nutrient, total] of Object.entries(totals)) {
+    averages.set(nutrient, total / dailyData.length);
+  }
+
+  return averages;
+}
+
+function analyzeNutrients(
+  averages: Map<string, number>,
+  targets: Record<string, { target: number; unit: string; minOptimal: number; maxOptimal: number; category: string }>
+): { deficiencies: NutrientIssue[]; excesses: NutrientIssue[]; allNutrients: NutrientData[] } {
+  const deficiencies: NutrientIssue[] = [];
+  const excesses: NutrientIssue[] = [];
+  const allNutrients: NutrientData[] = [];
+
+  for (const [nutrient, config] of Object.entries(targets)) {
+    const actual = averages.get(nutrient) || 0;
+    const percentage = config.target > 0 ? (actual / config.target) * 100 : 0;
+
+    allNutrients.push({
+      name: nutrient,
+      value: Math.round(actual * 10) / 10,
+      unit: config.unit,
+      target: config.target,
+      percentage: Math.round(percentage),
+    });
+
+    if (percentage < config.minOptimal && percentage > 0) {
+      const severity = percentage < 50 ? 'critical' : percentage < 70 ? 'warning' : 'info';
+      deficiencies.push({
+        nutrient,
+        status: percentage < 50 ? 'deficient' : 'low',
+        percentage: Math.round(percentage),
+        target: config.target,
+        actual: Math.round(actual * 10) / 10,
+        unit: config.unit,
+        severity,
+        message: getDeficiencyMessage(nutrient, percentage),
+      });
+    } else if (percentage > config.maxOptimal) {
+      const severity = percentage > 400 ? 'critical' : percentage > 250 ? 'warning' : 'info';
+      excesses.push({
+        nutrient,
+        status: percentage > 400 ? 'excess' : 'high',
+        percentage: Math.round(percentage),
+        target: config.target,
+        actual: Math.round(actual * 10) / 10,
+        unit: config.unit,
+        severity,
+        message: getExcessMessage(nutrient, percentage),
+      });
+    }
+  }
+
+  return { deficiencies, excesses, allNutrients };
+}
+
+function analyzeRatios(averages: Map<string, number>): RatioAnalysis[] {
+  const ratios: RatioAnalysis[] = [];
+
+  // Omega-6:Omega-3 ratio (optimal 2:1 to 4:1)
+  const omega6 = averages.get('Omega-6') || 0;
+  const omega3 = averages.get('Omega-3') || 0;
+  if (omega3 > 0) {
+    const ratio = omega6 / omega3;
+    ratios.push({
+      name: 'Omega-6 : Omega-3',
+      ratio: Math.round(ratio * 10) / 10,
+      optimal: { min: 2, max: 4 },
+      status: ratio >= 2 && ratio <= 4 ? 'optimal' : ratio <= 6 ? 'suboptimal' : 'poor',
+      message: ratio > 4 
+        ? `High ratio (${ratio.toFixed(1)}:1). Increase omega-3 rich foods like fatty fish, chia seeds, flaxseeds.`
+        : ratio < 2
+          ? `Low ratio (${ratio.toFixed(1)}:1). This is generally fine.`
+          : `Good ratio (${ratio.toFixed(1)}:1). Well balanced.`,
+    });
+  }
+
+  // Potassium:Sodium ratio (optimal >1:1)
+  const potassium = averages.get('Potassium') || 0;
+  const sodium = averages.get('Sodium') || 0;
+  if (sodium > 0) {
+    const ratio = potassium / sodium;
+    ratios.push({
+      name: 'Potassium : Sodium',
+      ratio: Math.round(ratio * 100) / 100,
+      optimal: { min: 1, max: 3 },
+      status: ratio >= 1 ? 'optimal' : ratio >= 0.5 ? 'suboptimal' : 'poor',
+      message: ratio < 1
+        ? `Low ratio (${ratio.toFixed(1)}:1). Reduce sodium and increase potassium-rich foods.`
+        : `Good ratio (${ratio.toFixed(1)}:1). Healthy electrolyte balance.`,
+    });
+  }
+
+  // Calcium:Magnesium ratio (optimal 2:1)
+  const calcium = averages.get('Calcium') || 0;
+  const magnesium = averages.get('Magnesium') || 0;
+  if (magnesium > 0) {
+    const ratio = calcium / magnesium;
+    ratios.push({
+      name: 'Calcium : Magnesium',
+      ratio: Math.round(ratio * 10) / 10,
+      optimal: { min: 1.5, max: 2.5 },
+      status: ratio >= 1.5 && ratio <= 2.5 ? 'optimal' : ratio >= 1 && ratio <= 3 ? 'suboptimal' : 'poor',
+      message: ratio > 2.5
+        ? `High ratio (${ratio.toFixed(1)}:1). May need more magnesium for optimal absorption.`
+        : ratio < 1.5
+          ? `Low ratio (${ratio.toFixed(1)}:1). Consider calcium intake.`
+          : `Good ratio (${ratio.toFixed(1)}:1). Well balanced for absorption.`,
+    });
+  }
+
+  // Zinc:Copper ratio (optimal 8:1 to 12:1)
+  const zinc = averages.get('Zinc') || 0;
+  const copper = averages.get('Copper') || 0;
+  if (copper > 0) {
+    const ratio = zinc / copper;
+    ratios.push({
+      name: 'Zinc : Copper',
+      ratio: Math.round(ratio * 10) / 10,
+      optimal: { min: 8, max: 15 },
+      status: ratio >= 8 && ratio <= 15 ? 'optimal' : ratio >= 5 && ratio <= 20 ? 'suboptimal' : 'poor',
+      message: ratio > 15
+        ? `High ratio (${ratio.toFixed(1)}:1). May need more copper.`
+        : ratio < 8
+          ? `Low ratio (${ratio.toFixed(1)}:1). Ensure adequate zinc intake.`
+          : `Good ratio (${ratio.toFixed(1)}:1). Well balanced.`,
+    });
+  }
+
+  return ratios;
+}
+
+function generateRecommendations(
+  deficiencies: NutrientIssue[],
+  excesses: NutrientIssue[],
+  topFoods: { name: string; count: number; totalCalories: number }[]
+): FoodRecommendation[] {
+  const recommendations: FoodRecommendation[] = [];
+
+  // Add foods for deficiencies
+  for (const def of deficiencies.slice(0, 6)) {
+    const sources = FOOD_NUTRIENT_SOURCES[def.nutrient];
+    if (sources) {
+      recommendations.push({
+        type: 'add',
+        food: sources.slice(0, 2).join(' or '),
+        reason: `${def.nutrient} is at ${def.percentage}% of target. These are excellent sources.`,
+        nutrients: [def.nutrient],
+      });
+    }
+  }
+
+  // Reduce high sodium foods
+  const sodiumExcess = excesses.find(e => e.nutrient === 'Sodium');
+  if (sodiumExcess) {
+    recommendations.push({
+      type: 'reduce',
+      food: 'Processed foods, cured meats, canned soups',
+      reason: `Sodium is ${sodiumExcess.percentage}% of target (${sodiumExcess.actual}mg). Aim for <2300mg/day.`,
+      nutrients: ['Sodium'],
+    });
+  }
+
+  // Fat recommendations
+  const fatExcess = excesses.find(e => e.nutrient === 'Fat');
+  const saturatedExcess = excesses.find(e => e.nutrient === 'Saturated');
+  if (fatExcess || saturatedExcess) {
+    recommendations.push({
+      type: 'swap',
+      food: 'Higher-fat meats (80% lean beef, sausages)',
+      swapFor: '93%+ lean ground turkey/beef, chicken breast',
+      reason: 'Leaner protein sources reduce total and saturated fat.',
+      nutrients: ['Fat', 'Saturated'],
+    });
+  }
+
+  // Fiber recommendations
+  const fiberDef = deficiencies.find(d => d.nutrient === 'Fiber');
+  if (fiberDef) {
+    recommendations.push({
+      type: 'add',
+      food: 'Beans, lentils, chia seeds, or berries',
+      reason: `Fiber at ${fiberDef.percentage}% of target. Add 1 serving of legumes or berries daily.`,
+      nutrients: ['Fiber'],
+    });
+  }
+
+  // Vitamin D from supplements note
+  const vitDExcess = excesses.find(e => e.nutrient === 'Vitamin D' && e.percentage > 500);
+  if (vitDExcess) {
+    recommendations.push({
+      type: 'reduce',
+      food: 'Vitamin D supplements',
+      reason: `Very high Vitamin D (${vitDExcess.percentage}%). Consider reducing supplement dose.`,
+      nutrients: ['Vitamin D'],
+    });
+  }
+
+  return recommendations;
+}
+
+function getDeficiencyMessage(nutrient: string, percentage: number): string {
+  const messages: Record<string, string> = {
+    'Iron': 'Low iron can cause fatigue. Pair iron-rich foods with vitamin C for better absorption.',
+    'Magnesium': 'Magnesium supports muscle function, sleep, and over 300 enzymatic reactions.',
+    'Vitamin E': 'Vitamin E is an important antioxidant. Include nuts, seeds, and healthy oils.',
+    'Fiber': 'Low fiber affects gut health, satiety, and blood sugar control.',
+    'Potassium': 'Potassium is crucial for heart rhythm and muscle function.',
+    'Calcium': 'Calcium is essential for bone health and muscle contraction.',
+    'Zinc': 'Zinc supports immune function, wound healing, and protein synthesis.',
+    'Vitamin K': 'Vitamin K is essential for blood clotting and bone metabolism.',
+    'Omega-3': 'Omega-3s are anti-inflammatory and support brain and heart health.',
+    'Vitamin D': 'Vitamin D is crucial for immune function, bones, and mood.',
+    'Folate': 'Folate is essential for cell division and DNA synthesis.',
+    'Vitamin A': 'Vitamin A supports vision, immune function, and skin health.',
+    'B12 (Cobalamin)': 'B12 is essential for nerve function and red blood cell formation.',
+  };
+  return messages[nutrient] || `${nutrient} is at ${percentage.toFixed(0)}% of target. Consider increasing intake.`;
+}
+
+function getExcessMessage(nutrient: string, percentage: number): string {
+  const messages: Record<string, string> = {
+    'Sodium': 'High sodium may increase blood pressure. Reduce processed foods and added salt.',
+    'Fat': 'Consider portion sizes and choosing leaner protein sources.',
+    'Vitamin D': 'Very high from supplementation. Excess vitamin D can be stored in fat tissue.',
+    'Vitamin C': 'High vitamin C from supplements. Generally safe but excess is excreted.',
+    'Selenium': 'High selenium. Avoid Brazil nuts if consuming them regularly.',
+    'Saturated': 'High saturated fat may affect cardiovascular health. Choose leaner options.',
+    'Cholesterol': 'Dietary cholesterol impact varies by individual. Monitor with blood tests.',
+  };
+  return messages[nutrient] || `${nutrient} is at ${percentage.toFixed(0)}% of target. Consider moderating intake.`;
+}
+
+// ============ COMPONENT ============
+
+export default function NutritionAnalysisPage() {
+  const router = useRouter();
+
+  const [csvData, setCsvData] = useState<string>('');
+  const [pdfData, setPdfData] = useState<string>('');
+  const [csvFileName, setCsvFileName] = useState<string>('');
+  const [pdfFileName, setPdfFileName] = useState<string>('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [parseLog, setParseLog] = useState<string[]>([]);
+
+  // Custom targets
+  const [customTargets, setCustomTargets] = useState({
+    calories: 2000,
+    protein: 150,
+    carbs: 200,
+    fat: 75,
+  });
+
+  // CSV file upload handler
+  const handleCSVUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast.error('Please upload a CSV file');
+      return;
+    }
+
+    setCsvFileName(file.name);
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      setCsvData(content);
+      
+      // Quick parse check
+      const lines = content.split('\n').filter(l => l.trim());
+      setParseLog(prev => [...prev, `CSV loaded: ${lines.length} lines found`]);
+      toast.success(`CSV "${file.name}" loaded - ${lines.length} rows`);
+    };
+
+    reader.onerror = () => {
+      toast.error('Error reading CSV file');
+    };
+
+    reader.readAsText(file);
+  }, []);
+
+  // PDF file upload handler
+  const handlePDFUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.pdf')) {
+      toast.error('Please upload a PDF file');
+      return;
+    }
+
+    setPdfFileName(file.name);
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      setPdfData(content);
+      setParseLog(prev => [...prev, `PDF loaded: ${file.name}`]);
+      toast.success(`PDF "${file.name}" loaded`);
+    };
+
+    reader.onerror = () => {
+      toast.error('Error reading PDF file');
+    };
+
+    reader.readAsText(file);
+  }, []);
+
+  const clearFile = (type: 'csv' | 'pdf') => {
+    if (type === 'csv') {
+      setCsvData('');
+      setCsvFileName('');
+    } else {
+      setPdfData('');
+      setPdfFileName('');
+    }
+  };
+
+  // Analyze data
+  const handleAnalyze = useCallback(() => {
+    if (!csvData && !pdfData) {
+      toast.error('Please upload a CSV or PDF file');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setParseLog([]);
+
+    try {
+      let dailyData: DailyNutrients[] = [];
+      const logs: string[] = [];
+
+      // Parse CSV data (preferred)
+      if (csvData) {
+        logs.push('Parsing CSV data...');
+        dailyData = parseCronometerCSV(csvData);
+        logs.push(`Found ${dailyData.length} days in CSV`);
+        
+        if (dailyData.length > 0) {
+          const firstDay = dailyData[0];
+          logs.push(`First day: ${firstDay.date}`);
+          logs.push(`Foods logged: ${firstDay.foods.length}`);
+          logs.push(`Calories: ${Math.round(firstDay.nutrients['Energy'])} kcal`);
+        }
+      }
+
+      // Parse PDF data as fallback or supplement
+      if (pdfData && dailyData.length === 0) {
+        logs.push('Parsing PDF data...');
+        dailyData = parseCronometerPDF(pdfData);
+        logs.push(`Extracted ${dailyData.length} summary records from PDF`);
+      }
+
+      setParseLog(logs);
+
+      if (dailyData.length === 0) {
+        toast.error('No nutritional data found. Check file format.');
+        setIsAnalyzing(false);
+        return;
+      }
+
+      // Calculate averages
+      const averages = calculateAverages(dailyData);
+
+      // Update targets with custom values
+      const targets = { ...NUTRIENT_TARGETS };
+      targets['Energy'].target = customTargets.calories;
+      targets['Protein'].target = customTargets.protein;
+      targets['Carbs'].target = customTargets.carbs;
+      targets['Fat'].target = customTargets.fat;
+
+      // Analyze
+      const { deficiencies, excesses, allNutrients } = analyzeNutrients(averages, targets);
+      const ratios = analyzeRatios(averages);
+
+      // Get top foods
+      const foodCounts = new Map<string, { count: number; calories: number }>();
+      for (const day of dailyData) {
+        for (const food of day.foods) {
+          const key = food.name;
+          const current = foodCounts.get(key) || { count: 0, calories: 0 };
+          foodCounts.set(key, {
+            count: current.count + 1,
+            calories: current.calories + food.calories,
+          });
+        }
+      }
+      const topFoods = Array.from(foodCounts.entries())
+        .map(([name, data]) => ({ name, count: data.count, totalCalories: Math.round(data.calories) }))
+        .filter(f => f.name && f.name.trim() !== '')
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 15);
+
+      // Generate recommendations
+      const recommendations = generateRecommendations(deficiencies, excesses, topFoods);
+
+      // Calculate overall score
+      const defScore = Math.max(0, 100 - deficiencies.reduce((sum, d) => sum + (100 - d.percentage) * 0.4, 0));
+      const excessScore = Math.max(0, 100 - excesses.filter(e => e.severity !== 'info').reduce((sum, e) => sum + (e.percentage - 100) * 0.2, 0));
+      const ratioScore = ratios.filter(r => r.status === 'optimal').length / Math.max(ratios.length, 1) * 100;
+      const overallScore = Math.round((defScore * 0.4 + excessScore * 0.3 + ratioScore * 0.3));
+
+      setAnalysisResult({
+        summary: {
+          totalCalories: Math.round(averages.get('Energy') || 0),
+          totalProtein: Math.round(averages.get('Protein') || 0),
+          totalCarbs: Math.round(averages.get('Carbs') || 0),
+          totalFat: Math.round(averages.get('Fat') || 0),
+          totalFiber: Math.round(averages.get('Fiber') || 0),
+          daysAnalyzed: dailyData.length,
+          overallScore: Math.min(100, Math.max(0, overallScore)),
+        },
+        dailyAverages: allNutrients,
+        deficiencies: deficiencies.sort((a, b) => a.percentage - b.percentage),
+        excesses: excesses.sort((a, b) => b.percentage - a.percentage),
+        ratios,
+        recommendations,
+        topFoods,
+        dailyBreakdown: dailyData,
+      });
+
+      toast.success(`Analysis complete! ${dailyData.length} days analyzed.`);
+    } catch (error) {
+      console.error(error);
+      toast.error('Error analyzing data. Check console for details.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [csvData, pdfData, customTargets]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'deficient':
+      case 'excess':
+      case 'poor':
+        return 'text-red-600 bg-red-50 border-red-200';
+      case 'low':
+      case 'high':
+      case 'suboptimal':
+        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'optimal':
+        return 'text-green-600 bg-green-50 border-green-200';
+      default:
+        return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  const getSeverityIcon = (severity: string) => {
+    switch (severity) {
+      case 'critical':
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      case 'warning':
+        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+      default:
+        return <Info className="h-4 w-4 text-blue-500" />;
+    }
+  };
+
+  const getPercentageColor = (pct: number) => {
+    if (pct < 50) return 'text-red-600';
+    if (pct < 80) return 'text-yellow-600';
+    if (pct <= 150) return 'text-green-600';
+    if (pct <= 250) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container py-8 max-w-7xl mx-auto">
+        <div className="mb-8 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Beaker className="h-8 w-8 text-[#c19962]" />
+            <h1 className="text-3xl font-bold">Nutrition Analysis Tool</h1>
+          </div>
+          <p className="text-muted-foreground">
+            Upload Cronometer exports to identify nutrient gaps, imbalances, and get personalized recommendations
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Upload & Settings */}
+          <div className="space-y-6">
+            {/* CSV Upload */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                  CSV Upload (Recommended)
+                </CardTitle>
+                <CardDescription>Cronometer Servings Export</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className={cn(
+                  "border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer",
+                  csvFileName ? "border-green-400 bg-green-50" : "hover:border-[#c19962]"
+                )}>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleCSVUpload}
+                    className="hidden"
+                    id="csv-upload"
+                  />
+                  <label htmlFor="csv-upload" className="cursor-pointer">
+                    {csvFileName ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        <span className="text-sm font-medium text-green-700">{csvFileName}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={(e) => { e.preventDefault(); clearFile('csv'); }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <FileSpreadsheet className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm font-medium">Click to upload CSV</p>
+                      </>
+                    )}
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* PDF Upload */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-purple-600" />
+                  PDF Upload (Backup)
+                </CardTitle>
+                <CardDescription>Cronometer Report PDF</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className={cn(
+                  "border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer",
+                  pdfFileName ? "border-purple-400 bg-purple-50" : "hover:border-[#c19962]"
+                )}>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={handlePDFUpload}
+                    className="hidden"
+                    id="pdf-upload"
+                  />
+                  <label htmlFor="pdf-upload" className="cursor-pointer">
+                    {pdfFileName ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-purple-600" />
+                        <span className="text-sm font-medium text-purple-700">{pdfFileName}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={(e) => { e.preventDefault(); clearFile('pdf'); }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm font-medium">Click to upload PDF</p>
+                      </>
+                    )}
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Custom Targets */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Target className="h-5 w-5 text-[#c19962]" />
+                  Your Targets
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Calories</Label>
+                    <Input
+                      type="number"
+                      value={customTargets.calories}
+                      onChange={(e) => setCustomTargets({ ...customTargets, calories: parseInt(e.target.value) || 2000 })}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Protein (g)</Label>
+                    <Input
+                      type="number"
+                      value={customTargets.protein}
+                      onChange={(e) => setCustomTargets({ ...customTargets, protein: parseInt(e.target.value) || 150 })}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Carbs (g)</Label>
+                    <Input
+                      type="number"
+                      value={customTargets.carbs}
+                      onChange={(e) => setCustomTargets({ ...customTargets, carbs: parseInt(e.target.value) || 200 })}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Fat (g)</Label>
+                    <Input
+                      type="number"
+                      value={customTargets.fat}
+                      onChange={(e) => setCustomTargets({ ...customTargets, fat: parseInt(e.target.value) || 75 })}
+                      className="h-8"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Analyze Button */}
+            <Card className="border-[#c19962]">
+              <CardContent className="pt-6">
+                <Button
+                  className="w-full bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+                  size="lg"
+                  onClick={handleAnalyze}
+                  disabled={(!csvData && !pdfData) || isAnalyzing}
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Beaker className="mr-2 h-4 w-4" />
+                      Analyze Nutrition
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Parse Log */}
+            {parseLog.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Parse Log</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xs space-y-1 font-mono">
+                    {parseLog.map((log, i) => (
+                      <p key={i} className="text-muted-foreground">{log}</p>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Export Instructions */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-yellow-500" />
+                  How to Export from Cronometer
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ol className="text-xs space-y-1 text-muted-foreground">
+                  <li><strong>1.</strong> Go to cronometer.com → Settings → Account</li>
+                  <li><strong>2.</strong> Click "Export Data"</li>
+                  <li><strong>3.</strong> Select "Servings" and your date range</li>
+                  <li><strong>4.</strong> Download CSV and upload above</li>
+                </ol>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column - Results */}
+          <div className="lg:col-span-2 space-y-6">
+            {analysisResult ? (
+              <>
+                {/* Summary Card */}
+                <Card className="border-[#c19962] bg-gradient-to-br from-[#c19962]/5 to-transparent">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">Analysis Summary</CardTitle>
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          "text-lg px-3 py-1",
+                          analysisResult.summary.overallScore >= 80 && "border-green-500 text-green-600",
+                          analysisResult.summary.overallScore >= 60 && analysisResult.summary.overallScore < 80 && "border-yellow-500 text-yellow-600",
+                          analysisResult.summary.overallScore < 60 && "border-red-500 text-red-600"
+                        )}
+                      >
+                        Score: {analysisResult.summary.overallScore}/100
+                      </Badge>
+                    </div>
+                    <CardDescription>{analysisResult.summary.daysAnalyzed} day(s) analyzed</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-5 gap-3 mb-4">
+                      <div className="text-center p-3 bg-background rounded-lg border">
+                        <p className="text-xl font-bold">{analysisResult.summary.totalCalories}</p>
+                        <p className="text-xs text-muted-foreground">Calories</p>
+                      </div>
+                      <div className="text-center p-3 bg-background rounded-lg border">
+                        <p className="text-xl font-bold">{analysisResult.summary.totalProtein}g</p>
+                        <p className="text-xs text-muted-foreground">Protein</p>
+                      </div>
+                      <div className="text-center p-3 bg-background rounded-lg border">
+                        <p className="text-xl font-bold">{analysisResult.summary.totalCarbs}g</p>
+                        <p className="text-xs text-muted-foreground">Carbs</p>
+                      </div>
+                      <div className="text-center p-3 bg-background rounded-lg border">
+                        <p className="text-xl font-bold">{analysisResult.summary.totalFat}g</p>
+                        <p className="text-xs text-muted-foreground">Fat</p>
+                      </div>
+                      <div className="text-center p-3 bg-background rounded-lg border">
+                        <p className="text-xl font-bold">{analysisResult.summary.totalFiber}g</p>
+                        <p className="text-xs text-muted-foreground">Fiber</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <TrendingDown className="h-4 w-4 text-red-500" />
+                        <span>{analysisResult.deficiencies.length} Low</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-yellow-500" />
+                        <span>{analysisResult.excesses.length} High</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ArrowRightLeft className="h-4 w-4 text-blue-500" />
+                        <span>{analysisResult.ratios.filter(r => r.status !== 'optimal').length} Ratio Issues</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Tabs */}
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="grid w-full grid-cols-5">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="nutrients">All Nutrients</TabsTrigger>
+                    <TabsTrigger value="issues">Issues</TabsTrigger>
+                    <TabsTrigger value="foods">Foods</TabsTrigger>
+                    <TabsTrigger value="recommendations">Actions</TabsTrigger>
+                  </TabsList>
+
+                  {/* Overview Tab */}
+                  <TabsContent value="overview" className="space-y-4 mt-4">
+                    {/* Critical Alert */}
+                    {analysisResult.deficiencies.filter(d => d.severity === 'critical').length > 0 && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Critical Deficiencies</AlertTitle>
+                        <AlertDescription>
+                          {analysisResult.deficiencies.filter(d => d.severity === 'critical').map(d => d.nutrient).join(', ')}
+                          {' '}are significantly below targets.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Ratios */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">Nutrient Ratios</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 gap-3">
+                          {analysisResult.ratios.map((ratio) => (
+                            <div key={ratio.name} className={cn("p-3 rounded-lg border", getStatusColor(ratio.status))}>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm font-medium">{ratio.name}</span>
+                                <span className="font-bold">{ratio.ratio}:1</span>
+                              </div>
+                              <p className="text-xs opacity-80">{ratio.message}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Quick Issues List */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm text-red-600 flex items-center gap-2">
+                            <TrendingDown className="h-4 w-4" />
+                            Below Target
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {analysisResult.deficiencies.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">None!</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {analysisResult.deficiencies.slice(0, 6).map((d) => (
+                                <div key={d.nutrient} className="flex justify-between text-sm">
+                                  <span>{d.nutrient}</span>
+                                  <span className={getPercentageColor(d.percentage)}>{d.percentage}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm text-yellow-600 flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4" />
+                            Above Target
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {analysisResult.excesses.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">None!</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {analysisResult.excesses.slice(0, 6).map((e) => (
+                                <div key={e.nutrient} className="flex justify-between text-sm">
+                                  <span>{e.nutrient}</span>
+                                  <span className={getPercentageColor(e.percentage)}>{e.percentage}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </TabsContent>
+
+                  {/* All Nutrients Tab */}
+                  <TabsContent value="nutrients" className="mt-4">
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">Complete Nutrient Analysis</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ScrollArea className="h-[500px]">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Nutrient</TableHead>
+                                <TableHead className="text-right">Avg/Day</TableHead>
+                                <TableHead className="text-right">Target</TableHead>
+                                <TableHead className="text-right">%</TableHead>
+                                <TableHead className="w-[120px]">Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {analysisResult.dailyAverages.map((n) => (
+                                <TableRow key={n.name}>
+                                  <TableCell className="font-medium">{n.name}</TableCell>
+                                  <TableCell className="text-right">{n.value} {n.unit}</TableCell>
+                                  <TableCell className="text-right">{n.target} {n.unit}</TableCell>
+                                  <TableCell className={cn("text-right font-medium", getPercentageColor(n.percentage))}>
+                                    {n.percentage}%
+                                  </TableCell>
+                                  <TableCell>
+                                    <Progress 
+                                      value={Math.min(n.percentage, 200)} 
+                                      className="h-2"
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </ScrollArea>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* Issues Tab */}
+                  <TabsContent value="issues" className="space-y-4 mt-4">
+                    {/* Deficiencies */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base text-red-600 flex items-center gap-2">
+                          <TrendingDown className="h-5 w-5" />
+                          Deficiencies & Low Nutrients ({analysisResult.deficiencies.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {analysisResult.deficiencies.length === 0 ? (
+                          <div className="text-center py-6">
+                            <CheckCircle2 className="h-12 w-12 mx-auto text-green-500 mb-2" />
+                            <p className="text-muted-foreground">No significant deficiencies detected!</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {analysisResult.deficiencies.map((issue) => (
+                              <div key={issue.nutrient} className={cn("p-3 rounded-lg border", getStatusColor(issue.status))}>
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-start gap-2">
+                                    {getSeverityIcon(issue.severity)}
+                                    <div>
+                                      <p className="font-medium">{issue.nutrient}</p>
+                                      <p className="text-sm opacity-80">
+                                        {issue.actual} {issue.unit} / {issue.target} {issue.unit} target
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Badge variant="outline" className="text-red-600 border-red-300">
+                                    {issue.percentage}%
+                                  </Badge>
+                                </div>
+                                <p className="text-sm mt-2 opacity-80">{issue.message}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Excesses */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base text-yellow-600 flex items-center gap-2">
+                          <TrendingUp className="h-5 w-5" />
+                          High / Excess Nutrients ({analysisResult.excesses.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {analysisResult.excesses.length === 0 ? (
+                          <div className="text-center py-6">
+                            <CheckCircle2 className="h-12 w-12 mx-auto text-green-500 mb-2" />
+                            <p className="text-muted-foreground">No excessive intakes detected!</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {analysisResult.excesses.map((issue) => (
+                              <div key={issue.nutrient} className={cn("p-3 rounded-lg border", getStatusColor(issue.status))}>
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-start gap-2">
+                                    {getSeverityIcon(issue.severity)}
+                                    <div>
+                                      <p className="font-medium">{issue.nutrient}</p>
+                                      <p className="text-sm opacity-80">
+                                        {issue.actual} {issue.unit} / {issue.target} {issue.unit} target
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Badge variant="outline" className="text-yellow-600 border-yellow-300">
+                                    {issue.percentage}%
+                                  </Badge>
+                                </div>
+                                <p className="text-sm mt-2 opacity-80">{issue.message}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* Foods Tab */}
+                  <TabsContent value="foods" className="space-y-4 mt-4">
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Apple className="h-5 w-5 text-green-600" />
+                          Most Consumed Foods
+                        </CardTitle>
+                        <CardDescription>Foods appearing most frequently in your logs</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {analysisResult.topFoods.length === 0 ? (
+                          <p className="text-muted-foreground text-center py-4">
+                            No food data available (CSV required for food breakdown)
+                          </p>
+                        ) : (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Food</TableHead>
+                                <TableHead className="text-right">Times Logged</TableHead>
+                                <TableHead className="text-right">Total Calories</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {analysisResult.topFoods.map((food, i) => (
+                                <TableRow key={i}>
+                                  <TableCell className="font-medium">{food.name}</TableCell>
+                                  <TableCell className="text-right">{food.count}</TableCell>
+                                  <TableCell className="text-right">{food.totalCalories} kcal</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Daily Breakdown */}
+                    {analysisResult.dailyBreakdown.length > 1 && (
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base">Daily Breakdown</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ScrollArea className="h-[300px]">
+                            <div className="space-y-2">
+                              {analysisResult.dailyBreakdown.map((day, i) => (
+                                <div key={i} className="flex items-center justify-between p-2 rounded-lg border">
+                                  <span className="font-medium">{day.date}</span>
+                                  <div className="flex gap-4 text-sm text-muted-foreground">
+                                    <span>{Math.round(day.nutrients['Energy'])} cal</span>
+                                    <span>{Math.round(day.nutrients['Protein'])}g P</span>
+                                    <span>{Math.round(day.nutrients['Carbs'])}g C</span>
+                                    <span>{Math.round(day.nutrients['Fat'])}g F</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </TabsContent>
+
+                  {/* Recommendations Tab */}
+                  <TabsContent value="recommendations" className="space-y-4 mt-4">
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Lightbulb className="h-5 w-5 text-yellow-500" />
+                          Actionable Recommendations
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {analysisResult.recommendations.length === 0 ? (
+                          <div className="text-center py-6">
+                            <CheckCircle2 className="h-12 w-12 mx-auto text-green-500 mb-2" />
+                            <p className="text-muted-foreground">Your nutrition looks great! No major changes needed.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {analysisResult.recommendations.map((rec, i) => (
+                              <div key={i} className="flex gap-4 p-4 rounded-lg border">
+                                <div className={cn(
+                                  "flex items-center justify-center h-10 w-10 rounded-full flex-shrink-0",
+                                  rec.type === 'add' && "bg-green-100 text-green-700",
+                                  rec.type === 'increase' && "bg-blue-100 text-blue-700",
+                                  rec.type === 'reduce' && "bg-red-100 text-red-700",
+                                  rec.type === 'swap' && "bg-purple-100 text-purple-700"
+                                )}>
+                                  {rec.type === 'add' && '+'}
+                                  {rec.type === 'increase' && '↑'}
+                                  {rec.type === 'reduce' && '↓'}
+                                  {rec.type === 'swap' && '⇄'}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge variant="outline" className="text-xs capitalize">
+                                      {rec.type}
+                                    </Badge>
+                                    {rec.nutrients.map((n) => (
+                                      <Badge key={n} variant="secondary" className="text-xs">
+                                        {n}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                  <p className="font-medium">
+                                    {rec.type === 'swap' ? (
+                                      <>
+                                        <span className="text-red-600">{rec.food}</span>
+                                        <ChevronRight className="inline h-4 w-4 mx-1" />
+                                        <span className="text-green-600">{rec.swapFor}</span>
+                                      </>
+                                    ) : (
+                                      rec.food
+                                    )}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground mt-1">{rec.reason}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </>
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <Beaker className="h-16 w-16 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Upload to Get Started</h3>
+                  <p className="text-muted-foreground text-center max-w-md">
+                    Upload your Cronometer CSV export (recommended) or PDF report to analyze your nutrition data 
+                    and get personalized insights.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
