@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   ArrowLeft, 
   Upload,
@@ -36,7 +37,11 @@ import {
   Lightbulb,
   ArrowRightLeft,
   ChevronRight,
-  X
+  X,
+  Download,
+  Loader2,
+  Sparkles,
+  UtensilsCrossed
 } from 'lucide-react';
 
 // ============ TYPES ============
@@ -668,6 +673,13 @@ export default function NutritionAnalysisPage() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [parseLog, setParseLog] = useState<string[]>([]);
+  
+  // New features
+  const [coachComments, setCoachComments] = useState<string>('');
+  const [aiRecommendations, setAiRecommendations] = useState<string>('');
+  const [sampleDayPlan, setSampleDayPlan] = useState<any>(null);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Custom targets
   const [customTargets, setCustomTargets] = useState({
@@ -855,6 +867,83 @@ export default function NutritionAnalysisPage() {
       setIsAnalyzing(false);
     }
   }, [csvData, pdfData, customTargets]);
+
+  // Generate AI recommendations and sample day
+  const generateAIRecommendations = useCallback(async () => {
+    if (!analysisResult) return;
+    
+    setIsGeneratingAI(true);
+    try {
+      const response = await fetch('/api/generate-nutrition-recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysis: {
+            summary: analysisResult.summary,
+            deficiencies: analysisResult.deficiencies,
+            excesses: analysisResult.excesses,
+            ratios: analysisResult.ratios,
+            topFoods: analysisResult.topFoods,
+          },
+          targets: customTargets,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate recommendations');
+      }
+
+      const data = await response.json();
+      setAiRecommendations(data.recommendations);
+      setSampleDayPlan(data.sampleDay);
+      toast.success('AI recommendations generated!');
+    } catch (error) {
+      console.error('AI generation error:', error);
+      toast.error('Failed to generate AI recommendations');
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  }, [analysisResult, customTargets]);
+
+  // Download PDF report
+  const downloadPDF = async () => {
+    if (!analysisResult) return;
+    
+    setIsDownloading(true);
+    try {
+      const response = await fetch('/api/generate-nutrition-analysis-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysis: analysisResult,
+          targets: customTargets,
+          coachComments,
+          aiRecommendations,
+          sampleDayPlan,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'nutrition-analysis-report.pdf';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('PDF downloaded!');
+    } catch (error) {
+      console.error('PDF download error:', error);
+      toast.error('Failed to download PDF');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1156,20 +1245,128 @@ export default function NutritionAnalysisPage() {
                       </div>
                     </div>
 
-                    <div className="flex gap-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <TrendingDown className="h-4 w-4 text-red-500" />
-                        <span>{analysisResult.deficiencies.length} Low</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <TrendingDown className="h-4 w-4 text-red-500" />
+                          <span>{analysisResult.deficiencies.length} Low</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4 text-yellow-500" />
+                          <span>{analysisResult.excesses.length} High</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <ArrowRightLeft className="h-4 w-4 text-blue-500" />
+                          <span>{analysisResult.ratios.filter(r => r.status !== 'optimal').length} Ratio Issues</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-yellow-500" />
-                        <span>{analysisResult.excesses.length} High</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <ArrowRightLeft className="h-4 w-4 text-blue-500" />
-                        <span>{analysisResult.ratios.filter(r => r.status !== 'optimal').length} Ratio Issues</span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={generateAIRecommendations}
+                          disabled={isGeneratingAI}
+                        >
+                          {isGeneratingAI ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4 mr-1" />
+                          )}
+                          AI Insights
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={downloadPDF}
+                          disabled={isDownloading}
+                        >
+                          {isDownloading ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4 mr-1" />
+                          )}
+                          PDF
+                        </Button>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* AI Recommendations & Sample Day */}
+                {(aiRecommendations || sampleDayPlan) && (
+                  <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-transparent">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-purple-600" />
+                        AI-Powered Insights
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {aiRecommendations && (
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-sm">Personalized Recommendations</h4>
+                          <div className="p-3 bg-white rounded-lg border text-sm whitespace-pre-wrap">
+                            {aiRecommendations}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {sampleDayPlan && (
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-sm flex items-center gap-2">
+                            <UtensilsCrossed className="h-4 w-4" />
+                            Optimized Sample Day
+                          </h4>
+                          <div className="grid gap-2">
+                            {sampleDayPlan.meals?.map((meal: any, i: number) => (
+                              <div key={i} className="p-3 bg-white rounded-lg border">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-medium text-sm">{meal.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {meal.calories} cal | {meal.protein}g P | {meal.carbs}g C | {meal.fat}g F
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">{meal.description}</p>
+                                {meal.foods && (
+                                  <div className="mt-2 flex flex-wrap gap-1">
+                                    {meal.foods.map((food: string, j: number) => (
+                                      <Badge key={j} variant="secondary" className="text-xs">{food}</Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          {sampleDayPlan.totals && (
+                            <div className="p-2 bg-purple-100 rounded-lg text-center">
+                              <span className="text-sm font-medium text-purple-800">
+                                Day Total: {sampleDayPlan.totals.calories} cal | {sampleDayPlan.totals.protein}g P | {sampleDayPlan.totals.carbs}g C | {sampleDayPlan.totals.fat}g F
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Coach Comments */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-[#c19962]" />
+                      Coach Notes & Comments
+                    </CardTitle>
+                    <CardDescription>Add personalized notes (will be included in PDF export)</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Textarea
+                      placeholder="Add your personalized recommendations, observations, or guidance for the client here. These notes will appear in the exported PDF report..."
+                      value={coachComments}
+                      onChange={(e) => setCoachComments(e.target.value)}
+                      rows={4}
+                      className="resize-none"
+                    />
                   </CardContent>
                 </Card>
 
