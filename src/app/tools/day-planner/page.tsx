@@ -39,7 +39,8 @@ import {
   Plus,
   Trash2,
   Copy,
-  Check
+  Check,
+  Loader2
 } from 'lucide-react';
 
 // ============ TYPES ============
@@ -144,6 +145,7 @@ export default function DayPlannerPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedPlan, setGeneratedPlan] = useState<DayPlan | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Helpers
   const addMealSlot = () => {
@@ -287,6 +289,45 @@ export default function DayPlannerPage() {
 
     navigator.clipboard.writeText(text);
     toast.success('Plan copied to clipboard!');
+  };
+
+  // Download PDF
+  const downloadPDF = async () => {
+    if (!generatedPlan) return;
+    
+    setIsDownloading(true);
+    try {
+      const response = await fetch('/api/generate-day-plan-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName,
+          targets: { calories: targetCalories, protein: targetProtein, carbs: targetCarbs, fat: targetFat },
+          dayContext: { dayType, workoutTiming, workoutType, wakeTime, sleepTime },
+          plan: generatedPlan,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${clientName || 'day'}-nutrition-plan.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('PDF downloaded!');
+    } catch (error) {
+      console.error('PDF download error:', error);
+      toast.error('Failed to download PDF');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -724,6 +765,19 @@ export default function DayPlannerPage() {
                         <Button variant="outline" size="sm" onClick={copyToClipboard}>
                           <Copy className="h-4 w-4 mr-1" />
                           Copy
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={downloadPDF}
+                          disabled={isDownloading}
+                        >
+                          {isDownloading ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4 mr-1" />
+                          )}
+                          PDF
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleGenerate()}>
                           <RefreshCw className="h-4 w-4 mr-1" />
