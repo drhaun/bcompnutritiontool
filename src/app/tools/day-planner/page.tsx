@@ -309,7 +309,9 @@ export default function DayPlannerPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate PDF');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('PDF error:', errorData);
+        throw new Error(errorData.message || 'Failed to generate PDF');
       }
 
       const blob = await response.blob();
