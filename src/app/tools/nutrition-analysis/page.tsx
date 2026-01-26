@@ -767,7 +767,7 @@ export default function NutritionAnalysisPage() {
         end: format(cronometerDateRange.to, 'yyyy-MM-dd'),
       });
       
-      if (selectedCronometerClient) {
+      if (selectedCronometerClient && selectedCronometerClient !== 'self') {
         params.append('client_id', selectedCronometerClient);
       }
       
@@ -1219,7 +1219,7 @@ export default function NutritionAnalysisPage() {
                             <SelectValue placeholder="Select a client (or yourself)" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">My own data</SelectItem>
+                            <SelectItem value="self">My own data</SelectItem>
                             {cronometerClients.map((client) => (
                               <SelectItem key={client.client_id} value={client.client_id.toString()}>
                                 <div className="flex items-center gap-2">
