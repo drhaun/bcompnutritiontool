@@ -416,7 +416,7 @@ export async function POST(request: NextRequest) {
         coachComments: coachComments || '', 
         aiRecommendations: aiRecommendations || '', 
         sampleDayPlan 
-      })
+      }) as React.ReactElement
     );
 
     return new NextResponse(pdfBuffer, {

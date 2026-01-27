@@ -300,7 +300,7 @@ export async function POST(request: NextRequest) {
     const { clientName, targets, dayContext, plan } = body;
 
     const pdfBuffer = await renderToBuffer(
-      React.createElement(DayPlanPDF, { clientName, targets, dayContext, plan })
+      React.createElement(DayPlanPDF, { clientName, targets, dayContext, plan }) as React.ReactElement
     );
 
     return new NextResponse(pdfBuffer, {

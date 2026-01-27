@@ -37,7 +37,7 @@ export async function POST(request: Request) {
         nutritionTargets,
         mealPlan,
         groceryList,
-      })
+      }) as React.ReactElement
     );
     
     // Create a client-friendly filename

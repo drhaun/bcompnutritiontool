@@ -402,7 +402,7 @@ export async function POST(request: NextRequest) {
     const { meal, context, targets } = body;
 
     const pdfBuffer = await renderToBuffer(
-      React.createElement(MealPDF, { meal, context, targets })
+      React.createElement(MealPDF, { meal, context, targets }) as React.ReactElement
     );
 
     const filename = meal.name.replace(/\s+/g, '-').toLowerCase();

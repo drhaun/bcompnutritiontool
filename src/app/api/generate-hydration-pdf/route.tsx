@@ -373,7 +373,7 @@ export async function POST(request: NextRequest) {
     const { results, inputs, measurementSystem } = body;
 
     const pdfBuffer = await renderToBuffer(
-      React.createElement(HydrationPDF, { results, inputs, measurementSystem })
+      React.createElement(HydrationPDF, { results, inputs, measurementSystem }) as React.ReactElement
     );
 
     return new NextResponse(pdfBuffer, {
