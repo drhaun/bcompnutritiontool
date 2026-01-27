@@ -6,6 +6,7 @@ import { getNutritionTargets } from '@/lib/cronometer';
  * 
  * Query params:
  * - client_id: Cronometer client ID (optional, defaults to own account)
+ * - day: Specific day (optional, defaults to today)
  */
 export async function GET(request: NextRequest) {
   const accessToken = request.cookies.get('cronometer_access_token')?.value;
@@ -20,13 +21,31 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const clientIdParam = searchParams.get('client_id');
   const clientId = clientIdParam && clientIdParam !== 'self' ? clientIdParam : undefined;
+  const day = searchParams.get('day') || undefined;
   
   try {
-    const targets = await getNutritionTargets({ accessToken, clientId });
+    const rawTargets = await getNutritionTargets({ accessToken, clientId }, day);
+    
+    // Extract macro targets from the raw response
+    // Cronometer returns targets as { nutrientName: { min?: number, max?: number, unit: string } }
+    const extractedTargets = {
+      // Energy/Calories
+      kcal: extractTargetValue(rawTargets, ['Energy', 'Calories', 'kcal']),
+      // Protein
+      protein: extractTargetValue(rawTargets, ['Protein']),
+      // Carbohydrates
+      total_carbs: extractTargetValue(rawTargets, ['Carbohydrates', 'Carbs', 'Total Carbs']),
+      // Fat
+      fat: extractTargetValue(rawTargets, ['Fat', 'Total Fat']),
+      // Fiber
+      fiber: extractTargetValue(rawTargets, ['Fiber']),
+      // Include raw targets for advanced use
+      raw: rawTargets,
+    };
     
     return NextResponse.json({
       success: true,
-      targets,
+      targets: extractedTargets,
     });
   } catch (error) {
     console.error('Cronometer targets error:', error);
@@ -35,4 +54,33 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Extract a target value from the raw Cronometer targets object
+ * Tries multiple possible key names
+ */
+function extractTargetValue(
+  targets: Record<string, { min?: number; max?: number; unit: string }>,
+  possibleKeys: string[]
+): number | null {
+  for (const key of possibleKeys) {
+    // Try exact match
+    if (targets[key]) {
+      const target = targets[key];
+      return target.min || target.max || null;
+    }
+    
+    // Try case-insensitive match
+    const lowerKey = key.toLowerCase();
+    for (const [targetKey, targetValue] of Object.entries(targets)) {
+      if (targetKey.toLowerCase() === lowerKey || 
+          targetKey.toLowerCase().includes(lowerKey) ||
+          lowerKey.includes(targetKey.toLowerCase())) {
+        return targetValue.min || targetValue.max || null;
+      }
+    }
+  }
+  
+  return null;
 }

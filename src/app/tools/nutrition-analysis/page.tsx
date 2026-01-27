@@ -1677,22 +1677,71 @@ export default function NutritionAnalysisPage() {
                       <div className="text-center p-3 bg-background rounded-lg border">
                         <p className="text-xl font-bold">{analysisResult.summary.totalCalories}</p>
                         <p className="text-xs text-muted-foreground">Calories</p>
+                        <p className={cn(
+                          "text-xs font-medium mt-1",
+                          analysisResult.summary.totalCalories >= customTargets.calories * 0.9 && 
+                          analysisResult.summary.totalCalories <= customTargets.calories * 1.1 
+                            ? "text-green-600" 
+                            : analysisResult.summary.totalCalories < customTargets.calories * 0.9 
+                              ? "text-yellow-600" 
+                              : "text-red-600"
+                        )}>
+                          / {customTargets.calories}
+                        </p>
                       </div>
                       <div className="text-center p-3 bg-background rounded-lg border">
                         <p className="text-xl font-bold">{analysisResult.summary.totalProtein}g</p>
                         <p className="text-xs text-muted-foreground">Protein</p>
+                        <p className={cn(
+                          "text-xs font-medium mt-1",
+                          analysisResult.summary.totalProtein >= customTargets.protein * 0.9 
+                            ? "text-green-600" 
+                            : analysisResult.summary.totalProtein >= customTargets.protein * 0.7 
+                              ? "text-yellow-600" 
+                              : "text-red-600"
+                        )}>
+                          / {customTargets.protein}g
+                        </p>
                       </div>
                       <div className="text-center p-3 bg-background rounded-lg border">
                         <p className="text-xl font-bold">{analysisResult.summary.totalCarbs}g</p>
                         <p className="text-xs text-muted-foreground">Carbs</p>
+                        <p className={cn(
+                          "text-xs font-medium mt-1",
+                          analysisResult.summary.totalCarbs >= customTargets.carbs * 0.7 && 
+                          analysisResult.summary.totalCarbs <= customTargets.carbs * 1.3 
+                            ? "text-green-600" 
+                            : "text-yellow-600"
+                        )}>
+                          / {customTargets.carbs}g
+                        </p>
                       </div>
                       <div className="text-center p-3 bg-background rounded-lg border">
                         <p className="text-xl font-bold">{analysisResult.summary.totalFat}g</p>
                         <p className="text-xs text-muted-foreground">Fat</p>
+                        <p className={cn(
+                          "text-xs font-medium mt-1",
+                          analysisResult.summary.totalFat >= customTargets.fat * 0.8 && 
+                          analysisResult.summary.totalFat <= customTargets.fat * 1.3 
+                            ? "text-green-600" 
+                            : "text-yellow-600"
+                        )}>
+                          / {customTargets.fat}g
+                        </p>
                       </div>
                       <div className="text-center p-3 bg-background rounded-lg border">
                         <p className="text-xl font-bold">{analysisResult.summary.totalFiber}g</p>
                         <p className="text-xs text-muted-foreground">Fiber</p>
+                        <p className={cn(
+                          "text-xs font-medium mt-1",
+                          analysisResult.summary.totalFiber >= 25 
+                            ? "text-green-600" 
+                            : analysisResult.summary.totalFiber >= 15 
+                              ? "text-yellow-600" 
+                              : "text-red-600"
+                        )}>
+                          / 30g
+                        </p>
                       </div>
                     </div>
 
