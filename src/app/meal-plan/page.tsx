@@ -761,13 +761,9 @@ export default function MealPlanPage() {
                         {/* Restrictions & Allergies Row */}
                         {((dietPreferences?.allergies?.length || 0) > 0 || 
                           (dietPreferences?.customAllergies?.length || 0) > 0 ||
-                          (dietPreferences?.dietaryRestrictions?.length || 0) > 0 ||
-                          dietPreferences?.dietaryPattern) && (
+                          (dietPreferences?.dietaryRestrictions?.length || 0) > 0) && (
                           <div className="flex flex-wrap gap-1.5 items-center">
                             <span className="text-xs font-medium text-red-700">⛔ Avoid:</span>
-                            {dietPreferences?.dietaryPattern && (
-                              <Badge className="bg-purple-100 text-purple-800 text-xs">{dietPreferences.dietaryPattern}</Badge>
-                            )}
                             {dietPreferences?.dietaryRestrictions?.map(r => (
                               <Badge key={r} className="bg-orange-100 text-orange-800 text-xs">{r}</Badge>
                             ))}
@@ -817,7 +813,7 @@ export default function MealPlanPage() {
                         
                         {/* No preferences set */}
                         {!(dietPreferences?.allergies?.length || dietPreferences?.customAllergies?.length ||
-                           dietPreferences?.dietaryRestrictions?.length || dietPreferences?.dietaryPattern ||
+                           dietPreferences?.dietaryRestrictions?.length ||
                            dietPreferences?.foodsToAvoid?.length || dietPreferences?.foodsToEmphasize?.length ||
                            dietPreferences?.preferredProteins?.length || dietPreferences?.preferredCarbs?.length ||
                            dietPreferences?.preferredVegetables?.length) && (
