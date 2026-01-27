@@ -352,20 +352,20 @@ export default function MealPlanPage() {
 
   // Consolidated grocery list
   const groceryList = useMemo(() => {
-    const ingredients: Map<string, { qty: number; unit: string }> = new Map();
+    const ingredientMap: Map<string, { qty: number; unit: string }> = new Map();
     
     if (mealPlan) {
       DAYS.forEach(day => {
         mealPlan[day]?.meals?.forEach(meal => {
-          meal?.foods?.forEach(food => {
-            const name = food.name.toLowerCase();
-            const existing = ingredients.get(name);
+          meal?.ingredients?.forEach(ingredient => {
+            const name = ingredient.item.toLowerCase();
+            const existing = ingredientMap.get(name);
             if (existing) {
-              existing.qty += food.servingSize || 1;
+              existing.qty += 1;
             } else {
-              ingredients.set(name, { 
-                qty: food.servingSize || 1, 
-                unit: food.servingUnit || 'serving' 
+              ingredientMap.set(name, { 
+                qty: 1, 
+                unit: ingredient.amount || 'serving' 
               });
             }
           });
@@ -373,7 +373,7 @@ export default function MealPlanPage() {
       });
     }
     
-    return Array.from(ingredients.entries())
+    return Array.from(ingredientMap.entries())
       .map(([name, data]) => ({ 
         name: name.charAt(0).toUpperCase() + name.slice(1), 
         ...data 
