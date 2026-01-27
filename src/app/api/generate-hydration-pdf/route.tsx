@@ -377,7 +377,7 @@ export async function POST(request: NextRequest) {
       React.createElement(HydrationPDF, { results, inputs, measurementSystem }) as any
     );
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
