@@ -44,7 +44,7 @@ import {
   Info,
   ChevronRight
 } from 'lucide-react';
-import type { DayOfWeek, MealSlot, Meal, Macros } from '@/types';
+import type { DayOfWeek, MealSlot, Meal, Macros, DietPreferences } from '@/types';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -1189,7 +1189,7 @@ export default function MealPlanPage() {
           isOpen={browsingRecipesSlot !== null}
           onClose={() => setBrowsingRecipesSlot(null)}
           slot={mealSlots[browsingRecipesSlot]}
-          dietPreferences={dietPreferences}
+          dietPreferences={dietPreferences as DietPreferences | undefined}
           excludeRecipes={allMealNames.map(n => n.toLowerCase().replace(/\s+/g, '-'))}
           onSelectRecipe={(meal) => {
             updateMeal(currentDay, browsingRecipesSlot, meal);
