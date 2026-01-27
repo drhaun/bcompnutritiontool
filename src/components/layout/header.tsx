@@ -54,7 +54,7 @@ const toolLinks = [
   { href: '/tools/day-planner', label: 'Day Planner' },
   { href: '/tools/meal-planner', label: 'Meal Planner' },
   { href: '/tools/nutrition-analysis', label: 'Nutrition Analysis' },
-  { href: '/settings', label: 'Settings', icon: 'settings' },
+  { href: '/tools/cronometer-dashboard', label: 'Cronometer Dashboard' },
 ];
 
 export function Header() {
@@ -73,16 +73,33 @@ export function Header() {
   const activeClient = getActiveClient();
   const activeClients = clients.filter(c => c.status === 'active');
 
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      router.push('/login');
-      router.refresh();
-    } catch (error) {
-      console.error('Sign out error:', error);
-      // Force redirect anyway
-      router.push('/login');
+    // Prevent double-clicks
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    
+    console.log('[Header] Starting sign out...');
+    
+    // Clear localStorage auth data immediately
+    if (typeof window !== 'undefined') {
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase')) {
+          localStorage.removeItem(key);
+        }
+      });
     }
+    
+    // Clear store state
+    useFitomicsStore.getState().setAuthenticated(false);
+    
+    // Call Supabase sign out (don't wait for it)
+    signOut().catch(console.error);
+    
+    // Redirect immediately
+    window.location.href = '/login?signedout=1';
   };
 
   // Determine if we're in the workflow
@@ -182,7 +199,7 @@ export function Header() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel className="text-xs text-muted-foreground">Tools</DropdownMenuLabel>
-              {toolLinks.filter(t => !t.icon).map((tool) => (
+              {toolLinks.map((tool) => (
                 <DropdownMenuItem key={tool.href} asChild>
                   <Link href={tool.href}>{tool.label}</Link>
                 </DropdownMenuItem>
@@ -275,20 +292,22 @@ export function Header() {
                   {isAuthenticated ? (staff?.name || staff?.email?.split('@')[0] || 'Staff') : 'Not logged in'}
                 </span>
               </div>
-              {isAuthenticated ? (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    console.log('Sign out clicked');
+              {isAuthenticated && (
+                <button 
+                  type="button"
+                  disabled={isSigningOut}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     handleSignOut();
                   }}
-                  className="gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-red-600 border border-red-200 rounded-md hover:bg-red-50 bg-white disabled:opacity-50"
                 >
                   <LogOut className="h-4 w-4" />
-                  <span className="hidden sm:inline">Sign Out</span>
-                </Button>
-              ) : (
+                  {isSigningOut ? 'Signing out...' : 'Sign Out'}
+                </button>
+              )}
+              {!isAuthenticated && (
                 <Button 
                   variant="outline" 
                   size="sm"

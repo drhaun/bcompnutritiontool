@@ -145,10 +145,10 @@ Return JSON:
           meal: {
             name: aiMeal?.name || `${slot.name}`,
             description: aiMeal?.notes || aiMeal?.description || 'A balanced meal for your goals',
-            calories: aiMeal?.totalMacros?.calories || Math.round(targets.calories / mealSlots.length),
-            protein: aiMeal?.totalMacros?.protein || Math.round(targets.protein / mealSlots.length),
-            carbs: aiMeal?.totalMacros?.carbs || Math.round(targets.carbs / mealSlots.length),
-            fat: aiMeal?.totalMacros?.fat || Math.round(targets.fat / mealSlots.length),
+            calories: Math.round(aiMeal?.totalMacros?.calories || targets.calories / mealSlots.length),
+            protein: Math.round(aiMeal?.totalMacros?.protein || targets.protein / mealSlots.length),
+            carbs: Math.round(aiMeal?.totalMacros?.carbs || targets.carbs / mealSlots.length),
+            fat: Math.round(aiMeal?.totalMacros?.fat || targets.fat / mealSlots.length),
             ingredients: aiMeal?.ingredients?.map((i: { item?: string; amount?: string }) => 
               typeof i === 'string' ? i : `${i.amount || ''} ${i.item || ''}`.trim()
             ) || ['Protein source', 'Carb source', 'Vegetables'],
@@ -157,10 +157,10 @@ Return JSON:
           },
         };
       }),
-      totalCalories: aiResponse.dailyTotals?.calories || targets.calories,
-      totalProtein: aiResponse.dailyTotals?.protein || targets.protein,
-      totalCarbs: aiResponse.dailyTotals?.carbs || targets.carbs,
-      totalFat: aiResponse.dailyTotals?.fat || targets.fat,
+      totalCalories: Math.round(aiResponse.dailyTotals?.calories || targets.calories),
+      totalProtein: Math.round(aiResponse.dailyTotals?.protein || targets.protein),
+      totalCarbs: Math.round(aiResponse.dailyTotals?.carbs || targets.carbs),
+      totalFat: Math.round(aiResponse.dailyTotals?.fat || targets.fat),
       summary: aiResponse.summary || '',
     };
 

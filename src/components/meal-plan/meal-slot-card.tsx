@@ -20,10 +20,11 @@ import {
   Loader2,
   Edit,
   ArrowRightLeft,
-  Dumbbell
+  Dumbbell,
+  ChefHat
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { MealSlot, Meal, Macros } from '@/types';
+import type { MealSlot, Meal, Macros, DietPreferences } from '@/types';
 
 interface MealSlotCardProps {
   slot: MealSlot;
@@ -35,6 +36,7 @@ interface MealSlotCardProps {
   onToggleLock: (slotIndex: number) => void;
   onUpdateNote: (slotIndex: number, note: string) => void;
   onGenerateNote: (slotIndex: number) => Promise<void>;
+  onBrowseRecipes?: (slotIndex: number) => void;
   isGenerating: boolean;
   isGeneratingNote: boolean;
 }
@@ -49,6 +51,7 @@ export function MealSlotCard({
   onToggleLock,
   onUpdateNote,
   onGenerateNote,
+  onBrowseRecipes,
   isGenerating,
   isGeneratingNote,
 }: MealSlotCardProps) {
@@ -126,25 +129,39 @@ export function MealSlotCard({
               <span className="ml-2 text-sm text-muted-foreground">Generating meal...</span>
             </div>
           ) : (
-            <div className="flex gap-2">
-              <Button 
-                variant="default" 
-                size="sm" 
-                className="flex-1 bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
-                onClick={() => onGenerateMeal(slot.slotIndex)}
-              >
-                <Sparkles className="h-4 w-4 mr-1" />
-                AI Generate
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex-1"
-                onClick={() => onManualEntry(slot.slotIndex)}
-              >
-                <PenLine className="h-4 w-4 mr-1" />
-                Manual Entry
-              </Button>
+            <div className="space-y-2">
+              {/* Primary: Browse Curated Recipes */}
+              {onBrowseRecipes && (
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="w-full bg-[#00263d] hover:bg-[#003b59]"
+                  onClick={() => onBrowseRecipes(slot.slotIndex)}
+                >
+                  <ChefHat className="h-4 w-4 mr-1" />
+                  Browse Recipes
+                </Button>
+              )}
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => onGenerateMeal(slot.slotIndex)}
+                >
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  AI Generate
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => onManualEntry(slot.slotIndex)}
+                >
+                  <PenLine className="h-4 w-4 mr-1" />
+                  Manual
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

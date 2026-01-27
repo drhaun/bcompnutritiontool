@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/components/auth/auth-provider';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, LogIn, AlertCircle } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn, isAuthenticated, isLoading: authLoading, isConfigured } = useAuth();
   
   const [email, setEmail] = useState('');
@@ -20,19 +21,25 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [justSignedOut, setJustSignedOut] = useState(false);
 
   useEffect(() => {
     setIsHydrated(true);
-  }, []);
+    // Check if user just signed out (don't auto-redirect back)
+    if (searchParams.get('signedout') === '1') {
+      setJustSignedOut(true);
+    }
+  }, [searchParams]);
 
   // Redirect if authenticated (either already or after login)
+  // But NOT if user just signed out
   useEffect(() => {
-    console.log('[LoginPage] Auth state check:', { isAuthenticated, authLoading, isLoading });
-    if (isAuthenticated) {
+    console.log('[LoginPage] Auth state check:', { isAuthenticated, authLoading, isLoading, justSignedOut });
+    if (isAuthenticated && !justSignedOut && !authLoading) {
       console.log('[LoginPage] Authenticated! Redirecting to home...');
       router.replace('/');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, authLoading, justSignedOut, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,9 +56,11 @@ export default function LoginPage() {
         setError(signInError);
         setIsLoading(false);
       } else {
-        console.log('[Login] Sign in successful, waiting for auth state to update...');
-        // Don't set isLoading to false - let the auth state change handle redirect
-        // The useEffect watching isAuthenticated will redirect when ready
+        console.log('[Login] Sign in successful, redirecting...');
+        // Clear the justSignedOut flag so redirect works
+        setJustSignedOut(false);
+        // Redirect immediately on successful sign in
+        router.replace('/');
       }
     } catch (err) {
       console.error('[Login] Unexpected error:', err);
@@ -192,5 +201,17 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#00263d] to-[#001a2b]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#c19962]" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

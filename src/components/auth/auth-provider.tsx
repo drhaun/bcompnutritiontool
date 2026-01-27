@@ -13,6 +13,7 @@ import {
   type StaffUser
 } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { useFitomicsStore } from '@/lib/store';
 
 interface AuthContextType {
   user: User | null;
@@ -61,6 +62,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           // Staff profile is optional - don't block on it
           getStaffProfile().then(setStaff).catch(() => {});
+          
+          // Trigger client sync with database
+          useFitomicsStore.getState().setAuthenticated(true);
         }
       } catch (error) {
         console.error('[AuthProvider] Auth error:', error);
@@ -81,9 +85,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const currentUser = await getCurrentUser();
         setUser(currentUser);
         getStaffProfile().then(setStaff).catch(() => {});
+        
+        // Trigger client sync with database
+        useFitomicsStore.getState().setAuthenticated(true);
       } else {
         setUser(null);
         setStaff(null);
+        
+        // Mark as not authenticated
+        useFitomicsStore.getState().setAuthenticated(false);
       }
     });
 
@@ -109,6 +119,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const staffProfile = await getStaffProfile();
       console.log('[AuthProvider] Staff profile:', staffProfile);
       setStaff(staffProfile);
+      
+      // Trigger client sync with database
+      console.log('[AuthProvider] Triggering client sync...');
+      useFitomicsStore.getState().setAuthenticated(true);
     }
     return { error: result.error };
   };
@@ -123,10 +137,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const handleSignOut = async () => {
+    console.log('[AuthProvider] Signing out...');
     await signOut();
     setUser(null);
     setSession(null);
     setStaff(null);
+    // Clear the store's authenticated state
+    useFitomicsStore.getState().setAuthenticated(false);
+    console.log('[AuthProvider] Sign out complete');
   };
 
   const value: AuthContextType = {

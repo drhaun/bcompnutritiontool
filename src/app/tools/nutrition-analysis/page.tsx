@@ -59,6 +59,7 @@ import {
 } from '@/components/ui/command';
 import { format, subDays } from 'date-fns';
 import { Check, ChevronsUpDown } from 'lucide-react';
+import { useFitomicsStore } from '@/lib/store';
 
 // ============ TYPES ============
 
@@ -729,6 +730,10 @@ export default function NutritionAnalysisPage() {
     fat: 75,
   });
 
+  // Get active Fitomics client for auto-linking
+  const { getActiveClient } = useFitomicsStore();
+  const activeClient = getActiveClient();
+
   // Check Cronometer status on mount
   useEffect(() => {
     const checkCronometerStatus = async () => {
@@ -742,6 +747,17 @@ export default function NutritionAnalysisPage() {
           if (clientsResponse.ok) {
             const clientsData = await clientsResponse.json();
             setCronometerClients(clientsData.clients || []);
+            
+            // Auto-select linked Cronometer client if active Fitomics client has one
+            if (activeClient?.cronometerClientId) {
+              const linkedClient = clientsData.clients?.find(
+                (c: { client_id: number }) => c.client_id === activeClient.cronometerClientId
+              );
+              if (linkedClient) {
+                setSelectedCronometerClient(linkedClient.client_id.toString());
+                console.log(`[Cronometer] Auto-selected linked client: ${linkedClient.name}`);
+              }
+            }
           }
         }
       } catch (error) {
@@ -752,7 +768,7 @@ export default function NutritionAnalysisPage() {
     };
     
     checkCronometerStatus();
-  }, []);
+  }, [activeClient?.cronometerClientId]);
 
   // Import from Cronometer
   const handleCronometerImport = useCallback(async () => {
@@ -782,10 +798,33 @@ export default function NutritionAnalysisPage() {
       }
       
       const result = await response.json();
+      console.log('[Cronometer Import] Full API response:', result);
+      
       const logs: string[] = [];
-      logs.push(`Imported ${result.daysImported} days from Cronometer`);
-      logs.push(`Average calories: ${result.data.summary.totalCalories} kcal`);
-      logs.push(`Average protein: ${result.data.summary.totalProtein}g`);
+      
+      // Check if we got actual data
+      if (result.daysImported === 0 || !result.data?.summary?.totalCalories) {
+        logs.push('No nutrition data found for selected date range');
+        if (result.message) {
+          logs.push(result.message);
+        }
+        if (result.daysWithEntries) {
+          logs.push(`Days with entries in Cronometer: ${result.daysWithEntries.length}`);
+        }
+        setParseLog(logs);
+        toast.warning(result.message || 'No diary data found. Make sure the client has logged food in Cronometer.');
+        return;
+      }
+      
+      // Build detailed logs
+      logs.push(`✓ Imported ${result.daysImported} days from Cronometer`);
+      if (result.daysWithEntries?.length) {
+        logs.push(`✓ Days with food entries: ${result.daysWithEntries.join(', ')}`);
+      }
+      logs.push(`✓ Daily avg: ${result.data.summary.totalCalories} kcal`);
+      logs.push(`✓ Macros: ${result.data.summary.totalProtein}g P / ${result.data.summary.totalCarbs}g C / ${result.data.summary.totalFat}g F`);
+      logs.push(`✓ Nutrients tracked: ${result.data.dailyAverages?.length || 0}`);
+      logs.push(`✓ Foods logged: ${result.data.topFoods?.length || 0} unique items`);
       setParseLog(logs);
       
       // Convert to analysis format
@@ -808,18 +847,25 @@ export default function NutritionAnalysisPage() {
       const ratioScore = ratios.filter(r => r.status === 'optimal').length / Math.max(ratios.length, 1) * 100;
       const overallScore = Math.round((defScore * 0.4 + excessScore * 0.3 + ratioScore * 0.3));
       
+      console.log('[Cronometer Import] Setting analysis result with score:', overallScore);
+      console.log('[Cronometer Import] Deficiencies:', deficiencies.length, 'Excesses:', excesses.length);
+      console.log('[Cronometer Import] Top foods:', result.data.topFoods?.length || 0);
+      
       setAnalysisResult({
-        summary: result.data.summary,
+        summary: {
+          ...result.data.summary,
+          overallScore, // Include the calculated score
+        },
         dailyAverages: allNutrients,
         deficiencies,
         excesses,
         ratios,
         recommendations,
-        topFoods: result.data.topFoods,
-        dailyBreakdown: result.data.dailyBreakdown,
+        topFoods: result.data.topFoods || [],
+        dailyBreakdown: result.data.dailyBreakdown || [],
       });
       
-      toast.success(`Imported ${result.daysImported} days from Cronometer`);
+      toast.success(`Imported ${result.daysImported} days from Cronometer (${result.data.dailyAverages?.length || 0} nutrients tracked)`);
     } catch (error) {
       console.error('Cronometer import error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to import from Cronometer');
@@ -1134,405 +1180,473 @@ export default function NutritionAnalysisPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Upload & Settings */}
+          {/* Left Column - Data Source & Settings */}
           <div className="space-y-6">
-            {/* CSV Upload */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileSpreadsheet className="h-5 w-5 text-green-600" />
-                  CSV Upload (Recommended)
-                </CardTitle>
-                <CardDescription>Cronometer Servings Export</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className={cn(
-                  "border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer",
-                  csvFileName ? "border-green-400 bg-green-50" : "hover:border-[#c19962]"
-                )}>
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={handleCSVUpload}
-                    className="hidden"
-                    id="csv-upload"
-                  />
-                  <label htmlFor="csv-upload" className="cursor-pointer">
-                    {csvFileName ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        <span className="text-sm font-medium text-green-700">{csvFileName}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={(e) => { e.preventDefault(); clearFile('csv'); }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <FileSpreadsheet className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-sm font-medium">Click to upload CSV</p>
-                      </>
-                    )}
-                  </label>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Cronometer Direct Import */}
-            <Card className="border-orange-200">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <CloudDownload className="h-5 w-5 text-orange-500" />
-                  Import from Cronometer
-                </CardTitle>
-                <CardDescription>Direct API import (no file needed)</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {cronometerLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            {/* Step 1: Data Source */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-[#00263d] text-white border-none">1</Badge>
+                <h3 className="font-semibold">Choose Data Source</h3>
+              </div>
+              
+              {/* Cronometer Direct Import - PRIMARY */}
+              <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-white">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CloudDownload className="h-5 w-5 text-orange-500" />
+                      Import from Cronometer
+                    </CardTitle>
+                    <Badge className="bg-orange-100 text-orange-700 border-orange-300">Recommended</Badge>
                   </div>
-                ) : !cronometerStatus?.connected ? (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Connect your Cronometer Pro account to import data directly
-                    </p>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href="/settings">
-                        <Link2 className="h-4 w-4 mr-2" />
-                        Connect Cronometer
-                      </a>
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    {/* Client Selector - Searchable */}
-                    <div className="space-y-2">
-                      <Label className="text-sm">Client</Label>
-                      <Popover open={clientSearchOpen} onOpenChange={setClientSearchOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={clientSearchOpen}
-                            className="w-full justify-between"
-                          >
-                            <span className="truncate">
-                              {selectedCronometerClient === 'self' 
-                                ? 'My own data'
-                                : cronometerClients.find(c => c.client_id.toString() === selectedCronometerClient)?.name || 'Select client...'}
-                            </span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[280px] p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="Search clients..." />
-                            <CommandList>
-                              <CommandEmpty>No clients found.</CommandEmpty>
-                              <CommandGroup>
-                                <CommandItem
-                                  value="self"
-                                  onSelect={() => {
-                                    setSelectedCronometerClient('self');
-                                    setClientSearchOpen(false);
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedCronometerClient === 'self' ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  <User className="mr-2 h-4 w-4" />
-                                  My own data
-                                </CommandItem>
-                                {cronometerClients.map((client) => (
+                  <CardDescription>Direct API import - fastest and most accurate</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {cronometerLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : !cronometerStatus?.connected ? (
+                    <div className="text-center py-4">
+                      <Link2 className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Connect your Cronometer account to import data directly
+                      </p>
+                      <Button variant="outline" size="sm" asChild>
+                        <a href="/settings">
+                          <Link2 className="h-4 w-4 mr-2" />
+                          Connect Cronometer
+                        </a>
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Client Selector - Searchable */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Select Client</Label>
+                        <Popover open={clientSearchOpen} onOpenChange={setClientSearchOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={clientSearchOpen}
+                              className="w-full justify-between"
+                            >
+                              <span className="truncate">
+                                {selectedCronometerClient === 'self' 
+                                  ? 'My own data'
+                                  : cronometerClients.find(c => c.client_id.toString() === selectedCronometerClient)?.name || 'Select client...'}
+                              </span>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[280px] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Search clients..." />
+                              <CommandList>
+                                <CommandEmpty>No clients found.</CommandEmpty>
+                                <CommandGroup>
                                   <CommandItem
-                                    key={client.client_id}
-                                    value={`${client.name} ${client.email || ''}`}
+                                    value="self"
                                     onSelect={() => {
-                                      setSelectedCronometerClient(client.client_id.toString());
+                                      setSelectedCronometerClient('self');
                                       setClientSearchOpen(false);
                                     }}
                                   >
                                     <Check
                                       className={cn(
                                         "mr-2 h-4 w-4",
-                                        selectedCronometerClient === client.client_id.toString() ? "opacity-100" : "opacity-0"
+                                        selectedCronometerClient === 'self' ? "opacity-100" : "opacity-0"
                                       )}
                                     />
                                     <User className="mr-2 h-4 w-4" />
-                                    <div className="flex flex-col">
-                                      <span>{client.name}</span>
-                                      {client.email && (
-                                        <span className="text-xs text-muted-foreground">{client.email}</span>
-                                      )}
-                                    </div>
+                                    My own data
                                   </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    
-                    {/* Date Range */}
-                    <div className="space-y-2">
-                      <Label className="text-sm">Date Range</Label>
-                      <div className="flex gap-2">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className="flex-1 justify-start">
-                              <Calendar className="h-4 w-4 mr-2" />
-                              {format(cronometerDateRange.from, 'MMM d')}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <CalendarComponent
-                              mode="single"
-                              selected={cronometerDateRange.from}
-                              onSelect={(date) => date && setCronometerDateRange(prev => ({ ...prev, from: date }))}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <span className="self-center text-muted-foreground">to</span>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className="flex-1 justify-start">
-                              <Calendar className="h-4 w-4 mr-2" />
-                              {format(cronometerDateRange.to, 'MMM d')}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <CalendarComponent
-                              mode="single"
-                              selected={cronometerDateRange.to}
-                              onSelect={(date) => date && setCronometerDateRange(prev => ({ ...prev, to: date }))}
-                              initialFocus
-                            />
+                                  {cronometerClients.map((client) => (
+                                    <CommandItem
+                                      key={client.client_id}
+                                      value={`${client.name} ${client.email || ''}`}
+                                      onSelect={() => {
+                                        setSelectedCronometerClient(client.client_id.toString());
+                                        setClientSearchOpen(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          selectedCronometerClient === client.client_id.toString() ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      <User className="mr-2 h-4 w-4" />
+                                      <div className="flex flex-col">
+                                        <span>{client.name}</span>
+                                        {client.email && (
+                                          <span className="text-xs text-muted-foreground">{client.email}</span>
+                                        )}
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => setCronometerDateRange({
-                            from: subDays(new Date(), 7),
-                            to: new Date(),
-                          })}
-                        >
-                          Last 7 days
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => setCronometerDateRange({
-                            from: subDays(new Date(), 14),
-                            to: new Date(),
-                          })}
-                        >
-                          Last 14 days
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => setCronometerDateRange({
-                            from: subDays(new Date(), 30),
-                            to: new Date(),
-                          })}
-                        >
-                          Last 30 days
-                        </Button>
+                      
+                      {/* Date Range */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Date Range</Label>
+                        <div className="flex gap-2">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="sm" className="flex-1 justify-start">
+                                <Calendar className="h-4 w-4 mr-2" />
+                                {format(cronometerDateRange.from, 'MMM d')}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <CalendarComponent
+                                mode="single"
+                                selected={cronometerDateRange.from}
+                                onSelect={(date) => date && setCronometerDateRange(prev => ({ ...prev, from: date }))}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <span className="self-center text-muted-foreground">to</span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="sm" className="flex-1 justify-start">
+                                <Calendar className="h-4 w-4 mr-2" />
+                                {format(cronometerDateRange.to, 'MMM d')}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <CalendarComponent
+                                mode="single"
+                                selected={cronometerDateRange.to}
+                                onSelect={(date) => date && setCronometerDateRange(prev => ({ ...prev, to: date }))}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="flex gap-1 flex-wrap">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7"
+                            onClick={() => setCronometerDateRange({
+                              from: subDays(new Date(), 7),
+                              to: new Date(),
+                            })}
+                          >
+                            7 days
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7"
+                            onClick={() => setCronometerDateRange({
+                              from: subDays(new Date(), 14),
+                              to: new Date(),
+                            })}
+                          >
+                            14 days
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7"
+                            onClick={() => setCronometerDateRange({
+                              from: subDays(new Date(), 30),
+                              to: new Date(),
+                            })}
+                          >
+                            30 days
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                    
-                    {/* Import Button */}
-                    <Button
-                      onClick={handleCronometerImport}
-                      disabled={isImportingCronometer}
-                      className="w-full bg-orange-500 hover:bg-orange-600"
-                    >
-                      {isImportingCronometer ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Importing...
-                        </>
-                      ) : (
-                        <>
-                          <CloudDownload className="h-4 w-4 mr-2" />
-                          Import Data
-                        </>
-                      )}
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* PDF Upload */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-purple-600" />
-                  PDF Upload (Backup)
-                </CardTitle>
-                <CardDescription>Cronometer Report PDF</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className={cn(
-                  "border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer",
-                  pdfFileName ? "border-purple-400 bg-purple-50" : "hover:border-[#c19962]"
-                )}>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={handlePDFUpload}
-                    className="hidden"
-                    id="pdf-upload"
-                  />
-                  <label htmlFor="pdf-upload" className="cursor-pointer">
-                    {pdfFileName ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <CheckCircle2 className="h-5 w-5 text-purple-600" />
-                        <span className="text-sm font-medium text-purple-700">{pdfFileName}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={(e) => { e.preventDefault(); clearFile('pdf'); }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-sm font-medium">Click to upload PDF</p>
-                      </>
-                    )}
-                  </label>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Custom Targets */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Target className="h-5 w-5 text-[#c19962]" />
-                  Your Targets
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Calories</Label>
-                    <Input
-                      type="number"
-                      value={customTargets.calories}
-                      onChange={(e) => setCustomTargets({ ...customTargets, calories: parseInt(e.target.value) || 2000 })}
-                      className="h-8"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Protein (g)</Label>
-                    <Input
-                      type="number"
-                      value={customTargets.protein}
-                      onChange={(e) => setCustomTargets({ ...customTargets, protein: parseInt(e.target.value) || 150 })}
-                      className="h-8"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Carbs (g)</Label>
-                    <Input
-                      type="number"
-                      value={customTargets.carbs}
-                      onChange={(e) => setCustomTargets({ ...customTargets, carbs: parseInt(e.target.value) || 200 })}
-                      className="h-8"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Fat (g)</Label>
-                    <Input
-                      type="number"
-                      value={customTargets.fat}
-                      onChange={(e) => setCustomTargets({ ...customTargets, fat: parseInt(e.target.value) || 75 })}
-                      className="h-8"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Analyze Button */}
-            <Card className="border-[#c19962]">
-              <CardContent className="pt-6">
-                <Button
-                  className="w-full bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
-                  size="lg"
-                  onClick={handleAnalyze}
-                  disabled={(!csvData && !pdfData) || isAnalyzing}
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Beaker className="mr-2 h-4 w-4" />
-                      Analyze Nutrition
+                      
+                      {/* Import Button */}
+                      <Button
+                        onClick={handleCronometerImport}
+                        disabled={isImportingCronometer}
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                        size="lg"
+                      >
+                        {isImportingCronometer ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Importing & Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <CloudDownload className="h-4 w-4 mr-2" />
+                            Import & Analyze
+                          </>
+                        )}
+                      </Button>
                     </>
                   )}
-                </Button>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              {/* OR Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">or upload files</span>
+                </div>
+              </div>
+
+              {/* File Upload Options */}
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="uploads" className="border rounded-lg">
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Upload className="h-4 w-4" />
+                      Manual File Upload
+                      {(csvFileName || pdfFileName) && (
+                        <Badge variant="secondary" className="ml-2">
+                          {csvFileName ? 'CSV' : ''}{csvFileName && pdfFileName ? ' + ' : ''}{pdfFileName ? 'PDF' : ''}
+                        </Badge>
+                      )}
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4 space-y-4">
+                    {/* CSV Upload */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium flex items-center gap-2">
+                        <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                        CSV File (Recommended)
+                      </Label>
+                      <div className={cn(
+                        "border-2 border-dashed rounded-lg p-3 text-center transition-colors cursor-pointer",
+                        csvFileName ? "border-green-400 bg-green-50" : "hover:border-[#c19962]"
+                      )}>
+                        <input
+                          type="file"
+                          accept=".csv"
+                          onChange={handleCSVUpload}
+                          className="hidden"
+                          id="csv-upload"
+                        />
+                        <label htmlFor="csv-upload" className="cursor-pointer">
+                          {csvFileName ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              <span className="text-sm font-medium text-green-700">{csvFileName}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5"
+                                onClick={(e) => { e.preventDefault(); clearFile('csv'); }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">Click to upload CSV</p>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* PDF Upload */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-purple-600" />
+                        PDF Report (Backup)
+                      </Label>
+                      <div className={cn(
+                        "border-2 border-dashed rounded-lg p-3 text-center transition-colors cursor-pointer",
+                        pdfFileName ? "border-purple-400 bg-purple-50" : "hover:border-[#c19962]"
+                      )}>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={handlePDFUpload}
+                          className="hidden"
+                          id="pdf-upload"
+                        />
+                        <label htmlFor="pdf-upload" className="cursor-pointer">
+                          {pdfFileName ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-purple-600" />
+                              <span className="text-sm font-medium text-purple-700">{pdfFileName}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5"
+                                onClick={(e) => { e.preventDefault(); clearFile('pdf'); }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">Click to upload PDF</p>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Analyze Uploaded Files Button */}
+                    {(csvData || pdfData) && (
+                      <Button
+                        className="w-full bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+                        onClick={handleAnalyze}
+                        disabled={isAnalyzing}
+                      >
+                        {isAnalyzing ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <Beaker className="mr-2 h-4 w-4" />
+                            Analyze Uploaded File{csvData && pdfData ? 's' : ''}
+                          </>
+                        )}
+                      </Button>
+                    )}
+
+                    {/* Export Instructions */}
+                    <div className="pt-2 border-t">
+                      <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                        <Lightbulb className="h-3 w-3" />
+                        How to export from Cronometer:
+                      </p>
+                      <ol className="text-xs space-y-0.5 text-muted-foreground">
+                        <li>1. Go to cronometer.com → Settings → Account</li>
+                        <li>2. Click "Export Data" → Select "Servings"</li>
+                        <li>3. Choose date range and download CSV</li>
+                      </ol>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+
+            {/* Step 2: Targets */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-[#00263d] text-white border-none">2</Badge>
+                <h3 className="font-semibold">Set Targets</h3>
+              </div>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Target className="h-5 w-5 text-[#c19962]" />
+                      Macro Targets
+                    </CardTitle>
+                    {cronometerStatus?.connected && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={async () => {
+                          try {
+                            const params = new URLSearchParams();
+                            if (selectedCronometerClient && selectedCronometerClient !== 'self') {
+                              params.append('client_id', selectedCronometerClient);
+                            }
+                            const response = await fetch(`/api/cronometer/targets?${params.toString()}`);
+                            if (response.ok) {
+                              const data = await response.json();
+                              if (data.targets) {
+                                setCustomTargets({
+                                  calories: Math.round(data.targets.kcal || 2000),
+                                  protein: Math.round(data.targets.protein || 150),
+                                  carbs: Math.round(data.targets.total_carbs || 200),
+                                  fat: Math.round(data.targets.fat || 75),
+                                });
+                                toast.success('Targets loaded from Cronometer');
+                              }
+                            }
+                          } catch (error) {
+                            toast.error('Failed to fetch Cronometer targets');
+                          }
+                        }}
+                      >
+                        <CloudDownload className="h-3 w-3 mr-1" />
+                        Get from Cronometer
+                      </Button>
+                    )}
+                  </div>
+                  <CardDescription>Used to calculate % of target in analysis</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Calories</Label>
+                      <Input
+                        type="number"
+                        value={customTargets.calories}
+                        onChange={(e) => setCustomTargets({ ...customTargets, calories: parseInt(e.target.value) || 2000 })}
+                        className="h-8"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Protein (g)</Label>
+                      <Input
+                        type="number"
+                        value={customTargets.protein}
+                        onChange={(e) => setCustomTargets({ ...customTargets, protein: parseInt(e.target.value) || 150 })}
+                        className="h-8"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Carbs (g)</Label>
+                      <Input
+                        type="number"
+                        value={customTargets.carbs}
+                        onChange={(e) => setCustomTargets({ ...customTargets, carbs: parseInt(e.target.value) || 200 })}
+                        className="h-8"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Fat (g)</Label>
+                      <Input
+                        type="number"
+                        value={customTargets.fat}
+                        onChange={(e) => setCustomTargets({ ...customTargets, fat: parseInt(e.target.value) || 75 })}
+                        className="h-8"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Parse Log */}
             {parseLog.length > 0 && (
-              <Card>
+              <Card className="bg-muted/50">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Parse Log</CardTitle>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    Import Status
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-xs space-y-1 font-mono">
                     {parseLog.map((log, i) => (
-                      <p key={i} className="text-muted-foreground">{log}</p>
+                      <p key={i} className={cn(
+                        "flex items-start gap-1",
+                        log.startsWith('✓') ? "text-green-600" : "text-muted-foreground"
+                      )}>
+                        {log}
+                      </p>
                     ))}
                   </div>
                 </CardContent>
               </Card>
             )}
-
-            {/* Export Instructions */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Lightbulb className="h-4 w-4 text-yellow-500" />
-                  How to Export from Cronometer
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ol className="text-xs space-y-1 text-muted-foreground">
-                  <li><strong>1.</strong> Go to cronometer.com → Settings → Account</li>
-                  <li><strong>2.</strong> Click "Export Data"</li>
-                  <li><strong>3.</strong> Select "Servings" and your date range</li>
-                  <li><strong>4.</strong> Download CSV and upload above</li>
-                </ol>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Right Column - Results */}
@@ -1965,26 +2079,92 @@ export default function NutritionAnalysisPage() {
                     </Card>
 
                     {/* Daily Breakdown */}
-                    {analysisResult.dailyBreakdown.length > 1 && (
+                    {analysisResult.dailyBreakdown.length >= 1 && (
                       <Card>
                         <CardHeader className="pb-3">
                           <CardTitle className="text-base">Daily Breakdown</CardTitle>
+                          <CardDescription>
+                            {analysisResult.dailyBreakdown.length} day{analysisResult.dailyBreakdown.length > 1 ? 's' : ''} analyzed
+                          </CardDescription>
                         </CardHeader>
                         <CardContent>
-                          <ScrollArea className="h-[300px]">
-                            <div className="space-y-2">
+                          <ScrollArea className="h-[400px]">
+                            <Accordion type="multiple" className="w-full">
                               {analysisResult.dailyBreakdown.map((day, i) => (
-                                <div key={i} className="flex items-center justify-between p-2 rounded-lg border">
-                                  <span className="font-medium">{day.date}</span>
-                                  <div className="flex gap-4 text-sm text-muted-foreground">
-                                    <span>{Math.round(day.nutrients['Energy'])} cal</span>
-                                    <span>{Math.round(day.nutrients['Protein'])}g P</span>
-                                    <span>{Math.round(day.nutrients['Carbs'])}g C</span>
-                                    <span>{Math.round(day.nutrients['Fat'])}g F</span>
-                                  </div>
-                                </div>
+                                <AccordionItem key={i} value={`day-${i}`}>
+                                  <AccordionTrigger className="hover:no-underline py-2">
+                                    <div className="flex items-center justify-between w-full pr-4">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">{day.date}</span>
+                                        {(day as any).completed && (
+                                          <Badge variant="secondary" className="text-xs">
+                                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                                            Complete
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="flex gap-4 text-sm text-muted-foreground">
+                                        <span>{Math.round(day.nutrients['Energy'] || 0)} cal</span>
+                                        <span>{Math.round(day.nutrients['Protein'] || 0)}g P</span>
+                                        <span>{Math.round(day.nutrients['Carbs'] || 0)}g C</span>
+                                        <span>{Math.round(day.nutrients['Fat'] || 0)}g F</span>
+                                      </div>
+                                    </div>
+                                  </AccordionTrigger>
+                                  <AccordionContent className="pt-2">
+                                    {/* Meal Summary if available */}
+                                    {(day as any).mealSummary && (day as any).mealSummary.length > 0 && (
+                                      <div className="mb-3 space-y-2">
+                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Meals</p>
+                                        <div className="grid gap-2">
+                                          {(day as any).mealSummary.map((meal: any, j: number) => (
+                                            <div key={j} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
+                                              <span className="font-medium">{meal.name}</span>
+                                              <div className="flex gap-3 text-xs text-muted-foreground">
+                                                <span>{Math.round(meal.calories)} cal</span>
+                                                <span>{Math.round(meal.protein)}g P</span>
+                                                <span>{Math.round(meal.carbs)}g C</span>
+                                                <span>{Math.round(meal.fat)}g F</span>
+                                                <Badge variant="outline" className="text-xs">{meal.foodCount} items</Badge>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* Food List */}
+                                    {day.foods && day.foods.length > 0 && (
+                                      <div className="space-y-2">
+                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Foods ({day.foods.length})</p>
+                                        <div className="grid gap-1 max-h-[200px] overflow-auto">
+                                          {day.foods.slice(0, 20).map((food, k) => (
+                                            <div key={k} className="flex items-center justify-between py-1 px-2 text-sm border-b last:border-0">
+                                              <div className="flex-1 min-w-0">
+                                                <p className="truncate font-medium">{food.name}</p>
+                                                <p className="text-xs text-muted-foreground">{food.amount} • {food.meal}</p>
+                                              </div>
+                                              {food.calories > 0 && (
+                                                <span className="text-xs text-muted-foreground ml-2">~{food.calories} cal</span>
+                                              )}
+                                            </div>
+                                          ))}
+                                          {day.foods.length > 20 && (
+                                            <p className="text-xs text-muted-foreground text-center py-2">
+                                              + {day.foods.length - 20} more foods
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {(!day.foods || day.foods.length === 0) && !(day as any).mealSummary && (
+                                      <p className="text-sm text-muted-foreground text-center py-2">
+                                        No food details available
+                                      </p>
+                                    )}
+                                  </AccordionContent>
+                                </AccordionItem>
                               ))}
-                            </div>
+                            </Accordion>
                           </ScrollArea>
                         </CardContent>
                       </Card>
@@ -2056,14 +2236,41 @@ export default function NutritionAnalysisPage() {
                 </Tabs>
               </>
             ) : (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <Beaker className="h-16 w-16 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Upload to Get Started</h3>
-                  <p className="text-muted-foreground text-center max-w-md">
-                    Upload your Cronometer CSV export (recommended) or PDF report to analyze your nutrition data 
-                    and get personalized insights.
+              <Card className="border-dashed bg-gradient-to-br from-muted/30 to-background">
+                <CardContent className="flex flex-col items-center justify-center py-20">
+                  <div className="relative mb-6">
+                    <Beaker className="h-20 w-20 text-muted-foreground/50" />
+                    <div className="absolute -bottom-1 -right-1 bg-orange-100 rounded-full p-2">
+                      <CloudDownload className="h-6 w-6 text-orange-500" />
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2 text-center">Ready to Analyze</h3>
+                  <p className="text-muted-foreground text-center max-w-md mb-6">
+                    Import nutrition data from Cronometer or upload an exported file to get comprehensive 
+                    analysis, identify gaps, and receive personalized recommendations.
                   </p>
+                  <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <span>Macro & micronutrient analysis</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <span>Deficiency & excess detection</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <span>Nutrient ratio analysis</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <span>AI-powered recommendations</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <span>Branded PDF export</span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}

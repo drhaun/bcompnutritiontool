@@ -20,6 +20,13 @@ import {
   heightToCm,
   lbsToKg
 } from './nutrition-calc';
+import {
+  fetchClientsFromDb,
+  syncClientsToDb,
+  createClientInDb,
+  updateClientInDb,
+  deleteClientFromDb,
+} from './client-sync';
 
 // Generate unique ID
 const generateId = () => `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -70,6 +77,7 @@ interface NutritionPlanningOSState {
   // ============ CLIENT MANAGEMENT ACTIONS ============
   createClient: (name: string, email?: string, notes?: string) => string;
   selectClient: (clientId: string) => void;
+  deselectClient: () => void; // Clear active client without deleting
   updateClient: (clientId: string, updates: Partial<ClientProfile>) => void;
   deleteClient: (clientId: string) => void;
   archiveClient: (clientId: string) => void;
@@ -121,6 +129,17 @@ interface NutritionPlanningOSState {
   setError: (error: string | null) => void;
   resetActiveClientState: () => void;
   resetAllState: () => void;
+  
+  // ============ SYNC STATE & ACTIONS ============
+  isSyncing: boolean;
+  lastSyncedAt: string | null;
+  syncError: string | null;
+  isAuthenticated: boolean;
+  
+  // Sync with Supabase
+  loadClientsFromDatabase: () => Promise<void>;
+  syncToDatabase: () => Promise<void>;
+  setAuthenticated: (isAuthenticated: boolean) => void;
 }
 
 const DAYS_OF_WEEK: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -139,12 +158,12 @@ const emptyClientData = {
 
 const initialState = {
   // Client management
-  clients: [],
-  activeClientId: null,
-  currentStaff: null,
+  clients: [] as ClientProfile[],
+  activeClientId: null as string | null,
+  currentStaff: null as StaffMember | null,
   
   // Session notes
-  sessionNotes: [],
+  sessionNotes: [] as SessionNote[],
   activeNoteContent: '',
   isNotePanelOpen: false,
   
@@ -154,8 +173,14 @@ const initialState = {
   // UI state
   isGenerating: false,
   generationProgress: 0,
-  currentGeneratingDay: null,
-  error: null,
+  currentGeneratingDay: null as DayOfWeek | null,
+  error: null as string | null,
+  
+  // Sync state
+  isSyncing: false,
+  lastSyncedAt: null as string | null,
+  syncError: null as string | null,
+  isAuthenticated: false,
 };
 
 export const useFitomicsStore = create<NutritionPlanningOSState>()(
@@ -200,6 +225,14 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           error: null,
         }));
         
+        // Sync to database if authenticated
+        const state = get();
+        if (state.isAuthenticated) {
+          createClientInDb(newClient).catch(err => {
+            console.error('[Store] Failed to sync new client:', err);
+          });
+        }
+        
         return id;
       },
       
@@ -228,6 +261,22 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         }
       },
       
+      deselectClient: () => {
+        const state = get();
+        
+        // Save current client state before deselecting
+        if (state.activeClientId) {
+          state.saveActiveClientState();
+        }
+        
+        // Clear active client and reset to empty state
+        set({
+          activeClientId: null,
+          ...emptyClientData,
+          error: null,
+        });
+      },
+      
       updateClient: (clientId, updates) => {
         set((state) => ({
           clients: state.clients.map(c => 
@@ -236,6 +285,15 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
               : c
           ),
         }));
+        
+        // Sync to database if authenticated (debounced)
+        const state = get();
+        if (state.isAuthenticated) {
+          // Use a simple debounce by scheduling the update
+          updateClientInDb(clientId, updates).catch(err => {
+            console.error('[Store] Failed to sync client update:', err);
+          });
+        }
       },
       
       deleteClient: (clientId) => {
@@ -247,6 +305,13 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
             ...emptyClientData,
           } : {}),
         });
+        
+        // Sync to database if authenticated
+        if (state.isAuthenticated) {
+          deleteClientFromDb(clientId).catch(err => {
+            console.error('[Store] Failed to sync client deletion:', err);
+          });
+        }
       },
       
       archiveClient: (clientId) => {
@@ -290,23 +355,34 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         const state = get();
         if (!state.activeClientId) return;
         
+        const updates = {
+          currentStep: state.currentStep,
+          userProfile: state.userProfile,
+          bodyCompGoals: state.bodyCompGoals,
+          dietPreferences: state.dietPreferences,
+          weeklySchedule: state.weeklySchedule,
+          nutritionTargets: state.nutritionTargets,
+          mealPlan: state.mealPlan,
+        };
+        
         set((state) => ({
           clients: state.clients.map(c => 
             c.id === state.activeClientId
               ? {
                   ...c,
                   updatedAt: new Date().toISOString(),
-                  currentStep: state.currentStep,
-                  userProfile: state.userProfile,
-                  bodyCompGoals: state.bodyCompGoals,
-                  dietPreferences: state.dietPreferences,
-                  weeklySchedule: state.weeklySchedule,
-                  nutritionTargets: state.nutritionTargets,
-                  mealPlan: state.mealPlan,
+                  ...updates,
                 }
               : c
           ),
         }));
+        
+        // Sync to database if authenticated
+        if (state.isAuthenticated && state.activeClientId) {
+          updateClientInDb(state.activeClientId, updates).catch(err => {
+            console.error('[Store] Failed to sync active client state:', err);
+          });
+        }
       },
       
       getClient: (clientId) => {
@@ -456,11 +532,11 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           return {
             day,
             isWorkoutDay,
-            tdee: adjustedTdee,
-            targetCalories,
-            protein: macros.protein,
-            carbs: macros.carbs,
-            fat: macros.fat,
+            tdee: Math.round(adjustedTdee),
+            targetCalories: Math.round(targetCalories),
+            protein: Math.round(macros.protein),
+            carbs: Math.round(macros.carbs),
+            fat: Math.round(macros.fat),
           };
         });
         
@@ -528,7 +604,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         updatedMeals[slotIndex] = { ...meal, lastModified: new Date().toISOString() };
         
         // Recalculate daily totals
-        const dailyTotals = updatedMeals.reduce(
+        const rawTotals = updatedMeals.reduce(
           (acc, m) => ({
             calories: acc.calories + (m?.totalMacros?.calories || 0),
             protein: acc.protein + (m?.totalMacros?.protein || 0),
@@ -537,6 +613,12 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           }),
           { calories: 0, protein: 0, carbs: 0, fat: 0 }
         );
+        const dailyTotals = {
+          calories: Math.round(rawTotals.calories),
+          protein: Math.round(rawTotals.protein),
+          carbs: Math.round(rawTotals.carbs),
+          fat: Math.round(rawTotals.fat),
+        };
         
         const updatedPlan: WeeklyMealPlan = {
           ...currentPlan,
@@ -632,7 +714,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         updatedMeals[slotIndex] = null as unknown as Meal;
         
         // Recalculate daily totals
-        const dailyTotals = updatedMeals.reduce(
+        const rawTotals = updatedMeals.reduce(
           (acc, m) => ({
             calories: acc.calories + (m?.totalMacros?.calories || 0),
             protein: acc.protein + (m?.totalMacros?.protein || 0),
@@ -641,6 +723,12 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           }),
           { calories: 0, protein: 0, carbs: 0, fat: 0 }
         );
+        const dailyTotals = {
+          calories: Math.round(rawTotals.calories),
+          protein: Math.round(rawTotals.protein),
+          carbs: Math.round(rawTotals.carbs),
+          fat: Math.round(rawTotals.fat),
+        };
         
         set({
           mealPlan: {
@@ -818,6 +906,95 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
       },
       
       resetAllState: () => set(initialState),
+      
+      // ============ SYNC STATE & ACTIONS ============
+      isSyncing: false,
+      lastSyncedAt: null,
+      syncError: null,
+      isAuthenticated: false,
+      
+      setAuthenticated: (isAuthenticated) => {
+        set({ isAuthenticated });
+        if (isAuthenticated) {
+          // Wait a moment for auth cookies to propagate, then sync
+          setTimeout(() => {
+            get().loadClientsFromDatabase();
+          }, 500);
+        }
+      },
+      
+      loadClientsFromDatabase: async () => {
+        const state = get();
+        if (state.isSyncing) return;
+        
+        set({ isSyncing: true, syncError: null });
+        
+        try {
+          // First, sync local clients to database (merge)
+          const localClients = state.clients;
+          if (localClients.length > 0) {
+            console.log('[Store] Syncing local clients to database...');
+            const syncResult = await syncClientsToDb(localClients);
+            
+            if (syncResult.success) {
+              set({
+                clients: syncResult.clients,
+                lastSyncedAt: new Date().toISOString(),
+              });
+              console.log('[Store] Sync complete, loaded', syncResult.clients.length, 'clients');
+            } else if (syncResult.error === 'Not authenticated') {
+              console.log('[Store] Not authenticated yet, will retry on next page load');
+              // Don't set isAuthenticated to false - auth might just be slow
+            } else {
+              console.log('[Store] Sync failed:', syncResult.error);
+            }
+          } else {
+            // No local clients, just fetch from database
+            console.log('[Store] Fetching clients from database...');
+            const dbClients = await fetchClientsFromDb();
+            
+            if (dbClients.length > 0) {
+              set({
+                clients: dbClients,
+                lastSyncedAt: new Date().toISOString(),
+              });
+              console.log('[Store] Loaded', dbClients.length, 'clients from database');
+            } else {
+              console.log('[Store] No clients in database');
+            }
+          }
+        } catch (error) {
+          console.error('[Store] Sync error:', error);
+          set({ syncError: error instanceof Error ? error.message : 'Sync failed' });
+        } finally {
+          set({ isSyncing: false });
+        }
+      },
+      
+      syncToDatabase: async () => {
+        const state = get();
+        if (state.isSyncing || !state.isAuthenticated) return;
+        
+        set({ isSyncing: true, syncError: null });
+        
+        try {
+          const result = await syncClientsToDb(state.clients);
+          
+          if (result.success) {
+            set({
+              clients: result.clients,
+              lastSyncedAt: new Date().toISOString(),
+            });
+          } else {
+            set({ syncError: result.error || 'Sync failed' });
+          }
+        } catch (error) {
+          console.error('[Store] Sync error:', error);
+          set({ syncError: error instanceof Error ? error.message : 'Sync failed' });
+        } finally {
+          set({ isSyncing: false });
+        }
+      },
     }),
     {
       name: 'nutrition-planning-os-storage',
@@ -834,6 +1011,8 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         nutritionTargets: state.nutritionTargets,
         mealPlan: state.mealPlan,
         currentStep: state.currentStep,
+        // Persist sync state
+        lastSyncedAt: state.lastSyncedAt,
       }),
     }
   )

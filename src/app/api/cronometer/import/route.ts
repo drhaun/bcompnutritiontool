@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDiarySummary, getNutritionTargets, CronometerDiarySummary } from '@/lib/cronometer';
+import { getDiarySummary, getDataSummary, getNutritionTargets, CronometerDiarySummary } from '@/lib/cronometer';
 
 /**
  * Import Cronometer diary data for nutrition analysis
@@ -20,9 +20,12 @@ export async function GET(request: NextRequest) {
   }
   
   const searchParams = request.nextUrl.searchParams;
-  const clientId = searchParams.get('client_id') || undefined;
+  const clientIdParam = searchParams.get('client_id');
+  const clientId = clientIdParam && clientIdParam !== 'self' ? clientIdParam : undefined;
   const start = searchParams.get('start');
   const end = searchParams.get('end');
+  
+  console.log('[Cronometer Import] Request params:', { clientId, start, end });
   
   if (!start || !end) {
     return NextResponse.json(
@@ -32,13 +35,47 @@ export async function GET(request: NextRequest) {
   }
   
   try {
-    // Fetch diary data with food breakdown
+    // STEP 1: First get data_summary to find which days have actual entries
+    let daysWithData: string[] = [];
+    try {
+      console.log('[Cronometer Import] Fetching data summary to find days with entries...');
+      const dataSummary = await getDataSummary(
+        { accessToken, clientId },
+        start,
+        end
+      );
+      daysWithData = dataSummary.days || [];
+      console.log(`[Cronometer Import] Found ${daysWithData.length} days with data:`, daysWithData);
+    } catch (summaryError) {
+      console.warn('[Cronometer Import] Could not fetch data summary, will try diary directly:', summaryError);
+    }
+    
+    // If no days with data found in the range, return early
+    if (daysWithData.length === 0) {
+      return NextResponse.json({
+        success: true,
+        daysImported: 0,
+        data: {
+          summary: { totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, totalFiber: 0, daysAnalyzed: 0 },
+          dailyAverages: [],
+          topFoods: [],
+          dailyBreakdown: [],
+          rawDays: [],
+        },
+        targets: {},
+        message: 'No diary entries found for the selected date range. Make sure the client has logged food in Cronometer.',
+      });
+    }
+    
+    // STEP 2: Fetch diary data with food breakdown for the date range
     let diaryData;
     try {
+      console.log('[Cronometer Import] Fetching detailed diary summary...');
       diaryData = await getDiarySummary(
         { accessToken, clientId },
         { start, end, food: true }
       );
+      console.log('[Cronometer Import] Diary data received:', JSON.stringify(diaryData).slice(0, 1000));
     } catch (diaryError) {
       console.error('Cronometer diary fetch error:', diaryError);
       return NextResponse.json(
@@ -64,23 +101,72 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Fetch targets for comparison (non-critical, use empty if fails)
+    // STEP 3: Fetch targets for comparison (non-critical, use empty if fails)
     let targets: Record<string, { min?: number; max?: number; unit: string }> = {};
     try {
       targets = await getNutritionTargets({ accessToken, clientId });
+      console.log('[Cronometer Import] Targets received:', Object.keys(targets).length, 'nutrients');
     } catch (targetError) {
       console.warn('Could not fetch Cronometer targets:', targetError);
     }
     
-    // Normalize to array
-    const days = Array.isArray(diaryData) ? diaryData : [diaryData];
+    // Convert diary data to array format
+    // Cronometer returns data as an object with date keys: {"2026-01-20": {...}, "2026-01-21": {...}}
+    // We need to convert this to an array with the date as a property
+    let days: CronometerDiarySummary[];
+    
+    if (Array.isArray(diaryData)) {
+      // Already an array (single day query returns this format)
+      days = diaryData;
+    } else if (typeof diaryData === 'object' && diaryData !== null) {
+      // Object with date keys - convert to array
+      days = Object.entries(diaryData).map(([dateKey, dayData]: [string, any]) => ({
+        day: dateKey,
+        completed: dayData.completed ?? false,
+        food_grams: dayData.food_grams ?? 0,
+        macros: dayData.macros || {},
+        nutrients: dayData.nutrients || {},
+        foods: dayData.foods || [],
+        metrics: dayData.metrics || [],
+      }));
+      console.log(`[Cronometer Import] Converted ${days.length} date-keyed entries to array`);
+    } else {
+      days = [];
+    }
+    
+    // Filter to only days with logged data and non-zero calories
+    // (The diary API already only returns days with entries, but we double-check for kcal > 0)
+    const filteredDays = days.filter(d => 
+      d && 
+      d.macros && 
+      d.macros.kcal > 0
+    );
+    
+    console.log(`[Cronometer Import] Filtered to ${filteredDays.length} days with actual food logged (from ${days.length} total)`);
+    
+    if (filteredDays.length === 0) {
+      return NextResponse.json({
+        success: true,
+        daysImported: 0,
+        data: {
+          summary: { totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, totalFiber: 0, daysAnalyzed: 0 },
+          dailyAverages: [],
+          topFoods: [],
+          dailyBreakdown: [],
+          rawDays: [],
+        },
+        targets,
+        message: 'Days found but no calorie data logged. Make sure the client has logged food (not just biometrics) in Cronometer.',
+      });
+    }
     
     // Transform to format expected by Nutrition Analysis
-    const transformedData = transformCronometerData(days, targets);
+    const transformedData = transformCronometerData(filteredDays, targets);
     
     return NextResponse.json({
       success: true,
       daysImported: transformedData.summary.daysAnalyzed,
+      daysWithEntries: daysWithData,
       data: transformedData,
       targets,
     });
@@ -100,7 +186,7 @@ function transformCronometerData(
   days: CronometerDiarySummary[],
   targets: Record<string, { min?: number; max?: number; unit: string }>
 ) {
-  // Calculate daily averages - filter out days without valid macros data
+  // Days should already be filtered, but double check
   const validDays = days.filter(d => d && d.macros && d.macros.kcal > 0);
   const daysCount = validDays.length || 1;
   
@@ -122,6 +208,8 @@ function transformCronometerData(
     };
   }
   
+  console.log(`[Cronometer Transform] Processing ${validDays.length} valid days`);
+  
   // Sum up all nutrients across days
   const totalNutrients: Record<string, number> = {};
   const allFoods: Array<{
@@ -136,36 +224,49 @@ function transformCronometerData(
   }> = [];
   
   for (const day of validDays) {
-    // Add macros
-    totalNutrients['Energy'] = (totalNutrients['Energy'] || 0) + day.macros.kcal;
-    totalNutrients['Protein'] = (totalNutrients['Protein'] || 0) + day.macros.protein;
-    totalNutrients['Carbs'] = (totalNutrients['Carbs'] || 0) + day.macros.total_carbs;
-    totalNutrients['Fat'] = (totalNutrients['Fat'] || 0) + day.macros.fat;
-    totalNutrients['Fiber'] = (totalNutrients['Fiber'] || 0) + day.macros.fiber;
-    totalNutrients['Net Carbs'] = (totalNutrients['Net Carbs'] || 0) + day.macros.net_carbs;
-    totalNutrients['Sodium'] = (totalNutrients['Sodium'] || 0) + day.macros.sodium;
-    totalNutrients['Potassium'] = (totalNutrients['Potassium'] || 0) + day.macros.potassium;
-    totalNutrients['Magnesium'] = (totalNutrients['Magnesium'] || 0) + day.macros.magnesium;
-    
-    // Add all detailed nutrients from the nutrients object
-    if (day.nutrients) {
+    // Cronometer's detailed nutrients object has everything - use it first if available
+    if (day.nutrients && Object.keys(day.nutrients).length > 0) {
       for (const [key, value] of Object.entries(day.nutrients)) {
-        const cleanKey = formatNutrientName(key);
-        totalNutrients[cleanKey] = (totalNutrients[cleanKey] || 0) + (value || 0);
+        if (typeof value === 'number' && !isNaN(value)) {
+          const cleanKey = formatNutrientName(key);
+          totalNutrients[cleanKey] = (totalNutrients[cleanKey] || 0) + value;
+        }
       }
+    } else {
+      // Fallback to macros object if detailed nutrients not available
+      totalNutrients['Energy'] = (totalNutrients['Energy'] || 0) + (day.macros.kcal || 0);
+      totalNutrients['Protein'] = (totalNutrients['Protein'] || 0) + (day.macros.protein || 0);
+      totalNutrients['Carbs'] = (totalNutrients['Carbs'] || 0) + (day.macros.total_carbs || 0);
+      totalNutrients['Fat'] = (totalNutrients['Fat'] || 0) + (day.macros.fat || 0);
+      totalNutrients['Fiber'] = (totalNutrients['Fiber'] || 0) + (day.macros.fiber || 0);
     }
     
-    // Extract foods from meal groups
+    // Always add these from macros for consistency in summary
+    if (!totalNutrients['Energy']) {
+      totalNutrients['Energy'] = (totalNutrients['Energy'] || 0) + (day.macros.kcal || 0);
+    }
+    
+    // Extract foods from meal groups with meal-level macros
     if (day.foods) {
       for (const mealGroup of day.foods) {
-        for (const food of mealGroup.foods) {
+        // Get meal-level macros
+        const mealMacros = mealGroup.macros || { kcal: 0, protein: 0, total_carbs: 0, fat: 0 };
+        const foodCount = mealGroup.foods?.length || 1;
+        
+        // Distribute meal macros across foods (approximation)
+        const perFoodCalories = mealMacros.kcal / foodCount;
+        const perFoodProtein = mealMacros.protein / foodCount;
+        const perFoodCarbs = mealMacros.total_carbs / foodCount;
+        const perFoodFat = mealMacros.fat / foodCount;
+        
+        for (const food of (mealGroup.foods || [])) {
           allFoods.push({
             name: food.name,
             amount: food.serving,
-            calories: 0, // Individual food macros not provided, only meal totals
-            protein: 0,
-            carbs: 0,
-            fat: 0,
+            calories: Math.round(perFoodCalories),
+            protein: Math.round(perFoodProtein * 10) / 10,
+            carbs: Math.round(perFoodCarbs * 10) / 10,
+            fat: Math.round(perFoodFat * 10) / 10,
             meal: mealGroup.name,
             date: day.day,
           });
@@ -174,33 +275,55 @@ function transformCronometerData(
     }
   }
   
+  console.log(`[Cronometer Transform] Aggregated ${Object.keys(totalNutrients).length} nutrients, ${allFoods.length} food entries`);
+  
   // Calculate averages
   const averageNutrients: Record<string, number> = {};
   for (const [key, value] of Object.entries(totalNutrients)) {
     averageNutrients[key] = value / daysCount;
   }
   
-  // Build nutrient data with targets
-  const nutrientData = Object.entries(averageNutrients).map(([name, value]) => {
-    const targetInfo = findTarget(name, targets);
-    const target = targetInfo?.min || targetInfo?.max || 0;
-    return {
-      name,
-      value: Math.round(value * 10) / 10,
-      unit: targetInfo?.unit || getDefaultUnit(name),
-      target,
-      percentage: target > 0 ? Math.round((value / target) * 100) : 0,
-    };
-  });
+  // Build nutrient data with targets - sort by importance
+  const priorityNutrients = [
+    'Energy', 'Protein', 'Carbs', 'Fat', 'Fiber', 'Net Carbs',
+    'Sodium', 'Potassium', 'Magnesium', 'Calcium', 'Iron', 'Zinc',
+    'Vitamin A', 'Vitamin C', 'Vitamin D', 'Vitamin E', 'Vitamin K',
+    'B1 (Thiamine)', 'B2 (Riboflavin)', 'B3 (Niacin)', 'B5 (Pantothenic Acid)',
+    'B6 (Pyridoxine)', 'B12 (Cobalamin)', 'Folate', 'Choline',
+    'Omega-3', 'Omega-6', 'Saturated', 'Monounsaturated', 'Polyunsaturated',
+    'Cholesterol', 'Sugar', 'Water'
+  ];
   
-  // Calculate food frequency
-  const foodCounts: Record<string, { count: number }> = {};
+  const nutrientData = Object.entries(averageNutrients)
+    .map(([name, value]) => {
+      const targetInfo = findTarget(name, targets);
+      const target = targetInfo?.min || targetInfo?.max || 0;
+      return {
+        name,
+        value: Math.round(value * 10) / 10,
+        unit: targetInfo?.unit || getDefaultUnit(name),
+        target,
+        percentage: target > 0 ? Math.round((value / target) * 100) : 0,
+      };
+    })
+    .sort((a, b) => {
+      const aIndex = priorityNutrients.indexOf(a.name);
+      const bIndex = priorityNutrients.indexOf(b.name);
+      if (aIndex === -1 && bIndex === -1) return a.name.localeCompare(b.name);
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    });
+  
+  // Calculate food frequency with calorie data
+  const foodCounts: Record<string, { count: number; totalCalories: number }> = {};
   for (const food of allFoods) {
     const key = food.name.toLowerCase();
     if (!foodCounts[key]) {
-      foodCounts[key] = { count: 0 };
+      foodCounts[key] = { count: 0, totalCalories: 0 };
     }
     foodCounts[key].count++;
+    foodCounts[key].totalCalories += food.calories;
   }
   
   const topFoods = Object.entries(foodCounts)
@@ -209,32 +332,42 @@ function transformCronometerData(
     .map(([name, data]) => ({
       name: name.charAt(0).toUpperCase() + name.slice(1),
       count: data.count,
-      totalCalories: 0, // Not available from Cronometer food entries
+      totalCalories: Math.round(data.totalCalories),
     }));
   
-  // Build daily breakdown
+  // Build daily breakdown with full details
   const dailyBreakdown = validDays.map(day => ({
     date: day.day,
+    completed: day.completed,
+    foodGrams: day.food_grams,
     nutrients: {
-      Energy: day.macros.kcal,
-      Protein: day.macros.protein,
-      Carbs: day.macros.total_carbs,
-      Fat: day.macros.fat,
-      Fiber: day.macros.fiber,
-      ...day.nutrients,
+      Energy: day.macros?.kcal || 0,
+      Protein: day.macros?.protein || 0,
+      Carbs: day.macros?.total_carbs || 0,
+      Fat: day.macros?.fat || 0,
+      Fiber: day.macros?.fiber || 0,
+      ...(day.nutrients || {}),
     },
     foods: (day.foods || []).flatMap(mealGroup =>
-      mealGroup.foods.map(food => ({
+      (mealGroup.foods || []).map(food => ({
         name: food.name,
         amount: food.serving,
-        calories: 0,
-        protein: 0,
-        carbs: 0,
-        fat: 0,
+        calories: Math.round((mealGroup.macros?.kcal || 0) / (mealGroup.foods?.length || 1)),
+        protein: Math.round(((mealGroup.macros?.protein || 0) / (mealGroup.foods?.length || 1)) * 10) / 10,
+        carbs: Math.round(((mealGroup.macros?.total_carbs || 0) / (mealGroup.foods?.length || 1)) * 10) / 10,
+        fat: Math.round(((mealGroup.macros?.fat || 0) / (mealGroup.foods?.length || 1)) * 10) / 10,
         meal: mealGroup.name,
         category: 'Imported',
       }))
     ),
+    mealSummary: (day.foods || []).map(mealGroup => ({
+      name: mealGroup.name,
+      calories: mealGroup.macros?.kcal || 0,
+      protein: mealGroup.macros?.protein || 0,
+      carbs: mealGroup.macros?.total_carbs || 0,
+      fat: mealGroup.macros?.fat || 0,
+      foodCount: mealGroup.foods?.length || 0,
+    })),
   }));
   
   return {
@@ -244,12 +377,17 @@ function transformCronometerData(
       totalCarbs: Math.round(averageNutrients['Carbs'] || 0),
       totalFat: Math.round(averageNutrients['Fat'] || 0),
       totalFiber: Math.round(averageNutrients['Fiber'] || 0),
-      daysAnalyzed: daysCount,
+      daysAnalyzed: validDays.length,
     },
     dailyAverages: nutrientData,
     topFoods,
     dailyBreakdown,
-    rawDays: validDays, // Include raw data for detailed analysis
+    rawDays: validDays.map(d => ({
+      day: d.day,
+      completed: d.completed,
+      foodGrams: d.food_grams,
+      macros: d.macros,
+    })),
   };
 }
 

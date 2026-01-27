@@ -95,6 +95,7 @@ interface CronometerApiOptions {
 
 /**
  * Get list of Pro clients
+ * Note: This endpoint only works for Cronometer Pro accounts
  */
 export async function getProClients(accessToken: string): Promise<{
   clients: Array<{
@@ -114,12 +115,20 @@ export async function getProClients(accessToken: string): Promise<{
     body: JSON.stringify({}), // Empty body returns all clients
   });
   
+  const responseText = await response.text();
+  console.log('[Cronometer API] client_status response:', response.status, responseText.slice(0, 200));
+  
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to get clients');
+    let error;
+    try {
+      error = JSON.parse(responseText);
+    } catch {
+      error = { error: responseText };
+    }
+    throw new Error(error.error || `Failed to get clients (${response.status})`);
   }
   
-  return response.json();
+  return JSON.parse(responseText);
 }
 
 /**
@@ -266,9 +275,15 @@ export async function getDiarySummary(
 ): Promise<CronometerDiarySummary | CronometerDiarySummary[]> {
   const body: Record<string, any> = { ...params };
   
+  // Cronometer API expects client_id as a number
   if (options.clientId) {
-    body.client_id = options.clientId;
+    const clientIdNum = parseInt(options.clientId, 10);
+    if (!isNaN(clientIdNum)) {
+      body.client_id = clientIdNum;
+    }
   }
+  
+  console.log('[Cronometer API] diary_summary request body:', JSON.stringify(body));
   
   const response = await fetch(`${CRONOMETER_API_BASE}/diary_summary`, {
     method: 'POST',
@@ -279,12 +294,21 @@ export async function getDiarySummary(
     body: JSON.stringify(body),
   });
   
+  const responseText = await response.text();
+  console.log('[Cronometer API] diary_summary response status:', response.status);
+  console.log('[Cronometer API] diary_summary response:', responseText.slice(0, 1000));
+  
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to get diary summary');
+    let error;
+    try {
+      error = JSON.parse(responseText);
+    } catch {
+      error = { error: responseText };
+    }
+    throw new Error(error.error || `Failed to get diary summary (${response.status})`);
   }
   
-  return response.json();
+  return JSON.parse(responseText);
 }
 
 /**

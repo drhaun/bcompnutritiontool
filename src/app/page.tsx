@@ -39,7 +39,12 @@ import {
   User,
   Activity,
   Settings,
-  ArrowUpRight
+  ArrowUpRight,
+  X,
+  Cloud,
+  CloudOff,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { useFitomicsStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
@@ -52,10 +57,18 @@ export default function HomePage() {
     activeClientId, 
     createClient, 
     selectClient, 
+    deselectClient,
     deleteClient,
     archiveClient,
     duplicateClient,
-    getActiveClient 
+    getActiveClient,
+    // Sync state
+    isSyncing,
+    lastSyncedAt,
+    syncError,
+    isAuthenticated,
+    syncToDatabase,
+    loadClientsFromDatabase,
   } = useFitomicsStore();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -158,7 +171,17 @@ export default function HomePage() {
                       <Activity className="h-5 w-5 text-[#c19962]" />
                       Current Client
                     </CardTitle>
-                    {getProgressBadge(activeClient)}
+                    <div className="flex items-center gap-2">
+                      {getProgressBadge(activeClient)}
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => deselectClient()}
+                        className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -480,6 +503,64 @@ export default function HomePage() {
                     <p className="text-xs text-muted-foreground">Plans Generated</p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Sync Status */}
+            <Card className={syncError ? 'border-red-200' : isAuthenticated ? 'border-green-200' : ''}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {isAuthenticated ? (
+                      <Cloud className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <CloudOff className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    Cloud Sync
+                  </CardTitle>
+                  {isAuthenticated && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={() => syncToDatabase()}
+                      disabled={isSyncing}
+                    >
+                      {isSyncing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {isAuthenticated ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <span className="text-green-700">Connected to Supabase</span>
+                    </div>
+                    {lastSyncedAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Last synced: {new Date(lastSyncedAt).toLocaleString()}
+                      </p>
+                    )}
+                    {syncError && (
+                      <p className="text-xs text-red-600">{syncError}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      Client data is stored locally in your browser.
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Sign in to sync across devices and save to the cloud.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

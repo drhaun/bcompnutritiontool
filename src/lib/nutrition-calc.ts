@@ -1,5 +1,178 @@
 import type { ActivityLevel, Macros, PerformancePriority, MusclePreservation, LifestyleCommitment, RMREquation } from '@/types';
 
+// ============ EVIDENCE-BASED MACRO COEFFICIENTS ============
+
+/**
+ * Evidence-based protein recommendations (g per kg body weight)
+ * 
+ * CITATIONS:
+ * - Helms et al. (2014): "A systematic review of dietary protein during caloric restriction"
+ *   → Recommends 2.3-3.1 g/kg for lean individuals in deficit with resistance training
+ * - Morton et al. (2018): "A systematic review of protein supplementation"
+ *   → Found 1.6 g/kg sufficient for muscle growth, with diminishing returns above 2.2 g/kg
+ * - Phillips & Van Loon (2011): "Dietary protein for athletes"
+ *   → Recommends 1.3-1.8 g/kg for endurance athletes, 1.6-2.2 g/kg for strength athletes
+ * - Jäger et al. (2017): ISSN Position Stand on protein and exercise
+ *   → Recommends 1.4-2.0 g/kg for exercising individuals
+ */
+export const PROTEIN_COEFFICIENTS = {
+  // Fat Loss coefficients (higher protein preserves muscle during deficit)
+  fatLoss: {
+    conservative: { value: 1.8, label: 'Conservative', description: 'Adequate for most, allows more diet flexibility' },
+    moderate: { value: 2.2, label: 'Moderate (Recommended)', description: 'Optimal muscle preservation during deficit' },
+    aggressive: { value: 2.6, label: 'High', description: 'Maximum muscle preservation, leaner individuals' },
+    extreme: { value: 3.0, label: 'Very High', description: 'Contest prep, very lean (<12% BF)' },
+  },
+  // Muscle Gain coefficients
+  muscleGain: {
+    conservative: { value: 1.6, label: 'Conservative', description: 'Sufficient for most muscle growth' },
+    moderate: { value: 2.0, label: 'Moderate (Recommended)', description: 'Optimal for hypertrophy' },
+    aggressive: { value: 2.4, label: 'High', description: 'Heavy training volume, faster recovery needs' },
+  },
+  // Maintenance coefficients
+  maintain: {
+    conservative: { value: 1.4, label: 'Conservative', description: 'Minimum for active individuals' },
+    moderate: { value: 1.8, label: 'Moderate (Recommended)', description: 'Optimal for body recomposition' },
+    aggressive: { value: 2.2, label: 'High', description: 'Performance-focused maintenance' },
+  },
+  // Special populations
+  elderly: { value: 1.2, label: 'Elderly (>65)', description: 'Higher needs due to anabolic resistance' },
+  endurance: { value: 1.6, label: 'Endurance Athlete', description: 'For high-volume cardio training' },
+} as const;
+
+/**
+ * Evidence-based fat recommendations (g per kg body weight)
+ * 
+ * CITATIONS:
+ * - Helms et al. (2014): Minimum 0.5 g/kg to support hormone function
+ * - Trexler et al. (2014): "Metabolic adaptation to weight loss"
+ *   → Recommends maintaining 15-25% calories from fat during dieting
+ * - Kerksick et al. (2018): ISSN Position Stand on diets and body composition
+ *   → Minimum 20% calories from fat recommended for health
+ * - Volek & Phinney (2012): For hormone optimization, 0.8-1.2 g/kg typical
+ */
+export const FAT_COEFFICIENTS = {
+  fatLoss: {
+    minimum: { value: 0.5, label: 'Minimum', description: 'Bare minimum for hormone health (not recommended long-term)' },
+    conservative: { value: 0.7, label: 'Conservative', description: 'Lower fat, more room for carbs/protein' },
+    moderate: { value: 0.9, label: 'Moderate (Recommended)', description: 'Balanced for hormone health and satiety' },
+    higher: { value: 1.1, label: 'Higher', description: 'Better satiety, good for lower carb tolerance' },
+  },
+  muscleGain: {
+    conservative: { value: 0.8, label: 'Conservative', description: 'More room for carbs' },
+    moderate: { value: 1.0, label: 'Moderate (Recommended)', description: 'Balanced for hormone optimization' },
+    higher: { value: 1.2, label: 'Higher', description: 'Supports hormone production during surplus' },
+  },
+  maintain: {
+    conservative: { value: 0.8, label: 'Conservative', description: 'Lower fat preference' },
+    moderate: { value: 1.0, label: 'Moderate (Recommended)', description: 'Balanced macros' },
+    higher: { value: 1.2, label: 'Higher', description: 'Higher fat preference/tolerance' },
+  },
+} as const;
+
+/**
+ * Carbohydrate recommendations based on training and goals
+ * 
+ * CITATIONS:
+ * - Burke et al. (2011): "Carbohydrates for training and competition"
+ *   → 3-5 g/kg for low intensity, 5-7 g/kg moderate, 6-10 g/kg high intensity
+ * - Kerksick et al. (2018): ISSN Position Stand
+ *   → Minimum ~130g/day for brain function
+ * - Thomas et al. (2016): "Position of the Academy of Nutrition and Dietetics"
+ *   → Athletes should consume adequate carbs to support training
+ */
+export const CARB_GUIDELINES = {
+  minimum: { value: 50, unit: 'g', description: 'Absolute minimum (ketogenic threshold)' },
+  brainFunction: { value: 130, unit: 'g', description: 'Minimum for optimal brain function' },
+  lowActivity: { value: 3, unit: 'g/kg', description: 'Light training / rest days' },
+  moderateActivity: { value: 5, unit: 'g/kg', description: 'Moderate training (45-60 min)' },
+  highActivity: { value: 7, unit: 'g/kg', description: 'High volume training (1-2 hrs)' },
+  veryHighActivity: { value: 10, unit: 'g/kg', description: 'Extreme training (3+ hrs)' },
+} as const;
+
+export type ProteinLevel = 'conservative' | 'moderate' | 'aggressive' | 'extreme';
+export type FatLevel = 'minimum' | 'conservative' | 'moderate' | 'higher';
+
+/**
+ * Get protein coefficient based on goal and preference level
+ */
+export function getProteinCoefficient(
+  goalType: 'lose_fat' | 'gain_muscle' | 'maintain',
+  level: ProteinLevel = 'moderate'
+): number {
+  const goalMap = {
+    lose_fat: PROTEIN_COEFFICIENTS.fatLoss,
+    gain_muscle: PROTEIN_COEFFICIENTS.muscleGain,
+    maintain: PROTEIN_COEFFICIENTS.maintain,
+  };
+  
+  const coefficients = goalMap[goalType];
+  if (level === 'extreme' && goalType !== 'lose_fat') {
+    level = 'aggressive';
+  }
+  
+  return (coefficients as Record<string, { value: number }>)[level]?.value ?? coefficients.moderate.value;
+}
+
+/**
+ * Get fat coefficient based on goal and preference level
+ */
+export function getFatCoefficient(
+  goalType: 'lose_fat' | 'gain_muscle' | 'maintain',
+  level: FatLevel = 'moderate'
+): number {
+  const goalMap = {
+    lose_fat: FAT_COEFFICIENTS.fatLoss,
+    gain_muscle: FAT_COEFFICIENTS.muscleGain,
+    maintain: FAT_COEFFICIENTS.maintain,
+  };
+  
+  const coefficients = goalMap[goalType];
+  return (coefficients as Record<string, { value: number }>)[level]?.value ?? coefficients.moderate.value;
+}
+
+/**
+ * Get coefficient info with description for UI display
+ */
+export function getProteinCoefficientInfo(
+  goalType: 'lose_fat' | 'gain_muscle' | 'maintain'
+): Array<{ level: ProteinLevel; value: number; label: string; description: string }> {
+  const goalMap = {
+    lose_fat: PROTEIN_COEFFICIENTS.fatLoss,
+    gain_muscle: PROTEIN_COEFFICIENTS.muscleGain,
+    maintain: PROTEIN_COEFFICIENTS.maintain,
+  };
+  
+  const coefficients = goalMap[goalType];
+  return Object.entries(coefficients).map(([level, data]) => ({
+    level: level as ProteinLevel,
+    value: data.value,
+    label: data.label,
+    description: data.description,
+  }));
+}
+
+/**
+ * Get fat coefficient info with description for UI display
+ */
+export function getFatCoefficientInfo(
+  goalType: 'lose_fat' | 'gain_muscle' | 'maintain'
+): Array<{ level: FatLevel; value: number; label: string; description: string }> {
+  const goalMap = {
+    lose_fat: FAT_COEFFICIENTS.fatLoss,
+    gain_muscle: FAT_COEFFICIENTS.muscleGain,
+    maintain: FAT_COEFFICIENTS.maintain,
+  };
+  
+  const coefficients = goalMap[goalType];
+  return Object.entries(coefficients).map(([level, data]) => ({
+    level: level as FatLevel,
+    value: data.value,
+    label: data.label,
+    description: data.description,
+  }));
+}
+
 // ============ RMR EQUATIONS ============
 
 /**
@@ -290,36 +463,45 @@ export function calculateTargetCalories(
 
 /**
  * Calculate macronutrient targets based on goal and body weight
+ * Uses default moderate coefficients
  */
 export function calculateMacros(
   targetCalories: number,
   bodyWeightKg: number,
   goalType: 'lose_fat' | 'gain_muscle' | 'maintain'
 ): Macros {
+  return calculateMacrosAdvanced(targetCalories, bodyWeightKg, goalType, 'moderate', 'moderate');
+}
+
+/**
+ * Advanced macro calculation with customizable coefficients
+ * 
+ * @param targetCalories - Target daily calories
+ * @param bodyWeightKg - Body weight in kilograms
+ * @param goalType - Goal type (lose_fat, gain_muscle, maintain)
+ * @param proteinLevel - Protein coefficient level
+ * @param fatLevel - Fat coefficient level
+ * @param customProteinPerKg - Optional custom protein g/kg (overrides level)
+ * @param customFatPerKg - Optional custom fat g/kg (overrides level)
+ */
+export function calculateMacrosAdvanced(
+  targetCalories: number,
+  bodyWeightKg: number,
+  goalType: 'lose_fat' | 'gain_muscle' | 'maintain',
+  proteinLevel: ProteinLevel = 'moderate',
+  fatLevel: FatLevel = 'moderate',
+  customProteinPerKg?: number,
+  customFatPerKg?: number
+): Macros {
   // Ensure minimum calories
   const calories = Math.max(1200, targetCalories);
   
-  let proteinG: number;
-  let fatG: number;
+  // Get coefficients (use custom if provided, otherwise use level-based)
+  const proteinPerKg = customProteinPerKg ?? getProteinCoefficient(goalType, proteinLevel);
+  const fatPerKg = customFatPerKg ?? getFatCoefficient(goalType, fatLevel);
   
-  switch (goalType) {
-    case 'lose_fat':
-      // Higher protein for fat loss
-      proteinG = 2.2 * bodyWeightKg; // 2.2g per kg (1.0g per lb)
-      fatG = 0.8 * bodyWeightKg; // 0.8g per kg
-      break;
-    case 'gain_muscle':
-      // High protein and carbs for muscle gain
-      proteinG = 2.0 * bodyWeightKg; // 2.0g per kg
-      fatG = 0.8 * bodyWeightKg;
-      break;
-    case 'maintain':
-    default:
-      // Balanced for maintenance
-      proteinG = 1.8 * bodyWeightKg;
-      fatG = 1.0 * bodyWeightKg;
-      break;
-  }
+  let proteinG = proteinPerKg * bodyWeightKg;
+  let fatG = fatPerKg * bodyWeightKg;
   
   // Calculate calories from protein and fat
   const proteinCalories = proteinG * 4;
@@ -328,25 +510,27 @@ export function calculateMacros(
   // Calculate remaining calories for carbs
   let carbCalories = calories - proteinCalories - fatCalories;
   
-  // Handle negative carb calories
+  // Handle negative carb calories (reduce fat first, then protein if needed)
   if (carbCalories <= 0) {
+    // First try reducing fat to minimum (0.5 g/kg)
     const minFat = 0.5 * bodyWeightKg;
-    fatG = Math.max(minFat, fatG);
+    fatG = Math.max(minFat, fatG * 0.7); // Reduce fat by 30% but keep above minimum
     
     const newFatCalories = fatG * 9;
     carbCalories = calories - proteinCalories - newFatCalories;
     
+    // If still negative, reduce protein to minimum (1.6 g/kg)
     if (carbCalories <= 0) {
       const minProtein = 1.6 * bodyWeightKg;
-      proteinG = Math.max(minProtein, proteinG);
+      proteinG = Math.max(minProtein, proteinG * 0.8);
       const newProteinCalories = proteinG * 4;
       carbCalories = calories - newProteinCalories - newFatCalories;
     }
   }
   
+  // Calculate carbs with minimums
   const carbG = carbCalories > 0 ? carbCalories / 4 : 50;
-  const bodyWeightLbs = bodyWeightKg * 2.20462;
-  const minCarbs = Math.max(50, 0.25 * bodyWeightLbs);
+  const minCarbs = Math.max(50, 130); // Minimum 130g for brain function
   
   return {
     calories: Math.round(calories),
@@ -354,6 +538,132 @@ export function calculateMacros(
     carbs: Math.round(Math.max(carbG, minCarbs)),
     fat: Math.round(Math.max(fatG, 30)),
   };
+}
+
+/**
+ * Get detailed macro breakdown with rationale
+ */
+export function calculateMacrosWithRationale(
+  targetCalories: number,
+  bodyWeightKg: number,
+  goalType: 'lose_fat' | 'gain_muscle' | 'maintain',
+  proteinLevel: ProteinLevel = 'moderate',
+  fatLevel: FatLevel = 'moderate'
+): {
+  macros: Macros;
+  proteinPerKg: number;
+  fatPerKg: number;
+  carbsPerKg: number;
+  percentages: { protein: number; carbs: number; fat: number };
+  rationale: {
+    protein: string;
+    carbs: string;
+    fat: string;
+  };
+} {
+  const proteinPerKg = getProteinCoefficient(goalType, proteinLevel);
+  const fatPerKg = getFatCoefficient(goalType, fatLevel);
+  
+  const macros = calculateMacrosAdvanced(
+    targetCalories,
+    bodyWeightKg,
+    goalType,
+    proteinLevel,
+    fatLevel
+  );
+  
+  const carbsPerKg = macros.carbs / bodyWeightKg;
+  
+  // Calculate percentages
+  const totalCals = macros.protein * 4 + macros.carbs * 4 + macros.fat * 9;
+  const percentages = {
+    protein: Math.round((macros.protein * 4 / totalCals) * 100),
+    carbs: Math.round((macros.carbs * 4 / totalCals) * 100),
+    fat: Math.round((macros.fat * 9 / totalCals) * 100),
+  };
+  
+  // Generate rationale based on settings
+  const goalDescriptions = {
+    lose_fat: 'fat loss',
+    gain_muscle: 'muscle gain',
+    maintain: 'maintenance',
+  };
+  
+  const proteinRationale = getProteinRationale(goalType, proteinLevel, proteinPerKg);
+  const fatRationale = getFatRationale(goalType, fatLevel, fatPerKg);
+  const carbsRationale = getCarbsRationale(carbsPerKg, goalType, percentages.carbs);
+  
+  return {
+    macros,
+    proteinPerKg,
+    fatPerKg,
+    carbsPerKg,
+    percentages,
+    rationale: {
+      protein: proteinRationale,
+      carbs: carbsRationale,
+      fat: fatRationale,
+    },
+  };
+}
+
+function getProteinRationale(
+  goalType: 'lose_fat' | 'gain_muscle' | 'maintain',
+  level: ProteinLevel,
+  perKg: number
+): string {
+  const perLb = (perKg / 2.20462).toFixed(2);
+  
+  if (goalType === 'lose_fat') {
+    if (level === 'aggressive' || level === 'extreme') {
+      return `${perKg} g/kg (${perLb} g/lb) - Higher protein for maximum muscle preservation during caloric deficit. Based on Helms et al. (2014) recommendations for lean individuals.`;
+    }
+    return `${perKg} g/kg (${perLb} g/lb) - Elevated protein to preserve lean mass during deficit. Research shows 1.8-2.4 g/kg optimal for most during fat loss (Morton et al., 2018).`;
+  }
+  
+  if (goalType === 'gain_muscle') {
+    return `${perKg} g/kg (${perLb} g/lb) - Sufficient for muscle protein synthesis. Meta-analyses show diminishing returns above 1.6-2.2 g/kg (Morton et al., 2018).`;
+  }
+  
+  return `${perKg} g/kg (${perLb} g/lb) - Adequate for maintaining muscle mass and supporting recovery. ISSN recommends 1.4-2.0 g/kg for active individuals (Jäger et al., 2017).`;
+}
+
+function getFatRationale(
+  goalType: 'lose_fat' | 'gain_muscle' | 'maintain',
+  level: FatLevel,
+  perKg: number
+): string {
+  const asPercent = Math.round((perKg * 9 / ((perKg * 9) + 8)) * 100); // Rough estimate
+  
+  if (level === 'minimum') {
+    return `${perKg} g/kg - Minimum threshold for hormone production. Not recommended long-term. Consider increasing if experiencing fatigue or hormonal symptoms.`;
+  }
+  
+  if (goalType === 'lose_fat') {
+    return `${perKg} g/kg - Supports hormone health while allowing room for adequate protein and carbs. Minimum 0.5 g/kg recommended (Helms et al., 2014).`;
+  }
+  
+  return `${perKg} g/kg - Optimal for hormone production, cell membrane health, and fat-soluble vitamin absorption. ISSN recommends 20-35% of calories from fat.`;
+}
+
+function getCarbsRationale(
+  perKg: number,
+  goalType: 'lose_fat' | 'gain_muscle' | 'maintain',
+  percentOfCalories: number
+): string {
+  if (perKg < 2) {
+    return `${perKg.toFixed(1)} g/kg (${percentOfCalories}% of calories) - Lower carb approach. Ensure adequate intake on training days for performance.`;
+  }
+  
+  if (goalType === 'lose_fat') {
+    return `${perKg.toFixed(1)} g/kg (${percentOfCalories}% of calories) - Moderate carbs to fuel workouts while maintaining deficit. Prioritize around training for performance.`;
+  }
+  
+  if (goalType === 'gain_muscle') {
+    return `${perKg.toFixed(1)} g/kg (${percentOfCalories}% of calories) - Adequate carbs to fuel muscle-building workouts and support recovery. Burke et al. (2011) recommends 5-7 g/kg for moderate training.`;
+  }
+  
+  return `${perKg.toFixed(1)} g/kg (${percentOfCalories}% of calories) - Balanced carb intake to support activity levels and brain function (minimum 130g/day recommended).`;
 }
 
 /**
@@ -867,7 +1177,7 @@ export function validateMacroAccuracy(
 }
 
 /**
- * Distribute daily macros across meals
+ * Distribute daily macros across meals (simple even distribution)
  */
 export function distributeMacrosAcrossMeals(
   dailyTargets: Macros,
@@ -901,4 +1211,341 @@ export function distributeMacrosAcrossMeals(
   }
   
   return { mealTargets, snackTargets };
+}
+
+// ============ NUTRIENT TIMING ============
+
+/**
+ * Evidence-based nutrient timing guidelines
+ * 
+ * CITATIONS:
+ * - Kerksick et al. (2017): ISSN Position Stand on Nutrient Timing
+ *   → Pre-workout: 1-4 hours before, 0.4-0.5 g/kg protein, 1-4 g/kg carbs
+ *   → Post-workout: Within 2 hours, 0.4-0.5 g/kg protein, 1.0-1.5 g/kg carbs
+ * - Aragon & Schoenfeld (2013): "Nutrient timing revisited"
+ *   → Total daily intake more important than timing for most
+ *   → Timing matters more for multiple daily sessions or fasted training
+ * - Schoenfeld et al. (2017): Pre-exercise protein intake equally important as post
+ */
+export const NUTRIENT_TIMING = {
+  preWorkout: {
+    timing: '1-3 hours before',
+    protein: { min: 0.3, max: 0.5, unit: 'g/kg', description: '25-40g for most people' },
+    carbs: { min: 0.5, max: 1.5, unit: 'g/kg', description: 'Higher for longer/intense sessions' },
+    fat: { max: 0.3, unit: 'g/kg', description: 'Low fat for faster digestion' },
+    guidelines: [
+      'Easily digestible protein (whey, eggs, chicken)',
+      'Low-glycemic carbs for sustained energy',
+      'Avoid high fat/fiber to prevent GI distress',
+    ],
+  },
+  postWorkout: {
+    timing: 'Within 2 hours after',
+    protein: { min: 0.3, max: 0.5, unit: 'g/kg', description: '25-50g for muscle protein synthesis' },
+    carbs: { min: 0.8, max: 1.5, unit: 'g/kg', description: 'Replenish glycogen stores' },
+    fat: { min: 0.2, max: 0.4, unit: 'g/kg', description: 'Does not impair protein synthesis' },
+    guidelines: [
+      'Fast-digesting protein (whey) optimal but not required',
+      'Higher glycemic carbs acceptable for glycogen replenishment',
+      'Complete meal within 2 hours supports recovery',
+    ],
+  },
+  intraWorkout: {
+    timing: 'During workout (>90 min)',
+    carbs: { min: 30, max: 60, unit: 'g/hour', description: 'For sessions >90 minutes' },
+    guidelines: [
+      'Only necessary for endurance sessions >90 minutes',
+      'Sports drinks or easily digestible carbs',
+      'Not needed for typical resistance training',
+    ],
+  },
+} as const;
+
+export interface MealSlot {
+  id: string;
+  time: string;
+  type: 'meal' | 'snack';
+  label: string;
+  workoutRelation: 'pre-workout' | 'post-workout' | 'none';
+  hoursFromWorkout?: number;
+}
+
+export interface NutrientTimingMeal extends MealSlot {
+  targets: Macros;
+  rationale: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+/**
+ * Calculate time difference in hours between two time strings (HH:MM format)
+ */
+function getHoursDifference(time1: string, time2: string): number {
+  const [h1, m1] = time1.split(':').map(Number);
+  const [h2, m2] = time2.split(':').map(Number);
+  const mins1 = h1 * 60 + m1;
+  const mins2 = h2 * 60 + m2;
+  return (mins2 - mins1) / 60;
+}
+
+/**
+ * Distribute macros with intelligent nutrient timing based on workout schedule
+ * 
+ * @param dailyTargets - Total daily macro targets
+ * @param mealSlots - Array of meal/snack slots with times
+ * @param workoutTime - Time of workout (HH:MM format), null if rest day
+ * @param workoutType - Type of workout (affects carb timing)
+ * @param bodyWeightKg - Body weight for calculating per-kg targets
+ * @param goalType - Goal affects macro prioritization
+ */
+export function distributeWithNutrientTiming(
+  dailyTargets: Macros,
+  mealSlots: MealSlot[],
+  workoutTime: string | null,
+  workoutType: string | null,
+  bodyWeightKg: number,
+  goalType: 'lose_fat' | 'gain_muscle' | 'maintain'
+): NutrientTimingMeal[] {
+  // If no workout, use simple distribution with protein spread evenly
+  if (!workoutTime) {
+    return distributeRestDay(dailyTargets, mealSlots);
+  }
+  
+  // Sort meals by time
+  const sortedSlots = [...mealSlots].sort((a, b) => a.time.localeCompare(b.time));
+  
+  // Find pre-workout and post-workout meals
+  let preWorkoutMeal: MealSlot | null = null;
+  let postWorkoutMeal: MealSlot | null = null;
+  let preWorkoutIndex = -1;
+  let postWorkoutIndex = -1;
+  
+  sortedSlots.forEach((slot, index) => {
+    const hoursDiff = getHoursDifference(slot.time, workoutTime);
+    
+    // Pre-workout: meal 1-4 hours before workout
+    if (hoursDiff >= -4 && hoursDiff <= -0.5) {
+      if (!preWorkoutMeal || Math.abs(hoursDiff + 2) < Math.abs(getHoursDifference(preWorkoutMeal.time, workoutTime) + 2)) {
+        preWorkoutMeal = slot;
+        preWorkoutIndex = index;
+      }
+    }
+    
+    // Post-workout: first meal/snack within 2 hours after workout
+    if (hoursDiff >= 0.5 && hoursDiff <= 3) {
+      if (!postWorkoutMeal) {
+        postWorkoutMeal = slot;
+        postWorkoutIndex = index;
+      }
+    }
+  });
+  
+  // Calculate workout-optimized distribution
+  const result: NutrientTimingMeal[] = [];
+  let remainingMacros = { ...dailyTargets };
+  
+  // Determine carb priority based on workout type
+  const isHighCarbWorkout = ['Resistance Training', 'HIIT', 'Sports', 'Cardio'].includes(workoutType || '');
+  const carbPriorityMultiplier = isHighCarbWorkout ? 1.3 : 1.0;
+  
+  // First pass: allocate to pre and post workout meals
+  sortedSlots.forEach((slot, index) => {
+    let targets: Macros;
+    let rationale: string;
+    let priority: 'high' | 'medium' | 'low';
+    let workoutRelation: 'pre-workout' | 'post-workout' | 'none' = 'none';
+    
+    if (index === preWorkoutIndex) {
+      // Pre-workout meal: moderate protein, higher carbs, low fat
+      workoutRelation = 'pre-workout';
+      priority = 'high';
+      
+      const preProtein = Math.round(Math.min(0.4 * bodyWeightKg, dailyTargets.protein * 0.25));
+      const preCarbs = Math.round(Math.min(1.0 * bodyWeightKg * carbPriorityMultiplier, dailyTargets.carbs * 0.3));
+      const preFat = Math.round(Math.min(0.2 * bodyWeightKg, dailyTargets.fat * 0.15));
+      const preCalories = preProtein * 4 + preCarbs * 4 + preFat * 9;
+      
+      targets = {
+        calories: preCalories,
+        protein: preProtein,
+        carbs: preCarbs,
+        fat: preFat,
+      };
+      
+      rationale = `Pre-workout (${Math.abs(getHoursDifference(slot.time, workoutTime)).toFixed(1)}h before): Prioritized carbs for energy, moderate protein, low fat for digestion.`;
+      
+    } else if (index === postWorkoutIndex) {
+      // Post-workout meal: high protein, high carbs, moderate fat
+      workoutRelation = 'post-workout';
+      priority = 'high';
+      
+      const postProtein = Math.round(Math.min(0.5 * bodyWeightKg, dailyTargets.protein * 0.3));
+      const postCarbs = Math.round(Math.min(1.2 * bodyWeightKg * carbPriorityMultiplier, dailyTargets.carbs * 0.35));
+      const postFat = Math.round(Math.min(0.3 * bodyWeightKg, dailyTargets.fat * 0.2));
+      const postCalories = postProtein * 4 + postCarbs * 4 + postFat * 9;
+      
+      targets = {
+        calories: postCalories,
+        protein: postProtein,
+        carbs: postCarbs,
+        fat: postFat,
+      };
+      
+      rationale = `Post-workout (${getHoursDifference(slot.time, workoutTime).toFixed(1)}h after): High protein for MPS, carbs for glycogen replenishment.`;
+      
+    } else {
+      // Other meals: will be calculated after workout meals
+      targets = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      rationale = '';
+      priority = slot.type === 'meal' ? 'medium' : 'low';
+    }
+    
+    result.push({
+      ...slot,
+      workoutRelation,
+      targets,
+      rationale,
+      priority,
+    });
+    
+    // Subtract from remaining
+    if (targets.calories > 0) {
+      remainingMacros.calories -= targets.calories;
+      remainingMacros.protein -= targets.protein;
+      remainingMacros.carbs -= targets.carbs;
+      remainingMacros.fat -= targets.fat;
+    }
+  });
+  
+  // Second pass: distribute remaining macros to non-workout meals
+  const nonWorkoutMeals = result.filter(m => m.targets.calories === 0);
+  const meals = nonWorkoutMeals.filter(m => m.type === 'meal');
+  const snacks = nonWorkoutMeals.filter(m => m.type === 'snack');
+  
+  // Meals get 70% of remaining, snacks get 30%
+  const mealPortion = meals.length > 0 ? (0.7 / meals.length) : 0;
+  const snackPortion = snacks.length > 0 ? (0.3 / snacks.length) : 0;
+  
+  result.forEach(meal => {
+    if (meal.targets.calories === 0) {
+      const portion = meal.type === 'meal' ? mealPortion : snackPortion;
+      
+      meal.targets = {
+        calories: Math.round(remainingMacros.calories * portion),
+        protein: Math.round(remainingMacros.protein * portion),
+        carbs: Math.round(remainingMacros.carbs * portion),
+        fat: Math.round(remainingMacros.fat * portion),
+      };
+      
+      meal.rationale = meal.type === 'meal' 
+        ? 'Standard meal: balanced macros for sustained energy and satiety.'
+        : 'Snack: supports daily protein distribution and energy between meals.';
+    }
+  });
+  
+  // Verify totals and adjust if needed
+  const totalCalories = result.reduce((sum, m) => sum + m.targets.calories, 0);
+  const calorieDiff = dailyTargets.calories - totalCalories;
+  
+  if (Math.abs(calorieDiff) > 50 && result.length > 0) {
+    // Distribute difference to largest meal
+    const largestMeal = result.reduce((max, m) => 
+      m.targets.calories > max.targets.calories ? m : max
+    );
+    largestMeal.targets.calories += calorieDiff;
+    // Adjust carbs to account for calorie difference
+    largestMeal.targets.carbs += Math.round(calorieDiff / 4);
+  }
+  
+  return result;
+}
+
+/**
+ * Simple distribution for rest days - focus on even protein distribution
+ */
+function distributeRestDay(
+  dailyTargets: Macros,
+  mealSlots: MealSlot[]
+): NutrientTimingMeal[] {
+  const meals = mealSlots.filter(m => m.type === 'meal');
+  const snacks = mealSlots.filter(m => m.type === 'snack');
+  
+  // Even protein distribution is key for MPS on rest days
+  // Schoenfeld et al. recommend 0.4-0.55 g/kg per meal, 3-4 meals
+  const proteinPerMeal = Math.round(dailyTargets.protein * 0.75 / meals.length);
+  const proteinPerSnack = snacks.length > 0 ? Math.round(dailyTargets.protein * 0.25 / snacks.length) : 0;
+  
+  const mealPortion = 0.75 / meals.length;
+  const snackPortion = snacks.length > 0 ? 0.25 / snacks.length : 0;
+  
+  return mealSlots.map(slot => {
+    const isMeal = slot.type === 'meal';
+    const portion = isMeal ? mealPortion : snackPortion;
+    
+    return {
+      ...slot,
+      workoutRelation: 'none' as const,
+      targets: {
+        calories: Math.round(dailyTargets.calories * portion),
+        protein: isMeal ? proteinPerMeal : proteinPerSnack,
+        carbs: Math.round(dailyTargets.carbs * portion),
+        fat: Math.round(dailyTargets.fat * portion),
+      },
+      rationale: isMeal 
+        ? 'Rest day meal: even protein distribution (~0.4-0.5 g/kg per meal) optimizes muscle protein synthesis.'
+        : 'Rest day snack: supports protein distribution and energy balance.',
+      priority: isMeal ? 'medium' as const : 'low' as const,
+    };
+  });
+}
+
+/**
+ * Get nutrient timing recommendations for a specific workout context
+ */
+export function getNutrientTimingRecommendations(
+  workoutType: string,
+  workoutDuration: number,
+  workoutIntensity: 'Low' | 'Medium' | 'High',
+  bodyWeightKg: number
+): {
+  preWorkout: { protein: number; carbs: number; fat: number; timing: string };
+  postWorkout: { protein: number; carbs: number; fat: number; timing: string };
+  intraWorkout: { carbs: number; needed: boolean } | null;
+  rationale: string;
+} {
+  // Adjust carb needs based on workout type and intensity
+  const carbMultiplier = {
+    'Resistance Training': workoutIntensity === 'High' ? 1.2 : 1.0,
+    'HIIT': 1.3,
+    'Cardio': workoutDuration > 60 ? 1.4 : 1.1,
+    'Sports': 1.2,
+    'Yoga/Mobility': 0.6,
+    'Mixed': 1.1,
+  }[workoutType] || 1.0;
+  
+  const preWorkout = {
+    protein: Math.round(0.4 * bodyWeightKg),
+    carbs: Math.round(0.8 * bodyWeightKg * carbMultiplier),
+    fat: Math.round(0.15 * bodyWeightKg),
+    timing: '1-3 hours before',
+  };
+  
+  const postWorkout = {
+    protein: Math.round(0.4 * bodyWeightKg),
+    carbs: Math.round(1.0 * bodyWeightKg * carbMultiplier),
+    fat: Math.round(0.25 * bodyWeightKg),
+    timing: 'Within 2 hours after',
+  };
+  
+  // Intra-workout only for long endurance
+  const needsIntra = workoutType === 'Cardio' && workoutDuration > 90;
+  const intraWorkout = needsIntra ? {
+    carbs: Math.round(workoutDuration / 60 * 45), // ~45g per hour
+    needed: true,
+  } : null;
+  
+  const rationale = `For ${workoutType} (${workoutDuration}min, ${workoutIntensity} intensity): ` +
+    `Pre-workout carbs fuel performance, post-workout protein (0.4 g/kg) supports muscle protein synthesis. ` +
+    (needsIntra ? `Intra-workout carbs recommended for sessions >90 minutes.` : '');
+  
+  return { preWorkout, postWorkout, intraWorkout, rationale };
 }

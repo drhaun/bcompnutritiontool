@@ -99,6 +99,10 @@ async function getMealConcept(
 
   const restrictions = dietPreferences.dietaryRestrictions || [];
   const allergies = dietPreferences.allergies || [];
+  const customAllergies = dietPreferences.customAllergies || [];
+  const allAllergies = [...allergies, ...customAllergies].filter(Boolean);
+  const foodsToAvoid = dietPreferences.foodsToAvoid || [];
+  const foodsToEmphasize = dietPreferences.foodsToEmphasize || [];
   const cuisines = dietPreferences.cuisinePreferences || [];
   const flavorProfiles = dietPreferences.flavorProfiles || [];
   const spiceLevel = dietPreferences.spiceLevel || 'medium';
@@ -209,10 +213,23 @@ MACRO TARGETS
 - Fat: ${targetMacros.fat}g (${fatPct}% of cals) ${isLowFat ? '→ LEAN proteins required' : '→ Include healthy fats'}
 
 ═══════════════════════════════════════════════════════════
-DIETARY CONSTRAINTS
+⛔ CRITICAL DIETARY RESTRICTIONS - DO NOT VIOLATE
 ═══════════════════════════════════════════════════════════
-- Restrictions: ${restrictions.join(', ') || 'None'}
-- ALLERGIES (NEVER USE): ${allergies.join(', ') || 'None'}
+- Dietary restrictions: ${restrictions.join(', ') || 'None'}
+- 🚨 ALLERGIES (NEVER USE - DANGEROUS): ${allAllergies.join(', ') || 'None'}
+- ❌ FOODS TO AVOID (client dislikes/cannot eat): ${foodsToAvoid.join(', ') || 'None'}
+
+${allAllergies.length > 0 || foodsToAvoid.length > 0 ? `
+⚠️ IMPORTANT: Double-check EVERY ingredient against the allergies and foods to avoid list above.
+If ANY ingredient matches, DO NOT include it - find an alternative!
+` : ''}
+
+═══════════════════════════════════════════════════════════
+✅ FOODS TO PRIORITIZE & EMPHASIZE
+═══════════════════════════════════════════════════════════
+${foodsToEmphasize.length > 0 ? `🌟 CLIENT WANTS THESE FOODS: ${foodsToEmphasize.join(', ')}
+→ Try to incorporate at least ONE of these emphasized foods in this meal when appropriate!` : 'No specific foods to emphasize'}
+
 - Preferred proteins: ${preferred.proteins.join(', ') || 'chicken, fish, eggs, beef, turkey'}
 - Preferred carbs: ${preferred.carbs.join(', ') || 'rice, potatoes, oats, quinoa'}
 - Preferred vegetables: ${preferred.vegetables.join(', ') || 'broccoli, spinach, peppers, asparagus'}
@@ -537,7 +554,7 @@ async function buildMealFromConcept(
  * Calculate total macros from scaled foods
  */
 function calculateTotalMacros(foods: ScaledFood[]): FoodNutrients {
-  return foods.reduce(
+  const totals = foods.reduce(
     (total, food) => ({
       calories: total.calories + food.scaledNutrients.calories,
       protein: total.protein + food.scaledNutrients.protein,
@@ -546,6 +563,13 @@ function calculateTotalMacros(foods: ScaledFood[]): FoodNutrients {
     }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   );
+  // Round all values to whole numbers for display
+  return {
+    calories: Math.round(totals.calories),
+    protein: Math.round(totals.protein),
+    carbs: Math.round(totals.carbs),
+    fat: Math.round(totals.fat),
+  };
 }
 
 /**

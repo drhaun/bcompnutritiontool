@@ -22,10 +22,25 @@ import {
   calculateTDEE, 
   calculateTargetCalories, 
   calculateMacros,
+  calculateMacrosAdvanced,
+  calculateMacrosWithRationale,
   calculateBodyComposition,
   lbsToKg,
   kgToLbs,
-  heightToCm
+  heightToCm,
+  getProteinCoefficientInfo,
+  getFatCoefficientInfo,
+  getProteinCoefficient,
+  getFatCoefficient,
+  distributeWithNutrientTiming,
+  getNutrientTimingRecommendations,
+  PROTEIN_COEFFICIENTS,
+  FAT_COEFFICIENTS,
+  NUTRIENT_TIMING,
+  type ProteinLevel,
+  type FatLevel,
+  type MealSlot,
+  type NutrientTimingMeal,
 } from '@/lib/nutrition-calc';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -91,8 +106,15 @@ export default function TargetsPage() {
   }, []);
 
   const [showCustomization, setShowCustomization] = useState(false);
+  const [showCoefficientSettings, setShowCoefficientSettings] = useState(false);
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Monday');
   const [confirmedTargets, setConfirmedTargets] = useState(false);
+  
+  // Macro coefficient settings
+  const [proteinLevel, setProteinLevel] = useState<ProteinLevel>('moderate');
+  const [fatLevel, setFatLevel] = useState<FatLevel>('moderate');
+  const [customProteinPerKg, setCustomProteinPerKg] = useState<number | null>(null);
+  const [customFatPerKg, setCustomFatPerKg] = useState<number | null>(null);
   
   // Custom overrides for each day's targets
   const [customOverrides, setCustomOverrides] = useState<Record<DayOfWeek, {
@@ -121,6 +143,48 @@ export default function TargetsPage() {
     return calculateBodyComposition(weightKg, heightCm, userProfile.bodyFatPercentage, userProfile.gender);
   }, [userProfile]);
 
+  // Get goal type
+  const goalType = bodyCompGoals.goalType || 'maintain';
+  
+  // Get coefficient info for UI
+  const proteinOptions = useMemo(() => getProteinCoefficientInfo(goalType), [goalType]);
+  const fatOptions = useMemo(() => getFatCoefficientInfo(goalType), [goalType]);
+  
+  // Current effective coefficients
+  const effectiveProteinPerKg = customProteinPerKg ?? getProteinCoefficient(goalType, proteinLevel);
+  const effectiveFatPerKg = customFatPerKg ?? getFatCoefficient(goalType, fatLevel);
+
+  // Calculate base targets with rationale
+  const baseTargetsWithRationale = useMemo(() => {
+    if (!userProfile.weightLbs || !userProfile.heightFt || !userProfile.age || !userProfile.gender) {
+      return null;
+    }
+    const weightKg = lbsToKg(userProfile.weightLbs);
+    const heightCm = heightToCm(userProfile.heightFt, userProfile.heightIn || 0);
+    
+    const baseTDEE = calculateTDEE(
+      userProfile.gender,
+      weightKg,
+      heightCm,
+      userProfile.age,
+      userProfile.activityLevel || 'Active (10-15k steps/day)'
+    );
+    
+    const weeklyChangeKg = bodyCompGoals.weeklyWeightChangePct 
+      ? weightKg * bodyCompGoals.weeklyWeightChangePct
+      : goalType === 'lose_fat' ? 0.5 : goalType === 'gain_muscle' ? 0.25 : 0;
+    
+    const targetCalories = calculateTargetCalories(baseTDEE, goalType, weeklyChangeKg);
+    
+    return calculateMacrosWithRationale(
+      targetCalories,
+      weightKg,
+      goalType,
+      proteinLevel,
+      fatLevel
+    );
+  }, [userProfile, bodyCompGoals, goalType, proteinLevel, fatLevel]);
+
   // Calculate base targets (from body composition goals only)
   const baseTargets = useMemo((): Macros | null => {
     if (!userProfile.weightLbs || !userProfile.heightFt || !userProfile.age || !userProfile.gender) {
@@ -137,14 +201,21 @@ export default function TargetsPage() {
       userProfile.activityLevel || 'Active (10-15k steps/day)'
     );
     
-    const goalType = bodyCompGoals.goalType || 'maintain';
     const weeklyChangeKg = bodyCompGoals.weeklyWeightChangePct 
       ? weightKg * bodyCompGoals.weeklyWeightChangePct
       : goalType === 'lose_fat' ? 0.5 : goalType === 'gain_muscle' ? 0.25 : 0;
     
     const targetCalories = calculateTargetCalories(baseTDEE, goalType, weeklyChangeKg);
-    return calculateMacros(targetCalories, weightKg, goalType);
-  }, [userProfile, bodyCompGoals]);
+    return calculateMacrosAdvanced(
+      targetCalories, 
+      weightKg, 
+      goalType, 
+      proteinLevel, 
+      fatLevel,
+      customProteinPerKg ?? undefined,
+      customFatPerKg ?? undefined
+    );
+  }, [userProfile, bodyCompGoals, goalType, proteinLevel, fatLevel, customProteinPerKg, customFatPerKg]);
 
   // Calculate day-specific targets
   const dayTargets = useMemo((): DayTargets[] => {
@@ -163,7 +234,6 @@ export default function TargetsPage() {
       userProfile.activityLevel || 'Active (10-15k steps/day)'
     );
     
-    const goalType = bodyCompGoals.goalType || 'maintain';
     const weeklyChangeKg = bodyCompGoals.weeklyWeightChangePct 
       ? weightKg * bodyCompGoals.weeklyWeightChangePct
       : goalType === 'lose_fat' ? 0.5 : goalType === 'gain_muscle' ? 0.25 : 0;
@@ -194,7 +264,15 @@ export default function TargetsPage() {
 
       const totalTDEE = baseTDEE + workoutCalories;
       const targetCalories = calculateTargetCalories(totalTDEE, goalType, weeklyChangeKg);
-      const macros = calculateMacros(targetCalories, weightKg, goalType);
+      const macros = calculateMacrosAdvanced(
+        targetCalories, 
+        weightKg, 
+        goalType, 
+        proteinLevel, 
+        fatLevel,
+        customProteinPerKg ?? undefined,
+        customFatPerKg ?? undefined
+      );
 
       return {
         day,
@@ -211,7 +289,7 @@ export default function TargetsPage() {
         fat: macros.fat,
       };
     });
-  }, [userProfile, bodyCompGoals, weeklySchedule]);
+  }, [userProfile, bodyCompGoals, weeklySchedule, goalType, proteinLevel, fatLevel, customProteinPerKg, customFatPerKg]);
 
   // Calculate suggested (average) targets
   const suggestedTargets = useMemo((): Macros | null => {
@@ -252,58 +330,80 @@ export default function TargetsPage() {
     };
   }, [weeklySchedule]);
 
-  // Calculate meal distribution
-  const mealDistribution = useMemo((): MealDistribution[] => {
+  // Get workout info for selected day (for nutrient timing)
+  const selectedDaySchedule = weeklySchedule[selectedDay];
+  const selectedDayWorkout = selectedDaySchedule?.workouts?.[0] || null;
+  const workoutTime = selectedDayWorkout?.time || null;
+  
+  // Calculate meal distribution with intelligent nutrient timing
+  const mealDistributionWithTiming = useMemo((): NutrientTimingMeal[] => {
     if (!suggestedTargets) return [];
     
-    const { mealsPerDay, snacksPerDay } = mealStructure;
-    const totalOccasions = mealsPerDay + snacksPerDay;
+    const { mealsPerDay, snacksPerDay, mealContexts } = mealStructure;
+    const weightKg = userProfile.weightLbs ? lbsToKg(userProfile.weightLbs) : 70;
     
-    // Meals get 75% of calories, snacks get 25%
-    const mealCalories = Math.round((suggestedTargets.calories * 0.75) / mealsPerDay);
-    const snackCalories = snacksPerDay > 0 ? Math.round((suggestedTargets.calories * 0.25) / snacksPerDay) : 0;
-    
-    const mealProtein = Math.round((suggestedTargets.protein * 0.75) / mealsPerDay);
-    const snackProtein = snacksPerDay > 0 ? Math.round((suggestedTargets.protein * 0.25) / snacksPerDay) : 0;
-    
-    const mealCarbs = Math.round((suggestedTargets.carbs * 0.75) / mealsPerDay);
-    const snackCarbs = snacksPerDay > 0 ? Math.round((suggestedTargets.carbs * 0.25) / snacksPerDay) : 0;
-    
-    const mealFat = Math.round((suggestedTargets.fat * 0.75) / mealsPerDay);
-    const snackFat = snacksPerDay > 0 ? Math.round((suggestedTargets.fat * 0.25) / snacksPerDay) : 0;
-    
-    const distribution: MealDistribution[] = [];
+    // Build meal slots from schedule
+    const mealSlots: MealSlot[] = [];
     const mealTimes = ['08:00', '12:00', '18:00', '21:00', '22:00'];
     const snackTimes = ['10:00', '15:00', '20:00', '22:00'];
     
+    // Use meal contexts if available, otherwise default times
     for (let i = 0; i < mealsPerDay; i++) {
-      distribution.push({
+      const context = mealContexts?.[i];
+      mealSlots.push({
         id: `meal-${i}`,
         label: `Meal ${i + 1}`,
         type: 'meal',
-        time: mealTimes[i] || '12:00',
-        calories: mealCalories,
-        protein: mealProtein,
-        carbs: mealCarbs,
-        fat: mealFat,
+        time: context?.time || mealTimes[i] || '12:00',
+        workoutRelation: 'none',
       });
     }
     
     for (let i = 0; i < snacksPerDay; i++) {
-      distribution.push({
+      mealSlots.push({
         id: `snack-${i}`,
         label: `Snack ${i + 1}`,
         type: 'snack',
         time: snackTimes[i] || '15:00',
-        calories: snackCalories,
-        protein: snackProtein,
-        carbs: snackCarbs,
-        fat: snackFat,
+        workoutRelation: 'none',
       });
     }
     
-    return distribution.sort((a, b) => a.time.localeCompare(b.time));
-  }, [suggestedTargets, mealStructure]);
+    // Use intelligent nutrient timing based on workout
+    return distributeWithNutrientTiming(
+      suggestedTargets,
+      mealSlots,
+      workoutTime,
+      selectedDayWorkout?.type || null,
+      weightKg,
+      goalType
+    );
+  }, [suggestedTargets, mealStructure, workoutTime, selectedDayWorkout, userProfile.weightLbs, goalType]);
+
+  // Simple meal distribution for display (backwards compatible)
+  const mealDistribution = useMemo((): MealDistribution[] => {
+    return mealDistributionWithTiming.map(meal => ({
+      id: meal.id,
+      label: meal.label,
+      type: meal.type,
+      time: meal.time,
+      calories: meal.targets.calories,
+      protein: meal.targets.protein,
+      carbs: meal.targets.carbs,
+      fat: meal.targets.fat,
+    }));
+  }, [mealDistributionWithTiming]);
+  
+  // Get nutrient timing recommendations for selected day
+  const nutrientTimingRecs = useMemo(() => {
+    if (!selectedDayWorkout || !userProfile.weightLbs) return null;
+    return getNutrientTimingRecommendations(
+      selectedDayWorkout.type,
+      selectedDayWorkout.duration,
+      selectedDayWorkout.intensity as 'Low' | 'Medium' | 'High',
+      lbsToKg(userProfile.weightLbs)
+    );
+  }, [selectedDayWorkout, userProfile.weightLbs]);
 
   // Calculate nutrition targets on mount
   useEffect(() => {
@@ -495,6 +595,217 @@ export default function TargetsPage() {
               </CardContent>
             </Card>
 
+            {/* Macro Coefficient Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Target className="h-5 w-5 text-[#c19962]" />
+                    Macro Coefficient Settings
+                  </span>
+                  <Switch
+                    checked={showCoefficientSettings}
+                    onCheckedChange={setShowCoefficientSettings}
+                  />
+                </CardTitle>
+                <CardDescription>
+                  Evidence-based protein and fat targets - adjust based on your preferences and training
+                </CardDescription>
+              </CardHeader>
+              {showCoefficientSettings && (
+                <CardContent className="space-y-6">
+                  {/* Protein Settings */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-base font-semibold">Protein Target</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Current: <span className="font-bold text-[#00263d]">{effectiveProteinPerKg.toFixed(1)} g/kg</span>
+                          ({(effectiveProteinPerKg / 2.20462).toFixed(2)} g/lb)
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-[#c19962] border-[#c19962]">
+                        {baseTargets ? `${baseTargets.protein}g daily` : ''}
+                      </Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                      {proteinOptions.map((option) => (
+                        <Button
+                          key={option.level}
+                          variant={proteinLevel === option.level && !customProteinPerKg ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            setProteinLevel(option.level);
+                            setCustomProteinPerKg(null);
+                          }}
+                          className={cn(
+                            'flex flex-col h-auto py-2',
+                            proteinLevel === option.level && !customProteinPerKg && 'bg-[#00263d] hover:bg-[#003b59]'
+                          )}
+                        >
+                          <span className="font-bold">{option.value} g/kg</span>
+                          <span className="text-xs opacity-80">{option.label}</span>
+                        </Button>
+                      ))}
+                    </div>
+                    
+                    <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                      <p className="font-medium mb-1">
+                        {proteinOptions.find(o => o.level === proteinLevel)?.label || 'Custom'}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {proteinOptions.find(o => o.level === proteinLevel)?.description}
+                      </p>
+                    </div>
+
+                    {/* Custom protein slider */}
+                    <div className="space-y-2">
+                      <Label className="text-sm">Fine-tune (custom value)</Label>
+                      <div className="flex items-center gap-4">
+                        <Slider
+                          value={[customProteinPerKg ?? effectiveProteinPerKg]}
+                          onValueChange={([val]) => setCustomProteinPerKg(val)}
+                          min={1.2}
+                          max={3.2}
+                          step={0.1}
+                          className="flex-1"
+                        />
+                        <span className="w-20 text-sm font-mono">
+                          {(customProteinPerKg ?? effectiveProteinPerKg).toFixed(1)} g/kg
+                        </span>
+                      </div>
+                      {customProteinPerKg && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setCustomProteinPerKg(null)}
+                          className="text-xs"
+                        >
+                          Reset to preset
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Fat Settings */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-base font-semibold">Fat Target</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Current: <span className="font-bold text-[#00263d]">{effectiveFatPerKg.toFixed(1)} g/kg</span>
+                          ({(effectiveFatPerKg / 2.20462).toFixed(2)} g/lb)
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-[#c19962] border-[#c19962]">
+                        {baseTargets ? `${baseTargets.fat}g daily` : ''}
+                      </Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                      {fatOptions.map((option) => (
+                        <Button
+                          key={option.level}
+                          variant={fatLevel === option.level && !customFatPerKg ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            setFatLevel(option.level as FatLevel);
+                            setCustomFatPerKg(null);
+                          }}
+                          className={cn(
+                            'flex flex-col h-auto py-2',
+                            fatLevel === option.level && !customFatPerKg && 'bg-[#00263d] hover:bg-[#003b59]'
+                          )}
+                        >
+                          <span className="font-bold">{option.value} g/kg</span>
+                          <span className="text-xs opacity-80">{option.label}</span>
+                        </Button>
+                      ))}
+                    </div>
+                    
+                    <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                      <p className="font-medium mb-1">
+                        {fatOptions.find(o => o.level === fatLevel)?.label || 'Custom'}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {fatOptions.find(o => o.level === fatLevel)?.description}
+                      </p>
+                    </div>
+
+                    {/* Custom fat slider */}
+                    <div className="space-y-2">
+                      <Label className="text-sm">Fine-tune (custom value)</Label>
+                      <div className="flex items-center gap-4">
+                        <Slider
+                          value={[customFatPerKg ?? effectiveFatPerKg]}
+                          onValueChange={([val]) => setCustomFatPerKg(val)}
+                          min={0.4}
+                          max={1.5}
+                          step={0.1}
+                          className="flex-1"
+                        />
+                        <span className="w-20 text-sm font-mono">
+                          {(customFatPerKg ?? effectiveFatPerKg).toFixed(1)} g/kg
+                        </span>
+                      </div>
+                      {customFatPerKg && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setCustomFatPerKg(null)}
+                          className="text-xs"
+                        >
+                          Reset to preset
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Scientific Rationale */}
+                  {baseTargetsWithRationale && (
+                    <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="rationale">
+                        <AccordionTrigger className="text-sm">
+                          <div className="flex items-center gap-2">
+                            <Info className="h-4 w-4" />
+                            Evidence & Scientific Rationale
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="space-y-3 text-sm">
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="font-semibold text-blue-800 mb-1">Protein</p>
+                            <p className="text-blue-700">{baseTargetsWithRationale.rationale.protein}</p>
+                          </div>
+                          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <p className="font-semibold text-amber-800 mb-1">Fat</p>
+                            <p className="text-amber-700">{baseTargetsWithRationale.rationale.fat}</p>
+                          </div>
+                          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <p className="font-semibold text-green-800 mb-1">Carbohydrates</p>
+                            <p className="text-green-700">{baseTargetsWithRationale.rationale.carbs}</p>
+                          </div>
+                          <div className="p-2 bg-muted text-xs text-muted-foreground rounded">
+                            <p className="font-medium mb-1">Key Citations:</p>
+                            <ul className="list-disc list-inside space-y-0.5">
+                              <li>Helms et al. (2014): Protein during caloric restriction</li>
+                              <li>Morton et al. (2018): Protein supplementation meta-analysis</li>
+                              <li>Jäger et al. (2017): ISSN Position Stand on protein</li>
+                              <li>Kerksick et al. (2018): ISSN Position Stand on diets</li>
+                            </ul>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  )}
+                </CardContent>
+              )}
+            </Card>
+
             {/* Calculated Targets Comparison */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Base Targets */}
@@ -624,18 +935,18 @@ export default function TargetsPage() {
                                 <span className="text-muted-foreground">Rest</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right">{day.totalTDEE}</TableCell>
+                            <TableCell className="text-right">{Math.round(day.totalTDEE)}</TableCell>
                             <TableCell className={cn("text-right font-medium", isCustomized && "text-blue-700")}>
-                              {effective?.targetCalories || day.targetCalories}
+                              {Math.round(effective?.targetCalories || day.targetCalories)}
                             </TableCell>
                             <TableCell className={cn("text-right", isCustomized && "text-blue-700")}>
-                              {effective?.protein || day.protein}g
+                              {Math.round(effective?.protein || day.protein)}g
                             </TableCell>
                             <TableCell className={cn("text-right", isCustomized && "text-blue-700")}>
-                              {effective?.carbs || day.carbs}g
+                              {Math.round(effective?.carbs || day.carbs)}g
                             </TableCell>
                             <TableCell className={cn("text-right", isCustomized && "text-blue-700")}>
-                              {effective?.fat || day.fat}g
+                              {Math.round(effective?.fat || day.fat)}g
                             </TableCell>
                           </TableRow>
                         );
@@ -741,17 +1052,76 @@ export default function TargetsPage() {
               </CardContent>
             </Card>
 
-            {/* Meal Distribution */}
+            {/* Meal Distribution with Nutrient Timing */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Utensils className="h-5 w-5 text-[#c19962]" />
-                  Meal & Snack Distribution
+                  Meal Distribution & Nutrient Timing
                 </CardTitle>
-                <CardDescription>How your daily nutrition is distributed across eating occasions</CardDescription>
+                <CardDescription>
+                  Intelligent distribution based on your workout schedule
+                  {selectedDayWorkout && (
+                    <span className="ml-2 text-[#c19962]">
+                      • {selectedDay} workout at {workoutTime}
+                    </span>
+                  )}
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <CardContent className="space-y-6">
+                {/* Day Selector for viewing timing */}
+                <div className="flex flex-wrap gap-2">
+                  {DAYS.map((day) => {
+                    const dt = dayTargets.find(d => d.day === day);
+                    return (
+                      <Button
+                        key={day}
+                        variant={selectedDay === day ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedDay(day)}
+                        className={cn(
+                          selectedDay === day && 'bg-[#c19962] hover:bg-[#e4ac61]',
+                          dt?.isWorkoutDay && selectedDay !== day && 'border-[#c19962]'
+                        )}
+                      >
+                        {day.substring(0, 3)}
+                        {dt?.isWorkoutDay && <Dumbbell className="h-3 w-3 ml-1" />}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                {/* Nutrient Timing Recommendations for Workout Days */}
+                {nutrientTimingRecs && (
+                  <div className="p-4 border-2 border-[#c19962]/30 bg-gradient-to-r from-[#c19962]/10 to-transparent rounded-lg">
+                    <h4 className="font-semibold flex items-center gap-2 mb-3">
+                      <Flame className="h-4 w-4 text-[#c19962]" />
+                      Workout Day Nutrient Timing ({selectedDay})
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-3 bg-background rounded-lg border">
+                        <p className="text-xs text-muted-foreground mb-1">Pre-Workout ({nutrientTimingRecs.preWorkout.timing})</p>
+                        <div className="flex gap-3 text-sm">
+                          <span><strong>{nutrientTimingRecs.preWorkout.protein}g</strong> protein</span>
+                          <span><strong>{nutrientTimingRecs.preWorkout.carbs}g</strong> carbs</span>
+                          <span><strong>{nutrientTimingRecs.preWorkout.fat}g</strong> fat</span>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-background rounded-lg border">
+                        <p className="text-xs text-muted-foreground mb-1">Post-Workout ({nutrientTimingRecs.postWorkout.timing})</p>
+                        <div className="flex gap-3 text-sm">
+                          <span><strong>{nutrientTimingRecs.postWorkout.protein}g</strong> protein</span>
+                          <span><strong>{nutrientTimingRecs.postWorkout.carbs}g</strong> carbs</span>
+                          <span><strong>{nutrientTimingRecs.postWorkout.fat}g</strong> fat</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">{nutrientTimingRecs.rationale}</p>
+                  </div>
+                )}
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 bg-muted rounded-lg">
                     <p className="text-sm text-muted-foreground mb-1">Each Meal (~{mealStructure.mealsPerDay} per day)</p>
                     <p className="text-xl font-bold">~{mealDistribution.find(m => m.type === 'meal')?.calories || 0} calories</p>
@@ -768,6 +1138,7 @@ export default function TargetsPage() {
                   </div>
                 </div>
 
+                {/* Detailed Meal Table with Timing Info */}
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -780,8 +1151,14 @@ export default function TargetsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mealDistribution.map((meal) => (
-                      <TableRow key={meal.id}>
+                    {mealDistributionWithTiming.map((meal) => (
+                      <TableRow 
+                        key={meal.id}
+                        className={cn(
+                          meal.workoutRelation === 'pre-workout' && 'bg-amber-50/50',
+                          meal.workoutRelation === 'post-workout' && 'bg-green-50/50'
+                        )}
+                      >
                         <TableCell>{meal.time}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -791,32 +1168,69 @@ export default function TargetsPage() {
                               <Zap className="h-4 w-4 text-blue-500" />
                             )}
                             {meal.label}
-                            <Badge variant="secondary" className="text-xs capitalize">{meal.type}</Badge>
+                            {meal.workoutRelation === 'pre-workout' && (
+                              <Badge className="bg-amber-500 text-white text-xs">Pre-Workout</Badge>
+                            )}
+                            {meal.workoutRelation === 'post-workout' && (
+                              <Badge className="bg-green-500 text-white text-xs">Post-Workout</Badge>
+                            )}
+                            {meal.workoutRelation === 'none' && (
+                              <Badge variant="secondary" className="text-xs capitalize">{meal.type}</Badge>
+                            )}
                           </div>
+                          {meal.rationale && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{meal.rationale}</p>
+                          )}
                         </TableCell>
-                        <TableCell className="text-right font-medium">{meal.calories}</TableCell>
-                        <TableCell className="text-right">{meal.protein}g</TableCell>
-                        <TableCell className="text-right">{meal.carbs}g</TableCell>
-                        <TableCell className="text-right">{meal.fat}g</TableCell>
+                        <TableCell className="text-right font-medium">{meal.targets.calories}</TableCell>
+                        <TableCell className="text-right">{meal.targets.protein}g</TableCell>
+                        <TableCell className="text-right">{meal.targets.carbs}g</TableCell>
+                        <TableCell className="text-right">{meal.targets.fat}g</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="font-bold bg-muted/50">
                       <TableCell colSpan={2}>Daily Total</TableCell>
                       <TableCell className="text-right">
-                        {mealDistribution.reduce((sum, m) => sum + m.calories, 0)}
+                        {mealDistributionWithTiming.reduce((sum, m) => sum + m.targets.calories, 0)}
                       </TableCell>
                       <TableCell className="text-right">
-                        {mealDistribution.reduce((sum, m) => sum + m.protein, 0)}g
+                        {mealDistributionWithTiming.reduce((sum, m) => sum + m.targets.protein, 0)}g
                       </TableCell>
                       <TableCell className="text-right">
-                        {mealDistribution.reduce((sum, m) => sum + m.carbs, 0)}g
+                        {mealDistributionWithTiming.reduce((sum, m) => sum + m.targets.carbs, 0)}g
                       </TableCell>
                       <TableCell className="text-right">
-                        {mealDistribution.reduce((sum, m) => sum + m.fat, 0)}g
+                        {mealDistributionWithTiming.reduce((sum, m) => sum + m.targets.fat, 0)}g
                       </TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
+
+                {/* Nutrient Timing Evidence */}
+                <Accordion type="single" collapsible>
+                  <AccordionItem value="timing-evidence">
+                    <AccordionTrigger className="text-sm">
+                      <div className="flex items-center gap-2">
+                        <Info className="h-4 w-4" />
+                        Nutrient Timing Research
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="text-sm space-y-2">
+                      <p className="text-muted-foreground">
+                        <strong>Pre-Workout:</strong> 1-4 hours before training, consume 0.4-0.5 g/kg protein and 1-4 g/kg carbs 
+                        for optimal energy and performance (Kerksick et al., 2017).
+                      </p>
+                      <p className="text-muted-foreground">
+                        <strong>Post-Workout:</strong> Within 2 hours after training, 0.4-0.5 g/kg protein maximizes muscle 
+                        protein synthesis. Carbs help replenish glycogen stores (ISSN Position Stand, 2017).
+                      </p>
+                      <p className="text-muted-foreground">
+                        <strong>Important:</strong> Total daily intake matters more than timing for most individuals. 
+                        Timing becomes more important for multiple daily sessions or fasted training (Aragon & Schoenfeld, 2013).
+                      </p>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </CardContent>
             </Card>
 

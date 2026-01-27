@@ -135,12 +135,18 @@ export default function SettingsPage() {
     setIsLoadingClients(true);
     try {
       const response = await fetch('/api/cronometer/clients');
-      if (response.ok) {
-        const data = await response.json();
-        setClients(data.clients || []);
+      const data = await response.json();
+      setClients(data.clients || []);
+      
+      // Check if token expired
+      if (data.tokenExpired) {
+        toast.error('Your Cronometer session has expired. Click "Reconnect" to re-authenticate.');
+      } else if (data.error && !data.tokenExpired) {
+        toast.warning(data.error);
       }
     } catch (error) {
       console.error('Failed to fetch clients:', error);
+      toast.error('Failed to fetch Cronometer clients');
     } finally {
       setIsLoadingClients(false);
     }
@@ -246,14 +252,25 @@ export default function SettingsPage() {
                       User ID: {cronometerStatus.userId}
                     </p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={fetchClients} disabled={isLoadingClients}>
-                    {isLoadingClients ? (
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                    )}
-                    Refresh
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={fetchClients} disabled={isLoadingClients}>
+                      {isLoadingClients ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      Refresh
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={connectCronometer}
+                      className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                    >
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Reconnect
+                    </Button>
+                  </div>
                 </div>
 
                 <Separator />

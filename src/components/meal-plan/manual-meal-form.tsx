@@ -160,7 +160,7 @@ export function ManualMealForm({ slot, existingMeal, dietPreferences, onSave, on
   
   // Calculate totals
   const totalMacros = useMemo((): Macros => {
-    return selectedFoods.reduce(
+    const totals = selectedFoods.reduce(
       (acc, food) => {
         const macros = calculateFoodMacros(food);
         return {
@@ -172,6 +172,13 @@ export function ManualMealForm({ slot, existingMeal, dietPreferences, onSave, on
       },
       { calories: 0, protein: 0, carbs: 0, fat: 0 }
     );
+    // Round all values to whole numbers
+    return {
+      calories: Math.round(totals.calories),
+      protein: Math.round(totals.protein),
+      carbs: Math.round(totals.carbs),
+      fat: Math.round(totals.fat),
+    };
   }, [selectedFoods, calculateFoodMacros]);
   
   // Check variance from target
