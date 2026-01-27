@@ -515,7 +515,7 @@ export default function SetupPage() {
     // Muscle preservation setting
     if (musclePreservation === 'preserve_all') {
       efficiency += 0.08; // Up to 93%
-    } else if (musclePreservation === 'some_loss_ok') {
+    } else if (musclePreservation === 'accept_some_loss') {
       efficiency += 0.03; // 88%
     }
     
