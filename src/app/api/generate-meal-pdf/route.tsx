@@ -401,8 +401,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { meal, context, targets } = body;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfBuffer = await renderToBuffer(
-      React.createElement(MealPDF, { meal, context, targets }) as React.ReactElement
+      React.createElement(MealPDF, { meal, context, targets }) as any
     );
 
     const filename = meal.name.replace(/\s+/g, '-').toLowerCase();

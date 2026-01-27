@@ -409,6 +409,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { analysis, targets, coachComments, aiRecommendations, sampleDayPlan } = body;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfBuffer = await renderToBuffer(
       React.createElement(NutritionPDF, { 
         analysis, 
@@ -416,7 +417,7 @@ export async function POST(request: NextRequest) {
         coachComments: coachComments || '', 
         aiRecommendations: aiRecommendations || '', 
         sampleDayPlan 
-      }) as React.ReactElement
+      }) as any
     );
 
     return new NextResponse(pdfBuffer, {

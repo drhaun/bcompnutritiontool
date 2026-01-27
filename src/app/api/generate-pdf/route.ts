@@ -28,6 +28,7 @@ export async function POST(request: Request) {
     
     const groceryList = consolidateGroceryList(mealPlan as WeeklyMealPlan);
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfBuffer = await renderToBuffer(
       React.createElement(MealPlanPDF, {
         userProfile,
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
         nutritionTargets,
         mealPlan,
         groceryList,
-      }) as React.ReactElement
+      }) as any
     );
     
     // Create a client-friendly filename

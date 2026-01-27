@@ -372,8 +372,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { results, inputs, measurementSystem } = body;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfBuffer = await renderToBuffer(
-      React.createElement(HydrationPDF, { results, inputs, measurementSystem }) as React.ReactElement
+      React.createElement(HydrationPDF, { results, inputs, measurementSystem }) as any
     );
 
     return new NextResponse(pdfBuffer, {

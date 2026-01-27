@@ -299,8 +299,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { clientName, targets, dayContext, plan } = body;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfBuffer = await renderToBuffer(
-      React.createElement(DayPlanPDF, { clientName, targets, dayContext, plan }) as React.ReactElement
+      React.createElement(DayPlanPDF, { clientName, targets, dayContext, plan }) as any
     );
 
     return new NextResponse(pdfBuffer, {
