@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { ProgressSteps } from '@/components/layout/progress-steps';
 import { ProgressSummary } from '@/components/layout/progress-summary';
 import { useFitomicsStore } from '@/lib/store';
@@ -31,7 +32,21 @@ import {
   Zap,
   HelpCircle,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Shield,
+  TrendingUp,
+  TrendingDown,
+  Flame,
+  Clock,
+  ClipboardList,
+  Compass,
+  Calendar,
+  LineChart,
+  AlertCircle,
+  Sparkles,
+  FileText,
+  Trophy,
+  Stethoscope
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -901,7 +916,7 @@ export default function SetupPage() {
   // ============ RENDER ============
 
   return (
-    <TooltipProvider>
+    <TooltipProvider delayDuration={100} skipDelayDuration={0}>
       <div className="min-h-screen bg-background">
         <div className="container py-8">
           <div className="max-w-4xl mx-auto">
@@ -1325,8 +1340,10 @@ export default function SetupPage() {
                                   <div className="flex items-center gap-2">
                                     <span className="font-medium">{eq.label}</span>
                                     <Tooltip>
-                                      <TooltipTrigger>
-                                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                                      <TooltipTrigger asChild>
+                                        <button type="button" className="inline-flex items-center justify-center">
+                                          <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+                                        </button>
                                       </TooltipTrigger>
                                       <TooltipContent className="max-w-sm">
                                         <p className="font-medium mb-1">{eq.label}</p>
@@ -1387,8 +1404,10 @@ export default function SetupPage() {
                             <span>NEAT</span>
                             <span className="text-sm">(Non-Exercise Activity Thermogenesis)</span>
                             <Tooltip>
-                              <TooltipTrigger>
-                                <HelpCircle className="h-4 w-4" />
+                              <TooltipTrigger asChild>
+                                <button type="button" className="inline-flex items-center justify-center">
+                                  <HelpCircle className="h-4 w-4 hover:text-foreground transition-colors" />
+                                </button>
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>Daily movement outside of exercise. Refined in Schedule step based on activity level.</p>
@@ -1403,8 +1422,10 @@ export default function SetupPage() {
                             <span>TEF</span>
                             <span className="text-sm">(Thermic Effect of Food)</span>
                             <Tooltip>
-                              <TooltipTrigger>
-                                <HelpCircle className="h-4 w-4" />
+                              <TooltipTrigger asChild>
+                                <button type="button" className="inline-flex items-center justify-center">
+                                  <HelpCircle className="h-4 w-4 hover:text-foreground transition-colors" />
+                                </button>
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>Energy to digest food. ~10% of intake. Calculated after nutrition targets are set.</p>
@@ -1419,8 +1440,10 @@ export default function SetupPage() {
                             <span>EEE</span>
                             <span className="text-sm">(Exercise Energy Expenditure)</span>
                             <Tooltip>
-                              <TooltipTrigger>
-                                <HelpCircle className="h-4 w-4" />
+                              <TooltipTrigger asChild>
+                                <button type="button" className="inline-flex items-center justify-center">
+                                  <HelpCircle className="h-4 w-4 hover:text-foreground transition-colors" />
+                                </button>
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>Calories burned during exercise. Set in Schedule step based on workouts.</p>
@@ -1522,187 +1545,322 @@ export default function SetupPage() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Brain className="h-5 w-5 text-[#c19962]" />
-                      Client Context & Assessment
+                      Client Assessment
                     </CardTitle>
                     <CardDescription>
-                      Staff assessment of client priorities and commitment level for {goalType === 'lose_fat' ? 'fat loss' : goalType === 'gain_muscle' ? 'muscle building' : goalType === 'maintain' ? 'maintenance' : 'performance'}
+                      Quick assessment to personalize recommendations
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Performance vs Body Comp Priority - show for body comp goals */}
-                    {(goalType === 'lose_fat' || goalType === 'gain_muscle' || goalType === 'maintain') && (
-                      <div className="space-y-3">
-                        <Label>Training Performance Priority</Label>
-                        <RadioGroup
-                          value={performancePriority}
-                          onValueChange={(v) => setPerformancePriority(v as PerformancePriority)}
-                          className="space-y-2"
-                        >
-                          <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                            <RadioGroupItem value="body_comp_priority" id="bcp" />
-                            <Label htmlFor="bcp" className="flex-1 cursor-pointer">
-                              <span className="font-medium">Body composition focused</span>
-                              <p className="text-sm text-muted-foreground">Client accepts potential performance impact to achieve body comp goals faster</p>
-                            </Label>
+                  <CardContent className="space-y-4">
+                    {/* Priority & Approach - Compact Toggle Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Training Priority - show for body comp goals */}
+                      {(goalType === 'lose_fat' || goalType === 'gain_muscle' || goalType === 'maintain') && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Training Priority</Label>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button type="button" className="inline-flex">
+                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-xs">Body Comp: Accepts 5-10% performance reduction during aggressive phases. Performance: Maintains training stimulus with moderate deficits (max 20% below TDEE).</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
-                          <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                            <RadioGroupItem value="performance_priority" id="pp" />
-                            <Label htmlFor="pp" className="flex-1 cursor-pointer">
-                              <span className="font-medium">Performance focused</span>
-                              <p className="text-sm text-muted-foreground">Prioritize training performance and recovery over rate of body comp change</p>
-                            </Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPerformancePriority('body_comp_priority')}
+                              className={cn(
+                                "p-3 rounded-lg border-2 text-left transition-all",
+                                performancePriority === 'body_comp_priority'
+                                  ? "border-[#c19962] bg-[#c19962]/10"
+                                  : "border-muted hover:border-muted-foreground/50"
+                              )}
+                            >
+                              <Target className="h-4 w-4 mb-1 text-[#c19962]" />
+                              <p className="font-medium text-sm">Body Comp</p>
+                              <p className="text-xs text-muted-foreground">Results first</p>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPerformancePriority('performance_priority')}
+                              className={cn(
+                                "p-3 rounded-lg border-2 text-left transition-all",
+                                performancePriority === 'performance_priority'
+                                  ? "border-[#c19962] bg-[#c19962]/10"
+                                  : "border-muted hover:border-muted-foreground/50"
+                              )}
+                            >
+                              <Zap className="h-4 w-4 mb-1 text-[#c19962]" />
+                              <p className="font-medium text-sm">Performance</p>
+                              <p className="text-xs text-muted-foreground">Training first</p>
+                            </button>
                           </div>
-                        </RadioGroup>
-                      </div>
-                    )}
-
-                    {/* Muscle Preservation - only for fat loss */}
-                    {goalType === 'lose_fat' && (
-                      <div className="space-y-3">
-                        <Label>Muscle Preservation Preference</Label>
-                        <RadioGroup
-                          value={musclePreservation}
-                          onValueChange={(v) => setMusclePreservation(v as MusclePreservation)}
-                          className="grid gap-2"
-                        >
-                          <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                            <RadioGroupItem value="preserve_all" id="pa" className="mt-0.5" />
-                            <Label htmlFor="pa" className="cursor-pointer">
-                              <span className="font-medium">Maximize muscle retention</span>
-                              <p className="text-sm text-muted-foreground font-normal">
-                                Prioritize keeping all muscle mass, even if fat loss is slower
-                              </p>
-                            </Label>
-                          </div>
-                          <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                            <RadioGroupItem value="accept_some_loss" id="asl" className="mt-0.5" />
-                            <Label htmlFor="asl" className="cursor-pointer">
-                              <span className="font-medium">Accept some loss for faster progress</span>
-                              <p className="text-sm text-muted-foreground font-normal">
-                                OK with minimal muscle loss if it means faster fat loss
-                              </p>
-                            </Label>
-                          </div>
-                        </RadioGroup>
-                      </div>
-                    )}
-
-                    {/* Fat Gain Tolerance - only for muscle gain */}
-                    {goalType === 'gain_muscle' && (
-                      <div className="space-y-3">
-                        <Label>Fat Gain Tolerance</Label>
-                        <RadioGroup
-                          value={fatGainTolerance}
-                          onValueChange={(v) => setFatGainTolerance(v as FatGainTolerance)}
-                          className="grid gap-2"
-                        >
-                          <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                            <RadioGroupItem value="maximize_muscle" id="mm" className="mt-0.5" />
-                            <Label htmlFor="mm" className="cursor-pointer">
-                              <span className="font-medium">Maximize muscle growth</span>
-                              <p className="text-sm text-muted-foreground font-normal">
-                                OK with gaining some body fat to maximize muscle building potential
-                              </p>
-                            </Label>
-                          </div>
-                          <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer">
-                            <RadioGroupItem value="minimize_fat_gain" id="mfg" className="mt-0.5" />
-                            <Label htmlFor="mfg" className="cursor-pointer">
-                              <span className="font-medium">Minimize fat gain (lean bulk)</span>
-                              <p className="text-sm text-muted-foreground font-normal">
-                                Stay as lean as possible while building muscle, even if gains are slower
-                              </p>
-                            </Label>
-                          </div>
-                        </RadioGroup>
-                      </div>
-                    )}
-
-                    <Separator />
-
-                    {/* Lifestyle Commitment */}
-                    <div className="space-y-3">
-                      <Label>Lifestyle Commitment Assessment</Label>
-                      <Select value={lifestyleCommitment} onValueChange={(v) => setLifestyleCommitment(v as LifestyleCommitment)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="fully_committed">
-                            <div>
-                              <span className="font-medium">Fully Committed</span>
-                              <span className="text-muted-foreground ml-2">— 4+ workouts, prioritizes sleep & nutrition</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="moderately_committed">
-                            <div>
-                              <span className="font-medium">Moderately Committed</span>
-                              <span className="text-muted-foreground ml-2">— 2-3 workouts, tries to prioritize</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="limited_commitment">
-                            <div>
-                              <span className="font-medium">Limited Commitment</span>
-                              <span className="text-muted-foreground ml-2">— Inconsistent availability</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Tracking Commitment */}
-                    <div className="space-y-3">
-                      <Label>Tracking Commitment</Label>
-                      <RadioGroup
-                        value={trackingCommitment}
-                        onValueChange={(v) => setTrackingCommitment(v as TrackingCommitment)}
-                        className="flex gap-4"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="committed_tracking" id="ct" />
-                          <Label htmlFor="ct">Will track food/progress</Label>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="casual_tracking" id="cat" />
-                          <Label htmlFor="cat">Casual/intuitive approach</Label>
+                      )}
+
+                      {/* Muscle Preservation - only for fat loss */}
+                      {goalType === 'lose_fat' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Muscle Priority</Label>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button type="button" className="inline-flex">
+                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-xs">Preserve All: Higher protein (1.0-1.2g/lb), slower deficit (0.5% BW/wk). Increases fat loss efficiency to ~90%. Faster: Moderate protein (0.8-1.0g/lb), faster deficit tolerated.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setMusclePreservation('preserve_all')}
+                              className={cn(
+                                "p-3 rounded-lg border-2 text-left transition-all",
+                                musclePreservation === 'preserve_all'
+                                  ? "border-[#c19962] bg-[#c19962]/10"
+                                  : "border-muted hover:border-muted-foreground/50"
+                              )}
+                            >
+                              <Shield className="h-4 w-4 mb-1 text-[#c19962]" />
+                              <p className="font-medium text-sm">Preserve All</p>
+                              <p className="text-xs text-muted-foreground">Max retention</p>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMusclePreservation('accept_some_loss')}
+                              className={cn(
+                                "p-3 rounded-lg border-2 text-left transition-all",
+                                musclePreservation === 'accept_some_loss'
+                                  ? "border-[#c19962] bg-[#c19962]/10"
+                                  : "border-muted hover:border-muted-foreground/50"
+                              )}
+                            >
+                              <TrendingDown className="h-4 w-4 mb-1 text-[#c19962]" />
+                              <p className="font-medium text-sm">Faster Loss</p>
+                              <p className="text-xs text-muted-foreground">Speed priority</p>
+                            </button>
+                          </div>
                         </div>
-                      </RadioGroup>
+                      )}
+
+                      {/* Fat Gain Tolerance - only for muscle gain */}
+                      {goalType === 'gain_muscle' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Bulking Approach</Label>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button type="button" className="inline-flex">
+                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-xs">Max Gains: 300-500 kcal surplus, ~60% muscle gain efficiency. Lean Bulk: 150-250 kcal surplus, ~70% muscle efficiency but slower absolute gains.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setFatGainTolerance('maximize_muscle')}
+                              className={cn(
+                                "p-3 rounded-lg border-2 text-left transition-all",
+                                fatGainTolerance === 'maximize_muscle'
+                                  ? "border-[#c19962] bg-[#c19962]/10"
+                                  : "border-muted hover:border-muted-foreground/50"
+                              )}
+                            >
+                              <TrendingUp className="h-4 w-4 mb-1 text-[#c19962]" />
+                              <p className="font-medium text-sm">Max Gains</p>
+                              <p className="text-xs text-muted-foreground">Larger surplus</p>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFatGainTolerance('minimize_fat_gain')}
+                              className={cn(
+                                "p-3 rounded-lg border-2 text-left transition-all",
+                                fatGainTolerance === 'minimize_fat_gain'
+                                  ? "border-[#c19962] bg-[#c19962]/10"
+                                  : "border-muted hover:border-muted-foreground/50"
+                              )}
+                            >
+                              <Scale className="h-4 w-4 mb-1 text-[#c19962]" />
+                              <p className="font-medium text-sm">Lean Bulk</p>
+                              <p className="text-xs text-muted-foreground">Minimal surplus</p>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <Separator />
+                    {/* Commitment Levels - Compact Row */}
+                    <div className="pt-3 border-t">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Lifestyle Commitment */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Lifestyle Commitment</Label>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button type="button" className="inline-flex">
+                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-xs">Affects deficit/surplus aggressiveness. Higher commitment = more aggressive targets with confidence client can sustain.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setLifestyleCommitment('fully_committed')}
+                              className={cn(
+                                "flex-1 py-2 px-2 rounded-lg border text-center transition-all text-sm flex items-center justify-center gap-1.5",
+                                lifestyleCommitment === 'fully_committed'
+                                  ? "border-[#c19962] bg-[#c19962]/10 font-medium"
+                                  : "border-muted hover:border-muted-foreground/50"
+                              )}
+                            >
+                              <Flame className="h-3.5 w-3.5" />
+                              High
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setLifestyleCommitment('moderately_committed')}
+                              className={cn(
+                                "flex-1 py-2 px-2 rounded-lg border text-center transition-all text-sm flex items-center justify-center gap-1.5",
+                                lifestyleCommitment === 'moderately_committed'
+                                  ? "border-[#c19962] bg-[#c19962]/10 font-medium"
+                                  : "border-muted hover:border-muted-foreground/50"
+                              )}
+                            >
+                              <Activity className="h-3.5 w-3.5" />
+                              Moderate
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setLifestyleCommitment('limited_commitment')}
+                              className={cn(
+                                "flex-1 py-2 px-2 rounded-lg border text-center transition-all text-sm flex items-center justify-center gap-1.5",
+                                lifestyleCommitment === 'limited_commitment'
+                                  ? "border-[#c19962] bg-[#c19962]/10 font-medium"
+                                  : "border-muted hover:border-muted-foreground/50"
+                              )}
+                            >
+                              <Clock className="h-3.5 w-3.5" />
+                              Limited
+                            </button>
+                          </div>
+                        </div>
 
-                    {/* Health & Performance Goals */}
-                    <div className="space-y-3">
-                      <Label htmlFor="health-goals">Health Goals (beyond body composition)</Label>
-                      <Textarea
-                        id="health-goals"
-                        placeholder="e.g., improve blood pressure, manage blood sugar, increase energy levels, better sleep..."
-                        value={healthGoals}
-                        onChange={(e) => setHealthGoals(e.target.value)}
-                        rows={2}
-                      />
+                        {/* Tracking Commitment */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Tracking Style</Label>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button type="button" className="inline-flex">
+                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-xs">Detailed tracking enables precise macro/micro targets. Intuitive approach uses portion guidance and habit-based recommendations.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setTrackingCommitment('committed_tracking')}
+                              className={cn(
+                                "flex-1 py-2 px-3 rounded-lg border text-center transition-all text-sm flex items-center justify-center gap-1.5",
+                                trackingCommitment === 'committed_tracking'
+                                  ? "border-[#c19962] bg-[#c19962]/10 font-medium"
+                                  : "border-muted hover:border-muted-foreground/50"
+                              )}
+                            >
+                              <ClipboardList className="h-3.5 w-3.5" />
+                              Detailed
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setTrackingCommitment('casual_tracking')}
+                              className={cn(
+                                "flex-1 py-2 px-3 rounded-lg border text-center transition-all text-sm flex items-center justify-center gap-1.5",
+                                trackingCommitment === 'casual_tracking'
+                                  ? "border-[#c19962] bg-[#c19962]/10 font-medium"
+                                  : "border-muted hover:border-muted-foreground/50"
+                              )}
+                            >
+                              <Compass className="h-3.5 w-3.5" />
+                              Intuitive
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <Label htmlFor="performance-goals">Performance Goals</Label>
-                      <Textarea
-                        id="performance-goals"
-                        placeholder="e.g., increase squat 1RM, run 5K under 25min, compete in physique show, improve endurance..."
-                        value={performanceGoals}
-                        onChange={(e) => setPerformanceGoals(e.target.value)}
-                        rows={2}
-                      />
-                    </div>
+                    {/* Goals & Notes - Cleaner Layout */}
+                    <div className="pt-3 border-t space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Health Goals */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Stethoscope className="h-4 w-4 text-[#c19962]" />
+                            <Label htmlFor="health-goals" className="text-sm font-medium">Health Markers</Label>
+                          </div>
+                          <Textarea
+                            id="health-goals"
+                            placeholder="Blood pressure, cholesterol, A1C, energy, sleep quality, digestive health..."
+                            value={healthGoals}
+                            onChange={(e) => setHealthGoals(e.target.value)}
+                            rows={2}
+                            className="text-sm resize-none"
+                          />
+                        </div>
 
-                    <div className="space-y-3">
-                      <Label htmlFor="notes">Additional Notes</Label>
-                      <Textarea
-                        id="notes"
-                        placeholder="Any other relevant information about this client..."
-                        value={additionalNotes}
-                        onChange={(e) => setAdditionalNotes(e.target.value)}
-                        rows={2}
-                      />
+                        {/* Performance Goals */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Trophy className="h-4 w-4 text-[#c19962]" />
+                            <Label htmlFor="performance-goals" className="text-sm font-medium">Performance Targets</Label>
+                          </div>
+                          <Textarea
+                            id="performance-goals"
+                            placeholder="Strength PRs, endurance goals, competition prep, sport-specific..."
+                            value={performanceGoals}
+                            onChange={(e) => setPerformanceGoals(e.target.value)}
+                            rows={2}
+                            className="text-sm resize-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Additional Notes - Full Width */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-[#c19962]" />
+                          <Label htmlFor="notes" className="text-sm font-medium">Coach Notes</Label>
+                        </div>
+                        <Textarea
+                          id="notes"
+                          placeholder="Dietary restrictions, injuries, travel schedule, stress factors, previous diet history, food preferences..."
+                          value={additionalNotes}
+                          onChange={(e) => setAdditionalNotes(e.target.value)}
+                          rows={2}
+                          className="text-sm resize-none"
+                        />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -2205,121 +2363,200 @@ export default function SetupPage() {
                 <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        <Activity className="h-5 w-5 text-[#c19962]" />
-                        Rate & Timeline
+                        <LineChart className="h-5 w-5 text-[#c19962]" />
+                        Timeline & Progress
                       </CardTitle>
                       <CardDescription>
-                        Select your rate of progress and see the projected timeline
+                        Set your pace and visualize the journey to your goal
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      {/* Rate Selection */}
+                      {/* Rate Selection - Cleaner */}
                       <div className="space-y-3">
-                        <Label className="text-sm font-medium">Rate of Change</Label>
-                        <RadioGroup
-                          value={String(rateOfChange)}
-                          onValueChange={(v) => setRateOfChange(Number(v))}
-                          className="grid grid-cols-2 md:grid-cols-4 gap-2"
-                        >
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium">Weekly Rate</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button type="button" className="inline-flex">
+                                <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-xs">Rate as % of body weight per week. Research supports 0.5-1% for fat loss with minimal muscle loss, and 0.25-0.5% for lean muscle gain.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
                           {rateOptions.map((rate) => (
-                            <div key={rate.value} className="relative">
-                              <RadioGroupItem value={String(rate.value)} id={`rate-${rate.value}`} className="peer sr-only" />
-                              <Label
-                                htmlFor={`rate-${rate.value}`}
-                                className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-[#c19962] peer-data-[state=checked]:bg-[#c19962]/5 cursor-pointer text-center"
-                              >
-                                <span className="font-semibold text-sm">{rate.label}</span>
-                                <span className="text-xs text-muted-foreground mt-1">{rate.description}</span>
-                              </Label>
-                            </div>
+                            <button
+                              key={rate.value}
+                              type="button"
+                              onClick={() => setRateOfChange(rate.value)}
+                              className={cn(
+                                "p-3 rounded-lg border-2 text-center transition-all",
+                                rateOfChange === rate.value
+                                  ? "border-[#c19962] bg-[#c19962]/10"
+                                  : "border-muted hover:border-muted-foreground/50"
+                              )}
+                            >
+                              <p className="font-semibold text-sm">{rate.label}</p>
+                              <p className="text-xs text-muted-foreground">{rate.lbsPerWeek} lb/wk</p>
+                            </button>
                           ))}
-                        </RadioGroup>
-                      </div>
-
-                      {/* Start Date */}
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">Start Date</Label>
-                          <Input
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">Projected End Date</Label>
-                          <div className="p-3 bg-muted/50 rounded-lg flex items-center justify-between">
-                            <span className="font-medium">
-                              {timelineCalc.weeks > 0 
-                                ? new Date(timelineCalc.endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                                : 'N/A'
-                              }
-                            </span>
-                            {timelineCalc.weeks > 0 && (
-                              <Badge variant="outline" className="border-[#c19962] text-[#c19962]">
-                                {timelineCalc.weeks} weeks
-                              </Badge>
-                            )}
-                          </div>
                         </div>
                       </div>
 
-                      {/* Projection Table */}
+                      {/* Visual Progress Tracker */}
                       {projectionData.length > 0 && (
-                        <div className="space-y-3">
-                          <Label className="text-sm font-medium">Projected Progress</Label>
-                          <div className="border rounded-lg overflow-hidden">
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-sm">
-                                <thead className="bg-muted/50">
-                                  <tr>
-                                    <th className="px-3 py-2 text-left font-medium">Week</th>
-                                    <th className="px-3 py-2 text-left font-medium">Date</th>
-                                    <th className="px-3 py-2 text-right font-medium">Weight</th>
-                                    <th className="px-3 py-2 text-right font-medium">BF%</th>
-                                    <th className="px-3 py-2 text-right font-medium">Fat Mass</th>
-                                    <th className="px-3 py-2 text-right font-medium">Lean Mass</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {projectionData.map((row, idx) => (
-                                    <tr 
-                                      key={row.week} 
-                                      className={`border-t ${idx === 0 ? 'bg-blue-50/50' : idx === projectionData.length - 1 ? 'bg-green-50/50 font-medium' : ''}`}
-                                    >
-                                      <td className="px-3 py-2">
-                                        {row.week === 0 ? 'Start' : row.week === timelineCalc.weeks ? 'Goal' : row.week}
-                                      </td>
-                                      <td className="px-3 py-2">{row.date}</td>
-                                      <td className="px-3 py-2 text-right">{row.weight} lbs</td>
-                                      <td className="px-3 py-2 text-right">{row.bf}%</td>
-                                      <td className="px-3 py-2 text-right">{row.fatMass} lbs</td>
-                                      <td className="px-3 py-2 text-right">{row.ffm} lbs</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                            {timelineCalc.weeks > 12 && (
-                              <div className="px-3 py-2 bg-muted/30 text-xs text-muted-foreground text-center border-t">
-                                Showing first 12 weeks + final goal. Full plan spans {timelineCalc.weeks} weeks.
+                        <div className="space-y-4">
+                          {/* Journey Overview */}
+                          <div className="p-4 bg-gradient-to-r from-[#c19962]/10 to-transparent rounded-xl border">
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="text-center">
+                                <p className="text-2xl font-bold">{weightLbs}</p>
+                                <p className="text-xs text-muted-foreground uppercase">Current</p>
                               </div>
-                            )}
+                              <div className="flex-1 mx-4">
+                                <div className="relative">
+                                  <div className="h-2 bg-muted rounded-full">
+                                    <div 
+                                      className="h-2 bg-gradient-to-r from-[#c19962] to-[#d4af7a] rounded-full transition-all"
+                                      style={{ width: '0%' }}
+                                    />
+                                  </div>
+                                  <div className="flex justify-between mt-1">
+                                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                                    <span className="text-xs text-muted-foreground font-medium">{timelineCalc.weeks} weeks</span>
+                                    <Target className="h-3 w-3 text-[#c19962]" />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-2xl font-bold text-[#c19962]">{Math.round(targetWeightLbs)}</p>
+                                <p className="text-xs text-muted-foreground uppercase">Target</p>
+                              </div>
+                            </div>
+                            
+                            {/* Key Metrics */}
+                            <div className="grid grid-cols-4 gap-2 text-center">
+                              <div className="p-2 bg-background rounded-lg">
+                                <p className="text-sm font-bold">{Math.abs(weightChangeNeeded.lbs).toFixed(1)}</p>
+                                <p className="text-[10px] text-muted-foreground">lbs to {weightChangeNeeded.direction}</p>
+                              </div>
+                              <div className="p-2 bg-background rounded-lg">
+                                <p className="text-sm font-bold">{(timelineCalc.weeklyChangeLbs || 0).toFixed(2)}</p>
+                                <p className="text-[10px] text-muted-foreground">lbs/week</p>
+                              </div>
+                              <div className="p-2 bg-background rounded-lg">
+                                <p className="text-sm font-bold">{bodyFatPercent.toFixed(1)}%</p>
+                                <p className="text-[10px] text-muted-foreground">current BF</p>
+                              </div>
+                              <div className="p-2 bg-background rounded-lg">
+                                <p className="text-sm font-bold text-[#c19962]">{targetBodyFatPercent.toFixed(1)}%</p>
+                                <p className="text-[10px] text-muted-foreground">target BF</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Dates */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-muted-foreground">Start Date</Label>
+                              <Input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="h-9"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-muted-foreground">Target Date</Label>
+                              <div className="h-9 px-3 bg-muted/50 rounded-md flex items-center justify-between text-sm">
+                                <span className="font-medium">
+                                  {timelineCalc.weeks > 0 
+                                    ? new Date(timelineCalc.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                    : '—'
+                                  }
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Compact Projection Table */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs text-muted-foreground uppercase">Milestones</Label>
+                              <span className="text-xs text-muted-foreground">
+                                {goalType === 'lose_fat' ? `~${Math.round(fatLossEfficiency * 100)}% fat loss efficiency` : 
+                                 goalType === 'gain_muscle' ? `~${Math.round(muscleGainEfficiency * 100)}% muscle gain efficiency` :
+                                 `${Math.round(recompPotential * 100)}% recomp potential`}
+                              </span>
+                            </div>
+                            <div className="border rounded-lg overflow-hidden">
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead className="bg-muted/50">
+                                    <tr>
+                                      <th className="px-2 py-1.5 text-left font-medium">Week</th>
+                                      <th className="px-2 py-1.5 text-right font-medium">Weight</th>
+                                      <th className="px-2 py-1.5 text-right font-medium">BF%</th>
+                                      <th className="px-2 py-1.5 text-right font-medium">Fat</th>
+                                      <th className="px-2 py-1.5 text-right font-medium">Lean</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {projectionData.map((row, idx) => (
+                                      <tr 
+                                        key={row.week} 
+                                        className={cn(
+                                          "border-t",
+                                          idx === 0 && "bg-blue-50/50",
+                                          idx === projectionData.length - 1 && "bg-green-50/50 font-medium"
+                                        )}
+                                      >
+                                        <td className="px-2 py-1.5">
+                                          {row.week === 0 ? (
+                                            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Now</span>
+                                          ) : row.week === timelineCalc.weeks ? (
+                                            <span className="flex items-center gap-1 text-[#c19962]"><Target className="h-3 w-3" /> Goal</span>
+                                          ) : (
+                                            <span>Wk {row.week}</span>
+                                          )}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-right">{row.weight}</td>
+                                        <td className="px-2 py-1.5 text-right">{row.bf}%</td>
+                                        <td className="px-2 py-1.5 text-right">{row.fatMass}</td>
+                                        <td className="px-2 py-1.5 text-right">{row.ffm}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              {timelineCalc.weeks > 12 && (
+                                <div className="px-2 py-1.5 bg-muted/30 text-[10px] text-muted-foreground text-center border-t">
+                                  Showing key milestones. Full plan: {timelineCalc.weeks} weeks.
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       )}
 
-                      {/* Warnings/Tips */}
+                      {/* Contextual Tips */}
                       {goalType === 'lose_fat' && rateOfChange >= 0.75 && (
-                        <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
-                          <strong>Note:</strong> Aggressive rates (0.75%+ per week) may increase muscle loss risk. 
-                          Consider moderate rates for better muscle preservation.
+                        <div className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
+                          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <strong>Aggressive Rate:</strong> 0.75%+ weekly may increase muscle loss. Consider moderate rates (0.5%) for better preservation.
+                          </div>
                         </div>
                       )}
                       {goalType === 'gain_muscle' && rateOfChange >= 0.5 && (
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                          <strong>Note:</strong> Aggressive muscle gain rates may result in more fat gain. 
-                          Most natural lifters optimize with gradual-moderate rates.
+                        <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <strong>Faster Bulk:</strong> May result in more fat gain. Natural lifters often optimize at 0.25% weekly.
+                          </div>
                         </div>
                       )}
                       {goalType === 'maintain' && rateOfChange === 0 && recompPotential < 0.4 && (
