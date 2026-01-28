@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
   
   try {
     // Fetch all data in parallel for speed
+    // Note: Cronometer API does NOT have a biometric_summary endpoint - biometric data is not available via API
     const [dataSummary, diaryData, fastingData, targets] = await Promise.all([
       getDataSummary({ accessToken, clientId }, start, end).catch(() => ({ days: [], signup: '' })),
       getDiarySummary({ accessToken, clientId }, { start, end, food: true }).catch(() => null),
@@ -71,24 +72,24 @@ export async function GET(request: NextRequest) {
     // Build trend data for charts
     const trendData = validDays.map(day => ({
       date: day.day,
-      calories: Math.round(day.macros.kcal || 0),
-      protein: Math.round(day.macros.protein || 0),
-      carbs: Math.round(day.macros.total_carbs || 0),
-      fat: Math.round(day.macros.fat || 0),
-      fiber: Math.round(day.macros.fiber || 0),
-      sodium: Math.round(day.macros.sodium || 0),
+      calories: round(day.macros.kcal || 0, 0),
+      protein: round(day.macros.protein || 0, 1),
+      carbs: round(day.macros.total_carbs || 0, 1),
+      fat: round(day.macros.fat || 0, 1),
+      fiber: round(day.macros.fiber || 0, 1),
+      sodium: round(day.macros.sodium || 0, 0),
       completed: day.completed,
-      foodGrams: Math.round(day.food_grams || 0),
+      foodGrams: round(day.food_grams || 0, 0),
     })).sort((a, b) => a.date.localeCompare(b.date));
     
     // Calculate averages
     const totalDays = validDays.length || 1;
     const averages = {
-      calories: Math.round(validDays.reduce((sum, d) => sum + (d.macros.kcal || 0), 0) / totalDays),
-      protein: Math.round(validDays.reduce((sum, d) => sum + (d.macros.protein || 0), 0) / totalDays),
-      carbs: Math.round(validDays.reduce((sum, d) => sum + (d.macros.total_carbs || 0), 0) / totalDays),
-      fat: Math.round(validDays.reduce((sum, d) => sum + (d.macros.fat || 0), 0) / totalDays),
-      fiber: Math.round(validDays.reduce((sum, d) => sum + (d.macros.fiber || 0), 0) / totalDays),
+      calories: round(validDays.reduce((sum, d) => sum + (d.macros.kcal || 0), 0) / totalDays, 0),
+      protein: round(validDays.reduce((sum, d) => sum + (d.macros.protein || 0), 0) / totalDays, 1),
+      carbs: round(validDays.reduce((sum, d) => sum + (d.macros.total_carbs || 0), 0) / totalDays, 1),
+      fat: round(validDays.reduce((sum, d) => sum + (d.macros.fat || 0), 0) / totalDays, 1),
+      fiber: round(validDays.reduce((sum, d) => sum + (d.macros.fiber || 0), 0) / totalDays, 1),
     };
     
     // Calculate macro percentages for pie chart
@@ -99,25 +100,54 @@ export async function GET(request: NextRequest) {
       { name: 'Fat', value: Math.round((averages.fat * 9 / totalMacroCalories) * 100) || 0, grams: averages.fat, color: '#eab308' },
     ];
     
-    // Build detailed food log
-    const foodLog = validDays.map(day => ({
-      date: day.day,
-      completed: day.completed,
-      totalCalories: Math.round(day.macros.kcal || 0),
-      meals: (day.foods || []).map(meal => ({
-        name: meal.name,
-        calories: Math.round(meal.macros?.kcal || 0),
-        protein: Math.round((meal.macros?.protein || 0) * 10) / 10,
-        carbs: Math.round((meal.macros?.total_carbs || 0) * 10) / 10,
-        fat: Math.round((meal.macros?.fat || 0) * 10) / 10,
-        foods: (meal.foods || []).map(f => ({
-          name: f.name,
-          serving: f.serving,
+    // Build detailed food log with full nutrient data for day summaries
+    const foodLog = validDays.map(day => {
+      // Extract key micronutrients for this day
+      const nutrients = day.nutrients || {};
+      
+      return {
+        date: day.day,
+        completed: day.completed,
+        // Macros
+        totalCalories: round(day.macros.kcal || 0, 0),
+        protein: round(day.macros.protein || 0, 1),
+        carbs: round(day.macros.total_carbs || 0, 1),
+        fat: round(day.macros.fat || 0, 1),
+        fiber: round(day.macros.fiber || 0, 1),
+        sodium: round(day.macros.sodium || 0, 0),
+        potassium: round(day.macros.potassium || 0, 0),
+        // Key micronutrients
+        micronutrients: {
+          vitaminA: round(nutrients['Vitamin A'] || 0, 1),
+          vitaminC: round(nutrients['Vitamin C'] || 0, 1),
+          vitaminD: round(nutrients['Vitamin D'] || 0, 1),
+          vitaminE: round(nutrients['Vitamin E'] || 0, 1),
+          vitaminK: round(nutrients['Vitamin K'] || 0, 1),
+          vitaminB12: round(nutrients['B12 (Cobalamin)'] || 0, 2),
+          folate: round(nutrients['Folate'] || 0, 0),
+          calcium: round(nutrients['Calcium'] || 0, 0),
+          iron: round(nutrients['Iron'] || 0, 1),
+          magnesium: round(nutrients['Magnesium'] || 0, 0),
+          zinc: round(nutrients['Zinc'] || 0, 1),
+          omega3: round(nutrients['Omega-3'] || 0, 2),
+        },
+        // Meal breakdown
+        meals: (day.foods || []).map(meal => ({
+          name: meal.name,
+          calories: round(meal.macros?.kcal || 0, 0),
+          protein: round(meal.macros?.protein || 0, 1),
+          carbs: round(meal.macros?.total_carbs || 0, 1),
+          fat: round(meal.macros?.fat || 0, 1),
+          foods: (meal.foods || []).map(f => ({
+            name: f.name,
+            serving: f.serving,
+          })),
         })),
-      })),
-    })).sort((a, b) => b.date.localeCompare(a.date)); // Most recent first
+      };
+    }).sort((a, b) => b.date.localeCompare(a.date)); // Most recent first
     
-    // Extract any biometric/metric data
+    // Extract biometric data from diary metrics
+    // Metrics include things like weight, body fat %, etc. that users log in Cronometer
     const biometrics: Array<{
       date: string;
       type: string;
@@ -125,20 +155,30 @@ export async function GET(request: NextRequest) {
       unit: string;
     }> = [];
     
+    // Check each day's metrics array for biometric data
     for (const day of validDays) {
-      if (day.metrics && Array.isArray(day.metrics)) {
+      console.log(`[Dashboard] Day ${day.day} metrics:`, JSON.stringify(day.metrics));
+      
+      if (day.metrics && Array.isArray(day.metrics) && day.metrics.length > 0) {
         for (const metric of day.metrics) {
+          console.log(`[Dashboard] Processing metric:`, JSON.stringify(metric));
           if (metric && typeof metric === 'object') {
-            biometrics.push({
-              date: day.day,
-              type: metric.name || metric.type || 'Unknown',
-              value: metric.value || 0,
-              unit: metric.unit || '',
-            });
+            // Cronometer metrics format: { name: string, value: number, unit: string }
+            const metricValue = metric.value ?? metric.amount ?? 0;
+            if (metricValue !== 0) {
+              biometrics.push({
+                date: day.day,
+                type: metric.name || metric.type || metric.metric || 'Unknown',
+                value: metricValue,
+                unit: metric.unit || metric.units || '',
+              });
+            }
           }
         }
       }
     }
+    
+    console.log(`[Dashboard] Total biometrics extracted:`, biometrics.length, biometrics);
     
     // Process fasting data with notes
     const fasts = (fastingData.fasts || []).map(fast => ({
@@ -164,7 +204,7 @@ export async function GET(request: NextRequest) {
     // Calculate averages for micronutrients
     const micronutrientAverages = Object.entries(micronutrients).map(([name, total]) => ({
       name,
-      value: Math.round((total / totalDays) * 10) / 10,
+      value: round(total / totalDays, 1),
     })).sort((a, b) => a.name.localeCompare(b.name));
     
     return NextResponse.json({
@@ -200,6 +240,14 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Round a number to specified decimal places
+ */
+function round(value: number, decimals: number): number {
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
 }
 
 /**

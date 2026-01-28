@@ -246,27 +246,21 @@ function transformCronometerData(
       totalNutrients['Energy'] = (totalNutrients['Energy'] || 0) + (day.macros.kcal || 0);
     }
     
-    // Extract foods from meal groups with meal-level macros
+    // Extract foods from meal groups
+    // Note: Cronometer API only provides meal-level macros, not per-food data
+    // So we track food counts/frequency but NOT per-food calories
     if (day.foods) {
       for (const mealGroup of day.foods) {
-        // Get meal-level macros
-        const mealMacros = mealGroup.macros || { kcal: 0, protein: 0, total_carbs: 0, fat: 0 };
-        const foodCount = mealGroup.foods?.length || 1;
-        
-        // Distribute meal macros across foods (approximation)
-        const perFoodCalories = mealMacros.kcal / foodCount;
-        const perFoodProtein = mealMacros.protein / foodCount;
-        const perFoodCarbs = mealMacros.total_carbs / foodCount;
-        const perFoodFat = mealMacros.fat / foodCount;
-        
         for (const food of (mealGroup.foods || [])) {
+          // Don't assign fake calorie values to individual foods
+          // We only have meal-level totals from the API
           allFoods.push({
             name: food.name,
             amount: food.serving,
-            calories: Math.round(perFoodCalories),
-            protein: Math.round(perFoodProtein * 10) / 10,
-            carbs: Math.round(perFoodCarbs * 10) / 10,
-            fat: Math.round(perFoodFat * 10) / 10,
+            calories: 0, // Unknown - API doesn't provide per-food data
+            protein: 0,
+            carbs: 0,
+            fat: 0,
             meal: mealGroup.name,
             date: day.day,
           });
@@ -315,15 +309,15 @@ function transformCronometerData(
       return aIndex - bIndex;
     });
   
-  // Calculate food frequency with calorie data
-  const foodCounts: Record<string, { count: number; totalCalories: number }> = {};
+  // Calculate food frequency
+  // Note: We don't have per-food calorie data from Cronometer API
+  const foodCounts: Record<string, { count: number }> = {};
   for (const food of allFoods) {
     const key = food.name.toLowerCase();
     if (!foodCounts[key]) {
-      foodCounts[key] = { count: 0, totalCalories: 0 };
+      foodCounts[key] = { count: 0 };
     }
     foodCounts[key].count++;
-    foodCounts[key].totalCalories += food.calories;
   }
   
   const topFoods = Object.entries(foodCounts)
@@ -332,10 +326,11 @@ function transformCronometerData(
     .map(([name, data]) => ({
       name: name.charAt(0).toUpperCase() + name.slice(1),
       count: data.count,
-      totalCalories: Math.round(data.totalCalories),
+      totalCalories: 0, // Not available from Cronometer API
     }));
   
   // Build daily breakdown with full details
+  // Note: Per-food macros are not available from Cronometer API - only meal totals
   const dailyBreakdown = validDays.map(day => ({
     date: day.day,
     completed: day.completed,
@@ -352,20 +347,20 @@ function transformCronometerData(
       (mealGroup.foods || []).map(food => ({
         name: food.name,
         amount: food.serving,
-        calories: Math.round((mealGroup.macros?.kcal || 0) / (mealGroup.foods?.length || 1)),
-        protein: Math.round(((mealGroup.macros?.protein || 0) / (mealGroup.foods?.length || 1)) * 10) / 10,
-        carbs: Math.round(((mealGroup.macros?.total_carbs || 0) / (mealGroup.foods?.length || 1)) * 10) / 10,
-        fat: Math.round(((mealGroup.macros?.fat || 0) / (mealGroup.foods?.length || 1)) * 10) / 10,
+        calories: 0, // Per-food data not available from API
+        protein: 0,
+        carbs: 0,
+        fat: 0,
         meal: mealGroup.name,
         category: 'Imported',
       }))
     ),
     mealSummary: (day.foods || []).map(mealGroup => ({
       name: mealGroup.name,
-      calories: mealGroup.macros?.kcal || 0,
-      protein: mealGroup.macros?.protein || 0,
-      carbs: mealGroup.macros?.total_carbs || 0,
-      fat: mealGroup.macros?.fat || 0,
+      calories: Math.round(mealGroup.macros?.kcal || 0),
+      protein: Math.round((mealGroup.macros?.protein || 0) * 10) / 10,
+      carbs: Math.round((mealGroup.macros?.total_carbs || 0) * 10) / 10,
+      fat: Math.round((mealGroup.macros?.fat || 0) * 10) / 10,
       foodCount: mealGroup.foods?.length || 0,
     })),
   }));

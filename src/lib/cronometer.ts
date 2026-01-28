@@ -443,3 +443,68 @@ export async function removeClient(
   
   return response.json();
 }
+
+/**
+ * Biometric data point
+ */
+export interface CronometerBiometric {
+  name: string;
+  value: number;
+  unit: string;
+  day: string;
+  time?: string;
+}
+
+/**
+ * Get biometric summary for a date range
+ * This includes weight, body fat %, and other tracked metrics
+ */
+export async function getBiometricSummary(
+  options: CronometerApiOptions,
+  startDate: string,
+  endDate: string
+): Promise<{
+  biometrics: CronometerBiometric[];
+}> {
+  const body: Record<string, any> = {
+    start: startDate,
+    end: endDate,
+  };
+  
+  if (options.clientId) {
+    const clientIdNum = parseInt(options.clientId, 10);
+    if (!isNaN(clientIdNum)) {
+      body.client_id = clientIdNum;
+    }
+  }
+  
+  console.log('[Cronometer API] biometric_summary request:', JSON.stringify(body));
+  
+  const response = await fetch(`${CRONOMETER_API_BASE}/biometric_summary`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${options.accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  
+  const responseText = await response.text();
+  console.log('[Cronometer API] biometric_summary response:', response.status, responseText.slice(0, 500));
+  
+  if (!response.ok) {
+    let error;
+    try {
+      error = JSON.parse(responseText);
+    } catch {
+      error = { error: responseText };
+    }
+    throw new Error(error.error || `Failed to get biometric summary (${response.status})`);
+  }
+  
+  try {
+    return JSON.parse(responseText);
+  } catch {
+    return { biometrics: [] };
+  }
+}

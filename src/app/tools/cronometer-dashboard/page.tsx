@@ -47,6 +47,8 @@ import {
   Sandwich,
   Pizza,
   Cookie,
+  Target,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   LineChart,
@@ -99,6 +101,26 @@ interface DayLog {
   date: string;
   completed: boolean;
   totalCalories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  sodium: number;
+  potassium: number;
+  micronutrients: {
+    vitaminA: number;
+    vitaminC: number;
+    vitaminD: number;
+    vitaminE: number;
+    vitaminK: number;
+    vitaminB12: number;
+    folate: number;
+    calcium: number;
+    iron: number;
+    magnesium: number;
+    zinc: number;
+    omega3: number;
+  };
   meals: MealData[];
 }
 
@@ -136,6 +158,63 @@ interface DashboardData {
   fasts: FastData[];
   biometrics: BiometricData[];
   micronutrientAverages: { name: string; value: number }[];
+  targets: Record<string, { min?: number; max?: number; unit: string }>;
+}
+
+// Default RDA targets for comparison when Cronometer targets aren't available
+const DEFAULT_TARGETS = {
+  calories: 2000,
+  protein: 150,
+  carbs: 200,
+  fat: 75,
+  fiber: 30,
+  sodium: 2300,
+  potassium: 2600,
+  vitaminA: 900,
+  vitaminC: 90,
+  vitaminD: 600,
+  vitaminE: 15,
+  vitaminK: 120,
+  vitaminB12: 2.4,
+  folate: 400,
+  calcium: 1000,
+  iron: 18,
+  magnesium: 400,
+  zinc: 11,
+  omega3: 1.6,
+};
+
+// Helper to get nutrient status
+function getNutrientStatus(actual: number, target: number, isMaxLimit = false): { 
+  status: 'low' | 'optimal' | 'high'; 
+  percent: number; 
+  diff: number;
+  color: string;
+} {
+  const percent = target > 0 ? Math.round((actual / target) * 100) : 0;
+  const diff = actual - target;
+  
+  if (isMaxLimit) {
+    // For things like sodium where exceeding is bad
+    if (percent <= 100) return { status: 'optimal', percent, diff, color: 'text-green-600' };
+    if (percent <= 130) return { status: 'high', percent, diff, color: 'text-yellow-600' };
+    return { status: 'high', percent, diff, color: 'text-red-600' };
+  }
+  
+  // For normal nutrients where meeting minimum is good
+  // Order matters: check ranges from low to high
+  if (percent < 70) return { status: 'low', percent, diff, color: 'text-red-600' };
+  if (percent < 90) return { status: 'low', percent, diff, color: 'text-yellow-600' };
+  if (percent <= 130) return { status: 'optimal', percent, diff, color: 'text-green-600' };
+  // Above 130% is high (excess)
+  if (percent <= 200) return { status: 'high', percent, diff, color: 'text-yellow-600' };
+  return { status: 'high', percent, diff, color: 'text-red-600' }; // Very high (>200%)
+}
+
+// Round to specified decimals
+function round(value: number, decimals: number): number {
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
 }
 
 // Color palette
@@ -170,7 +249,7 @@ export default function CronometerDashboardPage() {
   const [selectedClient, setSelectedClient] = useState<string>('self');
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [dateRange, setDateRange] = useState({
-    from: subDays(new Date(), 14),
+    from: subDays(new Date(), 21),
     to: new Date(),
   });
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -410,6 +489,9 @@ export default function CronometerDashboardPage() {
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setDateRange({ from: subDays(new Date(), 14), to: new Date() })}>
                   14 days
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setDateRange({ from: subDays(new Date(), 21), to: new Date() })}>
+                  21 days
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
                   30 days
@@ -689,60 +771,225 @@ export default function CronometerDashboardPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ScrollArea className="h-[500px]">
+                    <ScrollArea className="h-[600px]">
                       <Accordion type="multiple" className="w-full">
-                        {dashboardData.foodLog.map((day, i) => (
-                          <AccordionItem key={i} value={`day-${i}`}>
-                            <AccordionTrigger className="hover:no-underline">
-                              <div className="flex items-center justify-between w-full pr-4">
-                                <div className="flex items-center gap-3">
-                                  <span className="font-medium">{format(new Date(day.date), 'EEEE, MMM d')}</span>
-                                  {day.completed && (
-                                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
-                                      Complete
-                                    </Badge>
-                                  )}
+                        {dashboardData.foodLog.map((day, i) => {
+                          // Get targets - use Cronometer targets if available, else defaults
+                          const getTarget = (key: string, defaultVal: number): number => {
+                            const t = dashboardData.targets?.[key];
+                            return t?.min || t?.max || defaultVal;
+                          };
+                          
+                          const targets = {
+                            calories: getTarget('Energy', DEFAULT_TARGETS.calories),
+                            protein: getTarget('Protein', DEFAULT_TARGETS.protein),
+                            carbs: getTarget('Carbs', DEFAULT_TARGETS.carbs),
+                            fat: getTarget('Fat', DEFAULT_TARGETS.fat),
+                            fiber: getTarget('Fiber', DEFAULT_TARGETS.fiber),
+                            sodium: getTarget('Sodium', DEFAULT_TARGETS.sodium),
+                          };
+                          
+                          // Calculate status for each macro using client's targets
+                          const calStatus = getNutrientStatus(day.totalCalories, targets.calories);
+                          const proteinStatus = getNutrientStatus(day.protein, targets.protein);
+                          const carbsStatus = getNutrientStatus(day.carbs, targets.carbs);
+                          const fatStatus = getNutrientStatus(day.fat, targets.fat);
+                          const fiberStatus = getNutrientStatus(day.fiber, targets.fiber);
+                          const sodiumStatus = getNutrientStatus(day.sodium, targets.sodium, true);
+                          
+                          // Count issues - only significant deviations
+                          const issues = [calStatus, proteinStatus, carbsStatus, fatStatus, fiberStatus, sodiumStatus]
+                            .filter(s => s.status !== 'optimal').length;
+                          
+                          return (
+                            <AccordionItem key={i} value={`day-${i}`}>
+                              <AccordionTrigger className="hover:no-underline">
+                                <div className="flex items-center justify-between w-full pr-4">
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-medium">{format(new Date(day.date), 'EEEE, MMM d')}</span>
+                                    {day.completed && (
+                                      <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                        Complete
+                                      </Badge>
+                                    )}
+                                    {issues > 0 && (
+                                      <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-400">
+                                        {issues} issue{issues !== 1 ? 's' : ''}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className={cn("text-sm font-medium", calStatus.color)}>
+                                      {day.totalCalories} kcal
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      ({calStatus.percent}%)
+                                    </span>
+                                  </div>
                                 </div>
-                                <Badge variant="outline" className="font-mono">
-                                  {day.totalCalories} kcal
-                                </Badge>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="pt-2">
-                              <div className="space-y-3">
-                                {day.meals.map((meal, j) => (
-                                  <div key={j} className="bg-muted/50 rounded-lg p-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <div className="flex items-center gap-2">
-                                        {getMealIcon(meal.name)}
-                                        <span className="font-medium">{meal.name}</span>
-                                      </div>
-                                      <div className="flex gap-3 text-xs">
-                                        <span className="text-orange-600">{meal.calories} kcal</span>
-                                        <span className="text-red-600">{meal.protein}g P</span>
-                                        <span className="text-blue-600">{meal.carbs}g C</span>
-                                        <span className="text-yellow-600">{meal.fat}g F</span>
-                                      </div>
+                              </AccordionTrigger>
+                              <AccordionContent className="pt-2">
+                                {/* Day Summary */}
+                                <div className="mb-4 p-3 bg-muted/30 rounded-lg border">
+                                  <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                                    <Target className="h-4 w-4" />
+                                    Day Summary vs Targets
+                                  </h4>
+                                  <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-xs">
+                                    <div className="text-center p-2 rounded bg-background">
+                                      <p className={cn("font-bold text-lg", calStatus.color)}>{day.totalCalories}</p>
+                                      <p className="text-muted-foreground">Calories</p>
+                                      <p className={cn("text-xs", calStatus.color)}>{calStatus.percent}%</p>
                                     </div>
-                                    <div className="pl-6 space-y-1">
-                                      {meal.foods.map((food, k) => (
-                                        <div key={k} className="flex items-center justify-between text-sm py-1 border-b border-muted last:border-0">
-                                          <span className="text-muted-foreground">{food.name}</span>
-                                          <span className="text-xs text-muted-foreground">{food.serving}</span>
-                                        </div>
-                                      ))}
+                                    <div className="text-center p-2 rounded bg-background">
+                                      <p className={cn("font-bold text-lg", proteinStatus.color)}>{round(day.protein, 1)}g</p>
+                                      <p className="text-muted-foreground">Protein</p>
+                                      <p className={cn("text-xs", proteinStatus.color)}>{proteinStatus.percent}%</p>
+                                    </div>
+                                    <div className="text-center p-2 rounded bg-background">
+                                      <p className={cn("font-bold text-lg", carbsStatus.color)}>{round(day.carbs, 1)}g</p>
+                                      <p className="text-muted-foreground">Carbs</p>
+                                      <p className={cn("text-xs", carbsStatus.color)}>{carbsStatus.percent}%</p>
+                                    </div>
+                                    <div className="text-center p-2 rounded bg-background">
+                                      <p className={cn("font-bold text-lg", fatStatus.color)}>{round(day.fat, 1)}g</p>
+                                      <p className="text-muted-foreground">Fat</p>
+                                      <p className={cn("text-xs", fatStatus.color)}>{fatStatus.percent}%</p>
+                                    </div>
+                                    <div className="text-center p-2 rounded bg-background">
+                                      <p className={cn("font-bold text-lg", fiberStatus.color)}>{round(day.fiber, 1)}g</p>
+                                      <p className="text-muted-foreground">Fiber</p>
+                                      <p className={cn("text-xs", fiberStatus.color)}>{fiberStatus.percent}%</p>
+                                    </div>
+                                    <div className="text-center p-2 rounded bg-background">
+                                      <p className={cn("font-bold text-lg", sodiumStatus.color)}>{round(day.sodium, 0)}</p>
+                                      <p className="text-muted-foreground">Sodium (mg)</p>
+                                      <p className={cn("text-xs", sodiumStatus.color)}>{sodiumStatus.percent}%</p>
                                     </div>
                                   </div>
-                                ))}
-                                {day.meals.length === 0 && (
-                                  <p className="text-center text-muted-foreground py-4">
-                                    No meal breakdown available for this day
-                                  </p>
-                                )}
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
+                                  
+                                  {/* Key Micronutrients */}
+                                  {day.micronutrients && (
+                                    <div className="mt-3 pt-3 border-t">
+                                      <h5 className="text-xs font-semibold mb-2 text-muted-foreground">Key Micronutrients</h5>
+                                      <div className="grid grid-cols-4 md:grid-cols-6 gap-1 text-xs">
+                                        {[
+                                          { name: 'Vit D', val: day.micronutrients.vitaminD, key: 'Vitamin D', defaultTarget: DEFAULT_TARGETS.vitaminD, unit: 'IU' },
+                                          { name: 'Vit B12', val: day.micronutrients.vitaminB12, key: 'Vitamin B12', defaultTarget: DEFAULT_TARGETS.vitaminB12, unit: 'µg' },
+                                          { name: 'Iron', val: day.micronutrients.iron, key: 'Iron', defaultTarget: DEFAULT_TARGETS.iron, unit: 'mg' },
+                                          { name: 'Calcium', val: day.micronutrients.calcium, key: 'Calcium', defaultTarget: DEFAULT_TARGETS.calcium, unit: 'mg' },
+                                          { name: 'Magnesium', val: day.micronutrients.magnesium, key: 'Magnesium', defaultTarget: DEFAULT_TARGETS.magnesium, unit: 'mg' },
+                                          { name: 'Zinc', val: day.micronutrients.zinc, key: 'Zinc', defaultTarget: DEFAULT_TARGETS.zinc, unit: 'mg' },
+                                        ].map((micro, idx) => {
+                                          // Use Cronometer targets if available, else defaults
+                                          const t = dashboardData.targets?.[micro.key];
+                                          const target = t?.min || t?.max || micro.defaultTarget;
+                                          const status = getNutrientStatus(micro.val, target);
+                                          return (
+                                            <div key={idx} className="text-center p-1 rounded bg-background/50">
+                                              <p className={cn("font-medium", status.color)}>{round(micro.val, 1)}</p>
+                                              <p className="text-muted-foreground text-[10px]">{micro.name}</p>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Issues Summary */}
+                                  {issues > 0 && (
+                                    <div className="mt-3 pt-3 border-t">
+                                      <h5 className="text-xs font-semibold mb-1 text-yellow-600 flex items-center gap-1">
+                                        <AlertTriangle className="h-3 w-3" />
+                                        Issues Identified
+                                      </h5>
+                                      <div className="flex flex-wrap gap-1">
+                                        {/* Protein issues */}
+                                        {proteinStatus.status === 'low' && (
+                                          <Badge variant="outline" className="text-xs text-red-600 border-red-300">
+                                            Low Protein ({round(proteinStatus.diff, 1)}g from target)
+                                          </Badge>
+                                        )}
+                                        {proteinStatus.status === 'high' && proteinStatus.percent > 150 && (
+                                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
+                                            High Protein (+{round(proteinStatus.diff, 1)}g over)
+                                          </Badge>
+                                        )}
+                                        {/* Fiber issues */}
+                                        {fiberStatus.status === 'low' && (
+                                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
+                                            Low Fiber ({round(fiberStatus.diff, 1)}g from target)
+                                          </Badge>
+                                        )}
+                                        {/* Sodium issues */}
+                                        {sodiumStatus.status === 'high' && (
+                                          <Badge variant="outline" className="text-xs text-red-600 border-red-300">
+                                            High Sodium (+{round(sodiumStatus.diff, 0)}mg over limit)
+                                          </Badge>
+                                        )}
+                                        {/* Calorie issues */}
+                                        {calStatus.status === 'low' && (
+                                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
+                                            Under Calories ({calStatus.percent}% of target)
+                                          </Badge>
+                                        )}
+                                        {calStatus.status === 'high' && (
+                                          <Badge variant="outline" className="text-xs text-red-600 border-red-300">
+                                            Over Calories (+{round(calStatus.diff, 0)} kcal)
+                                          </Badge>
+                                        )}
+                                        {/* Carbs/Fat issues - only flag significant deviations */}
+                                        {carbsStatus.status === 'high' && carbsStatus.percent > 150 && (
+                                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
+                                            High Carbs ({carbsStatus.percent}%)
+                                          </Badge>
+                                        )}
+                                        {fatStatus.status === 'high' && fatStatus.percent > 150 && (
+                                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
+                                            High Fat ({fatStatus.percent}%)
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {/* Meal Breakdown */}
+                                <div className="space-y-3">
+                                  {day.meals.map((meal, j) => (
+                                    <div key={j} className="bg-muted/50 rounded-lg p-3">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                          {getMealIcon(meal.name)}
+                                          <span className="font-medium">{meal.name}</span>
+                                        </div>
+                                        <div className="flex gap-3 text-xs">
+                                          <span className="text-orange-600">{meal.calories} kcal</span>
+                                          <span className="text-red-600">{round(meal.protein, 1)}g P</span>
+                                          <span className="text-blue-600">{round(meal.carbs, 1)}g C</span>
+                                          <span className="text-yellow-600">{round(meal.fat, 1)}g F</span>
+                                        </div>
+                                      </div>
+                                      <div className="pl-6 space-y-1">
+                                        {meal.foods.map((food, k) => (
+                                          <div key={k} className="flex items-center justify-between text-sm py-1 border-b border-muted last:border-0">
+                                            <span className="text-muted-foreground">{food.name}</span>
+                                            <span className="text-xs text-muted-foreground">{food.serving}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {day.meals.length === 0 && (
+                                    <p className="text-center text-muted-foreground py-4">
+                                      No meal breakdown available for this day
+                                    </p>
+                                  )}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          );
+                        })}
                       </Accordion>
                     </ScrollArea>
                   </CardContent>
@@ -897,35 +1144,72 @@ export default function CronometerDashboardPage() {
                             acc[bio.type].push(bio);
                             return acc;
                           }, {} as Record<string, BiometricData[]>)
-                        ).map(([type, data]) => (
-                          <Card key={type}>
-                            <CardHeader className="pb-2">
-                              <CardTitle className="text-sm">{type}</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="h-[150px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                  <LineChart data={data.sort((a, b) => a.date.localeCompare(b.date))}>
-                                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                                    <XAxis 
-                                      dataKey="date" 
-                                      tickFormatter={(value) => format(new Date(value), 'M/d')}
-                                      fontSize={10}
-                                    />
-                                    <YAxis fontSize={10} />
-                                    <Tooltip />
-                                    <Line 
-                                      type="monotone" 
-                                      dataKey="value" 
-                                      stroke={COLORS.gold}
-                                      strokeWidth={2}
-                                    />
-                                  </LineChart>
-                                </ResponsiveContainer>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                        ).map(([type, data]) => {
+                          const sortedData = data.sort((a, b) => a.date.localeCompare(b.date));
+                          const latestValue = sortedData[sortedData.length - 1];
+                          const unit = latestValue?.unit || '';
+                          
+                          return (
+                            <Card key={type}>
+                              <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                  <CardTitle className="text-sm">{type}</CardTitle>
+                                  {latestValue && (
+                                    <span className="text-lg font-bold text-[#c19962]">
+                                      {latestValue.value} {unit}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {sortedData.length} data point{sortedData.length !== 1 ? 's' : ''} • 
+                                  Latest: {latestValue?.date ? format(new Date(latestValue.date), 'MMM d, yyyy') : 'N/A'}
+                                </p>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="h-[150px]">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={sortedData}>
+                                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                                      <XAxis 
+                                        dataKey="date" 
+                                        tickFormatter={(value) => {
+                                          try {
+                                            return format(new Date(value), 'M/d');
+                                          } catch {
+                                            return value;
+                                          }
+                                        }}
+                                        fontSize={10}
+                                      />
+                                      <YAxis 
+                                        fontSize={10} 
+                                        domain={['auto', 'auto']}
+                                        tickFormatter={(value) => value.toFixed(1)}
+                                      />
+                                      <Tooltip 
+                                        formatter={(value: number) => [`${value} ${unit}`, type]}
+                                        labelFormatter={(label) => {
+                                          try {
+                                            return format(new Date(label), 'MMM d, yyyy');
+                                          } catch {
+                                            return label;
+                                          }
+                                        }}
+                                      />
+                                      <Line 
+                                        type="monotone" 
+                                        dataKey="value" 
+                                        stroke={COLORS.gold}
+                                        strokeWidth={2}
+                                        dot={{ fill: COLORS.gold, r: 4 }}
+                                      />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                       </div>
                     )}
                   </CardContent>

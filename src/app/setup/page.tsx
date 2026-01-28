@@ -990,11 +990,28 @@ export default function SetupPage() {
                         </div>
                       ) : (
                         <Input
-                          type="number"
-                          min={18}
-                          max={100}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           value={age}
-                          onChange={(e) => setAge(parseInt(e.target.value) || 30)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '') {
+                              setAge(0);
+                            } else {
+                              const num = parseInt(val);
+                              if (!isNaN(num) && num >= 0 && num <= 120) {
+                                setAge(num);
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const num = parseInt(e.target.value);
+                            if (isNaN(num) || num < 18) setAge(18);
+                            else if (num > 100) setAge(100);
+                          }}
+                          placeholder="Age"
+                          className="w-24"
                         />
                       )}
                     </div>
@@ -1005,21 +1022,53 @@ export default function SetupPage() {
                       <div className="flex gap-3">
                         <div className="flex-1">
                           <Input
-                            type="number"
-                            min={4}
-                            max={7}
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={heightFt}
-                            onChange={(e) => setHeightFt(parseInt(e.target.value) || 5)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                setHeightFt(0);
+                              } else {
+                                const num = parseInt(val);
+                                if (!isNaN(num) && num >= 0 && num <= 8) {
+                                  setHeightFt(num);
+                                }
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const num = parseInt(e.target.value);
+                              if (isNaN(num) || num < 4) setHeightFt(4);
+                              else if (num > 7) setHeightFt(7);
+                            }}
+                            placeholder="Ft"
                           />
                           <span className="text-xs text-muted-foreground">feet</span>
                         </div>
                         <div className="flex-1">
                           <Input
-                            type="number"
-                            min={0}
-                            max={11}
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={heightIn}
-                            onChange={(e) => setHeightIn(parseInt(e.target.value) || 0)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                setHeightIn(0);
+                              } else {
+                                const num = parseInt(val);
+                                if (!isNaN(num) && num >= 0 && num <= 11) {
+                                  setHeightIn(num);
+                                }
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const num = parseInt(e.target.value);
+                              if (isNaN(num) || num < 0) setHeightIn(0);
+                              else if (num > 11) setHeightIn(11);
+                            }}
+                            placeholder="In"
                           />
                           <span className="text-xs text-muted-foreground">inches</span>
                         </div>
@@ -1035,11 +1084,27 @@ export default function SetupPage() {
                       <div className="flex gap-3 items-center">
                         <Input
                           id="weight"
-                          type="number"
-                          min={80}
-                          max={500}
+                          type="text"
+                          inputMode="decimal"
+                          pattern="[0-9]*\.?[0-9]*"
                           value={weightLbs}
-                          onChange={(e) => setWeightLbs(parseFloat(e.target.value) || 180)}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || val === '.') {
+                              setWeightLbs(0);
+                            } else {
+                              const num = parseFloat(val);
+                              if (!isNaN(num) && num >= 0 && num <= 600) {
+                                setWeightLbs(num);
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const num = parseFloat(e.target.value);
+                            if (isNaN(num) || num < 50) setWeightLbs(50);
+                            else if (num > 500) setWeightLbs(500);
+                          }}
+                          placeholder="Weight"
                           className="w-32"
                         />
                         <span className="text-sm text-muted-foreground">lbs</span>
@@ -1084,12 +1149,26 @@ export default function SetupPage() {
                         <Label>Measured Body Fat %</Label>
                         <div className="flex items-center gap-4">
                           <Input
-                            type="number"
-                            min={3}
-                            max={60}
-                            step={0.1}
+                            type="text"
+                            inputMode="decimal"
+                            pattern="[0-9]*\.?[0-9]*"
                             value={measuredBFPercent}
-                            onChange={(e) => setMeasuredBFPercent(parseFloat(e.target.value) || 20)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || val === '.') {
+                                setMeasuredBFPercent(0);
+                              } else {
+                                const num = parseFloat(val);
+                                if (!isNaN(num) && num >= 0 && num <= 70) {
+                                  setMeasuredBFPercent(num);
+                                }
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const num = parseFloat(e.target.value);
+                              if (isNaN(num) || num < 3) setMeasuredBFPercent(3);
+                              else if (num > 60) setMeasuredBFPercent(60);
+                            }}
                             className="w-24"
                           />
                           <span className="text-sm text-muted-foreground">%</span>
@@ -1195,11 +1274,26 @@ export default function SetupPage() {
                         <Label>Measured RMR</Label>
                         <div className="flex items-center gap-4">
                           <Input
-                            type="number"
-                            min={800}
-                            max={4000}
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={measuredRMR}
-                            onChange={(e) => setMeasuredRMR(parseInt(e.target.value) || 1800)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                setMeasuredRMR(0);
+                              } else {
+                                const num = parseInt(val);
+                                if (!isNaN(num) && num >= 0 && num <= 5000) {
+                                  setMeasuredRMR(num);
+                                }
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const num = parseInt(e.target.value);
+                              if (isNaN(num) || num < 800) setMeasuredRMR(800);
+                              else if (num > 4000) setMeasuredRMR(4000);
+                            }}
                             className="w-32"
                           />
                           <span className="text-sm text-muted-foreground">kcal/day</span>
@@ -1705,10 +1799,16 @@ export default function SetupPage() {
                               <Label className="text-sm">Target Body Fat Percentage</Label>
                               <div className="flex items-center gap-4 mt-2">
                                 <Input
-                                  type="number"
-                                  step="0.5"
+                                  type="text"
+                                  inputMode="decimal"
+                                  pattern="[0-9]*\.?[0-9]*"
                                   value={targetBodyFatPercent.toFixed(1)}
-                                  onChange={(e) => setTargetFromBodyFatPercent(Number(e.target.value), true)}
+                                  onChange={(e) => {
+                                    const num = parseFloat(e.target.value);
+                                    if (!isNaN(num) && num >= 0 && num <= 60) {
+                                      setTargetFromBodyFatPercent(num, true);
+                                    }
+                                  }}
                                   className="w-24 text-center font-bold text-lg"
                                 />
                                 <span className="text-2xl font-bold">%</span>
@@ -1734,10 +1834,16 @@ export default function SetupPage() {
                               <Label className="text-sm">Target Fat Mass Index (FMI)</Label>
                               <div className="flex items-center gap-4 mt-2">
                                 <Input
-                                  type="number"
-                                  step="0.1"
+                                  type="text"
+                                  inputMode="decimal"
+                                  pattern="[0-9]*\.?[0-9]*"
                                   value={targetBodyComp.fmi.toFixed(1)}
-                                  onChange={(e) => setTargetFromFMI(Number(e.target.value))}
+                                  onChange={(e) => {
+                                    const num = parseFloat(e.target.value);
+                                    if (!isNaN(num) && num >= 0 && num <= 20) {
+                                      setTargetFromFMI(num);
+                                    }
+                                  }}
                                   className="w-24 text-center font-bold text-lg"
                                 />
                                 <Slider
@@ -1771,10 +1877,16 @@ export default function SetupPage() {
                               <Label className="text-sm">Target Fat-Free Mass Index (FFMI)</Label>
                               <div className="flex items-center gap-4 mt-2">
                                 <Input
-                                  type="number"
-                                  step="0.1"
+                                  type="text"
+                                  inputMode="decimal"
+                                  pattern="[0-9]*\.?[0-9]*"
                                   value={targetBodyComp.ffmi.toFixed(1)}
-                                  onChange={(e) => setTargetFromFFMI(Number(e.target.value))}
+                                  onChange={(e) => {
+                                    const num = parseFloat(e.target.value);
+                                    if (!isNaN(num) && num >= 0 && num <= 35) {
+                                      setTargetFromFFMI(num);
+                                    }
+                                  }}
                                   className="w-24 text-center font-bold text-lg"
                                 />
                                 <Slider
@@ -1811,10 +1923,16 @@ export default function SetupPage() {
                               <Label className="text-sm">Target Fat Mass (lbs)</Label>
                               <div className="flex items-center gap-4 mt-2">
                                 <Input
-                                  type="number"
-                                  step="0.5"
+                                  type="text"
+                                  inputMode="decimal"
+                                  pattern="[0-9]*\.?[0-9]*"
                                   value={targetFatMassLbs}
-                                  onChange={(e) => setTargetFatMassLbs(Number(e.target.value))}
+                                  onChange={(e) => {
+                                    const num = parseFloat(e.target.value);
+                                    if (!isNaN(num) && num >= 0 && num <= 300) {
+                                      setTargetFatMassLbs(num);
+                                    }
+                                  }}
                                   className="w-24 text-center font-bold text-lg"
                                 />
                                 <span className="text-lg">lbs</span>
@@ -1840,10 +1958,16 @@ export default function SetupPage() {
                               <Label className="text-sm">Target Lean Mass (lbs)</Label>
                               <div className="flex items-center gap-4 mt-2">
                                 <Input
-                                  type="number"
-                                  step="0.5"
+                                  type="text"
+                                  inputMode="decimal"
+                                  pattern="[0-9]*\.?[0-9]*"
                                   value={targetFFMLbs}
-                                  onChange={(e) => setTargetFFMLbs(Number(e.target.value))}
+                                  onChange={(e) => {
+                                    const num = parseFloat(e.target.value);
+                                    if (!isNaN(num) && num >= 0 && num <= 400) {
+                                      setTargetFFMLbs(num);
+                                    }
+                                  }}
                                   className="w-24 text-center font-bold text-lg"
                                 />
                                 <span className="text-lg">lbs</span>
@@ -1868,10 +1992,16 @@ export default function SetupPage() {
                             <div>
                               <Label className="text-sm">Target Fat Mass (lbs)</Label>
                               <Input
-                                type="number"
-                                step="0.5"
+                                type="text"
+                                inputMode="decimal"
+                                pattern="[0-9]*\.?[0-9]*"
                                 value={targetFatMassLbs}
-                                onChange={(e) => setTargetFatMassLbs(Number(e.target.value))}
+                                onChange={(e) => {
+                                  const num = parseFloat(e.target.value);
+                                  if (!isNaN(num) && num >= 0 && num <= 300) {
+                                    setTargetFatMassLbs(num);
+                                  }
+                                }}
                                 className="mt-1 text-center font-bold"
                               />
                               <p className="text-xs text-muted-foreground mt-1">
@@ -1881,10 +2011,16 @@ export default function SetupPage() {
                             <div>
                               <Label className="text-sm">Target Lean Mass (lbs)</Label>
                               <Input
-                                type="number"
-                                step="0.5"
+                                type="text"
+                                inputMode="decimal"
+                                pattern="[0-9]*\.?[0-9]*"
                                 value={targetFFMLbs}
-                                onChange={(e) => setTargetFFMLbs(Number(e.target.value))}
+                                onChange={(e) => {
+                                  const num = parseFloat(e.target.value);
+                                  if (!isNaN(num) && num >= 0 && num <= 400) {
+                                    setTargetFFMLbs(num);
+                                  }
+                                }}
                                 className="mt-1 text-center font-bold"
                               />
                               <p className="text-xs text-muted-foreground mt-1">

@@ -134,6 +134,41 @@ interface AnalysisResult {
   dailyBreakdown: DailyNutrients[];
 }
 
+// ============ HELPERS ============
+
+// Helper to get nutrient status with consistent logic
+function getNutrientStatus(actual: number, target: number, isMaxLimit = false): { 
+  status: 'low' | 'optimal' | 'high'; 
+  percent: number; 
+  diff: number;
+  color: string;
+} {
+  const percent = target > 0 ? Math.round((actual / target) * 100) : 0;
+  const diff = actual - target;
+  
+  if (isMaxLimit) {
+    // For things like sodium where exceeding is bad
+    if (percent <= 100) return { status: 'optimal', percent, diff, color: 'text-green-600' };
+    if (percent <= 130) return { status: 'high', percent, diff, color: 'text-yellow-600' };
+    return { status: 'high', percent, diff, color: 'text-red-600' };
+  }
+  
+  // For normal nutrients where meeting minimum is good
+  // Order matters: check ranges from low to high
+  if (percent < 70) return { status: 'low', percent, diff, color: 'text-red-600' };
+  if (percent < 90) return { status: 'low', percent, diff, color: 'text-yellow-600' };
+  if (percent <= 130) return { status: 'optimal', percent, diff, color: 'text-green-600' };
+  // Above 130% is high (excess)
+  if (percent <= 200) return { status: 'high', percent, diff, color: 'text-yellow-600' };
+  return { status: 'high', percent, diff, color: 'text-red-600' }; // Very high (>200%)
+}
+
+// Round to specified decimals
+function round(value: number, decimals: number): number {
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
+}
+
 // ============ CONSTANTS ============
 
 // Column indices for Cronometer CSV (0-indexed)
@@ -825,12 +860,61 @@ export default function NutritionAnalysisPage() {
       logs.push(`✓ Macros: ${result.data.summary.totalProtein}g P / ${result.data.summary.totalCarbs}g C / ${result.data.summary.totalFat}g F`);
       logs.push(`✓ Nutrients tracked: ${result.data.dailyAverages?.length || 0}`);
       logs.push(`✓ Foods logged: ${result.data.topFoods?.length || 0} unique items`);
+      
+      // Automatically apply client's Cronometer targets if available
+      if (result.targets && Object.keys(result.targets).length > 0) {
+        const getTargetValue = (keys: string[]): number | null => {
+          for (const key of keys) {
+            const t = result.targets[key];
+            if (t && (t.min || t.max)) {
+              return t.min || t.max;
+            }
+          }
+          return null;
+        };
+        
+        const newTargets = {
+          calories: Math.round(getTargetValue(['Energy', 'Calories', 'kcal']) || customTargets.calories),
+          protein: Math.round(getTargetValue(['Protein']) || customTargets.protein),
+          carbs: Math.round(getTargetValue(['Carbohydrates', 'Carbs', 'Total Carbs']) || customTargets.carbs),
+          fat: Math.round(getTargetValue(['Fat', 'Total Fat']) || customTargets.fat),
+        };
+        
+        setCustomTargets(newTargets);
+        logs.push(`✓ Applied client targets: ${newTargets.calories} kcal / ${newTargets.protein}g P / ${newTargets.carbs}g C / ${newTargets.fat}g F`);
+      }
+      
       setParseLog(logs);
       
-      // Convert to analysis format
+      // Use targets for analysis (either from Cronometer or custom)
+      const analysisTargets = { ...NUTRIENT_TARGETS };
+      if (result.targets) {
+        // Apply Cronometer targets to analysis
+        const getTargetValue = (keys: string[]): number | null => {
+          for (const key of keys) {
+            const t = result.targets[key];
+            if (t && (t.min || t.max)) {
+              return t.min || t.max;
+            }
+          }
+          return null;
+        };
+        
+        const energyTarget = getTargetValue(['Energy', 'Calories', 'kcal']);
+        const proteinTarget = getTargetValue(['Protein']);
+        const carbsTarget = getTargetValue(['Carbohydrates', 'Carbs', 'Total Carbs']);
+        const fatTarget = getTargetValue(['Fat', 'Total Fat']);
+        
+        if (energyTarget) analysisTargets['Energy'].target = energyTarget;
+        if (proteinTarget) analysisTargets['Protein'].target = proteinTarget;
+        if (carbsTarget) analysisTargets['Carbs'].target = carbsTarget;
+        if (fatTarget) analysisTargets['Fat'].target = fatTarget;
+      }
+      
+      // Convert to analysis format using client's targets
       const { deficiencies, excesses, allNutrients } = analyzeNutrients(
         new Map(result.data.dailyAverages.map((n: NutrientData) => [n.name, n.value])),
-        NUTRIENT_TARGETS
+        analysisTargets
       );
       
       // Build the averages map for ratio analysis
@@ -872,7 +956,7 @@ export default function NutritionAnalysisPage() {
     } finally {
       setIsImportingCronometer(false);
     }
-  }, [cronometerStatus, cronometerDateRange, selectedCronometerClient]);
+  }, [cronometerStatus, cronometerDateRange, selectedCronometerClient, customTargets]);
 
   // CSV file upload handler
   const handleCSVUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1673,77 +1757,54 @@ export default function NutritionAnalysisPage() {
                     <CardDescription>{analysisResult.summary.daysAnalyzed} day(s) analyzed</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-5 gap-3 mb-4">
-                      <div className="text-center p-3 bg-background rounded-lg border">
-                        <p className="text-xl font-bold">{analysisResult.summary.totalCalories}</p>
-                        <p className="text-xs text-muted-foreground">Calories</p>
-                        <p className={cn(
-                          "text-xs font-medium mt-1",
-                          analysisResult.summary.totalCalories >= customTargets.calories * 0.9 && 
-                          analysisResult.summary.totalCalories <= customTargets.calories * 1.1 
-                            ? "text-green-600" 
-                            : analysisResult.summary.totalCalories < customTargets.calories * 0.9 
-                              ? "text-yellow-600" 
-                              : "text-red-600"
-                        )}>
-                          / {customTargets.calories}
-                        </p>
-                      </div>
-                      <div className="text-center p-3 bg-background rounded-lg border">
-                        <p className="text-xl font-bold">{analysisResult.summary.totalProtein}g</p>
-                        <p className="text-xs text-muted-foreground">Protein</p>
-                        <p className={cn(
-                          "text-xs font-medium mt-1",
-                          analysisResult.summary.totalProtein >= customTargets.protein * 0.9 
-                            ? "text-green-600" 
-                            : analysisResult.summary.totalProtein >= customTargets.protein * 0.7 
-                              ? "text-yellow-600" 
-                              : "text-red-600"
-                        )}>
-                          / {customTargets.protein}g
-                        </p>
-                      </div>
-                      <div className="text-center p-3 bg-background rounded-lg border">
-                        <p className="text-xl font-bold">{analysisResult.summary.totalCarbs}g</p>
-                        <p className="text-xs text-muted-foreground">Carbs</p>
-                        <p className={cn(
-                          "text-xs font-medium mt-1",
-                          analysisResult.summary.totalCarbs >= customTargets.carbs * 0.7 && 
-                          analysisResult.summary.totalCarbs <= customTargets.carbs * 1.3 
-                            ? "text-green-600" 
-                            : "text-yellow-600"
-                        )}>
-                          / {customTargets.carbs}g
-                        </p>
-                      </div>
-                      <div className="text-center p-3 bg-background rounded-lg border">
-                        <p className="text-xl font-bold">{analysisResult.summary.totalFat}g</p>
-                        <p className="text-xs text-muted-foreground">Fat</p>
-                        <p className={cn(
-                          "text-xs font-medium mt-1",
-                          analysisResult.summary.totalFat >= customTargets.fat * 0.8 && 
-                          analysisResult.summary.totalFat <= customTargets.fat * 1.3 
-                            ? "text-green-600" 
-                            : "text-yellow-600"
-                        )}>
-                          / {customTargets.fat}g
-                        </p>
-                      </div>
-                      <div className="text-center p-3 bg-background rounded-lg border">
-                        <p className="text-xl font-bold">{analysisResult.summary.totalFiber}g</p>
-                        <p className="text-xs text-muted-foreground">Fiber</p>
-                        <p className={cn(
-                          "text-xs font-medium mt-1",
-                          analysisResult.summary.totalFiber >= 25 
-                            ? "text-green-600" 
-                            : analysisResult.summary.totalFiber >= 15 
-                              ? "text-yellow-600" 
-                              : "text-red-600"
-                        )}>
-                          / 30g
-                        </p>
-                      </div>
-                    </div>
+                    {(() => {
+                      // Calculate status for each macro using client's targets
+                      const calStatus = getNutrientStatus(analysisResult.summary.totalCalories, customTargets.calories);
+                      const proteinStatus = getNutrientStatus(analysisResult.summary.totalProtein, customTargets.protein);
+                      const carbsStatus = getNutrientStatus(analysisResult.summary.totalCarbs, customTargets.carbs);
+                      const fatStatus = getNutrientStatus(analysisResult.summary.totalFat, customTargets.fat);
+                      const fiberStatus = getNutrientStatus(analysisResult.summary.totalFiber, 30);
+                      
+                      return (
+                        <div className="grid grid-cols-5 gap-3 mb-4">
+                          <div className="text-center p-3 bg-background rounded-lg border">
+                            <p className={cn("text-xl font-bold", calStatus.color)}>{analysisResult.summary.totalCalories}</p>
+                            <p className="text-xs text-muted-foreground">Calories</p>
+                            <p className={cn("text-xs font-medium mt-1", calStatus.color)}>
+                              {calStatus.percent}% of {customTargets.calories}
+                            </p>
+                          </div>
+                          <div className="text-center p-3 bg-background rounded-lg border">
+                            <p className={cn("text-xl font-bold", proteinStatus.color)}>{round(analysisResult.summary.totalProtein, 1)}g</p>
+                            <p className="text-xs text-muted-foreground">Protein</p>
+                            <p className={cn("text-xs font-medium mt-1", proteinStatus.color)}>
+                              {proteinStatus.percent}% of {customTargets.protein}g
+                            </p>
+                          </div>
+                          <div className="text-center p-3 bg-background rounded-lg border">
+                            <p className={cn("text-xl font-bold", carbsStatus.color)}>{round(analysisResult.summary.totalCarbs, 1)}g</p>
+                            <p className="text-xs text-muted-foreground">Carbs</p>
+                            <p className={cn("text-xs font-medium mt-1", carbsStatus.color)}>
+                              {carbsStatus.percent}% of {customTargets.carbs}g
+                            </p>
+                          </div>
+                          <div className="text-center p-3 bg-background rounded-lg border">
+                            <p className={cn("text-xl font-bold", fatStatus.color)}>{round(analysisResult.summary.totalFat, 1)}g</p>
+                            <p className="text-xs text-muted-foreground">Fat</p>
+                            <p className={cn("text-xs font-medium mt-1", fatStatus.color)}>
+                              {fatStatus.percent}% of {customTargets.fat}g
+                            </p>
+                          </div>
+                          <div className="text-center p-3 bg-background rounded-lg border">
+                            <p className={cn("text-xl font-bold", fiberStatus.color)}>{round(analysisResult.summary.totalFiber, 1)}g</p>
+                            <p className="text-xs text-muted-foreground">Fiber</p>
+                            <p className={cn("text-xs font-medium mt-1", fiberStatus.color)}>
+                              {fiberStatus.percent}% of 30g
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     <div className="flex items-center justify-between">
                       <div className="flex gap-4 text-sm">
@@ -2110,7 +2171,10 @@ export default function NutritionAnalysisPage() {
                               <TableRow>
                                 <TableHead>Food</TableHead>
                                 <TableHead className="text-right">Times Logged</TableHead>
-                                <TableHead className="text-right">Total Calories</TableHead>
+                                {/* Only show calories column if we have actual data (from CSV, not API) */}
+                                {analysisResult.topFoods.some(f => f.totalCalories > 0) && (
+                                  <TableHead className="text-right">Total Calories</TableHead>
+                                )}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -2118,7 +2182,9 @@ export default function NutritionAnalysisPage() {
                                 <TableRow key={i}>
                                   <TableCell className="font-medium">{food.name}</TableCell>
                                   <TableCell className="text-right">{food.count}</TableCell>
-                                  <TableCell className="text-right">{food.totalCalories} kcal</TableCell>
+                                  {analysisResult.topFoods.some(f => f.totalCalories > 0) && (
+                                    <TableCell className="text-right">{food.totalCalories} kcal</TableCell>
+                                  )}
                                 </TableRow>
                               ))}
                             </TableBody>
@@ -2171,9 +2237,9 @@ export default function NutritionAnalysisPage() {
                                               <span className="font-medium">{meal.name}</span>
                                               <div className="flex gap-3 text-xs text-muted-foreground">
                                                 <span>{Math.round(meal.calories)} cal</span>
-                                                <span>{Math.round(meal.protein)}g P</span>
-                                                <span>{Math.round(meal.carbs)}g C</span>
-                                                <span>{Math.round(meal.fat)}g F</span>
+                                                <span>{(meal.protein || 0).toFixed(1)}g P</span>
+                                                <span>{(meal.carbs || 0).toFixed(1)}g C</span>
+                                                <span>{(meal.fat || 0).toFixed(1)}g F</span>
                                                 <Badge variant="outline" className="text-xs">{meal.foodCount} items</Badge>
                                               </div>
                                             </div>
