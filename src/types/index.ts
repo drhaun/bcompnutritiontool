@@ -1,6 +1,147 @@
 // ============ CLIENT PROFILE SYSTEM ============
 // For Nutrition Planning OS - Staff/Coach focused
 
+// Phase status for planning
+export type PhaseStatus = 'planned' | 'active' | 'completed';
+
+// Goal type for phases
+export type GoalType = 'fat_loss' | 'muscle_gain' | 'recomposition' | 'performance' | 'health' | 'other';
+
+// Timeline event types (lab tests, competitions, travel, etc.)
+export type TimelineEventType = 'lab_test' | 'competition' | 'travel' | 'vacation' | 'milestone' | 'other';
+
+export interface TimelineEvent {
+  id: string;
+  name: string;
+  date: string;
+  type: TimelineEventType;
+  notes?: string;
+  color?: string;
+}
+
+// Individual micronutrient target with customization
+export interface MicronutrientTarget {
+  value: number;           // Target amount
+  unit: string;            // 'mg', 'mcg', 'g', 'IU'
+  isCustom: boolean;       // Whether user has customized this
+  minSafe?: number;        // Minimum safe intake
+  maxSafe?: number;        // Upper tolerable limit (UL)
+  rdaReference?: number;   // Standard RDA for reference
+}
+
+// Complete micronutrient targets for a phase
+export interface MicronutrientTargets {
+  // Vitamins
+  vitaminA?: MicronutrientTarget;      // mcg RAE
+  vitaminC?: MicronutrientTarget;      // mg
+  vitaminD?: MicronutrientTarget;      // mcg (or IU)
+  vitaminE?: MicronutrientTarget;      // mg
+  vitaminK?: MicronutrientTarget;      // mcg
+  thiamin?: MicronutrientTarget;       // mg (B1)
+  riboflavin?: MicronutrientTarget;    // mg (B2)
+  niacin?: MicronutrientTarget;        // mg (B3)
+  pantothenicAcid?: MicronutrientTarget; // mg (B5)
+  vitaminB6?: MicronutrientTarget;     // mg
+  biotin?: MicronutrientTarget;        // mcg (B7)
+  folate?: MicronutrientTarget;        // mcg DFE (B9)
+  vitaminB12?: MicronutrientTarget;    // mcg
+  
+  // Major Minerals
+  calcium?: MicronutrientTarget;       // mg
+  phosphorus?: MicronutrientTarget;    // mg
+  magnesium?: MicronutrientTarget;     // mg
+  sodium?: MicronutrientTarget;        // mg
+  potassium?: MicronutrientTarget;     // mg
+  chloride?: MicronutrientTarget;      // mg
+  
+  // Trace Minerals
+  iron?: MicronutrientTarget;          // mg
+  zinc?: MicronutrientTarget;          // mg
+  copper?: MicronutrientTarget;        // mg
+  manganese?: MicronutrientTarget;     // mg
+  selenium?: MicronutrientTarget;      // mcg
+  iodine?: MicronutrientTarget;        // mcg
+  chromium?: MicronutrientTarget;      // mcg
+  molybdenum?: MicronutrientTarget;    // mcg
+  
+  // Other Important Nutrients
+  fiber?: MicronutrientTarget;         // g
+  omega3?: MicronutrientTarget;        // g (EPA + DHA)
+  choline?: MicronutrientTarget;       // mg
+  
+  // Custom/Additional targets
+  custom?: Record<string, MicronutrientTarget>;
+}
+
+// Macro coefficient calculation basis
+export type MacroBasis = 'total_weight' | 'fat_free_mass';
+
+// Macro settings for a phase (stored with phase)
+export interface MacroSettings {
+  basis: MacroBasis;                    // Calculate per total weight or FFM
+  proteinPerKg: number;                 // g/kg (of basis)
+  fatPerKg: number;                     // g/kg (of basis)
+  // Carbs are calculated from remaining calories
+}
+
+// Custom metric for tracking non-body-comp goals
+export interface PhaseCustomMetric {
+  id: string;
+  name: string;
+  startValue: string;
+  targetValue: string;
+  unit: string;
+}
+
+// Phase - A time-bound goal period with targets and meal plan
+export interface Phase {
+  id: string;
+  name: string;  // e.g., "Cut Phase Q1", "Maintenance Summer"
+  customGoalName?: string; // For 'other' or 'health' goal types
+  goalType: GoalType;
+  status: PhaseStatus;
+  startDate: string;
+  endDate: string;
+  
+  // Starting body composition (snapshot at phase creation)
+  startingWeightLbs?: number;
+  startingBodyFat?: number;
+  
+  // Target body composition
+  targetWeightLbs: number;
+  targetBodyFat: number;
+  targetFatMassLbs: number;
+  targetFFMLbs: number;
+  rateOfChange: number;  // % body weight per week
+  
+  // Custom metrics for performance/health goals
+  customMetrics?: PhaseCustomMetric[];
+  
+  // Context for this phase
+  performancePriority: PerformancePriority;
+  musclePreservation: MusclePreservation;
+  fatGainTolerance: FatGainTolerance;
+  lifestyleCommitment: LifestyleCommitment;
+  trackingCommitment: TrackingCommitment;
+  
+  // Optional schedule overrides (null = use profile defaults)
+  scheduleOverrides: Partial<WeeklySchedule> | null;
+  
+  // Macro coefficient settings
+  macroSettings?: MacroSettings;
+  
+  // Micronutrient targets (evidence-based defaults with customization)
+  micronutrientTargets?: MicronutrientTargets;
+  
+  // Calculated targets + meal plan
+  nutritionTargets: DayNutritionTargets[];
+  mealPlan: WeeklyMealPlan | null;
+  
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ClientProfile {
   id: string;
   name: string;
@@ -14,14 +155,25 @@ export interface ClientProfile {
   // Cronometer integration
   cronometerClientId?: number; // Linked Cronometer Pro client ID
   cronometerClientName?: string; // For display purposes
+  
   // All client-specific data stored per profile
   userProfile: Partial<UserProfile>;
-  bodyCompGoals: Partial<BodyCompGoals>;
+  bodyCompGoals: Partial<BodyCompGoals>;  // Profile-level defaults for goal preferences
   dietPreferences: Partial<DietPreferences>;
-  weeklySchedule: Partial<WeeklySchedule>;
+  weeklySchedule: Partial<WeeklySchedule>;  // Profile-level schedule defaults
+  
+  // Phase-based planning
+  phases: Phase[];
+  activePhaseId?: string;
+  
+  // Timeline events (labs, competitions, travel, etc.)
+  timelineEvents?: TimelineEvent[];
+  
+  // Legacy fields (for backward compatibility, will migrate to phases)
   nutritionTargets: DayNutritionTargets[];
   mealPlan: WeeklyMealPlan | null;
   currentStep: number;
+  
   // History tracking
   planHistory?: {
     id: string;
@@ -67,6 +219,17 @@ export interface MetabolicAssessment {
 }
 
 // User Profile Types
+// Client Address for location-based features
+export interface ClientAddress {
+  label: string; // "Home", "Work", "Travel", etc.
+  address: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  isDefault?: boolean;
+}
+
 export interface UserProfile {
   name: string;
   gender: 'Male' | 'Female';
@@ -91,6 +254,9 @@ export interface UserProfile {
   healthGoals?: string;
   performanceGoals?: string;
   additionalNotes?: string;
+  
+  // Addresses for location-based features (meal delivery, travel planning)
+  addresses?: ClientAddress[];
 }
 
 export type ActivityLevel = 
@@ -123,7 +289,7 @@ export type TrackingCommitment =
 
 // Body Composition Goals
 export interface BodyCompGoals {
-  goalType: 'lose_fat' | 'gain_muscle' | 'maintain';
+  goalType: GoalType;
   targetWeightLbs: number;
   targetBodyFat: number;
   timelineWeeks: number;
@@ -279,11 +445,31 @@ export interface WorkoutDefaults {
 }
 
 // Schedule preferences
+// Time-restricted eating protocols
+export type FastingProtocol = 
+  | 'none'           // No time restriction
+  | '16_8'           // 16h fast, 8h eating window (most common)
+  | '14_10'          // 14h fast, 10h eating window (moderate)
+  | '18_6'           // 18h fast, 6h eating window (advanced)
+  | '20_4'           // 20h fast, 4h eating window (warrior diet)
+  | 'custom';        // Custom fasting/feeding windows
+
+export interface TimeRestrictedEating {
+  enabled: boolean;
+  protocol: FastingProtocol;
+  feedingWindowStart: string;  // e.g., "12:00" (noon)
+  feedingWindowEnd: string;    // e.g., "20:00" (8pm)
+  flexibleOnWeekends: boolean; // Allow longer window on weekends
+  weekendWindowStart?: string;
+  weekendWindowEnd?: string;
+}
+
 export interface SchedulePreferences {
   allowMultipleWorkoutsPerDay: boolean;
   avoidWorkoutsNearBedtime: boolean;
   allowFastedWorkouts: boolean;
   workoutDefaults: WorkoutDefaults;
+  timeRestrictedEating?: TimeRestrictedEating;
 }
 
 // Day schedule

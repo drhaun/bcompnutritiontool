@@ -383,15 +383,36 @@ export function consolidateGroceryList(mealPlan: WeeklyMealPlan): Record<string,
   
   // Process all days and meals
   for (const [day, dayPlan] of Object.entries(mealPlan)) {
+    // Skip if dayPlan doesn't have meals
+    if (!dayPlan?.meals) continue;
+    
     for (const meal of dayPlan.meals) {
+      // Skip null/undefined meals (unfilled slots)
+      if (!meal?.ingredients) continue;
+      
       for (const ingredient of meal.ingredients) {
+        // Skip if ingredient is malformed
+        if (!ingredient?.item) continue;
+        
         const key = ingredient.item.toLowerCase().trim();
         const existing = groceryMap.get(key);
         
-        // Parse amount
-        const amountMatch = ingredient.amount.match(/^([\d.]+)\s*(.*)$/);
-        const value = amountMatch ? parseFloat(amountMatch[1]) : 1;
-        const unit = amountMatch ? amountMatch[2] || 'unit' : 'unit';
+        // Parse amount - handle various formats
+        const amountStr = ingredient.amount || '1 serving';
+        const amountMatch = amountStr.match(/^([\d.\/]+)\s*(.*)$/);
+        let value = 1;
+        let unit = 'serving';
+        
+        if (amountMatch) {
+          // Handle fractions like 1/2
+          if (amountMatch[1].includes('/')) {
+            const [num, denom] = amountMatch[1].split('/');
+            value = parseFloat(num) / parseFloat(denom);
+          } else {
+            value = parseFloat(amountMatch[1]) || 1;
+          }
+          unit = amountMatch[2]?.trim() || 'serving';
+        }
         
         if (existing) {
           // Try to combine with same unit
@@ -407,7 +428,7 @@ export function consolidateGroceryList(mealPlan: WeeklyMealPlan): Record<string,
         } else {
           groceryMap.set(key, {
             amounts: [{ value, unit }],
-            category: ingredient.category,
+            category: ingredient.category || 'other',
             meals: [`${day} - ${meal.name}`],
           });
         }

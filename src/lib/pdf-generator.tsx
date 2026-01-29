@@ -524,15 +524,17 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
         </View>
       )}
       
-      <View style={styles.ingredientsList}>
-        <Text style={styles.ingredientsTitle}>Ingredients:</Text>
-        {meal.ingredients.map((ing, idx) => (
-          <View key={idx} style={styles.ingredientItem}>
-            <Text style={styles.ingredientBullet}>•</Text>
-            <Text style={styles.ingredientText}>{ing.amount} {ing.item}</Text>
-          </View>
-        ))}
-      </View>
+      {meal.ingredients && meal.ingredients.length > 0 && (
+        <View style={styles.ingredientsList}>
+          <Text style={styles.ingredientsTitle}>Ingredients:</Text>
+          {meal.ingredients.map((ing, idx) => (
+            <View key={idx} style={styles.ingredientItem}>
+              <Text style={styles.ingredientBullet}>•</Text>
+              <Text style={styles.ingredientText}>{ing.amount || ''} {ing.item || ''}</Text>
+            </View>
+          ))}
+        </View>
+      )}
       
       {meal.instructions && meal.instructions.length > 0 && (
         <View style={styles.instructionsList}>
@@ -1086,7 +1088,7 @@ export const MealPlanPDF = ({
             </View>
             
             {/* Meals */}
-            {dayPlan.meals.map((meal, idx) => {
+            {dayPlan.meals.filter(meal => meal !== null && meal !== undefined).map((meal, idx) => {
               if (meal.type === 'meal') {
                 mealNum++;
                 return <MealCard key={idx} meal={meal} mealNumber={mealNum} context={getMealContext(meal, idx) || undefined} />;

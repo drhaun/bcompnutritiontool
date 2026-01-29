@@ -42,11 +42,9 @@ import {
 } from 'lucide-react';
 
 const workflowSteps = [
-  { href: '/setup', label: 'Profile & Goals', step: 1 },
-  { href: '/schedule', label: 'Schedule', step: 2 },
-  { href: '/preferences', label: 'Preferences', step: 3 },
-  { href: '/targets', label: 'Targets', step: 4 },
-  { href: '/meal-plan', label: 'Meal Plan', step: 5 },
+  { href: '/setup', label: 'Profile', step: 1 },
+  { href: '/planning', label: 'Planning', step: 2 },
+  { href: '/meal-plan', label: 'Meal Plan', step: 3 },
 ];
 
 const toolLinks = [
@@ -218,7 +216,7 @@ export function Header() {
         {/* Right - Client Selector */}
         <div className="flex items-center gap-3">
           {/* Skip Step Button (only in workflow) */}
-          {isInWorkflow && currentWorkflowStep && currentWorkflowStep.step < 5 && (
+          {isInWorkflow && currentWorkflowStep && currentWorkflowStep.step < 3 && (
             <Button
               variant="ghost"
               size="sm"

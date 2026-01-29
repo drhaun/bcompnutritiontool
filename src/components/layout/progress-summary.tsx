@@ -23,10 +23,8 @@ interface ProgressSummaryProps {
 
 const STEPS = [
   { id: 1, name: 'Profile', icon: User },
-  { id: 2, name: 'Schedule', icon: Calendar },
-  { id: 3, name: 'Preferences', icon: Utensils },
-  { id: 4, name: 'Targets', icon: Calculator },
-  { id: 5, name: 'Meal Plan', icon: Target },
+  { id: 2, name: 'Planning', icon: Calendar },
+  { id: 3, name: 'Meal Plan', icon: Target },
 ];
 
 export function ProgressSummary({ currentStep = 1, showCompact = false }: ProgressSummaryProps) {
@@ -34,12 +32,16 @@ export function ProgressSummary({ currentStep = 1, showCompact = false }: Progre
 
   // Calculate completion status
   const hasProfile = !!(userProfile.name && userProfile.gender && userProfile.weightLbs && userProfile.heightFt);
-  const hasGoals = !!(bodyCompGoals.goalType && bodyCompGoals.targetWeightLbs);
+  const hasGoals = !!(bodyCompGoals.goalType);
   const hasPreferences = !!(dietPreferences.preferredProteins?.length || dietPreferences.dietaryRestrictions?.length);
   const hasSchedule = Object.keys(weeklySchedule).length > 0;
   const hasTargets = nutritionTargets.length > 0;
+  
+  // New 3-step completion: Profile (includes prefs/schedule), Planning (has targets), Meal Plan
+  const profileComplete = hasProfile && hasGoals;
+  const planningComplete = hasTargets;
 
-  const completedSteps = [hasProfile && hasGoals, hasPreferences, hasSchedule, hasTargets, false].filter(Boolean).length;
+  const completedSteps = [profileComplete, planningComplete, false].filter(Boolean).length;
 
   // Calculate body composition if profile exists
   const bodyComp = hasProfile && userProfile.weightLbs && userProfile.heightFt && userProfile.bodyFatPercentage
@@ -103,7 +105,7 @@ export function ProgressSummary({ currentStep = 1, showCompact = false }: Progre
               })}
             </div>
             <Badge variant="outline" className="text-xs">
-              Step {currentStep}/5
+              Step {currentStep}/3
             </Badge>
           </div>
         </CardContent>
@@ -121,7 +123,7 @@ export function ProgressSummary({ currentStep = 1, showCompact = false }: Progre
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">Summary of selections</p>
           <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-[#c19962] border-[#c19962]">
-            {completedSteps}/5 complete
+            {completedSteps}/3 complete
           </Badge>
         </div>
       </CardHeader>

@@ -10,11 +10,9 @@ interface Step {
 }
 
 const steps: Step[] = [
-  { id: 1, name: 'Profile', description: 'Personal information & goals' },
-  { id: 2, name: 'Schedule', description: 'Weekly routine' },
-  { id: 3, name: 'Preferences', description: 'Diet & lifestyle' },
-  { id: 4, name: 'Targets', description: 'Review nutrition' },
-  { id: 5, name: 'Meal Plan', description: 'AI generation & export' },
+  { id: 1, name: 'Profile', description: 'Client info & preferences' },
+  { id: 2, name: 'Planning', description: 'Phases & targets' },
+  { id: 3, name: 'Meal Plan', description: 'Generate & customize' },
 ];
 
 interface ProgressStepsProps {

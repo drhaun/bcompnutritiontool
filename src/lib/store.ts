@@ -11,7 +11,10 @@ import type {
   Meal,
   DayOfWeek,
   ClientProfile,
-  StaffMember
+  StaffMember,
+  Phase,
+  GoalType,
+  TimelineEvent
 } from '@/types';
 import { 
   calculateTDEE, 
@@ -30,6 +33,7 @@ import {
 
 // Generate unique ID
 const generateId = () => `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const generatePhaseId = () => `phase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 // Session note type for the floating notes panel
 export interface SessionNote {
@@ -85,6 +89,23 @@ interface NutritionPlanningOSState {
   saveActiveClientState: () => void;
   getClient: (clientId: string) => ClientProfile | undefined;
   getActiveClient: () => ClientProfile | undefined;
+  
+  // ============ PHASE MANAGEMENT ACTIONS ============
+  phases: Phase[];
+  activePhaseId: string | null;
+  createPhase: (phase: Partial<Phase>) => string;
+  updatePhase: (phaseId: string, updates: Partial<Phase>) => void;
+  deletePhase: (phaseId: string) => void;
+  setActivePhase: (phaseId: string | null) => void;
+  duplicatePhase: (phaseId: string, newName: string) => string;
+  getPhase: (phaseId: string) => Phase | undefined;
+  getActivePhase: () => Phase | undefined;
+  
+  // ============ TIMELINE EVENTS ACTIONS ============
+  timelineEvents: TimelineEvent[];
+  addTimelineEvent: (event: Omit<TimelineEvent, 'id'>) => string;
+  updateTimelineEvent: (eventId: string, updates: Partial<TimelineEvent>) => void;
+  deleteTimelineEvent: (eventId: string) => void;
   
   // ============ SESSION NOTES ACTIONS ============
   setNotePanelOpen: (isOpen: boolean) => void;
@@ -154,6 +175,9 @@ const emptyClientData = {
   mealPlan: null,
   mealPlanHistory: [] as WeeklyMealPlan[],
   mealPlanHistoryIndex: -1,
+  phases: [] as Phase[],
+  activePhaseId: null as string | null,
+  timelineEvents: [] as TimelineEvent[],
 };
 
 const initialState = {
@@ -206,6 +230,8 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           bodyCompGoals: {},
           dietPreferences: {},
           weeklySchedule: {},
+          phases: [],
+          activePhaseId: undefined,
           nutritionTargets: [],
           mealPlan: null,
           currentStep: 1,
@@ -220,6 +246,8 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           bodyCompGoals: {},
           dietPreferences: {},
           weeklySchedule: {},
+          phases: [],
+          activePhaseId: null,
           nutritionTargets: [],
           mealPlan: null,
           error: null,
@@ -247,6 +275,53 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         // Find and load the selected client
         const client = state.clients.find(c => c.id === clientId);
         if (client) {
+          // Migrate legacy data to phase-based structure if needed
+          let phases = client.phases || [];
+          let activePhaseId = client.activePhaseId || null;
+          
+          // Migration: If client has targets/meal plan but no phases, create a legacy phase
+          if (
+            phases.length === 0 && 
+            client.bodyCompGoals?.goalType &&
+            (client.nutritionTargets?.length > 0 || client.mealPlan)
+          ) {
+            const now = new Date().toISOString();
+            const legacyPhase: Phase = {
+              id: `phase_legacy_${Date.now()}`,
+              name: 'Current Plan',
+              goalType: client.bodyCompGoals.goalType as GoalType,
+              status: 'active',
+              startDate: client.bodyCompGoals.startDate || now.split('T')[0],
+              endDate: (() => {
+                const weeks = client.bodyCompGoals.timelineWeeks || 12;
+                const end = new Date();
+                end.setDate(end.getDate() + weeks * 7);
+                return end.toISOString().split('T')[0];
+              })(),
+              targetWeightLbs: client.bodyCompGoals.targetWeightLbs || client.userProfile.weightLbs || 150,
+              targetBodyFat: client.bodyCompGoals.targetBodyFat || 20,
+              targetFatMassLbs: client.bodyCompGoals.targetFatMassLbs || 30,
+              targetFFMLbs: client.bodyCompGoals.targetFFMLbs || 120,
+              rateOfChange: client.bodyCompGoals.weeklyWeightChangePct || 0.5,
+              performancePriority: client.bodyCompGoals.performancePriority || 'body_comp_priority',
+              musclePreservation: client.bodyCompGoals.musclePreservation || 'preserve_all',
+              fatGainTolerance: client.bodyCompGoals.fatGainTolerance || 'minimize_fat_gain',
+              lifestyleCommitment: client.bodyCompGoals.lifestyleCommitment || 'fully_committed',
+              trackingCommitment: client.bodyCompGoals.trackingCommitment || 'committed_tracking',
+              scheduleOverrides: null,
+              nutritionTargets: client.nutritionTargets || [],
+              mealPlan: client.mealPlan,
+              notes: 'Migrated from legacy data',
+              createdAt: now,
+              updatedAt: now,
+            };
+            
+            phases = [legacyPhase];
+            activePhaseId = legacyPhase.id;
+            
+            console.log('[Store] Migrated legacy data to phase:', legacyPhase.name);
+          }
+          
           set({
             activeClientId: clientId,
             currentStep: client.currentStep,
@@ -254,10 +329,18 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
             bodyCompGoals: client.bodyCompGoals,
             dietPreferences: client.dietPreferences,
             weeklySchedule: client.weeklySchedule,
+            phases,
+            activePhaseId,
+            timelineEvents: client.timelineEvents || [],
             nutritionTargets: client.nutritionTargets,
             mealPlan: client.mealPlan,
             error: null,
           });
+          
+          // If we migrated, save the updated client state
+          if (phases.length > 0 && !client.phases?.length) {
+            setTimeout(() => get().saveActiveClientState(), 100);
+          }
         }
       },
       
@@ -361,6 +444,9 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           bodyCompGoals: state.bodyCompGoals,
           dietPreferences: state.dietPreferences,
           weeklySchedule: state.weeklySchedule,
+          phases: state.phases,
+          activePhaseId: state.activePhaseId || undefined,
+          timelineEvents: state.timelineEvents,
           nutritionTargets: state.nutritionTargets,
           mealPlan: state.mealPlan,
         };
@@ -393,6 +479,177 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         const state = get();
         if (!state.activeClientId) return undefined;
         return state.clients.find(c => c.id === state.activeClientId);
+      },
+      
+      // ============ PHASE MANAGEMENT ACTIONS ============
+      phases: [],
+      activePhaseId: null,
+      
+      createPhase: (phaseData) => {
+        const state = get();
+        if (!state.activeClientId) return '';
+        
+        const id = generatePhaseId();
+        const now = new Date().toISOString();
+        
+        const newPhase: Phase = {
+          id,
+          name: phaseData.name || 'New Phase',
+          goalType: phaseData.goalType || 'maintain',
+          status: phaseData.status || 'planned',
+          startDate: phaseData.startDate || now.split('T')[0],
+          endDate: phaseData.endDate || new Date(Date.now() + 12 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 12 weeks default
+          targetWeightLbs: phaseData.targetWeightLbs || state.userProfile.weightLbs || 150,
+          targetBodyFat: phaseData.targetBodyFat || state.userProfile.bodyFatPercentage || 20,
+          targetFatMassLbs: phaseData.targetFatMassLbs || 30,
+          targetFFMLbs: phaseData.targetFFMLbs || 120,
+          rateOfChange: phaseData.rateOfChange || 0.5,
+          performancePriority: phaseData.performancePriority || state.bodyCompGoals.performancePriority || 'body_comp_priority',
+          musclePreservation: phaseData.musclePreservation || state.bodyCompGoals.musclePreservation || 'preserve_all',
+          fatGainTolerance: phaseData.fatGainTolerance || state.bodyCompGoals.fatGainTolerance || 'minimize_fat_gain',
+          lifestyleCommitment: phaseData.lifestyleCommitment || state.bodyCompGoals.lifestyleCommitment || 'fully_committed',
+          trackingCommitment: phaseData.trackingCommitment || state.bodyCompGoals.trackingCommitment || 'committed_tracking',
+          scheduleOverrides: phaseData.scheduleOverrides || null,
+          nutritionTargets: phaseData.nutritionTargets || [],
+          mealPlan: phaseData.mealPlan || null,
+          notes: phaseData.notes,
+          createdAt: now,
+          updatedAt: now,
+        };
+        
+        set((state) => ({
+          phases: [...state.phases, newPhase],
+        }));
+        
+        // Auto-save to client
+        setTimeout(() => get().saveActiveClientState(), 100);
+        
+        return id;
+      },
+      
+      updatePhase: (phaseId, updates) => {
+        set((state) => ({
+          phases: state.phases.map(p => 
+            p.id === phaseId
+              ? { ...p, ...updates, updatedAt: new Date().toISOString() }
+              : p
+          ),
+        }));
+        
+        // Auto-save to client
+        setTimeout(() => get().saveActiveClientState(), 100);
+      },
+      
+      deletePhase: (phaseId) => {
+        const state = get();
+        set({
+          phases: state.phases.filter(p => p.id !== phaseId),
+          ...(state.activePhaseId === phaseId ? { activePhaseId: null } : {}),
+        });
+        
+        // Auto-save to client
+        setTimeout(() => get().saveActiveClientState(), 100);
+      },
+      
+      setActivePhase: (phaseId) => {
+        set({ activePhaseId: phaseId });
+        
+        // If setting active phase, load its meal plan and targets into current state
+        if (phaseId) {
+          const state = get();
+          const phase = state.phases.find(p => p.id === phaseId);
+          if (phase) {
+            set({
+              nutritionTargets: phase.nutritionTargets,
+              mealPlan: phase.mealPlan,
+            });
+          }
+        }
+        
+        // Auto-save to client
+        setTimeout(() => get().saveActiveClientState(), 100);
+      },
+      
+      duplicatePhase: (phaseId, newName) => {
+        const state = get();
+        const phase = state.phases.find(p => p.id === phaseId);
+        if (!phase) return '';
+        
+        const newId = generatePhaseId();
+        const now = new Date().toISOString();
+        
+        const newPhase: Phase = {
+          ...phase,
+          id: newId,
+          name: newName,
+          status: 'planned',
+          mealPlan: null, // Don't copy meal plan
+          nutritionTargets: [], // Reset targets
+          createdAt: now,
+          updatedAt: now,
+        };
+        
+        set((state) => ({
+          phases: [...state.phases, newPhase],
+        }));
+        
+        // Auto-save to client
+        setTimeout(() => get().saveActiveClientState(), 100);
+        
+        return newId;
+      },
+      
+      getPhase: (phaseId) => {
+        return get().phases.find(p => p.id === phaseId);
+      },
+      
+      getActivePhase: () => {
+        const state = get();
+        if (!state.activePhaseId) return undefined;
+        return state.phases.find(p => p.id === state.activePhaseId);
+      },
+      
+      // ============ TIMELINE EVENTS ACTIONS ============
+      addTimelineEvent: (eventData) => {
+        const state = get();
+        if (!state.activeClientId) return '';
+        
+        const id = `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const event: TimelineEvent = {
+          id,
+          ...eventData,
+        };
+        
+        const newEvents = [...state.timelineEvents, event].sort((a, b) => 
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        
+        set({ timelineEvents: newEvents });
+        
+        // Auto-save to client
+        setTimeout(() => get().saveActiveClientState(), 100);
+        
+        return id;
+      },
+      
+      updateTimelineEvent: (eventId, updates) => {
+        set((state) => ({
+          timelineEvents: state.timelineEvents.map(e =>
+            e.id === eventId ? { ...e, ...updates } : e
+          ),
+        }));
+        
+        // Auto-save to client
+        setTimeout(() => get().saveActiveClientState(), 100);
+      },
+      
+      deleteTimelineEvent: (eventId) => {
+        set((state) => ({
+          timelineEvents: state.timelineEvents.filter(e => e.id !== eventId),
+        }));
+        
+        // Auto-save to client
+        setTimeout(() => get().saveActiveClientState(), 100);
       },
       
       // ============ SESSION NOTES ACTIONS ============
@@ -1008,6 +1265,9 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         bodyCompGoals: state.bodyCompGoals,
         dietPreferences: state.dietPreferences,
         weeklySchedule: state.weeklySchedule,
+        phases: state.phases,
+        activePhaseId: state.activePhaseId,
+        timelineEvents: state.timelineEvents,
         nutritionTargets: state.nutritionTargets,
         mealPlan: state.mealPlan,
         currentStep: state.currentStep,

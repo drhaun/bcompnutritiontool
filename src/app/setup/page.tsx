@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { ProgressSteps } from '@/components/layout/progress-steps';
 import { ProgressSummary } from '@/components/layout/progress-summary';
@@ -46,7 +47,20 @@ import {
   Sparkles,
   FileText,
   Trophy,
-  Stethoscope
+  Stethoscope,
+  Utensils,
+  Coffee,
+  Settings2,
+  Leaf,
+  Moon,
+  Sun,
+  Briefcase,
+  ChefHat,
+  Package,
+  Truck,
+  X as XIcon,
+  MapPin,
+  Plus
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -54,7 +68,21 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from '@/components/ui/tooltip';
-import type { PerformancePriority, MusclePreservation, FatGainTolerance, LifestyleCommitment, TrackingCommitment } from '@/types';
+import type { 
+  PerformancePriority, 
+  MusclePreservation, 
+  FatGainTolerance, 
+  LifestyleCommitment, 
+  TrackingCommitment,
+  WorkType,
+  WorkoutType,
+  WorkoutTimeSlot,
+  MealPrepMethod,
+  MealLocation,
+  DayOfWeek,
+  MealContext
+} from '@/types';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 // ============ TYPES ============
 
@@ -151,6 +179,189 @@ const MAINTENANCE_RATES = [
   { value: 0.1, label: 'Slight Surplus', description: '0.1% surplus/week', lbsPerWeek: 0.2 },
 ];
 
+// ============ SCHEDULE CONSTANTS ============
+
+const DAYS_OF_WEEK: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const WORK_TYPES: { value: WorkType; label: string }[] = [
+  { value: 'office', label: 'Office/On-site' },
+  { value: 'remote', label: 'Remote Work' },
+  { value: 'hybrid', label: 'Hybrid' },
+  { value: 'shift', label: 'Shift Work' },
+  { value: 'none', label: 'Not Working' },
+];
+
+const WORKOUT_TYPES: { value: WorkoutType; label: string }[] = [
+  { value: 'Resistance Training', label: 'Resistance Training' },
+  { value: 'Cardio', label: 'Cardio' },
+  { value: 'HIIT', label: 'HIIT' },
+  { value: 'Yoga/Mobility', label: 'Yoga/Mobility' },
+  { value: 'Sports', label: 'Sports' },
+  { value: 'Mixed', label: 'Mixed Training' },
+];
+
+const WORKOUT_TIME_SLOTS: { value: WorkoutTimeSlot; label: string }[] = [
+  { value: 'early_morning', label: 'Early Morning (5-7 AM)' },
+  { value: 'morning', label: 'Morning (7-10 AM)' },
+  { value: 'midday', label: 'Midday (10 AM-2 PM)' },
+  { value: 'afternoon', label: 'Afternoon (2-5 PM)' },
+  { value: 'evening', label: 'Evening (5-8 PM)' },
+  { value: 'night', label: 'Night (8-11 PM)' },
+];
+
+const MEAL_PREP_METHODS: { value: MealPrepMethod; label: string }[] = [
+  { value: 'cook', label: 'Cook from scratch' },
+  { value: 'leftovers', label: 'Leftovers/Pre-prepped' },
+  { value: 'pickup', label: 'Pickup or takeout' },
+  { value: 'delivery', label: 'Meal delivery' },
+  { value: 'skip', label: 'Skip this meal' },
+];
+
+const MEAL_LOCATIONS: { value: MealLocation; label: string }[] = [
+  { value: 'home', label: 'Home' },
+  { value: 'office', label: 'Office/Work' },
+  { value: 'on_the_go', label: 'On the Go' },
+  { value: 'restaurant', label: 'Restaurant' },
+  { value: 'gym', label: 'Gym' },
+];
+
+const PREP_TIMES = ['<5 min', '5-15 min', '15-30 min', '30-60 min', '60+ min'];
+
+const MEAL_TIME_RANGES = [
+  'Early Morning (5-7 AM)',
+  'Morning (7-10 AM)',
+  'Late Morning (10 AM-12 PM)',
+  'Midday (12-2 PM)',
+  'Afternoon (2-5 PM)',
+  'Evening (5-8 PM)',
+  'Night (8-10 PM)',
+];
+
+// ============ PREFERENCE CONSTANTS ============
+
+const DIETARY_RESTRICTIONS = [
+  'Vegetarian', 'Vegan', 'Pescatarian', 'Gluten-Free', 'Dairy-Free',
+  'Keto', 'Paleo', 'Low-FODMAP', 'Low-Sodium', 'Diabetic-Friendly'
+];
+
+const COMMON_ALLERGIES = [
+  'Peanuts', 'Tree Nuts', 'Shellfish', 'Fish', 'Eggs', 
+  'Milk/Dairy', 'Wheat', 'Soy', 'Sesame', 'Mustard'
+];
+
+const PROTEINS = [
+  // Poultry
+  'Chicken Breast', 'Chicken Thighs', 'Turkey Breast', 'Ground Turkey',
+  // Seafood
+  'Salmon', 'Tuna', 'Shrimp', 'Cod', 'Tilapia', 'Sardines', 'Mackerel',
+  // Red Meat
+  'Beef (Lean)', 'Ground Beef (90/10)', 'Bison', 'Lamb', 'Pork Tenderloin',
+  // Eggs & Dairy
+  'Eggs', 'Egg Whites', 'Greek Yogurt', 'Cottage Cheese', 'Skyr',
+  // Plant-Based
+  'Tofu', 'Tempeh', 'Seitan', 'Edamame', 'Lentils', 'Black Beans', 'Chickpeas',
+  // Supplements
+  'Whey Protein', 'Casein Protein', 'Plant Protein Powder'
+];
+
+const CARBS = [
+  // Grains
+  'White Rice', 'Brown Rice', 'Jasmine Rice', 'Quinoa', 'Oats', 'Steel Cut Oats',
+  'Pasta', 'Whole Wheat Pasta', 'Couscous', 'Barley', 'Farro', 'Bulgur',
+  // Bread & Wraps
+  'Whole Wheat Bread', 'Sourdough', 'Ezekiel Bread', 'Tortillas', 'Pita',
+  // Potatoes & Roots
+  'White Potatoes', 'Sweet Potatoes', 'Yams', 'Butternut Squash',
+  // Legumes
+  'Black Beans', 'Kidney Beans', 'Chickpeas', 'Lentils',
+  // Fruits
+  'Bananas', 'Berries', 'Apples', 'Oranges', 'Dates', 'Dried Fruit'
+];
+
+const FATS = [
+  // Oils
+  'Olive Oil', 'Coconut Oil', 'Avocado Oil', 'MCT Oil',
+  // Whole Foods
+  'Avocado', 'Olives', 'Dark Chocolate',
+  // Nuts
+  'Almonds', 'Walnuts', 'Cashews', 'Macadamia Nuts', 'Pecans', 'Pistachios',
+  // Seeds
+  'Chia Seeds', 'Flax Seeds', 'Hemp Seeds', 'Pumpkin Seeds', 'Sunflower Seeds',
+  // Nut/Seed Butters
+  'Peanut Butter', 'Almond Butter', 'Cashew Butter', 'Tahini',
+  // Dairy
+  'Cheese', 'Full-Fat Yogurt', 'Butter', 'Ghee',
+  // Other
+  'Fatty Fish (Salmon, Mackerel)', 'Egg Yolks'
+];
+
+const CUISINES = [
+  'American', 'Italian', 'Mexican', 'Chinese', 'Japanese', 'Thai', 'Vietnamese',
+  'Indian', 'Mediterranean', 'Greek', 'Middle Eastern', 'Korean', 'French',
+  'Spanish', 'Brazilian', 'Caribbean', 'African', 'Fusion'
+];
+
+const FLAVOR_PROFILES = [
+  'Savory/Umami', 'Sweet', 'Spicy/Hot', 'Tangy/Citrus', 'Smoky', 'Herbal/Fresh',
+  'Garlicky', 'Earthy', 'Creamy', 'Bright/Acidic', 'Rich/Buttery'
+];
+
+const MICRONUTRIENTS = [
+  'Iron', 'Zinc', 'Magnesium', 'Calcium', 'Potassium', 'Sodium',
+  'Vitamin D', 'Vitamin B12', 'Vitamin C', 'Vitamin A', 'Folate',
+  'Omega-3', 'Fiber', 'Probiotics', 'Antioxidants'
+];
+
+// Time-restricted eating presets
+const FASTING_PROTOCOLS = [
+  { value: 'none', label: 'No Restriction', description: 'Eat any time during the day' },
+  { value: '14_10', label: '14:10', description: '14h fast, 10h eating window (beginner-friendly)' },
+  { value: '16_8', label: '16:8', description: '16h fast, 8h eating window (most popular)' },
+  { value: '18_6', label: '18:6', description: '18h fast, 6h eating window (intermediate)' },
+  { value: '20_4', label: '20:4', description: '20h fast, 4h eating window (advanced)' },
+  { value: 'custom', label: 'Custom', description: 'Set your own fasting/feeding windows' },
+];
+
+// Quick setup templates for meals
+const MEAL_TEMPLATES = [
+  {
+    id: 'standard',
+    name: 'Standard Healthy',
+    description: '3 meals, 2 snacks, balanced timing',
+    settings: { meals: 3, snacks: 2, distribution: 'steady', preWorkout: false, postWorkout: false, fasting: 'none' }
+  },
+  {
+    id: 'athlete',
+    name: 'Performance Athlete',
+    description: '4+ meals, workout-focused timing, nutrient periodization',
+    settings: { meals: 4, snacks: 2, distribution: 'workout_focused', preWorkout: true, postWorkout: true, fasting: 'none' }
+  },
+  {
+    id: 'busy_pro',
+    name: 'Busy Professional',
+    description: '2-3 meals, minimal prep, flexible timing',
+    settings: { meals: 2, snacks: 1, distribution: 'back_loaded', preWorkout: false, postWorkout: false, fasting: 'none' }
+  },
+  {
+    id: 'intermittent',
+    name: 'Intermittent Fasting',
+    description: '16:8 protocol, 2-3 meals in eating window',
+    settings: { meals: 2, snacks: 1, distribution: 'steady', preWorkout: false, postWorkout: true, fasting: '16_8' }
+  },
+  {
+    id: 'bodybuilder',
+    name: 'Bodybuilder',
+    description: '5-6 meals, high frequency, protein distributed',
+    settings: { meals: 5, snacks: 1, distribution: 'steady', preWorkout: true, postWorkout: true, fasting: 'none' }
+  },
+  {
+    id: 'family',
+    name: 'Family-Friendly',
+    description: '3 main meals with family, flexible snacks',
+    settings: { meals: 3, snacks: 2, distribution: 'steady', preWorkout: false, postWorkout: false, fasting: 'none' }
+  },
+];
+
 // ============ CALCULATION FUNCTIONS ============
 
 function lbsToKg(lbs: number): number {
@@ -241,9 +452,13 @@ export default function SetupPage() {
   const router = useRouter();
   const { 
     userProfile, 
-    bodyCompGoals, 
+    bodyCompGoals,
+    weeklySchedule,
+    dietPreferences, 
     setUserProfile, 
     setBodyCompGoals,
+    setWeeklySchedule,
+    setDietPreferences,
     activeClientId,
     getActiveClient
   } = useFitomicsStore();
@@ -269,6 +484,7 @@ export default function SetupPage() {
   // Sync state with store after hydration
   useEffect(() => {
     if (isHydrated) {
+      // User profile
       setName(userProfile.name || activeClient?.name || '');
       setGender(userProfile.gender || 'Male');
       setAge(userProfile.age || 30);
@@ -294,8 +510,64 @@ export default function SetupPage() {
       if (bodyCompGoals.startDate) {
         setStartDate(bodyCompGoals.startDate);
       }
+      
+      // Addresses
+      if (userProfile.addresses && userProfile.addresses.length > 0) {
+        setAddresses(userProfile.addresses);
+      }
+      
+      // Diet preferences
+      if (dietPreferences.dietaryRestrictions?.length) {
+        setSelectedRestrictions(dietPreferences.dietaryRestrictions);
+      }
+      if (dietPreferences.allergies?.length) {
+        setSelectedAllergies(dietPreferences.allergies);
+      }
+      if (dietPreferences.preferredProteins?.length) {
+        // Filter out custom proteins (those not in PROTEINS constant)
+        setSelectedProteins(dietPreferences.preferredProteins.filter(p => PROTEINS.includes(p)));
+        const customs = dietPreferences.preferredProteins.filter(p => !PROTEINS.includes(p));
+        if (customs.length) setCustomProteins(customs.join(', '));
+      }
+      if (dietPreferences.preferredCarbs?.length) {
+        setSelectedCarbs(dietPreferences.preferredCarbs.filter(c => CARBS.includes(c)));
+        const customs = dietPreferences.preferredCarbs.filter(c => !CARBS.includes(c));
+        if (customs.length) setCustomCarbs(customs.join(', '));
+      }
+      if (dietPreferences.preferredFats?.length) {
+        setSelectedFats(dietPreferences.preferredFats.filter(f => FATS.includes(f)));
+        const customs = dietPreferences.preferredFats.filter(f => !FATS.includes(f));
+        if (customs.length) setCustomFats(customs.join(', '));
+      }
+      if (dietPreferences.cuisinePreferences?.length) {
+        setSelectedCuisines(dietPreferences.cuisinePreferences);
+      }
+      if (dietPreferences.foodsToAvoid?.length) {
+        setFoodsToAvoid(dietPreferences.foodsToAvoid.join('\n'));
+      }
+      if (dietPreferences.foodsToEmphasize?.length) {
+        setFoodsToEmphasize(dietPreferences.foodsToEmphasize.join('\n'));
+      }
+      if (dietPreferences.spiceLevel !== undefined) {
+        setSpiceLevel(dietPreferences.spiceLevel);
+      }
+      if (dietPreferences.flavorProfiles?.length) {
+        setSelectedFlavors(dietPreferences.flavorProfiles);
+      }
+      if (dietPreferences.varietyLevel !== undefined) {
+        setVarietyLevel(dietPreferences.varietyLevel);
+      }
+      if (dietPreferences.micronutrientFocus?.length) {
+        setSelectedMicronutrients(dietPreferences.micronutrientFocus);
+      }
+      if (dietPreferences.budgetPreference) {
+        setBudgetPreference(dietPreferences.budgetPreference as 'budget' | 'moderate' | 'flexible');
+      }
+      if (dietPreferences.cookingTimePreference) {
+        setCookingTime(dietPreferences.cookingTimePreference as typeof cookingTime);
+      }
     }
-  }, [isHydrated, userProfile, bodyCompGoals, activeClient]);
+  }, [isHydrated, userProfile, bodyCompGoals, dietPreferences, activeClient]);
 
   // ============ BODY COMPOSITION STATE ============
   const [useMeasuredBF, setUseMeasuredBF] = useState(false);
@@ -320,6 +592,74 @@ export default function SetupPage() {
 
   // ============ GOAL STATE ============
   const [goalType, setGoalType] = useState<'lose_fat' | 'gain_muscle' | 'maintain' | 'performance'>('lose_fat');
+
+  // ============ LIFESTYLE & SCHEDULE STATE ============
+  const [wakeTime, setWakeTime] = useState('07:00');
+  const [bedTime, setBedTime] = useState('22:30');
+  const [workType, setWorkType] = useState<WorkType>('remote');
+  const [workStartTime, setWorkStartTime] = useState('09:00');
+  const [workEndTime, setWorkEndTime] = useState('17:00');
+  
+  // Workout defaults
+  const [workoutsPerWeek, setWorkoutsPerWeek] = useState(4);
+  const [defaultWorkoutType, setDefaultWorkoutType] = useState<WorkoutType>('Resistance Training');
+  const [defaultTimeSlot, setDefaultTimeSlot] = useState<WorkoutTimeSlot>('evening');
+  const [defaultDuration, setDefaultDuration] = useState(60);
+  const [defaultIntensity, setDefaultIntensity] = useState<'Low' | 'Medium' | 'High'>('High');
+
+  // ============ MEAL DEFAULTS STATE ============
+  const [mealsPerDay, setMealsPerDay] = useState(3);
+  const [snacksPerDay, setSnacksPerDay] = useState(2);
+  const [defaultMealPrepMethod, setDefaultMealPrepMethod] = useState<MealPrepMethod>('cook');
+  const [defaultMealLocation, setDefaultMealLocation] = useState<MealLocation>('home');
+  const [defaultSnackPrepMethod, setDefaultSnackPrepMethod] = useState<MealPrepMethod>('leftovers');
+  const [defaultSnackLocation, setDefaultSnackLocation] = useState<MealLocation>('home');
+  const [mealContexts, setMealContexts] = useState<MealContext[]>([]);
+  
+  // Nutrient timing
+  const [includePreWorkoutSnack, setIncludePreWorkoutSnack] = useState(true);
+  const [includePostWorkoutMeal, setIncludePostWorkoutMeal] = useState(true);
+  const [energyDistribution, setEnergyDistribution] = useState<'front_loaded' | 'steady' | 'back_loaded' | 'workout_focused'>('steady');
+
+  // ============ DIET PREFERENCES STATE ============
+  const [selectedRestrictions, setSelectedRestrictions] = useState<string[]>([]);
+  const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
+  const [selectedProteins, setSelectedProteins] = useState<string[]>([]);
+  const [selectedCarbs, setSelectedCarbs] = useState<string[]>([]);
+  const [selectedFats, setSelectedFats] = useState<string[]>([]);
+  const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
+  const [foodsToAvoid, setFoodsToAvoid] = useState('');
+  const [foodsToEmphasize, setFoodsToEmphasize] = useState('');
+  const [customProteins, setCustomProteins] = useState('');
+  const [customCarbs, setCustomCarbs] = useState('');
+  const [customFats, setCustomFats] = useState('');
+  
+  // Time-restricted eating
+  const [fastingProtocol, setFastingProtocol] = useState<string>('none');
+  const [feedingWindowStart, setFeedingWindowStart] = useState('12:00');
+  const [feedingWindowEnd, setFeedingWindowEnd] = useState('20:00');
+  const [flexibleOnWeekends, setFlexibleOnWeekends] = useState(false);
+  
+  // Addresses for location-based features
+  const [addresses, setAddresses] = useState<Array<{ label: string; address: string; isDefault?: boolean }>>([]);
+  
+  // Advanced preferences
+  const [spiceLevel, setSpiceLevel] = useState(2);
+  const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
+  const [varietyLevel, setVarietyLevel] = useState(3);
+  const [selectedMicronutrients, setSelectedMicronutrients] = useState<string[]>([]);
+  const [budgetPreference, setBudgetPreference] = useState<'budget' | 'moderate' | 'flexible'>('moderate');
+  const [cookingTime, setCookingTime] = useState<'quick' | 'short' | 'medium' | 'any'>('medium');
+  
+  // Helper to calculate sleep hours
+  const calculateSleepHours = () => {
+    const [wH, wM] = wakeTime.split(':').map(Number);
+    const [bH, bM] = bedTime.split(':').map(Number);
+    let wakeMinutes = wH * 60 + wM;
+    const bedMinutes = bH * 60 + bM;
+    if (wakeMinutes <= bedMinutes) wakeMinutes += 24 * 60;
+    return ((wakeMinutes - bedMinutes) / 60).toFixed(1);
+  };
   
   // ============ TARGET COMPOSITION STATE ============
   // Target approach - how the user wants to set their targets
@@ -444,6 +784,51 @@ export default function SetupPage() {
       }
     }
   }, [useDOB, dob]);
+
+  // Initialize meal contexts when meal/snack count changes
+  useEffect(() => {
+    const contexts: MealContext[] = [];
+    
+    // Add meals
+    for (let i = 0; i < mealsPerDay; i++) {
+      const mealLabels = ['Breakfast', 'Lunch', 'Dinner', 'Meal 4', 'Meal 5', 'Meal 6'];
+      const timeRanges = ['Morning (7-10 AM)', 'Midday (12-2 PM)', 'Evening (5-8 PM)', 'Night (8-10 PM)', 'Late Morning (10 AM-12 PM)', 'Afternoon (2-5 PM)'];
+      contexts.push({
+        id: `meal-${i + 1}`,
+        label: mealLabels[i] || `Meal ${i + 1}`,
+        type: 'meal',
+        prepMethod: defaultMealPrepMethod,
+        prepTime: '15-30 min',
+        location: defaultMealLocation,
+        timeRange: timeRanges[i] || 'Midday (12-2 PM)',
+        isPrimary: i < 3,
+      });
+    }
+    
+    // Add snacks
+    for (let i = 0; i < snacksPerDay; i++) {
+      const snackTimes = ['Late Morning (10 AM-12 PM)', 'Afternoon (2-5 PM)', 'Evening (5-8 PM)', 'Night (8-10 PM)'];
+      contexts.push({
+        id: `snack-${i + 1}`,
+        label: `Snack ${i + 1}`,
+        type: 'snack',
+        prepMethod: defaultSnackPrepMethod,
+        prepTime: '<5 min',
+        location: defaultSnackLocation,
+        timeRange: snackTimes[i] || 'Afternoon (2-5 PM)',
+        isPrimary: false,
+      });
+    }
+    
+    setMealContexts(contexts);
+  }, [mealsPerDay, snacksPerDay, defaultMealPrepMethod, defaultMealLocation, defaultSnackPrepMethod, defaultSnackLocation]);
+
+  // Update individual meal context
+  const updateMealContext = (id: string, field: keyof MealContext, value: string | boolean) => {
+    setMealContexts(prev => prev.map(ctx => 
+      ctx.id === id ? { ...ctx, [field]: value } : ctx
+    ));
+  };
 
   // Get recommended goal based on body composition
   const recommendedGoal = useMemo(() => {
@@ -878,7 +1263,8 @@ export default function SetupPage() {
       weightLbs,
       weightKg,
       bodyFatPercentage: bodyFatPercent,
-      // Note: We'll add RMR and other metabolic fields to the type
+      workoutsPerWeek,
+      addresses: addresses.filter(a => a.address.trim()),
     });
     
     // Save body comp goals (round all values for clean display)
@@ -900,8 +1286,60 @@ export default function SetupPage() {
       trackingCommitment,
     });
     
+    // Build and save weekly schedule with defaults
+    const defaultDaySchedule = {
+      wakeTime,
+      sleepTime: bedTime,
+      workStartTime: workType !== 'none' ? workStartTime : undefined,
+      workEndTime: workType !== 'none' ? workEndTime : undefined,
+      workouts: [],
+      mealCount: mealsPerDay,
+      snackCount: snacksPerDay,
+      mealContexts: mealContexts,
+    };
+    
+    // Create schedule for each day
+    const scheduleData: Record<string, typeof defaultDaySchedule> = {};
+    DAYS_OF_WEEK.forEach(day => {
+      scheduleData[day] = { ...defaultDaySchedule };
+    });
+    
+    setWeeklySchedule(scheduleData);
+    
+    // Combine selected and custom foods
+    const allProteins = [
+      ...selectedProteins,
+      ...customProteins.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
+    ];
+    const allCarbs = [
+      ...selectedCarbs,
+      ...customCarbs.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
+    ];
+    const allFats = [
+      ...selectedFats,
+      ...customFats.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
+    ];
+    
+    // Save diet preferences
+    setDietPreferences({
+      dietaryRestrictions: selectedRestrictions,
+      allergies: selectedAllergies,
+      preferredProteins: allProteins,
+      preferredCarbs: allCarbs,
+      preferredFats: allFats,
+      cuisinePreferences: selectedCuisines,
+      foodsToAvoid: foodsToAvoid.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
+      foodsToEmphasize: foodsToEmphasize.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
+      spiceLevel,
+      flavorProfiles: selectedFlavors,
+      varietyLevel,
+      micronutrientFocus: selectedMicronutrients,
+      budgetPreference,
+      cookingTimePreference: cookingTime,
+    });
+    
     toast.success('Profile saved!');
-    router.push('/schedule');
+    router.push('/planning');
   };
 
   const handleEquationToggle = (equation: RMREquation) => {
@@ -932,6 +1370,32 @@ export default function SetupPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Main Content */}
               <div className="lg:col-span-2 space-y-6">
+                <Tabs defaultValue="basics" className="w-full">
+                  <TabsList className="grid w-full grid-cols-5 mb-6">
+                    <TabsTrigger value="basics" className="flex items-center gap-1.5 text-xs">
+                      <User className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Basics</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="lifestyle" className="flex items-center gap-1.5 text-xs">
+                      <Activity className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Lifestyle</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="meals" className="flex items-center gap-1.5 text-xs">
+                      <Utensils className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Meals</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="preferences" className="flex items-center gap-1.5 text-xs">
+                      <Heart className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Preferences</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="advanced" className="flex items-center gap-1.5 text-xs">
+                      <Settings2 className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Advanced</span>
+                    </TabsTrigger>
+                  </TabsList>
+
+                  {/* Tab 1: Basics */}
+                  <TabsContent value="basics" className="space-y-6">
                 
                 {/* Section 1: Basic Information */}
                 <Card>
@@ -1129,15 +1593,20 @@ export default function SetupPage() {
                   </CardContent>
                 </Card>
 
-                {/* Section 2: Body Composition */}
+                {/* Section 2: Current Body Composition */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Scale className="h-5 w-5 text-[#c19962]" />
-                      Body Composition
+                      Current Body Composition
                     </CardTitle>
                     <CardDescription>
-                      Enter measured values if available, or estimate
+                      Enter the client&apos;s current measured values if available, or estimate. This serves as the baseline for all planning.
+                      {userProfile.bodyFatPercentage && (
+                        <span className="block mt-1 text-xs text-[#c19962]">
+                          Last recorded: {userProfile.bodyFatPercentage}% body fat
+                        </span>
+                      )}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -1218,7 +1687,7 @@ export default function SetupPage() {
                     <div className="space-y-4">
                       <h4 className="font-medium flex items-center gap-2">
                         <Calculator className="h-4 w-4" />
-                        Calculated Body Composition
+                        Current Calculated Metrics
                       </h4>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="text-center p-3 bg-background border rounded-lg">
@@ -1254,15 +1723,20 @@ export default function SetupPage() {
                   </CardContent>
                 </Card>
 
-                {/* Section 3: Metabolic Assessment */}
+                {/* Section 3: Current Metabolic Assessment */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Activity className="h-5 w-5 text-[#c19962]" />
-                      Metabolic Assessment
+                      Current Metabolic Assessment
                     </CardTitle>
                     <CardDescription>
-                      Resting Metabolic Rate (RMR) - foundation for energy expenditure calculations
+                      Resting Metabolic Rate (RMR) - foundation for energy expenditure calculations. Update as new measurements become available.
+                      {userProfile.rmr && (
+                        <span className="block mt-1 text-xs text-[#c19962]">
+                          Last recorded RMR: {userProfile.rmr} kcal/day
+                        </span>
+                      )}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -1467,405 +1941,1367 @@ export default function SetupPage() {
                   </CardContent>
                 </Card>
 
-                {/* Section 4: Primary Goal */}
-                <Card className="border-[#c19962]">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Target className="h-5 w-5 text-[#c19962]" />
-                      Primary Goal
-                    </CardTitle>
-                    <CardDescription>
-                      What is the client&apos;s primary objective?
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Recommendation based on body composition */}
-                    <div className="p-4 bg-[#00263d]/5 border border-[#00263d]/20 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-[#c19962] mt-0.5" />
-                        <div>
-                          <p className="font-medium">Recommended: {recommendedGoal.goal.replace('_', ' ')}</p>
-                          <p className="text-sm text-muted-foreground">{recommendedGoal.reason}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Goal Selection */}
-                    <RadioGroup
-                      value={goalType}
-                      onValueChange={(v) => setGoalType(v as typeof goalType)}
-                      className="grid grid-cols-2 gap-3"
-                    >
-                      <div className="relative">
-                        <RadioGroupItem value="lose_fat" id="lose_fat" className="peer sr-only" />
-                        <Label
-                          htmlFor="lose_fat"
-                          className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-[#c19962] peer-data-[state=checked]:bg-[#c19962]/5 cursor-pointer"
-                        >
-                          <Scale className="h-6 w-6 mb-2 text-orange-500" />
-                          <span className="font-semibold">Fat Loss</span>
-                        </Label>
-                      </div>
-                      <div className="relative">
-                        <RadioGroupItem value="gain_muscle" id="gain_muscle" className="peer sr-only" />
-                        <Label
-                          htmlFor="gain_muscle"
-                          className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-[#c19962] peer-data-[state=checked]:bg-[#c19962]/5 cursor-pointer"
-                        >
-                          <Dumbbell className="h-6 w-6 mb-2 text-blue-500" />
-                          <span className="font-semibold">Muscle Gain</span>
-                        </Label>
-                      </div>
-                      <div className="relative">
-                        <RadioGroupItem value="maintain" id="maintain" className="peer sr-only" />
-                        <Label
-                          htmlFor="maintain"
-                          className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-[#c19962] peer-data-[state=checked]:bg-[#c19962]/5 cursor-pointer"
-                        >
-                          <Activity className="h-6 w-6 mb-2 text-green-500" />
-                          <span className="font-semibold">Maintenance</span>
-                        </Label>
-                      </div>
-                      <div className="relative">
-                        <RadioGroupItem value="performance" id="performance" className="peer sr-only" />
-                        <Label
-                          htmlFor="performance"
-                          className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-[#c19962] peer-data-[state=checked]:bg-[#c19962]/5 cursor-pointer"
-                        >
-                          <Heart className="h-6 w-6 mb-2 text-purple-500" />
-                          <span className="font-semibold">Performance</span>
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                  </CardContent>
-                </Card>
-
-                {/* Section 5: Client Context & Assessment */}
+                {/* Section 4: Client Notes & Context */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Brain className="h-5 w-5 text-[#c19962]" />
-                      Client Assessment
+                      <FileText className="h-5 w-5 text-[#c19962]" />
+                      Client Notes & Context
                     </CardTitle>
                     <CardDescription>
-                      Quick assessment to personalize recommendations
+                      Persistent information about the client. Goals, health considerations, and notes that inform all phases.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Priority & Approach - Compact Toggle Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Training Priority - show for body comp goals */}
-                      {(goalType === 'lose_fat' || goalType === 'gain_muscle' || goalType === 'maintain') && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Training Priority</Label>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button type="button" className="inline-flex">
-                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p className="text-xs">Body Comp: Accepts 5-10% performance reduction during aggressive phases. Performance: Maintains training stimulus with moderate deficits (max 20% below TDEE).</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setPerformancePriority('body_comp_priority')}
-                              className={cn(
-                                "p-3 rounded-lg border-2 text-left transition-all",
-                                performancePriority === 'body_comp_priority'
-                                  ? "border-[#c19962] bg-[#c19962]/10"
-                                  : "border-muted hover:border-muted-foreground/50"
-                              )}
-                            >
-                              <Target className="h-4 w-4 mb-1 text-[#c19962]" />
-                              <p className="font-medium text-sm">Body Comp</p>
-                              <p className="text-xs text-muted-foreground">Results first</p>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPerformancePriority('performance_priority')}
-                              className={cn(
-                                "p-3 rounded-lg border-2 text-left transition-all",
-                                performancePriority === 'performance_priority'
-                                  ? "border-[#c19962] bg-[#c19962]/10"
-                                  : "border-muted hover:border-muted-foreground/50"
-                              )}
-                            >
-                              <Zap className="h-4 w-4 mb-1 text-[#c19962]" />
-                              <p className="font-medium text-sm">Performance</p>
-                              <p className="text-xs text-muted-foreground">Training first</p>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Muscle Preservation - only for fat loss */}
-                      {goalType === 'lose_fat' && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Muscle Priority</Label>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button type="button" className="inline-flex">
-                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p className="text-xs">Preserve All: Higher protein (1.0-1.2g/lb), slower deficit (0.5% BW/wk). Increases fat loss efficiency to ~90%. Faster: Moderate protein (0.8-1.0g/lb), faster deficit tolerated.</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setMusclePreservation('preserve_all')}
-                              className={cn(
-                                "p-3 rounded-lg border-2 text-left transition-all",
-                                musclePreservation === 'preserve_all'
-                                  ? "border-[#c19962] bg-[#c19962]/10"
-                                  : "border-muted hover:border-muted-foreground/50"
-                              )}
-                            >
-                              <Shield className="h-4 w-4 mb-1 text-[#c19962]" />
-                              <p className="font-medium text-sm">Preserve All</p>
-                              <p className="text-xs text-muted-foreground">Max retention</p>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setMusclePreservation('accept_some_loss')}
-                              className={cn(
-                                "p-3 rounded-lg border-2 text-left transition-all",
-                                musclePreservation === 'accept_some_loss'
-                                  ? "border-[#c19962] bg-[#c19962]/10"
-                                  : "border-muted hover:border-muted-foreground/50"
-                              )}
-                            >
-                              <TrendingDown className="h-4 w-4 mb-1 text-[#c19962]" />
-                              <p className="font-medium text-sm">Faster Loss</p>
-                              <p className="text-xs text-muted-foreground">Speed priority</p>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Fat Gain Tolerance - only for muscle gain */}
-                      {goalType === 'gain_muscle' && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Bulking Approach</Label>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button type="button" className="inline-flex">
-                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p className="text-xs">Max Gains: 300-500 kcal surplus, ~60% muscle gain efficiency. Lean Bulk: 150-250 kcal surplus, ~70% muscle efficiency but slower absolute gains.</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setFatGainTolerance('maximize_muscle')}
-                              className={cn(
-                                "p-3 rounded-lg border-2 text-left transition-all",
-                                fatGainTolerance === 'maximize_muscle'
-                                  ? "border-[#c19962] bg-[#c19962]/10"
-                                  : "border-muted hover:border-muted-foreground/50"
-                              )}
-                            >
-                              <TrendingUp className="h-4 w-4 mb-1 text-[#c19962]" />
-                              <p className="font-medium text-sm">Max Gains</p>
-                              <p className="text-xs text-muted-foreground">Larger surplus</p>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setFatGainTolerance('minimize_fat_gain')}
-                              className={cn(
-                                "p-3 rounded-lg border-2 text-left transition-all",
-                                fatGainTolerance === 'minimize_fat_gain'
-                                  ? "border-[#c19962] bg-[#c19962]/10"
-                                  : "border-muted hover:border-muted-foreground/50"
-                              )}
-                            >
-                              <Scale className="h-4 w-4 mb-1 text-[#c19962]" />
-                              <p className="font-medium text-sm">Lean Bulk</p>
-                              <p className="text-xs text-muted-foreground">Minimal surplus</p>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Commitment Levels - Compact Row */}
-                    <div className="pt-3 border-t">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Lifestyle Commitment */}
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Lifestyle Commitment</Label>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button type="button" className="inline-flex">
-                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p className="text-xs">Affects deficit/surplus aggressiveness. Higher commitment = more aggressive targets with confidence client can sustain.</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setLifestyleCommitment('fully_committed')}
-                              className={cn(
-                                "flex-1 py-2 px-2 rounded-lg border text-center transition-all text-sm flex items-center justify-center gap-1.5",
-                                lifestyleCommitment === 'fully_committed'
-                                  ? "border-[#c19962] bg-[#c19962]/10 font-medium"
-                                  : "border-muted hover:border-muted-foreground/50"
-                              )}
-                            >
-                              <Flame className="h-3.5 w-3.5" />
-                              High
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setLifestyleCommitment('moderately_committed')}
-                              className={cn(
-                                "flex-1 py-2 px-2 rounded-lg border text-center transition-all text-sm flex items-center justify-center gap-1.5",
-                                lifestyleCommitment === 'moderately_committed'
-                                  ? "border-[#c19962] bg-[#c19962]/10 font-medium"
-                                  : "border-muted hover:border-muted-foreground/50"
-                              )}
-                            >
-                              <Activity className="h-3.5 w-3.5" />
-                              Moderate
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setLifestyleCommitment('limited_commitment')}
-                              className={cn(
-                                "flex-1 py-2 px-2 rounded-lg border text-center transition-all text-sm flex items-center justify-center gap-1.5",
-                                lifestyleCommitment === 'limited_commitment'
-                                  ? "border-[#c19962] bg-[#c19962]/10 font-medium"
-                                  : "border-muted hover:border-muted-foreground/50"
-                              )}
-                            >
-                              <Clock className="h-3.5 w-3.5" />
-                              Limited
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Tracking Commitment */}
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Tracking Style</Label>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button type="button" className="inline-flex">
-                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p className="text-xs">Detailed tracking enables precise macro/micro targets. Intuitive approach uses portion guidance and habit-based recommendations.</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setTrackingCommitment('committed_tracking')}
-                              className={cn(
-                                "flex-1 py-2 px-3 rounded-lg border text-center transition-all text-sm flex items-center justify-center gap-1.5",
-                                trackingCommitment === 'committed_tracking'
-                                  ? "border-[#c19962] bg-[#c19962]/10 font-medium"
-                                  : "border-muted hover:border-muted-foreground/50"
-                              )}
-                            >
-                              <ClipboardList className="h-3.5 w-3.5" />
-                              Detailed
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setTrackingCommitment('casual_tracking')}
-                              className={cn(
-                                "flex-1 py-2 px-3 rounded-lg border text-center transition-all text-sm flex items-center justify-center gap-1.5",
-                                trackingCommitment === 'casual_tracking'
-                                  ? "border-[#c19962] bg-[#c19962]/10 font-medium"
-                                  : "border-muted hover:border-muted-foreground/50"
-                              )}
-                            >
-                              <Compass className="h-3.5 w-3.5" />
-                              Intuitive
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Goals & Notes - Cleaner Layout */}
-                    <div className="pt-3 border-t space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Health Goals */}
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Stethoscope className="h-4 w-4 text-[#c19962]" />
-                            <Label htmlFor="health-goals" className="text-sm font-medium">Health Markers</Label>
-                          </div>
-                          <Textarea
-                            id="health-goals"
-                            placeholder="Blood pressure, cholesterol, A1C, energy, sleep quality, digestive health..."
-                            value={healthGoals}
-                            onChange={(e) => setHealthGoals(e.target.value)}
-                            rows={2}
-                            className="text-sm resize-none"
-                          />
-                        </div>
-
-                        {/* Performance Goals */}
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Trophy className="h-4 w-4 text-[#c19962]" />
-                            <Label htmlFor="performance-goals" className="text-sm font-medium">Performance Targets</Label>
-                          </div>
-                          <Textarea
-                            id="performance-goals"
-                            placeholder="Strength PRs, endurance goals, competition prep, sport-specific..."
-                            value={performanceGoals}
-                            onChange={(e) => setPerformanceGoals(e.target.value)}
-                            rows={2}
-                            className="text-sm resize-none"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Additional Notes - Full Width */}
+                      {/* Health Markers */}
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-[#c19962]" />
-                          <Label htmlFor="notes" className="text-sm font-medium">Coach Notes</Label>
+                          <Stethoscope className="h-4 w-4 text-[#c19962]" />
+                          <Label htmlFor="health-goals" className="text-sm font-medium">Health Considerations</Label>
                         </div>
                         <Textarea
-                          id="notes"
-                          placeholder="Dietary restrictions, injuries, travel schedule, stress factors, previous diet history, food preferences..."
-                          value={additionalNotes}
-                          onChange={(e) => setAdditionalNotes(e.target.value)}
-                          rows={2}
+                          id="health-goals"
+                          placeholder="Blood pressure, cholesterol, A1C, energy levels, sleep quality, digestive health, injuries, medical conditions..."
+                          value={healthGoals}
+                          onChange={(e) => setHealthGoals(e.target.value)}
+                          rows={3}
+                          className="text-sm resize-none"
+                        />
+                      </div>
+
+                      {/* Performance Goals */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Trophy className="h-4 w-4 text-[#c19962]" />
+                          <Label htmlFor="performance-goals" className="text-sm font-medium">Long-term Goals</Label>
+                        </div>
+                        <Textarea
+                          id="performance-goals"
+                          placeholder="Strength PRs, endurance goals, competition dates, sport-specific targets, lifestyle aspirations..."
+                          value={performanceGoals}
+                          onChange={(e) => setPerformanceGoals(e.target.value)}
+                          rows={3}
                           className="text-sm resize-none"
                         />
                       </div>
                     </div>
+
+                    {/* Coach Notes - Full Width */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Brain className="h-4 w-4 text-[#c19962]" />
+                        <Label htmlFor="notes" className="text-sm font-medium">Coach Notes</Label>
+                      </div>
+                      <Textarea
+                        id="notes"
+                        placeholder="Previous diet history, response to training, psychological factors, travel schedule, work stress, family considerations, what has/hasn't worked before..."
+                        value={additionalNotes}
+                        onChange={(e) => setAdditionalNotes(e.target.value)}
+                        rows={3}
+                        className="text-sm resize-none"
+                      />
+                    </div>
+
+                    {/* Addresses */}
+                    <div className="pt-3 border-t">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-[#c19962]" />
+                            <Label className="text-sm font-medium">Addresses</Label>
+                          </div>
+                          <Badge variant="outline" className="text-xs">For delivery & travel</Badge>
+                        </div>
+                        
+                        {addresses.map((addr, index) => (
+                          <div key={index} className="flex items-start gap-3 p-3 border rounded-lg bg-muted/30">
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  placeholder="Label (e.g., Home, Work)"
+                                  value={addr.label}
+                                  onChange={(e) => {
+                                    const newAddresses = [...addresses];
+                                    newAddresses[index].label = e.target.value;
+                                    setAddresses(newAddresses);
+                                  }}
+                                  className="w-28 h-7 text-xs"
+                                />
+                                {addr.isDefault && (
+                                  <Badge variant="secondary" className="text-xs">Default</Badge>
+                                )}
+                              </div>
+                              <Input
+                                placeholder="Address or zip code"
+                                value={addr.address}
+                                onChange={(e) => {
+                                  const newAddresses = [...addresses];
+                                  newAddresses[index].address = e.target.value;
+                                  setAddresses(newAddresses);
+                                }}
+                                className="text-sm h-8"
+                              />
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
+                              onClick={() => {
+                                setAddresses(addresses.filter((_, i) => i !== index));
+                              }}
+                            >
+                              <XIcon className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setAddresses([...addresses, { 
+                              label: addresses.length === 0 ? 'Home' : '', 
+                              address: '', 
+                              isDefault: addresses.length === 0 
+                            }]);
+                          }}
+                          className="w-full h-8"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add Address
+                        </Button>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
+                  </TabsContent>
 
-                {/* Target Body Composition */}
+                  {/* Tab 2: Lifestyle */}
+                  <TabsContent value="lifestyle" className="space-y-6">
+                    {/* Sleep Schedule */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Moon className="h-5 w-5 text-[#c19962]" />
+                          Sleep Schedule
+                        </CardTitle>
+                        <CardDescription>
+                          Default wake and sleep times for meal timing optimization
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-2">
+                              <Sun className="h-4 w-4" />
+                              Wake Time
+                            </Label>
+                            <Input
+                              type="time"
+                              value={wakeTime}
+                              onChange={(e) => setWakeTime(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-2">
+                              <Moon className="h-4 w-4" />
+                              Bed Time
+                            </Label>
+                            <Input
+                              type="time"
+                              value={bedTime}
+                              onChange={(e) => setBedTime(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                          <span className="text-muted-foreground">Sleep Duration: </span>
+                          <span className="font-semibold">{calculateSleepHours()} hours</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Work Schedule */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Briefcase className="h-5 w-5 text-[#c19962]" />
+                          Work Schedule
+                        </CardTitle>
+                        <CardDescription>
+                          Work type affects meal timing and location recommendations
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Work Type</Label>
+                          <Select value={workType} onValueChange={(v) => setWorkType(v as WorkType)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent position="popper" sideOffset={4}>
+                              {WORK_TYPES.map(wt => (
+                                <SelectItem key={wt.value} value={wt.value}>{wt.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        {workType !== 'none' && (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Work Start</Label>
+                              <Input
+                                type="time"
+                                value={workStartTime}
+                                onChange={(e) => setWorkStartTime(e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Work End</Label>
+                              <Input
+                                type="time"
+                                value={workEndTime}
+                                onChange={(e) => setWorkEndTime(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Workout Defaults */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Dumbbell className="h-5 w-5 text-[#c19962]" />
+                          Workout Defaults
+                        </CardTitle>
+                        <CardDescription>
+                          Default workout preferences used for planning
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Workouts Per Week</Label>
+                          <div className="flex items-center gap-4">
+                            <Slider
+                              value={[workoutsPerWeek]}
+                              onValueChange={([v]) => setWorkoutsPerWeek(v)}
+                              min={0}
+                              max={7}
+                              step={1}
+                              className="flex-1"
+                            />
+                            <Badge variant="secondary" className="min-w-[3rem] justify-center">
+                              {workoutsPerWeek}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Default Type</Label>
+                            <Select value={defaultWorkoutType} onValueChange={(v) => setDefaultWorkoutType(v as WorkoutType)}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent position="popper" sideOffset={4}>
+                                {WORKOUT_TYPES.map(wt => (
+                                  <SelectItem key={wt.value} value={wt.value}>{wt.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Default Time</Label>
+                            <Select value={defaultTimeSlot} onValueChange={(v) => setDefaultTimeSlot(v as WorkoutTimeSlot)}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent position="popper" sideOffset={4}>
+                                {WORKOUT_TIME_SLOTS.map(ts => (
+                                  <SelectItem key={ts.value} value={ts.value}>{ts.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Duration (min)</Label>
+                            <div className="flex items-center gap-4">
+                              <Slider
+                                value={[defaultDuration]}
+                                onValueChange={([v]) => setDefaultDuration(v)}
+                                min={15}
+                                max={180}
+                                step={15}
+                                className="flex-1"
+                              />
+                              <Badge variant="secondary" className="min-w-[4rem] justify-center">
+                                {defaultDuration} min
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Default Intensity</Label>
+                            <Select value={defaultIntensity} onValueChange={(v) => setDefaultIntensity(v as 'Low' | 'Medium' | 'High')}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent position="popper" sideOffset={4}>
+                                <SelectItem value="Low">Low</SelectItem>
+                                <SelectItem value="Medium">Medium</SelectItem>
+                                <SelectItem value="High">High</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                  </TabsContent>
+
+                  {/* Tab 3: Meals */}
+                  <TabsContent value="meals" className="space-y-6">
+                    {/* Quick Setup Presets */}
+                    <Card className="border-[#c19962]/30 bg-gradient-to-r from-[#c19962]/5 to-transparent">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-[#c19962]" />
+                          Quick Setup Templates
+                        </CardTitle>
+                        <CardDescription>
+                          Choose a template based on lifestyle, or customize all settings below
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {MEAL_TEMPLATES.map((template) => (
+                            <button
+                              key={template.id}
+                              type="button"
+                              onClick={() => {
+                                setMealsPerDay(template.settings.meals);
+                                setSnacksPerDay(template.settings.snacks);
+                                setEnergyDistribution(template.settings.distribution as typeof energyDistribution);
+                                setIncludePreWorkoutSnack(template.settings.preWorkout);
+                                setIncludePostWorkoutMeal(template.settings.postWorkout);
+                                setFastingProtocol(template.settings.fasting);
+                                if (template.settings.fasting === '16_8') {
+                                  setFeedingWindowStart('12:00');
+                                  setFeedingWindowEnd('20:00');
+                                }
+                              }}
+                              className="p-3 text-left border rounded-lg hover:border-[#c19962] hover:bg-[#c19962]/5 transition-all"
+                            >
+                              <p className="font-medium text-sm">{template.name}</p>
+                              <p className="text-xs text-muted-foreground line-clamp-2">{template.description}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Meal Structure */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Utensils className="h-5 w-5 text-[#c19962]" />
+                          Daily Meal Structure
+                        </CardTitle>
+                        <CardDescription>
+                          Affects how macros are distributed and meal complexity. More meals = smaller portions, better for muscle gain. Fewer meals = larger portions, often easier for fat loss.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label>Meals Per Day</Label>
+                            <div className="flex items-center gap-4">
+                              <Slider
+                                value={[mealsPerDay]}
+                                onValueChange={([v]) => setMealsPerDay(v)}
+                                min={2}
+                                max={6}
+                                step={1}
+                                className="flex-1"
+                              />
+                              <Badge variant="secondary" className="min-w-[3rem] justify-center text-lg">
+                                {mealsPerDay}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Snacks Per Day</Label>
+                            <div className="flex items-center gap-4">
+                              <Slider
+                                value={[snacksPerDay]}
+                                onValueChange={([v]) => setSnacksPerDay(v)}
+                                min={0}
+                                max={4}
+                                step={1}
+                                className="flex-1"
+                              />
+                              <Badge variant="secondary" className="min-w-[3rem] justify-center text-lg">
+                                {snacksPerDay}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-3 bg-muted/50 rounded-lg text-sm flex items-center justify-between">
+                          <div>
+                            <span className="text-muted-foreground">Total eating occasions: </span>
+                            <span className="font-semibold">{mealsPerDay + snacksPerDay} per day</span>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            ~{Math.round(100 / (mealsPerDay + snacksPerDay))}% calories each
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Nutrient Timing */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Zap className="h-5 w-5 text-[#c19962]" />
+                          Nutrient Timing
+                        </CardTitle>
+                        <CardDescription>
+                          How calories are distributed through the day. Evidence shows timing matters most for athletes and during aggressive diets.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Energy Distribution Pattern</Label>
+                          <RadioGroup
+                            value={energyDistribution}
+                            onValueChange={(v) => setEnergyDistribution(v as typeof energyDistribution)}
+                            className="grid grid-cols-2 gap-2"
+                          >
+                            <div className={cn(
+                              "flex items-center space-x-2 p-3 border rounded-lg cursor-pointer transition-all",
+                              energyDistribution === 'steady' ? "border-[#c19962] bg-[#c19962]/10" : "hover:bg-muted/50"
+                            )}>
+                              <RadioGroupItem value="steady" id="steady" />
+                              <Label htmlFor="steady" className="cursor-pointer flex-1">
+                                <span className="font-medium">Balanced</span>
+                                <p className="text-xs text-muted-foreground">Even distribution — good default</p>
+                              </Label>
+                            </div>
+                            <div className={cn(
+                              "flex items-center space-x-2 p-3 border rounded-lg cursor-pointer transition-all",
+                              energyDistribution === 'workout_focused' ? "border-[#c19962] bg-[#c19962]/10" : "hover:bg-muted/50"
+                            )}>
+                              <RadioGroupItem value="workout_focused" id="workout" />
+                              <Label htmlFor="workout" className="cursor-pointer flex-1">
+                                <span className="font-medium">Workout-Centered</span>
+                                <p className="text-xs text-muted-foreground">More around training — best for athletes</p>
+                              </Label>
+                            </div>
+                            <div className={cn(
+                              "flex items-center space-x-2 p-3 border rounded-lg cursor-pointer transition-all",
+                              energyDistribution === 'front_loaded' ? "border-[#c19962] bg-[#c19962]/10" : "hover:bg-muted/50"
+                            )}>
+                              <RadioGroupItem value="front_loaded" id="front" />
+                              <Label htmlFor="front" className="cursor-pointer flex-1">
+                                <span className="font-medium">Front-Loaded</span>
+                                <p className="text-xs text-muted-foreground">Bigger breakfast — may improve satiety</p>
+                              </Label>
+                            </div>
+                            <div className={cn(
+                              "flex items-center space-x-2 p-3 border rounded-lg cursor-pointer transition-all",
+                              energyDistribution === 'back_loaded' ? "border-[#c19962] bg-[#c19962]/10" : "hover:bg-muted/50"
+                            )}>
+                              <RadioGroupItem value="back_loaded" id="back" />
+                              <Label htmlFor="back" className="cursor-pointer flex-1">
+                                <span className="font-medium">Back-Loaded</span>
+                                <p className="text-xs text-muted-foreground">Bigger dinner — social flexibility</p>
+                              </Label>
+                            </div>
+                          </RadioGroup>
+                        </div>
+
+                        <Separator />
+
+                        <div className="space-y-3">
+                          <Label className="text-sm font-medium">Workout Nutrition</Label>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className={cn(
+                              "flex items-center justify-between p-3 border rounded-lg transition-all",
+                              includePreWorkoutSnack ? "border-[#c19962]/50 bg-[#c19962]/5" : ""
+                            )}>
+                              <div>
+                                <Label className="text-sm">Pre-Workout Fuel</Label>
+                                <p className="text-xs text-muted-foreground">30-60 min before training</p>
+                              </div>
+                              <Switch
+                                checked={includePreWorkoutSnack}
+                                onCheckedChange={setIncludePreWorkoutSnack}
+                              />
+                            </div>
+                            <div className={cn(
+                              "flex items-center justify-between p-3 border rounded-lg transition-all",
+                              includePostWorkoutMeal ? "border-[#c19962]/50 bg-[#c19962]/5" : ""
+                            )}>
+                              <div>
+                                <Label className="text-sm">Post-Workout Recovery</Label>
+                                <p className="text-xs text-muted-foreground">Within 2 hours after</p>
+                              </div>
+                              <Switch
+                                checked={includePostWorkoutMeal}
+                                onCheckedChange={setIncludePostWorkoutMeal}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Time-Restricted Eating */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Clock className="h-5 w-5 text-[#c19962]" />
+                          Time-Restricted Eating
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button type="button" className="ml-1">
+                                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-sm">Time-restricted eating (TRE) consolidates food intake into a specific window. Research suggests benefits for metabolic health, body composition, and circadian rhythm alignment. Most studied protocol is 16:8.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </CardTitle>
+                        <CardDescription>
+                          Optional fasting/feeding window preferences. Meals will be scheduled within the eating window.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-3">
+                          <Label>Eating Schedule</Label>
+                          <Select value={fastingProtocol} onValueChange={setFastingProtocol}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent position="popper" sideOffset={4}>
+                              {FASTING_PROTOCOLS.map(protocol => (
+                                <SelectItem key={protocol.value} value={protocol.value}>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{protocol.label}</span>
+                                    <span className="text-xs text-muted-foreground">{protocol.description}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {fastingProtocol !== 'none' && (
+                          <>
+                            <Separator />
+                            <div className="space-y-3">
+                              <Label className="text-sm font-medium">Eating Window</Label>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-muted-foreground">First Meal (Window Opens)</Label>
+                                  <Input
+                                    type="time"
+                                    value={feedingWindowStart}
+                                    onChange={(e) => setFeedingWindowStart(e.target.value)}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-muted-foreground">Last Meal (Window Closes)</Label>
+                                  <Input
+                                    type="time"
+                                    value={feedingWindowEnd}
+                                    onChange={(e) => setFeedingWindowEnd(e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between p-3 border rounded-lg">
+                                <div>
+                                  <Label className="text-sm">Flexible on Weekends</Label>
+                                  <p className="text-xs text-muted-foreground">Allow a longer eating window on Sat/Sun</p>
+                                </div>
+                                <Switch
+                                  checked={flexibleOnWeekends}
+                                  onCheckedChange={setFlexibleOnWeekends}
+                                />
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Meal Prep Context */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <ChefHat className="h-5 w-5 text-[#c19962]" />
+                          Meal Context & Preparation
+                        </CardTitle>
+                        <CardDescription>
+                          Understanding how and where meals are prepared/consumed helps generate realistic, practical meal plans tailored to the client&apos;s lifestyle.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {/* Default Settings */}
+                        <div className="space-y-4">
+                          <Label className="text-sm font-medium">Default Settings</Label>
+                          <p className="text-xs text-muted-foreground -mt-2">
+                            These defaults apply to all meals/snacks. Customize individual meals below if they differ.
+                          </p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">Meal Prep Method</Label>
+                              <Select value={defaultMealPrepMethod} onValueChange={(v) => setDefaultMealPrepMethod(v as MealPrepMethod)}>
+                                <SelectTrigger className="h-9">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent position="popper" sideOffset={4}>
+                                  {MEAL_PREP_METHODS.map(pm => (
+                                    <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">Meal Location</Label>
+                              <Select value={defaultMealLocation} onValueChange={(v) => setDefaultMealLocation(v as MealLocation)}>
+                                <SelectTrigger className="h-9">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent position="popper" sideOffset={4}>
+                                  {MEAL_LOCATIONS.map(loc => (
+                                    <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">Snack Prep</Label>
+                              <Select value={defaultSnackPrepMethod} onValueChange={(v) => setDefaultSnackPrepMethod(v as MealPrepMethod)}>
+                                <SelectTrigger className="h-9">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent position="popper" sideOffset={4}>
+                                  {MEAL_PREP_METHODS.map(pm => (
+                                    <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">Snack Location</Label>
+                              <Select value={defaultSnackLocation} onValueChange={(v) => setDefaultSnackLocation(v as MealLocation)}>
+                                <SelectTrigger className="h-9">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent position="popper" sideOffset={4}>
+                                  {MEAL_LOCATIONS.map(loc => (
+                                    <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <Separator />
+                        
+                        {/* Per-Meal Customization */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">Individual Meal Settings</Label>
+                            <Badge variant="outline" className="text-xs">Optional customization</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Expand each meal to override defaults. This helps when different meals have different contexts (e.g., lunch at office, dinner at home).
+                          </p>
+                          
+                          <Accordion type="multiple" className="w-full">
+                            {mealContexts.map((meal) => (
+                              <AccordionItem key={meal.id} value={meal.id} className="border rounded-lg mb-2 px-3">
+                                <AccordionTrigger className="hover:no-underline py-3">
+                                  <div className="flex items-center gap-3 text-left">
+                                    <div className={cn(
+                                      "p-1.5 rounded",
+                                      meal.type === 'meal' ? "bg-[#c19962]/20" : "bg-muted"
+                                    )}>
+                                      {meal.type === 'meal' ? (
+                                        <Utensils className="h-3.5 w-3.5 text-[#c19962]" />
+                                      ) : (
+                                        <Coffee className="h-3.5 w-3.5 text-muted-foreground" />
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium text-sm">{meal.label}</span>
+                                      <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                        <span>{MEAL_PREP_METHODS.find(m => m.value === meal.prepMethod)?.label}</span>
+                                        <span>•</span>
+                                        <span>{meal.timeRange}</span>
+                                        <span>•</span>
+                                        <span>{MEAL_LOCATIONS.find(l => l.value === meal.location)?.label}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pb-4 pt-2">
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div className="space-y-1.5">
+                                      <Label className="text-xs text-muted-foreground">Prep Method</Label>
+                                      <Select 
+                                        value={meal.prepMethod}
+                                        onValueChange={(v) => updateMealContext(meal.id, 'prepMethod', v)}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" sideOffset={4}>
+                                          {MEAL_PREP_METHODS.map((method) => (
+                                            <SelectItem key={method.value} value={method.value} className="text-xs">
+                                              {method.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <Label className="text-xs text-muted-foreground">Prep Time</Label>
+                                      <Select 
+                                        value={meal.prepTime}
+                                        onValueChange={(v) => updateMealContext(meal.id, 'prepTime', v)}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" sideOffset={4}>
+                                          {PREP_TIMES.map((time) => (
+                                            <SelectItem key={time} value={time} className="text-xs">{time}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <Label className="text-xs text-muted-foreground">Location</Label>
+                                      <Select 
+                                        value={meal.location}
+                                        onValueChange={(v) => updateMealContext(meal.id, 'location', v)}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" sideOffset={4}>
+                                          {MEAL_LOCATIONS.map((loc) => (
+                                            <SelectItem key={loc.value} value={loc.value} className="text-xs">
+                                              {loc.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <Label className="text-xs text-muted-foreground">Time Window</Label>
+                                      <Select 
+                                        value={meal.timeRange}
+                                        onValueChange={(v) => updateMealContext(meal.id, 'timeRange', v)}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" sideOffset={4}>
+                                          {MEAL_TIME_RANGES.map((range) => (
+                                            <SelectItem key={range} value={range} className="text-xs">{range}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            ))}
+                          </Accordion>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* Tab 4: Preferences */}
+                  <TabsContent value="preferences" className="space-y-6">
+                    {/* Critical: Restrictions & Allergies */}
+                    <Card className="border-red-200">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Shield className="h-5 w-5 text-red-500" />
+                          Dietary Restrictions & Allergies
+                          <Badge variant="outline" className="text-xs text-red-600 border-red-300">Critical</Badge>
+                        </CardTitle>
+                        <CardDescription>
+                          These are strictly enforced — foods will be completely excluded from all meal suggestions
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label>Dietary Restrictions</Label>
+                            {selectedRestrictions.length > 0 && (
+                              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedRestrictions([])}>
+                                Clear all
+                              </Button>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {DIETARY_RESTRICTIONS.map(restriction => (
+                              <Badge
+                                key={restriction}
+                                variant={selectedRestrictions.includes(restriction) ? "default" : "outline"}
+                                className={cn(
+                                  "cursor-pointer transition-all",
+                                  selectedRestrictions.includes(restriction) && "bg-[#c19962] hover:bg-[#e4ac61]"
+                                )}
+                                onClick={() => {
+                                  if (selectedRestrictions.includes(restriction)) {
+                                    setSelectedRestrictions(selectedRestrictions.filter(r => r !== restriction));
+                                  } else {
+                                    setSelectedRestrictions([...selectedRestrictions, restriction]);
+                                  }
+                                }}
+                              >
+                                {restriction}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-red-700">Food Allergies</Label>
+                            {selectedAllergies.length > 0 && (
+                              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedAllergies([])}>
+                                Clear all
+                              </Button>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {COMMON_ALLERGIES.map(allergy => (
+                              <Badge
+                                key={allergy}
+                                variant={selectedAllergies.includes(allergy) ? "destructive" : "outline"}
+                                className="cursor-pointer transition-all"
+                                onClick={() => {
+                                  if (selectedAllergies.includes(allergy)) {
+                                    setSelectedAllergies(selectedAllergies.filter(a => a !== allergy));
+                                  } else {
+                                    setSelectedAllergies([...selectedAllergies, allergy]);
+                                  }
+                                }}
+                              >
+                                {allergy}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Food Preferences - Proteins */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Utensils className="h-5 w-5 text-[#c19962]" />
+                          Protein Preferences
+                        </CardTitle>
+                        <CardDescription>
+                          Select preferred protein sources. These will be prioritized in meal generation.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">Common Proteins</Label>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedProteins(PROTEINS)}>
+                                All
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedProteins([])}>
+                                None
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 border rounded-lg bg-muted/20">
+                            {PROTEINS.map(protein => (
+                              <Badge
+                                key={protein}
+                                variant={selectedProteins.includes(protein) ? "default" : "outline"}
+                                className={cn(
+                                  "cursor-pointer text-xs",
+                                  selectedProteins.includes(protein) && "bg-[#c19962] hover:bg-[#e4ac61]"
+                                )}
+                                onClick={() => {
+                                  if (selectedProteins.includes(protein)) {
+                                    setSelectedProteins(selectedProteins.filter(p => p !== protein));
+                                  } else {
+                                    setSelectedProteins([...selectedProteins, protein]);
+                                  }
+                                }}
+                              >
+                                {protein}
+                              </Badge>
+                            ))}
+                          </div>
+                          {selectedProteins.length > 0 && (
+                            <p className="text-xs text-[#c19962]">{selectedProteins.length} proteins selected</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Add Custom Proteins</Label>
+                          <Input
+                            placeholder="e.g., Bison, Venison, Elk (comma-separated)"
+                            value={customProteins}
+                            onChange={(e) => setCustomProteins(e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Food Preferences - Carbs */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Utensils className="h-5 w-5 text-[#c19962]" />
+                          Carbohydrate Preferences
+                        </CardTitle>
+                        <CardDescription>
+                          Select preferred carb sources for energy and fiber.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">Common Carbs</Label>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedCarbs(CARBS)}>
+                                All
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedCarbs([])}>
+                                None
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 border rounded-lg bg-muted/20">
+                            {CARBS.map(carb => (
+                              <Badge
+                                key={carb}
+                                variant={selectedCarbs.includes(carb) ? "default" : "outline"}
+                                className={cn(
+                                  "cursor-pointer text-xs",
+                                  selectedCarbs.includes(carb) && "bg-[#c19962] hover:bg-[#e4ac61]"
+                                )}
+                                onClick={() => {
+                                  if (selectedCarbs.includes(carb)) {
+                                    setSelectedCarbs(selectedCarbs.filter(c => c !== carb));
+                                  } else {
+                                    setSelectedCarbs([...selectedCarbs, carb]);
+                                  }
+                                }}
+                              >
+                                {carb}
+                              </Badge>
+                            ))}
+                          </div>
+                          {selectedCarbs.length > 0 && (
+                            <p className="text-xs text-[#c19962]">{selectedCarbs.length} carbs selected</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Add Custom Carbs</Label>
+                          <Input
+                            placeholder="e.g., Taro, Plantains, Millet (comma-separated)"
+                            value={customCarbs}
+                            onChange={(e) => setCustomCarbs(e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Food Preferences - Fats */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Utensils className="h-5 w-5 text-[#c19962]" />
+                          Fat Preferences
+                        </CardTitle>
+                        <CardDescription>
+                          Select preferred fat sources. Quality fats are essential for hormones, brain function, and nutrient absorption.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">Common Fats</Label>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedFats(FATS)}>
+                                All
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedFats([])}>
+                                None
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 border rounded-lg bg-muted/20">
+                            {FATS.map(fat => (
+                              <Badge
+                                key={fat}
+                                variant={selectedFats.includes(fat) ? "default" : "outline"}
+                                className={cn(
+                                  "cursor-pointer text-xs",
+                                  selectedFats.includes(fat) && "bg-[#c19962] hover:bg-[#e4ac61]"
+                                )}
+                                onClick={() => {
+                                  if (selectedFats.includes(fat)) {
+                                    setSelectedFats(selectedFats.filter(f => f !== fat));
+                                  } else {
+                                    setSelectedFats([...selectedFats, fat]);
+                                  }
+                                }}
+                              >
+                                {fat}
+                              </Badge>
+                            ))}
+                          </div>
+                          {selectedFats.length > 0 && (
+                            <p className="text-xs text-[#c19962]">{selectedFats.length} fats selected</p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Add Custom Fats</Label>
+                          <Input
+                            placeholder="e.g., Brazil nuts, Macadamia oil (comma-separated)"
+                            value={customFats}
+                            onChange={(e) => setCustomFats(e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Cuisines & Specific Foods */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <ChefHat className="h-5 w-5 text-[#c19962]" />
+                          Cuisines & Specific Foods
+                        </CardTitle>
+                        <CardDescription>
+                          Cuisine styles and specific foods to emphasize or avoid.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {/* Cuisines */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">Cuisine Styles</Label>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedCuisines(CUISINES)}>
+                                All
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedCuisines([])}>
+                                None
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {CUISINES.map(cuisine => (
+                              <Badge
+                                key={cuisine}
+                                variant={selectedCuisines.includes(cuisine) ? "default" : "outline"}
+                                className={cn(
+                                  "cursor-pointer text-xs",
+                                  selectedCuisines.includes(cuisine) && "bg-[#c19962] hover:bg-[#e4ac61]"
+                                )}
+                                onClick={() => {
+                                  if (selectedCuisines.includes(cuisine)) {
+                                    setSelectedCuisines(selectedCuisines.filter(c => c !== cuisine));
+                                  } else {
+                                    setSelectedCuisines([...selectedCuisines, cuisine]);
+                                  }
+                                }}
+                              >
+                                {cuisine}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        {/* Foods to Emphasize */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4 text-green-600" />
+                            Foods to Emphasize
+                          </Label>
+                          <Textarea
+                            placeholder="e.g., leafy greens, fermented foods, bone broth, organ meats (one per line or comma-separated)"
+                            value={foodsToEmphasize}
+                            onChange={(e) => setFoodsToEmphasize(e.target.value)}
+                            rows={2}
+                            className="text-sm"
+                          />
+                          <p className="text-xs text-muted-foreground">Specific foods to prioritize in meal plans — great for therapeutic or preference-based emphasis</p>
+                        </div>
+
+                        <Separator />
+
+                        {/* Foods to Avoid */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium flex items-center gap-2">
+                            <XIcon className="h-4 w-4 text-red-500" />
+                            Foods to Avoid
+                          </Label>
+                          <Textarea
+                            placeholder="e.g., mushrooms, bell peppers, cilantro, artificial sweeteners (one per line or comma-separated)"
+                            value={foodsToAvoid}
+                            onChange={(e) => setFoodsToAvoid(e.target.value)}
+                            rows={2}
+                            className="text-sm"
+                          />
+                          <p className="text-xs text-muted-foreground">Personal dislikes beyond allergies/restrictions — these will be excluded from suggestions</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* Tab 5: Advanced */}
+                  <TabsContent value="advanced" className="space-y-6">
+                    {/* Practical Constraints */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Settings2 className="h-5 w-5 text-[#c19962]" />
+                          Practical Constraints
+                        </CardTitle>
+                        <CardDescription>
+                          These directly affect meal complexity and ingredient selection
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-3">
+                            <Label>Meal Variety Level</Label>
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-4">
+                                <Slider
+                                  value={[varietyLevel]}
+                                  onValueChange={([v]) => setVarietyLevel(v)}
+                                  min={1}
+                                  max={5}
+                                  step={1}
+                                  className="flex-1"
+                                />
+                                <Badge variant="outline" className="min-w-[5rem] justify-center">
+                                  {['', 'Minimal', 'Low', 'Moderate', 'High', 'Max'][varietyLevel]}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {varietyLevel <= 2 ? 'Same meals repeated — simpler prep, easier shopping' : 
+                                 varietyLevel === 3 ? 'Balanced — some repetition with variety' :
+                                 'New meals daily — more interesting but more planning'}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <Label>Cooking Time Per Meal</Label>
+                            <Select value={cookingTime} onValueChange={(v) => setCookingTime(v as typeof cookingTime)}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent position="popper" sideOffset={4} className="z-50">
+                                <SelectItem value="quick">Quick (&lt;15 min) — Simple assembly, minimal cooking</SelectItem>
+                                <SelectItem value="short">Short (15-30 min) — Basic cooking, one-pan meals</SelectItem>
+                                <SelectItem value="medium">Medium (30-60 min) — Full recipes, multiple components</SelectItem>
+                                <SelectItem value="any">Any Duration — Complex recipes welcome</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        <div className="space-y-3">
+                          <Label>Budget Preference</Label>
+                          <RadioGroup
+                            value={budgetPreference}
+                            onValueChange={(v) => setBudgetPreference(v as typeof budgetPreference)}
+                            className="grid grid-cols-3 gap-2"
+                          >
+                            <div className={cn(
+                              "flex items-center space-x-2 p-3 border rounded-lg cursor-pointer transition-all",
+                              budgetPreference === 'budget' ? "border-[#c19962] bg-[#c19962]/10" : "hover:bg-muted/50"
+                            )}>
+                              <RadioGroupItem value="budget" id="budget" />
+                              <Label htmlFor="budget" className="cursor-pointer">
+                                <span className="font-medium">Budget</span>
+                                <p className="text-xs text-muted-foreground">Basic ingredients, bulk staples</p>
+                              </Label>
+                            </div>
+                            <div className={cn(
+                              "flex items-center space-x-2 p-3 border rounded-lg cursor-pointer transition-all",
+                              budgetPreference === 'moderate' ? "border-[#c19962] bg-[#c19962]/10" : "hover:bg-muted/50"
+                            )}>
+                              <RadioGroupItem value="moderate" id="moderate" />
+                              <Label htmlFor="moderate" className="cursor-pointer">
+                                <span className="font-medium">Moderate</span>
+                                <p className="text-xs text-muted-foreground">Quality staples, some premium</p>
+                              </Label>
+                            </div>
+                            <div className={cn(
+                              "flex items-center space-x-2 p-3 border rounded-lg cursor-pointer transition-all",
+                              budgetPreference === 'flexible' ? "border-[#c19962] bg-[#c19962]/10" : "hover:bg-muted/50"
+                            )}>
+                              <RadioGroupItem value="flexible" id="flexible" />
+                              <Label htmlFor="flexible" className="cursor-pointer">
+                                <span className="font-medium">Flexible</span>
+                                <p className="text-xs text-muted-foreground">Premium, specialty items OK</p>
+                              </Label>
+                            </div>
+                          </RadioGroup>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Flavor Preferences */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Flame className="h-5 w-5 text-[#c19962]" />
+                          Flavor Preferences
+                        </CardTitle>
+                        <CardDescription>
+                          Affects seasoning suggestions and recipe styles
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-3">
+                          <Label>Spice Tolerance</Label>
+                          <div className="flex items-center gap-4">
+                            <span className="text-xs text-muted-foreground w-12">Mild</span>
+                            <Slider
+                              value={[spiceLevel]}
+                              onValueChange={([v]) => setSpiceLevel(v)}
+                              min={0}
+                              max={4}
+                              step={1}
+                              className="flex-1"
+                            />
+                            <span className="text-xs text-muted-foreground w-12 text-right">Hot</span>
+                            <Badge variant="outline" className="min-w-[5rem] justify-center">
+                              {['None', 'Mild', 'Medium', 'Spicy', 'Very Hot'][spiceLevel]}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Flavor Profiles (select favorites)</Label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {FLAVOR_PROFILES.map(flavor => (
+                              <Badge
+                                key={flavor}
+                                variant={selectedFlavors.includes(flavor) ? "default" : "outline"}
+                                className={cn(
+                                  "cursor-pointer text-xs",
+                                  selectedFlavors.includes(flavor) && "bg-[#c19962] hover:bg-[#e4ac61]"
+                                )}
+                                onClick={() => {
+                                  if (selectedFlavors.includes(flavor)) {
+                                    setSelectedFlavors(selectedFlavors.filter(f => f !== flavor));
+                                  } else {
+                                    setSelectedFlavors([...selectedFlavors, flavor]);
+                                  }
+                                }}
+                              >
+                                {flavor}
+                              </Badge>
+                            ))}
+                          </div>
+                          {selectedFlavors.length === 0 && (
+                            <p className="text-xs text-muted-foreground">No preference — all flavor profiles allowed</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Micronutrient Focus */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Leaf className="h-5 w-5 text-[#c19962]" />
+                          Micronutrient Focus
+                          <Badge variant="outline" className="text-xs">Optional</Badge>
+                        </CardTitle>
+                        <CardDescription>
+                          If the client has specific nutritional needs (e.g., low iron, recovering from deficiency), select those to prioritize foods rich in these nutrients
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-2">
+                          {MICRONUTRIENTS.map(nutrient => (
+                            <Badge
+                              key={nutrient}
+                              variant={selectedMicronutrients.includes(nutrient) ? "default" : "outline"}
+                              className={cn(
+                                "cursor-pointer",
+                                selectedMicronutrients.includes(nutrient) && "bg-[#c19962] hover:bg-[#e4ac61]"
+                              )}
+                              onClick={() => {
+                                if (selectedMicronutrients.includes(nutrient)) {
+                                  setSelectedMicronutrients(selectedMicronutrients.filter(n => n !== nutrient));
+                                } else {
+                                  setSelectedMicronutrients([...selectedMicronutrients, nutrient]);
+                                }
+                              }}
+                            >
+                              {nutrient}
+                            </Badge>
+                          ))}
+                        </div>
+                        {selectedMicronutrients.length === 0 ? (
+                          <p className="mt-3 text-xs text-muted-foreground">
+                            No specific focus — balanced micronutrient distribution
+                          </p>
+                        ) : (
+                          <p className="mt-3 text-xs text-[#c19962]">
+                            Foods rich in {selectedMicronutrients.join(', ')} will be prioritized
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+
+                {/* REMOVED: Target Body Composition - Now in Planning/Phases */}
+                {/* REMOVED: Rate of Change & Timeline - Now in Planning/Phases */}
+
+                {/* TARGET BODY COMP SECTION TO BE REMOVED BELOW - Keeping for now but hidden */}
+                <div className="hidden">
                 <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -2573,6 +4009,8 @@ export default function SetupPage() {
                       )}
                     </CardContent>
                   </Card>
+                </div>
+                {/* End hidden section for legacy Target Body Composition and Timeline */}
 
                 {/* Save & Continue */}
                 <div className="flex justify-end pt-4">
@@ -2581,7 +4019,7 @@ export default function SetupPage() {
                     size="lg"
                     className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
                   >
-                    Save & Continue to Schedule
+                    Save & Continue to Planning
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </div>

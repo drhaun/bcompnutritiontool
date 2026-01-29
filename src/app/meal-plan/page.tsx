@@ -151,8 +151,8 @@ export default function MealPlanPage() {
     bodyCompGoals,
     dietPreferences,
     weeklySchedule,
-    nutritionTargets,
-    mealPlan,
+    nutritionTargets: storeNutritionTargets,
+    mealPlan: storeMealPlan,
     updateMeal,
     updateMealNote,
     updateMealRationale,
@@ -164,7 +164,21 @@ export default function MealPlanPage() {
     canRedo,
     undoMealPlan,
     redoMealPlan,
+    // Phase-related
+    phases,
+    activePhaseId,
+    getActivePhase,
+    updatePhase,
   } = useFitomicsStore();
+  
+  // Get active phase data (if any)
+  const activePhase = getActivePhase();
+  
+  // Use phase data if active, otherwise fall back to store data
+  const nutritionTargets = activePhase?.nutritionTargets?.length 
+    ? activePhase.nutritionTargets 
+    : storeNutritionTargets;
+  const mealPlan = activePhase?.mealPlan ?? storeMealPlan;
   
   // State
   const [isHydrated, setIsHydrated] = useState(false);
@@ -350,22 +364,59 @@ export default function MealPlanPage() {
     return names;
   }, [mealPlan]);
 
-  // Consolidated grocery list
+  // Consolidated grocery list with smart quantity parsing
   const groceryList = useMemo(() => {
-    const ingredientMap: Map<string, { qty: number; unit: string }> = new Map();
+    const ingredientMap: Map<string, { 
+      qty: number; 
+      unit: string; 
+      category: string;
+      usedIn: number;
+    }> = new Map();
     
     if (mealPlan) {
       DAYS.forEach(day => {
         mealPlan[day]?.meals?.forEach(meal => {
-          meal?.ingredients?.forEach(ingredient => {
-            const name = ingredient.item.toLowerCase();
+          if (!meal?.ingredients) return;
+          
+          meal.ingredients.forEach(ingredient => {
+            if (!ingredient?.item) return;
+            
+            const name = ingredient.item.toLowerCase().trim();
             const existing = ingredientMap.get(name);
+            
+            // Parse amount - handle various formats
+            const amountStr = ingredient.amount || '1 serving';
+            const amountMatch = amountStr.match(/^([\d.\/]+)\s*(.*)$/);
+            let value = 1;
+            let unit = 'serving';
+            
+            if (amountMatch) {
+              // Handle fractions like 1/2
+              if (amountMatch[1].includes('/')) {
+                const parts = amountMatch[1].split('/');
+                value = parseFloat(parts[0]) / parseFloat(parts[1]);
+              } else {
+                value = parseFloat(amountMatch[1]) || 1;
+              }
+              unit = amountMatch[2]?.trim() || 'serving';
+            }
+            
             if (existing) {
-              existing.qty += 1;
+              // Combine with same unit
+              if (existing.unit === unit || existing.unit === 'serving') {
+                existing.qty += value;
+                if (existing.unit === 'serving') existing.unit = unit;
+              } else {
+                // Different units - append
+                existing.qty += value;
+              }
+              existing.usedIn += 1;
             } else {
               ingredientMap.set(name, { 
-                qty: 1, 
-                unit: ingredient.amount || 'serving' 
+                qty: value, 
+                unit,
+                category: ingredient.category || 'other',
+                usedIn: 1
               });
             }
           });
@@ -376,7 +427,10 @@ export default function MealPlanPage() {
     return Array.from(ingredientMap.entries())
       .map(([name, data]) => ({ 
         name: name.charAt(0).toUpperCase() + name.slice(1), 
-        ...data 
+        qty: Math.round(data.qty * 10) / 10, // Round to 1 decimal
+        unit: data.unit,
+        category: data.category,
+        usedIn: data.usedIn
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [mealPlan]);
@@ -562,22 +616,67 @@ export default function MealPlanPage() {
     );
   }
 
+  // Check if we have nutrition targets set
+  const hasTargets = nutritionTargets && nutritionTargets.length > 0;
+  
+  if (!hasTargets) {
+    return (
+      <div className="min-h-screen bg-background">
+        <ProgressSteps currentStep={3} />
+        <div className="container max-w-2xl mx-auto py-12 px-4">
+          <Card className="border-2 border-[#c19962]/30">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-[#c19962]/20 flex items-center justify-center">
+                <Target className="h-8 w-8 text-[#c19962]" />
+              </div>
+              <CardTitle className="text-xl">Nutrition Targets Required</CardTitle>
+              <CardDescription className="text-base">
+                Before generating a meal plan, you need to set and confirm nutrition targets for your phase.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Go to the Planning step, select or create a phase, customize your daily targets, and confirm them.
+                Once confirmed, you can return here to generate your personalized meal plan.
+              </p>
+              <Button 
+                onClick={() => router.push('/planning')}
+                className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Go to Planning
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <ProgressSteps currentStep={5} />
+      <ProgressSteps currentStep={3} />
       
       <div className="container max-w-[1600px] mx-auto py-6 px-4">
         {/* Compact Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/targets')}>
+            <Button variant="ghost" size="sm" onClick={() => router.push('/planning')}>
               <ArrowLeft className="h-4 w-4 mr-1" />
-              Back
+              Back to Planning
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-[#00263d]">Meal Plan Builder</h1>
+              <h1 className="text-xl font-bold text-[#00263d]">
+                Meal Plan Builder
+                {activePhase && (
+                  <Badge className="ml-2 bg-[#c19962]/20 text-[#c19962] border-[#c19962]/30">
+                    {activePhase.name}
+                  </Badge>
+                )}
+              </h1>
               <p className="text-sm text-muted-foreground">
                 {userProfile.name ? `${userProfile.name}'s` : ''} personalized nutrition plan
+                {activePhase && ` for ${activePhase.goalType === 'lose_fat' ? 'fat loss' : activePhase.goalType === 'gain_muscle' ? 'muscle gain' : 'maintenance'} phase`}
               </p>
             </div>
           </div>
@@ -1045,24 +1144,66 @@ export default function MealPlanPage() {
                       // Grocery List
                       <div className="space-y-4">
                         {groceryList.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-8">
-                            Add meals to see your grocery list
-                          </p>
+                          <div className="text-center py-8">
+                            <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                            <p className="text-sm text-muted-foreground">
+                              Add meals to see your grocery list
+                            </p>
+                          </div>
                         ) : (
                           <>
-                            <p className="text-sm text-muted-foreground">
-                              {groceryList.length} items from {overallProgress.filledSlots} meals
-                            </p>
-                            <div className="space-y-1">
-                              {groceryList.map((item, idx) => (
-                                <div key={idx} className="flex items-center justify-between py-1.5 border-b border-dashed last:border-0">
-                                  <span className="text-sm">{item.name}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {Math.round(item.qty)} {item.unit}
-                                  </span>
-                                </div>
-                              ))}
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm text-muted-foreground">
+                                {groceryList.length} items from {overallProgress.filledSlots} meals
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  const text = groceryList.map(i => `${i.qty} ${i.unit} ${i.name}`).join('\n');
+                                  navigator.clipboard.writeText(text);
+                                  toast.success('Grocery list copied to clipboard!');
+                                }}
+                              >
+                                <Copy className="h-3 w-3 mr-1" />
+                                Copy
+                              </Button>
                             </div>
+                            
+                            {/* Categorized grocery list */}
+                            {['protein', 'carbs', 'vegetables', 'fats', 'seasonings', 'other'].map(category => {
+                              const items = groceryList.filter(i => i.category === category);
+                              if (items.length === 0) return null;
+                              
+                              const categoryLabels: Record<string, { label: string; color: string }> = {
+                                protein: { label: 'Proteins', color: 'bg-blue-100 text-blue-700' },
+                                carbs: { label: 'Carbs & Grains', color: 'bg-amber-100 text-amber-700' },
+                                vegetables: { label: 'Vegetables', color: 'bg-green-100 text-green-700' },
+                                fats: { label: 'Fats & Oils', color: 'bg-purple-100 text-purple-700' },
+                                seasonings: { label: 'Seasonings', color: 'bg-orange-100 text-orange-700' },
+                                other: { label: 'Other', color: 'bg-gray-100 text-gray-700' },
+                              };
+                              const catInfo = categoryLabels[category] || categoryLabels.other;
+                              
+                              return (
+                                <div key={category} className="space-y-1">
+                                  <Badge variant="outline" className={`text-[10px] ${catInfo.color}`}>
+                                    {catInfo.label} ({items.length})
+                                  </Badge>
+                                  <div className="space-y-0.5 ml-1">
+                                    {items.map((item, idx) => (
+                                      <div key={idx} className="flex items-center justify-between py-1 border-b border-dashed last:border-0">
+                                        <span className="text-sm">{item.name}</span>
+                                        <span className="text-xs text-muted-foreground font-mono">
+                                          {item.qty} {item.unit}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </>
                         )}
                       </div>
