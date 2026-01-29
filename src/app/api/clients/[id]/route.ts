@@ -97,6 +97,10 @@ export async function PATCH(
     if (body.currentStep !== undefined) updateData.current_step = body.currentStep;
     if (body.cronometerClientId !== undefined) updateData.cronometer_client_id = body.cronometerClientId;
     if (body.cronometerClientName !== undefined) updateData.cronometer_client_name = body.cronometerClientName;
+    // Phase-based planning fields
+    if (body.phases !== undefined) updateData.phases = body.phases;
+    if (body.activePhaseId !== undefined) updateData.active_phase_id = body.activePhaseId;
+    if (body.timelineEvents !== undefined) updateData.timeline_events = body.timelineEvents;
     
     const { data: client, error } = await supabase
       .from('clients')

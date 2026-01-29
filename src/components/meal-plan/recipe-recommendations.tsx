@@ -163,35 +163,56 @@ export function RecipeRecommendations({
   const handleSelectRecipe = () => {
     if (!selectedRecipe || !customScaledMacros) return;
 
+    // Scale ingredient amounts based on servings
+    const scaledIngredients = selectedRecipe.ingredients.map(ing => ({
+      item: ing.item,
+      amount: scaleAmount(ing.amount, customServings),
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      category: categorizeIngredient(ing.item),
+    }));
+
     // Convert recipe to Meal format
     const meal: Meal = {
       name: selectedRecipe.name,
+      time: slot.timeSlot || '',
+      context: slot.label,
+      prepTime: selectedRecipe.is_quick_prep ? '<15min' : '15-30min',
       type: slot.type,
-      slotLabel: slot.label,
-      foods: selectedRecipe.ingredients.map(ing => ({
-        name: ing.item,
-        servingSize: 1,
-        servingUnit: ing.amount,
-        calories: 0, // We don't have per-ingredient nutrition
-        protein: 0,
-        carbs: 0,
-        fat: 0,
-      })),
-      totalMacros: customScaledMacros,
+      ingredients: scaledIngredients,
       instructions: selectedRecipe.directions,
-      notes: `${customServings} serving(s) of ${selectedRecipe.name}`,
-      rationale: selectedRecipe.matchReasons.join('. '),
+      totalMacros: customScaledMacros,
+      targetMacros: slot.targetMacros,
+      workoutRelation: slot.workoutRelation || 'none',
+      staffNote: '',
+      aiRationale: selectedRecipe.matchReasons.join('. '),
+      source: 'recipe',
       isLocked: false,
-      source: 'ni_recipe',
-      recipeSlug: selectedRecipe.slug,
-      cronometerName: selectedRecipe.cronometer_name,
-      imageUrl: selectedRecipe.image_url,
       lastModified: new Date().toISOString(),
     };
 
     onSelectRecipe(meal);
     onClose();
     toast.success(`Added ${selectedRecipe.name}`);
+  };
+
+  // Helper to categorize ingredients
+  const categorizeIngredient = (item: string): 'protein' | 'carbs' | 'fats' | 'vegetables' | 'seasonings' | 'other' => {
+    const lower = item.toLowerCase();
+    const proteins = ['chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'shrimp', 'turkey', 'egg', 'tofu', 'tempeh', 'protein', 'whey', 'greek yogurt', 'cottage cheese'];
+    const carbs = ['rice', 'pasta', 'bread', 'oat', 'potato', 'quinoa', 'tortilla', 'noodle', 'flour', 'sugar', 'honey', 'maple'];
+    const fats = ['oil', 'butter', 'avocado', 'nut', 'almond', 'peanut', 'coconut', 'cheese', 'cream'];
+    const vegetables = ['spinach', 'broccoli', 'pepper', 'onion', 'garlic', 'tomato', 'lettuce', 'carrot', 'cucumber', 'zucchini', 'mushroom', 'celery', 'kale'];
+    const seasonings = ['salt', 'pepper', 'spice', 'herb', 'sauce', 'vinegar', 'mustard', 'seasoning', 'cumin', 'paprika', 'oregano', 'basil', 'thyme'];
+    
+    if (proteins.some(p => lower.includes(p))) return 'protein';
+    if (carbs.some(c => lower.includes(c))) return 'carbs';
+    if (fats.some(f => lower.includes(f))) return 'fats';
+    if (vegetables.some(v => lower.includes(v))) return 'vegetables';
+    if (seasonings.some(s => lower.includes(s))) return 'seasonings';
+    return 'other';
   };
 
   // Filter recipes by search

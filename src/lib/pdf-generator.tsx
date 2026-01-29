@@ -459,11 +459,23 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
       case 'ai': return 'AI Generated';
       case 'manual': return 'Custom';
       case 'swapped': return 'Swapped';
+      case 'recipe': return 'Recipe';
       default: return null;
     }
   };
   
+  const getSourceColor = () => {
+    switch (meal.source) {
+      case 'ai': return { bg: '#f3e8ff', text: '#7c3aed' };
+      case 'manual': return { bg: '#dbeafe', text: '#2563eb' };
+      case 'swapped': return { bg: '#ffedd5', text: '#ea580c' };
+      case 'recipe': return { bg: '#dcfce7', text: '#16a34a' };
+      default: return { bg: '#f3f4f6', text: '#6b7280' };
+    }
+  };
+  
   const sourceLabel = getSourceLabel();
+  const sourceColor = getSourceColor();
   
   return (
     <View style={styles.mealCard} wrap={false}>
@@ -474,14 +486,14 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
           </Text>
           {sourceLabel && (
             <View style={{
-              backgroundColor: meal.source === 'ai' ? '#f3e8ff' : meal.source === 'manual' ? '#dbeafe' : '#ffedd5',
+              backgroundColor: sourceColor.bg,
               paddingHorizontal: 6,
               paddingVertical: 2,
               borderRadius: 8,
             }}>
               <Text style={{ 
                 fontSize: 7, 
-                color: meal.source === 'ai' ? '#7c3aed' : meal.source === 'manual' ? '#2563eb' : '#ea580c',
+                color: sourceColor.text,
               }}>
                 {sourceLabel}
               </Text>

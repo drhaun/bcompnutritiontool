@@ -91,6 +91,65 @@ create table if not exists public.meal_plans (
   updated_at timestamp with time zone default now()
 );
 
+-- Clients table (for coach-managed client profiles)
+create table if not exists public.clients (
+  id uuid primary key default uuid_generate_v4(),
+  coach_id uuid not null, -- References auth.users
+  name text not null,
+  email text,
+  phone text,
+  notes text,
+  status text default 'active',
+  user_profile jsonb default '{}',
+  body_comp_goals jsonb default '{}',
+  diet_preferences jsonb default '{}',
+  weekly_schedule jsonb default '{}',
+  nutrition_targets jsonb default '[]',
+  meal_plan jsonb,
+  plan_history jsonb default '[]',
+  current_step int default 1,
+  cronometer_client_id int,
+  cronometer_client_name text,
+  -- Phase-based planning fields
+  phases jsonb default '[]',
+  active_phase_id uuid,
+  timeline_events jsonb default '[]',
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+-- Index for faster lookups by coach
+create index if not exists idx_clients_coach_id on public.clients(coach_id);
+
+-- Trigger for clients updated_at
+create trigger set_updated_at_clients
+before update on public.clients
+for each row execute procedure public.set_updated_at();
+
+-- Row Level Security for clients table
+alter table public.clients enable row level security;
+
+-- Policy: Users can only see their own clients
+create policy "Users can view own clients" on public.clients
+  for select using (auth.uid() = coach_id);
+
+-- Policy: Users can insert their own clients  
+create policy "Users can insert own clients" on public.clients
+  for insert with check (auth.uid() = coach_id);
+
+-- Policy: Users can update their own clients
+create policy "Users can update own clients" on public.clients
+  for update using (auth.uid() = coach_id);
+
+-- Policy: Users can delete their own clients
+create policy "Users can delete own clients" on public.clients
+  for delete using (auth.uid() = coach_id);
+
+-- Migration: Add phase columns to existing clients table (run if table already exists)
+-- ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS phases jsonb default '[]';
+-- ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS active_phase_id uuid;
+-- ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS timeline_events jsonb default '[]';
+
 -- Updated_at trigger
 create or replace function public.set_updated_at()
 returns trigger as $$

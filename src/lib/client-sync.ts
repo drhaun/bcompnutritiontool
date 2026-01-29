@@ -26,6 +26,10 @@ export function dbClientToStoreClient(dbClient: any): ClientProfile {
     currentStep: dbClient.current_step || 1,
     cronometerClientId: dbClient.cronometer_client_id || undefined,
     cronometerClientName: dbClient.cronometer_client_name || undefined,
+    // Phase-based planning fields
+    phases: dbClient.phases || [],
+    activePhaseId: dbClient.active_phase_id || undefined,
+    timelineEvents: dbClient.timeline_events || [],
   };
 }
 
@@ -49,6 +53,10 @@ export function storeClientToApiFormat(client: ClientProfile) {
     cronometerClientId: client.cronometerClientId,
     cronometerClientName: client.cronometerClientName,
     updatedAt: client.updatedAt,
+    // Phase-based planning fields
+    phases: client.phases || [],
+    activePhaseId: client.activePhaseId,
+    timelineEvents: client.timelineEvents || [],
   };
 }
 
@@ -155,11 +163,18 @@ export async function updateClientInDb(
     const response = await fetch(`/api/clients/${clientId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // Ensure cookies are sent for auth
       body: JSON.stringify(updates),
     });
     
     if (!response.ok) {
-      throw new Error('Failed to update client');
+      if (response.status === 401) {
+        console.log('[ClientSync] Not authenticated, update skipped');
+        return null;
+      }
+      const errorData = await response.json().catch(() => ({}));
+      console.error('[ClientSync] Update failed:', errorData);
+      throw new Error(errorData.error || 'Failed to update client');
     }
     
     const data = await response.json();

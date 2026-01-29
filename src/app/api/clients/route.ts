@@ -104,6 +104,10 @@ export async function POST(request: NextRequest) {
       current_step: body.currentStep || 1,
       cronometer_client_id: body.cronometerClientId || null,
       cronometer_client_name: body.cronometerClientName || null,
+      // Phase-based planning fields
+      phases: body.phases || [],
+      active_phase_id: body.activePhaseId || null,
+      timeline_events: body.timelineEvents || [],
     };
     
     const { data: client, error } = await supabase
@@ -186,6 +190,10 @@ export async function PUT(request: NextRequest) {
         current_step: client.currentStep || 1,
         cronometer_client_id: client.cronometerClientId || null,
         cronometer_client_name: client.cronometerClientName || null,
+        // Phase-based planning fields
+        phases: client.phases || [],
+        active_phase_id: client.activePhaseId || null,
+        timeline_events: client.timelineEvents || [],
       };
       
       const existingDate = existingMap.get(client.id);

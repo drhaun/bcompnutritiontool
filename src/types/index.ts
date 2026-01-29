@@ -533,7 +533,7 @@ export interface Ingredient {
 }
 
 // Source of how a meal was created
-export type MealSource = 'ai' | 'manual' | 'swapped';
+export type MealSource = 'ai' | 'manual' | 'swapped' | 'recipe';
 
 export interface Meal {
   name: string;
