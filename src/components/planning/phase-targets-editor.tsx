@@ -660,30 +660,30 @@ export function PhaseTargetsEditor({
 
   return (
     <TooltipProvider delayDuration={100}>
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       {/* Phase Header */}
-      <Card className={cn("border-2", colors.border)}>
-        <CardHeader className="pb-3">
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-4">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <div className={cn("p-2.5 rounded-lg", colors.bg)}>
                 <span className={colors.text}>{GOAL_ICONS[phase.goalType]}</span>
               </div>
               <div>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
                   {phase.name}
-                  <Badge variant="outline" className={cn("text-xs", colors.text, colors.bg)}>
+                  <Badge variant="outline" className={cn("text-[10px]", colors.text, colors.bg)}>
                     {GOAL_LABELS[phase.goalType]}
                   </Badge>
                 </CardTitle>
-                <CardDescription>
+                <p className="text-sm text-muted-foreground mt-1">
                   {new Date(phase.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(phase.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} • {phaseDuration} weeks
-                </CardDescription>
+                </p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={onEditPhase}>
-              <Edit2 className="h-3 w-3 mr-1" />
-              Edit Phase
+            <Button variant="outline" size="sm" onClick={onEditPhase} className="h-9">
+              <Edit2 className="h-3.5 w-3.5 mr-1.5" />
+              Edit
             </Button>
           </div>
         </CardHeader>
@@ -691,14 +691,14 @@ export function PhaseTargetsEditor({
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="overview" className="text-sm">
-            <PieChart className="h-4 w-4 mr-1.5" />
-            Overview & Coefficients
+        <TabsList className="grid w-full grid-cols-2 h-11 p-1">
+          <TabsTrigger value="overview" className="text-sm font-medium data-[state=active]:bg-[#c19962] data-[state=active]:text-[#00263d]">
+            <PieChart className="h-4 w-4 mr-2" />
+            Overview
           </TabsTrigger>
-          <TabsTrigger value="daily" className="text-sm">
-            <Calendar className="h-4 w-4 mr-1.5" />
-            Daily Targets & Settings
+          <TabsTrigger value="daily" className="text-sm font-medium data-[state=active]:bg-[#c19962] data-[state=active]:text-[#00263d]">
+            <Calendar className="h-4 w-4 mr-2" />
+            Daily Targets
           </TabsTrigger>
         </TabsList>
 
@@ -1377,8 +1377,8 @@ export function PhaseTargetsEditor({
 
         {/* DAILY TAB */}
         <TabsContent value="daily" className="space-y-4 mt-4">
-          {/* Day Selector */}
-          <div className="flex gap-1.5 bg-muted/50 p-1.5 rounded-lg">
+          {/* Day Selector - Grid ensures all 7 days are visible */}
+          <div className="grid grid-cols-7 gap-1.5 bg-muted/50 p-1.5 rounded-lg w-full">
             {DAYS.map((day, idx) => {
               const config = fullDayConfigs[day];
               const hasCustom = Object.keys(dayConfigs[day] || {}).length > 0;
@@ -1388,20 +1388,20 @@ export function PhaseTargetsEditor({
                   key={day}
                   variant={selectedDay === day ? 'default' : 'ghost'}
                   className={cn(
-                    "flex-1 flex-col h-auto py-2",
+                    "flex-col h-auto py-2 px-1 min-w-0",
                     selectedDay === day && 'bg-[#00263d] hover:bg-[#003b59]'
                   )}
                   onClick={() => setSelectedDay(day)}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     {config?.isWorkoutDay ? (
-                      <Dumbbell className="h-3 w-3 text-green-400" />
+                      <Dumbbell className="h-3 w-3 text-green-400 shrink-0" />
                     ) : (
-                      <Coffee className="h-3 w-3 opacity-50" />
+                      <Coffee className="h-3 w-3 opacity-50 shrink-0" />
                     )}
-                    <span className="text-xs font-medium">{SHORT_DAYS[idx]}</span>
+                    <span className="text-xs font-medium truncate">{SHORT_DAYS[idx]}</span>
                     {hasCustom && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#c19962]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#c19962] shrink-0" />
                     )}
                   </div>
                   <span className="text-[10px] opacity-70 mt-0.5">
@@ -1583,48 +1583,31 @@ export function PhaseTargetsEditor({
                       </div>
                     </div>
                     
-                    {/* Workout Configuration */}
-                    <div className="mt-3 space-y-3">
+                    {/* Workout Configuration - Prominent Section */}
+                    <div className="mt-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs font-medium flex items-center gap-1">
-                          <Dumbbell className="h-3 w-3" /> Workout
-                        </Label>
-                        {selectedDayConfig.isWorkoutDay ? (
+                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                          <Dumbbell className="h-4 w-4 text-green-600" />
+                          Workout
+                        </h4>
+                        {selectedDayConfig.isWorkoutDay && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                             onClick={() => updateDayConfig(selectedDay, { workouts: [] })}
                           >
-                            <Trash2 className="h-3 w-3 mr-1" />
+                            <Trash2 className="h-3.5 w-3.5 mr-1" />
                             Remove
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
-                            onClick={() => updateDayConfig(selectedDay, {
-                              workouts: [{
-                                enabled: true,
-                                type: 'Resistance Training' as WorkoutType,
-                                timeSlot: 'evening' as WorkoutTimeSlot,
-                                duration: 60,
-                                intensity: 'Medium' as const,
-                              }]
-                            })}
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Add Workout
                           </Button>
                         )}
                       </div>
                       
-                      {selectedDayConfig.isWorkoutDay && selectedDayConfig.workouts.length > 0 && (
-                        <div className="p-3 rounded-lg bg-green-50 border border-green-200 space-y-3">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-[10px] text-green-700">Type</Label>
+                      {selectedDayConfig.isWorkoutDay && selectedDayConfig.workouts.length > 0 ? (
+                        <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 space-y-4">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-medium text-green-700">Type</Label>
                               <Select
                                 value={selectedDayConfig.workouts[0]?.type || 'Resistance Training'}
                                 onValueChange={(v) => {
@@ -1633,18 +1616,18 @@ export function PhaseTargetsEditor({
                                   updateDayConfig(selectedDay, { workouts: updatedWorkouts });
                                 }}
                               >
-                                <SelectTrigger className="h-7 text-xs bg-white">
+                                <SelectTrigger className="h-9 text-sm bg-white border-green-200">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4}>
+                                <SelectContent position="popper" sideOffset={4} align="start">
                                   {WORKOUT_TYPES.map(type => (
-                                    <SelectItem key={type} value={type} className="text-xs">{type}</SelectItem>
+                                    <SelectItem key={type} value={type} className="text-sm">{type}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                             </div>
-                            <div className="space-y-1">
-                              <Label className="text-[10px] text-green-700">Time</Label>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-medium text-green-700">Time Slot</Label>
                               <Select
                                 value={selectedDayConfig.workouts[0]?.timeSlot || 'evening'}
                                 onValueChange={(v) => {
@@ -1653,20 +1636,20 @@ export function PhaseTargetsEditor({
                                   updateDayConfig(selectedDay, { workouts: updatedWorkouts });
                                 }}
                               >
-                                <SelectTrigger className="h-7 text-xs bg-white">
+                                <SelectTrigger className="h-9 text-sm bg-white border-green-200">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4}>
+                                <SelectContent position="popper" sideOffset={4} align="start">
                                   {WORKOUT_TIME_SLOTS.map(slot => (
-                                    <SelectItem key={slot.value} value={slot.value} className="text-xs">{slot.label}</SelectItem>
+                                    <SelectItem key={slot.value} value={slot.value} className="text-sm">{slot.label}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-[10px] text-green-700">Duration (min)</Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-medium text-green-700">Duration (min)</Label>
                               <Input
                                 type="number"
                                 value={selectedDayConfig.workouts[0]?.duration || 60}
@@ -1675,11 +1658,11 @@ export function PhaseTargetsEditor({
                                   updatedWorkouts[0] = { ...updatedWorkouts[0], duration: Number(e.target.value) };
                                   updateDayConfig(selectedDay, { workouts: updatedWorkouts });
                                 }}
-                                className="h-7 text-xs bg-white"
+                                className="h-9 text-sm bg-white border-green-200"
                               />
                             </div>
-                            <div className="space-y-1">
-                              <Label className="text-[10px] text-green-700">Intensity</Label>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-medium text-green-700">Intensity</Label>
                               <Select
                                 value={selectedDayConfig.workouts[0]?.intensity || 'Medium'}
                                 onValueChange={(v) => {
@@ -1688,71 +1671,89 @@ export function PhaseTargetsEditor({
                                   updateDayConfig(selectedDay, { workouts: updatedWorkouts });
                                 }}
                               >
-                                <SelectTrigger className="h-7 text-xs bg-white">
+                                <SelectTrigger className="h-9 text-sm bg-white border-green-200">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4}>
+                                <SelectContent position="popper" sideOffset={4} align="start">
                                   {WORKOUT_INTENSITIES.map(i => (
-                                    <SelectItem key={i} value={i} className="text-xs">{i}</SelectItem>
+                                    <SelectItem key={i} value={i} className="text-sm">{i}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                             </div>
                           </div>
-                          <div className="pt-2 border-t border-green-200 flex items-center justify-between">
-                            <span className="text-[10px] text-green-600">
-                              {userProfile.metabolicAssessment?.hasZoneData ? 'Zone-based' : 'Estimated'} Calories:
-                            </span>
-                            <span className="text-sm font-bold text-green-700">
+                          <div className="pt-3 border-t border-green-200 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Flame className="h-4 w-4 text-green-600" />
+                              <span className="text-xs text-green-700">
+                                {userProfile.metabolicAssessment?.hasZoneData ? 'Zone-based' : 'Estimated'} Burn:
+                              </span>
+                            </div>
+                            <span className="text-lg font-bold text-green-700">
                               {selectedDayConfig.workoutCalories} kcal
                             </span>
                           </div>
                         </div>
-                      )}
-                      
-                      {!selectedDayConfig.isWorkoutDay && (
-                        <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 text-center">
-                          <Coffee className="h-5 w-5 mx-auto text-gray-400 mb-1" />
-                          <p className="text-xs text-gray-500">Rest Day - No workout scheduled</p>
-                          <p className="text-[10px] text-gray-400 mt-1">Click &quot;Add Workout&quot; to schedule one</p>
-                        </div>
+                      ) : (
+                        <button
+                          onClick={() => updateDayConfig(selectedDay, {
+                            workouts: [{
+                              enabled: true,
+                              type: 'Resistance Training' as WorkoutType,
+                              timeSlot: 'evening' as WorkoutTimeSlot,
+                              duration: 60,
+                              intensity: 'Medium' as const,
+                            }]
+                          })}
+                          className="w-full p-4 rounded-xl border-2 border-dashed border-green-300 bg-green-50/50 hover:bg-green-100 hover:border-green-400 transition-all group"
+                        >
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="p-2 rounded-full bg-green-100 group-hover:bg-green-200 transition-colors">
+                              <Plus className="h-5 w-5 text-green-600" />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-semibold text-green-700">Add Workout</p>
+                              <p className="text-xs text-green-600 mt-0.5">Convert this to a training day</p>
+                            </div>
+                          </div>
+                        </button>
                       )}
                     </div>
                   </div>
 
                   {/* Meal Structure */}
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-medium flex items-center gap-2">
-                      <Utensils className="h-4 w-4" />
+                  <div className="space-y-3 mt-4">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      <Utensils className="h-4 w-4 text-[#c19962]" />
                       Meal Structure
                     </h4>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Meals</Label>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">Meals</Label>
                         <Select
                           value={String(selectedDayConfig.mealCount)}
                           onValueChange={(v) => updateDayConfig(selectedDay, { mealCount: Number(v) })}
                         >
-                          <SelectTrigger className="h-8">
+                          <SelectTrigger className="h-9">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent position="popper" sideOffset={4}>
+                          <SelectContent position="popper" sideOffset={4} align="start">
                             {[2, 3, 4, 5, 6].map(n => (
                               <SelectItem key={n} value={String(n)}>{n} meals</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Snacks</Label>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">Snacks</Label>
                         <Select
                           value={String(selectedDayConfig.snackCount)}
                           onValueChange={(v) => updateDayConfig(selectedDay, { snackCount: Number(v) })}
                         >
-                          <SelectTrigger className="h-8">
+                          <SelectTrigger className="h-9">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent position="popper" sideOffset={4}>
+                          <SelectContent position="popper" sideOffset={4} align="start">
                             {[0, 1, 2, 3, 4].map(n => (
                               <SelectItem key={n} value={String(n)}>{n} snacks</SelectItem>
                             ))}
@@ -1761,10 +1762,192 @@ export function PhaseTargetsEditor({
                       </div>
                     </div>
 
+                    {/* Meal Contexts - Editable */}
+                    <div className="p-3 rounded-lg bg-[#c19962]/5 border border-[#c19962]/20 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ChefHat className="h-4 w-4 text-[#c19962]" />
+                          <span className="text-sm font-medium text-[#c19962]">Meal Contexts</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {weeklySchedule[selectedDay]?.mealContexts && weeklySchedule[selectedDay].mealContexts.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-[#c19962] hover:text-[#a88347] hover:bg-[#c19962]/10"
+                              onClick={() => {
+                                // Load from profile defaults for this day
+                                updateDayConfig(selectedDay, { 
+                                  mealContexts: weeklySchedule[selectedDay]?.mealContexts || [] 
+                                });
+                              }}
+                            >
+                              <RefreshCw className="h-3 w-3 mr-1" />
+                              Load from Profile
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-[#c19962] hover:text-[#a88347] hover:bg-[#c19962]/10"
+                            onClick={() => {
+                              const newContext: MealContext = {
+                                id: `ctx-${Date.now()}`,
+                                type: 'meal',
+                                label: selectedDayConfig.mealContexts?.length 
+                                  ? `Meal ${selectedDayConfig.mealContexts.filter(c => c.type === 'meal').length + 1}`
+                                  : 'Breakfast',
+                                prepMethod: 'cook',
+                                prepTime: '15-30min',
+                                location: 'home',
+                                timeRange: '',
+                                isRoutine: true,
+                              };
+                              updateDayConfig(selectedDay, { 
+                                mealContexts: [...(selectedDayConfig.mealContexts || []), newContext] 
+                              });
+                            }}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {selectedDayConfig.mealContexts && selectedDayConfig.mealContexts.length > 0 ? (
+                        <div className="space-y-2">
+                          {selectedDayConfig.mealContexts.map((ctx, idx) => (
+                            <div key={ctx.id || idx} className="p-2.5 rounded-lg bg-white border border-[#c19962]/20 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Select
+                                    value={ctx.type}
+                                    onValueChange={(v) => {
+                                      const updated = [...selectedDayConfig.mealContexts];
+                                      updated[idx] = { ...updated[idx], type: v as 'meal' | 'snack' };
+                                      updateDayConfig(selectedDay, { mealContexts: updated });
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-7 w-[90px] text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent align="start">
+                                      <SelectItem value="meal" className="text-xs">Meal</SelectItem>
+                                      <SelectItem value="snack" className="text-xs">Snack</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Input
+                                    value={ctx.label}
+                                    onChange={(e) => {
+                                      const updated = [...selectedDayConfig.mealContexts];
+                                      updated[idx] = { ...updated[idx], label: e.target.value };
+                                      updateDayConfig(selectedDay, { mealContexts: updated });
+                                    }}
+                                    placeholder="Label (e.g., Breakfast)"
+                                    className="h-7 w-[120px] text-xs"
+                                  />
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                  onClick={() => {
+                                    const updated = selectedDayConfig.mealContexts.filter((_, i) => i !== idx);
+                                    updateDayConfig(selectedDay, { mealContexts: updated });
+                                  }}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] text-muted-foreground">Prep</Label>
+                                  <Select
+                                    value={ctx.prepMethod}
+                                    onValueChange={(v) => {
+                                      const updated = [...selectedDayConfig.mealContexts];
+                                      updated[idx] = { ...updated[idx], prepMethod: v as MealContext['prepMethod'] };
+                                      updateDayConfig(selectedDay, { mealContexts: updated });
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-7 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent align="start">
+                                      <SelectItem value="cook" className="text-xs">Cook</SelectItem>
+                                      <SelectItem value="leftovers" className="text-xs">Leftovers</SelectItem>
+                                      <SelectItem value="pickup" className="text-xs">Pickup</SelectItem>
+                                      <SelectItem value="delivery" className="text-xs">Delivery</SelectItem>
+                                      <SelectItem value="skip" className="text-xs">Skip</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] text-muted-foreground">Location</Label>
+                                  <Select
+                                    value={ctx.location}
+                                    onValueChange={(v) => {
+                                      const updated = [...selectedDayConfig.mealContexts];
+                                      updated[idx] = { ...updated[idx], location: v as MealContext['location'] };
+                                      updateDayConfig(selectedDay, { mealContexts: updated });
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-7 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent align="start">
+                                      <SelectItem value="home" className="text-xs">Home</SelectItem>
+                                      <SelectItem value="office" className="text-xs">Office</SelectItem>
+                                      <SelectItem value="on_the_go" className="text-xs">On-the-go</SelectItem>
+                                      <SelectItem value="restaurant" className="text-xs">Restaurant</SelectItem>
+                                      <SelectItem value="gym" className="text-xs">Gym</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] text-muted-foreground">Time</Label>
+                                  <Select
+                                    value={ctx.prepTime}
+                                    onValueChange={(v) => {
+                                      const updated = [...selectedDayConfig.mealContexts];
+                                      updated[idx] = { ...updated[idx], prepTime: v };
+                                      updateDayConfig(selectedDay, { mealContexts: updated });
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-7 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent align="start">
+                                      <SelectItem value="<5min" className="text-xs">&lt;5 min</SelectItem>
+                                      <SelectItem value="5-15min" className="text-xs">5-15 min</SelectItem>
+                                      <SelectItem value="15-30min" className="text-xs">15-30 min</SelectItem>
+                                      <SelectItem value="30+min" className="text-xs">30+ min</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-3">
+                          <p className="text-xs text-muted-foreground mb-2">
+                            No meal contexts configured for this day
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Click &quot;Add&quot; to create contexts or &quot;Load from Profile&quot; to use your defaults
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Nutrient Timing */}
                     {selectedDayConfig.isWorkoutDay && (
-                      <div className="space-y-2 mt-3">
-                        <Label className="text-xs font-medium">Nutrient Timing</Label>
+                      <div className="space-y-2 mt-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                        <Label className="text-xs font-medium text-blue-700 flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5" />
+                          Nutrient Timing
+                        </Label>
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <Checkbox
@@ -1775,7 +1958,7 @@ export function PhaseTargetsEditor({
                               }
                             />
                             <Label htmlFor={`pre-${selectedDay}`} className="text-xs">
-                              Include pre-workout meal/snack
+                              Pre-workout meal/snack
                             </Label>
                           </div>
                           <div className="flex items-center gap-2">
@@ -1787,7 +1970,7 @@ export function PhaseTargetsEditor({
                               }
                             />
                             <Label htmlFor={`post-${selectedDay}`} className="text-xs">
-                              Include post-workout meal
+                              Post-workout recovery meal
                             </Label>
                           </div>
                         </div>
@@ -1914,43 +2097,94 @@ export function PhaseTargetsEditor({
         </TabsContent>
       </Tabs>
 
-      {/* Action Footer */}
-      <Card className="border-2 border-[#c19962]/30">
-        <CardContent className="py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {targetsConfirmed ? (
-                <Badge className="bg-green-600 px-3 py-1">
-                  <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-                  Targets & Settings Confirmed
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-muted-foreground px-3 py-1">
-                  Review and confirm to proceed
-                </Badge>
-              )}
-              {weeklyAverages && (
-                <span className="text-sm text-muted-foreground">
-                  Weekly: {weeklyAverages.weeklyTotalCals.toLocaleString()} kcal
-                </span>
-              )}
+      {/* Action Footer - Two-step flow: Confirm then Generate */}
+      <Card className={cn(
+        "border-2 transition-all",
+        targetsConfirmed 
+          ? "border-green-500/50 bg-green-50/30" 
+          : "border-amber-500/50 bg-amber-50/30"
+      )}>
+        <CardContent className="py-5 px-6">
+          {!targetsConfirmed ? (
+            /* STEP 1: Confirm Targets - Prominent CTA */
+            <div className="space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-amber-100 shrink-0">
+                  <Target className="h-6 w-6 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-amber-800">Confirm Your Nutrition Targets</h3>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Review the targets above, then confirm to enable meal plan generation.
+                    {weeklyAverages && (
+                      <span className="font-medium"> Weekly total: {weeklyAverages.weeklyTotalCals.toLocaleString()} kcal</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Button 
+                  size="lg"
+                  onClick={handleConfirmTargets}
+                  className="flex-1 h-12 text-base font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-200"
+                >
+                  <CheckCircle2 className="h-5 w-5 mr-2" />
+                  Confirm Nutrition Targets
+                </Button>
+                <Button 
+                  size="lg"
+                  onClick={onNavigateToMealPlan}
+                  variant="outline"
+                  className="h-12 opacity-50"
+                  disabled
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate Meal Plan
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={handleConfirmTargets}>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                {targetsConfirmed ? 'Update Settings' : 'Confirm Targets'}
-              </Button>
-              <Button 
-                onClick={onNavigateToMealPlan}
-                className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
-                disabled={!targetsConfirmed}
-              >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Generate Meal Plan
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
+          ) : (
+            /* STEP 2: Confirmed - Now can generate */
+            <div className="space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-green-100 shrink-0">
+                  <CheckCircle2 className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-green-800">Targets Confirmed</h3>
+                  <p className="text-sm text-green-700 mt-1">
+                    Ready to generate your personalized meal plan.
+                    {weeklyAverages && (
+                      <span className="font-medium"> Weekly: {weeklyAverages.weeklyTotalCals.toLocaleString()} kcal • {Math.round(weeklyAverages.avgProtein)}g protein/day</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="outline"
+                  size="lg"
+                  onClick={handleConfirmTargets}
+                  className="h-12"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Update Targets
+                </Button>
+                <Button 
+                  size="lg"
+                  onClick={onNavigateToMealPlan}
+                  className="flex-1 h-12 text-base font-semibold bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d] shadow-lg shadow-[#c19962]/30"
+                >
+                  <Sparkles className="h-5 w-5 mr-2" />
+                  Generate Meal Plan
+                  <ArrowRight className="h-5 w-5 ml-2" />
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 

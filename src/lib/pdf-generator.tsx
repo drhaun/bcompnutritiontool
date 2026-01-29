@@ -217,10 +217,12 @@ const styles = StyleSheet.create({
   
   // Meal card styles
   mealCard: {
-    marginBottom: 12,
-    padding: 10,
-    backgroundColor: COLORS.lightGray,
-    borderRadius: 6,
+    marginBottom: 14,
+    padding: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     borderLeftWidth: 4,
     borderLeftColor: COLORS.darkGold,
   },
@@ -228,36 +230,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
   mealName: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 'bold',
     color: COLORS.darkBlue,
   },
   mealTime: {
     fontSize: 9,
     color: COLORS.gray,
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   mealMacros: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white,
-    padding: 6,
-    borderRadius: 4,
-    marginBottom: 6,
+    backgroundColor: '#f8fafc',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 4,
+    gap: 4,
   },
   macroItem: {
     flex: 1,
     alignItems: 'center',
+    backgroundColor: '#ffffff',
+    padding: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   macroValue: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 'bold',
     color: COLORS.darkBlue,
   },
   macroLabel: {
     fontSize: 7,
     color: COLORS.gray,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   mealRationale: {
     backgroundColor: '#ecfdf5',
@@ -273,53 +290,72 @@ const styles = StyleSheet.create({
   
   // Ingredients list
   ingredientsList: {
-    marginTop: 6,
+    marginTop: 8,
+    backgroundColor: '#fafafa',
+    padding: 8,
+    borderRadius: 4,
   },
   ingredientsTitle: {
     fontSize: 9,
     fontWeight: 'bold',
     color: COLORS.navy,
-    marginBottom: 3,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   ingredientItem: {
     flexDirection: 'row',
-    marginBottom: 2,
+    marginBottom: 3,
+    paddingBottom: 2,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#e5e7eb',
   },
   ingredientBullet: {
-    width: 8,
-    fontSize: 8,
+    width: 10,
+    fontSize: 9,
     color: COLORS.darkGold,
+    fontWeight: 'bold',
   },
   ingredientText: {
     flex: 1,
-    fontSize: 8,
+    fontSize: 9,
     color: COLORS.darkBlue,
+    lineHeight: 1.3,
   },
   
   // Instructions
   instructionsList: {
-    marginTop: 6,
+    marginTop: 8,
+    backgroundColor: '#f0fdf4',
+    padding: 8,
+    borderRadius: 4,
+    borderLeftWidth: 3,
+    borderLeftColor: '#22c55e',
   },
   instructionsTitle: {
     fontSize: 9,
     fontWeight: 'bold',
     color: COLORS.navy,
-    marginBottom: 3,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   instructionItem: {
     flexDirection: 'row',
-    marginBottom: 2,
+    marginBottom: 4,
+    alignItems: 'flex-start',
   },
   instructionNumber: {
-    width: 12,
-    fontSize: 8,
-    color: COLORS.darkGold,
+    width: 16,
+    fontSize: 9,
+    color: '#15803d',
     fontWeight: 'bold',
   },
   instructionText: {
     flex: 1,
-    fontSize: 8,
+    fontSize: 9,
     color: COLORS.darkBlue,
+    lineHeight: 1.4,
   },
   
   // Tag/badge styles
@@ -510,6 +546,39 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
         <MacroBox label="Fat" value={meal.totalMacros.fat} unit="g" />
       </View>
       
+      {/* Target comparison - shows if meal is on target */}
+      {meal.targetMacros && (
+        <View style={{ 
+          flexDirection: 'row', 
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: 6,
+          paddingTop: 2,
+        }}>
+          {Math.abs(meal.totalMacros.calories - meal.targetMacros.calories) <= meal.targetMacros.calories * 0.05 &&
+           Math.abs(meal.totalMacros.protein - meal.targetMacros.protein) <= 5 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={{ fontSize: 7, color: '#15803d' }}>✓ On target</Text>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ fontSize: 7, color: COLORS.gray }}>
+                Target: {meal.targetMacros.calories} cal • {meal.targetMacros.protein}g P
+              </Text>
+              {meal.totalMacros.calories > meal.targetMacros.calories ? (
+                <Text style={{ fontSize: 7, color: '#dc2626' }}>
+                  ({meal.totalMacros.calories - meal.targetMacros.calories > 0 ? '+' : ''}{meal.totalMacros.calories - meal.targetMacros.calories} cal)
+                </Text>
+              ) : (
+                <Text style={{ fontSize: 7, color: '#2563eb' }}>
+                  ({meal.totalMacros.calories - meal.targetMacros.calories} cal)
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
+      )}
+      
       {/* AI Rationale */}
       {(meal.aiRationale || context) && (
         <View style={styles.mealRationale}>
@@ -517,8 +586,32 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
         </View>
       )}
       
-      {/* Staff/Coach Note */}
-      {meal.staffNote && (
+      {/* Implementation Tips - for dialing in macros */}
+      {meal.staffNote && meal.staffNote.includes('needed:') && (
+        <View style={{
+          backgroundColor: '#fef3c7',
+          padding: 10,
+          borderRadius: 4,
+          marginBottom: 6,
+          borderLeftWidth: 3,
+          borderLeftColor: '#d97706',
+        }}>
+          <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#92400e', marginBottom: 4 }}>
+            ⚡ How to Hit Your Targets:
+          </Text>
+          {meal.staffNote.split('\n').filter(Boolean).map((tip, idx) => (
+            <View key={idx} style={{ flexDirection: 'row', marginBottom: 2, paddingLeft: 4 }}>
+              <Text style={{ fontSize: 8, color: '#92400e', marginRight: 4 }}>→</Text>
+              <Text style={{ fontSize: 8, color: '#78350f', flex: 1 }}>
+                {tip}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+      
+      {/* Staff/Coach Note (if not implementation tips) */}
+      {meal.staffNote && !meal.staffNote.includes('needed:') && (
         <View style={{
           backgroundColor: '#dbeafe',
           padding: 8,
@@ -528,7 +621,7 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
           borderLeftColor: '#2563eb',
         }}>
           <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#1e40af', marginBottom: 2 }}>
-            Coach Note:
+            📝 Coach Note:
           </Text>
           <Text style={{ fontSize: 8, color: '#1e40af' }}>
             {meal.staffNote}

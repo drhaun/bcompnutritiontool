@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,15 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  TooltipProvider,
 } from '@/components/ui/tooltip';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Loader2, 
   ChefHat, 
@@ -33,10 +42,27 @@ import {
   Plus,
   ExternalLink,
   Zap,
-  Utensils
+  Utensils,
+  Filter,
+  X,
+  ArrowUpDown,
+  Lightbulb,
+  Target,
+  Salad,
+  Flame
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import type { MealSlot, Meal, Macros, DietPreferences } from '@/types';
+
+// Filter & Sort types
+type SortOption = 'match' | 'calories_asc' | 'calories_desc' | 'protein_desc' | 'prep_time';
+type FilterFlags = {
+  highProtein: boolean;
+  quickPrep: boolean;
+  mealPrepFriendly: boolean;
+  lowCarb: boolean;
+};
 
 interface ScaledRecipe {
   id: string;
@@ -99,15 +125,28 @@ export function RecipeRecommendations({
 }: RecipeRecommendationsProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [recipes, setRecipes] = useState<ScaledRecipe[]>([]);
+  const [allRecipes, setAllRecipes] = useState<ScaledRecipe[]>([]); // Full library
   const [selectedRecipe, setSelectedRecipe] = useState<ScaledRecipe | null>(null);
   const [customServings, setCustomServings] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [showAllRecipes, setShowAllRecipes] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>('match');
+  const [filters, setFilters] = useState<FilterFlags>({
+    highProtein: false,
+    quickPrep: false,
+    mealPrepFriendly: false,
+    lowCarb: false,
+  });
+  
+  const hasActiveFilters = Object.values(filters).some(Boolean) || searchQuery.length > 0;
 
   // Fetch recommendations when dialog opens
   const fetchRecommendations = useCallback(async () => {
     setIsLoading(true);
     
     try {
+      // Fetch targeted recommendations
       const response = await fetch('/api/recipes/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,7 +161,7 @@ export function RecipeRecommendations({
           },
           dietPreferences,
           excludeRecipes,
-          limit: 10,
+          limit: 30, // Get more recipes for browsing
         }),
       });
 
@@ -130,6 +169,7 @@ export function RecipeRecommendations({
 
       const data = await response.json();
       setRecipes(data.recipes || []);
+      setAllRecipes(data.recipes || []); // Store full set
     } catch (error) {
       console.error('Recipe recommendation error:', error);
       toast.error('Failed to load recipe recommendations');
@@ -141,6 +181,12 @@ export function RecipeRecommendations({
   useEffect(() => {
     if (isOpen) {
       fetchRecommendations();
+      // Reset filters when opening
+      setFilters({ highProtein: false, quickPrep: false, mealPrepFriendly: false, lowCarb: false });
+      setSearchQuery('');
+      setSortBy('match');
+      setShowAllRecipes(false);
+      setSelectedRecipe(null);
     }
   }, [isOpen, fetchRecommendations]);
 
@@ -174,6 +220,10 @@ export function RecipeRecommendations({
       category: categorizeIngredient(ing.item),
     }));
 
+    // Get adjustment tips for the PDF
+    const adjustmentTips = getAdjustmentTips(selectedRecipe, customServings);
+    const implementationNotes = adjustmentTips.filter(t => !t.startsWith('✓')).join('\n');
+
     // Convert recipe to Meal format
     const meal: Meal = {
       name: selectedRecipe.name,
@@ -186,11 +236,14 @@ export function RecipeRecommendations({
       totalMacros: customScaledMacros,
       targetMacros: slot.targetMacros,
       workoutRelation: slot.workoutRelation || 'none',
-      staffNote: '',
+      staffNote: implementationNotes || '',
       aiRationale: selectedRecipe.matchReasons.join('. '),
       source: 'recipe',
       isLocked: false,
       lastModified: new Date().toISOString(),
+      // Additional metadata for PDF
+      servings: customServings,
+      originalRecipeName: selectedRecipe.cronometer_name || selectedRecipe.name,
     };
 
     onSelectRecipe(meal);
@@ -215,27 +268,219 @@ export function RecipeRecommendations({
     return 'other';
   };
 
-  // Filter recipes by search
-  const filteredRecipes = searchQuery 
-    ? recipes.filter(r => 
-        r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.tags.some(t => t.includes(searchQuery.toLowerCase()))
-      )
-    : recipes;
+  // Filter and sort recipes
+  const filteredRecipes = useMemo(() => {
+    let result = [...(showAllRecipes ? allRecipes : recipes)];
+    
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(r => 
+        r.name.toLowerCase().includes(query) ||
+        r.tags.some(t => t.toLowerCase().includes(query)) ||
+        r.category.toLowerCase().includes(query) ||
+        r.ingredients.some(i => i.item.toLowerCase().includes(query))
+      );
+    }
+    
+    // Apply attribute filters
+    if (filters.highProtein) {
+      result = result.filter(r => r.is_high_protein);
+    }
+    if (filters.quickPrep) {
+      result = result.filter(r => r.is_quick_prep);
+    }
+    if (filters.mealPrepFriendly) {
+      result = result.filter(r => r.is_meal_prep_friendly);
+    }
+    if (filters.lowCarb) {
+      result = result.filter(r => r.is_low_carb);
+    }
+    
+    // Apply sorting
+    switch (sortBy) {
+      case 'match':
+        result.sort((a, b) => b.matchScore - a.matchScore);
+        break;
+      case 'calories_asc':
+        result.sort((a, b) => a.scaled.calories - b.scaled.calories);
+        break;
+      case 'calories_desc':
+        result.sort((a, b) => b.scaled.calories - a.scaled.calories);
+        break;
+      case 'protein_desc':
+        result.sort((a, b) => b.scaled.protein - a.scaled.protein);
+        break;
+      case 'prep_time':
+        // Quick prep recipes first
+        result.sort((a, b) => (b.is_quick_prep ? 1 : 0) - (a.is_quick_prep ? 1 : 0));
+        break;
+    }
+    
+    return result;
+  }, [recipes, allRecipes, showAllRecipes, searchQuery, filters, sortBy]);
+  
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({ highProtein: false, quickPrep: false, mealPrepFriendly: false, lowCarb: false });
+    setSearchQuery('');
+    setSortBy('match');
+    setShowAllRecipes(false);
+  };
+  
+  // Generate adjustment tips based on variance
+  const getAdjustmentTips = (recipe: ScaledRecipe, servings: number): string[] => {
+    const tips: string[] = [];
+    const scaled = {
+      calories: Math.round(recipe.original.calories * servings),
+      protein: Math.round(recipe.original.protein * servings),
+      carbs: Math.round(recipe.original.carbs * servings),
+      fat: Math.round(recipe.original.fat * servings),
+    };
+    
+    const proteinDiff = slot.targetMacros.protein - scaled.protein;
+    const carbsDiff = slot.targetMacros.carbs - scaled.carbs;
+    const fatDiff = slot.targetMacros.fat - scaled.fat;
+    const calorieDiff = slot.targetMacros.calories - scaled.calories;
+    
+    // Protein tips
+    if (proteinDiff > 10) {
+      tips.push(`+${proteinDiff}g protein needed: Add ${Math.round(proteinDiff / 7)}oz chicken/fish, or ${Math.round(proteinDiff / 6)}oz Greek yogurt, or 1 scoop protein powder`);
+    } else if (proteinDiff < -10) {
+      tips.push(`${Math.abs(proteinDiff)}g protein over target: Reduce portion size slightly or choose a leaner protein source`);
+    }
+    
+    // Carb tips
+    if (carbsDiff > 15) {
+      tips.push(`+${carbsDiff}g carbs needed: Add ${Math.round(carbsDiff / 30)}cup rice/oats, or 1 medium fruit, or ${Math.round(carbsDiff / 15)}oz bread`);
+    } else if (carbsDiff < -15) {
+      tips.push(`${Math.abs(carbsDiff)}g carbs over target: Reduce starchy ingredients or swap for vegetables`);
+    }
+    
+    // Fat tips
+    if (fatDiff > 8) {
+      tips.push(`+${fatDiff}g fat needed: Add ${Math.round(fatDiff / 14)}tbsp olive oil/nut butter, or ¼ avocado`);
+    } else if (fatDiff < -8) {
+      tips.push(`${Math.abs(fatDiff)}g fat over target: Use cooking spray instead of oil, or choose leaner cuts`);
+    }
+    
+    // Calorie balance tip
+    if (Math.abs(calorieDiff) <= 30 && tips.length === 0) {
+      tips.push('✓ Great fit! This recipe is well-balanced for your targets');
+    }
+    
+    return tips;
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ChefHat className="h-5 w-5 text-[#c19962]" />
-            Recipe Recommendations for {slot.label}
-          </DialogTitle>
-          <DialogDescription>
-            Curated recipes from Nutrition Insiders, automatically scaled to your targets
-          </DialogDescription>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="flex items-center gap-2">
+                <ChefHat className="h-5 w-5 text-[#c19962]" />
+                Recipe Library for {slot.label}
+              </DialogTitle>
+              <DialogDescription>
+                Browse recipes scaled to your targets • {filteredRecipes.length} of {allRecipes.length} recipes
+              </DialogDescription>
+            </div>
+            
+            {/* Sort & Filter Controls */}
+            <div className="flex items-center gap-2">
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+                <SelectTrigger className="w-[140px] h-8 text-xs">
+                  <ArrowUpDown className="h-3 w-3 mr-1" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="match">Best Match</SelectItem>
+                  <SelectItem value="protein_desc">Highest Protein</SelectItem>
+                  <SelectItem value="calories_asc">Lowest Calories</SelectItem>
+                  <SelectItem value="calories_desc">Highest Calories</SelectItem>
+                  <SelectItem value="prep_time">Quickest Prep</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Button
+                variant={showFilters ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className={cn("h-8", showFilters && "bg-[#c19962] hover:bg-[#e4ac61]")}
+              >
+                <Filter className="h-3 w-3 mr-1" />
+                Filters
+                {hasActiveFilters && (
+                  <span className="ml-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
+                    !
+                  </span>
+                )}
+              </Button>
+              
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs">
+                  <X className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
           
-          {/* Active Filters Display */}
+          {/* Expanded Filter Panel */}
+          {showFilters && (
+            <div className="mt-3 p-3 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-6">
+                <Label className="text-xs font-medium text-muted-foreground">Quick Filters:</Label>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox 
+                      checked={filters.highProtein}
+                      onCheckedChange={(c) => setFilters(f => ({ ...f, highProtein: !!c }))}
+                    />
+                    <Dumbbell className="h-3 w-3 text-purple-600" />
+                    High Protein
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox 
+                      checked={filters.quickPrep}
+                      onCheckedChange={(c) => setFilters(f => ({ ...f, quickPrep: !!c }))}
+                    />
+                    <Clock className="h-3 w-3 text-blue-600" />
+                    Quick Prep
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox 
+                      checked={filters.mealPrepFriendly}
+                      onCheckedChange={(c) => setFilters(f => ({ ...f, mealPrepFriendly: !!c }))}
+                    />
+                    <Utensils className="h-3 w-3 text-green-600" />
+                    Meal Prep
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox 
+                      checked={filters.lowCarb}
+                      onCheckedChange={(c) => setFilters(f => ({ ...f, lowCarb: !!c }))}
+                    />
+                    <Salad className="h-3 w-3 text-orange-600" />
+                    Low Carb
+                  </label>
+                </div>
+                
+                <Separator orientation="vertical" className="h-6" />
+                
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <Checkbox 
+                    checked={showAllRecipes}
+                    onCheckedChange={(c) => setShowAllRecipes(!!c)}
+                  />
+                  Show All (ignore calorie variance)
+                </label>
+              </div>
+            </div>
+          )}
+          
+          {/* Active Diet Preferences Display */}
           {dietPreferences && (
             (dietPreferences.allergies?.length || 0) > 0 ||
             (dietPreferences.foodsToAvoid?.length || 0) > 0 ||
@@ -525,6 +770,51 @@ export function RecipeRecommendations({
                       </ul>
                     </div>
                   )}
+                  
+                  {/* Adjustment Tips - How to dial in the macros */}
+                  {(() => {
+                    const tips = getAdjustmentTips(selectedRecipe, customServings);
+                    if (tips.length === 0) return null;
+                    
+                    const isGoodFit = tips[0]?.startsWith('✓');
+                    
+                    return (
+                      <div className={cn(
+                        "p-3 rounded-lg border",
+                        isGoodFit 
+                          ? "bg-emerald-50 border-emerald-200" 
+                          : "bg-amber-50 border-amber-200"
+                      )}>
+                        <h4 className={cn(
+                          "font-medium text-sm mb-2 flex items-center gap-2",
+                          isGoodFit ? "text-emerald-800" : "text-amber-800"
+                        )}>
+                          <Lightbulb className="h-4 w-4" />
+                          {isGoodFit ? 'Macro Match' : 'Tips to Hit Your Targets'}
+                        </h4>
+                        <ul className={cn(
+                          "text-xs space-y-1.5",
+                          isGoodFit ? "text-emerald-700" : "text-amber-700"
+                        )}>
+                          {tips.map((tip, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              {isGoodFit ? (
+                                <Check className="h-3 w-3 mt-0.5 shrink-0" />
+                              ) : (
+                                <Target className="h-3 w-3 mt-0.5 shrink-0" />
+                              )}
+                              <span>{tip}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {!isGoodFit && (
+                          <p className="text-[10px] text-amber-600 mt-2 italic">
+                            These adjustments will be noted in your PDF for easy implementation
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </ScrollArea>
             ) : (

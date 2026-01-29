@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { useFitomicsStore } from '@/lib/store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 import { 
   CheckCircle2, 
   Circle, 
@@ -12,13 +14,18 @@ import {
   Utensils, 
   Calendar, 
   Calculator,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { calculateBodyComposition, lbsToKg, heightToCm } from '@/lib/nutrition-calc';
+import { cn } from '@/lib/utils';
 
 interface ProgressSummaryProps {
   currentStep?: number;
   showCompact?: boolean;
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
 }
 
 const STEPS = [
@@ -27,7 +34,8 @@ const STEPS = [
   { id: 3, name: 'Meal Plan', icon: Target },
 ];
 
-export function ProgressSummary({ currentStep = 1, showCompact = false }: ProgressSummaryProps) {
+export function ProgressSummary({ currentStep = 1, showCompact = false, collapsible = false, defaultExpanded = false }: ProgressSummaryProps) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const { userProfile, bodyCompGoals, dietPreferences, weeklySchedule, nutritionTargets } = useFitomicsStore();
 
   // Calculate completion status
@@ -78,6 +86,7 @@ export function ProgressSummary({ currentStep = 1, showCompact = false }: Progre
     (day) => day?.workouts && day.workouts.length > 0
   ).length;
 
+  // Compact inline view
   if (showCompact) {
     return (
       <Card className="border-[#c19962]/30">
@@ -113,6 +122,134 @@ export function ProgressSummary({ currentStep = 1, showCompact = false }: Progre
     );
   }
 
+  // Collapsible banner mode - horizontal layout below progress steps
+  if (collapsible) {
+    return (
+      <div className="border rounded-lg bg-gradient-to-r from-background to-[#c19962]/5 border-[#c19962]/20">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#c19962]/5 transition-colors"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-[#c19962]" />
+              <span className="font-medium text-sm">Progress Summary</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {STEPS.map((step, index) => {
+                const isComplete = index < completedSteps;
+                const isCurrent = step.id === currentStep;
+                return (
+                  <div key={step.id} className="flex items-center gap-1">
+                    <div className={cn(
+                      "h-2 w-2 rounded-full",
+                      isComplete ? "bg-green-500" : isCurrent ? "bg-[#c19962]" : "bg-muted"
+                    )} />
+                    {index < STEPS.length - 1 && (
+                      <div className={cn(
+                        "h-0.5 w-4",
+                        isComplete ? "bg-green-500/50" : "bg-muted"
+                      )} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-[#c19962] border-[#c19962]">
+              {completedSteps}/3 complete
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <span className="text-xs">{isExpanded ? 'Hide details' : 'Show details'}</span>
+            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </div>
+        </button>
+        
+        {isExpanded && (
+          <div className="border-t border-[#c19962]/10 px-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Personal Info */}
+              {hasProfile && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5 text-[#c19962]" />
+                    <span className="text-xs font-medium">Personal</span>
+                    <CheckCircle2 className="h-3 w-3 text-green-500 ml-auto" />
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    <p className="font-medium text-foreground">{userProfile.name}</p>
+                    <p>{userProfile.heightFt}'{userProfile.heightIn}" • {userProfile.weightLbs} lbs</p>
+                    {bodyComp && (
+                      <p className="text-[10px]">FMI: {bodyComp.fmi.toFixed(1)} • FFMI: {bodyComp.ffmi.toFixed(1)}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Goals */}
+              {hasGoals && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Target className="h-3.5 w-3.5 text-[#c19962]" />
+                    <span className="text-xs font-medium">Goals</span>
+                    <CheckCircle2 className="h-3 w-3 text-green-500 ml-auto" />
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    <p className="font-medium text-foreground">{formatGoalType(bodyCompGoals.goalType)}</p>
+                    <p>{Math.round(bodyCompGoals.targetWeightLbs || 0)} lbs target</p>
+                    {bodyCompGoals.timelineWeeks && <p>{bodyCompGoals.timelineWeeks} weeks</p>}
+                  </div>
+                </div>
+              )}
+              
+              {/* Preferences */}
+              {hasPreferences && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Utensils className="h-3.5 w-3.5 text-[#c19962]" />
+                    <span className="text-xs font-medium">Diet</span>
+                    <CheckCircle2 className="h-3 w-3 text-green-500 ml-auto" />
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    {dietPreferences.preferredProteins?.length && (
+                      <p>{dietPreferences.preferredProteins.length} proteins</p>
+                    )}
+                    {dietPreferences.dietaryRestrictions?.length ? (
+                      <p>{dietPreferences.dietaryRestrictions.length} restrictions</p>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+              
+              {/* Targets */}
+              {hasTargets && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Calculator className="h-3.5 w-3.5 text-[#c19962]" />
+                    <span className="text-xs font-medium">Targets</span>
+                    <CheckCircle2 className="h-3 w-3 text-green-500 ml-auto" />
+                  </div>
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    <p>{Math.round(nutritionTargets.reduce((sum, t) => sum + t.targetCalories, 0) / nutritionTargets.length)} cal avg</p>
+                    <p>{Math.round(nutritionTargets.reduce((sum, t) => sum + t.protein, 0) / nutritionTargets.length)}g protein</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Show placeholder if nothing configured yet */}
+              {!hasProfile && !hasGoals && !hasPreferences && !hasTargets && (
+                <div className="col-span-full text-center py-2 text-xs text-muted-foreground">
+                  Complete the profile to see your progress summary
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Default sidebar card view
   return (
     <Card className="border-[#c19962]/30 bg-gradient-to-br from-background to-[#c19962]/5">
       <CardHeader className="pb-2 pt-4 px-4">

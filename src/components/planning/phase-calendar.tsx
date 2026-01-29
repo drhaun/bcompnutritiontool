@@ -78,6 +78,45 @@ const GOAL_LABELS: Record<GoalType, string> = {
   other: 'Custom',
 };
 
+// Phase categories for calendar organization
+type PhaseCategory = 'body_comp' | 'performance' | 'health' | 'other';
+
+const PHASE_CATEGORIES: { id: PhaseCategory; label: string; goals: GoalType[]; color: string; icon: React.ReactNode }[] = [
+  { 
+    id: 'body_comp', 
+    label: 'Body Composition', 
+    goals: ['fat_loss', 'muscle_gain', 'recomposition'],
+    color: 'bg-gradient-to-r from-orange-500/10 via-blue-500/10 to-purple-500/10',
+    icon: <Scale className="h-3 w-3" />
+  },
+  { 
+    id: 'performance', 
+    label: 'Performance', 
+    goals: ['performance'],
+    color: 'bg-emerald-500/10',
+    icon: <Zap className="h-3 w-3" />
+  },
+  { 
+    id: 'health', 
+    label: 'Health', 
+    goals: ['health'],
+    color: 'bg-rose-500/10',
+    icon: <Heart className="h-3 w-3" />
+  },
+  { 
+    id: 'other', 
+    label: 'Other', 
+    goals: ['other'],
+    color: 'bg-slate-500/10',
+    icon: <Target className="h-3 w-3" />
+  },
+];
+
+const getPhaseCategory = (goalType: GoalType): PhaseCategory => {
+  const category = PHASE_CATEGORIES.find(cat => cat.goals.includes(goalType));
+  return category?.id || 'other';
+};
+
 const EVENT_COLORS: Record<string, string> = {
   lab_test: 'bg-cyan-400',
   competition: 'bg-yellow-400',
@@ -143,12 +182,13 @@ export function PhaseCalendar({
     };
   }, [year, viewLevel, focusedQuarter, focusedMonth]);
   
-  // Calculate phase positions based on current view
-  const phasePositions = useMemo(() => {
+  // Calculate phase positions by category with track assignment for overlapping phases within each category
+  const { phasesByCategory, totalHeight } = useMemo(() => {
     const { start: rangeStart, end: rangeEnd } = dateRange;
     const totalDays = (rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24) + 1;
     
-    return phases
+    // First, filter and calculate basic positions for all phases
+    const phasesInRange = phases
       .filter(phase => {
         const phaseStart = new Date(phase.startDate);
         const phaseEnd = new Date(phase.endDate);
@@ -178,6 +218,9 @@ export function PhaseCalendar({
         
         return {
           phase,
+          category: getPhaseCategory(phase.goalType),
+          leftPercent: left,
+          widthPercent: width,
           left: `${left}%`,
           width: `${Math.max(width, 2)}%`,
           durationDays,
@@ -186,8 +229,98 @@ export function PhaseCalendar({
           clippedEnd,
           startFormatted: phaseStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           endFormatted: phaseEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          startTime: phaseStart.getTime(),
+          endTime: phaseEnd.getTime(),
+          track: 0,
+          categoryTrack: 0, // Track within the category
         };
-      });
+      })
+      .sort((a, b) => a.startTime - b.startTime);
+    
+    // Group phases by category
+    const categorizedPhases: Record<PhaseCategory, typeof phasesInRange> = {
+      body_comp: [],
+      performance: [],
+      health: [],
+      other: [],
+    };
+    
+    for (const phasePos of phasesInRange) {
+      categorizedPhases[phasePos.category].push(phasePos);
+    }
+    
+    // Assign tracks within each category (for overlapping phases in same category)
+    const categoryTrackCounts: Record<PhaseCategory, number> = {
+      body_comp: 0,
+      performance: 0,
+      health: 0,
+      other: 0,
+    };
+    
+    for (const category of Object.keys(categorizedPhases) as PhaseCategory[]) {
+      const categoryPhases = categorizedPhases[category];
+      if (categoryPhases.length === 0) continue;
+      
+      const tracks: { endTime: number }[] = [];
+      
+      for (const phasePos of categoryPhases) {
+        // Find first available track within this category
+        let assignedTrack = -1;
+        for (let t = 0; t < tracks.length; t++) {
+          if (tracks[t].endTime <= phasePos.startTime) {
+            assignedTrack = t;
+            break;
+          }
+        }
+        
+        if (assignedTrack === -1) {
+          assignedTrack = tracks.length;
+          tracks.push({ endTime: phasePos.endTime });
+        } else {
+          tracks[assignedTrack].endTime = phasePos.endTime;
+        }
+        
+        phasePos.categoryTrack = assignedTrack;
+      }
+      
+      categoryTrackCounts[category] = Math.max(tracks.length, 0);
+    }
+    
+    // Build category sections with their phases
+    const result: {
+      category: typeof PHASE_CATEGORIES[number];
+      phases: typeof phasesInRange;
+      trackCount: number;
+      startY: number;
+    }[] = [];
+    
+    let currentY = 0;
+    const trackHeight = 44;
+    const trackGap = 4;
+    const categoryLabelHeight = 28;
+    const categoryPadding = 8;
+    
+    for (const category of PHASE_CATEGORIES) {
+      const categoryPhases = categorizedPhases[category.id];
+      const trackCount = categoryTrackCounts[category.id];
+      
+      // Only include categories that have phases
+      if (categoryPhases.length > 0) {
+        result.push({
+          category,
+          phases: categoryPhases,
+          trackCount,
+          startY: currentY,
+        });
+        
+        currentY += categoryLabelHeight + (trackCount * (trackHeight + trackGap)) + categoryPadding;
+      }
+    }
+    
+    return {
+      phasesByCategory: result,
+      totalHeight: Math.max(currentY, 80),
+    };
   }, [phases, dateRange]);
   
   // Calculate event positions
@@ -462,8 +595,11 @@ export function PhaseCalendar({
           </div>
         )}
         
-        {/* Main Timeline */}
-        <div className="relative h-32 px-2 py-4">
+        {/* Main Timeline - Category Rows */}
+        <div 
+          className="relative"
+          style={{ minHeight: `${Math.max(totalHeight, 80)}px` }}
+        >
           {/* Vertical Grid Lines */}
           <div className="absolute inset-0 flex pointer-events-none">
             {timeMarkers.map((_, i) => (
@@ -474,137 +610,186 @@ export function PhaseCalendar({
             ))}
           </div>
           
-          {/* Phase Tracks */}
-          <div className="relative h-full">
-            {phasePositions.map(({ phase, left, width, durationWeeks, clippedStart, clippedEnd, startFormatted, endFormatted }) => {
-              const colors = GOAL_COLORS[phase.goalType];
-              const isHovered = hoveredPhase === phase.id;
-              const isActive = phase.id === activePhaseId;
-              const isSelected = selectedPhaseForDetail?.id === phase.id;
+          {/* Category Rows */}
+          {phasesByCategory.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground text-sm">
+              No phases in this time range
+            </div>
+          ) : (
+            phasesByCategory.map(({ category, phases: categoryPhases, trackCount: catTrackCount, startY }) => {
+              const trackHeight = 44;
+              const trackGap = 4;
+              const categoryLabelHeight = 28;
               
               return (
-                <div
-                  key={phase.id}
-                  className={cn(
-                    "absolute top-2 bottom-2 rounded-lg cursor-pointer",
-                    "transition-all duration-300 ease-out",
-                    colors.gradient,
-                    colors.border,
-                    "border shadow-lg",
-                    isHovered && `scale-[1.02] shadow-xl ${colors.glow}`,
-                    isActive && "ring-2 ring-[#c19962] ring-offset-2 ring-offset-background",
-                    isSelected && "ring-2 ring-white/50",
-                    phase.status === 'completed' && "opacity-60",
-                    clippedStart && "rounded-l-none border-l-0",
-                    clippedEnd && "rounded-r-none border-r-0"
-                  )}
-                  style={{ left, width, zIndex: isHovered || isSelected ? 20 : 10 }}
-                  onClick={() => handlePhaseClick(phase)}
-                  onMouseEnter={() => setHoveredPhase(phase.id)}
-                  onMouseLeave={() => setHoveredPhase(null)}
+                <div 
+                  key={category.id}
+                  className="relative"
+                  style={{ marginTop: startY === 0 ? 0 : undefined }}
                 >
-                  {/* Phase Content */}
-                  <div className="h-full flex flex-col justify-center px-3 overflow-hidden">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-white/90">{colors.icon}</span>
-                      <span className="text-xs text-white font-semibold truncate">
-                        {phase.name}
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-white/70 font-medium mt-0.5">
-                      {durationWeeks}w • {startFormatted} - {endFormatted}
-                    </div>
+                  {/* Category Label Row */}
+                  <div 
+                    className={cn(
+                      "flex items-center gap-2 px-3 border-b border-border/20",
+                      category.color
+                    )}
+                    style={{ height: `${categoryLabelHeight}px` }}
+                  >
+                    <span className="text-muted-foreground">{category.icon}</span>
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                      {category.label}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/60">
+                      ({categoryPhases.length} phase{categoryPhases.length !== 1 ? 's' : ''})
+                    </span>
                   </div>
                   
-                  {/* Clip indicators */}
-                  {clippedStart && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-r from-black/30 to-transparent" />
-                  )}
-                  {clippedEnd && (
-                    <div className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-l from-black/30 to-transparent" />
-                  )}
-                </div>
-              );
-            })}
-            
-            {/* Event Markers */}
-            {eventPositions.map((event) => (
-              <div
-                key={event.id}
-                className="absolute top-0 bottom-0 z-30 group cursor-pointer"
-                style={{ left: event.left }}
-              >
-                {/* Vertical line spanning full height */}
-                <div className="absolute inset-y-0 -translate-x-1/2 w-0.5 bg-amber-400/60 group-hover:bg-amber-500 transition-colors" />
-                
-                {/* Top marker dot */}
-                <div 
-                  className={cn(
-                    "absolute top-1 -translate-x-1/2 w-4 h-4 rounded-full",
-                    "border-2 border-white shadow-lg",
-                    "transition-all group-hover:scale-125 group-hover:shadow-xl",
-                    EVENT_COLORS[event.type] || 'bg-gray-400'
-                  )}
-                />
-                
-                {/* Bottom marker triangle */}
-                <div 
-                  className={cn(
-                    "absolute bottom-1 -translate-x-1/2 w-0 h-0",
-                    "border-l-[6px] border-l-transparent",
-                    "border-r-[6px] border-r-transparent",
-                    "border-t-[8px]",
-                    event.type === 'lab_test' ? 'border-t-cyan-400' :
-                    event.type === 'competition' ? 'border-t-yellow-400' :
-                    event.type === 'travel' ? 'border-t-sky-400' :
-                    event.type === 'vacation' ? 'border-t-teal-400' :
-                    event.type === 'milestone' ? 'border-t-amber-400' : 'border-t-gray-400'
-                  )}
-                />
-                
-                {/* Tooltip - shows on hover */}
-                <div className="absolute top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
-                  <div className="bg-popover border rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
-                    <div className="text-xs font-semibold">{event.name}</div>
-                    <div className="text-[10px] text-muted-foreground">{event.dateFormatted}</div>
+                  {/* Phase Tracks within this category */}
+                  <div 
+                    className="relative px-2"
+                    style={{ height: `${catTrackCount * (trackHeight + trackGap) + 8}px` }}
+                  >
+                    {categoryPhases.map(({ phase, left, width, durationWeeks, clippedStart, clippedEnd, startFormatted, endFormatted, categoryTrack }) => {
+                      const colors = GOAL_COLORS[phase.goalType];
+                      const isHovered = hoveredPhase === phase.id;
+                      const isActive = phase.id === activePhaseId;
+                      const isSelected = selectedPhaseForDetail?.id === phase.id;
+                      
+                      const topOffset = 4 + categoryTrack * (trackHeight + trackGap);
+                      
+                      return (
+                        <div
+                          key={phase.id}
+                          className={cn(
+                            "absolute rounded-lg cursor-pointer",
+                            "transition-all duration-300 ease-out",
+                            colors.gradient,
+                            colors.border,
+                            "border shadow-lg",
+                            isHovered && `scale-[1.02] shadow-xl ${colors.glow}`,
+                            isActive && "ring-2 ring-[#c19962] ring-offset-2 ring-offset-background",
+                            isSelected && "ring-2 ring-white/50",
+                            phase.status === 'completed' && "opacity-60",
+                            clippedStart && "rounded-l-none border-l-0",
+                            clippedEnd && "rounded-r-none border-r-0"
+                          )}
+                          style={{ 
+                            left, 
+                            width, 
+                            top: `${topOffset}px`,
+                            height: `${trackHeight}px`,
+                            zIndex: isHovered || isSelected ? 20 : 10 
+                          }}
+                          onClick={() => handlePhaseClick(phase)}
+                          onMouseEnter={() => setHoveredPhase(phase.id)}
+                          onMouseLeave={() => setHoveredPhase(null)}
+                        >
+                          {/* Phase Content */}
+                          <div className="h-full flex flex-col justify-center px-3 overflow-hidden">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-white/90">{colors.icon}</span>
+                              <span className="text-xs text-white font-semibold truncate">
+                                {phase.name}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-white/70 font-medium mt-0.5">
+                              {durationWeeks}w • {startFormatted} - {endFormatted}
+                            </div>
+                          </div>
+                          
+                          {/* Clip indicators */}
+                          {clippedStart && (
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-r from-black/30 to-transparent" />
+                          )}
+                          {clippedEnd && (
+                            <div className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-l from-black/30 to-transparent" />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                
-                {/* Delete button on hover */}
-                {onEventDelete && (
-                  <button
-                    className="absolute top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-50"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEventDelete(event.id);
-                    }}
-                  >
-                    <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg mt-10">
-                      <X className="h-3 w-3 text-white" />
-                    </div>
-                  </button>
-                )}
-              </div>
-            ))}
-            
-            {/* Today Marker */}
-            {todayPosition !== null && (
+              );
+            })
+          )}
+          
+          {/* Event Markers */}
+          {eventPositions.map((event) => (
+            <div
+              key={event.id}
+              className="absolute top-0 bottom-0 z-30 group cursor-pointer"
+              style={{ left: event.left }}
+            >
+              {/* Vertical line spanning full height */}
+              <div className="absolute inset-y-0 -translate-x-1/2 w-0.5 bg-amber-400/60 group-hover:bg-amber-500 transition-colors" />
+              
+              {/* Top marker dot */}
               <div 
-                className="absolute top-0 bottom-0 z-40 pointer-events-none"
-                style={{ left: `${todayPosition}%` }}
-              >
-                <div className="absolute inset-y-0 -translate-x-1/2 w-0.5 bg-gradient-to-b from-[#c19962] via-[#c19962] to-transparent" />
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2">
-                  <div className="w-3 h-3 rounded-full bg-[#c19962] border-2 border-background shadow-lg animate-pulse" />
-                </div>
-                <div className="absolute -bottom-5 left-1/2 -translate-x-1/2">
-                  <Badge variant="outline" className="text-[8px] px-1.5 py-0 h-4 bg-[#c19962]/10 border-[#c19962]/30 text-[#c19962] font-bold">
-                    TODAY
-                  </Badge>
+                className={cn(
+                  "absolute top-1 -translate-x-1/2 w-4 h-4 rounded-full",
+                  "border-2 border-white shadow-lg",
+                  "transition-all group-hover:scale-125 group-hover:shadow-xl",
+                  EVENT_COLORS[event.type] || 'bg-gray-400'
+                )}
+              />
+              
+              {/* Bottom marker triangle */}
+              <div 
+                className={cn(
+                  "absolute bottom-1 -translate-x-1/2 w-0 h-0",
+                  "border-l-[6px] border-l-transparent",
+                  "border-r-[6px] border-r-transparent",
+                  "border-t-[8px]",
+                  event.type === 'lab_test' ? 'border-t-cyan-400' :
+                  event.type === 'competition' ? 'border-t-yellow-400' :
+                  event.type === 'travel' ? 'border-t-sky-400' :
+                  event.type === 'vacation' ? 'border-t-teal-400' :
+                  event.type === 'milestone' ? 'border-t-amber-400' : 'border-t-gray-400'
+                )}
+              />
+              
+              {/* Tooltip - shows on hover */}
+              <div className="absolute top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
+                <div className="bg-popover border rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
+                  <div className="text-xs font-semibold">{event.name}</div>
+                  <div className="text-[10px] text-muted-foreground">{event.dateFormatted}</div>
                 </div>
               </div>
-            )}
-          </div>
+              
+              {/* Delete button on hover */}
+              {onEventDelete && (
+                <button
+                  className="absolute top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-50"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEventDelete(event.id);
+                  }}
+                >
+                  <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg mt-10">
+                    <X className="h-3 w-3 text-white" />
+                  </div>
+                </button>
+              )}
+            </div>
+          ))}
+          
+          {/* Today Marker */}
+          {todayPosition !== null && (
+            <div 
+              className="absolute top-0 bottom-0 z-40 pointer-events-none"
+              style={{ left: `${todayPosition}%` }}
+            >
+              <div className="absolute inset-y-0 -translate-x-1/2 w-0.5 bg-gradient-to-b from-[#c19962] via-[#c19962] to-transparent" />
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2">
+                <div className="w-3 h-3 rounded-full bg-[#c19962] border-2 border-background shadow-lg animate-pulse" />
+              </div>
+              <div className="absolute -bottom-5 left-1/2 -translate-x-1/2">
+                <Badge variant="outline" className="text-[8px] px-1.5 py-0 h-4 bg-[#c19962]/10 border-[#c19962]/30 text-[#c19962] font-bold">
+                  TODAY
+                </Badge>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Phase Detail Panel (when selected) */}
@@ -662,32 +847,40 @@ export function PhaseCalendar({
       </div>
       
       {/* Footer Stats */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <div className="flex gap-4">
-          <span className="font-mono">
-            {phasePositions.length} phase{phasePositions.length !== 1 ? 's' : ''} visible
-          </span>
-          {phasePositions.length > 0 && (
-            <span className="font-mono">
-              {phasePositions.reduce((acc, p) => acc + p.durationWeeks, 0)} weeks planned
-            </span>
-          )}
-        </div>
-        <div className="flex gap-4">
-          {eventPositions.length > 0 && (
-            <span className="flex items-center gap-1">
-              <Flag className="h-3 w-3" />
-              {eventPositions.length} event{eventPositions.length !== 1 ? 's' : ''}
-            </span>
-          )}
-          <span className="text-muted-foreground/60">
-            Click to zoom • Hover for details
-          </span>
-        </div>
-      </div>
+      {(() => {
+        const totalPhases = phasesByCategory.reduce((acc, cat) => acc + cat.phases.length, 0);
+        const totalWeeks = phasesByCategory.reduce((acc, cat) => 
+          acc + cat.phases.reduce((sum, p) => sum + p.durationWeeks, 0), 0
+        );
+        return (
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-2 py-2">
+            <div className="flex gap-4">
+              <span className="font-mono">
+                {totalPhases} phase{totalPhases !== 1 ? 's' : ''} visible
+              </span>
+              {totalPhases > 0 && (
+                <span className="font-mono">
+                  {totalWeeks} weeks planned
+                </span>
+              )}
+            </div>
+            <div className="flex gap-4">
+              {eventPositions.length > 0 && (
+                <span className="flex items-center gap-1">
+                  <Flag className="h-3 w-3" />
+                  {eventPositions.length} event{eventPositions.length !== 1 ? 's' : ''}
+                </span>
+              )}
+              <span className="text-muted-foreground/60">
+                Click to zoom • Hover for details
+              </span>
+            </div>
+          </div>
+        );
+      })()}
       
       {/* Empty State */}
-      {phasePositions.length === 0 && eventPositions.length === 0 && (
+      {phasesByCategory.length === 0 && eventPositions.length === 0 && (
         <div className="text-center py-4 text-sm text-muted-foreground">
           No phases or events scheduled for this period
         </div>

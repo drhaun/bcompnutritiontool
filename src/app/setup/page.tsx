@@ -83,6 +83,8 @@ import type {
   MealContext
 } from '@/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { getDefaultZoneCalories, getActivityMultiplier } from '@/lib/nutrition-calc';
+import type { ActivityLevel } from '@/types';
 
 // ============ TYPES ============
 
@@ -511,9 +513,27 @@ export default function SetupPage() {
         setStartDate(bodyCompGoals.startDate);
       }
       
-      // Addresses
+      // Addresses - map from ClientAddress format
       if (userProfile.addresses && userProfile.addresses.length > 0) {
-        setAddresses(userProfile.addresses);
+        setAddresses(userProfile.addresses.map(a => ({
+          label: a.label || '',
+          street: a.address || '',
+          city: a.city || '',
+          state: a.state || '',
+          zipCode: a.zipCode || '',
+          isDefault: a.isDefault,
+        })));
+      }
+      
+      // Metabolic assessment - zone data and activity level
+      if (userProfile.metabolicAssessment?.hasZoneData) {
+        setHasZoneData(true);
+        if (userProfile.metabolicAssessment.zoneCaloriesPerMin) {
+          setZoneCalories(userProfile.metabolicAssessment.zoneCaloriesPerMin);
+        }
+      }
+      if (userProfile.activityLevel) {
+        setActivityLevel(userProfile.activityLevel);
       }
       
       // Diet preferences
@@ -606,6 +626,19 @@ export default function SetupPage() {
   const [defaultTimeSlot, setDefaultTimeSlot] = useState<WorkoutTimeSlot>('evening');
   const [defaultDuration, setDefaultDuration] = useState(60);
   const [defaultIntensity, setDefaultIntensity] = useState<'Low' | 'Medium' | 'High'>('High');
+  
+  // Zone-based calorie data (from Active Metabolic Rate testing)
+  const [hasZoneData, setHasZoneData] = useState(false);
+  const [zoneCalories, setZoneCalories] = useState({
+    zone1: 4.0,  // Recovery/Easy
+    zone2: 7.0,  // Aerobic/Base
+    zone3: 10.0, // Tempo
+    zone4: 13.0, // Threshold
+    zone5: 16.0, // VO2max
+  });
+  
+  // Activity level for NEAT calculation
+  const [activityLevel, setActivityLevel] = useState<ActivityLevel>('Light Active (5-10k steps/day)');
 
   // ============ MEAL DEFAULTS STATE ============
   const [mealsPerDay, setMealsPerDay] = useState(3);
@@ -641,7 +674,14 @@ export default function SetupPage() {
   const [flexibleOnWeekends, setFlexibleOnWeekends] = useState(false);
   
   // Addresses for location-based features
-  const [addresses, setAddresses] = useState<Array<{ label: string; address: string; isDefault?: boolean }>>([]);
+  const [addresses, setAddresses] = useState<Array<{ 
+    label: string; 
+    street: string; 
+    city: string;
+    state: string;
+    zipCode: string;
+    isDefault?: boolean;
+  }>>([]);
   
   // Advanced preferences
   const [spiceLevel, setSpiceLevel] = useState(2);
@@ -768,12 +808,16 @@ export default function SetupPage() {
     return 0;
   }, [useMeasuredRMR, measuredRMR, useAverageRMR, averageRMR, calculatedRMRs]);
 
-  // NEAT estimate (will be refined in Schedule step)
+  // NEAT estimate based on activity level
+  // NEAT = RMR × (Activity Multiplier - 1)
+  // This provides a more accurate estimate than a flat percentage
   const estimatedNEAT = useMemo(() => {
-    // Base NEAT typically 15-30% of TDEE
-    // Using conservative 20% estimate
-    return Math.round(finalRMR * 0.2);
-  }, [finalRMR]);
+    const multiplier = getActivityMultiplier(activityLevel);
+    // NEAT is the difference between total non-exercise activity and RMR
+    // For a 1.25 multiplier: NEAT = RMR × 0.25 = 25% of RMR
+    // This is conservative compared to traditional estimates
+    return Math.round(finalRMR * (multiplier - 1));
+  }, [finalRMR, activityLevel]);
 
   // Calculate age from DOB
   useEffect(() => {
@@ -1252,7 +1296,7 @@ export default function SetupPage() {
       return;
     }
     
-    // Save user profile
+    // Save user profile with metabolic assessment
     setUserProfile({
       name: name.trim(),
       gender,
@@ -1264,7 +1308,30 @@ export default function SetupPage() {
       weightKg,
       bodyFatPercentage: bodyFatPercent,
       workoutsPerWeek,
-      addresses: addresses.filter(a => a.address.trim()),
+      activityLevel,
+      rmr: finalRMR,
+      metabolicAssessment: {
+        useMeasuredRMR,
+        measuredRMR: useMeasuredRMR ? measuredRMR : undefined,
+        selectedRMREquations: selectedEquations,
+        useAverageRMR,
+        calculatedRMR: finalRMR,
+        useMeasuredBF,
+        measuredBFPercent: useMeasuredBF ? measuredBFPercent : undefined,
+        estimatedBFPercent: !useMeasuredBF ? estimatedBFPercent : undefined,
+        hasZoneData,
+        zoneCaloriesPerMin: hasZoneData ? zoneCalories : undefined,
+      },
+      addresses: addresses
+        .filter(a => a.street.trim() || a.city.trim() || a.zipCode.trim())
+        .map(a => ({
+          label: a.label,
+          address: a.street,
+          city: a.city,
+          state: a.state,
+          zipCode: a.zipCode,
+          isDefault: a.isDefault,
+        })),
     });
     
     // Save body comp goals (round all values for clean display)
@@ -1357,8 +1424,13 @@ export default function SetupPage() {
     <TooltipProvider delayDuration={100} skipDelayDuration={0}>
       <div className="min-h-screen bg-background">
         <div className="container py-8">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             <ProgressSteps currentStep={1} />
+            
+            {/* Collapsible Progress Summary */}
+            <div className="mb-6">
+              <ProgressSummary currentStep={1} collapsible defaultExpanded={false} />
+            </div>
             
             <div className="mb-8 text-center">
               <h1 className="text-3xl font-bold mb-2">Client Profile</h1>
@@ -1367,271 +1439,296 @@ export default function SetupPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Main Content */}
-              <div className="lg:col-span-2 space-y-6">
+            {/* Main Content - Full Width */}
+            <div className="space-y-6">
                 <Tabs defaultValue="basics" className="w-full">
-                  <TabsList className="grid w-full grid-cols-5 mb-6">
-                    <TabsTrigger value="basics" className="flex items-center gap-1.5 text-xs">
-                      <User className="h-3.5 w-3.5" />
+                  <TabsList className="grid w-full grid-cols-5 mb-8 h-12 p-1">
+                    <TabsTrigger value="basics" className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-[#c19962] data-[state=active]:text-[#00263d]">
+                      <User className="h-4 w-4" />
                       <span className="hidden sm:inline">Basics</span>
                     </TabsTrigger>
-                    <TabsTrigger value="lifestyle" className="flex items-center gap-1.5 text-xs">
-                      <Activity className="h-3.5 w-3.5" />
+                    <TabsTrigger value="lifestyle" className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-[#c19962] data-[state=active]:text-[#00263d]">
+                      <Activity className="h-4 w-4" />
                       <span className="hidden sm:inline">Lifestyle</span>
                     </TabsTrigger>
-                    <TabsTrigger value="meals" className="flex items-center gap-1.5 text-xs">
-                      <Utensils className="h-3.5 w-3.5" />
+                    <TabsTrigger value="meals" className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-[#c19962] data-[state=active]:text-[#00263d]">
+                      <Utensils className="h-4 w-4" />
                       <span className="hidden sm:inline">Meals</span>
                     </TabsTrigger>
-                    <TabsTrigger value="preferences" className="flex items-center gap-1.5 text-xs">
-                      <Heart className="h-3.5 w-3.5" />
+                    <TabsTrigger value="preferences" className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-[#c19962] data-[state=active]:text-[#00263d]">
+                      <Heart className="h-4 w-4" />
                       <span className="hidden sm:inline">Preferences</span>
                     </TabsTrigger>
-                    <TabsTrigger value="advanced" className="flex items-center gap-1.5 text-xs">
-                      <Settings2 className="h-3.5 w-3.5" />
+                    <TabsTrigger value="advanced" className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-[#c19962] data-[state=active]:text-[#00263d]">
+                      <Settings2 className="h-4 w-4" />
                       <span className="hidden sm:inline">Advanced</span>
                     </TabsTrigger>
                   </TabsList>
 
                   {/* Tab 1: Basics */}
-                  <TabsContent value="basics" className="space-y-6">
+                  <TabsContent value="basics" className="space-y-8">
                 
                 {/* Section 1: Basic Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                <Card className="border-0 shadow-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg">
                       <User className="h-5 w-5 text-[#c19962]" />
                       Basic Information
                     </CardTitle>
-                    <CardDescription>Essential client demographics</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    {/* Name */}
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Client Name</Label>
-                      <Input
-                        id="name"
-                        placeholder="Full name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                      />
-                    </div>
-
-                    {/* Gender */}
-                    <div className="space-y-2">
-                      <Label>Gender</Label>
-                      <RadioGroup
-                        value={gender}
-                        onValueChange={(v) => setGender(v as 'Male' | 'Female')}
-                        className="flex gap-4"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Male" id="male" />
-                          <Label htmlFor="male">Male</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Female" id="female" />
-                          <Label htmlFor="female">Female</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-
-                    {/* Age / DOB */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label>Age</Label>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={useDOB}
-                            onCheckedChange={setUseDOB}
-                            id="use-dob"
-                          />
-                          <Label htmlFor="use-dob" className="text-sm text-muted-foreground">
-                            Use date of birth
-                          </Label>
-                        </div>
+                    {/* Name & Gender Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="name" className="text-sm font-medium">Client Name</Label>
+                        <Input
+                          id="name"
+                          placeholder="Full name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          className="h-11"
+                        />
                       </div>
-                      
-                      {useDOB ? (
-                        <div className="flex gap-4 items-end">
-                          <div className="flex-1">
+
+                      {/* Gender */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Gender</Label>
+                        <RadioGroup
+                          value={gender}
+                          onValueChange={(v) => setGender(v as 'Male' | 'Female')}
+                          className="flex gap-4 pt-2"
+                        >
+                          <div className={cn(
+                            "flex items-center space-x-2 px-4 py-2 border rounded-lg cursor-pointer transition-all",
+                            gender === 'Male' ? "border-[#c19962] bg-[#c19962]/10" : "hover:bg-muted/50"
+                          )}>
+                            <RadioGroupItem value="Male" id="male" />
+                            <Label htmlFor="male" className="cursor-pointer">Male</Label>
+                          </div>
+                          <div className={cn(
+                            "flex items-center space-x-2 px-4 py-2 border rounded-lg cursor-pointer transition-all",
+                            gender === 'Female' ? "border-[#c19962] bg-[#c19962]/10" : "hover:bg-muted/50"
+                          )}>
+                            <RadioGroupItem value="Female" id="female" />
+                            <Label htmlFor="female" className="cursor-pointer">Female</Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                    </div>
+
+                    {/* Age, Height, Weight Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* Age */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium">Age</Label>
+                          <div className="flex items-center gap-1.5">
+                            <Switch
+                              checked={useDOB}
+                              onCheckedChange={setUseDOB}
+                              id="use-dob"
+                              className="scale-75"
+                            />
+                            <Label htmlFor="use-dob" className="text-xs text-muted-foreground cursor-pointer">
+                              Use date of birth
+                            </Label>
+                          </div>
+                        </div>
+                        {useDOB ? (
+                          <div className="space-y-1">
                             <Input
                               type="date"
                               value={dob}
                               onChange={(e) => setDob(e.target.value)}
                               max={new Date().toISOString().split('T')[0]}
+                              className="h-11"
                             />
+                            <p className="text-xs text-muted-foreground">= {age} years</p>
                           </div>
-                          <div className="text-sm text-muted-foreground pb-2">
-                            Age: <span className="font-medium">{age} years</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <Input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={age}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === '') {
-                              setAge(0);
-                            } else {
-                              const num = parseInt(val);
-                              if (!isNaN(num) && num >= 0 && num <= 120) {
-                                setAge(num);
+                        ) : (
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={age}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                setAge(0);
+                              } else {
+                                const num = parseInt(val);
+                                if (!isNaN(num) && num >= 0 && num <= 120) {
+                                  setAge(num);
+                                }
                               }
-                            }
-                          }}
-                          onBlur={(e) => {
-                            const num = parseInt(e.target.value);
-                            if (isNaN(num) || num < 18) setAge(18);
-                            else if (num > 100) setAge(100);
-                          }}
-                          placeholder="Age"
-                          className="w-24"
-                        />
-                      )}
-                    </div>
+                            }}
+                            onBlur={(e) => {
+                              const num = parseInt(e.target.value);
+                              if (isNaN(num) || num < 18) setAge(18);
+                              else if (num > 100) setAge(100);
+                            }}
+                            placeholder="Age"
+                            className="h-11"
+                          />
+                        )}
+                      </div>
 
-                    {/* Height */}
-                    <div className="space-y-2">
-                      <Label>Height</Label>
-                      <div className="flex gap-3">
-                        <div className="flex-1">
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={heightFt}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === '') {
-                                setHeightFt(0);
-                              } else {
-                                const num = parseInt(val);
-                                if (!isNaN(num) && num >= 0 && num <= 8) {
-                                  setHeightFt(num);
+                      {/* Height */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Height</Label>
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1">
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={heightFt}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '') {
+                                  setHeightFt(0);
+                                } else {
+                                  const num = parseInt(val);
+                                  if (!isNaN(num) && num >= 0 && num <= 8) {
+                                    setHeightFt(num);
+                                  }
                                 }
-                              }
-                            }}
-                            onBlur={(e) => {
-                              const num = parseInt(e.target.value);
-                              if (isNaN(num) || num < 4) setHeightFt(4);
-                              else if (num > 7) setHeightFt(7);
-                            }}
-                            placeholder="Ft"
-                          />
-                          <span className="text-xs text-muted-foreground">feet</span>
-                        </div>
-                        <div className="flex-1">
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={heightIn}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === '') {
-                                setHeightIn(0);
-                              } else {
-                                const num = parseInt(val);
-                                if (!isNaN(num) && num >= 0 && num <= 11) {
-                                  setHeightIn(num);
+                              }}
+                              onBlur={(e) => {
+                                const num = parseInt(e.target.value);
+                                if (isNaN(num) || num < 4) setHeightFt(4);
+                                else if (num > 7) setHeightFt(7);
+                              }}
+                              placeholder="Ft"
+                              className="h-11"
+                            />
+                            <span className="text-xs text-muted-foreground">feet</span>
+                          </div>
+                          <div className="flex-1">
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={heightIn}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '') {
+                                  setHeightIn(0);
+                                } else {
+                                  const num = parseInt(val);
+                                  if (!isNaN(num) && num >= 0 && num <= 11) {
+                                    setHeightIn(num);
+                                  }
                                 }
-                              }
-                            }}
-                            onBlur={(e) => {
-                              const num = parseInt(e.target.value);
-                              if (isNaN(num) || num < 0) setHeightIn(0);
-                              else if (num > 11) setHeightIn(11);
-                            }}
-                            placeholder="In"
-                          />
-                          <span className="text-xs text-muted-foreground">inches</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground self-center">
-                          = {heightCm.toFixed(1)} cm
+                              }}
+                              onBlur={(e) => {
+                                const num = parseInt(e.target.value);
+                                if (isNaN(num) || num < 0) setHeightIn(0);
+                                else if (num > 11) setHeightIn(11);
+                              }}
+                              placeholder="In"
+                              className="h-11"
+                            />
+                            <span className="text-xs text-muted-foreground">inches</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground pb-1">= {heightCm.toFixed(1)} cm</span>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Weight */}
-                    <div className="space-y-2">
-                      <Label htmlFor="weight">Current Weight</Label>
-                      <div className="flex gap-3 items-center">
-                        <Input
-                          id="weight"
-                          type="text"
-                          inputMode="decimal"
-                          pattern="[0-9]*\.?[0-9]*"
-                          value={weightLbs}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === '' || val === '.') {
-                              setWeightLbs(0);
-                            } else {
-                              const num = parseFloat(val);
-                              if (!isNaN(num) && num >= 0 && num <= 600) {
-                                setWeightLbs(num);
-                              }
-                            }
-                          }}
-                          onBlur={(e) => {
-                            const num = parseFloat(e.target.value);
-                            if (isNaN(num) || num < 50) setWeightLbs(50);
-                            else if (num > 500) setWeightLbs(500);
-                          }}
-                          placeholder="Weight"
-                          className="w-32"
-                        />
-                        <span className="text-sm text-muted-foreground">lbs</span>
-                        <span className="text-sm text-muted-foreground">= {weightKg.toFixed(1)} kg</span>
+                      {/* Weight */}
+                      <div className="space-y-2">
+                        <Label htmlFor="weight" className="text-sm font-medium">Current Weight</Label>
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1">
+                            <Input
+                              id="weight"
+                              type="text"
+                              inputMode="decimal"
+                              pattern="[0-9]*\.?[0-9]*"
+                              value={weightLbs}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || val === '.') {
+                                  setWeightLbs(0);
+                                } else {
+                                  const num = parseFloat(val);
+                                  if (!isNaN(num) && num >= 0 && num <= 600) {
+                                    setWeightLbs(num);
+                                  }
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const num = parseFloat(e.target.value);
+                                if (isNaN(num) || num < 50) setWeightLbs(50);
+                                else if (num > 500) setWeightLbs(500);
+                              }}
+                              placeholder="Weight"
+                              className="h-11"
+                            />
+                            <span className="text-xs text-muted-foreground">lbs</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground pb-1">= {weightKg.toFixed(1)} kg</span>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Section 2: Current Body Composition */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Scale className="h-5 w-5 text-[#c19962]" />
-                      Current Body Composition
-                    </CardTitle>
-                    <CardDescription>
-                      Enter the client&apos;s current measured values if available, or estimate. This serves as the baseline for all planning.
+                <Card className="border-0 shadow-sm">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Scale className="h-5 w-5 text-[#c19962]" />
+                        Body Composition
+                      </CardTitle>
                       {userProfile.bodyFatPercentage && (
-                        <span className="block mt-1 text-xs text-[#c19962]">
-                          Last recorded: {userProfile.bodyFatPercentage}% body fat
-                        </span>
+                        <Badge variant="outline" className="text-xs">
+                          Last: {userProfile.bodyFatPercentage}% BF
+                        </Badge>
                       )}
-                    </CardDescription>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     {/* Body Fat % Toggle */}
-                    <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <div>
-                        <Label className="font-medium">Body Fat Percentage</Label>
-                        <p className="text-sm text-muted-foreground">
-                          {useMeasuredBF ? 'Using measured value (DEXA, BodPod, etc.)' : 'Using estimated value'}
-                        </p>
+                    <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <Label className="font-medium">Body Fat %</Label>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>Measured values from DEXA, BodPod, or hydrostatic weighing are more accurate. Estimates can be used for planning.</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">Estimate</span>
-                        <Switch
-                          checked={useMeasuredBF}
-                          onCheckedChange={setUseMeasuredBF}
-                        />
-                        <span className="text-sm">Measured</span>
+                      <div className="flex items-center gap-2 bg-background rounded-lg p-1">
+                        <button
+                          onClick={() => setUseMeasuredBF(false)}
+                          className={cn(
+                            "px-3 py-1.5 text-sm rounded-md transition-all",
+                            !useMeasuredBF ? "bg-[#c19962] text-[#00263d] font-medium" : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          Estimate
+                        </button>
+                        <button
+                          onClick={() => setUseMeasuredBF(true)}
+                          className={cn(
+                            "px-3 py-1.5 text-sm rounded-md transition-all",
+                            useMeasuredBF ? "bg-[#c19962] text-[#00263d] font-medium" : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          Measured
+                        </button>
                       </div>
                     </div>
 
                     {useMeasuredBF ? (
                       <div className="space-y-2">
-                        <Label>Measured Body Fat %</Label>
-                        <div className="flex items-center gap-4">
+                        <Label className="text-sm font-medium">Measured Body Fat %</Label>
+                        <div className="flex items-center gap-3">
                           <Input
                             type="text"
                             inputMode="decimal"
@@ -1653,27 +1750,33 @@ export default function SetupPage() {
                               if (isNaN(num) || num < 3) setMeasuredBFPercent(3);
                               else if (num > 60) setMeasuredBFPercent(60);
                             }}
-                            className="w-24"
+                            className="w-24 h-11"
                           />
                           <span className="text-sm text-muted-foreground">%</span>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          From DEXA scan, BodPod, hydrostatic weighing, or other validated method
-                        </p>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <Label>Estimated Body Fat %</Label>
-                        <div className="flex items-center gap-4">
-                          <Slider
-                            min={5}
-                            max={50}
-                            step={1}
-                            value={[estimatedBFPercent]}
-                            onValueChange={(v) => setEstimatedBFPercent(v[0])}
-                            className="flex-1"
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={3}
+                            max={60}
+                            step={0.1}
+                            value={estimatedBFPercent}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              if (!isNaN(val)) setEstimatedBFPercent(val);
+                            }}
+                            onBlur={(e) => {
+                              const num = parseFloat(e.target.value);
+                              if (isNaN(num) || num < 3) setEstimatedBFPercent(3);
+                              else if (num > 60) setEstimatedBFPercent(60);
+                            }}
+                            className="w-24"
                           />
-                          <span className="w-16 text-right font-medium">{estimatedBFPercent}%</span>
+                          <span className="text-sm text-muted-foreground">%</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
                           Visual estimate or mirror/photo-based assessment
@@ -1724,44 +1827,60 @@ export default function SetupPage() {
                 </Card>
 
                 {/* Section 3: Current Metabolic Assessment */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Activity className="h-5 w-5 text-[#c19962]" />
-                      Current Metabolic Assessment
-                    </CardTitle>
-                    <CardDescription>
-                      Resting Metabolic Rate (RMR) - foundation for energy expenditure calculations. Update as new measurements become available.
+                <Card className="border-0 shadow-sm">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Activity className="h-5 w-5 text-[#c19962]" />
+                        Metabolic Assessment
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>RMR (Resting Metabolic Rate) is the foundation for all energy expenditure calculations. Measured values are most accurate.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </CardTitle>
                       {userProfile.rmr && (
-                        <span className="block mt-1 text-xs text-[#c19962]">
-                          Last recorded RMR: {userProfile.rmr} kcal/day
-                        </span>
+                        <Badge variant="outline" className="text-xs">
+                          Last: {userProfile.rmr} kcal
+                        </Badge>
                       )}
-                    </CardDescription>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     {/* RMR Toggle */}
-                    <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <div>
-                        <Label className="font-medium">Resting Metabolic Rate (RMR)</Label>
-                        <p className="text-sm text-muted-foreground">
-                          {useMeasuredRMR ? 'Using measured value (indirect calorimetry)' : 'Using equation-based estimate'}
-                        </p>
+                    <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <Label className="font-medium">RMR Source</Label>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">Calculate</span>
-                        <Switch
-                          checked={useMeasuredRMR}
-                          onCheckedChange={setUseMeasuredRMR}
-                        />
-                        <span className="text-sm">Measured</span>
+                      <div className="flex items-center gap-2 bg-background rounded-lg p-1">
+                        <button
+                          onClick={() => setUseMeasuredRMR(false)}
+                          className={cn(
+                            "px-3 py-1.5 text-sm rounded-md transition-all",
+                            !useMeasuredRMR ? "bg-[#c19962] text-[#00263d] font-medium" : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          Calculate
+                        </button>
+                        <button
+                          onClick={() => setUseMeasuredRMR(true)}
+                          className={cn(
+                            "px-3 py-1.5 text-sm rounded-md transition-all",
+                            useMeasuredRMR ? "bg-[#c19962] text-[#00263d] font-medium" : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          Measured
+                        </button>
                       </div>
                     </div>
 
                     {useMeasuredRMR ? (
                       <div className="space-y-2">
-                        <Label>Measured RMR</Label>
-                        <div className="flex items-center gap-4">
+                        <Label className="text-sm font-medium">Measured RMR</Label>
+                        <div className="flex items-center gap-3">
                           <Input
                             type="text"
                             inputMode="numeric"
@@ -1783,13 +1902,10 @@ export default function SetupPage() {
                               if (isNaN(num) || num < 800) setMeasuredRMR(800);
                               else if (num > 4000) setMeasuredRMR(4000);
                             }}
-                            className="w-32"
+                            className="w-32 h-11"
                           />
                           <span className="text-sm text-muted-foreground">kcal/day</span>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          From indirect calorimetry or metabolic testing
-                        </p>
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -1884,11 +2000,11 @@ export default function SetupPage() {
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>Daily movement outside of exercise. Refined in Schedule step based on activity level.</p>
+                                <p>Non-Exercise Activity Thermogenesis. Based on activity level selection in Lifestyle tab.</p>
                               </TooltipContent>
                             </Tooltip>
                           </div>
-                          <span>~{estimatedNEAT} kcal <span className="text-xs">(estimated)</span></span>
+                          <span>~{estimatedNEAT} kcal <span className="text-xs">({activityLevel.split(' ')[0]})</span></span>
                         </div>
                         
                         <div className="flex items-center justify-between text-muted-foreground">
@@ -1942,15 +2058,12 @@ export default function SetupPage() {
                 </Card>
 
                 {/* Section 4: Client Notes & Context */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                <Card className="border-0 shadow-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg">
                       <FileText className="h-5 w-5 text-[#c19962]" />
-                      Client Notes & Context
+                      Client Notes
                     </CardTitle>
-                    <CardDescription>
-                      Persistent information about the client. Goals, health considerations, and notes that inform all phases.
-                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1959,13 +2072,21 @@ export default function SetupPage() {
                         <div className="flex items-center gap-2">
                           <Stethoscope className="h-4 w-4 text-[#c19962]" />
                           <Label htmlFor="health-goals" className="text-sm font-medium">Health Considerations</Label>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>Blood pressure, cholesterol, A1C, energy, sleep, digestion, injuries, conditions</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                         <Textarea
                           id="health-goals"
-                          placeholder="Blood pressure, cholesterol, A1C, energy levels, sleep quality, digestive health, injuries, medical conditions..."
+                          placeholder="Medical conditions, medications, health markers..."
                           value={healthGoals}
                           onChange={(e) => setHealthGoals(e.target.value)}
-                          rows={3}
+                          rows={2}
                           className="text-sm resize-none"
                         />
                       </div>
@@ -1975,13 +2096,21 @@ export default function SetupPage() {
                         <div className="flex items-center gap-2">
                           <Trophy className="h-4 w-4 text-[#c19962]" />
                           <Label htmlFor="performance-goals" className="text-sm font-medium">Long-term Goals</Label>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>Strength PRs, competition dates, sport targets, lifestyle aspirations</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                         <Textarea
                           id="performance-goals"
-                          placeholder="Strength PRs, endurance goals, competition dates, sport-specific targets, lifestyle aspirations..."
+                          placeholder="Competitions, strength goals, endurance targets..."
                           value={performanceGoals}
                           onChange={(e) => setPerformanceGoals(e.target.value)}
-                          rows={3}
+                          rows={2}
                           className="text-sm resize-none"
                         />
                       </div>
@@ -1992,13 +2121,21 @@ export default function SetupPage() {
                       <div className="flex items-center gap-2">
                         <Brain className="h-4 w-4 text-[#c19962]" />
                         <Label htmlFor="notes" className="text-sm font-medium">Coach Notes</Label>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>Diet history, training response, psychology, travel, stress, what works/doesn&apos;t work</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                       <Textarea
                         id="notes"
-                        placeholder="Previous diet history, response to training, psychological factors, travel schedule, work stress, family considerations, what has/hasn't worked before..."
+                        placeholder="Diet history, preferences, what has worked before..."
                         value={additionalNotes}
                         onChange={(e) => setAdditionalNotes(e.target.value)}
-                        rows={3}
+                        rows={2}
                         className="text-sm resize-none"
                       />
                     </div>
@@ -2015,8 +2152,8 @@ export default function SetupPage() {
                         </div>
                         
                         {addresses.map((addr, index) => (
-                          <div key={index} className="flex items-start gap-3 p-3 border rounded-lg bg-muted/30">
-                            <div className="flex-1 space-y-2">
+                          <div key={index} className="p-3 border rounded-lg bg-muted/30 space-y-3">
+                            <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Input
                                   placeholder="Label (e.g., Home, Work)"
@@ -2026,33 +2163,69 @@ export default function SetupPage() {
                                     newAddresses[index].label = e.target.value;
                                     setAddresses(newAddresses);
                                   }}
-                                  className="w-28 h-7 text-xs"
+                                  className="w-32 h-7 text-xs"
                                 />
                                 {addr.isDefault && (
                                   <Badge variant="secondary" className="text-xs">Default</Badge>
                                 )}
                               </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
+                                onClick={() => {
+                                  setAddresses(addresses.filter((_, i) => i !== index));
+                                }}
+                              >
+                                <XIcon className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            
+                            {/* Street Address */}
+                            <Input
+                              placeholder="Street address"
+                              value={addr.street}
+                              onChange={(e) => {
+                                const newAddresses = [...addresses];
+                                newAddresses[index].street = e.target.value;
+                                setAddresses(newAddresses);
+                              }}
+                              className="text-sm h-8"
+                            />
+                            
+                            {/* City, State, Zip Row */}
+                            <div className="grid grid-cols-6 gap-2">
                               <Input
-                                placeholder="Address or zip code"
-                                value={addr.address}
+                                placeholder="City"
+                                value={addr.city}
                                 onChange={(e) => {
                                   const newAddresses = [...addresses];
-                                  newAddresses[index].address = e.target.value;
+                                  newAddresses[index].city = e.target.value;
                                   setAddresses(newAddresses);
                                 }}
-                                className="text-sm h-8"
+                                className="col-span-3 text-sm h-8"
+                              />
+                              <Input
+                                placeholder="State"
+                                value={addr.state}
+                                onChange={(e) => {
+                                  const newAddresses = [...addresses];
+                                  newAddresses[index].state = e.target.value;
+                                  setAddresses(newAddresses);
+                                }}
+                                className="col-span-1 text-sm h-8"
+                              />
+                              <Input
+                                placeholder="Zip"
+                                value={addr.zipCode}
+                                onChange={(e) => {
+                                  const newAddresses = [...addresses];
+                                  newAddresses[index].zipCode = e.target.value;
+                                  setAddresses(newAddresses);
+                                }}
+                                className="col-span-2 text-sm h-8"
                               />
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
-                              onClick={() => {
-                                setAddresses(addresses.filter((_, i) => i !== index));
-                              }}
-                            >
-                              <XIcon className="h-4 w-4" />
-                            </Button>
                           </div>
                         ))}
                         
@@ -2062,7 +2235,10 @@ export default function SetupPage() {
                           onClick={() => {
                             setAddresses([...addresses, { 
                               label: addresses.length === 0 ? 'Home' : '', 
-                              address: '', 
+                              street: '',
+                              city: '',
+                              state: '',
+                              zipCode: '',
                               isDefault: addresses.length === 0 
                             }]);
                           }}
@@ -2078,113 +2254,110 @@ export default function SetupPage() {
                   </TabsContent>
 
                   {/* Tab 2: Lifestyle */}
-                  <TabsContent value="lifestyle" className="space-y-6">
-                    {/* Sleep Schedule */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Moon className="h-5 w-5 text-[#c19962]" />
-                          Sleep Schedule
-                        </CardTitle>
-                        <CardDescription>
-                          Default wake and sleep times for meal timing optimization
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label className="flex items-center gap-2">
-                              <Sun className="h-4 w-4" />
-                              Wake Time
-                            </Label>
-                            <Input
-                              type="time"
-                              value={wakeTime}
-                              onChange={(e) => setWakeTime(e.target.value)}
-                            />
+                  <TabsContent value="lifestyle" className="space-y-8">
+                    {/* Sleep & Work Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Sleep Schedule */}
+                      <Card className="border-0 shadow-sm">
+                        <CardHeader className="pb-4">
+                          <CardTitle className="flex items-center gap-2 text-lg">
+                            <Moon className="h-5 w-5 text-[#c19962]" />
+                            Sleep Schedule
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="flex items-center gap-2 text-sm font-medium">
+                                <Sun className="h-4 w-4" />
+                                Wake
+                              </Label>
+                              <Input
+                                type="time"
+                                value={wakeTime}
+                                onChange={(e) => setWakeTime(e.target.value)}
+                                className="h-11"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="flex items-center gap-2 text-sm font-medium">
+                                <Moon className="h-4 w-4" />
+                                Bed
+                              </Label>
+                              <Input
+                                type="time"
+                                value={bedTime}
+                                onChange={(e) => setBedTime(e.target.value)}
+                                className="h-11"
+                              />
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <Label className="flex items-center gap-2">
-                              <Moon className="h-4 w-4" />
-                              Bed Time
-                            </Label>
-                            <Input
-                              type="time"
-                              value={bedTime}
-                              onChange={(e) => setBedTime(e.target.value)}
-                            />
+                          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                            <span className="text-sm text-muted-foreground">Sleep Duration</span>
+                            <span className="font-semibold">{calculateSleepHours()} hours</span>
                           </div>
-                        </div>
-                        <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                          <span className="text-muted-foreground">Sleep Duration: </span>
-                          <span className="font-semibold">{calculateSleepHours()} hours</span>
-                        </div>
-                      </CardContent>
-                    </Card>
+                        </CardContent>
+                      </Card>
 
-                    {/* Work Schedule */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Briefcase className="h-5 w-5 text-[#c19962]" />
-                          Work Schedule
-                        </CardTitle>
-                        <CardDescription>
-                          Work type affects meal timing and location recommendations
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>Work Type</Label>
+                      {/* Work Schedule */}
+                      <Card className="border-0 shadow-sm">
+                        <CardHeader className="pb-4">
+                          <CardTitle className="flex items-center gap-2 text-lg">
+                            <Briefcase className="h-5 w-5 text-[#c19962]" />
+                            Work Schedule
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Work Type</Label>
                           <Select value={workType} onValueChange={(v) => setWorkType(v as WorkType)}>
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent position="popper" sideOffset={4}>
+                            <SelectContent position="popper" sideOffset={4} align="start">
                               {WORK_TYPES.map(wt => (
                                 <SelectItem key={wt.value} value={wt.value}>{wt.label}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
+                          {workType !== 'none' && (
+                            <div className="grid grid-cols-2 gap-4 pt-3">
+                              <div className="space-y-2">
+                                <Label className="text-sm">Start</Label>
+                                <Input
+                                  type="time"
+                                  value={workStartTime}
+                                  onChange={(e) => setWorkStartTime(e.target.value)}
+                                  className="h-11"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm">End</Label>
+                                <Input
+                                  type="time"
+                                  value={workEndTime}
+                                  onChange={(e) => setWorkEndTime(e.target.value)}
+                                  className="h-11"
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        
-                        {workType !== 'none' && (
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Work Start</Label>
-                              <Input
-                                type="time"
-                                value={workStartTime}
-                                onChange={(e) => setWorkStartTime(e.target.value)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Work End</Label>
-                              <Input
-                                type="time"
-                                value={workEndTime}
-                                onChange={(e) => setWorkEndTime(e.target.value)}
-                              />
-                            </div>
-                          </div>
-                        )}
                       </CardContent>
                     </Card>
+                    </div>
 
                     {/* Workout Defaults */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                    <Card className="border-0 shadow-sm">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg">
                           <Dumbbell className="h-5 w-5 text-[#c19962]" />
                           Workout Defaults
                         </CardTitle>
-                        <CardDescription>
-                          Default workout preferences used for planning
-                        </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>Workouts Per Week</Label>
+                        <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+                          <Label className="font-medium">Workouts Per Week</Label>
                           <div className="flex items-center gap-4">
                             <Slider
                               value={[workoutsPerWeek]}
@@ -2192,24 +2365,22 @@ export default function SetupPage() {
                               min={0}
                               max={7}
                               step={1}
-                              className="flex-1"
+                              className="w-40"
                             />
-                            <Badge variant="secondary" className="min-w-[3rem] justify-center">
+                            <Badge variant="secondary" className="min-w-[3rem] justify-center text-base font-semibold">
                               {workoutsPerWeek}
                             </Badge>
                           </div>
                         </div>
 
-                        <Separator />
-
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div className="space-y-2">
-                            <Label>Default Type</Label>
+                            <Label className="text-sm font-medium">Type</Label>
                             <Select value={defaultWorkoutType} onValueChange={(v) => setDefaultWorkoutType(v as WorkoutType)}>
-                              <SelectTrigger>
+                              <SelectTrigger className="h-11">
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent position="popper" sideOffset={4}>
+                              <SelectContent position="popper" sideOffset={4} align="start">
                                 {WORKOUT_TYPES.map(wt => (
                                   <SelectItem key={wt.value} value={wt.value}>{wt.label}</SelectItem>
                                 ))}
@@ -2217,24 +2388,21 @@ export default function SetupPage() {
                             </Select>
                           </div>
                           <div className="space-y-2">
-                            <Label>Default Time</Label>
+                            <Label className="text-sm font-medium">Time</Label>
                             <Select value={defaultTimeSlot} onValueChange={(v) => setDefaultTimeSlot(v as WorkoutTimeSlot)}>
-                              <SelectTrigger>
+                              <SelectTrigger className="h-11">
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent position="popper" sideOffset={4}>
+                              <SelectContent position="popper" sideOffset={4} align="start">
                                 {WORKOUT_TIME_SLOTS.map(ts => (
                                   <SelectItem key={ts.value} value={ts.value}>{ts.label}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label>Duration (min)</Label>
-                            <div className="flex items-center gap-4">
+                            <Label className="text-sm font-medium">Duration</Label>
+                            <div className="flex items-center gap-2">
                               <Slider
                                 value={[defaultDuration]}
                                 onValueChange={([v]) => setDefaultDuration(v)}
@@ -2243,18 +2411,16 @@ export default function SetupPage() {
                                 step={15}
                                 className="flex-1"
                               />
-                              <Badge variant="secondary" className="min-w-[4rem] justify-center">
-                                {defaultDuration} min
-                              </Badge>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">{defaultDuration}m</span>
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label>Default Intensity</Label>
+                            <Label className="text-sm font-medium">Intensity</Label>
                             <Select value={defaultIntensity} onValueChange={(v) => setDefaultIntensity(v as 'Low' | 'Medium' | 'High')}>
-                              <SelectTrigger>
+                              <SelectTrigger className="h-11">
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent position="popper" sideOffset={4}>
+                              <SelectContent position="popper" sideOffset={4} align="start">
                                 <SelectItem value="Low">Low</SelectItem>
                                 <SelectItem value="Medium">Medium</SelectItem>
                                 <SelectItem value="High">High</SelectItem>
@@ -2265,20 +2431,241 @@ export default function SetupPage() {
                       </CardContent>
                     </Card>
 
+                    {/* Daily Activity Level (for NEAT) */}
+                    <Card className="border-0 shadow-sm">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <Activity className="h-5 w-5 text-[#c19962]" />
+                          Daily Activity Level
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>NEAT (Non-Exercise Activity Thermogenesis) is based on daily movement patterns outside of formal workouts. Conservative estimates based on Pontzer et al. (2016).</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <RadioGroup
+                          value={activityLevel}
+                          onValueChange={(v) => setActivityLevel(v as ActivityLevel)}
+                          className="grid grid-cols-2 md:grid-cols-4 gap-3"
+                        >
+                          <label className={cn(
+                            "flex flex-col p-4 border rounded-lg cursor-pointer transition-all text-center",
+                            activityLevel === 'Sedentary (0-5k steps/day)' ? 'border-[#c19962] bg-[#c19962]/5 ring-2 ring-[#c19962]' : 'hover:border-[#c19962]/50'
+                          )}>
+                            <RadioGroupItem value="Sedentary (0-5k steps/day)" className="sr-only" />
+                            <p className="font-semibold">Sedentary</p>
+                            <p className="text-xs text-muted-foreground">0-5k steps</p>
+                            <p className="text-sm font-bold text-[#c19962] mt-2">~{Math.round(finalRMR * 0.1)} kcal</p>
+                          </label>
+                          <label className={cn(
+                            "flex flex-col p-4 border rounded-lg cursor-pointer transition-all text-center",
+                            activityLevel === 'Light Active (5-10k steps/day)' ? 'border-[#c19962] bg-[#c19962]/5 ring-2 ring-[#c19962]' : 'hover:border-[#c19962]/50'
+                          )}>
+                            <RadioGroupItem value="Light Active (5-10k steps/day)" className="sr-only" />
+                            <p className="font-semibold">Light</p>
+                            <p className="text-xs text-muted-foreground">5-10k steps</p>
+                            <p className="text-sm font-bold text-[#c19962] mt-2">~{Math.round(finalRMR * 0.25)} kcal</p>
+                          </label>
+                          <label className={cn(
+                            "flex flex-col p-4 border rounded-lg cursor-pointer transition-all text-center",
+                            activityLevel === 'Active (10-15k steps/day)' ? 'border-[#c19962] bg-[#c19962]/5 ring-2 ring-[#c19962]' : 'hover:border-[#c19962]/50'
+                          )}>
+                            <RadioGroupItem value="Active (10-15k steps/day)" className="sr-only" />
+                            <p className="font-semibold">Active</p>
+                            <p className="text-xs text-muted-foreground">10-15k steps</p>
+                            <p className="text-sm font-bold text-[#c19962] mt-2">~{Math.round(finalRMR * 0.4)} kcal</p>
+                          </label>
+                          <label className={cn(
+                            "flex flex-col p-4 border rounded-lg cursor-pointer transition-all text-center",
+                            activityLevel === 'Labor Intensive (>15k steps/day)' ? 'border-[#c19962] bg-[#c19962]/5 ring-2 ring-[#c19962]' : 'hover:border-[#c19962]/50'
+                          )}>
+                            <RadioGroupItem value="Labor Intensive (>15k steps/day)" className="sr-only" />
+                            <p className="font-semibold">Labor</p>
+                            <p className="text-xs text-muted-foreground">{'>'}15k steps</p>
+                            <p className="text-sm font-bold text-[#c19962] mt-2">~{Math.round(finalRMR * 0.55)} kcal</p>
+                          </label>
+                        </RadioGroup>
+                      </CardContent>
+                    </Card>
+
+                    {/* Zone-Based Calorie Data */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Heart className="h-5 w-5 text-[#c19962]" />
+                          Active Metabolic Rate Testing
+                          <Badge variant="outline" className="ml-2 text-xs">Optional</Badge>
+                        </CardTitle>
+                        <CardDescription>
+                          If the client has had metabolic testing (VO2max, metabolic cart, etc.), enter the cal/min values by heart rate zone for more accurate exercise calorie calculations.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                          <div>
+                            <Label className="font-medium">Has Zone-Based Calorie Data?</Label>
+                            <p className="text-sm text-muted-foreground">
+                              {hasZoneData ? 'Using measured values from metabolic testing' : 'Using estimated values based on body weight'}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={hasZoneData}
+                            onCheckedChange={(checked) => {
+                              setHasZoneData(checked);
+                              if (!checked) {
+                                // Reset to defaults based on body weight
+                                const defaults = getDefaultZoneCalories(weightKg);
+                                setZoneCalories(defaults);
+                              }
+                            }}
+                          />
+                        </div>
+                        
+                        {hasZoneData && (
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              Enter the cal/min values from the metabolic test results for each heart rate zone:
+                            </p>
+                            
+                            <div className="grid grid-cols-5 gap-3">
+                              <div className="space-y-2">
+                                <Label className="text-xs text-center block">
+                                  Zone 1
+                                  <span className="block text-muted-foreground font-normal">{'<'}60% HR</span>
+                                </Label>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  min="1"
+                                  max="30"
+                                  value={zoneCalories.zone1}
+                                  onChange={(e) => setZoneCalories({
+                                    ...zoneCalories,
+                                    zone1: parseFloat(e.target.value) || 4
+                                  })}
+                                  className="text-center"
+                                />
+                                <p className="text-[10px] text-muted-foreground text-center">cal/min</p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs text-center block">
+                                  Zone 2
+                                  <span className="block text-muted-foreground font-normal">60-70% HR</span>
+                                </Label>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  min="1"
+                                  max="30"
+                                  value={zoneCalories.zone2}
+                                  onChange={(e) => setZoneCalories({
+                                    ...zoneCalories,
+                                    zone2: parseFloat(e.target.value) || 7
+                                  })}
+                                  className="text-center"
+                                />
+                                <p className="text-[10px] text-muted-foreground text-center">cal/min</p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs text-center block">
+                                  Zone 3
+                                  <span className="block text-muted-foreground font-normal">70-80% HR</span>
+                                </Label>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  min="1"
+                                  max="30"
+                                  value={zoneCalories.zone3}
+                                  onChange={(e) => setZoneCalories({
+                                    ...zoneCalories,
+                                    zone3: parseFloat(e.target.value) || 10
+                                  })}
+                                  className="text-center"
+                                />
+                                <p className="text-[10px] text-muted-foreground text-center">cal/min</p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs text-center block">
+                                  Zone 4
+                                  <span className="block text-muted-foreground font-normal">80-90% HR</span>
+                                </Label>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  min="1"
+                                  max="30"
+                                  value={zoneCalories.zone4}
+                                  onChange={(e) => setZoneCalories({
+                                    ...zoneCalories,
+                                    zone4: parseFloat(e.target.value) || 13
+                                  })}
+                                  className="text-center"
+                                />
+                                <p className="text-[10px] text-muted-foreground text-center">cal/min</p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs text-center block">
+                                  Zone 5
+                                  <span className="block text-muted-foreground font-normal">90%+ HR</span>
+                                </Label>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  min="1"
+                                  max="30"
+                                  value={zoneCalories.zone5}
+                                  onChange={(e) => setZoneCalories({
+                                    ...zoneCalories,
+                                    zone5: parseFloat(e.target.value) || 16
+                                  })}
+                                  className="text-center"
+                                />
+                                <p className="text-[10px] text-muted-foreground text-center">cal/min</p>
+                              </div>
+                            </div>
+                            
+                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <p className="text-xs text-green-800">
+                                <strong>Tip:</strong> These values can be found on metabolic test reports (VO2max testing, metabolic cart analysis). 
+                                Zone-based data significantly improves the accuracy of Exercise Energy Expenditure (EEE) calculations.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {!hasZoneData && (
+                          <div className="p-3 bg-muted rounded-lg">
+                            <p className="text-xs text-muted-foreground">
+                              <strong>Default Estimates (based on {Math.round(weightKg)} kg body weight):</strong>
+                              <br />
+                              Zone 1: {getDefaultZoneCalories(weightKg).zone1} cal/min • 
+                              Zone 2: {getDefaultZoneCalories(weightKg).zone2} cal/min • 
+                              Zone 3: {getDefaultZoneCalories(weightKg).zone3} cal/min • 
+                              Zone 4: {getDefaultZoneCalories(weightKg).zone4} cal/min • 
+                              Zone 5: {getDefaultZoneCalories(weightKg).zone5} cal/min
+                            </p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
                   </TabsContent>
 
                   {/* Tab 3: Meals */}
-                  <TabsContent value="meals" className="space-y-6">
+                  <TabsContent value="meals" className="space-y-8">
                     {/* Quick Setup Presets */}
-                    <Card className="border-[#c19962]/30 bg-gradient-to-r from-[#c19962]/5 to-transparent">
+                    <Card className="border-0 shadow-sm bg-gradient-to-r from-[#c19962]/5 to-transparent">
                       <CardHeader className="pb-3">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <Sparkles className="h-4 w-4 text-[#c19962]" />
-                          Quick Setup Templates
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Sparkles className="h-5 w-5 text-[#c19962]" />
+                          Quick Setup
                         </CardTitle>
-                        <CardDescription>
-                          Choose a template based on lifestyle, or customize all settings below
-                        </CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -2494,7 +2881,7 @@ export default function SetupPage() {
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent position="popper" sideOffset={4}>
+                            <SelectContent position="popper" sideOffset={4} align="start">
                               {FASTING_PROTOCOLS.map(protocol => (
                                 <SelectItem key={protocol.value} value={protocol.value}>
                                   <div className="flex flex-col">
@@ -2547,23 +2934,27 @@ export default function SetupPage() {
                     </Card>
 
                     {/* Meal Prep Context */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                    <Card className="border-0 shadow-sm">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg">
                           <ChefHat className="h-5 w-5 text-[#c19962]" />
-                          Meal Context & Preparation
+                          Meal Preparation
                         </CardTitle>
-                        <CardDescription>
-                          Understanding how and where meals are prepared/consumed helps generate realistic, practical meal plans tailored to the client&apos;s lifestyle.
-                        </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
                         {/* Default Settings */}
                         <div className="space-y-4">
-                          <Label className="text-sm font-medium">Default Settings</Label>
-                          <p className="text-xs text-muted-foreground -mt-2">
-                            These defaults apply to all meals/snacks. Customize individual meals below if they differ.
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">Default Settings</Label>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>Applies to all meals. Customize individual meals below if needed.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div className="space-y-2">
                               <Label className="text-xs text-muted-foreground">Meal Prep Method</Label>
@@ -2571,7 +2962,7 @@ export default function SetupPage() {
                                 <SelectTrigger className="h-9">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4}>
+                                <SelectContent position="popper" sideOffset={4} align="start">
                                   {MEAL_PREP_METHODS.map(pm => (
                                     <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
                                   ))}
@@ -2584,7 +2975,7 @@ export default function SetupPage() {
                                 <SelectTrigger className="h-9">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4}>
+                                <SelectContent position="popper" sideOffset={4} align="start">
                                   {MEAL_LOCATIONS.map(loc => (
                                     <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
                                   ))}
@@ -2597,7 +2988,7 @@ export default function SetupPage() {
                                 <SelectTrigger className="h-9">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4}>
+                                <SelectContent position="popper" sideOffset={4} align="start">
                                   {MEAL_PREP_METHODS.map(pm => (
                                     <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
                                   ))}
@@ -2610,7 +3001,7 @@ export default function SetupPage() {
                                 <SelectTrigger className="h-9">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4}>
+                                <SelectContent position="popper" sideOffset={4} align="start">
                                   {MEAL_LOCATIONS.map(loc => (
                                     <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
                                   ))}
@@ -2670,7 +3061,7 @@ export default function SetupPage() {
                                         <SelectTrigger className="h-8 text-xs">
                                           <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent position="popper" sideOffset={4}>
+                                        <SelectContent position="popper" sideOffset={4} align="start">
                                           {MEAL_PREP_METHODS.map((method) => (
                                             <SelectItem key={method.value} value={method.value} className="text-xs">
                                               {method.label}
@@ -2688,7 +3079,7 @@ export default function SetupPage() {
                                         <SelectTrigger className="h-8 text-xs">
                                           <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent position="popper" sideOffset={4}>
+                                        <SelectContent position="popper" sideOffset={4} align="start">
                                           {PREP_TIMES.map((time) => (
                                             <SelectItem key={time} value={time} className="text-xs">{time}</SelectItem>
                                           ))}
@@ -2704,7 +3095,7 @@ export default function SetupPage() {
                                         <SelectTrigger className="h-8 text-xs">
                                           <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent position="popper" sideOffset={4}>
+                                        <SelectContent position="popper" sideOffset={4} align="start">
                                           {MEAL_LOCATIONS.map((loc) => (
                                             <SelectItem key={loc.value} value={loc.value} className="text-xs">
                                               {loc.label}
@@ -2722,7 +3113,7 @@ export default function SetupPage() {
                                         <SelectTrigger className="h-8 text-xs">
                                           <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent position="popper" sideOffset={4}>
+                                        <SelectContent position="popper" sideOffset={4} align="start">
                                           {MEAL_TIME_RANGES.map((range) => (
                                             <SelectItem key={range} value={range} className="text-xs">{range}</SelectItem>
                                           ))}
@@ -2740,18 +3131,15 @@ export default function SetupPage() {
                   </TabsContent>
 
                   {/* Tab 4: Preferences */}
-                  <TabsContent value="preferences" className="space-y-6">
+                  <TabsContent value="preferences" className="space-y-8">
                     {/* Critical: Restrictions & Allergies */}
-                    <Card className="border-red-200">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                    <Card className="border-0 shadow-sm border-l-4 border-l-red-400">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg">
                           <Shield className="h-5 w-5 text-red-500" />
-                          Dietary Restrictions & Allergies
+                          Restrictions & Allergies
                           <Badge variant="outline" className="text-xs text-red-600 border-red-300">Critical</Badge>
                         </CardTitle>
-                        <CardDescription>
-                          These are strictly enforced — foods will be completely excluded from all meal suggestions
-                        </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
                         <div className="space-y-3">
@@ -3090,17 +3478,14 @@ export default function SetupPage() {
                   </TabsContent>
 
                   {/* Tab 5: Advanced */}
-                  <TabsContent value="advanced" className="space-y-6">
+                  <TabsContent value="advanced" className="space-y-8">
                     {/* Practical Constraints */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                    <Card className="border-0 shadow-sm">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg">
                           <Settings2 className="h-5 w-5 text-[#c19962]" />
                           Practical Constraints
                         </CardTitle>
-                        <CardDescription>
-                          These directly affect meal complexity and ingredient selection
-                        </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -3131,16 +3516,22 @@ export default function SetupPage() {
                           <div className="space-y-3">
                             <Label>Cooking Time Per Meal</Label>
                             <Select value={cookingTime} onValueChange={(v) => setCookingTime(v as typeof cookingTime)}>
-                              <SelectTrigger>
+                              <SelectTrigger className="w-full">
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent position="popper" sideOffset={4} className="z-50">
-                                <SelectItem value="quick">Quick (&lt;15 min) — Simple assembly, minimal cooking</SelectItem>
-                                <SelectItem value="short">Short (15-30 min) — Basic cooking, one-pan meals</SelectItem>
-                                <SelectItem value="medium">Medium (30-60 min) — Full recipes, multiple components</SelectItem>
-                                <SelectItem value="any">Any Duration — Complex recipes welcome</SelectItem>
+                              <SelectContent position="popper" sideOffset={4} align="start" className="z-50 w-[280px]">
+                                <SelectItem value="quick">Quick (&lt;15 min)</SelectItem>
+                                <SelectItem value="short">Short (15-30 min)</SelectItem>
+                                <SelectItem value="medium">Medium (30-60 min)</SelectItem>
+                                <SelectItem value="any">Any Duration</SelectItem>
                               </SelectContent>
                             </Select>
+                            <p className="text-xs text-muted-foreground">
+                              {cookingTime === 'quick' && 'Simple assembly, minimal cooking'}
+                              {cookingTime === 'short' && 'Basic cooking, one-pan meals'}
+                              {cookingTime === 'medium' && 'Full recipes, multiple components'}
+                              {cookingTime === 'any' && 'Complex recipes welcome'}
+                            </p>
                           </div>
                         </div>
 
@@ -4023,14 +4414,6 @@ export default function SetupPage() {
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </div>
-              </div>
-
-              {/* Sidebar */}
-              <div className="lg:col-span-1">
-                <div className="sticky top-20">
-                  <ProgressSummary currentStep={1} />
-                </div>
-              </div>
             </div>
           </div>
         </div>

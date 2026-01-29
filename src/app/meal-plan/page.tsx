@@ -12,6 +12,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ProgressSteps } from '@/components/layout/progress-steps';
 import { ProgressSummary } from '@/components/layout/progress-summary';
 import { MealSlotCard, ManualMealForm, MealSwapDialog, RecipeRecommendations } from '@/components/meal-plan';
@@ -42,7 +45,11 @@ import {
   Undo2,
   Redo2,
   Info,
-  ChevronRight
+  ChevronRight,
+  FileDown,
+  ListChecks,
+  Book,
+  RefreshCw
 } from 'lucide-react';
 import type { DayOfWeek, MealSlot, Meal, Macros, DietPreferences } from '@/types';
 
@@ -192,8 +199,16 @@ export default function MealPlanPage() {
   const [browsingRecipesSlot, setBrowsingRecipesSlot] = useState<number | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingSingleDay, setIsGeneratingSingleDay] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showGroceryList, setShowGroceryList] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportOptions, setExportOptions] = useState({
+    includeGroceryList: true,
+    includeRecipes: true,
+    exportType: 'full' as 'full' | 'single',
+    selectedDay: 'Monday' as DayOfWeek,
+  });
   const cancelGenerationRef = useRef(false);
   
   useEffect(() => {
@@ -208,9 +223,11 @@ export default function MealPlanPage() {
     DAYS.forEach(day => {
       const schedule = weeklySchedule[day];
       const targets = nutritionTargets.find(t => t.day === day);
-      const workouts = schedule?.workouts?.filter(w => w.enabled) || [];
-      const isWorkoutDay = workouts.length > 0;
-      const workoutType = isWorkoutDay ? workouts[0]?.type : undefined;
+      
+      // PRIORITY: Use isWorkoutDay from phase nutrition targets, fall back to weeklySchedule
+      const scheduleWorkouts = schedule?.workouts?.filter(w => w.enabled) || [];
+      const isWorkoutDay = targets?.isWorkoutDay ?? scheduleWorkouts.length > 0;
+      const workoutType = scheduleWorkouts.length > 0 ? scheduleWorkouts[0]?.type : undefined;
       const mealsCount = schedule?.mealCount || 3;
       const snacksCount = schedule?.snackCount || 2;
       
@@ -608,6 +625,175 @@ export default function MealPlanPage() {
     }
   };
 
+  // Generate all meals for a single day
+  const handleGenerateSingleDay = async (day: DayOfWeek) => {
+    const schedule = weeklySchedule[day];
+    const dayTargetsForDay = nutritionTargets.find(t => t.day === day);
+    
+    if (!dayTargetsForDay) {
+      toast.error('No nutrition targets found for this day');
+      return;
+    }
+    
+    setIsGeneratingSingleDay(true);
+    
+    try {
+      const mealsCount = schedule?.mealCount || 3;
+      const snacksCount = schedule?.snackCount || 2;
+      const labels = getMealSlotLabels(mealsCount, snacksCount);
+      const times = getTimeSlots(
+        schedule?.wakeTime || '7:00 AM',
+        schedule?.sleepTime || '10:00 PM',
+        labels.length
+      );
+      
+      // Use isWorkoutDay from nutrition targets (phase config)
+      const isWorkoutDay = dayTargetsForDay.isWorkoutDay;
+      const workouts = schedule?.workouts?.filter(w => w.enabled) || [];
+      const workout = workouts.length > 0 ? workouts[0] : null;
+      
+      // Format request for the API
+      const response = await fetch('/api/generate-day-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName: userProfile.name || 'Client',
+          targets: {
+            calories: dayTargetsForDay.targetCalories,
+            protein: dayTargetsForDay.protein,
+            carbs: dayTargetsForDay.carbs,
+            fat: dayTargetsForDay.fat,
+          },
+          dietaryRestriction: dietPreferences?.dietaryRestriction || 'none',
+          allergies: dietPreferences?.allergies || [],
+          preferredProteins: dietPreferences?.preferredProteins || [],
+          preferredCarbs: dietPreferences?.preferredCarbs || [],
+          foodsToAvoid: dietPreferences?.foodsToAvoid || [],
+          dayContext: {
+            dayType: isWorkoutDay ? 'workout' : 'rest',
+            workoutTiming: workout?.timeSlot || 'none',
+            workoutType: workout?.type || null,
+            wakeTime: schedule?.wakeTime || '7:00 AM',
+            sleepTime: schedule?.sleepTime || '10:00 PM',
+            specialNotes: '',
+          },
+          mealSlots: labels.map((label, idx) => ({
+            id: `slot-${idx}`,
+            type: label.type,
+            time: times[idx],
+            name: label.label,
+            location: schedule?.mealContexts?.[idx]?.location || 'home',
+            prepMethod: schedule?.mealContexts?.[idx]?.prepMethod || 'cook',
+          })),
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to generate day plan');
+      }
+      
+      const data = await response.json();
+      
+      // Update all meals for this day
+      if (data.meals && Array.isArray(data.meals)) {
+        data.meals.forEach((mealData: { name: string; description: string; calories: number; protein: number; carbs: number; fat: number; ingredients: string[]; instructions: string[]; prepTime: number }, idx: number) => {
+          if (mealData) {
+            // Convert API response format to Meal type
+            const meal: Meal = {
+              name: mealData.name,
+              description: mealData.description,
+              ingredients: mealData.ingredients.map(ing => ({
+                item: ing,
+                amount: '',
+                calories: 0,
+                protein: 0,
+                carbs: 0,
+                fat: 0,
+                category: 'other' as const,
+              })),
+              instructions: mealData.instructions,
+              totalMacros: {
+                calories: mealData.calories,
+                protein: mealData.protein,
+                carbs: mealData.carbs,
+                fat: mealData.fat,
+              },
+              prepTime: mealData.prepTime,
+              source: 'ai',
+              isLocked: false,
+            };
+            updateMeal(day, idx, meal);
+          }
+        });
+        toast.success(`${day} meal plan generated!`);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : 'Failed to generate day plan');
+    } finally {
+      setIsGeneratingSingleDay(false);
+    }
+  };
+
+  // Export with options
+  const handleExportWithOptions = async (options: {
+    includeGroceryList: boolean;
+    includeRecipes: boolean;
+    singleDay?: DayOfWeek;
+  }) => {
+    try {
+      setIsDownloading(true);
+      
+      const exportMealPlan = options.singleDay
+        ? { [options.singleDay]: mealPlan?.[options.singleDay] }
+        : mealPlan;
+      
+      const response = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userProfile,
+          bodyCompGoals,
+          dietPreferences,
+          weeklySchedule,
+          nutritionTargets: options.singleDay 
+            ? nutritionTargets.filter(t => t.day === options.singleDay)
+            : nutritionTargets,
+          mealPlan: exportMealPlan,
+          options: {
+            includeGroceryList: options.includeGroceryList,
+            includeRecipes: options.includeRecipes,
+            singleDay: options.singleDay,
+          },
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate PDF');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const clientName = userProfile.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'client';
+      const fileName = options.singleDay 
+        ? `${clientName}_${options.singleDay}_meal_plan_${new Date().toISOString().split('T')[0]}.pdf`
+        : `${clientName}_nutrition_strategy_${new Date().toISOString().split('T')[0]}.pdf`;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('PDF exported successfully!');
+      setShowExportDialog(false);
+    } catch (error) {
+      toast.error('Failed to export PDF');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   if (!isHydrated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -669,14 +855,31 @@ export default function MealPlanPage() {
               <h1 className="text-xl font-bold text-[#00263d]">
                 Meal Plan Builder
                 {activePhase && (
-                  <Badge className="ml-2 bg-[#c19962]/20 text-[#c19962] border-[#c19962]/30">
+                  <Badge className={`ml-2 ${
+                    activePhase.goalType === 'fat_loss' ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                    activePhase.goalType === 'muscle_gain' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                    activePhase.goalType === 'recomposition' ? 'bg-purple-100 text-purple-700 border-purple-300' :
+                    activePhase.goalType === 'performance' ? 'bg-green-100 text-green-700 border-green-300' :
+                    activePhase.goalType === 'health' ? 'bg-rose-100 text-rose-700 border-rose-300' :
+                    'bg-slate-100 text-slate-700 border-slate-300'
+                  }`}>
                     {activePhase.name}
                   </Badge>
                 )}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {userProfile.name ? `${userProfile.name}'s` : ''} personalized nutrition plan
-                {activePhase && ` for ${activePhase.goalType === 'lose_fat' ? 'fat loss' : activePhase.goalType === 'gain_muscle' ? 'muscle gain' : 'maintenance'} phase`}
+                {activePhase && (
+                  <>
+                    {' • '}
+                    {activePhase.goalType === 'fat_loss' ? 'Fat loss targets (deficit)' : 
+                     activePhase.goalType === 'muscle_gain' ? 'Muscle gain targets (surplus)' : 
+                     activePhase.goalType === 'recomposition' ? 'Recomposition targets' :
+                     activePhase.goalType === 'performance' ? 'Performance (maintenance calories)' :
+                     activePhase.goalType === 'health' ? 'Health focus (maintenance calories)' :
+                     'Maintenance targets'}
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -714,14 +917,30 @@ export default function MealPlanPage() {
               Grocery
             </Button>
             
-            {/* Download */}
+            {/* Generate Current Day */}
             <Button
-              onClick={handleDownloadPDF}
+              variant="outline"
+              size="sm"
+              onClick={() => handleGenerateSingleDay(currentDay)}
+              disabled={isGeneratingSingleDay}
+              className="border-green-300 text-green-700 hover:bg-green-50"
+            >
+              {isGeneratingSingleDay ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-1" />
+              )}
+              Generate {currentDay}
+            </Button>
+            
+            {/* Export */}
+            <Button
+              onClick={() => setShowExportDialog(true)}
               disabled={isDownloading || overallProgress.filledSlots === 0}
               className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
             >
-              {isDownloading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
-              Export PDF
+              <FileDown className="h-4 w-4 mr-1" />
+              Export
             </Button>
           </div>
         </div>
@@ -1009,7 +1228,9 @@ export default function MealPlanPage() {
                 <TabsList className="grid grid-cols-7 mb-4">
                   {DAYS.map(day => {
                     const schedule = weeklySchedule[day];
-                    const hasWorkout = schedule?.workouts?.some(w => w.enabled);
+                    const dayTargetsForDay = nutritionTargets.find(t => t.day === day);
+                    // Use phase nutrition targets for workout status, fallback to schedule
+                    const hasWorkout = dayTargetsForDay?.isWorkoutDay ?? schedule?.workouts?.some(w => w.enabled);
                     const filled = mealPlan?.[day]?.meals?.filter(m => m !== null).length || 0;
                     const total = (schedule?.mealCount || 3) + (schedule?.snackCount || 2);
                     
@@ -1287,16 +1508,12 @@ export default function MealPlanPage() {
 
                         {overallProgress.filledSlots > 0 && (
                           <Button
-                            onClick={handleDownloadPDF}
+                            onClick={() => setShowExportDialog(true)}
                             disabled={isDownloading}
                             className="w-full bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
                           >
-                            {isDownloading ? (
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Download className="h-4 w-4 mr-2" />
-                            )}
-                            Download Full PDF
+                            <FileDown className="h-4 w-4 mr-2" />
+                            Export Options
                           </Button>
                         )}
                       </div>
@@ -1338,6 +1555,145 @@ export default function MealPlanPage() {
           }}
         />
       )}
+
+      {/* Export Dialog */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileDown className="h-5 w-5 text-[#c19962]" />
+              Export Client Plan
+            </DialogTitle>
+            <DialogDescription>
+              Create a comprehensive PDF for your client with all the resources they need.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Export Scope */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">What to Export</Label>
+              <RadioGroup
+                value={exportOptions.exportType}
+                onValueChange={(v) => setExportOptions(prev => ({ ...prev, exportType: v as 'full' | 'single' }))}
+                className="grid grid-cols-2 gap-3"
+              >
+                <div className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer ${
+                  exportOptions.exportType === 'full' ? 'border-[#c19962] bg-[#c19962]/5' : ''
+                }`}>
+                  <RadioGroupItem value="full" id="export-full" />
+                  <Label htmlFor="export-full" className="cursor-pointer">
+                    <span className="font-medium">Full Week</span>
+                    <p className="text-xs text-muted-foreground">All 7 days of meal plans</p>
+                  </Label>
+                </div>
+                <div className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer ${
+                  exportOptions.exportType === 'single' ? 'border-[#c19962] bg-[#c19962]/5' : ''
+                }`}>
+                  <RadioGroupItem value="single" id="export-single" />
+                  <Label htmlFor="export-single" className="cursor-pointer">
+                    <span className="font-medium">Single Day</span>
+                    <p className="text-xs text-muted-foreground">Export just one day</p>
+                  </Label>
+                </div>
+              </RadioGroup>
+              
+              {exportOptions.exportType === 'single' && (
+                <div className="grid grid-cols-7 gap-1 pt-2">
+                  {DAYS.map(day => (
+                    <Button
+                      key={day}
+                      variant={exportOptions.selectedDay === day ? 'default' : 'outline'}
+                      size="sm"
+                      className={`text-xs h-9 ${exportOptions.selectedDay === day ? 'bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]' : ''}`}
+                      onClick={() => setExportOptions(prev => ({ ...prev, selectedDay: day }))}
+                    >
+                      {day.substring(0, 3)}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Include Options */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Include in PDF</Label>
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <Checkbox
+                    id="include-grocery"
+                    checked={exportOptions.includeGroceryList}
+                    onCheckedChange={(checked) => 
+                      setExportOptions(prev => ({ ...prev, includeGroceryList: checked === true }))
+                    }
+                  />
+                  <Label htmlFor="include-grocery" className="cursor-pointer flex-1">
+                    <div className="flex items-center gap-2">
+                      <ListChecks className="h-4 w-4 text-green-600" />
+                      <span className="font-medium">Grocery List</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Consolidated shopping list for all meals</p>
+                  </Label>
+                </div>
+                
+                <div className="flex items-center gap-3 p-3 border rounded-lg">
+                  <Checkbox
+                    id="include-recipes"
+                    checked={exportOptions.includeRecipes}
+                    onCheckedChange={(checked) => 
+                      setExportOptions(prev => ({ ...prev, includeRecipes: checked === true }))
+                    }
+                  />
+                  <Label htmlFor="include-recipes" className="cursor-pointer flex-1">
+                    <div className="flex items-center gap-2">
+                      <Book className="h-4 w-4 text-blue-600" />
+                      <span className="font-medium">Full Recipes</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Detailed instructions and ingredients for each meal</p>
+                  </Label>
+                </div>
+              </div>
+            </div>
+            
+            {/* Preview Info */}
+            <div className="p-3 bg-muted/50 rounded-lg text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                <Info className="h-4 w-4" />
+                <span className="font-medium">Export Preview</span>
+              </div>
+              <ul className="text-xs text-muted-foreground space-y-1 ml-6 list-disc">
+                <li>{exportOptions.exportType === 'full' ? '7-day meal plan' : `${exportOptions.selectedDay}'s meals`}</li>
+                <li>Client profile & nutrition targets</li>
+                {exportOptions.includeGroceryList && <li>Organized grocery shopping list</li>}
+                {exportOptions.includeRecipes && <li>Complete recipes with instructions</li>}
+                <li>Macros summary per meal</li>
+              </ul>
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowExportDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleExportWithOptions({
+                includeGroceryList: exportOptions.includeGroceryList,
+                includeRecipes: exportOptions.includeRecipes,
+                singleDay: exportOptions.exportType === 'single' ? exportOptions.selectedDay : undefined,
+              })}
+              disabled={isDownloading}
+              className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+            >
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Export PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

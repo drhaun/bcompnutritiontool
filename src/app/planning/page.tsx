@@ -55,7 +55,9 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
-  Activity
+  Activity,
+  Settings2,
+  Utensils
 } from 'lucide-react';
 import type { Phase, GoalType, PerformancePriority, MusclePreservation, FatGainTolerance, LifestyleCommitment, TrackingCommitment, TimelineEvent, TimelineEventType, DayNutritionTargets } from '@/types';
 import { PhaseCalendar } from '@/components/planning/phase-calendar';
@@ -135,6 +137,12 @@ export default function PlanningPage() {
   const [editingPhase, setEditingPhase] = useState<Phase | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showPlanningStats, setShowPlanningStats] = useState(false);
+  const [showTargetsModal, setShowTargetsModal] = useState(false);
+  const [selectedPhaseForTargets, setSelectedPhaseForTargets] = useState<Phase | null>(null);
+  
+  // Left sidebar navigation
+  type SidebarSection = 'calendar' | 'phases' | 'targets' | 'events';
+  const [activeSection, setActiveSection] = useState<SidebarSection>('calendar');
   
   // Get active phase for targets editor
   const activePhase = useMemo(() => {
@@ -609,113 +617,308 @@ export default function PlanningPage() {
     toast.success('Phase updated successfully');
   };
 
+  // Open phase targets modal
+  const handleOpenTargetsModal = (phase: Phase) => {
+    setSelectedPhaseForTargets(phase);
+    setShowTargetsModal(true);
+  };
+
   return (
+    <TooltipProvider delayDuration={100} skipDelayDuration={0}>
     <div className="min-h-screen bg-background">
       <div className="container py-8">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <ProgressSteps currentStep={2} />
           
           {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold mb-2">Planning</h1>
-                <p className="text-muted-foreground">
-                  {isHydrated && activeClient 
-                    ? `Plan training phases for ${activeClient.name}` 
-                    : 'Create and manage training phases'}
-                </p>
-              </div>
-              
-              <div className="flex gap-2">
-                {/* Add Timeline Event Button */}
-                <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline">
-                      <Flag className="mr-2 h-4 w-4" />
-                      Add Event
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Timeline Event</DialogTitle>
-                      <DialogDescription>
-                        Add important dates like lab tests, competitions, travel, or milestones to your planning timeline.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label>Event Name</Label>
-                        <Input
-                          placeholder="e.g., RMR Test, Marathon, Family Vacation"
-                          value={newEventName}
-                          onChange={(e) => setNewEventName(e.target.value)}
-                        />
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold">Planning</h1>
+            <p className="text-sm text-muted-foreground">
+              {isHydrated && activeClient 
+                ? `Plan training phases for ${activeClient.name}` 
+                : 'Create and manage training phases'}
+            </p>
+          </div>
+          
+          {/* Main Layout with Sidebar */}
+          <div className="flex gap-6">
+            {/* Left Sidebar Navigation */}
+            <div className="w-56 shrink-0">
+              <div className="sticky top-8 space-y-2">
+                {/* Navigation Items */}
+                <nav className="space-y-1">
+                  <button
+                    onClick={() => setActiveSection('calendar')}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all",
+                      activeSection === 'calendar' 
+                        ? "bg-[#c19962]/10 text-[#c19962] border border-[#c19962]/30" 
+                        : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <CalendarDays className="h-4 w-4" />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium">Calendar</span>
+                      <p className="text-[10px] text-muted-foreground">Annual timeline</p>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => setActiveSection('phases')}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all",
+                      activeSection === 'phases' 
+                        ? "bg-[#c19962]/10 text-[#c19962] border border-[#c19962]/30" 
+                        : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Target className="h-4 w-4" />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium">Phases</span>
+                      <p className="text-[10px] text-muted-foreground">{phases.length} phase{phases.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      if (activePhase) {
+                        setActiveSection('targets');
+                      } else {
+                        toast.error('Select or create a phase first');
+                      }
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all",
+                      activeSection === 'targets' 
+                        ? "bg-[#c19962]/10 text-[#c19962] border border-[#c19962]/30" 
+                        : activePhase
+                          ? "hover:bg-muted text-muted-foreground hover:text-foreground"
+                          : "opacity-50 cursor-not-allowed text-muted-foreground"
+                    )}
+                  >
+                    <Settings2 className="h-4 w-4" />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium">Nutrition Targets</span>
+                      <p className="text-[10px] text-muted-foreground">
+                        {activePhase 
+                          ? (activePhase.nutritionTargets?.length 
+                              ? `${activePhase.nutritionTargets.length} days configured` 
+                              : 'Configure targets')
+                          : 'Select a phase first'}
+                      </p>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => setActiveSection('events')}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all",
+                      activeSection === 'events' 
+                        ? "bg-[#c19962]/10 text-[#c19962] border border-[#c19962]/30" 
+                        : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Flag className="h-4 w-4" />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium">Events</span>
+                      <p className="text-[10px] text-muted-foreground">{timelineEvents.length} scheduled</p>
+                    </div>
+                  </button>
+                </nav>
+                
+                <Separator className="my-4" />
+                
+                {/* Quick Actions */}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide px-3">Quick Actions</p>
+                  <Button
+                    onClick={() => setShowCreateDialog(true)}
+                    className="w-full justify-start bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Phase
+                  </Button>
+                  <Button
+                    onClick={() => setShowEventDialog(true)}
+                    variant="outline"
+                    className="w-full justify-start"
+                    size="sm"
+                  >
+                    <Flag className="h-4 w-4 mr-2" />
+                    Add Event
+                  </Button>
+                </div>
+                
+                <Separator className="my-4" />
+                
+                {/* Active Phase Quick Info */}
+                {activePhase && (
+                  <div className="p-3 rounded-lg bg-gradient-to-br from-[#c19962]/10 to-[#c19962]/5 border border-[#c19962]/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge className="bg-[#c19962] text-[#00263d] text-[9px]">Active Phase</Badge>
+                      <Badge variant="outline" className="text-[9px]">
+                        {activePhase.nutritionTargets?.length || 0} days
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={cn("p-1.5 rounded", GOAL_COLORS[activePhase.goalType].bg)}>
+                        {GOAL_ICONS[activePhase.goalType]}
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Date</Label>
-                          <Input
-                            type="date"
-                            value={newEventDate}
-                            onChange={(e) => setNewEventDate(e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Event Type</Label>
-                          <Select value={newEventType} onValueChange={(v) => setNewEventType(v as TimelineEventType)}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {EVENT_TYPES.map(et => (
-                                <SelectItem key={et.value} value={et.value}>
-                                  <span className="flex items-center gap-2">
-                                    <span>{et.icon}</span>
-                                    {et.label}
-                                  </span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Notes (optional)</Label>
-                        <Input
-                          placeholder="Additional details..."
-                          value={newEventNotes}
-                          onChange={(e) => setNewEventNotes(e.target.value)}
-                        />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{activePhase.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {formatDate(activePhase.startDate)} - {formatDate(activePhase.endDate)}
+                        </p>
                       </div>
                     </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setShowEventDialog(false)}>
-                        Cancel
+                    <div className="grid grid-cols-2 gap-2 text-center">
+                      <div className="p-1.5 rounded bg-background">
+                        <p className="text-sm font-bold">{activePhase.targetWeightLbs}</p>
+                        <p className="text-[9px] text-muted-foreground">Target lbs</p>
+                      </div>
+                      <div className="p-1.5 rounded bg-background">
+                        <p className="text-sm font-bold">{activePhase.targetBodyFat}%</p>
+                        <p className="text-[9px] text-muted-foreground">Target BF</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 space-y-1.5">
+                      <Button
+                        size="sm"
+                        className="w-full h-8 text-xs bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+                        onClick={() => setActiveSection('targets')}
+                      >
+                        <Settings2 className="h-3.5 w-3.5 mr-1" />
+                        Edit Nutrition Targets
                       </Button>
-                      <Button onClick={handleAddEvent} className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]">
-                        Add Event
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full h-8 text-xs"
+                        onClick={() => handleProceedToMealPlan(activePhase.id)}
+                      >
+                        <Utensils className="h-3.5 w-3.5 mr-1" />
+                        Build Meal Plan
                       </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                    </div>
+                  </div>
+                )}
                 
-                {/* Create Phase Button */}
-                <Dialog open={showCreateDialog} onOpenChange={handleDialogClose}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Phase
+                {/* Navigation Links */}
+                <div className="pt-4 space-y-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="w-full justify-start text-muted-foreground hover:text-foreground"
+                    onClick={() => router.push('/setup')}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Profile
+                  </Button>
+                  {activePhaseId && (
+                    <Button 
+                      size="sm"
+                      className="w-full justify-start bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+                      onClick={() => router.push('/meal-plan')}
+                    >
+                      Meal Plan
+                      <ArrowRight className="h-4 w-4 ml-auto" />
                     </Button>
-                  </DialogTrigger>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Main Content Area */}
+            <div className="flex-1 min-w-0">
+            
+            {/* Event Dialog */}
+            <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Timeline Event</DialogTitle>
+                  <DialogDescription>
+                    Add important dates like lab tests, competitions, travel, or milestones.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Event Name</Label>
+                    <Input
+                      placeholder="e.g., RMR Test, Marathon, Family Vacation"
+                      value={newEventName}
+                      onChange={(e) => setNewEventName(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Date</Label>
+                      <Input
+                        type="date"
+                        value={newEventDate}
+                        onChange={(e) => setNewEventDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Event Type</Label>
+                      <Select value={newEventType} onValueChange={(v) => setNewEventType(v as TimelineEventType)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EVENT_TYPES.map(et => (
+                            <SelectItem key={et.value} value={et.value}>
+                              <span className="flex items-center gap-2">
+                                <span>{et.icon}</span>
+                                {et.label}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Notes (optional)</Label>
+                    <Input
+                      placeholder="Additional details..."
+                      value={newEventNotes}
+                      onChange={(e) => setNewEventNotes(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowEventDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddEvent} className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]">
+                    Add Event
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+                
+                {/* Create Phase Dialog */}
+                <Dialog open={showCreateDialog} onOpenChange={handleDialogClose}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Create New Phase</DialogTitle>
                     <DialogDescription>
                       Step {wizardStep} of 4: {
                         wizardStep === 1 ? 'Select your goal' :
-                        wizardStep === 2 ? 'Set body composition targets' :
-                        wizardStep === 3 ? 'Configure timeline' :
+                        wizardStep === 2 ? (
+                          newPhaseGoal === 'performance' ? 'Set performance targets & body composition' :
+                          newPhaseGoal === 'health' ? 'Set health targets & body composition' :
+                          newPhaseGoal === 'other' ? 'Set custom targets & body composition' :
+                          'Set body composition targets'
+                        ) :
+                        wizardStep === 3 ? (
+                          newPhaseGoal === 'performance' ? 'Configure training block' :
+                          newPhaseGoal === 'health' ? 'Configure health intervention timeline' :
+                          newPhaseGoal === 'other' ? 'Configure phase timeline' :
+                          'Configure timeline & rate of change'
+                        ) :
                         'Review and name your phase'
                       }
                     </DialogDescription>
@@ -1168,14 +1371,294 @@ export default function PlanningPage() {
                         </div>
                       </TooltipProvider>
                       
+                      {/* PERFORMANCE METRICS - Shows FIRST for Performance Goals */}
+                      {newPhaseGoal === 'performance' && (
+                        <>
+                          <Separator />
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                              <div className="p-2 rounded-lg bg-green-100">
+                                <Zap className="h-5 w-5 text-green-700" />
+                              </div>
+                              <div>
+                                <Label className="text-sm font-semibold">Performance Metrics</Label>
+                                <p className="text-xs text-muted-foreground">
+                                  Define your primary performance goals for this phase
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Existing Performance Metrics */}
+                            {customMetrics.length > 0 && (
+                              <div className="space-y-2">
+                                {customMetrics.map((metric) => (
+                                  <div key={metric.id} className="flex items-center gap-3 p-3 border rounded-lg bg-green-50/50 border-green-200">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="font-semibold text-sm">{metric.name}</span>
+                                        <Badge variant="outline" className="text-[10px] bg-green-100 text-green-700 border-green-300">
+                                          {metric.unit}
+                                        </Badge>
+                                      </div>
+                                      <div className="flex items-center gap-4 text-xs">
+                                        <span className="text-muted-foreground">
+                                          Start: <strong className="text-foreground">{metric.startValue || '—'}</strong>
+                                        </span>
+                                        <ArrowRight className="h-3 w-3 text-green-600" />
+                                        <span className="text-green-700">
+                                          Target: <strong>{metric.targetValue || '—'}</strong>
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
+                                      onClick={() => handleRemoveCustomMetric(metric.id)}
+                                    >
+                                      <XIcon className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Add New Performance Metric */}
+                            <div className="p-4 border-2 border-dashed border-green-200 rounded-lg bg-green-50/30 space-y-3">
+                              <p className="text-xs font-medium text-green-700">Add Performance Metric</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Metric Name</Label>
+                                  <Input
+                                    placeholder="e.g., Squat 1RM, Mile Time"
+                                    value={newMetricName}
+                                    onChange={(e) => setNewMetricName(e.target.value)}
+                                    className="h-9"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Unit</Label>
+                                  <Input
+                                    placeholder="e.g., lbs, min, watts"
+                                    value={newMetricUnit}
+                                    onChange={(e) => setNewMetricUnit(e.target.value)}
+                                    className="h-9"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Current Value</Label>
+                                  <Input
+                                    placeholder="Starting point"
+                                    value={newMetricStart}
+                                    onChange={(e) => setNewMetricStart(e.target.value)}
+                                    className="h-9"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Target Value</Label>
+                                  <Input
+                                    placeholder="Goal to achieve"
+                                    value={newMetricTarget}
+                                    onChange={(e) => setNewMetricTarget(e.target.value)}
+                                    className="h-9"
+                                  />
+                                </div>
+                              </div>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={handleAddCustomMetric}
+                                className="w-full h-9 bg-green-600 hover:bg-green-700"
+                                disabled={!newMetricName.trim()}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Performance Metric
+                              </Button>
+                            </div>
+                            
+                            {/* Preset Performance Metrics by Category */}
+                            <div className="space-y-3">
+                              <p className="text-xs font-medium text-muted-foreground">Quick Add Presets:</p>
+                              
+                              {/* Strength */}
+                              <div className="space-y-1">
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Strength</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {[
+                                    { name: 'Squat 1RM', unit: 'lbs' },
+                                    { name: 'Bench Press 1RM', unit: 'lbs' },
+                                    { name: 'Deadlift 1RM', unit: 'lbs' },
+                                    { name: 'Overhead Press 1RM', unit: 'lbs' },
+                                    { name: 'Pull-ups', unit: 'reps' },
+                                    { name: 'Total (SBD)', unit: 'lbs' },
+                                  ].map((preset) => (
+                                    <button
+                                      key={preset.name}
+                                      type="button"
+                                      onClick={() => {
+                                        setNewMetricName(preset.name);
+                                        setNewMetricUnit(preset.unit);
+                                      }}
+                                      className={cn(
+                                        "text-xs px-2.5 py-1 rounded-full border transition-colors",
+                                        newMetricName === preset.name
+                                          ? "bg-green-100 border-green-400 text-green-700"
+                                          : "hover:bg-green-50 hover:border-green-300"
+                                      )}
+                                    >
+                                      {preset.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              
+                              {/* Endurance */}
+                              <div className="space-y-1">
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Endurance</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {[
+                                    { name: 'VO2 Max', unit: 'ml/kg/min' },
+                                    { name: 'Mile Time', unit: 'min:sec' },
+                                    { name: '5K Time', unit: 'min' },
+                                    { name: '10K Time', unit: 'min' },
+                                    { name: 'Half Marathon', unit: 'h:min' },
+                                    { name: 'Marathon', unit: 'h:min' },
+                                    { name: 'FTP (Cycling)', unit: 'watts' },
+                                    { name: '2K Row', unit: 'min:sec' },
+                                  ].map((preset) => (
+                                    <button
+                                      key={preset.name}
+                                      type="button"
+                                      onClick={() => {
+                                        setNewMetricName(preset.name);
+                                        setNewMetricUnit(preset.unit);
+                                      }}
+                                      className={cn(
+                                        "text-xs px-2.5 py-1 rounded-full border transition-colors",
+                                        newMetricName === preset.name
+                                          ? "bg-green-100 border-green-400 text-green-700"
+                                          : "hover:bg-green-50 hover:border-green-300"
+                                      )}
+                                    >
+                                      {preset.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              
+                              {/* Power & Speed */}
+                              <div className="space-y-1">
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Power & Speed</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {[
+                                    { name: 'Vertical Jump', unit: 'inches' },
+                                    { name: 'Broad Jump', unit: 'inches' },
+                                    { name: '40 Yard Dash', unit: 'sec' },
+                                    { name: 'Sprint (100m)', unit: 'sec' },
+                                    { name: 'Power Clean 1RM', unit: 'lbs' },
+                                    { name: 'Snatch 1RM', unit: 'lbs' },
+                                    { name: 'Peak Power', unit: 'watts' },
+                                  ].map((preset) => (
+                                    <button
+                                      key={preset.name}
+                                      type="button"
+                                      onClick={() => {
+                                        setNewMetricName(preset.name);
+                                        setNewMetricUnit(preset.unit);
+                                      }}
+                                      className={cn(
+                                        "text-xs px-2.5 py-1 rounded-full border transition-colors",
+                                        newMetricName === preset.name
+                                          ? "bg-green-100 border-green-400 text-green-700"
+                                          : "hover:bg-green-50 hover:border-green-300"
+                                      )}
+                                    >
+                                      {preset.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              
+                              {/* Conditioning & Recovery */}
+                              <div className="space-y-1">
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Conditioning & Recovery</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {[
+                                    { name: 'RHR', unit: 'bpm' },
+                                    { name: 'HRV', unit: 'ms' },
+                                    { name: 'RMR', unit: 'kcal' },
+                                    { name: 'Work Capacity', unit: 'kJ' },
+                                    { name: 'Recovery Score', unit: 'score' },
+                                  ].map((preset) => (
+                                    <button
+                                      key={preset.name}
+                                      type="button"
+                                      onClick={() => {
+                                        setNewMetricName(preset.name);
+                                        setNewMetricUnit(preset.unit);
+                                      }}
+                                      className={cn(
+                                        "text-xs px-2.5 py-1 rounded-full border transition-colors",
+                                        newMetricName === preset.name
+                                          ? "bg-green-100 border-green-400 text-green-700"
+                                          : "hover:bg-green-50 hover:border-green-300"
+                                      )}
+                                    >
+                                      {preset.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              
+                              {/* Sport-Specific */}
+                              <div className="space-y-1">
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Sport-Specific</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {[
+                                    { name: 'Swim 100m', unit: 'sec' },
+                                    { name: 'Golf Handicap', unit: 'strokes' },
+                                    { name: 'Tennis Rating', unit: 'NTRP' },
+                                    { name: 'Climbing Grade', unit: 'V-scale' },
+                                    { name: 'CrossFit Total', unit: 'lbs' },
+                                  ].map((preset) => (
+                                    <button
+                                      key={preset.name}
+                                      type="button"
+                                      onClick={() => {
+                                        setNewMetricName(preset.name);
+                                        setNewMetricUnit(preset.unit);
+                                      }}
+                                      className={cn(
+                                        "text-xs px-2.5 py-1 rounded-full border transition-colors",
+                                        newMetricName === preset.name
+                                          ? "bg-green-100 border-green-400 text-green-700"
+                                          : "hover:bg-green-50 hover:border-green-300"
+                                      )}
+                                    >
+                                      {preset.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {customMetrics.length === 0 && (
+                              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                                <strong>Tip:</strong> Add at least one performance metric to track your progress. Body composition targets below are optional for performance-focused phases.
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                      
                       <Separator />
                       
-                      {/* Target Section */}
+                      {/* Target Section - With optional label for performance goals */}
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <Label className="text-sm font-semibold flex items-center gap-2 text-[#c19962]">
                             <Target className="h-4 w-4" />
-                            Target Body Composition
+                            {newPhaseGoal === 'performance' ? 'Body Composition (Optional)' : 'Target Body Composition'}
                           </Label>
                           <Select value={targetMode} onValueChange={(v) => setTargetMode(v as typeof targetMode)}>
                             <SelectTrigger className="w-36 h-7 text-xs">
@@ -1363,8 +1846,8 @@ export default function PlanningPage() {
                         </p>
                       </div>
                       
-                      {/* Custom Metrics Section - For Performance/Health/Other Goals */}
-                      {(newPhaseGoal === 'performance' || newPhaseGoal === 'health' || newPhaseGoal === 'other') && (
+                      {/* Custom Metrics Section - For Health/Other Goals (shown after body comp) */}
+                      {(newPhaseGoal === 'health' || newPhaseGoal === 'other') && (
                         <>
                           <Separator />
                           <div className="space-y-3">
@@ -1373,7 +1856,7 @@ export default function PlanningPage() {
                               Custom Metrics
                             </Label>
                             <p className="text-xs text-muted-foreground">
-                              Track specific goals like VO2 max, strength PRs, blood markers, or any other metric.
+                              Track specific goals like blood markers, health metrics, or any custom measurements.
                             </p>
                             
                             {/* Existing Custom Metrics */}
@@ -1449,19 +1932,18 @@ export default function PlanningPage() {
                               </Button>
                             </div>
                             
-                            {/* Preset Suggestions */}
+                            {/* Preset Suggestions for Health */}
                             <div className="flex flex-wrap gap-1">
                               <span className="text-xs text-muted-foreground mr-2">Quick add:</span>
                               {[
-                                { name: 'VO2 Max', unit: 'ml/kg/min' },
-                                { name: 'Bench Press 1RM', unit: 'lbs' },
-                                { name: 'Squat 1RM', unit: 'lbs' },
-                                { name: 'Deadlift 1RM', unit: 'lbs' },
-                                { name: 'Mile Time', unit: 'min' },
-                                { name: 'RMR', unit: 'kcal' },
                                 { name: 'A1C', unit: '%' },
+                                { name: 'Fasting Glucose', unit: 'mg/dL' },
                                 { name: 'LDL Cholesterol', unit: 'mg/dL' },
+                                { name: 'HDL Cholesterol', unit: 'mg/dL' },
+                                { name: 'Triglycerides', unit: 'mg/dL' },
                                 { name: 'Blood Pressure', unit: 'mmHg' },
+                                { name: 'RHR', unit: 'bpm' },
+                                { name: 'Sleep Quality', unit: 'score' },
                               ].map((preset) => (
                                 <button
                                   key={preset.name}
@@ -1482,51 +1964,473 @@ export default function PlanningPage() {
                     </div>
                   )}
                   
-                  {/* Step 3: Timeline */}
+                  {/* Step 3: Timeline - Tailored by Goal Type */}
                   {wizardStep === 3 && (
                     <div className="space-y-6 py-4">
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <Label>Rate of Change</Label>
-                            <Badge variant="outline">{rateOfChange.toFixed(2)}% BW/week</Badge>
+                      
+                      {/* BODY COMPOSITION GOALS: Rate of Change */}
+                      {(newPhaseGoal === 'fat_loss' || newPhaseGoal === 'muscle_gain' || newPhaseGoal === 'recomposition') && (
+                        <div className="space-y-4">
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <Label className="text-sm font-semibold">Rate of Change</Label>
+                              <Badge variant="outline" className="text-sm px-3 py-1">
+                                {rateOfChange.toFixed(2)}% BW/week
+                              </Badge>
+                            </div>
+                            
+                            {/* Fat Loss Rate Cards */}
+                            {newPhaseGoal === 'fat_loss' && (
+                              <>
+                                <div className="grid grid-cols-5 gap-2">
+                                  {[
+                                    { rate: 0.3, label: 'Conservative', desc: 'Max muscle retention', color: 'green', recommended: false },
+                                    { rate: 0.5, label: 'Moderate', desc: 'Optimal balance', color: 'blue', recommended: true },
+                                    { rate: 0.75, label: 'Aggressive', desc: 'Faster results', color: 'orange', recommended: false },
+                                    { rate: 1.0, label: 'Very Aggressive', desc: 'Short-term only', color: 'red', recommended: false },
+                                  ].map((preset) => (
+                                    <button
+                                      key={preset.rate}
+                                      type="button"
+                                      onClick={() => setRateOfChange(preset.rate)}
+                                      className={cn(
+                                        "p-3 rounded-lg border-2 text-center transition-all relative",
+                                        rateOfChange === preset.rate
+                                          ? preset.color === 'green' ? "border-green-500 bg-green-50 ring-2 ring-green-200" :
+                                            preset.color === 'blue' ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" :
+                                            preset.color === 'orange' ? "border-orange-500 bg-orange-50 ring-2 ring-orange-200" :
+                                            "border-red-500 bg-red-50 ring-2 ring-red-200"
+                                          : "hover:border-muted-foreground/50"
+                                      )}
+                                    >
+                                      {preset.recommended && (
+                                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-medium">
+                                          Recommended
+                                        </span>
+                                      )}
+                                      <p className={cn(
+                                        "font-bold text-lg",
+                                        preset.color === 'green' ? "text-green-700" :
+                                        preset.color === 'blue' ? "text-blue-700" :
+                                        preset.color === 'orange' ? "text-orange-700" :
+                                        "text-red-700"
+                                      )}>
+                                        {preset.rate}%
+                                      </p>
+                                      <p className="text-xs font-medium">{preset.label}</p>
+                                      <p className="text-[10px] text-muted-foreground">{preset.desc}</p>
+                                    </button>
+                                  ))}
+                                  
+                                  {/* Custom Rate Option */}
+                                  <div className={cn(
+                                    "p-3 rounded-lg border-2 text-center transition-all relative flex flex-col justify-center",
+                                    ![0.3, 0.5, 0.75, 1.0].includes(rateOfChange)
+                                      ? "border-[#c19962] bg-[#c19962]/10 ring-2 ring-[#c19962]/30"
+                                      : "hover:border-muted-foreground/50"
+                                  )}>
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">Custom</p>
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Input
+                                        type="number"
+                                        value={rateOfChange}
+                                        onChange={(e) => setRateOfChange(Number(e.target.value))}
+                                        step="0.05"
+                                        min="0.1"
+                                        max="1.5"
+                                        className="h-8 w-16 text-center font-bold text-sm p-1"
+                                      />
+                                      <span className="text-sm font-medium">%</span>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground mt-1">BW/week</p>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                            
+                            {/* Muscle Gain Rate Cards */}
+                            {newPhaseGoal === 'muscle_gain' && (
+                              <>
+                                <div className="grid grid-cols-5 gap-2">
+                                  {[
+                                    { rate: 0.15, label: 'Conservative', desc: 'Minimal fat gain', color: 'green', recommended: false },
+                                    { rate: 0.25, label: 'Moderate', desc: 'Lean bulk', color: 'blue', recommended: true },
+                                    { rate: 0.35, label: 'Aggressive', desc: 'Standard bulk', color: 'purple', recommended: false },
+                                    { rate: 0.5, label: 'Very Aggressive', desc: 'Max muscle focus', color: 'orange', recommended: false },
+                                  ].map((preset) => (
+                                    <button
+                                      key={preset.rate}
+                                      type="button"
+                                      onClick={() => setRateOfChange(preset.rate)}
+                                      className={cn(
+                                        "p-3 rounded-lg border-2 text-center transition-all relative",
+                                        rateOfChange === preset.rate
+                                          ? preset.color === 'green' ? "border-green-500 bg-green-50 ring-2 ring-green-200" :
+                                            preset.color === 'blue' ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" :
+                                            preset.color === 'purple' ? "border-purple-500 bg-purple-50 ring-2 ring-purple-200" :
+                                            "border-orange-500 bg-orange-50 ring-2 ring-orange-200"
+                                          : "hover:border-muted-foreground/50"
+                                      )}
+                                    >
+                                      {preset.recommended && (
+                                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-medium">
+                                          Recommended
+                                        </span>
+                                      )}
+                                      <p className={cn(
+                                        "font-bold text-lg",
+                                        preset.color === 'green' ? "text-green-700" :
+                                        preset.color === 'blue' ? "text-blue-700" :
+                                        preset.color === 'purple' ? "text-purple-700" :
+                                        "text-orange-700"
+                                      )}>
+                                        {preset.rate}%
+                                      </p>
+                                      <p className="text-xs font-medium">{preset.label}</p>
+                                      <p className="text-[10px] text-muted-foreground">{preset.desc}</p>
+                                    </button>
+                                  ))}
+                                  
+                                  {/* Custom Rate Option */}
+                                  <div className={cn(
+                                    "p-3 rounded-lg border-2 text-center transition-all relative flex flex-col justify-center",
+                                    ![0.15, 0.25, 0.35, 0.5].includes(rateOfChange)
+                                      ? "border-[#c19962] bg-[#c19962]/10 ring-2 ring-[#c19962]/30"
+                                      : "hover:border-muted-foreground/50"
+                                  )}>
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">Custom</p>
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Input
+                                        type="number"
+                                        value={rateOfChange}
+                                        onChange={(e) => setRateOfChange(Number(e.target.value))}
+                                        step="0.05"
+                                        min="0.1"
+                                        max="0.75"
+                                        className="h-8 w-16 text-center font-bold text-sm p-1"
+                                      />
+                                      <span className="text-sm font-medium">%</span>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground mt-1">BW/week</p>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                            
+                            {/* Recomposition Rate Cards */}
+                            {newPhaseGoal === 'recomposition' && (
+                              <>
+                                <div className="grid grid-cols-4 gap-2">
+                                  {[
+                                    { rate: 0, label: 'Maintenance', desc: 'Steady recomp', color: 'green', recommended: true },
+                                    { rate: 0.15, label: 'Slight Deficit', desc: 'Fat loss focus', color: 'blue', recommended: false },
+                                    { rate: -0.15, label: 'Slight Surplus', desc: 'Muscle focus', color: 'purple', recommended: false },
+                                  ].map((preset) => (
+                                    <button
+                                      key={preset.rate}
+                                      type="button"
+                                      onClick={() => setRateOfChange(Math.abs(preset.rate))}
+                                      className={cn(
+                                        "p-3 rounded-lg border-2 text-center transition-all relative",
+                                        rateOfChange === Math.abs(preset.rate)
+                                          ? preset.color === 'green' ? "border-green-500 bg-green-50 ring-2 ring-green-200" :
+                                            preset.color === 'blue' ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" :
+                                            "border-purple-500 bg-purple-50 ring-2 ring-purple-200"
+                                          : "hover:border-muted-foreground/50"
+                                      )}
+                                    >
+                                      {preset.recommended && (
+                                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] bg-green-600 text-white px-2 py-0.5 rounded-full font-medium">
+                                          Recommended
+                                        </span>
+                                      )}
+                                      <p className={cn(
+                                        "font-bold text-lg",
+                                        preset.color === 'green' ? "text-green-700" :
+                                        preset.color === 'blue' ? "text-blue-700" :
+                                        "text-purple-700"
+                                      )}>
+                                        {preset.rate === 0 ? '0%' : `${preset.rate > 0 ? '-' : '+'}${Math.abs(preset.rate)}%`}
+                                      </p>
+                                      <p className="text-xs font-medium">{preset.label}</p>
+                                      <p className="text-[10px] text-muted-foreground">{preset.desc}</p>
+                                    </button>
+                                  ))}
+                                  
+                                  {/* Custom Rate Option */}
+                                  <div className={cn(
+                                    "p-3 rounded-lg border-2 text-center transition-all relative flex flex-col justify-center",
+                                    ![0, 0.15].includes(rateOfChange)
+                                      ? "border-[#c19962] bg-[#c19962]/10 ring-2 ring-[#c19962]/30"
+                                      : "hover:border-muted-foreground/50"
+                                  )}>
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">Custom</p>
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Input
+                                        type="number"
+                                        value={rateOfChange}
+                                        onChange={(e) => setRateOfChange(Number(e.target.value))}
+                                        step="0.05"
+                                        min="0"
+                                        max="0.25"
+                                        className="h-8 w-16 text-center font-bold text-sm p-1"
+                                      />
+                                      <span className="text-sm font-medium">%</span>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground mt-1">BW/week</p>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                            
+                            {/* Weekly Impact Preview */}
+                            <div className="p-3 rounded-lg bg-muted/50 border">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">Weekly change at {editCurrentWeight} lbs:</span>
+                                <span className="font-semibold">
+                                  {newPhaseGoal === 'fat_loss' ? '−' : newPhaseGoal === 'muscle_gain' ? '+' : '±'}
+                                  {((rateOfChange / 100) * editCurrentWeight).toFixed(2)} lbs/week
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          <Slider
-                            value={[rateOfChange]}
-                            onValueChange={([v]) => setRateOfChange(v)}
-                            min={newPhaseGoal === 'muscle_gain' ? 0.1 : 0.25}
-                            max={newPhaseGoal === 'muscle_gain' ? 0.5 : 1.0}
-                            step={0.05}
-                          />
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>{newPhaseGoal === 'muscle_gain' ? 'Conservative' : 'Slow & Steady'}</span>
-                            <span>{newPhaseGoal === 'muscle_gain' ? 'Aggressive' : 'Fast (harder to sustain)'}</span>
+                          
+                          {/* Research-based recommendation for body comp */}
+                          <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                            <Info className="h-4 w-4 mt-0.5 text-blue-600" />
+                            <div className="text-xs">
+                              <p className="font-medium text-blue-800 dark:text-blue-200">Research-Based Guidance</p>
+                              <p className="text-blue-700 dark:text-blue-300">
+                                {newPhaseGoal === 'fat_loss' ? (
+                                  <>
+                                    <strong>Conservative (0.3%):</strong> Best for lean individuals or muscle preservation priority.{' '}
+                                    <strong>Moderate (0.5%):</strong> Optimal for most clients.{' '}
+                                    <strong>Aggressive (0.75-1%):</strong> Higher muscle loss risk, use for shorter phases.
+                                  </>
+                                ) : newPhaseGoal === 'muscle_gain' ? (
+                                  <>
+                                    <strong>Conservative (0.15%):</strong> Minimal fat gain, slower progress.{' '}
+                                    <strong>Moderate (0.25%):</strong> Optimal for lean gains.{' '}
+                                    <strong>Aggressive (0.35-0.5%):</strong> Faster muscle gain but more fat accumulation.
+                                  </>
+                                ) : (
+                                  <>
+                                    <strong>Maintenance:</strong> Ideal for recomposition - simultaneous fat loss and muscle gain.{' '}
+                                    <strong>Slight deficit:</strong> Emphasize fat loss while preserving muscle.{' '}
+                                    <strong>Slight surplus:</strong> Emphasize muscle gain with minimal fat.
+                                  </>
+                                )}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                        
-                        {/* Research-based recommendation */}
-                        <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-                          <Info className="h-4 w-4 mt-0.5 text-blue-600" />
-                          <div className="text-xs">
-                            <p className="font-medium text-blue-800 dark:text-blue-200">Research-Based Recommendation</p>
-                            <p className="text-blue-700 dark:text-blue-300">
-                              {newPhaseGoal === 'fat_loss' ? (
-                                <>0.5-0.7% body weight/week optimizes fat loss while preserving muscle. Higher rates increase muscle loss risk.</>
-                              ) : newPhaseGoal === 'muscle_gain' ? (
-                                <>0.25-0.5% body weight/week allows quality muscle gain with minimal fat. Faster rates primarily increase fat gain.</>
-                              ) : (
-                                <>Adjust rate based on specific goals and timeline. Slower rates are generally more sustainable.</>
-                              )}
-                            </p>
+                      )}
+                      
+                      {/* PERFORMANCE GOALS: Training Block Duration */}
+                      {newPhaseGoal === 'performance' && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-2 rounded-lg bg-green-100">
+                              <Zap className="h-4 w-4 text-green-700" />
+                            </div>
+                            <div>
+                              <Label className="text-sm font-semibold">Training Block Duration</Label>
+                              <p className="text-xs text-muted-foreground">Select phase duration based on training periodization</p>
+                            </div>
+                          </div>
+                          
+                          {/* Quick Duration Presets */}
+                          <div className="grid grid-cols-4 gap-2">
+                            {[
+                              { weeks: 4, label: 'Microcycle', desc: 'Peaking/Deload' },
+                              { weeks: 8, label: 'Mesocycle', desc: 'Standard block' },
+                              { weeks: 12, label: 'Training Block', desc: 'Full progression' },
+                              { weeks: 16, label: 'Macrocycle', desc: 'Competition prep' },
+                            ].map((preset) => (
+                              <button
+                                key={preset.weeks}
+                                type="button"
+                                onClick={() => {
+                                  const start = new Date(newPhaseStart);
+                                  const end = new Date(start);
+                                  end.setDate(end.getDate() + (preset.weeks * 7));
+                                  setNewPhaseEnd(end.toISOString().split('T')[0]);
+                                }}
+                                className={cn(
+                                  "p-3 rounded-lg border text-center transition-all",
+                                  calculatedTimeline.weeks === preset.weeks
+                                    ? "border-green-500 bg-green-50 ring-2 ring-green-200"
+                                    : "hover:border-green-300 hover:bg-green-50/50"
+                                )}
+                              >
+                                <p className="font-bold text-lg text-green-700">{preset.weeks}</p>
+                                <p className="text-xs font-medium">{preset.label}</p>
+                                <p className="text-[10px] text-muted-foreground">{preset.desc}</p>
+                              </button>
+                            ))}
+                          </div>
+                          
+                          {/* Performance Metrics Summary */}
+                          {customMetrics.length > 0 && (
+                            <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                              <p className="text-xs font-medium text-green-800 mb-2">Performance Targets for this Phase:</p>
+                              <div className="space-y-1">
+                                {customMetrics.map((m) => (
+                                  <div key={m.id} className="flex justify-between text-xs">
+                                    <span className="text-green-700">{m.name}</span>
+                                    <span className="font-medium text-green-800">{m.startValue} → {m.targetValue} {m.unit}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Research-based recommendation for performance */}
+                          <div className="flex items-start gap-2 p-3 rounded-lg bg-green-50/50 border border-green-200">
+                            <Info className="h-4 w-4 mt-0.5 text-green-600" />
+                            <div className="text-xs">
+                              <p className="font-medium text-green-800">Training Periodization Guidance</p>
+                              <p className="text-green-700">
+                                4-week blocks for peaking/tapering. 8-12 weeks for strength/hypertrophy blocks. 
+                                12-16 weeks for competition prep. Include deload weeks every 4-6 weeks of hard training.
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
+                      
+                      {/* HEALTH GOALS: Intervention Timeline */}
+                      {newPhaseGoal === 'health' && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-2 rounded-lg bg-rose-100">
+                              <Heart className="h-4 w-4 text-rose-700" />
+                            </div>
+                            <div>
+                              <Label className="text-sm font-semibold">Health Intervention Duration</Label>
+                              <p className="text-xs text-muted-foreground">Set timeline based on health goals and marker reassessment</p>
+                            </div>
+                          </div>
+                          
+                          {/* Quick Duration Presets for Health */}
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { weeks: 6, label: '6 Weeks', desc: 'Initial intervention' },
+                              { weeks: 12, label: '12 Weeks', desc: 'Lab recheck timing' },
+                              { weeks: 24, label: '24 Weeks', desc: 'Long-term change' },
+                            ].map((preset) => (
+                              <button
+                                key={preset.weeks}
+                                type="button"
+                                onClick={() => {
+                                  const start = new Date(newPhaseStart);
+                                  const end = new Date(start);
+                                  end.setDate(end.getDate() + (preset.weeks * 7));
+                                  setNewPhaseEnd(end.toISOString().split('T')[0]);
+                                }}
+                                className={cn(
+                                  "p-3 rounded-lg border text-center transition-all",
+                                  calculatedTimeline.weeks === preset.weeks
+                                    ? "border-rose-500 bg-rose-50 ring-2 ring-rose-200"
+                                    : "hover:border-rose-300 hover:bg-rose-50/50"
+                                )}
+                              >
+                                <p className="font-bold text-lg text-rose-700">{preset.weeks}</p>
+                                <p className="text-xs font-medium">{preset.label}</p>
+                                <p className="text-[10px] text-muted-foreground">{preset.desc}</p>
+                              </button>
+                            ))}
+                          </div>
+                          
+                          {/* Health Metrics Summary */}
+                          {customMetrics.length > 0 && (
+                            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200">
+                              <p className="text-xs font-medium text-rose-800 mb-2">Health Targets for this Phase:</p>
+                              <div className="space-y-1">
+                                {customMetrics.map((m) => (
+                                  <div key={m.id} className="flex justify-between text-xs">
+                                    <span className="text-rose-700">{m.name}</span>
+                                    <span className="font-medium text-rose-800">{m.startValue} → {m.targetValue} {m.unit}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Research-based recommendation for health */}
+                          <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-50/50 border border-rose-200">
+                            <Info className="h-4 w-4 mt-0.5 text-rose-600" />
+                            <div className="text-xs">
+                              <p className="font-medium text-rose-800">Health Marker Timeline</p>
+                              <p className="text-rose-700">
+                                Most blood markers (lipids, glucose, A1C) show meaningful changes in 8-12 weeks. 
+                                Plan lab work 1-2 weeks before phase end to assess progress.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* OTHER GOALS: Custom Timeline */}
+                      {newPhaseGoal === 'other' && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="p-2 rounded-lg bg-slate-100">
+                              <Target className="h-4 w-4 text-slate-700" />
+                            </div>
+                            <div>
+                              <Label className="text-sm font-semibold">Phase Duration</Label>
+                              <p className="text-xs text-muted-foreground">Set custom timeline for your specific goals</p>
+                            </div>
+                          </div>
+                          
+                          {/* Quick Duration Presets for Other */}
+                          <div className="grid grid-cols-4 gap-2">
+                            {[4, 8, 12, 16].map((weeks) => (
+                              <button
+                                key={weeks}
+                                type="button"
+                                onClick={() => {
+                                  const start = new Date(newPhaseStart);
+                                  const end = new Date(start);
+                                  end.setDate(end.getDate() + (weeks * 7));
+                                  setNewPhaseEnd(end.toISOString().split('T')[0]);
+                                }}
+                                className={cn(
+                                  "p-3 rounded-lg border text-center transition-all",
+                                  calculatedTimeline.weeks === weeks
+                                    ? "border-slate-500 bg-slate-100 ring-2 ring-slate-200"
+                                    : "hover:border-slate-300 hover:bg-slate-50"
+                                )}
+                              >
+                                <p className="font-bold text-lg">{weeks}</p>
+                                <p className="text-xs text-muted-foreground">weeks</p>
+                              </button>
+                            ))}
+                          </div>
+                          
+                          {/* Custom Metrics Summary */}
+                          {customMetrics.length > 0 && (
+                            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                              <p className="text-xs font-medium text-slate-800 mb-2">Custom Targets for this Phase:</p>
+                              <div className="space-y-1">
+                                {customMetrics.map((m) => (
+                                  <div key={m.id} className="flex justify-between text-xs">
+                                    <span className="text-slate-700">{m.name}</span>
+                                    <span className="font-medium text-slate-800">{m.startValue} → {m.targetValue} {m.unit}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                         
-                      {/* Calculated Timeline */}
+                      {/* Date Selection - Universal */}
                       <div className="p-4 border rounded-lg">
                         <h4 className="font-semibold mb-3 flex items-center gap-2">
                           <Clock className="h-4 w-4 text-[#c19962]" />
-                          Calculated Timeline
+                          Phase Timeline
                         </h4>
                         
                         <div className="space-y-3">
@@ -1540,7 +2444,7 @@ export default function PlanningPage() {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">End Date (Calculated)</Label>
+                              <Label className="text-xs text-muted-foreground">End Date</Label>
                               <Input
                                 type="date"
                                 value={newPhaseEnd}
@@ -1556,7 +2460,9 @@ export default function PlanningPage() {
                             </Badge>
                           </div>
                           
-                          {calculatedTimeline.weeklyChangeLbs && (
+                          {/* Only show body comp change for body comp goals */}
+                          {(newPhaseGoal === 'fat_loss' || newPhaseGoal === 'muscle_gain' || newPhaseGoal === 'recomposition') && 
+                           calculatedTimeline.weeklyChangeLbs && (
                             <div className="text-xs text-muted-foreground">
                               Weekly change: ~{calculatedTimeline.weeklyChangeLbs} lbs/week
                               {calculatedTimeline.totalChange && (
@@ -1575,7 +2481,11 @@ export default function PlanningPage() {
                             <div>
                               <p className="font-medium text-amber-800">Long Phase Duration</p>
                               <p className="text-amber-700 text-xs mt-1">
-                                Phases longer than 16 weeks may benefit from a diet break or deload week in the middle. Consider breaking this into smaller phases.
+                                {newPhaseGoal === 'performance' 
+                                  ? 'Consider adding deload weeks every 4-6 weeks for recovery and adaptation.'
+                                  : newPhaseGoal === 'health'
+                                    ? 'Plan for interim check-ins to assess progress and adjust as needed.'
+                                    : 'Phases longer than 16 weeks may benefit from periodic assessments or breaks.'}
                               </p>
                             </div>
                           </div>
@@ -1584,7 +2494,7 @@ export default function PlanningPage() {
                     </div>
                   )}
                   
-                  {/* Step 4: Name & Review */}
+                  {/* Step 4: Name & Review - Tailored by Goal Type */}
                   {wizardStep === 4 && (
                     <div className="space-y-6 py-4">
                       <div className="space-y-2">
@@ -1599,20 +2509,36 @@ export default function PlanningPage() {
                         </p>
                       </div>
                       
-                      {/* Summary Card */}
-                      <Card className="border-[#c19962]/50">
+                      {/* Summary Card - Goal Type Aware */}
+                      <Card className={cn(
+                        "border-2",
+                        newPhaseGoal === 'performance' && "border-green-300",
+                        newPhaseGoal === 'health' && "border-rose-300",
+                        newPhaseGoal === 'other' && "border-slate-300",
+                        (newPhaseGoal === 'fat_loss' || newPhaseGoal === 'muscle_gain' || newPhaseGoal === 'recomposition') && "border-[#c19962]/50"
+                      )}>
                         <CardHeader className="pb-3">
                           <CardTitle className="text-base flex items-center gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-[#c19962]" />
+                            {newPhaseGoal === 'performance' && <Zap className="h-4 w-4 text-green-600" />}
+                            {newPhaseGoal === 'health' && <Heart className="h-4 w-4 text-rose-600" />}
+                            {newPhaseGoal === 'other' && <Target className="h-4 w-4 text-slate-600" />}
+                            {(newPhaseGoal === 'fat_loss' || newPhaseGoal === 'muscle_gain' || newPhaseGoal === 'recomposition') && (
+                              <CheckCircle2 className="h-4 w-4 text-[#c19962]" />
+                            )}
                             Phase Summary
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3 text-sm">
+                          {/* Common Info */}
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Goal</span>
+                            <span className="text-muted-foreground">Goal Type</span>
                             <div className="flex items-center gap-2">
                               {GOAL_ICONS[newPhaseGoal]}
-                              <span className="font-medium">{GOAL_LABELS[newPhaseGoal]}</span>
+                              <span className="font-medium">
+                                {newPhaseGoal === 'health' && customGoalName ? customGoalName : 
+                                 newPhaseGoal === 'other' && customGoalName ? customGoalName :
+                                 GOAL_LABELS[newPhaseGoal]}
+                              </span>
                             </div>
                           </div>
                           <div className="flex justify-between">
@@ -1623,21 +2549,241 @@ export default function PlanningPage() {
                             <span className="text-muted-foreground">Dates</span>
                             <span className="font-medium">{formatDate(newPhaseStart)} → {formatDate(newPhaseEnd)}</span>
                           </div>
+                          
                           <Separator />
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Target Weight</span>
-                            <span className="font-medium">{targetWeightLbs.toFixed(1)} lbs</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Target Body Fat</span>
-                            <span className="font-medium">{targetBodyFat.toFixed(1)}%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Rate of Change</span>
-                            <span className="font-medium">{rateOfChange.toFixed(2)}% BW/week</span>
+                          
+                          {/* BODY COMPOSITION GOALS: Show targets */}
+                          {(newPhaseGoal === 'fat_loss' || newPhaseGoal === 'muscle_gain' || newPhaseGoal === 'recomposition') && (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Target Weight</span>
+                                <span className="font-medium">{targetWeightLbs.toFixed(1)} lbs</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Target Body Fat</span>
+                                <span className="font-medium">{targetBodyFat.toFixed(1)}%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Rate of Change</span>
+                                <span className="font-medium">{rateOfChange.toFixed(2)}% BW/week</span>
+                              </div>
+                              <div className="p-2 rounded bg-muted/50 text-xs text-muted-foreground">
+                                <strong>Projected change:</strong> {Math.abs(currentWeightLbs - targetWeightLbs).toFixed(1)} lbs over {calculatedTimeline.weeks} weeks
+                              </div>
+                            </>
+                          )}
+                          
+                          {/* PERFORMANCE GOALS: Show metrics */}
+                          {newPhaseGoal === 'performance' && (
+                            <>
+                              <p className="text-xs font-medium text-green-700 uppercase tracking-wide">Performance Targets</p>
+                              {customMetrics.length > 0 ? (
+                                <div className="space-y-2">
+                                  {customMetrics.map((m) => (
+                                    <div key={m.id} className="flex justify-between items-center p-2 rounded bg-green-50 border border-green-200">
+                                      <span className="text-sm font-medium">{m.name}</span>
+                                      <div className="flex items-center gap-2 text-sm">
+                                        <span className="text-muted-foreground">{m.startValue}</span>
+                                        <ArrowRight className="h-3 w-3 text-green-600" />
+                                        <span className="font-bold text-green-700">{m.targetValue} {m.unit}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground italic">No specific metrics defined. Body composition will be tracked as secondary.</p>
+                              )}
+                              <div className="flex justify-between text-xs pt-2">
+                                <span className="text-muted-foreground">Body comp (secondary)</span>
+                                <span className="text-muted-foreground">Maintain ~{editCurrentWeight} lbs</span>
+                              </div>
+                            </>
+                          )}
+                          
+                          {/* HEALTH GOALS: Show health markers */}
+                          {newPhaseGoal === 'health' && (
+                            <>
+                              <p className="text-xs font-medium text-rose-700 uppercase tracking-wide">Health Targets</p>
+                              {customMetrics.length > 0 ? (
+                                <div className="space-y-2">
+                                  {customMetrics.map((m) => (
+                                    <div key={m.id} className="flex justify-between items-center p-2 rounded bg-rose-50 border border-rose-200">
+                                      <span className="text-sm font-medium">{m.name}</span>
+                                      <div className="flex items-center gap-2 text-sm">
+                                        <span className="text-muted-foreground">{m.startValue}</span>
+                                        <ArrowRight className="h-3 w-3 text-rose-600" />
+                                        <span className="font-bold text-rose-700">{m.targetValue} {m.unit}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground italic">No specific health markers defined.</p>
+                              )}
+                              <div className="flex justify-between text-xs pt-2">
+                                <span className="text-muted-foreground">Body comp approach</span>
+                                <span className="text-muted-foreground">Support health goals</span>
+                              </div>
+                            </>
+                          )}
+                          
+                          {/* OTHER GOALS: Show custom metrics */}
+                          {newPhaseGoal === 'other' && (
+                            <>
+                              <p className="text-xs font-medium text-slate-700 uppercase tracking-wide">Custom Targets</p>
+                              {customMetrics.length > 0 ? (
+                                <div className="space-y-2">
+                                  {customMetrics.map((m) => (
+                                    <div key={m.id} className="flex justify-between items-center p-2 rounded bg-slate-50 border border-slate-200">
+                                      <span className="text-sm font-medium">{m.name}</span>
+                                      <div className="flex items-center gap-2 text-sm">
+                                        <span className="text-muted-foreground">{m.startValue}</span>
+                                        <ArrowRight className="h-3 w-3 text-slate-600" />
+                                        <span className="font-bold text-slate-700">{m.targetValue} {m.unit}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground italic">No specific metrics defined.</p>
+                              )}
+                            </>
+                          )}
+                          
+                          {/* Commitment Levels */}
+                          <Separator />
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Lifestyle</span>
+                              <Badge variant="outline" className="text-[10px]">
+                                {lifestyleCommitment === 'fully_committed' ? 'High' : 
+                                 lifestyleCommitment === 'moderately_committed' ? 'Moderate' : 'Limited'}
+                              </Badge>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Tracking</span>
+                              <Badge variant="outline" className="text-[10px]">
+                                {trackingCommitment === 'committed_tracking' ? 'Committed' : 'Casual'}
+                              </Badge>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
+                      
+                      {/* Conflict Warning - Body Comp Phases Cannot Overlap */}
+                      {(() => {
+                        const bodyCompGoals = ['fat_loss', 'muscle_gain', 'recomposition'];
+                        const isBodyCompPhase = bodyCompGoals.includes(newPhaseGoal);
+                        const newStart = new Date(newPhaseStart);
+                        const newEnd = new Date(newPhaseEnd);
+                        
+                        // Check for any overlapping body comp phase (can't have two body comp phases at once)
+                        const overlappingBodyCompPhase = isBodyCompPhase 
+                          ? phases.find(p => {
+                              if (bodyCompGoals.includes(p.goalType)) {
+                                const existingStart = new Date(p.startDate);
+                                const existingEnd = new Date(p.endDate);
+                                return (newStart <= existingEnd && newEnd >= existingStart);
+                              }
+                              return false;
+                            })
+                          : null;
+                        
+                        // Check if there's a body comp phase to anchor to (for non-body-comp goals)
+                        const hasAnchorBodyCompPhase = !isBodyCompPhase 
+                          ? phases.some(p => {
+                              if (bodyCompGoals.includes(p.goalType)) {
+                                const existingStart = new Date(p.startDate);
+                                const existingEnd = new Date(p.endDate);
+                                return (newStart <= existingEnd && newEnd >= existingStart);
+                              }
+                              return false;
+                            })
+                          : true;
+                        
+                        // Check for same goal type overlap
+                        const sameTypeOverlap = phases.find(p => {
+                          if (p.goalType === newPhaseGoal) {
+                            const existingStart = new Date(p.startDate);
+                            const existingEnd = new Date(p.endDate);
+                            return (newStart <= existingEnd && newEnd >= existingStart);
+                          }
+                          return false;
+                        });
+                        
+                        return (
+                          <>
+                            {/* Critical: Conflicting body comp phases */}
+                            {overlappingBodyCompPhase && (
+                              <div className="p-3 rounded-lg bg-red-50 border-2 border-red-300">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
+                                  <div>
+                                    <p className="text-sm font-semibold text-red-800">Body Composition Conflict</p>
+                                    <p className="text-xs text-red-700 mt-1">
+                                      Cannot have two body composition phases at the same time. 
+                                      &quot;{overlappingBodyCompPhase.name}&quot; ({GOAL_LABELS[overlappingBodyCompPhase.goalType]}) already exists during this period.
+                                    </p>
+                                    <p className="text-xs text-red-600 mt-2 font-medium">
+                                      Adjust dates to not overlap, or modify the existing phase instead.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Warning: No body comp anchor for performance/health phases */}
+                            {!isBodyCompPhase && !hasAnchorBodyCompPhase && (
+                              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
+                                  <div>
+                                    <p className="text-sm font-medium text-amber-800">No Body Composition Anchor</p>
+                                    <p className="text-xs text-amber-700 mt-1">
+                                      This {GOAL_LABELS[newPhaseGoal].toLowerCase()} phase has no overlapping body composition phase. 
+                                      Nutrition targets will default to maintenance calories based on your profile.
+                                    </p>
+                                    <p className="text-xs text-amber-600 mt-2">
+                                      <strong>Recommendation:</strong> Create a body composition phase first (e.g., fat loss, muscle gain, or recomposition) to anchor your meal plan targets.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Info: Performance/Health phase will use body comp anchor */}
+                            {!isBodyCompPhase && hasAnchorBodyCompPhase && (
+                              <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                                <div className="flex items-start gap-2">
+                                  <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                                  <div>
+                                    <p className="text-sm font-medium text-blue-800">Nutrition Targets</p>
+                                    <p className="text-xs text-blue-700 mt-1">
+                                      This {GOAL_LABELS[newPhaseGoal].toLowerCase()} phase will use nutrition targets from the overlapping body composition phase. 
+                                      Your meal plan will support both goals simultaneously.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Warning: Same type overlap */}
+                            {sameTypeOverlap && !overlappingBodyCompPhase && (
+                              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
+                                  <div>
+                                    <p className="text-sm font-medium text-amber-800">Overlapping Phase</p>
+                                    <p className="text-xs text-amber-700 mt-1">
+                                      Another {GOAL_LABELS[newPhaseGoal].toLowerCase()} phase (&quot;{sameTypeOverlap.name}&quot;) exists during this time period.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                   
@@ -1678,300 +2824,179 @@ export default function PlanningPage() {
                   setEditingPhase(null);
                 }
               }}>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Edit Phase</DialogTitle>
-                    <DialogDescription>
-                      Update phase settings. Changes to targets should be made in the targets editor below.
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader className="pb-4">
+                    <DialogTitle className="text-xl flex items-center gap-2">
+                      <Edit className="h-5 w-5 text-[#c19962]" />
+                      Edit Phase
+                    </DialogTitle>
+                    <DialogDescription className="text-sm">
+                      Update phase settings and body composition targets.
                     </DialogDescription>
                   </DialogHeader>
                   
-                  <div className="space-y-4 py-4">
+                  <div className="space-y-6 py-2">
+                    {/* Phase Name */}
                     <div className="space-y-2">
-                      <Label>Phase Name</Label>
+                      <Label className="text-sm font-medium">Phase Name</Label>
                       <Input
                         value={newPhaseName}
                         onChange={(e) => setNewPhaseName(e.target.value)}
-                        placeholder="e.g., Summer Cut"
+                        placeholder="e.g., Summer Cut, Strength Block"
+                        className="h-11"
                       />
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Start Date</Label>
-                        <Input
-                          type="date"
-                          value={newPhaseStart}
-                          onChange={(e) => setNewPhaseStart(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>End Date</Label>
-                        <Input
-                          type="date"
-                          value={newPhaseEnd}
-                          onChange={(e) => setNewPhaseEnd(e.target.value)}
-                        />
+                    {/* Timeline */}
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium">Timeline</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Start Date</Label>
+                          <Input
+                            type="date"
+                            value={newPhaseStart}
+                            onChange={(e) => setNewPhaseStart(e.target.value)}
+                            className="h-10"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">End Date</Label>
+                          <Input
+                            type="date"
+                            value={newPhaseEnd}
+                            onChange={(e) => setNewPhaseEnd(e.target.value)}
+                            className="h-10"
+                          />
+                        </div>
                       </div>
                     </div>
                     
                     <Separator />
                     
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Target Weight (lbs)</Label>
-                        <Input
-                          type="number"
-                          value={targetWeightLbs}
-                          onChange={(e) => setTargetWeightLbs(Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Target Body Fat %</Label>
-                        <Input
-                          type="number"
-                          value={targetBodyFat}
-                          onChange={(e) => setTargetBodyFat(Number(e.target.value))}
-                        />
+                    {/* Body Composition Targets */}
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium">Body Composition Targets</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Target Weight (lbs)</Label>
+                          <Input
+                            type="number"
+                            value={targetWeightLbs}
+                            onChange={(e) => setTargetWeightLbs(Number(e.target.value))}
+                            className="h-10"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Target Body Fat %</Label>
+                          <Input
+                            type="number"
+                            value={targetBodyFat}
+                            onChange={(e) => setTargetBodyFat(Number(e.target.value))}
+                            className="h-10"
+                          />
+                        </div>
                       </div>
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label>Weekly Rate of Change (%)</Label>
-                      <div className="flex items-center gap-4">
-                        <Slider
-                          value={[rateOfChange]}
-                          onValueChange={([v]) => setRateOfChange(v)}
-                          min={0.1}
-                          max={1.5}
-                          step={0.1}
-                          className="flex-1"
-                        />
-                        <Badge variant="outline" className="font-mono min-w-[4rem] justify-center">
-                          {rateOfChange.toFixed(1)}%
+                    {/* Rate of Change */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">Weekly Rate of Change</Label>
+                        <Badge variant="outline" className="font-mono text-sm px-3 py-1">
+                          {rateOfChange.toFixed(1)}% BW/week
                         </Badge>
+                      </div>
+                      <Slider
+                        value={[rateOfChange]}
+                        onValueChange={([v]) => setRateOfChange(v)}
+                        min={0.1}
+                        max={1.5}
+                        step={0.05}
+                        className="py-2"
+                      />
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>Conservative (0.1%)</span>
+                        <span>Moderate (0.5%)</span>
+                        <span>Aggressive (1.5%)</span>
                       </div>
                     </div>
                   </div>
                   
-                  <DialogFooter className="gap-2">
-                    <Button variant="outline" onClick={() => {
-                      setShowEditDialog(false);
-                      setEditingPhase(null);
-                    }}>
+                  <DialogFooter className="pt-4 gap-2 sm:gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setShowEditDialog(false);
+                        setEditingPhase(null);
+                      }}
+                      className="h-10"
+                    >
                       Cancel
                     </Button>
                     <Button 
                       onClick={handleSaveEditedPhase}
-                      className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+                      className="h-10 bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
                     >
-                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
                       Save Changes
                     </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            </div>
-            </div>
             
-            {/* View Mode Toggle - Calendar first */}
-            <div className="flex items-center gap-2 mt-4">
-              <Button
-                variant={viewMode === 'calendar' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('calendar')}
-              >
-                <CalendarDays className="h-4 w-4 mr-1" />
-                Calendar
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-              >
-                <List className="h-4 w-4 mr-1" />
-                List
-              </Button>
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-              >
-                <LayoutGrid className="h-4 w-4 mr-1" />
-                Grid
-              </Button>
-            </div>
-          </div>
-
-          {/* Collapsible Planning Stats Bar - Below Progress Steps */}
-          <div className="mb-6 rounded-xl border border-[#c19962]/20 bg-gradient-to-r from-[#c19962]/5 via-background to-[#c19962]/5 shadow-sm overflow-hidden">
-            <button
-              onClick={() => setShowPlanningStats(!showPlanningStats)}
-              className="w-full flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors"
-            >
-              <div className="flex items-center gap-4 text-sm">
-                <div className="p-1.5 rounded-lg bg-[#c19962]/20">
-                  <Activity className="h-4 w-4 text-[#c19962]" />
-                </div>
-                <span className="font-semibold text-foreground">Planning Overview</span>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs font-mono">{phases.length} phases</Badge>
-                  {phases.find(p => p.id === activePhaseId) && (
-                    <Badge className="text-xs bg-[#c19962]/20 text-[#c19962] border border-[#c19962]/30">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      {phases.find(p => p.id === activePhaseId)?.name}
-                    </Badge>
-                  )}
-                  {timelineEvents.length > 0 && (
-                    <Badge variant="outline" className="text-xs">
-                      <Flag className="h-3 w-3 mr-1" />
-                      {timelineEvents.length} events
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{showPlanningStats ? 'Hide details' : 'Show details'}</span>
-                {showPlanningStats ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
-              </div>
-            </button>
-            
-            {showPlanningStats && (
-              <div className="border-t border-[#c19962]/10 bg-muted/20 animate-in slide-in-from-top-2 duration-200">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-5">
-                  {/* Planning Stats */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                      <Target className="h-3.5 w-3.5" />
-                      Statistics
-                    </h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center p-2 rounded-lg bg-background/50">
-                        <span className="text-sm text-muted-foreground">Total Phases</span>
-                        <span className="font-bold text-lg font-mono">{phases.length}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-2 rounded-lg bg-background/50">
-                        <span className="text-sm text-muted-foreground">Active Phase</span>
-                        <span className="font-medium text-[#c19962]">{phases.find(p => p.id === activePhaseId)?.name || 'None'}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-2 rounded-lg bg-background/50">
-                        <span className="text-sm text-muted-foreground">With Meal Plans</span>
-                        <span className="font-bold font-mono">{phases.filter(p => p.mealPlan).length}/{phases.length}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Timeline Events */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                      <Flag className="h-3.5 w-3.5" />
-                      Upcoming Events
-                    </h4>
-                    {timelineEvents.length === 0 ? (
-                      <div className="p-4 rounded-lg bg-background/50 text-center">
-                        <p className="text-sm text-muted-foreground">No events scheduled</p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-2 h-7 text-xs text-[#c19962]"
-                          onClick={() => setShowEventDialog(true)}
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Add Event
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
-                        {timelineEvents.slice(0, 4).map(event => {
-                          const eventType = EVENT_TYPES.find(et => et.value === event.type);
-                          return (
-                            <div key={event.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-background/50 group hover:bg-background transition-colors">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="text-sm">{eventType?.icon}</span>
-                                <span className="truncate text-sm font-medium">{event.name}</span>
-                              </div>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">
-                                {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                              </span>
-                            </div>
-                          );
-                        })}
-                        {timelineEvents.length > 4 && (
-                          <p className="text-xs text-center text-muted-foreground pt-1">+{timelineEvents.length - 4} more events</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Quick Actions */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                      <Zap className="h-3.5 w-3.5" />
-                      Quick Actions
-                    </h4>
-                    <div className="flex flex-col gap-2">
+          {/* ========== MAIN CONTENT SECTIONS ========== */}
+          
+          {/* Calendar Section */}
+          {activeSection === 'calendar' && (
+            <div className="space-y-4">
+              {/* Calendar Card - Prominent */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Calendar className="h-5 w-5 text-[#c19962]" />
+                      Annual Timeline
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-9 text-sm justify-start"
-                        onClick={() => setShowCreateDialog(true)}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Create New Phase
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-9 text-sm justify-start"
                         onClick={() => setShowEventDialog(true)}
                       >
-                        <Flag className="h-4 w-4 mr-2" />
-                        Add Timeline Event
+                        <Flag className="h-4 w-4 mr-1" />
+                        Add Event
                       </Button>
-                      {phases.find(p => p.id === activePhaseId) && (
-                        <Button
-                          size="sm"
-                          className="h-9 text-sm justify-start bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
-                          onClick={() => router.push('/meal-plan')}
-                        >
-                          <ArrowRight className="h-4 w-4 mr-2" />
-                          Go to Meal Plan
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+                        onClick={() => setShowCreateDialog(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Create Phase
+                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-xs">
+                          <p>Click a phase to select it. Click again to edit nutrition targets.</p>
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Main Content - Full Width */}
-          <div>
-            {/* Calendar View */}
-            {viewMode === 'calendar' && (
-              <Card className="mb-6">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-[#c19962]" />
-                    Annual Timeline
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Visualize training phases across the year. Navigate years with arrows. Click a phase to edit.
-                  </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   <PhaseCalendar
                     phases={sortedPhases}
                     activePhaseId={activePhaseId}
                     year={new Date().getFullYear()}
                     onPhaseClick={(phase) => {
-                      // First click selects/activates, second click edits
+                      // First click selects, second click opens targets modal
                       if (phase.id === activePhaseId) {
-                        handleOpenEditDialog(phase);
+                        handleOpenTargetsModal(phase);
                       } else {
                         setActivePhase(phase.id);
                         toast.success(`Selected: ${phase.name}`);
@@ -1981,9 +3006,10 @@ export default function PlanningPage() {
                     onEventDelete={handleDeleteEvent}
                   />
                   {sortedPhases.length === 0 && (
-                    <div className="text-center py-8">
+                    <div className="text-center py-12 border-t mt-4">
+                      <Calendar className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
                       <p className="text-muted-foreground mb-4 text-sm">
-                        No phases scheduled yet. Create your first phase to see it on the timeline.
+                        No phases scheduled yet
                       </p>
                       <Button 
                         onClick={() => setShowCreateDialog(true)}
@@ -1996,46 +3022,82 @@ export default function PlanningPage() {
                   )}
                 </CardContent>
               </Card>
-            )}
-            
-            {/* Phase Targets Editor - Shown when a phase is active */}
-            {viewMode === 'calendar' && activePhase && isHydrated && (
-              <div className="mt-6">
-                <PhaseTargetsEditor
-                  phase={activePhase}
-                  userProfile={userProfile}
-                  weeklySchedule={weeklySchedule}
-                  onSaveTargets={(targets) => handleSavePhaseTargets(activePhase.id, targets)}
-                  onNavigateToMealPlan={() => handleProceedToMealPlan(activePhase.id)}
-                  onEditPhase={() => handleOpenEditDialog(activePhase)}
-                />
+              
+              {/* Quick Phase Actions - Below Calendar */}
+              {sortedPhases.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {sortedPhases.slice(0, 3).map((phase) => {
+                    const isActive = phase.id === activePhaseId;
+                    const colors = GOAL_COLORS[phase.goalType];
+                    return (
+                      <button
+                        key={phase.id}
+                        onClick={() => {
+                          setActivePhase(phase.id);
+                          handleOpenTargetsModal(phase);
+                        }}
+                        className={cn(
+                          "p-3 rounded-lg border text-left transition-all hover:shadow-md",
+                          isActive 
+                            ? "border-[#c19962] bg-[#c19962]/5" 
+                            : "border-muted hover:border-[#c19962]/50"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className={cn("p-1.5 rounded", colors.bg)}>
+                            {GOAL_ICONS[phase.goalType]}
+                          </div>
+                          <span className="font-medium text-sm truncate">{phase.name}</span>
+                          {isActive && (
+                            <Badge className="bg-[#c19962] text-[#00263d] text-[9px] ml-auto">Active</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{formatDate(phase.startDate)}</span>
+                          <span>{getPhaseDuration(phase)} weeks</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Phases Section */}
+          {activeSection === 'phases' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">All Phases</h2>
+                <Button
+                  onClick={() => setShowCreateDialog(true)}
+                  className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Create Phase
+                </Button>
               </div>
-            )}
-
-              {sortedPhases.length === 0 && viewMode !== 'calendar' ? (
-                // Empty state for non-calendar views
-                <Card>
-                  <CardContent className="py-16 text-center">
-                    <Calendar className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                    <h3 className="text-xl font-semibold mb-2">No Phases Yet</h3>
-                    <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                      Create your first training phase to start planning. Each phase represents a 
-                      focused period with specific goals like fat loss, muscle gain, or maintenance.
+              
+              {sortedPhases.length === 0 ? (
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="py-12 text-center">
+                    <Target className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+                    <h3 className="font-semibold mb-2">No Phases Yet</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Create your first training phase to start planning.
                     </p>
                     <Button 
                       onClick={() => setShowCreateDialog(true)}
                       className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
                     >
                       <Plus className="mr-2 h-4 w-4" />
-                      Create Your First Phase
+                      Create Phase
                     </Button>
                   </CardContent>
                 </Card>
-              ) : sortedPhases.length > 0 ? (
-                // Phase list/grid (shown below calendar or as main view)
-                <div className={cn(
-                  viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'space-y-4'
-                )}>
+              ) : (
+                <div className="space-y-3">
                   {sortedPhases.map((phase) => {
                     const isActive = phase.id === activePhaseId;
                     const colors = GOAL_COLORS[phase.goalType];
@@ -2045,147 +3107,299 @@ export default function PlanningPage() {
                       <Card 
                         key={phase.id}
                         className={cn(
-                          "transition-all",
-                          isActive && "ring-2 ring-[#c19962] shadow-lg",
-                          phase.status === 'completed' && "opacity-75"
+                          "border-0 shadow-sm transition-all cursor-pointer hover:shadow-md",
+                          isActive && "ring-2 ring-[#c19962]",
+                          phase.status === 'completed' && "opacity-60"
                         )}
+                        onClick={() => {
+                          setActivePhase(phase.id);
+                          handleOpenTargetsModal(phase);
+                        }}
                       >
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className={cn(
-                                "p-2 rounded-lg",
-                                colors.bg
-                              )}>
+                              <div className={cn("p-2 rounded-lg", colors.bg)}>
                                 {GOAL_ICONS[phase.goalType]}
                               </div>
                               <div>
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                  {phase.name}
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold">{phase.name}</span>
                                   {isActive && (
-                                    <Badge className="bg-[#c19962] text-[#00263d]">Active</Badge>
+                                    <Badge className="bg-[#c19962] text-[#00263d] text-[10px]">Active</Badge>
                                   )}
-                                  {phase.status === 'completed' && (
-                                    <Badge variant="secondary">
-                                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                                      Completed
-                                    </Badge>
-                                  )}
-                                </CardTitle>
-                                <CardDescription className="flex items-center gap-2 mt-1">
-                                  <Badge variant="outline" className={cn(colors.text, colors.border)}>
-                                    {GOAL_LABELS[phase.goalType]}
-                                  </Badge>
-                                  <span className="text-xs">
-                                    {formatDate(phase.startDate)} - {formatDate(phase.endDate)}
-                                  </span>
-                                </CardDescription>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                                  <span>{formatDate(phase.startDate)} - {formatDate(phase.endDate)}</span>
+                                  <span>•</span>
+                                  <span>{duration} weeks</span>
+                                </div>
                               </div>
                             </div>
-                            
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => handleOpenEditDialog(phase)}
-                                title="Edit phase"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => handleDuplicatePhase(phase.id, phase.name)}
-                                title="Duplicate phase"
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
-                                onClick={() => handleDeletePhase(phase.id, phase.name)}
-                                title="Delete phase"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <div className="text-sm font-semibold">{phase.targetWeightLbs} lbs</div>
+                                <div className="text-xs text-muted-foreground">{phase.targetBodyFat}% BF</div>
+                              </div>
+                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => handleOpenEditDialog(phase)}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Edit</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => handleDuplicatePhase(phase.id, phase.name)}
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Duplicate</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:text-destructive"
+                                      onClick={() => handleDeletePhase(phase.id, phase.name)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Delete</TooltipContent>
+                                </Tooltip>
+                              </div>
                             </div>
-                          </div>
-                        </CardHeader>
-                        
-                        <CardContent className="pt-0">
-                          {/* Phase Stats */}
-                          <div className="grid grid-cols-3 gap-4 text-center py-3 border-y my-3">
-                            <div>
-                              <p className="text-2xl font-bold">{duration}</p>
-                              <p className="text-xs text-muted-foreground">Weeks</p>
-                            </div>
-                            <div>
-                              <p className="text-2xl font-bold">{phase.targetWeightLbs}</p>
-                              <p className="text-xs text-muted-foreground">Target lbs</p>
-                            </div>
-                            <div>
-                              <p className="text-2xl font-bold">{phase.targetBodyFat}%</p>
-                              <p className="text-xs text-muted-foreground">Target BF</p>
-                            </div>
-                          </div>
-                          
-                          {/* Actions */}
-                          <div className="flex gap-2">
-                            {!isActive && phase.status !== 'completed' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleActivatePhase(phase.id)}
-                                className="flex-1"
-                              >
-                                <Play className="h-4 w-4 mr-1" />
-                                Activate
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              onClick={() => handleProceedToMealPlan(phase.id)}
-                              className={cn(
-                                "flex-1",
-                                isActive 
-                                  ? "bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
-                                  : ""
-                              )}
-                            >
-                              {phase.mealPlan ? 'View Meal Plan' : 'Create Meal Plan'}
-                              <ArrowRight className="h-4 w-4 ml-1" />
-                            </Button>
                           </div>
                         </CardContent>
                       </Card>
                     );
                   })}
                 </div>
-              ) : null}
+              )}
+            </div>
+          )}
+          
+          {/* Nutrition Targets Section - Full Editor Inline */}
+          {activeSection === 'targets' && activePhase && isHydrated && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className={cn("p-2 rounded-lg", GOAL_COLORS[activePhase.goalType].bg)}>
+                    {GOAL_ICONS[activePhase.goalType]}
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold">{activePhase.name}</h2>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(activePhase.startDate)} - {formatDate(activePhase.endDate)} • {getPhaseDuration(activePhase)} weeks
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOpenEditDialog(activePhase)}
+                  >
+                    <Edit className="h-4 w-4 mr-1" />
+                    Edit Phase
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+                    onClick={() => handleProceedToMealPlan(activePhase.id)}
+                  >
+                    <Utensils className="h-4 w-4 mr-1" />
+                    Build Meal Plan
+                  </Button>
+                </div>
+              </div>
               
-              {/* Navigation */}
-              <div className="flex justify-between pt-6">
-                <Button variant="outline" onClick={() => router.push('/setup')}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Profile
-                </Button>
-                
-                {activePhaseId && (
+              <PhaseTargetsEditor
+                phase={activePhase}
+                userProfile={userProfile}
+                weeklySchedule={weeklySchedule}
+                onSaveTargets={(targets) => handleSavePhaseTargets(activePhase.id, targets)}
+                onNavigateToMealPlan={() => handleProceedToMealPlan(activePhase.id)}
+                onEditPhase={() => handleOpenEditDialog(activePhase)}
+              />
+            </div>
+          )}
+          
+          {/* Nutrition Targets - No Phase Selected */}
+          {activeSection === 'targets' && !activePhase && (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="py-12 text-center">
+                <Settings2 className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+                <h3 className="font-semibold mb-2">No Phase Selected</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Select or create a phase to configure nutrition targets.
+                </p>
+                <div className="flex gap-2 justify-center">
                   <Button 
-                    onClick={() => router.push('/meal-plan')}
+                    variant="outline"
+                    onClick={() => setActiveSection('phases')}
+                  >
+                    <Target className="mr-2 h-4 w-4" />
+                    View Phases
+                  </Button>
+                  <Button 
+                    onClick={() => setShowCreateDialog(true)}
                     className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
                   >
-                    Continue to Meal Plan
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Phase
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
+          {/* Events Section */}
+          {activeSection === 'events' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Timeline Events</h2>
+                <Button
+                  onClick={() => setShowEventDialog(true)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Event
+                </Button>
+              </div>
+              
+              {timelineEvents.length === 0 ? (
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="py-12 text-center">
+                    <Flag className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+                    <h3 className="font-semibold mb-2">No Events Scheduled</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Add important dates like competitions, lab tests, or milestones.
+                    </p>
+                    <Button 
+                      onClick={() => setShowEventDialog(true)}
+                      variant="outline"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Event
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {timelineEvents
+                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                    .map((event) => {
+                      const eventType = EVENT_TYPES.find(t => t.value === event.type);
+                      return (
+                        <Card key={event.id} className="border-0 shadow-sm">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="text-2xl">{eventType?.icon || '📌'}</div>
+                                <div>
+                                  <div className="font-medium">{event.name}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatDate(event.date)}
+                                    {event.notes && ` • ${event.notes}`}
+                                  </div>
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteEvent(event.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          )}
+          
+          </div>
+          </div>
+          
+          {/* Phase Targets Modal - Full Screen on Desktop */}
+          <Dialog open={showTargetsModal} onOpenChange={setShowTargetsModal}>
+            <DialogContent className="w-[98vw] max-w-[1800px] h-[95vh] flex flex-col p-0 gap-0 overflow-hidden">
+              <DialogHeader className="px-8 py-5 border-b bg-background/95 backdrop-blur sticky top-0 z-10 shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-[#c19962]/10">
+                      <Settings2 className="h-6 w-6 text-[#c19962]" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-xl font-semibold">
+                        {selectedPhaseForTargets ? `Nutrition Targets: ${selectedPhaseForTargets.name}` : 'Nutrition Targets'}
+                      </DialogTitle>
+                      {selectedPhaseForTargets && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {new Date(selectedPhaseForTargets.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(selectedPhaseForTargets.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-9 px-3"
+                    onClick={() => setShowTargetsModal(false)}
+                  >
+                    <XIcon className="h-4 w-4 mr-2" />
+                    Close
+                  </Button>
+                </div>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-8 min-h-0">
+                {selectedPhaseForTargets && isHydrated && (
+                  <div className="max-w-[1600px] mx-auto">
+                    <PhaseTargetsEditor
+                      phase={selectedPhaseForTargets}
+                      userProfile={userProfile}
+                      weeklySchedule={weeklySchedule}
+                      onSaveTargets={(targets) => {
+                        handleSavePhaseTargets(selectedPhaseForTargets.id, targets);
+                      }}
+                      onNavigateToMealPlan={() => {
+                        setShowTargetsModal(false);
+                        handleProceedToMealPlan(selectedPhaseForTargets.id);
+                      }}
+                      onEditPhase={() => {
+                        setShowTargetsModal(false);
+                        handleOpenEditDialog(selectedPhaseForTargets);
+                      }}
+                    />
+                  </div>
                 )}
               </div>
-          </div>
+            </DialogContent>
+          </Dialog>
+          
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
