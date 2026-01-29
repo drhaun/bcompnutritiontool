@@ -629,29 +629,41 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
         </View>
       )}
       
-      {meal.ingredients && meal.ingredients.length > 0 && (
-        <View style={styles.ingredientsList}>
-          <Text style={styles.ingredientsTitle}>Ingredients:</Text>
-          {meal.ingredients.map((ing, idx) => (
+      {/* Ingredients Section */}
+      <View style={styles.ingredientsList}>
+        <Text style={styles.ingredientsTitle}>INGREDIENTS:</Text>
+        {meal.ingredients && meal.ingredients.length > 0 ? (
+          meal.ingredients.map((ing, idx) => (
             <View key={idx} style={styles.ingredientItem}>
               <Text style={styles.ingredientBullet}>•</Text>
-              <Text style={styles.ingredientText}>{ing.amount || ''} {ing.item || ''}</Text>
+              <Text style={styles.ingredientText}>
+                {ing.amount ? `${ing.amount} ` : ''}{ing.item || 'Ingredient'}
+              </Text>
             </View>
-          ))}
-        </View>
-      )}
+          ))
+        ) : (
+          <Text style={{ fontSize: 8, color: COLORS.gray, fontStyle: 'italic' }}>
+            See app for detailed ingredient list
+          </Text>
+        )}
+      </View>
       
-      {meal.instructions && meal.instructions.length > 0 && (
-        <View style={styles.instructionsList}>
-          <Text style={styles.instructionsTitle}>Instructions:</Text>
-          {meal.instructions.map((inst, idx) => (
+      {/* Instructions Section */}
+      <View style={styles.instructionsList}>
+        <Text style={styles.instructionsTitle}>INSTRUCTIONS:</Text>
+        {meal.instructions && meal.instructions.length > 0 ? (
+          meal.instructions.map((inst, idx) => (
             <View key={idx} style={styles.instructionItem}>
               <Text style={styles.instructionNumber}>{idx + 1}.</Text>
               <Text style={styles.instructionText}>{inst}</Text>
             </View>
-          ))}
-        </View>
-      )}
+          ))
+        ) : (
+          <Text style={{ fontSize: 8, color: COLORS.gray, fontStyle: 'italic' }}>
+            Prepare according to recipe - see app for detailed instructions
+          </Text>
+        )}
+      </View>
     </View>
   );
 };

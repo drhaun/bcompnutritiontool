@@ -240,11 +240,13 @@ export async function POST(request: NextRequest) {
     const body: RecipeRecommendationRequest = await request.json();
     const { targetMacros, mealContext, dietPreferences, excludeRecipes, limit = 5 } = body;
 
-    // Build the query
+    // Build the query - only get recipes with complete data (ingredients + directions)
     let query = supabase
       .from('ni_recipes')
       .select('*')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .not('ingredients', 'is', null)
+      .not('directions', 'is', null);
 
     // Filter by dietary restrictions
     if (dietPreferences?.dietaryPattern?.toLowerCase().includes('vegetarian')) {
@@ -295,6 +297,16 @@ export async function POST(request: NextRequest) {
     const foodsToAvoid = (dietPreferences?.foodsToAvoid || []).map(f => f.toLowerCase());
 
     for (const recipe of recipes) {
+      // Skip recipes without complete ingredient/direction data
+      if (!recipe.ingredients || !Array.isArray(recipe.ingredients) || recipe.ingredients.length === 0) {
+        console.log(`[Recipes] Skipping "${recipe.name}" - missing ingredients`);
+        continue;
+      }
+      if (!recipe.directions || !Array.isArray(recipe.directions) || recipe.directions.length === 0) {
+        console.log(`[Recipes] Skipping "${recipe.name}" - missing directions`);
+        continue;
+      }
+      
       const ingredientText = JSON.stringify(recipe.ingredients).toLowerCase();
       const recipeName = recipe.name.toLowerCase();
       const allText = ingredientText + ' ' + recipeName;
