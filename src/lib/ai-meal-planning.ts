@@ -447,8 +447,37 @@ export function consolidateGroceryList(mealPlan: WeeklyMealPlan): Record<string,
   };
   
   for (const [name, data] of groceryMap) {
+    // Round amounts to practical values
     const totalAmount = data.amounts
-      .map(a => `${a.value % 1 === 0 ? a.value : a.value.toFixed(1)}${a.unit}`)
+      .map(a => {
+        // Round to practical amounts based on unit
+        let roundedValue = a.value;
+        const unit = a.unit.toLowerCase();
+        
+        if (unit.includes('oz') || unit.includes('lb') || unit.includes('g')) {
+          // Round to nearest 0.5 for weights
+          roundedValue = Math.round(a.value * 2) / 2;
+        } else if (unit.includes('cup') || unit.includes('tbsp') || unit.includes('tsp')) {
+          // Round to nearest 0.25 for volume measurements
+          roundedValue = Math.round(a.value * 4) / 4;
+        } else if (unit.includes('slice') || unit.includes('serving') || unit.includes('piece')) {
+          // Round up to whole numbers for countable items
+          roundedValue = Math.ceil(a.value);
+        } else if (unit.includes('dash') || unit.includes('pinch')) {
+          // Round up dashes and pinches
+          roundedValue = Math.ceil(a.value);
+        } else {
+          // Default: round to 1 decimal
+          roundedValue = Math.round(a.value * 10) / 10;
+        }
+        
+        // Format the value - no decimals for whole numbers
+        const formattedValue = roundedValue % 1 === 0 
+          ? roundedValue.toString() 
+          : roundedValue.toFixed(roundedValue % 0.25 === 0 ? 2 : 1).replace(/\.?0+$/, '');
+        
+        return `${formattedValue} ${a.unit}`;
+      })
       .join(' + ');
     
     const category = data.category in result ? data.category : 'other';

@@ -558,20 +558,20 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
           {Math.abs(meal.totalMacros.calories - meal.targetMacros.calories) <= meal.targetMacros.calories * 0.05 &&
            Math.abs(meal.totalMacros.protein - meal.targetMacros.protein) <= 5 ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={{ fontSize: 7, color: '#15803d' }}>✓ On target</Text>
+              <Text style={{ fontSize: 7, color: '#15803d' }}>[On Target]</Text>
             </View>
           ) : (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={{ fontSize: 7, color: COLORS.gray }}>
-                Target: {meal.targetMacros.calories} cal • {meal.targetMacros.protein}g P
+                Target: {Math.round(meal.targetMacros.calories)} cal | {Math.round(meal.targetMacros.protein)}g P
               </Text>
               {meal.totalMacros.calories > meal.targetMacros.calories ? (
                 <Text style={{ fontSize: 7, color: '#dc2626' }}>
-                  ({meal.totalMacros.calories - meal.targetMacros.calories > 0 ? '+' : ''}{meal.totalMacros.calories - meal.targetMacros.calories} cal)
+                  (+{Math.round(meal.totalMacros.calories - meal.targetMacros.calories)} cal)
                 </Text>
               ) : (
                 <Text style={{ fontSize: 7, color: '#2563eb' }}>
-                  ({meal.totalMacros.calories - meal.targetMacros.calories} cal)
+                  ({Math.round(meal.totalMacros.calories - meal.targetMacros.calories)} cal)
                 </Text>
               )}
             </View>
@@ -582,7 +582,7 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
       {/* AI Rationale */}
       {(meal.aiRationale || context) && (
         <View style={styles.mealRationale}>
-          <Text style={styles.rationaleText}>💡 {meal.aiRationale || context}</Text>
+          <Text style={styles.rationaleText}>{meal.aiRationale || context}</Text>
         </View>
       )}
       
@@ -597,11 +597,11 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
           borderLeftColor: '#d97706',
         }}>
           <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#92400e', marginBottom: 4 }}>
-            ⚡ How to Hit Your Targets:
+            HOW TO HIT YOUR TARGETS:
           </Text>
           {meal.staffNote.split('\n').filter(Boolean).map((tip, idx) => (
             <View key={idx} style={{ flexDirection: 'row', marginBottom: 2, paddingLeft: 4 }}>
-              <Text style={{ fontSize: 8, color: '#92400e', marginRight: 4 }}>→</Text>
+              <Text style={{ fontSize: 8, color: '#92400e', marginRight: 4 }}>-</Text>
               <Text style={{ fontSize: 8, color: '#78350f', flex: 1 }}>
                 {tip}
               </Text>
@@ -621,7 +621,7 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
           borderLeftColor: '#2563eb',
         }}>
           <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#1e40af', marginBottom: 2 }}>
-            📝 Coach Note:
+            COACH NOTE:
           </Text>
           <Text style={{ fontSize: 8, color: '#1e40af' }}>
             {meal.staffNote}
@@ -952,8 +952,8 @@ export const MealPlanPDF = ({
                 <Text style={styles.tableCell}>{daySchedule?.wakeTime || '-'}</Text>
                 <Text style={styles.tableCell}>{daySchedule?.sleepTime || '-'}</Text>
                 <Text style={styles.tableCell}>{daySchedule?.mealCount || 3}M + {daySchedule?.snackCount || 2}S</Text>
-                <Text style={styles.tableCell}>{hasWorkout ? '✓' : '-'}</Text>
-                <Text style={styles.tableCell}>{targets?.tdee || '-'}</Text>
+                <Text style={styles.tableCell}>{hasWorkout ? 'Yes' : '-'}</Text>
+                <Text style={styles.tableCell}>{targets?.tdee ? Math.round(targets.tdee) : '-'}</Text>
               </View>
             );
           })}
@@ -1061,20 +1061,20 @@ export const MealPlanPDF = ({
           </View>
           {DAYS_ORDER.map((day, idx) => {
             const targets = nutritionTargets.find(t => t.day === day);
-            const diff = targets ? targets.targetCalories - targets.tdee : 0;
+            const diff = targets ? Math.round(targets.targetCalories - targets.tdee) : 0;
             return (
               <View key={day} style={[styles.tableRow, idx % 2 === 1 && styles.tableRowAlt]}>
                 <Text style={[styles.tableCell, { flex: 1.2, fontWeight: 'bold' }]}>
-                  {day.substring(0, 3)} {targets?.isWorkoutDay ? '🏋️' : ''}
+                  {day.substring(0, 3)} {targets?.isWorkoutDay ? '*' : ''}
                 </Text>
-                <Text style={styles.tableCell}>{targets?.tdee || '-'}</Text>
-                <Text style={[styles.tableCell, { fontWeight: 'bold' }]}>{targets?.targetCalories || '-'}</Text>
+                <Text style={styles.tableCell}>{targets?.tdee ? Math.round(targets.tdee) : '-'}</Text>
+                <Text style={[styles.tableCell, { fontWeight: 'bold' }]}>{targets?.targetCalories ? Math.round(targets.targetCalories) : '-'}</Text>
                 <Text style={[styles.tableCell, { color: diff < 0 ? '#ef4444' : diff > 0 ? '#22c55e' : COLORS.gray }]}>
                   {diff > 0 ? '+' : ''}{diff}
                 </Text>
-                <Text style={styles.tableCell}>{targets?.protein || '-'}g</Text>
-                <Text style={styles.tableCell}>{targets?.carbs || '-'}g</Text>
-                <Text style={styles.tableCell}>{targets?.fat || '-'}g</Text>
+                <Text style={styles.tableCell}>{targets?.protein ? Math.round(targets.protein) : '-'}g</Text>
+                <Text style={styles.tableCell}>{targets?.carbs ? Math.round(targets.carbs) : '-'}g</Text>
+                <Text style={styles.tableCell}>{targets?.fat ? Math.round(targets.fat) : '-'}g</Text>
               </View>
             );
           })}
@@ -1092,7 +1092,7 @@ export const MealPlanPDF = ({
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Protein (daily avg)</Text>
-            <Text style={styles.infoValue}>{Math.round(avgProtein)}g ({(avgProtein / (userProfile.weightLbs || 1) * 2.20462).toFixed(1)}g/kg)</Text>
+            <Text style={styles.infoValue}>{Math.round(avgProtein)}g ({(avgProtein / ((userProfile.weightLbs || 1) * 0.453592)).toFixed(1)}g/kg)</Text>
           </View>
         </View>
         
@@ -1239,7 +1239,7 @@ export const MealPlanPDF = ({
                   <Text style={styles.groceryCategory}>{categoryLabels[category] || category.toUpperCase()}</Text>
                   {items.map((item, idx) => (
                     <View key={idx} style={styles.groceryItem}>
-                      <Text style={styles.groceryItemName}>☐ {item.name}</Text>
+                      <Text style={styles.groceryItemName}>[ ] {item.name}</Text>
                       <Text style={styles.groceryItemAmount}>{item.totalAmount}</Text>
                     </View>
                   ))}
@@ -1268,7 +1268,7 @@ export const MealPlanPDF = ({
                   <Text style={styles.groceryCategory}>{categoryLabels[category] || category.toUpperCase()}</Text>
                   {items.map((item, idx) => (
                     <View key={idx} style={styles.groceryItem}>
-                      <Text style={styles.groceryItemName}>☐ {item.name}</Text>
+                      <Text style={styles.groceryItemName}>[ ] {item.name}</Text>
                       <Text style={styles.groceryItemAmount}>{item.totalAmount}</Text>
                     </View>
                   ))}
