@@ -4,6 +4,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 // Types for our database tables
 export interface DbFood {
@@ -147,10 +148,13 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 // Backwards compatibility - isLocalOnly means Supabase is NOT configured
 export const isLocalOnly = !isSupabaseConfigured;
 
-// Create client (or null if not configured)
-export const supabase = isSupabaseConfigured
-  ? createClient<Database>(supabaseUrl!, supabaseAnonKey!)
-  : null;
+// Create browser client (uses cookies for session storage - works with SSR)
+// This ensures the session is available in API routes
+export const supabase = isSupabaseConfigured && typeof window !== 'undefined'
+  ? createBrowserClient<Database>(supabaseUrl!, supabaseAnonKey!)
+  : isSupabaseConfigured
+    ? createClient<Database>(supabaseUrl!, supabaseAnonKey!) // Server-side fallback
+    : null;
 
 // Server-side client with service role (for API routes)
 export function createServerClient() {
