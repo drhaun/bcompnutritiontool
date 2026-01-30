@@ -7,7 +7,9 @@ import { getProClients } from '@/lib/cronometer';
  * Regular accounts can still use "My Data" option.
  */
 export async function GET(request: NextRequest) {
-  const accessToken = request.cookies.get('cronometer_access_token')?.value;
+  // Check cookie first, then fall back to env var for local dev
+  const accessToken = request.cookies.get('cronometer_access_token')?.value
+    || process.env.CRONOMETER_ACCESS_TOKEN;
   
   if (!accessToken) {
     return NextResponse.json(
