@@ -157,6 +157,24 @@ export default function SettingsPage() {
     window.location.href = '/api/cronometer/authorize';
   };
 
+  const disconnectCronometer = async () => {
+    try {
+      const response = await fetch('/api/cronometer/disconnect', { method: 'POST' });
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('Disconnected from Cronometer');
+        setCronometerStatus(prev => prev ? { ...prev, connected: false, userId: null } : null);
+        setClients([]);
+      } else {
+        toast.error('Failed to disconnect');
+      }
+    } catch (error) {
+      console.error('Disconnect error:', error);
+      toast.error('Failed to disconnect from Cronometer');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'EXTERNAL_CLIENT':
@@ -269,6 +287,15 @@ export default function SettingsPage() {
                     >
                       <Link2 className="h-4 w-4 mr-2" />
                       Reconnect
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={disconnectCronometer}
+                      className="text-red-600 border-red-300 hover:bg-red-50"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Disconnect
                     </Button>
                   </div>
                 </div>
