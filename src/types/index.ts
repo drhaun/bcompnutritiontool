@@ -305,6 +305,10 @@ export interface BodyCompGoals {
   fatGainTolerance?: FatGainTolerance; // For muscle gain goals
   lifestyleCommitment: LifestyleCommitment;
   trackingCommitment: TrackingCommitment;
+  // Phase-specific properties (used when exporting from a phase)
+  phaseName?: string;
+  phaseStartDate?: string;
+  phaseEndDate?: string;
 }
 
 // Supplement status

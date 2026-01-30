@@ -671,11 +671,26 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
 // Helper functions
 const getGoalLabel = (goalType?: string) => {
   switch (goalType) {
-    case 'lose_fat': return 'Fat Loss';
-    case 'gain_muscle': return 'Muscle Gain';
-    case 'maintain': return 'Maintenance';
-    case 'performance': return 'Performance';
-    default: return 'Maintenance';
+    case 'lose_fat': 
+    case 'fat_loss': 
+      return 'Fat Loss';
+    case 'gain_muscle': 
+    case 'muscle_gain': 
+      return 'Muscle Gain';
+    case 'maintain': 
+    case 'maintenance': 
+      return 'Maintenance';
+    case 'recomposition': 
+    case 'recomp': 
+      return 'Recomposition';
+    case 'performance': 
+      return 'Performance';
+    case 'health': 
+      return 'Health Focus';
+    case 'other': 
+      return 'Custom Goal';
+    default: 
+      return 'Maintenance';
   }
 };
 
@@ -771,6 +786,14 @@ export const MealPlanPDF = ({
               <Text style={styles.coverInfoLabel}>Date Generated</Text>
               <Text style={styles.coverInfoValue}>{today}</Text>
             </View>
+            {bodyCompGoals.phaseName && (
+              <View style={styles.coverInfoRow}>
+                <Text style={styles.coverInfoLabel}>Phase</Text>
+                <Text style={[styles.coverInfoValue, { color: COLORS.darkGold }]}>
+                  {bodyCompGoals.phaseName}
+                </Text>
+              </View>
+            )}
             <View style={styles.coverInfoRow}>
               <Text style={styles.coverInfoLabel}>Primary Goal</Text>
               <Text style={[styles.coverInfoValue, { color: COLORS.darkGold }]}>
@@ -778,9 +801,17 @@ export const MealPlanPDF = ({
               </Text>
             </View>
             <View style={styles.coverInfoRow}>
-              <Text style={styles.coverInfoLabel}>Program Duration</Text>
+              <Text style={styles.coverInfoLabel}>Duration</Text>
               <Text style={styles.coverInfoValue}>{bodyCompGoals.timelineWeeks || 12} weeks</Text>
             </View>
+            {bodyCompGoals.phaseStartDate && bodyCompGoals.phaseEndDate && (
+              <View style={styles.coverInfoRow}>
+                <Text style={styles.coverInfoLabel}>Period</Text>
+                <Text style={styles.coverInfoValue}>
+                  {new Date(bodyCompGoals.phaseStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(bodyCompGoals.phaseEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </Text>
+              </View>
+            )}
             
             <View style={styles.coverDivider}>
               <Text style={{ fontSize: 9, fontWeight: 'bold', color: COLORS.navy, marginBottom: 8 }}>
@@ -870,30 +901,44 @@ export const MealPlanPDF = ({
           <View style={styles.column}>
             <Text style={styles.sectionSubtitle}>Goals & Targets</Text>
             <View style={[styles.infoBox, { borderLeftWidth: 3, borderLeftColor: COLORS.darkGold }]}>
+              {bodyCompGoals.phaseName && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Phase</Text>
+                  <Text style={[styles.infoValue, { color: COLORS.darkGold, fontWeight: 'bold' }]}>{bodyCompGoals.phaseName}</Text>
+                </View>
+              )}
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Primary Goal</Text>
                 <Text style={[styles.infoValue, { color: COLORS.darkGold }]}>{getGoalLabel(bodyCompGoals.goalType)}</Text>
               </View>
-              {bodyCompGoals.targetWeightLbs && (
+              {bodyCompGoals.targetWeightLbs && bodyCompGoals.targetWeightLbs > 0 && (
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Target Weight</Text>
                   <Text style={styles.infoValue}>{Math.round(bodyCompGoals.targetWeightLbs)} lbs</Text>
                 </View>
               )}
-              {bodyCompGoals.targetBodyFat && (
+              {bodyCompGoals.targetBodyFat && bodyCompGoals.targetBodyFat > 0 && (
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Target Body Fat</Text>
                   <Text style={styles.infoValue}>{Number(bodyCompGoals.targetBodyFat).toFixed(1)}%</Text>
                 </View>
               )}
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Timeline</Text>
+                <Text style={styles.infoLabel}>Duration</Text>
                 <Text style={styles.infoValue}>{bodyCompGoals.timelineWeeks || 12} weeks</Text>
               </View>
-              {bodyCompGoals.weeklyWeightChange && (
+              {bodyCompGoals.phaseStartDate && bodyCompGoals.phaseEndDate && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Period</Text>
+                  <Text style={styles.infoValue}>
+                    {new Date(bodyCompGoals.phaseStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(bodyCompGoals.phaseEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </Text>
+                </View>
+              )}
+              {bodyCompGoals.weeklyWeightChange !== undefined && bodyCompGoals.weeklyWeightChange !== 0 && (
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Weekly Change</Text>
-                  <Text style={styles.infoValue}>{bodyCompGoals.weeklyWeightChange > 0 ? '+' : ''}{bodyCompGoals.weeklyWeightChange.toFixed(1)} lbs/wk</Text>
+                  <Text style={styles.infoValue}>{bodyCompGoals.weeklyWeightChange > 0 ? '+' : ''}{Number(bodyCompGoals.weeklyWeightChange).toFixed(2)} lbs/wk</Text>
                 </View>
               )}
             </View>

@@ -749,12 +749,34 @@ export default function MealPlanPage() {
         ? { [options.singleDay]: mealPlan?.[options.singleDay] }
         : mealPlan;
       
+      // Build phase-aware body comp goals for the PDF
+      const pdfBodyCompGoals = activePhase ? {
+        goalType: activePhase.goalType === 'fat_loss' ? 'lose_fat' : 
+                  activePhase.goalType === 'muscle_gain' ? 'gain_muscle' : 
+                  activePhase.goalType,
+        targetWeightLbs: activePhase.targetWeightLbs,
+        targetBodyFat: activePhase.targetBodyFat,
+        timelineWeeks: Math.round(
+          (new Date(activePhase.endDate).getTime() - new Date(activePhase.startDate).getTime()) / 
+          (7 * 24 * 60 * 60 * 1000)
+        ),
+        weeklyWeightChange: activePhase.rateOfChange ? 
+          (userProfile.weightLbs || 180) * (activePhase.rateOfChange / 100) * 
+          (activePhase.goalType === 'fat_loss' ? -1 : 1) : 0,
+        phaseName: activePhase.name,
+        phaseStartDate: activePhase.startDate,
+        phaseEndDate: activePhase.endDate,
+        performancePriority: activePhase.performancePriority,
+        lifestyleCommitment: activePhase.lifestyleCommitment,
+        trackingCommitment: activePhase.trackingCommitment,
+      } : bodyCompGoals;
+      
       const response = await fetch('/api/generate-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userProfile,
-          bodyCompGoals,
+          bodyCompGoals: pdfBodyCompGoals,
           dietPreferences,
           weeklySchedule,
           nutritionTargets: options.singleDay 
