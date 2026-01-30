@@ -137,14 +137,18 @@ export async function createClientInDb(client: ClientProfile): Promise<ClientPro
     const response = await fetch('/api/clients', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // Ensure auth cookies are sent
       body: JSON.stringify(storeClientToApiFormat(client)),
     });
     
     if (!response.ok) {
-      throw new Error('Failed to create client');
+      const errorData = await response.json().catch(() => ({}));
+      console.error('[ClientSync] Create client failed:', response.status, errorData);
+      throw new Error(errorData.error || 'Failed to create client');
     }
     
     const data = await response.json();
+    console.log('[ClientSync] Client created successfully:', data.client?.id);
     return dbClientToStoreClient(data.client);
   } catch (error) {
     console.error('[ClientSync] Error creating client:', error);
@@ -192,6 +196,7 @@ export async function deleteClientFromDb(clientId: string): Promise<boolean> {
   try {
     const response = await fetch(`/api/clients/${clientId}`, {
       method: 'DELETE',
+      credentials: 'include', // Ensure auth cookies are sent
     });
     
     return response.ok;
@@ -206,7 +211,9 @@ export async function deleteClientFromDb(clientId: string): Promise<boolean> {
  */
 export async function checkAuthStatus(): Promise<boolean> {
   try {
-    const response = await fetch('/api/clients');
+    const response = await fetch('/api/clients', {
+      credentials: 'include', // Ensure auth cookies are sent
+    });
     return response.ok;
   } catch {
     return false;
