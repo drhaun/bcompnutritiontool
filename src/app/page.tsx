@@ -423,17 +423,17 @@ export default function HomePage() {
                 <CardDescription>Quick access tools for client consultations</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Link href="/tools/hydration" className="block">
-                  <Button variant="ghost" className="w-full justify-start hover:bg-blue-50">
-                    <Droplets className="h-4 w-4 mr-2 text-blue-600" />
-                    Hydration Calculator
+                <Link href="/tools/cronometer-dashboard" className="block">
+                  <Button variant="ghost" className="w-full justify-start hover:bg-orange-50">
+                    <Activity className="h-4 w-4 mr-2 text-orange-600" />
+                    Cronometer Dashboard
                     <ArrowRight className="h-4 w-4 ml-auto opacity-50" />
                   </Button>
                 </Link>
-                <Link href="/tools/day-planner" className="block">
-                  <Button variant="ghost" className="w-full justify-start hover:bg-[#c19962]/10">
-                    <Calendar className="h-4 w-4 mr-2 text-[#c19962]" />
-                    Single Day Planner
+                <Link href="/tools/nutrition-analysis" className="block">
+                  <Button variant="ghost" className="w-full justify-start hover:bg-purple-50">
+                    <Beaker className="h-4 w-4 mr-2 text-purple-600" />
+                    Nutrition Analysis
                     <ArrowRight className="h-4 w-4 ml-auto opacity-50" />
                   </Button>
                 </Link>
@@ -444,10 +444,17 @@ export default function HomePage() {
                     <ArrowRight className="h-4 w-4 ml-auto opacity-50" />
                   </Button>
                 </Link>
-                <Link href="/tools/nutrition-analysis" className="block">
-                  <Button variant="ghost" className="w-full justify-start hover:bg-purple-50">
-                    <Beaker className="h-4 w-4 mr-2 text-purple-600" />
-                    Nutrition Analysis
+                <Link href="/tools/day-planner" className="block">
+                  <Button variant="ghost" className="w-full justify-start hover:bg-[#c19962]/10">
+                    <Calendar className="h-4 w-4 mr-2 text-[#c19962]" />
+                    Single Day Planner
+                    <ArrowRight className="h-4 w-4 ml-auto opacity-50" />
+                  </Button>
+                </Link>
+                <Link href="/tools/hydration" className="block">
+                  <Button variant="ghost" className="w-full justify-start hover:bg-blue-50">
+                    <Droplets className="h-4 w-4 mr-2 text-blue-600" />
+                    Hydration Calculator
                     <ArrowRight className="h-4 w-4 ml-auto opacity-50" />
                   </Button>
                 </Link>

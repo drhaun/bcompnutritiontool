@@ -48,11 +48,11 @@ const workflowSteps = [
 ];
 
 const toolLinks = [
-  { href: '/tools/hydration', label: 'Hydration Calculator' },
-  { href: '/tools/day-planner', label: 'Day Planner' },
-  { href: '/tools/meal-planner', label: 'Meal Planner' },
-  { href: '/tools/nutrition-analysis', label: 'Nutrition Analysis' },
   { href: '/tools/cronometer-dashboard', label: 'Cronometer Dashboard' },
+  { href: '/tools/nutrition-analysis', label: 'Nutrition Analysis' },
+  { href: '/tools/meal-planner', label: 'Meal Planner' },
+  { href: '/tools/day-planner', label: 'Day Planner' },
+  { href: '/tools/hydration', label: 'Hydration Calculator' },
 ];
 
 export function Header() {
