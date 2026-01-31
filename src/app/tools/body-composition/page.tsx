@@ -34,6 +34,9 @@ import {
   LineChart,
   Settings2,
   ShieldAlert,
+  RefreshCcw,
+  ArrowDown,
+  ArrowUp,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -47,41 +50,178 @@ import {
 // =============================================================================
 
 /**
+ * RATE OF CHANGE PRESETS
+ * Evidence-based rates with associated tradeoffs
+ * Reference: Helms et al. (2014), Garthe et al. (2011), Mero et al. (2010)
+ */
+const RATE_PRESETS = {
+  fat_loss: {
+    conservative: { 
+      rate: 0.5, 
+      label: 'Conservative (0.5%/wk)', 
+      description: 'Maximum muscle retention, sustainable',
+      ffmLossRatio: 0.10, // 10% of weight loss from FFM
+      adherence: 'High',
+      hormonal: 'Minimal impact',
+    },
+    moderate: { 
+      rate: 0.75, 
+      label: 'Moderate (0.75%/wk)', 
+      description: 'Good balance of speed and retention',
+      ffmLossRatio: 0.15,
+      adherence: 'Moderate-High',
+      hormonal: 'Mild impact',
+    },
+    aggressive: { 
+      rate: 1.0, 
+      label: 'Aggressive (1.0%/wk)', 
+      description: 'Faster results, more muscle loss risk',
+      ffmLossRatio: 0.25,
+      adherence: 'Moderate',
+      hormonal: 'Moderate impact',
+    },
+    very_aggressive: { 
+      rate: 1.25, 
+      label: 'Very Aggressive (1.25%/wk)', 
+      description: 'Contest prep, significant tradeoffs',
+      ffmLossRatio: 0.35,
+      adherence: 'Low',
+      hormonal: 'Significant impact',
+    },
+  },
+  muscle_gain: {
+    slow: { 
+      rate: 0.25, 
+      label: 'Slow (0.25%/wk)', 
+      description: 'Minimal fat gain, advanced trainees',
+      fatGainRatio: 0.30, // 30% of weight gain from fat
+      timeToResults: 'Slow but lean',
+    },
+    moderate: { 
+      rate: 0.5, 
+      label: 'Moderate (0.5%/wk)', 
+      description: 'Good muscle:fat ratio for intermediates',
+      fatGainRatio: 0.45,
+      timeToResults: 'Balanced',
+    },
+    aggressive: { 
+      rate: 0.75, 
+      label: 'Aggressive (0.75%/wk)', 
+      description: 'Faster gains, more fat accumulation',
+      fatGainRatio: 0.55,
+      timeToResults: 'Faster',
+    },
+    very_aggressive: { 
+      rate: 1.0, 
+      label: 'Very Aggressive (1.0%/wk)', 
+      description: 'Beginner gains, or off-season bulking',
+      fatGainRatio: 0.65,
+      timeToResults: 'Fastest',
+    },
+  },
+};
+
+/**
+ * RECOMPOSITION EXPECTATIONS
+ * Evidence-based rates for simultaneous fat loss and muscle gain
+ * Reference: Barakat et al. (2020), Ribeiro et al. (2022)
+ */
+const RECOMP_EXPECTATIONS = {
+  untrained: {
+    label: 'Untrained (<1 yr)',
+    monthlyFatLoss: 1.5, // lbs/month
+    monthlyMuscleGain: 1.5, // lbs/month
+    probability: 'High',
+    notes: 'Newbie gains make recomp highly effective',
+  },
+  novice: {
+    label: 'Novice (1-2 yrs)',
+    monthlyFatLoss: 1.0,
+    monthlyMuscleGain: 0.75,
+    probability: 'Moderate-High',
+    notes: 'Still can achieve meaningful recomp',
+  },
+  intermediate: {
+    label: 'Intermediate (2-4 yrs)',
+    monthlyFatLoss: 0.75,
+    monthlyMuscleGain: 0.5,
+    probability: 'Moderate',
+    notes: 'Slower progress, patience required',
+  },
+  advanced: {
+    label: 'Advanced (4+ yrs)',
+    monthlyFatLoss: 0.5,
+    monthlyMuscleGain: 0.25,
+    probability: 'Low',
+    notes: 'Very slow; dedicated phases often more effective',
+  },
+};
+
+/**
+ * FMI/FFMI MORTALITY RISK DATA
+ * Based on Sedlmeier et al. (2021) - Am J Clin Nutr
+ * "Relation of body fat mass and fat-free mass to total mortality"
+ * n=16,155, median follow-up 14 years
+ */
+const MORTALITY_RISK = {
+  fmi: {
+    // Spline points from Figure 1 - J-shaped curve
+    // Reference: FMI 7.3 kg/m² (HR = 1.0)
+    points: [
+      { x: 3, hr: 1.5, lower: 0.8, upper: 2.8 },
+      { x: 5, hr: 1.1, lower: 0.95, upper: 1.25 },
+      { x: 7.3, hr: 1.0, lower: 1.0, upper: 1.0 }, // Reference
+      { x: 9, hr: 1.15, lower: 1.05, upper: 1.25 },
+      { x: 11, hr: 1.35, lower: 1.2, upper: 1.55 },
+      { x: 13, hr: 1.56, lower: 1.30, upper: 1.87 },
+      { x: 15, hr: 1.85, lower: 1.45, upper: 2.35 },
+      { x: 17, hr: 2.2, lower: 1.6, upper: 3.0 },
+      { x: 20, hr: 2.8, lower: 1.9, upper: 4.0 },
+    ],
+    optimal: { min: 5, max: 9 },
+    reference: 7.3,
+  },
+  ffmi: {
+    // Inverse J-shaped curve - higher FFMI = lower mortality
+    // Reference: FFMI 16.1 kg/m² (HR = 1.0)
+    points: [
+      { x: 14, hr: 2.5, lower: 1.5, upper: 3.5 },
+      { x: 15, hr: 1.5, lower: 1.1, upper: 2.0 },
+      { x: 16.1, hr: 1.0, lower: 1.0, upper: 1.0 }, // Reference
+      { x: 17.8, hr: 0.83, lower: 0.76, upper: 0.91 },
+      { x: 19.2, hr: 0.73, lower: 0.63, upper: 0.85 },
+      { x: 21.9, hr: 0.70, lower: 0.56, upper: 0.87 },
+      { x: 24, hr: 0.72, lower: 0.55, upper: 0.95 },
+      { x: 26, hr: 0.78, lower: 0.55, upper: 1.1 },
+    ],
+    optimal: { min: 19, max: 24 },
+    reference: 16.1,
+  },
+};
+
+/**
  * MEASUREMENT ERROR CONSTANTS
  * Based on: Tinsley et al. (2021) "A Field-Based Three-Compartment Model"
- * and meta-analyses of body composition measurement precision
- * 
- * SEE = Standard Error of Estimate (prediction accuracy)
- * TEM = Technical Error of Measurement (repeatability)
- * 
- * For 3C model field-based assessments:
- * - Body Fat %: SEE ~1.5-2.5%, TEM ~0.5-1.0%
- * - Fat Mass: SEE ~1.0-2.0 kg, TEM ~0.3-0.6 kg
- * - FFM: SEE ~1.0-2.0 kg, TEM ~0.3-0.5 kg
  */
 const MEASUREMENT_ERROR = {
-  // 3C Field Model (Tinsley et al. style - BIA + anthropometrics)
   field_3c: {
     label: '3C Field Model (BIA + Anthropometrics)',
-    bodyFatPct: { see: 2.0, tem: 0.8 },  // percentage points
-    fatMassKg: { see: 1.5, tem: 0.5 },   // kg
-    ffmKg: { see: 1.5, tem: 0.4 },       // kg
+    bodyFatPct: { see: 2.0, tem: 0.8 },
+    fatMassKg: { see: 1.5, tem: 0.5 },
+    ffmKg: { see: 1.5, tem: 0.4 },
   },
-  // DXA (gold standard for clinical)
   dxa: {
     label: 'DXA',
     bodyFatPct: { see: 1.0, tem: 0.5 },
     fatMassKg: { see: 0.5, tem: 0.3 },
     ffmKg: { see: 0.4, tem: 0.3 },
   },
-  // BIA only
   bia: {
     label: 'BIA Only',
     bodyFatPct: { see: 3.5, tem: 1.0 },
     fatMassKg: { see: 2.5, tem: 0.8 },
     ffmKg: { see: 2.8, tem: 0.7 },
   },
-  // Skinfolds (trained technician)
   skinfolds: {
     label: 'Skinfolds',
     bodyFatPct: { see: 3.0, tem: 1.5 },
@@ -90,26 +230,16 @@ const MEASUREMENT_ERROR = {
   },
 };
 
-/**
- * Minimum Detectable Change (MDC) calculation
- * MDC = SEM × √2 × z-score
- * For 95% confidence: MDC95 = TEM × √2 × 1.96 ≈ TEM × 2.77
- */
 function calculateMDC(tem: number, confidenceLevel: number = 0.95): number {
   const zScore = confidenceLevel === 0.95 ? 1.96 : confidenceLevel === 0.90 ? 1.645 : 2.58;
   return tem * Math.sqrt(2) * zScore;
 }
 
 /**
- * Forbes Rule: Lean mass loss as a function of fat mass
- * Reference: Forbes GB. Body fat content influences the body composition response to nutrition and exercise. Ann N Y Acad Sci. 2000
+ * Forbes Rule: P-ratio based on fat mass
  */
-const FORBES_CONSTANT = 10.4; // kg
+const FORBES_CONSTANT = 10.4;
 
-/**
- * Protein leverage effects on P-ratio
- * Reference: Heymsfield SB et al. Int J Obes. 2014
- */
 const PROTEIN_EFFECT = {
   low: { threshold: 1.0, multiplier: 1.3, label: 'Low (<1.0 g/kg)' },
   moderate: { threshold: 1.6, multiplier: 1.0, label: 'Moderate (1.0-1.6 g/kg)' },
@@ -117,31 +247,13 @@ const PROTEIN_EFFECT = {
   very_high: { threshold: 3.0, multiplier: 0.5, label: 'Very High (>2.2 g/kg)' },
 };
 
-/**
- * Resistance training effects on P-ratio
- * Reference: Longland TM et al. Am J Clin Nutr. 2016
- */
 const TRAINING_EFFECT = {
   none: { multiplier: 1.4, label: 'No resistance training' },
   light: { multiplier: 1.15, label: 'Light (1-2x/week)' },
   moderate: { multiplier: 0.85, label: 'Moderate (3-4x/week)' },
-  intense: { multiplier: 0.6, label: 'Intense (5-6x/week, progressive)' },
+  intense: { multiplier: 0.6, label: 'Intense (5-6x/week)' },
 };
 
-/**
- * Energy deficit effects on P-ratio
- */
-const DEFICIT_EFFECT = {
-  mild: { range: [0, 300], multiplier: 0.85, label: 'Mild (<300 kcal)' },
-  moderate: { range: [300, 500], multiplier: 1.0, label: 'Moderate (300-500 kcal)' },
-  aggressive: { range: [500, 750], multiplier: 1.2, label: 'Aggressive (500-750 kcal)' },
-  severe: { range: [750, 2000], multiplier: 1.5, label: 'Severe (>750 kcal)' },
-};
-
-/**
- * Muscle gain partitioning during surplus
- * Reference: Slater GJ et al. Front Nutr. 2019
- */
 const SURPLUS_PARTITIONING = {
   untrained: { muscleRatio: 0.3, label: 'Untrained' },
   novice: { muscleRatio: 0.45, label: 'Novice (0-1 year)' },
@@ -149,10 +261,6 @@ const SURPLUS_PARTITIONING = {
   advanced: { muscleRatio: 0.4, label: 'Advanced (3+ years)' },
 };
 
-/**
- * Body water changes with glycogen
- * Reference: Kreitzman SN et al. Am J Clin Nutr. 1992
- */
 const GLYCOGEN_WATER_RATIO = 3;
 const MUSCLE_GLYCOGEN_CAPACITY = 450;
 const LIVER_GLYCOGEN_CAPACITY = 100;
@@ -183,15 +291,12 @@ const FMI_BENCHMARKS_FEMALE = [
   { range: [18, 100], label: 'Above Average', color: 'text-orange-600', bgColor: 'bg-orange-100' },
 ];
 
-// =============================================================================
-// UTILITY FUNCTIONS
-// =============================================================================
-
+// Utility functions
 function calculatePRatio(
   fatMassKg: number,
   proteinLevel: keyof typeof PROTEIN_EFFECT,
   trainingLevel: keyof typeof TRAINING_EFFECT,
-  deficitLevel: keyof typeof DEFICIT_EFFECT,
+  dailyDeficit: number,
   isDeficit: boolean
 ): number {
   const basePRatio = FORBES_CONSTANT / (FORBES_CONSTANT + fatMassKg);
@@ -200,7 +305,12 @@ function calculatePRatio(
   
   const proteinMod = PROTEIN_EFFECT[proteinLevel].multiplier;
   const trainingMod = TRAINING_EFFECT[trainingLevel].multiplier;
-  const deficitMod = DEFICIT_EFFECT[deficitLevel].multiplier;
+  
+  // Deficit modifier
+  let deficitMod = 1.0;
+  if (dailyDeficit < 300) deficitMod = 0.85;
+  else if (dailyDeficit > 750) deficitMod = 1.5;
+  else if (dailyDeficit > 500) deficitMod = 1.2;
   
   return Math.max(0.05, Math.min(0.6, basePRatio * proteinMod * trainingMod * deficitMod));
 }
@@ -220,6 +330,27 @@ function weeksBetween(start: Date, end: Date): number {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
 }
 
+// Interpolate hazard ratio from mortality data
+function getHazardRatio(value: number, type: 'fmi' | 'ffmi'): { hr: number; lower: number; upper: number } {
+  const data = MORTALITY_RISK[type].points;
+  
+  // Find surrounding points
+  for (let i = 0; i < data.length - 1; i++) {
+    if (value >= data[i].x && value <= data[i + 1].x) {
+      const t = (value - data[i].x) / (data[i + 1].x - data[i].x);
+      return {
+        hr: data[i].hr + t * (data[i + 1].hr - data[i].hr),
+        lower: data[i].lower + t * (data[i + 1].lower - data[i].lower),
+        upper: data[i].upper + t * (data[i + 1].upper - data[i].upper),
+      };
+    }
+  }
+  
+  // Extrapolate if out of range
+  if (value < data[0].x) return data[0];
+  return data[data.length - 1];
+}
+
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
@@ -233,7 +364,7 @@ export default function BodyCompositionPage() {
   const [currentWeight, setCurrentWeight] = useState<number>(180);
   const [currentBodyFat, setCurrentBodyFat] = useState<number>(20);
   
-  // Metabolism data
+  // Metabolism
   const [rmrSource, setRmrSource] = useState<'estimated' | 'measured'>('estimated');
   const [measuredRmr, setMeasuredRmr] = useState<number>(1800);
   const [neatLevel, setNeatLevel] = useState<'sedentary' | 'light' | 'moderate' | 'active' | 'very_active'>('light');
@@ -241,8 +372,8 @@ export default function BodyCompositionPage() {
   const [eee, setEee] = useState<number>(300);
   const [workoutsPerWeek, setWorkoutsPerWeek] = useState<number>(4);
   
-  // Goal settings - expanded
-  const [goalType, setGoalType] = useState<'body_fat' | 'weight' | 'ffmi' | 'fmi' | 'fat_mass' | 'ffm'>('body_fat');
+  // Goal type with recomposition
+  const [goalType, setGoalType] = useState<'fat_loss' | 'muscle_gain' | 'recomposition' | 'body_fat' | 'weight' | 'fat_mass' | 'ffm' | 'ffmi' | 'fmi'>('fat_loss');
   const [targetBodyFat, setTargetBodyFat] = useState<number>(12);
   const [targetWeight, setTargetWeight] = useState<number>(170);
   const [targetFFMI, setTargetFFMI] = useState<number>(22);
@@ -250,54 +381,44 @@ export default function BodyCompositionPage() {
   const [targetFatMass, setTargetFatMass] = useState<number>(20);
   const [targetFFM, setTargetFFM] = useState<number>(150);
   
-  // Date planning
+  // Rate presets
+  const [fatLossRate, setFatLossRate] = useState<keyof typeof RATE_PRESETS.fat_loss>('moderate');
+  const [muscleGainRate, setMuscleGainRate] = useState<keyof typeof RATE_PRESETS.muscle_gain>('moderate');
+  const [recompExperience, setRecompExperience] = useState<keyof typeof RECOMP_EXPECTATIONS>('intermediate');
+  const [useCustomRate, setUseCustomRate] = useState<boolean>(false);
+  const [customRate, setCustomRate] = useState<number>(0.75);
+  
+  // Timeline
   const [startDate, setStartDate] = useState<string>(formatDate(new Date()));
   const [endDate, setEndDate] = useState<string>(formatDate(addWeeks(new Date(), 16)));
   const [useDateRange, setUseDateRange] = useState<boolean>(true);
   
-  // Evidence-based parameters
+  // Partitioning parameters
   const [proteinLevel, setProteinLevel] = useState<keyof typeof PROTEIN_EFFECT>('high');
   const [trainingLevel, setTrainingLevel] = useState<keyof typeof TRAINING_EFFECT>('moderate');
   const [trainingExperience, setTrainingExperience] = useState<keyof typeof SURPLUS_PARTITIONING>('intermediate');
   const [includeWaterChanges, setIncludeWaterChanges] = useState<boolean>(true);
   
-  // Measurement error settings
+  // Measurement error
   const [measurementMethod, setMeasurementMethod] = useState<keyof typeof MEASUREMENT_ERROR>('field_3c');
   const [showConfidenceInterval, setShowConfidenceInterval] = useState<boolean>(true);
   const [confidenceLevel, setConfidenceLevel] = useState<number>(0.95);
   
-  // View settings
+  // View
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
   
-  // Calculated values
+  // Calculations
   const heightCm = useMemo(() => (heightFt * 12 + heightIn) * 2.54, [heightFt, heightIn]);
   const heightM = heightCm / 100;
   const weightKg = currentWeight * 0.453592;
   
-  // Measurement error values
   const measurementErrors = useMemo(() => {
     const method = MEASUREMENT_ERROR[measurementMethod];
     const zScore = confidenceLevel === 0.95 ? 1.96 : confidenceLevel === 0.90 ? 1.645 : 2.58;
-    
     return {
-      bodyFatPct: {
-        see: method.bodyFatPct.see,
-        tem: method.bodyFatPct.tem,
-        ci: method.bodyFatPct.see * zScore,
-        mdc: calculateMDC(method.bodyFatPct.tem, confidenceLevel),
-      },
-      fatMassKg: {
-        see: method.fatMassKg.see,
-        tem: method.fatMassKg.tem,
-        ci: method.fatMassKg.see * zScore,
-        mdc: calculateMDC(method.fatMassKg.tem, confidenceLevel),
-      },
-      ffmKg: {
-        see: method.ffmKg.see,
-        tem: method.ffmKg.tem,
-        ci: method.ffmKg.see * zScore,
-        mdc: calculateMDC(method.ffmKg.tem, confidenceLevel),
-      },
+      bodyFatPct: { see: method.bodyFatPct.see, tem: method.bodyFatPct.tem, ci: method.bodyFatPct.see * zScore, mdc: calculateMDC(method.bodyFatPct.tem, confidenceLevel) },
+      fatMassKg: { see: method.fatMassKg.see, tem: method.fatMassKg.tem, ci: method.fatMassKg.see * zScore, mdc: calculateMDC(method.fatMassKg.tem, confidenceLevel) },
+      ffmKg: { see: method.ffmKg.see, tem: method.ffmKg.tem, ci: method.ffmKg.see * zScore, mdc: calculateMDC(method.ffmKg.tem, confidenceLevel) },
     };
   }, [measurementMethod, confidenceLevel]);
   
@@ -320,18 +441,14 @@ export default function BodyCompositionPage() {
     };
   }, [currentWeight, currentBodyFat, heightM]);
   
-  // Estimated RMR (Mifflin-St Jeor)
+  // RMR
   const estimatedRmr = useMemo(() => {
-    if (gender === 'male') {
-      return Math.round(10 * weightKg + 6.25 * heightCm - 5 * age + 5);
-    } else {
-      return Math.round(10 * weightKg + 6.25 * heightCm - 5 * age - 161);
-    }
+    if (gender === 'male') return Math.round(10 * weightKg + 6.25 * heightCm - 5 * age + 5);
+    return Math.round(10 * weightKg + 6.25 * heightCm - 5 * age - 161);
   }, [weightKg, heightCm, age, gender]);
   
   const effectiveRmr = rmrSource === 'estimated' ? estimatedRmr : measuredRmr;
   
-  // NEAT estimates
   const neatEstimates = useMemo(() => ({
     sedentary: Math.round(effectiveRmr * 0.15),
     light: Math.round(effectiveRmr * 0.25),
@@ -342,14 +459,33 @@ export default function BodyCompositionPage() {
   
   const effectiveNeat = neatEstimates[neatLevel];
   
-  // TDEE
   const tdee = useMemo(() => {
     const tefCals = effectiveRmr * (tef / 100);
     const dailyEee = (eee * workoutsPerWeek) / 7;
     return Math.round(effectiveRmr + effectiveNeat + tefCals + dailyEee);
   }, [effectiveRmr, effectiveNeat, tef, eee, workoutsPerWeek]);
   
-  // Target metrics based on goal type
+  // Effective rate based on goal type
+  const effectiveRate = useMemo(() => {
+    if (useCustomRate) return customRate;
+    
+    if (goalType === 'fat_loss') {
+      return RATE_PRESETS.fat_loss[fatLossRate].rate;
+    } else if (goalType === 'muscle_gain') {
+      return RATE_PRESETS.muscle_gain[muscleGainRate].rate;
+    } else if (goalType === 'recomposition') {
+      return 0; // Maintenance for recomp
+    }
+    return 0.75; // Default
+  }, [goalType, fatLossRate, muscleGainRate, useCustomRate, customRate]);
+  
+  // Timeline
+  const totalWeeks = useMemo(() => {
+    if (useDateRange) return weeksBetween(new Date(startDate), new Date(endDate));
+    return 16;
+  }, [startDate, endDate, useDateRange]);
+  
+  // Target metrics based on goal type and rate
   const targetMetrics = useMemo(() => {
     let targetWeightLbs: number;
     let targetBfPct: number;
@@ -359,56 +495,89 @@ export default function BodyCompositionPage() {
     const currentFfmLbs = currentMetrics.ffmLbs;
     const currentFatMassLbs = currentMetrics.fatMassLbs;
     
-    switch (goalType) {
-      case 'body_fat':
-        targetBfPct = targetBodyFat;
-        targetFfmLbs = currentFfmLbs;
-        targetFatMassLbs = (targetBfPct / (100 - targetBfPct)) * targetFfmLbs;
-        targetWeightLbs = targetFfmLbs + targetFatMassLbs;
-        break;
-        
-      case 'weight':
-        targetWeightLbs = targetWeight;
-        targetFatMassLbs = currentFatMassLbs;
-        targetFfmLbs = currentFfmLbs;
-        targetBfPct = currentBodyFat;
-        break;
-        
-      case 'ffmi':
-        const targetFfmKgFromFFMI = targetFFMI * (heightM * heightM);
-        targetFfmLbs = targetFfmKgFromFFMI / 0.453592;
-        targetBfPct = currentBodyFat;
-        targetFatMassLbs = (targetBfPct / (100 - targetBfPct)) * targetFfmLbs;
-        targetWeightLbs = targetFfmLbs + targetFatMassLbs;
-        break;
-        
-      case 'fmi':
-        const targetFatMassKgFromFMI = targetFMI * (heightM * heightM);
-        targetFatMassLbs = targetFatMassKgFromFMI / 0.453592;
-        targetFfmLbs = currentFfmLbs;
-        targetWeightLbs = targetFfmLbs + targetFatMassLbs;
-        targetBfPct = (targetFatMassLbs / targetWeightLbs) * 100;
-        break;
-        
-      case 'fat_mass':
-        targetFatMassLbs = targetFatMass;
-        targetFfmLbs = currentFfmLbs;
-        targetWeightLbs = targetFfmLbs + targetFatMassLbs;
-        targetBfPct = (targetFatMassLbs / targetWeightLbs) * 100;
-        break;
-        
-      case 'ffm':
-        targetFfmLbs = targetFFM;
-        targetFatMassLbs = currentFatMassLbs;
-        targetWeightLbs = targetFfmLbs + targetFatMassLbs;
-        targetBfPct = (targetFatMassLbs / targetWeightLbs) * 100;
-        break;
-        
-      default:
-        targetWeightLbs = currentWeight;
-        targetBfPct = currentBodyFat;
-        targetFatMassLbs = currentFatMassLbs;
-        targetFfmLbs = currentFfmLbs;
+    if (goalType === 'fat_loss') {
+      // Calculate based on rate and timeline
+      const weeklyLoss = currentWeight * (effectiveRate / 100);
+      const totalLoss = weeklyLoss * totalWeeks;
+      targetWeightLbs = currentWeight - totalLoss;
+      
+      // Partitioning based on preset
+      const ffmLossRatio = RATE_PRESETS.fat_loss[fatLossRate].ffmLossRatio;
+      const ffmLoss = totalLoss * ffmLossRatio;
+      const fatLoss = totalLoss * (1 - ffmLossRatio);
+      
+      targetFfmLbs = currentFfmLbs - ffmLoss;
+      targetFatMassLbs = currentFatMassLbs - fatLoss;
+      targetBfPct = (targetFatMassLbs / targetWeightLbs) * 100;
+      
+    } else if (goalType === 'muscle_gain') {
+      const weeklyGain = currentWeight * (effectiveRate / 100);
+      const totalGain = weeklyGain * totalWeeks;
+      targetWeightLbs = currentWeight + totalGain;
+      
+      const fatGainRatio = RATE_PRESETS.muscle_gain[muscleGainRate].fatGainRatio;
+      const muscleGain = totalGain * (1 - fatGainRatio);
+      const fatGain = totalGain * fatGainRatio;
+      
+      targetFfmLbs = currentFfmLbs + muscleGain;
+      targetFatMassLbs = currentFatMassLbs + fatGain;
+      targetBfPct = (targetFatMassLbs / targetWeightLbs) * 100;
+      
+    } else if (goalType === 'recomposition') {
+      const recomp = RECOMP_EXPECTATIONS[recompExperience];
+      const months = totalWeeks / 4.33;
+      
+      const fatLoss = recomp.monthlyFatLoss * months;
+      const muscleGain = recomp.monthlyMuscleGain * months;
+      
+      targetFatMassLbs = currentFatMassLbs - fatLoss;
+      targetFfmLbs = currentFfmLbs + muscleGain;
+      targetWeightLbs = targetFfmLbs + targetFatMassLbs;
+      targetBfPct = (targetFatMassLbs / targetWeightLbs) * 100;
+      
+    } else if (goalType === 'body_fat') {
+      targetBfPct = targetBodyFat;
+      targetFfmLbs = currentFfmLbs;
+      targetFatMassLbs = (targetBfPct / (100 - targetBfPct)) * targetFfmLbs;
+      targetWeightLbs = targetFfmLbs + targetFatMassLbs;
+      
+    } else if (goalType === 'weight') {
+      targetWeightLbs = targetWeight;
+      targetFatMassLbs = currentFatMassLbs;
+      targetFfmLbs = currentFfmLbs;
+      targetBfPct = currentBodyFat;
+      
+    } else if (goalType === 'fat_mass') {
+      targetFatMassLbs = targetFatMass;
+      targetFfmLbs = currentFfmLbs;
+      targetWeightLbs = targetFfmLbs + targetFatMassLbs;
+      targetBfPct = (targetFatMassLbs / targetWeightLbs) * 100;
+      
+    } else if (goalType === 'ffm') {
+      targetFfmLbs = targetFFM;
+      targetFatMassLbs = currentFatMassLbs;
+      targetWeightLbs = targetFfmLbs + targetFatMassLbs;
+      targetBfPct = (targetFatMassLbs / targetWeightLbs) * 100;
+      
+    } else if (goalType === 'ffmi') {
+      const targetFfmKgFromFFMI = targetFFMI * (heightM * heightM);
+      targetFfmLbs = targetFfmKgFromFFMI / 0.453592;
+      targetBfPct = currentBodyFat;
+      targetFatMassLbs = (targetBfPct / (100 - targetBfPct)) * targetFfmLbs;
+      targetWeightLbs = targetFfmLbs + targetFatMassLbs;
+      
+    } else if (goalType === 'fmi') {
+      const targetFatMassKgFromFMI = targetFMI * (heightM * heightM);
+      targetFatMassLbs = targetFatMassKgFromFMI / 0.453592;
+      targetFfmLbs = currentFfmLbs;
+      targetWeightLbs = targetFfmLbs + targetFatMassLbs;
+      targetBfPct = (targetFatMassLbs / targetWeightLbs) * 100;
+      
+    } else {
+      targetWeightLbs = currentWeight;
+      targetBfPct = currentBodyFat;
+      targetFatMassLbs = currentFatMassLbs;
+      targetFfmLbs = currentFfmLbs;
     }
     
     const targetWeightKg = targetWeightLbs * 0.453592;
@@ -428,17 +597,20 @@ export default function BodyCompositionPage() {
       fmi: Math.round(fmi * 10) / 10,
       ffmi: Math.round(ffmi * 10) / 10,
     };
-  }, [goalType, targetBodyFat, targetWeight, targetFFMI, targetFMI, targetFatMass, targetFFM, currentMetrics, heightM, currentBodyFat]);
+  }, [goalType, targetBodyFat, targetWeight, targetFFMI, targetFMI, targetFatMass, targetFFM, currentMetrics, heightM, currentBodyFat, currentWeight, effectiveRate, totalWeeks, fatLossRate, muscleGainRate, recompExperience]);
   
-  // Timeline calculation
-  const totalWeeks = useMemo(() => {
-    if (useDateRange) {
-      return weeksBetween(new Date(startDate), new Date(endDate));
-    }
-    return 16;
-  }, [startDate, endDate, useDateRange]);
+  // Risk calculations
+  const currentRisk = useMemo(() => ({
+    fmi: getHazardRatio(currentMetrics.fmi, 'fmi'),
+    ffmi: getHazardRatio(currentMetrics.ffmi, 'ffmi'),
+  }), [currentMetrics]);
   
-  // Weekly projections with evidence-based partitioning and confidence intervals
+  const targetRisk = useMemo(() => ({
+    fmi: getHazardRatio(targetMetrics.fmi, 'fmi'),
+    ffmi: getHazardRatio(targetMetrics.ffmi, 'ffmi'),
+  }), [targetMetrics]);
+  
+  // Weekly projections
   const weeklyProjections = useMemo(() => {
     const projections: Array<{
       week: number;
@@ -449,38 +621,28 @@ export default function BodyCompositionPage() {
       bodyFat: number;
       waterChange: number;
       scaleWeight: number;
-      // Confidence interval bounds (±)
       weightCI: number;
       fatMassCI: number;
       ffmCI: number;
       bodyFatCI: number;
+      fmi: number;
+      ffmi: number;
     }> = [];
     
     const totalWeightChange = targetMetrics.weightLbs - currentWeight;
     const isDeficit = totalWeightChange < 0;
     const weeklyWeightChange = totalWeightChange / totalWeeks;
-    
-    // Determine deficit level
     const dailyDeficit = Math.abs((weeklyWeightChange * 3500) / 7);
-    let deficitLevel: keyof typeof DEFICIT_EFFECT = 'moderate';
-    if (dailyDeficit < 300) deficitLevel = 'mild';
-    else if (dailyDeficit > 750) deficitLevel = 'severe';
-    else if (dailyDeficit > 500) deficitLevel = 'aggressive';
     
     let currentFatMass = currentMetrics.fatMassLbs;
     let currentFfm = currentMetrics.ffmLbs;
     let currentWt = currentWeight;
     let cumulativeGlycogenChange = 0;
     
-    // Error propagation: errors compound over time
-    // Using √(n) rule for independent measurements
     const baseErrors = measurementErrors;
     
     for (let week = 0; week <= totalWeeks; week++) {
       const date = addWeeks(new Date(startDate), week);
-      
-      // Error grows with sqrt of weeks for model uncertainty
-      // Plus measurement error for each assessment point
       const modelUncertaintyFactor = Math.sqrt(week + 1);
       const weightCILbs = (baseErrors.fatMassKg.ci + baseErrors.ffmKg.ci) * 2.205 * modelUncertaintyFactor * 0.3;
       const fatMassCILbs = baseErrors.fatMassKg.ci * 2.205 * modelUncertaintyFactor * 0.5;
@@ -489,26 +651,23 @@ export default function BodyCompositionPage() {
       
       if (week === 0) {
         projections.push({
-          week,
-          date: formatDate(date),
-          weight: currentWt,
-          fatMass: currentFatMass,
-          ffm: currentFfm,
-          bodyFat: (currentFatMass / currentWt) * 100,
-          waterChange: 0,
-          scaleWeight: currentWt,
-          weightCI: weightCILbs,
-          fatMassCI: fatMassCILbs,
-          ffmCI: ffmCILbs,
-          bodyFatCI: bodyFatCI,
+          week, date: formatDate(date), weight: currentWt, fatMass: currentFatMass, ffm: currentFfm,
+          bodyFat: (currentFatMass / currentWt) * 100, waterChange: 0, scaleWeight: currentWt,
+          weightCI: weightCILbs, fatMassCI: fatMassCILbs, ffmCI: ffmCILbs, bodyFatCI: bodyFatCI,
+          fmi: currentMetrics.fmi, ffmi: currentMetrics.ffmi,
         });
         continue;
       }
       
       const currentFatMassKg = currentFatMass * 0.453592;
-      const pRatio = calculatePRatio(currentFatMassKg, proteinLevel, trainingLevel, deficitLevel, isDeficit);
+      const pRatio = calculatePRatio(currentFatMassKg, proteinLevel, trainingLevel, dailyDeficit, isDeficit);
       
-      if (isDeficit) {
+      if (goalType === 'recomposition') {
+        // Recomp: gradual fat loss and muscle gain
+        const recomp = RECOMP_EXPECTATIONS[recompExperience];
+        currentFatMass -= recomp.monthlyFatLoss / 4.33; // Per week
+        currentFfm += recomp.monthlyMuscleGain / 4.33;
+      } else if (isDeficit) {
         const leanLoss = Math.abs(weeklyWeightChange) * pRatio;
         const fatLoss = Math.abs(weeklyWeightChange) * (1 - pRatio);
         currentFfm -= leanLoss;
@@ -525,18 +684,19 @@ export default function BodyCompositionPage() {
       
       let waterChange = 0;
       if (includeWaterChanges) {
-        const weeklyGlycogenChange = isDeficit 
-          ? (week <= 2 ? -150 : -20)
-          : (week <= 2 ? 100 : 10);
+        const weeklyGlycogenChange = isDeficit ? (week <= 2 ? -150 : -20) : (week <= 2 ? 100 : 10);
         cumulativeGlycogenChange += weeklyGlycogenChange;
-        cumulativeGlycogenChange = Math.max(-(MUSCLE_GLYCOGEN_CAPACITY + LIVER_GLYCOGEN_CAPACITY), 
-          Math.min(0, cumulativeGlycogenChange));
+        cumulativeGlycogenChange = Math.max(-(MUSCLE_GLYCOGEN_CAPACITY + LIVER_GLYCOGEN_CAPACITY), Math.min(0, cumulativeGlycogenChange));
         waterChange = (cumulativeGlycogenChange * GLYCOGEN_WATER_RATIO) / 453.592;
       }
       
+      const currentFatMassKgNow = currentFatMass * 0.453592;
+      const currentFfmKgNow = currentFfm * 0.453592;
+      const fmiNow = currentFatMassKgNow / (heightM * heightM);
+      const ffmiNow = currentFfmKgNow / (heightM * heightM);
+      
       projections.push({
-        week,
-        date: formatDate(date),
+        week, date: formatDate(date),
         weight: Math.round(currentWt * 10) / 10,
         fatMass: Math.round(currentFatMass * 10) / 10,
         ffm: Math.round(currentFfm * 10) / 10,
@@ -547,23 +707,22 @@ export default function BodyCompositionPage() {
         fatMassCI: Math.round(fatMassCILbs * 10) / 10,
         ffmCI: Math.round(ffmCILbs * 10) / 10,
         bodyFatCI: Math.round(bodyFatCI * 10) / 10,
+        fmi: Math.round(fmiNow * 10) / 10,
+        ffmi: Math.round(ffmiNow * 10) / 10,
       });
     }
     
     return projections;
-  }, [currentWeight, currentMetrics, targetMetrics, totalWeeks, startDate, proteinLevel, trainingLevel, trainingExperience, includeWaterChanges, measurementErrors]);
+  }, [currentWeight, currentMetrics, targetMetrics, totalWeeks, startDate, proteinLevel, trainingLevel, trainingExperience, includeWaterChanges, measurementErrors, goalType, recompExperience, heightM]);
   
-  // Summary stats
+  // Summary
   const summary = useMemo(() => {
     const final = weeklyProjections[weeklyProjections.length - 1];
     const initial = weeklyProjections[0];
-    
     const totalFatChange = final.fatMass - initial.fatMass;
     const totalFFMChange = final.ffm - initial.ffm;
     const totalWeightChange = final.weight - initial.weight;
-    
-    // Check if change exceeds MDC
-    const fatChangeMDC = measurementErrors.fatMassKg.mdc * 2.205; // Convert to lbs
+    const fatChangeMDC = measurementErrors.fatMassKg.mdc * 2.205;
     const ffmChangeMDC = measurementErrors.ffmKg.mdc * 2.205;
     
     return {
@@ -576,38 +735,28 @@ export default function BodyCompositionPage() {
       pctFromFFM: totalWeightChange !== 0 ? Math.round(Math.abs(totalFFMChange / totalWeightChange) * 100) : 0,
       finalBodyFat: final.bodyFat,
       expectedWaterChange: final.waterChange,
-      // MDC comparisons
       fatChangeExceedsMDC: Math.abs(totalFatChange) > fatChangeMDC,
       ffmChangeExceedsMDC: Math.abs(totalFFMChange) > ffmChangeMDC,
       fatChangeMDC: Math.round(fatChangeMDC * 10) / 10,
       ffmChangeMDC: Math.round(ffmChangeMDC * 10) / 10,
-      finalCI: final,
     };
   }, [weeklyProjections, totalWeeks, measurementErrors]);
   
-  // Calorie and macro targets
+  // Nutrition targets
   const nutritionTargets = useMemo(() => {
     const dailyDeficit = (summary.weeklyWeightChange * 3500) / 7;
     const targetCals = Math.round(tdee + dailyDeficit);
-    
-    const proteinGPerKg = proteinLevel === 'very_high' ? 2.4 : 
-                          proteinLevel === 'high' ? 1.8 :
-                          proteinLevel === 'moderate' ? 1.4 : 1.0;
+    const proteinGPerKg = proteinLevel === 'very_high' ? 2.4 : proteinLevel === 'high' ? 1.8 : proteinLevel === 'moderate' ? 1.4 : 1.0;
     const proteinG = Math.round(weightKg * proteinGPerKg);
     const proteinCal = proteinG * 4;
-    
     const fatPct = summary.isDeficit ? 0.25 : 0.30;
     const fatCal = targetCals * fatPct;
     const fatG = Math.round(fatCal / 9);
-    
     const carbCal = targetCals - proteinCal - fatCal;
     const carbG = Math.round(Math.max(50, carbCal / 4));
     
     return {
-      calories: targetCals,
-      protein: proteinG,
-      carbs: carbG,
-      fat: fatG,
+      calories: targetCals, protein: proteinG, carbs: carbG, fat: fatG,
       proteinPct: Math.round((proteinCal / targetCals) * 100),
       carbsPct: Math.round((carbCal / targetCals) * 100),
       fatPct: Math.round((fatCal / targetCals) * 100),
@@ -615,53 +764,83 @@ export default function BodyCompositionPage() {
     };
   }, [tdee, summary, weightKg, proteinLevel]);
   
-  // Benchmark helpers
-  const getFFMIBenchmark = (ffmi: number) => {
-    return FFMI_BENCHMARKS.find(b => ffmi >= b.range[0] && ffmi < b.range[1]) || FFMI_BENCHMARKS[0];
-  };
-  
+  // Helpers
+  const getFFMIBenchmark = (ffmi: number) => FFMI_BENCHMARKS.find(b => ffmi >= b.range[0] && ffmi < b.range[1]) || FFMI_BENCHMARKS[0];
   const getFMIBenchmark = (fmi: number) => {
     const benchmarks = gender === 'male' ? FMI_BENCHMARKS_MALE : FMI_BENCHMARKS_FEMALE;
     return benchmarks.find(b => fmi >= b.range[0] && fmi < b.range[1]) || benchmarks[benchmarks.length - 1];
   };
 
-  // SVG Graph helper for confidence interval shading
-  const generateGraphWithCI = (
-    data: typeof weeklyProjections,
-    valueKey: 'weight' | 'fatMass' | 'ffm' | 'bodyFat',
-    ciKey: 'weightCI' | 'fatMassCI' | 'ffmCI' | 'bodyFatCI',
-    color: string,
-    height: number = 120
-  ) => {
-    const values = data.map(d => d[valueKey]);
-    const minVal = Math.min(...values.map((v, i) => v - data[i][ciKey]));
-    const maxVal = Math.max(...values.map((v, i) => v + data[i][ciKey]));
-    const range = maxVal - minVal || 1;
-    const padding = 10;
-    const graphHeight = height - padding * 2;
+  // SVG Risk Curve Component
+  const RiskCurve = ({ type, currentVal, targetVal }: { type: 'fmi' | 'ffmi'; currentVal: number; targetVal: number }) => {
+    const data = MORTALITY_RISK[type].points;
+    const minX = data[0].x - 1;
+    const maxX = data[data.length - 1].x + 1;
+    const maxY = Math.max(...data.map(d => d.upper)) + 0.5;
+    const minY = Math.min(...data.map(d => d.lower)) - 0.2;
+    const rangeX = maxX - minX;
+    const rangeY = maxY - minY;
     
-    const getY = (val: number) => padding + graphHeight - ((val - minVal) / range) * graphHeight;
-    const getX = (i: number) => (i / (data.length - 1)) * 400;
+    const toSvgX = (x: number) => ((x - minX) / rangeX) * 380 + 10;
+    const toSvgY = (y: number) => 140 - ((y - minY) / rangeY) * 120;
     
-    // Build CI polygon path
-    const ciPathPoints: string[] = [];
-    // Top edge (upper bound)
-    for (let i = 0; i < data.length; i++) {
-      const x = getX(i);
-      const y = getY(data[i][valueKey] + data[i][ciKey]);
-      ciPathPoints.push(`${x},${y}`);
-    }
-    // Bottom edge (lower bound) - reverse order
-    for (let i = data.length - 1; i >= 0; i--) {
-      const x = getX(i);
-      const y = getY(data[i][valueKey] - data[i][ciKey]);
-      ciPathPoints.push(`${x},${y}`);
-    }
+    // Build paths
+    const mainLine = data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${toSvgX(d.x)} ${toSvgY(d.hr)}`).join(' ');
+    const upperLine = data.map(d => `${toSvgX(d.x)},${toSvgY(d.upper)}`).join(' ');
+    const lowerLine = data.map(d => `${toSvgX(d.x)},${toSvgY(d.lower)}`).reverse().join(' ');
+    const ciPath = `${upperLine} ${lowerLine}`;
     
-    // Main line points
-    const linePoints = data.map((d, i) => `${getX(i)},${getY(d[valueKey])}`).join(' ');
+    const currentHR = getHazardRatio(currentVal, type);
+    const targetHR = getHazardRatio(targetVal, type);
+    const optimal = MORTALITY_RISK[type].optimal;
     
-    return { ciPathPoints: ciPathPoints.join(' '), linePoints, minVal, maxVal };
+    return (
+      <svg className="w-full h-40" viewBox="0 0 400 160" preserveAspectRatio="xMidYMid meet">
+        {/* Grid */}
+        <line x1="10" y1="140" x2="390" y2="140" stroke="#e5e7eb" strokeWidth="1" />
+        <line x1="10" y1="20" x2="10" y2="140" stroke="#e5e7eb" strokeWidth="1" />
+        
+        {/* HR = 1 reference line */}
+        <line x1="10" y1={toSvgY(1)} x2="390" y2={toSvgY(1)} stroke="#94a3b8" strokeWidth="1" strokeDasharray="4,4" />
+        <text x="395" y={toSvgY(1) + 3} fontSize="8" fill="#94a3b8">HR=1</text>
+        
+        {/* Optimal zone */}
+        <rect x={toSvgX(optimal.min)} y="20" width={toSvgX(optimal.max) - toSvgX(optimal.min)} height="120" fill="#22c55e" fillOpacity="0.1" />
+        
+        {/* CI shading */}
+        <polygon points={ciPath} fill="#64748b" fillOpacity="0.15" />
+        
+        {/* Main curve */}
+        <path d={mainLine} fill="none" stroke="#334155" strokeWidth="2.5" />
+        
+        {/* Current position */}
+        <circle cx={toSvgX(currentVal)} cy={toSvgY(currentHR.hr)} r="6" fill="#ef4444" stroke="#fff" strokeWidth="2" />
+        <text x={toSvgX(currentVal)} y={toSvgY(currentHR.hr) - 12} fontSize="9" fill="#ef4444" textAnchor="middle" fontWeight="bold">Current</text>
+        
+        {/* Target position */}
+        {Math.abs(currentVal - targetVal) > 0.5 && (
+          <>
+            <circle cx={toSvgX(targetVal)} cy={toSvgY(targetHR.hr)} r="6" fill="#22c55e" stroke="#fff" strokeWidth="2" />
+            <text x={toSvgX(targetVal)} y={toSvgY(targetHR.hr) - 12} fontSize="9" fill="#22c55e" textAnchor="middle" fontWeight="bold">Target</text>
+            {/* Arrow */}
+            <line x1={toSvgX(currentVal)} y1={toSvgY(currentHR.hr)} x2={toSvgX(targetVal)} y2={toSvgY(targetHR.hr)} stroke="#c19962" strokeWidth="1.5" strokeDasharray="4,4" markerEnd="url(#arrowhead)" />
+          </>
+        )}
+        
+        {/* Arrow marker */}
+        <defs>
+          <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
+            <polygon points="0 0, 6 3, 0 6" fill="#c19962" />
+          </marker>
+        </defs>
+        
+        {/* X-axis label */}
+        <text x="200" y="155" fontSize="10" fill="#64748b" textAnchor="middle">{type === 'fmi' ? 'Fat Mass Index (kg/m²)' : 'Fat-Free Mass Index (kg/m²)'}</text>
+        
+        {/* Y-axis label */}
+        <text x="5" y="80" fontSize="9" fill="#64748b" transform="rotate(-90, 5, 80)">Hazard Ratio</text>
+      </svg>
+    );
   };
 
   return (
@@ -670,33 +849,28 @@ export default function BodyCompositionPage() {
         <div className="max-w-[1800px] mx-auto space-y-6">
           {/* Header */}
           <div className="text-center mb-6">
-            <h1 className="text-2xl lg:text-3xl font-bold text-[#00263d] mb-2">
-              Body Composition Calculator
-            </h1>
+            <h1 className="text-2xl lg:text-3xl font-bold text-[#00263d] mb-2">Body Composition Calculator</h1>
             <p className="text-sm text-muted-foreground max-w-3xl mx-auto">
-              Evidence-based body composition planning with Forbes partitioning model, 
-              measurement uncertainty, and confidence intervals based on 3C field model methodology.
+              Evidence-based body composition planning with Forbes partitioning, measurement uncertainty, and mortality risk curves.
             </p>
           </div>
 
-          {/* Main Cards Grid - 4 columns */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {/* Main Cards - 5 columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
             {/* Column 1: Current Stats */}
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
                   <Scale className="h-4 w-4 text-[#c19962]" />
                   Current Stats
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-xs">Gender</Label>
+                    <Label className="text-[10px]">Gender</Label>
                     <Select value={gender} onValueChange={(v: 'male' | 'female') => setGender(v)}>
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="male">Male</SelectItem>
                         <SelectItem value="female">Female</SelectItem>
@@ -704,306 +878,277 @@ export default function BodyCompositionPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs">Age</Label>
-                    <Input type="number" value={age} onChange={(e) => setAge(Number(e.target.value))} className="h-8 text-sm" />
+                    <Label className="text-[10px]">Age</Label>
+                    <Input type="number" value={age} onChange={(e) => setAge(Number(e.target.value))} className="h-7 text-xs" />
                   </div>
                 </div>
-                
-                <div>
-                  <Label className="text-xs">Height</Label>
-                  <div className="flex gap-2">
-                    <Input type="number" value={heightFt} onChange={(e) => setHeightFt(Number(e.target.value))} className="h-8 text-sm" placeholder="ft" />
-                    <Input type="number" value={heightIn} onChange={(e) => setHeightIn(Number(e.target.value))} className="h-8 text-sm" placeholder="in" />
-                  </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input type="number" value={heightFt} onChange={(e) => setHeightFt(Number(e.target.value))} className="h-7 text-xs" placeholder="ft" />
+                  <Input type="number" value={heightIn} onChange={(e) => setHeightIn(Number(e.target.value))} className="h-7 text-xs" placeholder="in" />
                 </div>
-                
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-xs">Weight (lbs)</Label>
-                    <Input type="number" value={currentWeight} onChange={(e) => setCurrentWeight(Number(e.target.value))} className="h-8 text-sm" />
+                    <Label className="text-[10px]">Weight (lbs)</Label>
+                    <Input type="number" value={currentWeight} onChange={(e) => setCurrentWeight(Number(e.target.value))} className="h-7 text-xs" />
                   </div>
                   <div>
-                    <Label className="text-xs">Body Fat %</Label>
-                    <Input type="number" step="0.1" value={currentBodyFat} onChange={(e) => setCurrentBodyFat(Number(e.target.value))} className="h-8 text-sm" />
+                    <Label className="text-[10px]">Body Fat %</Label>
+                    <Input type="number" step="0.1" value={currentBodyFat} onChange={(e) => setCurrentBodyFat(Number(e.target.value))} className="h-7 text-xs" />
                   </div>
                 </div>
                 
-                {/* Current breakdown */}
-                <div className="bg-slate-50 rounded-lg p-2 space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Fat Mass</span>
-                    <span className="font-medium">{currentMetrics.fatMassLbs} lbs</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Fat-Free Mass</span>
-                    <span className="font-medium">{currentMetrics.ffmLbs} lbs</span>
-                  </div>
+                <div className="bg-slate-50 rounded p-2 space-y-1 text-[10px]">
+                  <div className="flex justify-between"><span>Fat Mass</span><span className="font-medium">{currentMetrics.fatMassLbs} lbs</span></div>
+                  <div className="flex justify-between"><span>FFM</span><span className="font-medium">{currentMetrics.ffmLbs} lbs</span></div>
                   <Separator className="my-1" />
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">FMI</span>
-                    <Badge className={`text-[10px] ${getFMIBenchmark(currentMetrics.fmi).bgColor} ${getFMIBenchmark(currentMetrics.fmi).color}`}>
-                      {currentMetrics.fmi}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">FFMI</span>
-                    <Badge className={`text-[10px] ${getFFMIBenchmark(currentMetrics.ffmi).bgColor} ${getFFMIBenchmark(currentMetrics.ffmi).color}`}>
-                      {currentMetrics.ffmi}
-                    </Badge>
-                  </div>
+                  <div className="flex justify-between"><span>FMI</span><Badge className={`text-[8px] ${getFMIBenchmark(currentMetrics.fmi).bgColor}`}>{currentMetrics.fmi}</Badge></div>
+                  <div className="flex justify-between"><span>FFMI</span><Badge className={`text-[8px] ${getFFMIBenchmark(currentMetrics.ffmi).bgColor}`}>{currentMetrics.ffmi}</Badge></div>
                 </div>
                 
                 <Separator />
                 
-                {/* Metabolism mini-section */}
-                <div className="space-y-2">
+                {/* TDEE Mini */}
+                <div className="space-y-1">
                   <div className="flex justify-between items-center">
-                    <Label className="text-xs font-medium flex items-center gap-1">
-                      <Flame className="h-3 w-3 text-orange-500" />
-                      Metabolism
-                    </Label>
-                    <Select value={rmrSource} onValueChange={(v: any) => setRmrSource(v)}>
-                      <SelectTrigger className="h-6 w-20 text-[10px]">
-                        <SelectValue />
-                      </SelectTrigger>
+                    <Label className="text-[10px] flex items-center gap-1"><Flame className="h-3 w-3 text-orange-500" />Metabolism</Label>
+                    <Select value={neatLevel} onValueChange={(v: any) => setNeatLevel(v)}>
+                      <SelectTrigger className="h-6 w-20 text-[10px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="estimated">Est.</SelectItem>
-                        <SelectItem value="measured">Meas.</SelectItem>
+                        <SelectItem value="sedentary">Sedentary</SelectItem>
+                        <SelectItem value="light">Light</SelectItem>
+                        <SelectItem value="moderate">Moderate</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="very_active">Very Active</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  
-                  {rmrSource === 'measured' && (
-                    <Input type="number" value={measuredRmr} onChange={(e) => setMeasuredRmr(Number(e.target.value))} className="h-7 text-xs" placeholder="RMR" />
-                  )}
-                  
-                  <Select value={neatLevel} onValueChange={(v: any) => setNeatLevel(v)}>
-                    <SelectTrigger className="h-7 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sedentary">Sedentary</SelectItem>
-                      <SelectItem value="light">Light</SelectItem>
-                      <SelectItem value="moderate">Moderate</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="very_active">Very Active</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <div className="grid grid-cols-3 gap-1">
-                    <div>
-                      <Label className="text-[10px]">TEF%</Label>
-                      <Input type="number" value={tef} onChange={(e) => setTef(Number(e.target.value))} className="h-7 text-xs" />
-                    </div>
-                    <div>
-                      <Label className="text-[10px]">EEE</Label>
-                      <Input type="number" value={eee} onChange={(e) => setEee(Number(e.target.value))} className="h-7 text-xs" />
-                    </div>
-                    <div>
-                      <Label className="text-[10px]">Days</Label>
-                      <Input type="number" value={workoutsPerWeek} onChange={(e) => setWorkoutsPerWeek(Number(e.target.value))} className="h-7 text-xs" min={0} max={7} />
-                    </div>
-                  </div>
-                  
-                  <div className="bg-orange-50 rounded p-2 border border-orange-200 text-center">
-                    <span className="text-xs text-orange-700">TDEE:</span>
-                    <span className="text-base font-bold text-orange-600 ml-2">{tdee} kcal</span>
+                  <div className="bg-orange-50 rounded p-2 text-center border border-orange-200">
+                    <span className="text-[10px] text-orange-700">TDEE:</span>
+                    <span className="text-sm font-bold text-orange-600 ml-1">{tdee} kcal</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Column 2: Goal & Parameters */}
+            {/* Column 2: Goal Type & Rate */}
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
                   <Target className="h-4 w-4 text-[#00263d]" />
-                  Goal Setting
+                  Goal & Rate
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2">
                 <div>
-                  <Label className="text-xs mb-1 block">Goal Type</Label>
-                  <div className="grid grid-cols-2 gap-1">
+                  <Label className="text-[10px] mb-1 block">Phase Type</Label>
+                  <div className="grid grid-cols-3 gap-1">
                     {[
-                      { value: 'body_fat', label: 'Body Fat %' },
-                      { value: 'weight', label: 'Weight' },
-                      { value: 'fat_mass', label: 'Fat Mass' },
-                      { value: 'ffm', label: 'FFM (lbs)' },
-                      { value: 'ffmi', label: 'FFMI' },
-                      { value: 'fmi', label: 'FMI' },
+                      { value: 'fat_loss', label: 'Fat Loss', icon: TrendingDown },
+                      { value: 'muscle_gain', label: 'Build', icon: TrendingUp },
+                      { value: 'recomposition', label: 'Recomp', icon: RefreshCcw },
                     ].map((type) => (
                       <Button
                         key={type.value}
                         variant={goalType === type.value ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => setGoalType(type.value as any)}
-                        className={`text-xs h-7 ${goalType === type.value ? 'bg-[#00263d]' : ''}`}
+                        className={`text-[10px] h-7 flex flex-col items-center gap-0.5 ${goalType === type.value ? 'bg-[#00263d]' : ''}`}
                       >
+                        <type.icon className="h-3 w-3" />
                         {type.label}
                       </Button>
                     ))}
                   </div>
                 </div>
                 
-                {/* Goal-specific input */}
-                <div className="bg-slate-50 rounded-lg p-2">
-                  {goalType === 'body_fat' && (
-                    <div>
-                      <Label className="text-xs">Target Body Fat %</Label>
-                      <div className="flex gap-2 items-center">
-                        <Slider value={[targetBodyFat]} onValueChange={([v]) => setTargetBodyFat(v)} min={5} max={35} step={0.5} className="flex-1" />
-                        <Input type="number" value={targetBodyFat} onChange={(e) => setTargetBodyFat(Number(e.target.value))} className="h-7 w-14 text-xs" />
+                <Separator />
+                
+                {/* Rate Selection based on goal */}
+                {goalType === 'fat_loss' && (
+                  <div className="space-y-2">
+                    <Label className="text-[10px]">Rate of Loss</Label>
+                    {Object.entries(RATE_PRESETS.fat_loss).map(([key, val]) => (
+                      <Button
+                        key={key}
+                        variant={fatLossRate === key ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setFatLossRate(key as any)}
+                        className={`w-full justify-start text-[10px] h-auto py-1 ${fatLossRate === key ? 'bg-[#00263d]' : ''}`}
+                      >
+                        <div className="text-left">
+                          <div className="font-medium">{val.label}</div>
+                          <div className="text-[8px] opacity-70">{val.description}</div>
+                        </div>
+                      </Button>
+                    ))}
+                    <div className="bg-amber-50 rounded p-2 text-[10px] border border-amber-200">
+                      <div className="font-medium text-amber-800">Tradeoffs:</div>
+                      <div className="text-amber-700">
+                        <div>• FFM loss: ~{Math.round(RATE_PRESETS.fat_loss[fatLossRate].ffmLossRatio * 100)}%</div>
+                        <div>• Adherence: {RATE_PRESETS.fat_loss[fatLossRate].adherence}</div>
+                        <div>• Hormonal: {RATE_PRESETS.fat_loss[fatLossRate].hormonal}</div>
                       </div>
                     </div>
-                  )}
-                  
-                  {goalType === 'weight' && (
-                    <div>
-                      <Label className="text-xs">Target Weight (lbs)</Label>
-                      <Input type="number" value={targetWeight} onChange={(e) => setTargetWeight(Number(e.target.value))} className="h-7 text-xs" />
-                    </div>
-                  )}
-                  
-                  {goalType === 'fat_mass' && (
-                    <div>
-                      <Label className="text-xs">Target Fat Mass (lbs)</Label>
-                      <Input type="number" value={targetFatMass} onChange={(e) => setTargetFatMass(Number(e.target.value))} className="h-7 text-xs" />
-                      <p className="text-[10px] text-muted-foreground mt-1">Current: {currentMetrics.fatMassLbs} lbs</p>
-                    </div>
-                  )}
-                  
-                  {goalType === 'ffm' && (
-                    <div>
-                      <Label className="text-xs">Target FFM (lbs)</Label>
-                      <Input type="number" value={targetFFM} onChange={(e) => setTargetFFM(Number(e.target.value))} className="h-7 text-xs" />
-                      <p className="text-[10px] text-muted-foreground mt-1">Current: {currentMetrics.ffmLbs} lbs</p>
-                    </div>
-                  )}
-                  
-                  {goalType === 'ffmi' && (
-                    <div>
-                      <Label className="text-xs">Target FFMI</Label>
-                      <div className="flex gap-2 items-center">
-                        <Slider value={[targetFFMI]} onValueChange={([v]) => setTargetFFMI(v)} min={16} max={28} step={0.5} className="flex-1" />
-                        <Input type="number" value={targetFFMI} onChange={(e) => setTargetFFMI(Number(e.target.value))} className="h-7 w-14 text-xs" />
+                  </div>
+                )}
+                
+                {goalType === 'muscle_gain' && (
+                  <div className="space-y-2">
+                    <Label className="text-[10px]">Rate of Gain</Label>
+                    {Object.entries(RATE_PRESETS.muscle_gain).map(([key, val]) => (
+                      <Button
+                        key={key}
+                        variant={muscleGainRate === key ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setMuscleGainRate(key as any)}
+                        className={`w-full justify-start text-[10px] h-auto py-1 ${muscleGainRate === key ? 'bg-[#00263d]' : ''}`}
+                      >
+                        <div className="text-left">
+                          <div className="font-medium">{val.label}</div>
+                          <div className="text-[8px] opacity-70">{val.description}</div>
+                        </div>
+                      </Button>
+                    ))}
+                    <div className="bg-blue-50 rounded p-2 text-[10px] border border-blue-200">
+                      <div className="font-medium text-blue-800">Expected:</div>
+                      <div className="text-blue-700">
+                        <div>• Fat gain: ~{Math.round(RATE_PRESETS.muscle_gain[muscleGainRate].fatGainRatio * 100)}%</div>
+                        <div>• Results: {RATE_PRESETS.muscle_gain[muscleGainRate].timeToResults}</div>
                       </div>
                     </div>
-                  )}
-                  
-                  {goalType === 'fmi' && (
-                    <div>
-                      <Label className="text-xs">Target FMI</Label>
-                      <div className="flex gap-2 items-center">
-                        <Slider value={[targetFMI]} onValueChange={([v]) => setTargetFMI(v)} min={2} max={15} step={0.5} className="flex-1" />
-                        <Input type="number" value={targetFMI} onChange={(e) => setTargetFMI(Number(e.target.value))} className="h-7 w-14 text-xs" />
+                  </div>
+                )}
+                
+                {goalType === 'recomposition' && (
+                  <div className="space-y-2">
+                    <Label className="text-[10px]">Training Experience</Label>
+                    {Object.entries(RECOMP_EXPECTATIONS).map(([key, val]) => (
+                      <Button
+                        key={key}
+                        variant={recompExperience === key ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setRecompExperience(key as any)}
+                        className={`w-full justify-start text-[10px] h-auto py-1 ${recompExperience === key ? 'bg-[#00263d]' : ''}`}
+                      >
+                        <div className="text-left">
+                          <div className="font-medium">{val.label}</div>
+                          <div className="text-[8px] opacity-70">{val.notes}</div>
+                        </div>
+                      </Button>
+                    ))}
+                    <div className="bg-purple-50 rounded p-2 text-[10px] border border-purple-200">
+                      <div className="font-medium text-purple-800">Recomp Expectations:</div>
+                      <div className="text-purple-700">
+                        <div>• Fat loss: ~{RECOMP_EXPECTATIONS[recompExperience].monthlyFatLoss} lbs/mo</div>
+                        <div>• Muscle gain: ~{RECOMP_EXPECTATIONS[recompExperience].monthlyMuscleGain} lbs/mo</div>
+                        <div>• Success likelihood: {RECOMP_EXPECTATIONS[recompExperience].probability}</div>
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
+                
+                {/* Other goal types */}
+                {!['fat_loss', 'muscle_gain', 'recomposition'].includes(goalType) && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-1 mb-2">
+                      {['body_fat', 'weight', 'fat_mass', 'ffm', 'ffmi', 'fmi'].map((t) => (
+                        <Button key={t} variant={goalType === t ? 'default' : 'outline'} size="sm" onClick={() => setGoalType(t as any)} className={`text-[10px] h-6 ${goalType === t ? 'bg-[#00263d]' : ''}`}>
+                          {t.replace('_', ' ').toUpperCase()}
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="bg-slate-50 rounded p-2">
+                      {goalType === 'body_fat' && <div><Label className="text-[10px]">Target BF%</Label><Slider value={[targetBodyFat]} onValueChange={([v]) => setTargetBodyFat(v)} min={5} max={35} step={0.5} /></div>}
+                      {goalType === 'weight' && <div><Label className="text-[10px]">Target Weight</Label><Input type="number" value={targetWeight} onChange={(e) => setTargetWeight(Number(e.target.value))} className="h-7 text-xs" /></div>}
+                      {goalType === 'fat_mass' && <div><Label className="text-[10px]">Target FM (lbs)</Label><Input type="number" value={targetFatMass} onChange={(e) => setTargetFatMass(Number(e.target.value))} className="h-7 text-xs" /></div>}
+                      {goalType === 'ffm' && <div><Label className="text-[10px]">Target FFM (lbs)</Label><Input type="number" value={targetFFM} onChange={(e) => setTargetFFM(Number(e.target.value))} className="h-7 text-xs" /></div>}
+                      {goalType === 'ffmi' && <div><Label className="text-[10px]">Target FFMI</Label><Slider value={[targetFFMI]} onValueChange={([v]) => setTargetFFMI(v)} min={16} max={28} step={0.5} /></div>}
+                      {goalType === 'fmi' && <div><Label className="text-[10px]">Target FMI</Label><Slider value={[targetFMI]} onValueChange={([v]) => setTargetFMI(v)} min={2} max={15} step={0.5} /></div>}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Column 3: Timeline & Parameters */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-4 w-4 text-purple-500" />
+                  Timeline & Parameters
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[10px]">Start</Label>
+                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-7 text-[10px]" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px]">End</Label>
+                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-7 text-[10px]" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <Badge variant="outline" className="text-xs"><Clock className="h-3 w-3 mr-1" />{totalWeeks} weeks</Badge>
                 </div>
                 
                 <Separator />
                 
-                {/* Date Range */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <Label className="text-xs flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      Timeline
-                    </Label>
-                    <Switch checked={useDateRange} onCheckedChange={setUseDateRange} />
-                  </div>
-                  {useDateRange && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Start</Label>
-                        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-7 text-[10px]" />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">End</Label>
-                        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-7 text-[10px]" />
-                      </div>
-                    </div>
-                  )}
-                  <div className="mt-1 text-center">
-                    <Badge variant="outline" className="text-xs">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {totalWeeks} weeks
-                    </Badge>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                {/* Partitioning Parameters */}
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-1">
-                    <Settings2 className="h-3 w-3 text-purple-500" />
-                    Partitioning Factors
-                  </Label>
-                  
+                  <Label className="text-[10px] flex items-center gap-1"><Settings2 className="h-3 w-3" />Partitioning Factors</Label>
                   <div>
-                    <Label className="text-[10px] text-muted-foreground">Protein Intake</Label>
+                    <Label className="text-[10px] text-muted-foreground">Protein</Label>
                     <Select value={proteinLevel} onValueChange={(v: any) => setProteinLevel(v)}>
-                      <SelectTrigger className="h-7 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger className="h-7 text-[10px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.entries(PROTEIN_EFFECT).map(([key, val]) => (
-                          <SelectItem key={key} value={key} className="text-xs">{val.label}</SelectItem>
-                        ))}
+                        {Object.entries(PROTEIN_EFFECT).map(([k, v]) => <SelectItem key={k} value={k} className="text-xs">{v.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
-                  
                   <div>
-                    <Label className="text-[10px] text-muted-foreground">Resistance Training</Label>
+                    <Label className="text-[10px] text-muted-foreground">Training</Label>
                     <Select value={trainingLevel} onValueChange={(v: any) => setTrainingLevel(v)}>
-                      <SelectTrigger className="h-7 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger className="h-7 text-[10px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.entries(TRAINING_EFFECT).map(([key, val]) => (
-                          <SelectItem key={key} value={key} className="text-xs">{val.label}</SelectItem>
-                        ))}
+                        {Object.entries(TRAINING_EFFECT).map(([k, v]) => <SelectItem key={k} value={k} className="text-xs">{v.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
-                  
-                  {!summary.isDeficit && (
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground">Training Experience</Label>
-                      <Select value={trainingExperience} onValueChange={(v: any) => setTrainingExperience(v)}>
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(SURPLUS_PARTITIONING).map(([key, val]) => (
-                            <SelectItem key={key} value={key} className="text-xs">{val.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  
                   <div className="flex items-center justify-between">
-                    <Label className="text-[10px]">Include Water Changes</Label>
+                    <Label className="text-[10px]">Water Changes</Label>
                     <Switch checked={includeWaterChanges} onCheckedChange={setIncludeWaterChanges} />
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div className="space-y-1">
+                  <Label className="text-[10px] flex items-center gap-1"><ShieldAlert className="h-3 w-3 text-amber-500" />Measurement</Label>
+                  <Select value={measurementMethod} onValueChange={(v: any) => setMeasurementMethod(v)}>
+                    <SelectTrigger className="h-7 text-[10px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(MEASUREMENT_ERROR).map(([k, v]) => <SelectItem key={k} value={k} className="text-xs">{v.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px]">Show CI</Label>
+                    <Switch checked={showConfidenceInterval} onCheckedChange={setShowConfidenceInterval} />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Column 3: Target & Partitioning */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base text-[#00263d]">Target Composition</CardTitle>
+            {/* Column 4: Target Composition */}
+            <Card className="border-[#c19962]">
+              <CardHeader className="pb-2 bg-[#c19962]/10">
+                <CardTitle className="text-sm text-[#00263d]">Target Composition</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2 pt-2">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-slate-50 rounded p-2 text-center">
                     <div className="text-lg font-bold text-[#00263d]">{targetMetrics.weightLbs}</div>
-                    <div className="text-[10px] text-muted-foreground">Weight (lbs)</div>
+                    <div className="text-[10px] text-muted-foreground">Weight</div>
                   </div>
                   <div className="bg-slate-50 rounded p-2 text-center">
                     <div className="text-lg font-bold text-[#00263d]">{targetMetrics.bodyFat}%</div>
@@ -1011,119 +1156,64 @@ export default function BodyCompositionPage() {
                   </div>
                 </div>
                 
-                <div className="text-xs space-y-1">
+                <div className="text-[10px] space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Fat Mass</span>
-                    <span>
-                      {targetMetrics.fatMassLbs} lbs
-                      <span className={`ml-1 ${targetMetrics.fatMassLbs < currentMetrics.fatMassLbs ? 'text-green-600' : 'text-red-600'}`}>
-                        ({targetMetrics.fatMassLbs < currentMetrics.fatMassLbs ? '' : '+'}
-                        {(targetMetrics.fatMassLbs - currentMetrics.fatMassLbs).toFixed(1)})
-                      </span>
-                    </span>
+                    <span>Fat Mass</span>
+                    <span>{targetMetrics.fatMassLbs} lbs <span className={targetMetrics.fatMassLbs < currentMetrics.fatMassLbs ? 'text-green-600' : 'text-red-600'}>({(targetMetrics.fatMassLbs - currentMetrics.fatMassLbs).toFixed(1)})</span></span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">FFM</span>
-                    <span>
-                      {targetMetrics.ffmLbs} lbs
-                      <span className={`ml-1 ${targetMetrics.ffmLbs >= currentMetrics.ffmLbs ? 'text-green-600' : 'text-red-600'}`}>
-                        ({targetMetrics.ffmLbs >= currentMetrics.ffmLbs ? '+' : ''}
-                        {(targetMetrics.ffmLbs - currentMetrics.ffmLbs).toFixed(1)})
-                      </span>
-                    </span>
+                    <span>FFM</span>
+                    <span>{targetMetrics.ffmLbs} lbs <span className={targetMetrics.ffmLbs >= currentMetrics.ffmLbs ? 'text-green-600' : 'text-red-600'}>({targetMetrics.ffmLbs >= currentMetrics.ffmLbs ? '+' : ''}{(targetMetrics.ffmLbs - currentMetrics.ffmLbs).toFixed(1)})</span></span>
                   </div>
                   <Separator />
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">FMI</span>
-                    <Badge className={`text-[10px] ${getFMIBenchmark(targetMetrics.fmi).bgColor} ${getFMIBenchmark(targetMetrics.fmi).color}`}>
-                      {targetMetrics.fmi}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">FFMI</span>
-                    <Badge className={`text-[10px] ${getFFMIBenchmark(targetMetrics.ffmi).bgColor} ${getFFMIBenchmark(targetMetrics.ffmi).color}`}>
-                      {targetMetrics.ffmi}
-                    </Badge>
-                  </div>
+                  <div className="flex justify-between"><span>FMI</span><Badge className={`text-[8px] ${getFMIBenchmark(targetMetrics.fmi).bgColor}`}>{targetMetrics.fmi}</Badge></div>
+                  <div className="flex justify-between"><span>FFMI</span><Badge className={`text-[8px] ${getFFMIBenchmark(targetMetrics.ffmi).bgColor}`}>{targetMetrics.ffmi}</Badge></div>
                 </div>
                 
                 <Separator />
                 
-                {/* Partitioning Summary */}
-                <div className="bg-blue-50 rounded-lg p-2 border border-blue-200">
-                  <div className="text-center mb-2">
-                    <div className={`text-xl font-bold ${summary.isDeficit ? 'text-green-600' : 'text-blue-600'}`}>
+                {/* Composition change bar */}
+                <div className="bg-blue-50 rounded p-2 border border-blue-200">
+                  <div className="text-center mb-1">
+                    <div className={`text-lg font-bold ${summary.isDeficit ? 'text-green-600' : 'text-blue-600'}`}>
                       {summary.isDeficit ? '' : '+'}{summary.totalWeightChange} lbs
                     </div>
-                    <div className="text-[10px] text-muted-foreground">Total Weight Change</div>
                   </div>
-                  
-                  {/* Partitioning bar */}
-                  <div className="h-5 rounded-full overflow-hidden flex mb-1">
+                  <div className="h-4 rounded-full overflow-hidden flex mb-1">
                     <div className="bg-yellow-400" style={{ width: `${Math.abs(summary.pctFromFat)}%` }} />
                     <div className="bg-red-400" style={{ width: `${Math.abs(summary.pctFromFFM)}%` }} />
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-1 text-[10px]">
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-yellow-400 rounded" />
-                      <span>Fat: {summary.totalFatChange} lbs ({summary.pctFromFat}%)</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-red-400 rounded" />
-                      <span>FFM: {summary.totalFFMChange} lbs ({summary.pctFromFFM}%)</span>
-                    </div>
-                  </div>
-                  
-                  {includeWaterChanges && summary.expectedWaterChange !== 0 && (
-                    <div className="mt-1 pt-1 border-t border-blue-200">
-                      <div className="flex items-center gap-1 text-[10px] text-blue-700">
-                        <Droplets className="h-3 w-3" />
-                        <span>Water: {summary.expectedWaterChange > 0 ? '+' : ''}{summary.expectedWaterChange} lbs</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="text-[10px] text-muted-foreground space-y-0.5">
-                  <div className="flex justify-between">
-                    <span>Weekly rate:</span>
-                    <span className="font-medium">{Math.abs(summary.weeklyWeightChange)} lbs/week</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>% of body weight:</span>
-                    <span className="font-medium">{((Math.abs(summary.weeklyWeightChange) / currentWeight) * 100).toFixed(2)}%/week</span>
+                  <div className="flex justify-between text-[10px]">
+                    <span>Fat: {summary.pctFromFat}%</span>
+                    <span>FFM: {summary.pctFromFFM}%</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Column 4: Nutrition & Error */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base text-green-800">
-                  <Zap className="h-4 w-4 inline mr-1" />
-                  Daily Targets
-                </CardTitle>
+            {/* Column 5: Nutrition */}
+            <Card className="border-green-300">
+              <CardHeader className="pb-2 bg-green-50">
+                <CardTitle className="text-sm text-green-800"><Zap className="h-4 w-4 inline mr-1" />Daily Targets</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2 pt-2">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">{nutritionTargets.calories}</div>
-                  <div className="text-xs text-green-700">
-                    {summary.isDeficit ? `${Math.abs(nutritionTargets.deficit)} cal deficit` : `${nutritionTargets.deficit} cal surplus`}
+                  <div className="text-[10px] text-green-700">
+                    {summary.isDeficit ? `${Math.abs(nutritionTargets.deficit)} deficit` : `${nutritionTargets.deficit} surplus`}
                   </div>
                 </div>
                 
                 <div className="space-y-1">
-                  <div className="flex justify-between items-center p-1.5 bg-red-50 rounded text-xs">
+                  <div className="flex justify-between items-center p-1.5 bg-red-50 rounded text-[10px]">
                     <span className="text-red-700">Protein</span>
                     <span className="font-bold text-red-600">{nutritionTargets.protein}g ({nutritionTargets.proteinPct}%)</span>
                   </div>
-                  <div className="flex justify-between items-center p-1.5 bg-blue-50 rounded text-xs">
+                  <div className="flex justify-between items-center p-1.5 bg-blue-50 rounded text-[10px]">
                     <span className="text-blue-700">Carbs</span>
                     <span className="font-bold text-blue-600">{nutritionTargets.carbs}g ({nutritionTargets.carbsPct}%)</span>
                   </div>
-                  <div className="flex justify-between items-center p-1.5 bg-yellow-50 rounded text-xs">
+                  <div className="flex justify-between items-center p-1.5 bg-yellow-50 rounded text-[10px]">
                     <span className="text-yellow-700">Fat</span>
                     <span className="font-bold text-yellow-600">{nutritionTargets.fat}g ({nutritionTargets.fatPct}%)</span>
                   </div>
@@ -1131,408 +1221,225 @@ export default function BodyCompositionPage() {
                 
                 <Separator />
                 
-                {/* Measurement Error Settings */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium flex items-center gap-1">
-                    <ShieldAlert className="h-3 w-3 text-amber-500" />
-                    Measurement Uncertainty
-                  </Label>
-                  
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground">Assessment Method</Label>
-                    <Select value={measurementMethod} onValueChange={(v: any) => setMeasurementMethod(v)}>
-                      <SelectTrigger className="h-7 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(MEASUREMENT_ERROR).map(([key, val]) => (
-                          <SelectItem key={key} value={key} className="text-xs">{val.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {/* MDC Info */}
+                <div className="bg-amber-50 rounded p-2 text-[10px] border border-amber-200">
+                  <div className="font-medium text-amber-800">Min. Detectable Change</div>
+                  <div className="text-amber-700 space-y-0.5">
+                    <div className="flex justify-between"><span>Fat Mass:</span><span>±{summary.fatChangeMDC} lbs</span></div>
+                    <div className="flex justify-between"><span>FFM:</span><span>±{summary.ffmChangeMDC} lbs</span></div>
                   </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <Label className="text-[10px]">Show Confidence Interval</Label>
-                    <Switch checked={showConfidenceInterval} onCheckedChange={setShowConfidenceInterval} />
-                  </div>
-                  
-                  {showConfidenceInterval && (
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground">Confidence Level</Label>
-                      <Select value={String(confidenceLevel)} onValueChange={(v) => setConfidenceLevel(Number(v))}>
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0.90" className="text-xs">90% CI</SelectItem>
-                          <SelectItem value="0.95" className="text-xs">95% CI</SelectItem>
-                          <SelectItem value="0.99" className="text-xs">99% CI</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  
-                  {/* MDC Info */}
-                  <div className="bg-amber-50 rounded p-2 border border-amber-200 text-[10px]">
-                    <div className="font-medium text-amber-800 mb-1">Minimum Detectable Change ({Math.round(confidenceLevel * 100)}%)</div>
-                    <div className="space-y-0.5 text-amber-700">
-                      <div className="flex justify-between">
-                        <span>Fat Mass:</span>
-                        <span className="font-medium">±{summary.fatChangeMDC} lbs</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>FFM:</span>
-                        <span className="font-medium">±{summary.ffmChangeMDC} lbs</span>
-                      </div>
-                    </div>
-                    <Separator className="my-1" />
-                    <div className="text-amber-600">
-                      {summary.fatChangeExceedsMDC ? (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Fat change exceeds MDC
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          Fat change within measurement error
-                        </span>
-                      )}
-                    </div>
+                  <div className="mt-1 pt-1 border-t border-amber-200">
+                    {summary.fatChangeExceedsMDC ? (
+                      <span className="flex items-center gap-1 text-green-600"><CheckCircle2 className="h-3 w-3" />Fat change detectable</span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-amber-600"><AlertTriangle className="h-3 w-3" />Within measurement error</span>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Visualization Section - Full Width Below Cards */}
+          {/* Risk Curves - Full Width */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Heart className="h-5 w-5 text-red-500" />
+                Mortality Risk Curves
+                <Badge variant="outline" className="ml-2 text-xs">Sedlmeier et al. 2021</Badge>
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Based on pooled analysis of 7 prospective cohorts (n=16,155, 14-year follow-up). 
+                Shaded region = 95% CI. Green zone = optimal range.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Fat Mass Index (FMI)</span>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-red-600">Current: HR {currentRisk.fmi.hr.toFixed(2)}</span>
+                      {Math.abs(currentMetrics.fmi - targetMetrics.fmi) > 0.5 && (
+                        <span className="text-green-600">→ Target: HR {targetRisk.fmi.hr.toFixed(2)}</span>
+                      )}
+                    </div>
+                  </div>
+                  <RiskCurve type="fmi" currentVal={currentMetrics.fmi} targetVal={targetMetrics.fmi} />
+                  <div className="text-[10px] text-muted-foreground mt-1">
+                    J-shaped curve: Both very low and high FMI increase mortality risk. Optimal range: 5-9 kg/m²
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Fat-Free Mass Index (FFMI)</span>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-red-600">Current: HR {currentRisk.ffmi.hr.toFixed(2)}</span>
+                      {Math.abs(currentMetrics.ffmi - targetMetrics.ffmi) > 0.5 && (
+                        <span className="text-green-600">→ Target: HR {targetRisk.ffmi.hr.toFixed(2)}</span>
+                      )}
+                    </div>
+                  </div>
+                  <RiskCurve type="ffmi" currentVal={currentMetrics.ffmi} targetVal={targetMetrics.ffmi} />
+                  <div className="text-[10px] text-muted-foreground mt-1">
+                    Inverse curve: Higher FFMI is protective. Low FFMI significantly increases mortality risk. Optimal: 19-24 kg/m²
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Timeline Projection - Full Width */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <LineChart className="h-5 w-5 text-purple-500" />
                   Timeline Projection
-                  {showConfidenceInterval && (
-                    <Badge variant="outline" className="ml-2 text-xs">
-                      {Math.round(confidenceLevel * 100)}% CI Shaded
-                    </Badge>
-                  )}
+                  {showConfidenceInterval && <Badge variant="outline" className="ml-2 text-xs">{Math.round(confidenceLevel * 100)}% CI</Badge>}
                 </CardTitle>
                 <div className="flex gap-2">
-                  <Button
-                    variant={viewMode === 'graph' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setViewMode('graph')}
-                    className={`h-8 px-3 ${viewMode === 'graph' ? 'bg-[#00263d]' : ''}`}
-                  >
-                    <LineChart className="h-4 w-4 mr-1" />
-                    Graph
+                  <Button variant={viewMode === 'graph' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('graph')} className={`h-7 ${viewMode === 'graph' ? 'bg-[#00263d]' : ''}`}>
+                    <LineChart className="h-4 w-4 mr-1" />Graph
                   </Button>
-                  <Button
-                    variant={viewMode === 'table' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setViewMode('table')}
-                    className={`h-8 px-3 ${viewMode === 'table' ? 'bg-[#00263d]' : ''}`}
-                  >
-                    <Table className="h-4 w-4 mr-1" />
-                    Table
+                  <Button variant={viewMode === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('table')} className={`h-7 ${viewMode === 'table' ? 'bg-[#00263d]' : ''}`}>
+                    <Table className="h-4 w-4 mr-1" />Table
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               {viewMode === 'graph' ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   {/* Weight Graph */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Weight (lbs)</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <div className="w-3 h-0.5 bg-blue-500" />
-                          True Weight
-                        </span>
-                        {includeWaterChanges && (
-                          <span className="flex items-center gap-1">
-                            <div className="w-3 h-0.5 bg-blue-300 opacity-50" style={{ borderStyle: 'dashed' }} />
-                            Scale Weight
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="h-48 relative bg-slate-50 rounded-lg border p-2">
+                    <div className="text-sm font-medium mb-1">Weight (lbs)</div>
+                    <div className="h-40 bg-slate-50 rounded border p-1">
                       {(() => {
-                        const { ciPathPoints, linePoints, minVal, maxVal } = generateGraphWithCI(
-                          weeklyProjections, 'weight', 'weightCI', '#3b82f6', 180
-                        );
+                        const vals = weeklyProjections.map(p => p.weight);
+                        const minW = Math.min(...vals) - 5;
+                        const maxW = Math.max(...vals) + 5;
+                        const range = maxW - minW;
+                        const getY = (v: number) => 150 - ((v - minW) / range) * 140;
+                        const getX = (i: number) => (i / (weeklyProjections.length - 1)) * 380 + 10;
+                        
                         return (
-                          <svg className="w-full h-full" viewBox="0 0 400 180" preserveAspectRatio="none">
-                            {/* Grid lines */}
-                            {[0.25, 0.5, 0.75].map((pct) => (
-                              <line key={pct} x1="0" y1={180 * pct} x2="400" y2={180 * pct} stroke="#e5e7eb" strokeWidth="1" />
-                            ))}
-                            
-                            {/* CI Shading */}
+                          <svg className="w-full h-full" viewBox="0 0 400 160">
                             {showConfidenceInterval && (
                               <polygon
-                                points={ciPathPoints}
-                                fill="#3b82f6"
-                                fillOpacity="0.15"
-                                stroke="none"
+                                points={[
+                                  ...weeklyProjections.map((p, i) => `${getX(i)},${getY(p.weight + p.weightCI)}`),
+                                  ...weeklyProjections.map((p, i) => `${getX(weeklyProjections.length - 1 - i)},${getY(weeklyProjections[weeklyProjections.length - 1 - i].weight - weeklyProjections[weeklyProjections.length - 1 - i].weightCI)}`),
+                                ].join(' ')}
+                                fill="#3b82f6" fillOpacity="0.15"
                               />
                             )}
-                            
-                            {/* Main weight line */}
-                            <polyline
-                              fill="none"
-                              stroke="#3b82f6"
-                              strokeWidth="2.5"
-                              points={linePoints}
-                            />
-                            
-                            {/* Scale weight line (with water) */}
-                            {includeWaterChanges && (
-                              <polyline
-                                fill="none"
-                                stroke="#93c5fd"
-                                strokeWidth="1.5"
-                                strokeDasharray="6,4"
-                                points={weeklyProjections.map((p, i) => {
-                                  const x = (i / (weeklyProjections.length - 1)) * 400;
-                                  const range = maxVal - minVal || 1;
-                                  const y = 10 + 160 - ((p.scaleWeight - minVal) / range) * 160;
-                                  return `${x},${y}`;
-                                }).join(' ')}
-                              />
-                            )}
-                            
-                            {/* Start/End markers */}
-                            <circle cx="0" cy={10 + 160 - ((weeklyProjections[0].weight - minVal) / (maxVal - minVal || 1)) * 160} r="4" fill="#3b82f6" />
-                            <circle cx="400" cy={10 + 160 - ((weeklyProjections[weeklyProjections.length - 1].weight - minVal) / (maxVal - minVal || 1)) * 160} r="4" fill="#3b82f6" />
+                            <polyline fill="none" stroke="#3b82f6" strokeWidth="2" points={weeklyProjections.map((p, i) => `${getX(i)},${getY(p.weight)}`).join(' ')} />
+                            <circle cx={getX(0)} cy={getY(weeklyProjections[0].weight)} r="4" fill="#ef4444" />
+                            <circle cx={getX(weeklyProjections.length - 1)} cy={getY(weeklyProjections[weeklyProjections.length - 1].weight)} r="4" fill="#22c55e" />
+                            <text x="5" y="15" fontSize="9" fill="#64748b">{maxW.toFixed(0)}</text>
+                            <text x="5" y="150" fontSize="9" fill="#64748b">{minW.toFixed(0)}</text>
                           </svg>
                         );
                       })()}
-                      <div className="absolute top-2 left-2 text-xs text-muted-foreground">
-                        {Math.max(...weeklyProjections.map(p => p.weight + p.weightCI)).toFixed(0)}
-                      </div>
-                      <div className="absolute bottom-2 left-2 text-xs text-muted-foreground">
-                        {Math.min(...weeklyProjections.map(p => p.weight - p.weightCI)).toFixed(0)}
-                      </div>
-                      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs text-muted-foreground">
-                        Weeks 0 → {totalWeeks}
-                      </div>
                     </div>
                   </div>
                   
                   {/* Composition Graph */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Body Composition (lbs)</span>
-                      <div className="flex items-center gap-3 text-xs">
-                        <span className="flex items-center gap-1">
-                          <div className="w-3 h-3 bg-yellow-500 rounded" />
-                          Fat Mass
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <div className="w-3 h-3 bg-red-500 rounded" />
-                          FFM
-                        </span>
-                      </div>
-                    </div>
-                    <div className="h-48 relative bg-slate-50 rounded-lg border p-2">
+                    <div className="text-sm font-medium mb-1">Fat Mass & FFM (lbs)</div>
+                    <div className="h-40 bg-slate-50 rounded border p-1">
                       {(() => {
-                        const fatData = generateGraphWithCI(weeklyProjections, 'fatMass', 'fatMassCI', '#eab308', 180);
-                        const ffmData = generateGraphWithCI(weeklyProjections, 'ffm', 'ffmCI', '#ef4444', 180);
-                        
-                        // Combined min/max for shared scale
-                        const allVals = [
-                          ...weeklyProjections.map(p => p.fatMass - p.fatMassCI),
-                          ...weeklyProjections.map(p => p.fatMass + p.fatMassCI),
-                          ...weeklyProjections.map(p => p.ffm - p.ffmCI),
-                          ...weeklyProjections.map(p => p.ffm + p.ffmCI),
-                        ];
-                        const minVal = Math.min(...allVals);
-                        const maxVal = Math.max(...allVals);
-                        const range = maxVal - minVal || 1;
-                        
-                        const getY = (val: number) => 10 + 160 - ((val - minVal) / range) * 160;
-                        const getX = (i: number) => (i / (weeklyProjections.length - 1)) * 400;
-                        
-                        // Build CI polygons
-                        const fatCIPoints = [
-                          ...weeklyProjections.map((p, i) => `${getX(i)},${getY(p.fatMass + p.fatMassCI)}`),
-                          ...weeklyProjections.map((p, i) => `${getX(weeklyProjections.length - 1 - i)},${getY(weeklyProjections[weeklyProjections.length - 1 - i].fatMass - weeklyProjections[weeklyProjections.length - 1 - i].fatMassCI)}`),
-                        ].join(' ');
-                        
-                        const ffmCIPoints = [
-                          ...weeklyProjections.map((p, i) => `${getX(i)},${getY(p.ffm + p.ffmCI)}`),
-                          ...weeklyProjections.map((p, i) => `${getX(weeklyProjections.length - 1 - i)},${getY(weeklyProjections[weeklyProjections.length - 1 - i].ffm - weeklyProjections[weeklyProjections.length - 1 - i].ffmCI)}`),
-                        ].join(' ');
+                        const allVals = [...weeklyProjections.map(p => p.fatMass), ...weeklyProjections.map(p => p.ffm)];
+                        const minV = Math.min(...allVals) - 5;
+                        const maxV = Math.max(...allVals) + 5;
+                        const range = maxV - minV;
+                        const getY = (v: number) => 150 - ((v - minV) / range) * 140;
+                        const getX = (i: number) => (i / (weeklyProjections.length - 1)) * 380 + 10;
                         
                         return (
-                          <svg className="w-full h-full" viewBox="0 0 400 180" preserveAspectRatio="none">
-                            {/* Grid */}
-                            {[0.25, 0.5, 0.75].map((pct) => (
-                              <line key={pct} x1="0" y1={180 * pct} x2="400" y2={180 * pct} stroke="#e5e7eb" strokeWidth="1" />
-                            ))}
-                            
-                            {/* CI Shading */}
+                          <svg className="w-full h-full" viewBox="0 0 400 160">
                             {showConfidenceInterval && (
                               <>
-                                <polygon points={fatCIPoints} fill="#eab308" fillOpacity="0.15" />
-                                <polygon points={ffmCIPoints} fill="#ef4444" fillOpacity="0.15" />
+                                <polygon points={[...weeklyProjections.map((p, i) => `${getX(i)},${getY(p.fatMass + p.fatMassCI)}`), ...weeklyProjections.map((p, i) => `${getX(weeklyProjections.length - 1 - i)},${getY(weeklyProjections[weeklyProjections.length - 1 - i].fatMass - weeklyProjections[weeklyProjections.length - 1 - i].fatMassCI)}`),].join(' ')} fill="#eab308" fillOpacity="0.15" />
+                                <polygon points={[...weeklyProjections.map((p, i) => `${getX(i)},${getY(p.ffm + p.ffmCI)}`), ...weeklyProjections.map((p, i) => `${getX(weeklyProjections.length - 1 - i)},${getY(weeklyProjections[weeklyProjections.length - 1 - i].ffm - weeklyProjections[weeklyProjections.length - 1 - i].ffmCI)}`),].join(' ')} fill="#ef4444" fillOpacity="0.15" />
                               </>
                             )}
-                            
-                            {/* Fat Mass line */}
-                            <polyline
-                              fill="none"
-                              stroke="#eab308"
-                              strokeWidth="2.5"
-                              points={weeklyProjections.map((p, i) => `${getX(i)},${getY(p.fatMass)}`).join(' ')}
-                            />
-                            
-                            {/* FFM line */}
-                            <polyline
-                              fill="none"
-                              stroke="#ef4444"
-                              strokeWidth="2.5"
-                              points={weeklyProjections.map((p, i) => `${getX(i)},${getY(p.ffm)}`).join(' ')}
-                            />
+                            <polyline fill="none" stroke="#eab308" strokeWidth="2" points={weeklyProjections.map((p, i) => `${getX(i)},${getY(p.fatMass)}`).join(' ')} />
+                            <polyline fill="none" stroke="#ef4444" strokeWidth="2" points={weeklyProjections.map((p, i) => `${getX(i)},${getY(p.ffm)}`).join(' ')} />
+                            <text x="370" y="15" fontSize="8" fill="#64748b">
+                              <tspan fill="#eab308">●</tspan> FM
+                              <tspan fill="#ef4444" dx="5">●</tspan> FFM
+                            </text>
                           </svg>
                         );
                       })()}
-                      <div className="absolute top-2 left-2 text-xs text-muted-foreground">
-                        {Math.max(...weeklyProjections.map(p => Math.max(p.fatMass + p.fatMassCI, p.ffm + p.ffmCI))).toFixed(0)}
-                      </div>
-                      <div className="absolute bottom-2 left-2 text-xs text-muted-foreground">
-                        {Math.min(...weeklyProjections.map(p => Math.min(p.fatMass - p.fatMassCI, p.ffm - p.ffmCI))).toFixed(0)}
-                      </div>
                     </div>
                   </div>
                   
                   {/* Body Fat % Graph */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Body Fat %</span>
-                    </div>
-                    <div className="h-40 relative bg-slate-50 rounded-lg border p-2">
+                    <div className="text-sm font-medium mb-1">Body Fat %</div>
+                    <div className="h-40 bg-slate-50 rounded border p-1">
                       {(() => {
-                        const { ciPathPoints, linePoints, minVal, maxVal } = generateGraphWithCI(
-                          weeklyProjections, 'bodyFat', 'bodyFatCI', '#22c55e', 150
-                        );
+                        const vals = weeklyProjections.map(p => p.bodyFat);
+                        const minBf = Math.min(...vals) - 2;
+                        const maxBf = Math.max(...vals) + 2;
+                        const range = maxBf - minBf;
+                        const getY = (v: number) => 150 - ((v - minBf) / range) * 140;
+                        const getX = (i: number) => (i / (weeklyProjections.length - 1)) * 380 + 10;
+                        
                         return (
-                          <svg className="w-full h-full" viewBox="0 0 400 150" preserveAspectRatio="none">
-                            {/* Grid */}
-                            {[0.25, 0.5, 0.75].map((pct) => (
-                              <line key={pct} x1="0" y1={150 * pct} x2="400" y2={150 * pct} stroke="#e5e7eb" strokeWidth="1" />
-                            ))}
-                            
-                            {/* CI Shading */}
+                          <svg className="w-full h-full" viewBox="0 0 400 160">
                             {showConfidenceInterval && (
-                              <polygon points={ciPathPoints} fill="#22c55e" fillOpacity="0.15" />
+                              <polygon
+                                points={[
+                                  ...weeklyProjections.map((p, i) => `${getX(i)},${getY(p.bodyFat + p.bodyFatCI)}`),
+                                  ...weeklyProjections.map((p, i) => `${getX(weeklyProjections.length - 1 - i)},${getY(weeklyProjections[weeklyProjections.length - 1 - i].bodyFat - weeklyProjections[weeklyProjections.length - 1 - i].bodyFatCI)}`),
+                                ].join(' ')}
+                                fill="#22c55e" fillOpacity="0.15"
+                              />
                             )}
-                            
-                            {/* Line */}
-                            <polyline fill="none" stroke="#22c55e" strokeWidth="2.5" points={linePoints} />
-                            
-                            {/* Markers */}
-                            <circle cx="0" cy={10 + 130 - ((weeklyProjections[0].bodyFat - minVal) / (maxVal - minVal || 1)) * 130} r="4" fill="#22c55e" />
-                            <circle cx="400" cy={10 + 130 - ((weeklyProjections[weeklyProjections.length - 1].bodyFat - minVal) / (maxVal - minVal || 1)) * 130} r="4" fill="#22c55e" />
+                            <polyline fill="none" stroke="#22c55e" strokeWidth="2" points={weeklyProjections.map((p, i) => `${getX(i)},${getY(p.bodyFat)}`).join(' ')} />
+                            <circle cx={getX(0)} cy={getY(weeklyProjections[0].bodyFat)} r="4" fill="#ef4444" />
+                            <circle cx={getX(weeklyProjections.length - 1)} cy={getY(weeklyProjections[weeklyProjections.length - 1].bodyFat)} r="4" fill="#22c55e" />
+                            <text x="5" y="15" fontSize="9" fill="#64748b">{maxBf.toFixed(1)}%</text>
+                            <text x="5" y="150" fontSize="9" fill="#64748b">{minBf.toFixed(1)}%</text>
                           </svg>
                         );
                       })()}
-                      <div className="absolute top-2 left-2 text-xs text-muted-foreground">
-                        {Math.max(...weeklyProjections.map(p => p.bodyFat + p.bodyFatCI)).toFixed(1)}%
-                      </div>
-                      <div className="absolute bottom-2 left-2 text-xs text-muted-foreground">
-                        {Math.min(...weeklyProjections.map(p => p.bodyFat - p.bodyFatCI)).toFixed(1)}%
-                      </div>
                     </div>
-                  </div>
-                  
-                  {/* Summary Stats Box */}
-                  <div className="bg-gradient-to-br from-slate-100 to-slate-50 rounded-lg p-4 border">
-                    <h4 className="font-medium text-sm mb-3">Projection Summary</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <div className="text-xs text-muted-foreground">Start → End</div>
-                        <div className="text-sm font-medium">
-                          {weeklyProjections[0].date.slice(5)} → {weeklyProjections[weeklyProjections.length - 1].date.slice(5)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Duration</div>
-                        <div className="text-sm font-medium">{totalWeeks} weeks</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Final Weight</div>
-                        <div className="text-sm font-medium">
-                          {weeklyProjections[weeklyProjections.length - 1].weight} lbs
-                          {showConfidenceInterval && (
-                            <span className="text-xs text-muted-foreground ml-1">
-                              ±{weeklyProjections[weeklyProjections.length - 1].weightCI}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Final Body Fat</div>
-                        <div className="text-sm font-medium">
-                          {weeklyProjections[weeklyProjections.length - 1].bodyFat}%
-                          {showConfidenceInterval && (
-                            <span className="text-xs text-muted-foreground ml-1">
-                              ±{weeklyProjections[weeklyProjections.length - 1].bodyFatCI}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {showConfidenceInterval && (
-                      <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
-                        <Info className="h-3 w-3 inline mr-1" />
-                        Shaded regions represent {Math.round(confidenceLevel * 100)}% confidence intervals accounting for 
-                        measurement error (SEE) and model uncertainty propagation over time.
-                      </div>
-                    )}
                   </div>
                 </div>
               ) : (
-                <ScrollArea className="h-[500px]">
-                  <table className="w-full text-sm">
+                <ScrollArea className="h-[350px]">
+                  <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-white border-b">
                       <tr>
-                        <th className="text-left p-2 font-medium">Week</th>
-                        <th className="text-left p-2 font-medium">Date</th>
-                        <th className="text-right p-2 font-medium">Weight</th>
-                        <th className="text-right p-2 font-medium">Fat Mass</th>
-                        <th className="text-right p-2 font-medium">FFM</th>
-                        <th className="text-right p-2 font-medium">BF%</th>
-                        {includeWaterChanges && <th className="text-right p-2 font-medium">H₂O</th>}
-                        {showConfidenceInterval && <th className="text-right p-2 font-medium">±CI</th>}
+                        <th className="text-left p-1">Week</th>
+                        <th className="text-left p-1">Date</th>
+                        <th className="text-right p-1">Weight</th>
+                        <th className="text-right p-1">FM</th>
+                        <th className="text-right p-1">FFM</th>
+                        <th className="text-right p-1">BF%</th>
+                        <th className="text-right p-1">FMI</th>
+                        <th className="text-right p-1">FFMI</th>
+                        {includeWaterChanges && <th className="text-right p-1">H₂O</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {weeklyProjections.map((p, i) => (
                         <tr key={p.week} className={i % 2 === 0 ? 'bg-slate-50' : ''}>
-                          <td className="p-2">{p.week}</td>
-                          <td className="p-2 text-muted-foreground">{p.date}</td>
-                          <td className="p-2 text-right font-medium">{p.weight}</td>
-                          <td className="p-2 text-right text-yellow-600">{p.fatMass}</td>
-                          <td className="p-2 text-right text-red-600">{p.ffm}</td>
-                          <td className="p-2 text-right text-green-600">{p.bodyFat}%</td>
-                          {includeWaterChanges && (
-                            <td className="p-2 text-right text-blue-600">{p.waterChange}</td>
-                          )}
-                          {showConfidenceInterval && (
-                            <td className="p-2 text-right text-muted-foreground text-xs">
-                              W: ±{p.weightCI}<br/>
-                              FM: ±{p.fatMassCI}<br/>
-                              FFM: ±{p.ffmCI}
-                            </td>
-                          )}
+                          <td className="p-1">{p.week}</td>
+                          <td className="p-1 text-muted-foreground">{p.date}</td>
+                          <td className="p-1 text-right font-medium">{p.weight}</td>
+                          <td className="p-1 text-right text-yellow-600">{p.fatMass}</td>
+                          <td className="p-1 text-right text-red-600">{p.ffm}</td>
+                          <td className="p-1 text-right text-green-600">{p.bodyFat}%</td>
+                          <td className="p-1 text-right">{p.fmi}</td>
+                          <td className="p-1 text-right">{p.ffmi}</td>
+                          {includeWaterChanges && <td className="p-1 text-right text-blue-600">{p.waterChange}</td>}
                         </tr>
                       ))}
                     </tbody>
@@ -1542,41 +1449,11 @@ export default function BodyCompositionPage() {
             </CardContent>
           </Card>
 
-          {/* Warnings */}
-          {(targetMetrics.ffmi > 25 || targetMetrics.bodyFat < (gender === 'male' ? 6 : 14) || Math.abs(summary.pctFromFFM) > 30 || !summary.fatChangeExceedsMDC) && (
-            <Card className="border-amber-300 bg-amber-50">
-              <CardContent className="pt-4">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
-                  <div>
-                    <div className="font-medium text-amber-800">Considerations</div>
-                    <ul className="text-sm text-amber-700 mt-1 space-y-1">
-                      {!summary.fatChangeExceedsMDC && (
-                        <li>• Projected fat mass change ({Math.abs(summary.totalFatChange)} lbs) is within measurement error (MDC: ±{summary.fatChangeMDC} lbs). Consider a longer timeline or ensure standardized assessment conditions.</li>
-                      )}
-                      {targetMetrics.ffmi > 25 && (
-                        <li>• FFMI &gt;25 is rare naturally - ensure realistic expectations</li>
-                      )}
-                      {targetMetrics.bodyFat < (gender === 'male' ? 6 : 14) && (
-                        <li>• Very low body fat may impact hormones, performance, and health</li>
-                      )}
-                      {Math.abs(summary.pctFromFFM) > 30 && summary.isDeficit && (
-                        <li>• High FFM loss predicted ({summary.pctFromFFM}%). Consider higher protein or slower rate.</li>
-                      )}
-                      {totalWeeks > 52 && (
-                        <li>• Long timeline ({totalWeeks} weeks) - consider intermediate milestones</li>
-                      )}
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {/* References */}
           <div className="text-[10px] text-muted-foreground text-center space-y-1">
-            <p><strong>Partitioning Models:</strong> Forbes GB (2000), Heymsfield SB et al. (2014), Longland TM et al. (2016), Kreitzman SN et al. (1992)</p>
-            <p><strong>Measurement Error:</strong> Tinsley GM et al. (2021) "A Field-Based Three-Compartment Model" - MSSE</p>
+            <p><strong>Partitioning:</strong> Forbes GB (2000), Heymsfield SB (2014), Longland TM (2016)</p>
+            <p><strong>Mortality Risk:</strong> Sedlmeier AM et al. (2021) Am J Clin Nutr - FMI/FFMI hazard ratios</p>
+            <p><strong>Measurement:</strong> Tinsley GM (2021) 3C Field Model - MSSE</p>
           </div>
         </div>
       </div>
