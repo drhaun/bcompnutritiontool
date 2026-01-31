@@ -423,6 +423,13 @@ export default function HomePage() {
                 <CardDescription>Quick access tools for client consultations</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
+                <Link href="/tools/body-composition" className="block">
+                  <Button variant="ghost" className="w-full justify-start hover:bg-[#00263d]/10">
+                    <Target className="h-4 w-4 mr-2 text-[#00263d]" />
+                    Body Composition Calculator
+                    <ArrowRight className="h-4 w-4 ml-auto opacity-50" />
+                  </Button>
+                </Link>
                 <Link href="/tools/cronometer-dashboard" className="block">
                   <Button variant="ghost" className="w-full justify-start hover:bg-orange-50">
                     <Activity className="h-4 w-4 mr-2 text-orange-600" />

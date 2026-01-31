@@ -48,6 +48,7 @@ const workflowSteps = [
 ];
 
 const toolLinks = [
+  { href: '/tools/body-composition', label: 'Body Composition Calculator' },
   { href: '/tools/cronometer-dashboard', label: 'Cronometer Dashboard' },
   { href: '/tools/nutrition-analysis', label: 'Nutrition Analysis' },
   { href: '/tools/meal-planner', label: 'Meal Planner' },
