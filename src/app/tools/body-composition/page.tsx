@@ -33,6 +33,7 @@ import {
   Table,
   LineChart,
   Settings2,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -46,31 +47,79 @@ import {
 // =============================================================================
 
 /**
+ * MEASUREMENT ERROR CONSTANTS
+ * Based on: Tinsley et al. (2021) "A Field-Based Three-Compartment Model"
+ * and meta-analyses of body composition measurement precision
+ * 
+ * SEE = Standard Error of Estimate (prediction accuracy)
+ * TEM = Technical Error of Measurement (repeatability)
+ * 
+ * For 3C model field-based assessments:
+ * - Body Fat %: SEE ~1.5-2.5%, TEM ~0.5-1.0%
+ * - Fat Mass: SEE ~1.0-2.0 kg, TEM ~0.3-0.6 kg
+ * - FFM: SEE ~1.0-2.0 kg, TEM ~0.3-0.5 kg
+ */
+const MEASUREMENT_ERROR = {
+  // 3C Field Model (Tinsley et al. style - BIA + anthropometrics)
+  field_3c: {
+    label: '3C Field Model (BIA + Anthropometrics)',
+    bodyFatPct: { see: 2.0, tem: 0.8 },  // percentage points
+    fatMassKg: { see: 1.5, tem: 0.5 },   // kg
+    ffmKg: { see: 1.5, tem: 0.4 },       // kg
+  },
+  // DXA (gold standard for clinical)
+  dxa: {
+    label: 'DXA',
+    bodyFatPct: { see: 1.0, tem: 0.5 },
+    fatMassKg: { see: 0.5, tem: 0.3 },
+    ffmKg: { see: 0.4, tem: 0.3 },
+  },
+  // BIA only
+  bia: {
+    label: 'BIA Only',
+    bodyFatPct: { see: 3.5, tem: 1.0 },
+    fatMassKg: { see: 2.5, tem: 0.8 },
+    ffmKg: { see: 2.8, tem: 0.7 },
+  },
+  // Skinfolds (trained technician)
+  skinfolds: {
+    label: 'Skinfolds',
+    bodyFatPct: { see: 3.0, tem: 1.5 },
+    fatMassKg: { see: 2.0, tem: 1.0 },
+    ffmKg: { see: 2.0, tem: 1.0 },
+  },
+};
+
+/**
+ * Minimum Detectable Change (MDC) calculation
+ * MDC = SEM × √2 × z-score
+ * For 95% confidence: MDC95 = TEM × √2 × 1.96 ≈ TEM × 2.77
+ */
+function calculateMDC(tem: number, confidenceLevel: number = 0.95): number {
+  const zScore = confidenceLevel === 0.95 ? 1.96 : confidenceLevel === 0.90 ? 1.645 : 2.58;
+  return tem * Math.sqrt(2) * zScore;
+}
+
+/**
  * Forbes Rule: Lean mass loss as a function of fat mass
  * Reference: Forbes GB. Body fat content influences the body composition response to nutrition and exercise. Ann N Y Acad Sci. 2000
- * 
- * The Forbes equation predicts the proportion of weight change from lean mass (P-ratio)
- * P = C / (C + FM) where C ≈ 10.4 kg for most individuals
- * 
- * This means leaner individuals lose proportionally more lean mass during energy deficit
  */
-const FORBES_CONSTANT = 10.4; // kg - represents the "crossover" point
+const FORBES_CONSTANT = 10.4; // kg
 
 /**
  * Protein leverage effects on P-ratio
- * Reference: Heymsfield SB et al. Weight loss composition is one-fourth fat-free mass. Int J Obes. 2014
- * High protein (>1.6g/kg) can reduce lean mass loss by ~35-50%
+ * Reference: Heymsfield SB et al. Int J Obes. 2014
  */
 const PROTEIN_EFFECT = {
-  low: { threshold: 1.0, multiplier: 1.3, label: 'Low (<1.0 g/kg)' },      // More muscle loss
-  moderate: { threshold: 1.6, multiplier: 1.0, label: 'Moderate (1.0-1.6 g/kg)' }, // Baseline
-  high: { threshold: 2.2, multiplier: 0.65, label: 'High (1.6-2.2 g/kg)' },    // Less muscle loss
-  very_high: { threshold: 3.0, multiplier: 0.5, label: 'Very High (>2.2 g/kg)' }, // Minimal muscle loss
+  low: { threshold: 1.0, multiplier: 1.3, label: 'Low (<1.0 g/kg)' },
+  moderate: { threshold: 1.6, multiplier: 1.0, label: 'Moderate (1.0-1.6 g/kg)' },
+  high: { threshold: 2.2, multiplier: 0.65, label: 'High (1.6-2.2 g/kg)' },
+  very_high: { threshold: 3.0, multiplier: 0.5, label: 'Very High (>2.2 g/kg)' },
 };
 
 /**
  * Resistance training effects on P-ratio
- * Reference: Longland TM et al. Higher compared with lower dietary protein during an energy deficit combined with intense exercise promotes greater lean mass gain. Am J Clin Nutr. 2016
+ * Reference: Longland TM et al. Am J Clin Nutr. 2016
  */
 const TRAINING_EFFECT = {
   none: { multiplier: 1.4, label: 'No resistance training' },
@@ -81,8 +130,6 @@ const TRAINING_EFFECT = {
 
 /**
  * Energy deficit effects on P-ratio
- * Reference: Areta JL et al. Timing and distribution of protein ingestion during prolonged recovery from resistance exercise alters myofibrillar protein synthesis. J Physiol. 2013
- * Larger deficits increase protein oxidation and muscle loss
  */
 const DEFICIT_EFFECT = {
   mild: { range: [0, 300], multiplier: 0.85, label: 'Mild (<300 kcal)' },
@@ -93,25 +140,22 @@ const DEFICIT_EFFECT = {
 
 /**
  * Muscle gain partitioning during surplus
- * Reference: Slater GJ et al. Is an Energy Surplus Required to Maximize Skeletal Muscle Hypertrophy? Front Nutr. 2019
- * Trained individuals partition surplus better toward muscle
+ * Reference: Slater GJ et al. Front Nutr. 2019
  */
 const SURPLUS_PARTITIONING = {
-  untrained: { muscleRatio: 0.3, label: 'Untrained' },  // 30% muscle, 70% fat
+  untrained: { muscleRatio: 0.3, label: 'Untrained' },
   novice: { muscleRatio: 0.45, label: 'Novice (0-1 year)' },
   intermediate: { muscleRatio: 0.55, label: 'Intermediate (1-3 years)' },
-  advanced: { muscleRatio: 0.4, label: 'Advanced (3+ years)' },  // Harder to gain muscle
+  advanced: { muscleRatio: 0.4, label: 'Advanced (3+ years)' },
 };
 
 /**
  * Body water changes with glycogen
- * Reference: Kreitzman SN et al. Glycogen storage: illusions of easy weight loss. Am J Clin Nutr. 1992
- * Each gram of glycogen binds ~3g of water
- * Muscle glycogen capacity: ~400-500g, Liver: ~100g
+ * Reference: Kreitzman SN et al. Am J Clin Nutr. 1992
  */
-const GLYCOGEN_WATER_RATIO = 3; // grams water per gram glycogen
-const MUSCLE_GLYCOGEN_CAPACITY = 450; // grams (varies with muscle mass)
-const LIVER_GLYCOGEN_CAPACITY = 100; // grams
+const GLYCOGEN_WATER_RATIO = 3;
+const MUSCLE_GLYCOGEN_CAPACITY = 450;
+const LIVER_GLYCOGEN_CAPACITY = 100;
 
 // Benchmark arrays
 const FFMI_BENCHMARKS = [
@@ -143,10 +187,6 @@ const FMI_BENCHMARKS_FEMALE = [
 // UTILITY FUNCTIONS
 // =============================================================================
 
-/**
- * Calculate P-ratio (proportion of weight change from lean mass) using Forbes equation
- * Modified by protein intake, resistance training, and deficit size
- */
 function calculatePRatio(
   fatMassKg: number,
   proteinLevel: keyof typeof PROTEIN_EFFECT,
@@ -154,63 +194,27 @@ function calculatePRatio(
   deficitLevel: keyof typeof DEFICIT_EFFECT,
   isDeficit: boolean
 ): number {
-  // Base Forbes P-ratio: proportion from lean mass
   const basePRatio = FORBES_CONSTANT / (FORBES_CONSTANT + fatMassKg);
   
-  if (!isDeficit) {
-    // During surplus, P-ratio represents muscle gain proportion (inverted logic)
-    return basePRatio;
-  }
+  if (!isDeficit) return basePRatio;
   
-  // Apply modifiers for deficit
   const proteinMod = PROTEIN_EFFECT[proteinLevel].multiplier;
   const trainingMod = TRAINING_EFFECT[trainingLevel].multiplier;
   const deficitMod = DEFICIT_EFFECT[deficitLevel].multiplier;
   
-  // Adjusted P-ratio (capped between 0.05 and 0.6)
-  const adjustedPRatio = Math.max(0.05, Math.min(0.6, basePRatio * proteinMod * trainingMod * deficitMod));
-  
-  return adjustedPRatio;
+  return Math.max(0.05, Math.min(0.6, basePRatio * proteinMod * trainingMod * deficitMod));
 }
 
-/**
- * Calculate water weight changes based on glycogen depletion/repletion
- */
-function calculateWaterChange(
-  glycogenChangeG: number,
-  weekNumber: number,
-  isDeficit: boolean
-): number {
-  // First 1-2 weeks have rapid water loss from glycogen
-  const weeklyGlycogenLoss = isDeficit 
-    ? weekNumber <= 2 ? 150 : 30  // Rapid initial, then gradual
-    : weekNumber <= 2 ? -100 : -20; // Rapid initial refill
-  
-  const effectiveGlycogenChange = Math.max(-MUSCLE_GLYCOGEN_CAPACITY - LIVER_GLYCOGEN_CAPACITY, 
-    Math.min(0, glycogenChangeG + weeklyGlycogenLoss * weekNumber));
-  
-  return effectiveGlycogenChange * GLYCOGEN_WATER_RATIO / 1000; // Convert to kg
-}
-
-/**
- * Format date as YYYY-MM-DD
- */
 function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
-/**
- * Add weeks to date
- */
 function addWeeks(date: Date, weeks: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + weeks * 7);
   return result;
 }
 
-/**
- * Calculate weeks between dates
- */
 function weeksBetween(start: Date, end: Date): number {
   const diffTime = Math.abs(end.getTime() - start.getTime());
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
@@ -257,6 +261,11 @@ export default function BodyCompositionPage() {
   const [trainingExperience, setTrainingExperience] = useState<keyof typeof SURPLUS_PARTITIONING>('intermediate');
   const [includeWaterChanges, setIncludeWaterChanges] = useState<boolean>(true);
   
+  // Measurement error settings
+  const [measurementMethod, setMeasurementMethod] = useState<keyof typeof MEASUREMENT_ERROR>('field_3c');
+  const [showConfidenceInterval, setShowConfidenceInterval] = useState<boolean>(true);
+  const [confidenceLevel, setConfidenceLevel] = useState<number>(0.95);
+  
   // View settings
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
   
@@ -264,6 +273,33 @@ export default function BodyCompositionPage() {
   const heightCm = useMemo(() => (heightFt * 12 + heightIn) * 2.54, [heightFt, heightIn]);
   const heightM = heightCm / 100;
   const weightKg = currentWeight * 0.453592;
+  
+  // Measurement error values
+  const measurementErrors = useMemo(() => {
+    const method = MEASUREMENT_ERROR[measurementMethod];
+    const zScore = confidenceLevel === 0.95 ? 1.96 : confidenceLevel === 0.90 ? 1.645 : 2.58;
+    
+    return {
+      bodyFatPct: {
+        see: method.bodyFatPct.see,
+        tem: method.bodyFatPct.tem,
+        ci: method.bodyFatPct.see * zScore,
+        mdc: calculateMDC(method.bodyFatPct.tem, confidenceLevel),
+      },
+      fatMassKg: {
+        see: method.fatMassKg.see,
+        tem: method.fatMassKg.tem,
+        ci: method.fatMassKg.see * zScore,
+        mdc: calculateMDC(method.fatMassKg.tem, confidenceLevel),
+      },
+      ffmKg: {
+        see: method.ffmKg.see,
+        tem: method.ffmKg.tem,
+        ci: method.ffmKg.see * zScore,
+        mdc: calculateMDC(method.ffmKg.tem, confidenceLevel),
+      },
+    };
+  }, [measurementMethod, confidenceLevel]);
   
   // Current metrics
   const currentMetrics = useMemo(() => {
@@ -333,7 +369,6 @@ export default function BodyCompositionPage() {
         
       case 'weight':
         targetWeightLbs = targetWeight;
-        // Will be calculated with partitioning model
         targetFatMassLbs = currentFatMassLbs;
         targetFfmLbs = currentFfmLbs;
         targetBfPct = currentBodyFat;
@@ -400,10 +435,10 @@ export default function BodyCompositionPage() {
     if (useDateRange) {
       return weeksBetween(new Date(startDate), new Date(endDate));
     }
-    return 16; // Default
+    return 16;
   }, [startDate, endDate, useDateRange]);
   
-  // Weekly projections with evidence-based partitioning
+  // Weekly projections with evidence-based partitioning and confidence intervals
   const weeklyProjections = useMemo(() => {
     const projections: Array<{
       week: number;
@@ -413,7 +448,12 @@ export default function BodyCompositionPage() {
       ffm: number;
       bodyFat: number;
       waterChange: number;
-      scaleWeight: number; // Includes water
+      scaleWeight: number;
+      // Confidence interval bounds (±)
+      weightCI: number;
+      fatMassCI: number;
+      ffmCI: number;
+      bodyFatCI: number;
     }> = [];
     
     const totalWeightChange = targetMetrics.weightLbs - currentWeight;
@@ -432,8 +472,20 @@ export default function BodyCompositionPage() {
     let currentWt = currentWeight;
     let cumulativeGlycogenChange = 0;
     
+    // Error propagation: errors compound over time
+    // Using √(n) rule for independent measurements
+    const baseErrors = measurementErrors;
+    
     for (let week = 0; week <= totalWeeks; week++) {
       const date = addWeeks(new Date(startDate), week);
+      
+      // Error grows with sqrt of weeks for model uncertainty
+      // Plus measurement error for each assessment point
+      const modelUncertaintyFactor = Math.sqrt(week + 1);
+      const weightCILbs = (baseErrors.fatMassKg.ci + baseErrors.ffmKg.ci) * 2.205 * modelUncertaintyFactor * 0.3;
+      const fatMassCILbs = baseErrors.fatMassKg.ci * 2.205 * modelUncertaintyFactor * 0.5;
+      const ffmCILbs = baseErrors.ffmKg.ci * 2.205 * modelUncertaintyFactor * 0.5;
+      const bodyFatCI = baseErrors.bodyFatPct.ci * modelUncertaintyFactor * 0.3;
       
       if (week === 0) {
         projections.push({
@@ -445,23 +497,23 @@ export default function BodyCompositionPage() {
           bodyFat: (currentFatMass / currentWt) * 100,
           waterChange: 0,
           scaleWeight: currentWt,
+          weightCI: weightCILbs,
+          fatMassCI: fatMassCILbs,
+          ffmCI: ffmCILbs,
+          bodyFatCI: bodyFatCI,
         });
         continue;
       }
       
-      // Calculate P-ratio for this week (changes as fat mass changes)
       const currentFatMassKg = currentFatMass * 0.453592;
       const pRatio = calculatePRatio(currentFatMassKg, proteinLevel, trainingLevel, deficitLevel, isDeficit);
       
-      // Apply weight change with evidence-based partitioning
       if (isDeficit) {
-        // Weight loss: pRatio is proportion from lean mass
         const leanLoss = Math.abs(weeklyWeightChange) * pRatio;
         const fatLoss = Math.abs(weeklyWeightChange) * (1 - pRatio);
         currentFfm -= leanLoss;
         currentFatMass -= fatLoss;
       } else {
-        // Weight gain: use training experience partitioning
         const muscleRatio = SURPLUS_PARTITIONING[trainingExperience].muscleRatio;
         const muscleGain = weeklyWeightChange * muscleRatio;
         const fatGain = weeklyWeightChange * (1 - muscleRatio);
@@ -471,17 +523,15 @@ export default function BodyCompositionPage() {
       
       currentWt = currentFfm + currentFatMass;
       
-      // Water changes (glycogen)
       let waterChange = 0;
       if (includeWaterChanges) {
-        // Glycogen depletion/repletion affects water
         const weeklyGlycogenChange = isDeficit 
-          ? (week <= 2 ? -150 : -20) // Rapid initial loss
-          : (week <= 2 ? 100 : 10);  // Gradual refill
+          ? (week <= 2 ? -150 : -20)
+          : (week <= 2 ? 100 : 10);
         cumulativeGlycogenChange += weeklyGlycogenChange;
         cumulativeGlycogenChange = Math.max(-(MUSCLE_GLYCOGEN_CAPACITY + LIVER_GLYCOGEN_CAPACITY), 
           Math.min(0, cumulativeGlycogenChange));
-        waterChange = (cumulativeGlycogenChange * GLYCOGEN_WATER_RATIO) / 453.592; // Convert g to lbs
+        waterChange = (cumulativeGlycogenChange * GLYCOGEN_WATER_RATIO) / 453.592;
       }
       
       projections.push({
@@ -493,48 +543,63 @@ export default function BodyCompositionPage() {
         bodyFat: Math.round((currentFatMass / currentWt) * 1000) / 10,
         waterChange: Math.round(waterChange * 10) / 10,
         scaleWeight: Math.round((currentWt + waterChange) * 10) / 10,
+        weightCI: Math.round(weightCILbs * 10) / 10,
+        fatMassCI: Math.round(fatMassCILbs * 10) / 10,
+        ffmCI: Math.round(ffmCILbs * 10) / 10,
+        bodyFatCI: Math.round(bodyFatCI * 10) / 10,
       });
     }
     
     return projections;
-  }, [currentWeight, currentMetrics, targetMetrics, totalWeeks, startDate, proteinLevel, trainingLevel, trainingExperience, includeWaterChanges]);
+  }, [currentWeight, currentMetrics, targetMetrics, totalWeeks, startDate, proteinLevel, trainingLevel, trainingExperience, includeWaterChanges, measurementErrors]);
   
   // Summary stats
   const summary = useMemo(() => {
     const final = weeklyProjections[weeklyProjections.length - 1];
     const initial = weeklyProjections[0];
     
+    const totalFatChange = final.fatMass - initial.fatMass;
+    const totalFFMChange = final.ffm - initial.ffm;
+    const totalWeightChange = final.weight - initial.weight;
+    
+    // Check if change exceeds MDC
+    const fatChangeMDC = measurementErrors.fatMassKg.mdc * 2.205; // Convert to lbs
+    const ffmChangeMDC = measurementErrors.ffmKg.mdc * 2.205;
+    
     return {
-      totalWeightChange: Math.round((final.weight - initial.weight) * 10) / 10,
-      totalFatChange: Math.round((final.fatMass - initial.fatMass) * 10) / 10,
-      totalFFMChange: Math.round((final.ffm - initial.ffm) * 10) / 10,
-      weeklyWeightChange: Math.round((final.weight - initial.weight) / totalWeeks * 100) / 100,
-      isDeficit: final.weight < initial.weight,
-      pctFromFat: Math.round(Math.abs((final.fatMass - initial.fatMass) / (final.weight - initial.weight)) * 100),
-      pctFromFFM: Math.round(Math.abs((final.ffm - initial.ffm) / (final.weight - initial.weight)) * 100),
+      totalWeightChange: Math.round(totalWeightChange * 10) / 10,
+      totalFatChange: Math.round(totalFatChange * 10) / 10,
+      totalFFMChange: Math.round(totalFFMChange * 10) / 10,
+      weeklyWeightChange: Math.round(totalWeightChange / totalWeeks * 100) / 100,
+      isDeficit: totalWeightChange < 0,
+      pctFromFat: totalWeightChange !== 0 ? Math.round(Math.abs(totalFatChange / totalWeightChange) * 100) : 0,
+      pctFromFFM: totalWeightChange !== 0 ? Math.round(Math.abs(totalFFMChange / totalWeightChange) * 100) : 0,
       finalBodyFat: final.bodyFat,
       expectedWaterChange: final.waterChange,
+      // MDC comparisons
+      fatChangeExceedsMDC: Math.abs(totalFatChange) > fatChangeMDC,
+      ffmChangeExceedsMDC: Math.abs(totalFFMChange) > ffmChangeMDC,
+      fatChangeMDC: Math.round(fatChangeMDC * 10) / 10,
+      ffmChangeMDC: Math.round(ffmChangeMDC * 10) / 10,
+      finalCI: final,
     };
-  }, [weeklyProjections, totalWeeks]);
+  }, [weeklyProjections, totalWeeks, measurementErrors]);
   
   // Calorie and macro targets
   const nutritionTargets = useMemo(() => {
     const dailyDeficit = (summary.weeklyWeightChange * 3500) / 7;
     const targetCals = Math.round(tdee + dailyDeficit);
     
-    // Protein based on selected level
     const proteinGPerKg = proteinLevel === 'very_high' ? 2.4 : 
                           proteinLevel === 'high' ? 1.8 :
                           proteinLevel === 'moderate' ? 1.4 : 1.0;
     const proteinG = Math.round(weightKg * proteinGPerKg);
     const proteinCal = proteinG * 4;
     
-    // Fat: 25-30%
     const fatPct = summary.isDeficit ? 0.25 : 0.30;
     const fatCal = targetCals * fatPct;
     const fatG = Math.round(fatCal / 9);
     
-    // Carbs: remainder
     const carbCal = targetCals - proteinCal - fatCal;
     const carbG = Math.round(Math.max(50, carbCal / 4));
     
@@ -560,10 +625,49 @@ export default function BodyCompositionPage() {
     return benchmarks.find(b => fmi >= b.range[0] && fmi < b.range[1]) || benchmarks[benchmarks.length - 1];
   };
 
+  // SVG Graph helper for confidence interval shading
+  const generateGraphWithCI = (
+    data: typeof weeklyProjections,
+    valueKey: 'weight' | 'fatMass' | 'ffm' | 'bodyFat',
+    ciKey: 'weightCI' | 'fatMassCI' | 'ffmCI' | 'bodyFatCI',
+    color: string,
+    height: number = 120
+  ) => {
+    const values = data.map(d => d[valueKey]);
+    const minVal = Math.min(...values.map((v, i) => v - data[i][ciKey]));
+    const maxVal = Math.max(...values.map((v, i) => v + data[i][ciKey]));
+    const range = maxVal - minVal || 1;
+    const padding = 10;
+    const graphHeight = height - padding * 2;
+    
+    const getY = (val: number) => padding + graphHeight - ((val - minVal) / range) * graphHeight;
+    const getX = (i: number) => (i / (data.length - 1)) * 400;
+    
+    // Build CI polygon path
+    const ciPathPoints: string[] = [];
+    // Top edge (upper bound)
+    for (let i = 0; i < data.length; i++) {
+      const x = getX(i);
+      const y = getY(data[i][valueKey] + data[i][ciKey]);
+      ciPathPoints.push(`${x},${y}`);
+    }
+    // Bottom edge (lower bound) - reverse order
+    for (let i = data.length - 1; i >= 0; i--) {
+      const x = getX(i);
+      const y = getY(data[i][valueKey] - data[i][ciKey]);
+      ciPathPoints.push(`${x},${y}`);
+    }
+    
+    // Main line points
+    const linePoints = data.map((d, i) => `${getX(i)},${getY(d[valueKey])}`).join(' ');
+    
+    return { ciPathPoints: ciPathPoints.join(' '), linePoints, minVal, maxVal };
+  };
+
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 lg:p-6">
-        <div className="max-w-[1600px] mx-auto space-y-6">
+        <div className="max-w-[1800px] mx-auto space-y-6">
           {/* Header */}
           <div className="text-center mb-6">
             <h1 className="text-2xl lg:text-3xl font-bold text-[#00263d] mb-2">
@@ -571,199 +675,185 @@ export default function BodyCompositionPage() {
             </h1>
             <p className="text-sm text-muted-foreground max-w-3xl mx-auto">
               Evidence-based body composition planning with Forbes partitioning model, 
-              protein leverage effects, and resistance training modifiers.
+              measurement uncertainty, and confidence intervals based on 3C field model methodology.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 lg:gap-6">
+          {/* Main Cards Grid - 4 columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {/* Column 1: Current Stats */}
-            <div className="space-y-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Scale className="h-4 w-4 text-[#c19962]" />
-                    Current Stats
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs">Gender</Label>
-                      <Select value={gender} onValueChange={(v: 'male' | 'female') => setGender(v)}>
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="male">Male</SelectItem>
-                          <SelectItem value="female">Female</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Age</Label>
-                      <Input type="number" value={age} onChange={(e) => setAge(Number(e.target.value))} className="h-8 text-sm" />
-                    </div>
-                  </div>
-                  
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Scale className="h-4 w-4 text-[#c19962]" />
+                  Current Stats
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-xs">Height</Label>
-                    <div className="flex gap-2">
-                      <Input type="number" value={heightFt} onChange={(e) => setHeightFt(Number(e.target.value))} className="h-8 text-sm" placeholder="ft" />
-                      <Input type="number" value={heightIn} onChange={(e) => setHeightIn(Number(e.target.value))} className="h-8 text-sm" placeholder="in" />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs">Weight (lbs)</Label>
-                      <Input type="number" value={currentWeight} onChange={(e) => setCurrentWeight(Number(e.target.value))} className="h-8 text-sm" />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Body Fat %</Label>
-                      <Input type="number" step="0.1" value={currentBodyFat} onChange={(e) => setCurrentBodyFat(Number(e.target.value))} className="h-8 text-sm" />
-                    </div>
-                  </div>
-                  
-                  {/* Current breakdown */}
-                  <div className="bg-slate-50 rounded-lg p-2 space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Fat Mass</span>
-                      <span className="font-medium">{currentMetrics.fatMassLbs} lbs</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Fat-Free Mass</span>
-                      <span className="font-medium">{currentMetrics.ffmLbs} lbs</span>
-                    </div>
-                    <Separator className="my-1" />
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">FMI</span>
-                      <Badge className={`text-[10px] ${getFMIBenchmark(currentMetrics.fmi).bgColor} ${getFMIBenchmark(currentMetrics.fmi).color}`}>
-                        {currentMetrics.fmi}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">FFMI</span>
-                      <Badge className={`text-[10px] ${getFFMIBenchmark(currentMetrics.ffmi).bgColor} ${getFFMIBenchmark(currentMetrics.ffmi).color}`}>
-                        {currentMetrics.ffmi}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Metabolism */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Flame className="h-4 w-4 text-orange-500" />
-                    Metabolism
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <Label className="text-xs">RMR</Label>
-                      <Select value={rmrSource} onValueChange={(v: any) => setRmrSource(v)}>
-                        <SelectTrigger className="h-6 w-24 text-[10px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="estimated">Estimated</SelectItem>
-                          <SelectItem value="measured">Measured</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {rmrSource === 'measured' ? (
-                      <Input type="number" value={measuredRmr} onChange={(e) => setMeasuredRmr(Number(e.target.value))} className="h-8 text-sm" />
-                    ) : (
-                      <div className="h-8 px-2 py-1.5 bg-slate-100 rounded text-sm">{estimatedRmr} kcal</div>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <Label className="text-xs">NEAT Level</Label>
-                    <Select value={neatLevel} onValueChange={(v: any) => setNeatLevel(v)}>
+                    <Label className="text-xs">Gender</Label>
+                    <Select value={gender} onValueChange={(v: 'male' | 'female') => setGender(v)}>
                       <SelectTrigger className="h-8 text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="sedentary">Sedentary</SelectItem>
-                        <SelectItem value="light">Light</SelectItem>
-                        <SelectItem value="moderate">Moderate</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="very_active">Very Active</SelectItem>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Age</Label>
+                    <Input type="number" value={age} onChange={(e) => setAge(Number(e.target.value))} className="h-8 text-sm" />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-xs">Height</Label>
+                  <div className="flex gap-2">
+                    <Input type="number" value={heightFt} onChange={(e) => setHeightFt(Number(e.target.value))} className="h-8 text-sm" placeholder="ft" />
+                    <Input type="number" value={heightIn} onChange={(e) => setHeightIn(Number(e.target.value))} className="h-8 text-sm" placeholder="in" />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Weight (lbs)</Label>
+                    <Input type="number" value={currentWeight} onChange={(e) => setCurrentWeight(Number(e.target.value))} className="h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Body Fat %</Label>
+                    <Input type="number" step="0.1" value={currentBodyFat} onChange={(e) => setCurrentBodyFat(Number(e.target.value))} className="h-8 text-sm" />
+                  </div>
+                </div>
+                
+                {/* Current breakdown */}
+                <div className="bg-slate-50 rounded-lg p-2 space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Fat Mass</span>
+                    <span className="font-medium">{currentMetrics.fatMassLbs} lbs</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Fat-Free Mass</span>
+                    <span className="font-medium">{currentMetrics.ffmLbs} lbs</span>
+                  </div>
+                  <Separator className="my-1" />
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">FMI</span>
+                    <Badge className={`text-[10px] ${getFMIBenchmark(currentMetrics.fmi).bgColor} ${getFMIBenchmark(currentMetrics.fmi).color}`}>
+                      {currentMetrics.fmi}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">FFMI</span>
+                    <Badge className={`text-[10px] ${getFFMIBenchmark(currentMetrics.ffmi).bgColor} ${getFFMIBenchmark(currentMetrics.ffmi).color}`}>
+                      {currentMetrics.ffmi}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                {/* Metabolism mini-section */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-xs font-medium flex items-center gap-1">
+                      <Flame className="h-3 w-3 text-orange-500" />
+                      Metabolism
+                    </Label>
+                    <Select value={rmrSource} onValueChange={(v: any) => setRmrSource(v)}>
+                      <SelectTrigger className="h-6 w-20 text-[10px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="estimated">Est.</SelectItem>
+                        <SelectItem value="measured">Meas.</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-2">
+                  {rmrSource === 'measured' && (
+                    <Input type="number" value={measuredRmr} onChange={(e) => setMeasuredRmr(Number(e.target.value))} className="h-7 text-xs" placeholder="RMR" />
+                  )}
+                  
+                  <Select value={neatLevel} onValueChange={(v: any) => setNeatLevel(v)}>
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sedentary">Sedentary</SelectItem>
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="moderate">Moderate</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="very_active">Very Active</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <div className="grid grid-cols-3 gap-1">
                     <div>
-                      <Label className="text-xs">TEF %</Label>
-                      <Input type="number" value={tef} onChange={(e) => setTef(Number(e.target.value))} className="h-8 text-sm" />
+                      <Label className="text-[10px]">TEF%</Label>
+                      <Input type="number" value={tef} onChange={(e) => setTef(Number(e.target.value))} className="h-7 text-xs" />
                     </div>
                     <div>
-                      <Label className="text-xs">EEE</Label>
-                      <Input type="number" value={eee} onChange={(e) => setEee(Number(e.target.value))} className="h-8 text-sm" />
+                      <Label className="text-[10px]">EEE</Label>
+                      <Input type="number" value={eee} onChange={(e) => setEee(Number(e.target.value))} className="h-7 text-xs" />
                     </div>
                     <div>
-                      <Label className="text-xs">Days/wk</Label>
-                      <Input type="number" value={workoutsPerWeek} onChange={(e) => setWorkoutsPerWeek(Number(e.target.value))} className="h-8 text-sm" min={0} max={7} />
+                      <Label className="text-[10px]">Days</Label>
+                      <Input type="number" value={workoutsPerWeek} onChange={(e) => setWorkoutsPerWeek(Number(e.target.value))} className="h-7 text-xs" min={0} max={7} />
                     </div>
                   </div>
                   
-                  <div className="bg-orange-50 rounded-lg p-2 border border-orange-200">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-medium text-orange-800">TDEE</span>
-                      <span className="text-lg font-bold text-orange-600">{tdee} kcal</span>
-                    </div>
+                  <div className="bg-orange-50 rounded p-2 border border-orange-200 text-center">
+                    <span className="text-xs text-orange-700">TDEE:</span>
+                    <span className="text-base font-bold text-orange-600 ml-2">{tdee} kcal</span>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Column 2: Goal & Parameters */}
-            <div className="space-y-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Target className="h-4 w-4 text-[#00263d]" />
-                    Goal Setting
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <Label className="text-xs mb-2 block">Goal Type</Label>
-                    <div className="grid grid-cols-2 gap-1">
-                      {[
-                        { value: 'body_fat', label: 'Body Fat %' },
-                        { value: 'weight', label: 'Weight' },
-                        { value: 'fat_mass', label: 'Fat Mass' },
-                        { value: 'ffm', label: 'FFM (lbs)' },
-                        { value: 'ffmi', label: 'FFMI' },
-                        { value: 'fmi', label: 'FMI' },
-                      ].map((type) => (
-                        <Button
-                          key={type.value}
-                          variant={goalType === type.value ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setGoalType(type.value as any)}
-                          className={`text-xs h-7 ${goalType === type.value ? 'bg-[#00263d]' : ''}`}
-                        >
-                          {type.label}
-                        </Button>
-                      ))}
-                    </div>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Target className="h-4 w-4 text-[#00263d]" />
+                  Goal Setting
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <Label className="text-xs mb-1 block">Goal Type</Label>
+                  <div className="grid grid-cols-2 gap-1">
+                    {[
+                      { value: 'body_fat', label: 'Body Fat %' },
+                      { value: 'weight', label: 'Weight' },
+                      { value: 'fat_mass', label: 'Fat Mass' },
+                      { value: 'ffm', label: 'FFM (lbs)' },
+                      { value: 'ffmi', label: 'FFMI' },
+                      { value: 'fmi', label: 'FMI' },
+                    ].map((type) => (
+                      <Button
+                        key={type.value}
+                        variant={goalType === type.value ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setGoalType(type.value as any)}
+                        className={`text-xs h-7 ${goalType === type.value ? 'bg-[#00263d]' : ''}`}
+                      >
+                        {type.label}
+                      </Button>
+                    ))}
                   </div>
-                  
-                  <Separator />
-                  
-                  {/* Goal-specific input */}
+                </div>
+                
+                {/* Goal-specific input */}
+                <div className="bg-slate-50 rounded-lg p-2">
                   {goalType === 'body_fat' && (
                     <div>
                       <Label className="text-xs">Target Body Fat %</Label>
                       <div className="flex gap-2 items-center">
                         <Slider value={[targetBodyFat]} onValueChange={([v]) => setTargetBodyFat(v)} min={5} max={35} step={0.5} className="flex-1" />
-                        <Input type="number" value={targetBodyFat} onChange={(e) => setTargetBodyFat(Number(e.target.value))} className="h-8 w-16 text-sm" />
+                        <Input type="number" value={targetBodyFat} onChange={(e) => setTargetBodyFat(Number(e.target.value))} className="h-7 w-14 text-xs" />
                       </div>
                     </div>
                   )}
@@ -771,22 +861,22 @@ export default function BodyCompositionPage() {
                   {goalType === 'weight' && (
                     <div>
                       <Label className="text-xs">Target Weight (lbs)</Label>
-                      <Input type="number" value={targetWeight} onChange={(e) => setTargetWeight(Number(e.target.value))} className="h-8 text-sm" />
+                      <Input type="number" value={targetWeight} onChange={(e) => setTargetWeight(Number(e.target.value))} className="h-7 text-xs" />
                     </div>
                   )}
                   
                   {goalType === 'fat_mass' && (
                     <div>
                       <Label className="text-xs">Target Fat Mass (lbs)</Label>
-                      <Input type="number" value={targetFatMass} onChange={(e) => setTargetFatMass(Number(e.target.value))} className="h-8 text-sm" />
+                      <Input type="number" value={targetFatMass} onChange={(e) => setTargetFatMass(Number(e.target.value))} className="h-7 text-xs" />
                       <p className="text-[10px] text-muted-foreground mt-1">Current: {currentMetrics.fatMassLbs} lbs</p>
                     </div>
                   )}
                   
                   {goalType === 'ffm' && (
                     <div>
-                      <Label className="text-xs">Target Fat-Free Mass (lbs)</Label>
-                      <Input type="number" value={targetFFM} onChange={(e) => setTargetFFM(Number(e.target.value))} className="h-8 text-sm" />
+                      <Label className="text-xs">Target FFM (lbs)</Label>
+                      <Input type="number" value={targetFFM} onChange={(e) => setTargetFFM(Number(e.target.value))} className="h-7 text-xs" />
                       <p className="text-[10px] text-muted-foreground mt-1">Current: {currentMetrics.ffmLbs} lbs</p>
                     </div>
                   )}
@@ -796,7 +886,7 @@ export default function BodyCompositionPage() {
                       <Label className="text-xs">Target FFMI</Label>
                       <div className="flex gap-2 items-center">
                         <Slider value={[targetFFMI]} onValueChange={([v]) => setTargetFFMI(v)} min={16} max={28} step={0.5} className="flex-1" />
-                        <Input type="number" value={targetFFMI} onChange={(e) => setTargetFFMI(Number(e.target.value))} className="h-8 w-16 text-sm" />
+                        <Input type="number" value={targetFFMI} onChange={(e) => setTargetFFMI(Number(e.target.value))} className="h-7 w-14 text-xs" />
                       </div>
                     </div>
                   )}
@@ -806,70 +896,56 @@ export default function BodyCompositionPage() {
                       <Label className="text-xs">Target FMI</Label>
                       <div className="flex gap-2 items-center">
                         <Slider value={[targetFMI]} onValueChange={([v]) => setTargetFMI(v)} min={2} max={15} step={0.5} className="flex-1" />
-                        <Input type="number" value={targetFMI} onChange={(e) => setTargetFMI(Number(e.target.value))} className="h-8 w-16 text-sm" />
+                        <Input type="number" value={targetFMI} onChange={(e) => setTargetFMI(Number(e.target.value))} className="h-7 w-14 text-xs" />
                       </div>
                     </div>
                   )}
-                  
-                  <Separator />
-                  
-                  {/* Date Range */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <Label className="text-xs">Timeline</Label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground">Use dates</span>
-                        <Switch checked={useDateRange} onCheckedChange={setUseDateRange} />
-                      </div>
-                    </div>
-                    {useDateRange && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-[10px] text-muted-foreground">Start</Label>
-                          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 text-xs" />
-                        </div>
-                        <div>
-                          <Label className="text-[10px] text-muted-foreground">End</Label>
-                          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 text-xs" />
-                        </div>
-                      </div>
-                    )}
-                    <div className="mt-2 text-center">
-                      <Badge variant="outline" className="text-xs">
-                        <Clock className="h-3 w-3 mr-1" />
-                        {totalWeeks} weeks
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Evidence-Based Parameters */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Settings2 className="h-4 w-4 text-purple-500" />
-                    Partitioning Parameters
-                  </CardTitle>
-                  <CardDescription className="text-[10px]">
-                    Evidence-based factors affecting body composition change
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
+                </div>
+                
+                <Separator />
+                
+                {/* Date Range */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
                     <Label className="text-xs flex items-center gap-1">
-                      Protein Intake
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Info className="h-3 w-3 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p className="text-xs">Higher protein preserves lean mass during deficit. Based on Heymsfield et al. research.</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      <Calendar className="h-3 w-3" />
+                      Timeline
                     </Label>
+                    <Switch checked={useDateRange} onCheckedChange={setUseDateRange} />
+                  </div>
+                  {useDateRange && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Start</Label>
+                        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-7 text-[10px]" />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">End</Label>
+                        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-7 text-[10px]" />
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-1 text-center">
+                    <Badge variant="outline" className="text-xs">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {totalWeeks} weeks
+                    </Badge>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                {/* Partitioning Parameters */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-1">
+                    <Settings2 className="h-3 w-3 text-purple-500" />
+                    Partitioning Factors
+                  </Label>
+                  
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Protein Intake</Label>
                     <Select value={proteinLevel} onValueChange={(v: any) => setProteinLevel(v)}>
-                      <SelectTrigger className="h-8 text-xs">
+                      <SelectTrigger className="h-7 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -881,19 +957,9 @@ export default function BodyCompositionPage() {
                   </div>
                   
                   <div>
-                    <Label className="text-xs flex items-center gap-1">
-                      Resistance Training
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Info className="h-3 w-3 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p className="text-xs">Progressive resistance training significantly reduces muscle loss. Based on Longland et al. research.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </Label>
+                    <Label className="text-[10px] text-muted-foreground">Resistance Training</Label>
                     <Select value={trainingLevel} onValueChange={(v: any) => setTrainingLevel(v)}>
-                      <SelectTrigger className="h-8 text-xs">
+                      <SelectTrigger className="h-7 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -906,19 +972,9 @@ export default function BodyCompositionPage() {
                   
                   {!summary.isDeficit && (
                     <div>
-                      <Label className="text-xs flex items-center gap-1">
-                        Training Experience
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="h-3 w-3 text-muted-foreground" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p className="text-xs">Affects muscle:fat ratio during weight gain. Novices gain muscle more easily.</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </Label>
+                      <Label className="text-[10px] text-muted-foreground">Training Experience</Label>
                       <Select value={trainingExperience} onValueChange={(v: any) => setTrainingExperience(v)}>
-                        <SelectTrigger className="h-8 text-xs">
+                        <SelectTrigger className="h-7 text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -931,365 +987,563 @@ export default function BodyCompositionPage() {
                   )}
                   
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs flex items-center gap-1">
-                      Include Water Changes
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Info className="h-3 w-3 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p className="text-xs">Models glycogen-bound water loss/gain. ~3g water per 1g glycogen. Based on Kreitzman et al.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </Label>
+                    <Label className="text-[10px]">Include Water Changes</Label>
                     <Switch checked={includeWaterChanges} onCheckedChange={setIncludeWaterChanges} />
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Column 3: Results Summary */}
-            <div className="space-y-4">
-              {/* Target Composition */}
-              <Card className="border-[#c19962] border-2">
-                <CardHeader className="pb-2 bg-[#c19962]/10">
-                  <CardTitle className="text-base text-[#00263d]">Target Composition</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-3 space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-slate-50 rounded p-2 text-center">
-                      <div className="text-xl font-bold text-[#00263d]">{targetMetrics.weightLbs}</div>
-                      <div className="text-[10px] text-muted-foreground">Weight (lbs)</div>
-                    </div>
-                    <div className="bg-slate-50 rounded p-2 text-center">
-                      <div className="text-xl font-bold text-[#00263d]">{targetMetrics.bodyFat}%</div>
-                      <div className="text-[10px] text-muted-foreground">Body Fat</div>
-                    </div>
+            {/* Column 3: Target & Partitioning */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base text-[#00263d]">Target Composition</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-slate-50 rounded p-2 text-center">
+                    <div className="text-lg font-bold text-[#00263d]">{targetMetrics.weightLbs}</div>
+                    <div className="text-[10px] text-muted-foreground">Weight (lbs)</div>
                   </div>
-                  
-                  <div className="text-xs space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Fat Mass</span>
-                      <span>
-                        {targetMetrics.fatMassLbs} lbs
-                        <span className={`ml-1 ${targetMetrics.fatMassLbs < currentMetrics.fatMassLbs ? 'text-green-600' : 'text-red-600'}`}>
-                          ({targetMetrics.fatMassLbs < currentMetrics.fatMassLbs ? '' : '+'}
-                          {(targetMetrics.fatMassLbs - currentMetrics.fatMassLbs).toFixed(1)})
-                        </span>
+                  <div className="bg-slate-50 rounded p-2 text-center">
+                    <div className="text-lg font-bold text-[#00263d]">{targetMetrics.bodyFat}%</div>
+                    <div className="text-[10px] text-muted-foreground">Body Fat</div>
+                  </div>
+                </div>
+                
+                <div className="text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Fat Mass</span>
+                    <span>
+                      {targetMetrics.fatMassLbs} lbs
+                      <span className={`ml-1 ${targetMetrics.fatMassLbs < currentMetrics.fatMassLbs ? 'text-green-600' : 'text-red-600'}`}>
+                        ({targetMetrics.fatMassLbs < currentMetrics.fatMassLbs ? '' : '+'}
+                        {(targetMetrics.fatMassLbs - currentMetrics.fatMassLbs).toFixed(1)})
                       </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">FFM</span>
-                      <span>
-                        {targetMetrics.ffmLbs} lbs
-                        <span className={`ml-1 ${targetMetrics.ffmLbs >= currentMetrics.ffmLbs ? 'text-green-600' : 'text-red-600'}`}>
-                          ({targetMetrics.ffmLbs >= currentMetrics.ffmLbs ? '+' : ''}
-                          {(targetMetrics.ffmLbs - currentMetrics.ffmLbs).toFixed(1)})
-                        </span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">FFM</span>
+                    <span>
+                      {targetMetrics.ffmLbs} lbs
+                      <span className={`ml-1 ${targetMetrics.ffmLbs >= currentMetrics.ffmLbs ? 'text-green-600' : 'text-red-600'}`}>
+                        ({targetMetrics.ffmLbs >= currentMetrics.ffmLbs ? '+' : ''}
+                        {(targetMetrics.ffmLbs - currentMetrics.ffmLbs).toFixed(1)})
                       </span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">FMI</span>
-                      <Badge className={`text-[10px] ${getFMIBenchmark(targetMetrics.fmi).bgColor} ${getFMIBenchmark(targetMetrics.fmi).color}`}>
-                        {targetMetrics.fmi} - {getFMIBenchmark(targetMetrics.fmi).label}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">FFMI</span>
-                      <Badge className={`text-[10px] ${getFFMIBenchmark(targetMetrics.ffmi).bgColor} ${getFFMIBenchmark(targetMetrics.ffmi).color}`}>
-                        {targetMetrics.ffmi} - {getFFMIBenchmark(targetMetrics.ffmi).label}
-                      </Badge>
-                    </div>
+                    </span>
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Partitioning Summary */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-blue-500" />
-                    Composition Change
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                    <div className="text-center mb-2">
-                      <div className={`text-2xl font-bold ${summary.isDeficit ? 'text-green-600' : 'text-blue-600'}`}>
-                        {summary.isDeficit ? '' : '+'}{summary.totalWeightChange} lbs
-                      </div>
-                      <div className="text-xs text-muted-foreground">Total Weight Change</div>
+                  <Separator />
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">FMI</span>
+                    <Badge className={`text-[10px] ${getFMIBenchmark(targetMetrics.fmi).bgColor} ${getFMIBenchmark(targetMetrics.fmi).color}`}>
+                      {targetMetrics.fmi}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">FFMI</span>
+                    <Badge className={`text-[10px] ${getFFMIBenchmark(targetMetrics.ffmi).bgColor} ${getFFMIBenchmark(targetMetrics.ffmi).color}`}>
+                      {targetMetrics.ffmi}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                {/* Partitioning Summary */}
+                <div className="bg-blue-50 rounded-lg p-2 border border-blue-200">
+                  <div className="text-center mb-2">
+                    <div className={`text-xl font-bold ${summary.isDeficit ? 'text-green-600' : 'text-blue-600'}`}>
+                      {summary.isDeficit ? '' : '+'}{summary.totalWeightChange} lbs
                     </div>
-                    
-                    {/* Partitioning bar */}
-                    <div className="h-6 rounded-full overflow-hidden flex mb-2">
-                      <div className="bg-yellow-400" style={{ width: `${Math.abs(summary.pctFromFat)}%` }} />
-                      <div className="bg-red-400" style={{ width: `${Math.abs(summary.pctFromFFM)}%` }} />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-yellow-400 rounded" />
-                        <span>Fat: {summary.totalFatChange} lbs ({summary.pctFromFat}%)</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 bg-red-400 rounded" />
-                        <span>FFM: {summary.totalFFMChange} lbs ({summary.pctFromFFM}%)</span>
-                      </div>
-                    </div>
-                    
-                    {includeWaterChanges && summary.expectedWaterChange !== 0 && (
-                      <div className="mt-2 pt-2 border-t border-blue-200">
-                        <div className="flex items-center gap-1 text-xs text-blue-700">
-                          <Droplets className="h-3 w-3" />
-                          <span>Expected water change: {summary.expectedWaterChange > 0 ? '+' : ''}{summary.expectedWaterChange} lbs</span>
-                        </div>
-                      </div>
-                    )}
+                    <div className="text-[10px] text-muted-foreground">Total Weight Change</div>
                   </div>
                   
-                  <div className="text-xs text-muted-foreground">
-                    <div className="flex justify-between">
-                      <span>Weekly rate:</span>
-                      <span className="font-medium">{Math.abs(summary.weeklyWeightChange)} lbs/week</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>% of body weight:</span>
-                      <span className="font-medium">{((Math.abs(summary.weeklyWeightChange) / currentWeight) * 100).toFixed(2)}%/week</span>
-                    </div>
+                  {/* Partitioning bar */}
+                  <div className="h-5 rounded-full overflow-hidden flex mb-1">
+                    <div className="bg-yellow-400" style={{ width: `${Math.abs(summary.pctFromFat)}%` }} />
+                    <div className="bg-red-400" style={{ width: `${Math.abs(summary.pctFromFFM)}%` }} />
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Nutrition Targets */}
-              <Card className="border-green-300 border-2">
-                <CardHeader className="pb-2 bg-green-50">
-                  <CardTitle className="text-base text-green-800">
-                    <Zap className="h-4 w-4 inline mr-1" />
-                    Daily Targets
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-3">
-                  <div className="text-center mb-3">
-                    <div className="text-3xl font-bold text-green-600">{nutritionTargets.calories}</div>
-                    <div className="text-xs text-green-700">
-                      {summary.isDeficit ? `${Math.abs(nutritionTargets.deficit)} cal deficit` : `${nutritionTargets.deficit} cal surplus`}
+                  
+                  <div className="grid grid-cols-2 gap-1 text-[10px]">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-yellow-400 rounded" />
+                      <span>Fat: {summary.totalFatChange} lbs ({summary.pctFromFat}%)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-red-400 rounded" />
+                      <span>FFM: {summary.totalFFMChange} lbs ({summary.pctFromFFM}%)</span>
                     </div>
                   </div>
                   
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center p-2 bg-red-50 rounded text-xs">
-                      <span className="text-red-700">Protein</span>
-                      <span className="font-bold text-red-600">{nutritionTargets.protein}g ({nutritionTargets.proteinPct}%)</span>
+                  {includeWaterChanges && summary.expectedWaterChange !== 0 && (
+                    <div className="mt-1 pt-1 border-t border-blue-200">
+                      <div className="flex items-center gap-1 text-[10px] text-blue-700">
+                        <Droplets className="h-3 w-3" />
+                        <span>Water: {summary.expectedWaterChange > 0 ? '+' : ''}{summary.expectedWaterChange} lbs</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center p-2 bg-blue-50 rounded text-xs">
-                      <span className="text-blue-700">Carbs</span>
-                      <span className="font-bold text-blue-600">{nutritionTargets.carbs}g ({nutritionTargets.carbsPct}%)</span>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-yellow-50 rounded text-xs">
-                      <span className="text-yellow-700">Fat</span>
-                      <span className="font-bold text-yellow-600">{nutritionTargets.fat}g ({nutritionTargets.fatPct}%)</span>
-                    </div>
+                  )}
+                </div>
+                
+                <div className="text-[10px] text-muted-foreground space-y-0.5">
+                  <div className="flex justify-between">
+                    <span>Weekly rate:</span>
+                    <span className="font-medium">{Math.abs(summary.weeklyWeightChange)} lbs/week</span>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                  <div className="flex justify-between">
+                    <span>% of body weight:</span>
+                    <span className="font-medium">{((Math.abs(summary.weeklyWeightChange) / currentWeight) * 100).toFixed(2)}%/week</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Column 4: Timeline Visualization */}
-            <div className="space-y-4">
-              <Card className="h-full">
-                <CardHeader className="pb-2">
+            {/* Column 4: Nutrition & Error */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base text-green-800">
+                  <Zap className="h-4 w-4 inline mr-1" />
+                  Daily Targets
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{nutritionTargets.calories}</div>
+                  <div className="text-xs text-green-700">
+                    {summary.isDeficit ? `${Math.abs(nutritionTargets.deficit)} cal deficit` : `${nutritionTargets.deficit} cal surplus`}
+                  </div>
+                </div>
+                
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center p-1.5 bg-red-50 rounded text-xs">
+                    <span className="text-red-700">Protein</span>
+                    <span className="font-bold text-red-600">{nutritionTargets.protein}g ({nutritionTargets.proteinPct}%)</span>
+                  </div>
+                  <div className="flex justify-between items-center p-1.5 bg-blue-50 rounded text-xs">
+                    <span className="text-blue-700">Carbs</span>
+                    <span className="font-bold text-blue-600">{nutritionTargets.carbs}g ({nutritionTargets.carbsPct}%)</span>
+                  </div>
+                  <div className="flex justify-between items-center p-1.5 bg-yellow-50 rounded text-xs">
+                    <span className="text-yellow-700">Fat</span>
+                    <span className="font-bold text-yellow-600">{nutritionTargets.fat}g ({nutritionTargets.fatPct}%)</span>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                {/* Measurement Error Settings */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium flex items-center gap-1">
+                    <ShieldAlert className="h-3 w-3 text-amber-500" />
+                    Measurement Uncertainty
+                  </Label>
+                  
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Assessment Method</Label>
+                    <Select value={measurementMethod} onValueChange={(v: any) => setMeasurementMethod(v)}>
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(MEASUREMENT_ERROR).map(([key, val]) => (
+                          <SelectItem key={key} value={key} className="text-xs">{val.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <LineChart className="h-4 w-4 text-purple-500" />
-                      Timeline Projection
-                    </CardTitle>
-                    <div className="flex gap-1">
-                      <Button
-                        variant={viewMode === 'graph' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setViewMode('graph')}
-                        className="h-6 px-2 text-xs"
-                      >
-                        <LineChart className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant={viewMode === 'table' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setViewMode('table')}
-                        className="h-6 px-2 text-xs"
-                      >
-                        <Table className="h-3 w-3" />
-                      </Button>
+                    <Label className="text-[10px]">Show Confidence Interval</Label>
+                    <Switch checked={showConfidenceInterval} onCheckedChange={setShowConfidenceInterval} />
+                  </div>
+                  
+                  {showConfidenceInterval && (
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Confidence Level</Label>
+                      <Select value={String(confidenceLevel)} onValueChange={(v) => setConfidenceLevel(Number(v))}>
+                        <SelectTrigger className="h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0.90" className="text-xs">90% CI</SelectItem>
+                          <SelectItem value="0.95" className="text-xs">95% CI</SelectItem>
+                          <SelectItem value="0.99" className="text-xs">99% CI</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
+                  {/* MDC Info */}
+                  <div className="bg-amber-50 rounded p-2 border border-amber-200 text-[10px]">
+                    <div className="font-medium text-amber-800 mb-1">Minimum Detectable Change ({Math.round(confidenceLevel * 100)}%)</div>
+                    <div className="space-y-0.5 text-amber-700">
+                      <div className="flex justify-between">
+                        <span>Fat Mass:</span>
+                        <span className="font-medium">±{summary.fatChangeMDC} lbs</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>FFM:</span>
+                        <span className="font-medium">±{summary.ffmChangeMDC} lbs</span>
+                      </div>
+                    </div>
+                    <Separator className="my-1" />
+                    <div className="text-amber-600">
+                      {summary.fatChangeExceedsMDC ? (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Fat change exceeds MDC
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Fat change within measurement error
+                        </span>
+                      )}
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {viewMode === 'graph' ? (
-                    <div className="space-y-4">
-                      {/* Weight Graph */}
-                      <div>
-                        <div className="text-xs font-medium mb-1">Weight (lbs)</div>
-                        <div className="h-32 relative bg-slate-50 rounded border">
-                          <svg className="w-full h-full" viewBox="0 0 400 120" preserveAspectRatio="none">
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Visualization Section - Full Width Below Cards */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <LineChart className="h-5 w-5 text-purple-500" />
+                  Timeline Projection
+                  {showConfidenceInterval && (
+                    <Badge variant="outline" className="ml-2 text-xs">
+                      {Math.round(confidenceLevel * 100)}% CI Shaded
+                    </Badge>
+                  )}
+                </CardTitle>
+                <div className="flex gap-2">
+                  <Button
+                    variant={viewMode === 'graph' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('graph')}
+                    className={`h-8 px-3 ${viewMode === 'graph' ? 'bg-[#00263d]' : ''}`}
+                  >
+                    <LineChart className="h-4 w-4 mr-1" />
+                    Graph
+                  </Button>
+                  <Button
+                    variant={viewMode === 'table' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('table')}
+                    className={`h-8 px-3 ${viewMode === 'table' ? 'bg-[#00263d]' : ''}`}
+                  >
+                    <Table className="h-4 w-4 mr-1" />
+                    Table
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {viewMode === 'graph' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Weight Graph */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Weight (lbs)</span>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <div className="w-3 h-0.5 bg-blue-500" />
+                          True Weight
+                        </span>
+                        {includeWaterChanges && (
+                          <span className="flex items-center gap-1">
+                            <div className="w-3 h-0.5 bg-blue-300 opacity-50" style={{ borderStyle: 'dashed' }} />
+                            Scale Weight
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="h-48 relative bg-slate-50 rounded-lg border p-2">
+                      {(() => {
+                        const { ciPathPoints, linePoints, minVal, maxVal } = generateGraphWithCI(
+                          weeklyProjections, 'weight', 'weightCI', '#3b82f6', 180
+                        );
+                        return (
+                          <svg className="w-full h-full" viewBox="0 0 400 180" preserveAspectRatio="none">
                             {/* Grid lines */}
-                            <line x1="0" y1="30" x2="400" y2="30" stroke="#e5e7eb" strokeWidth="1" />
-                            <line x1="0" y1="60" x2="400" y2="60" stroke="#e5e7eb" strokeWidth="1" />
-                            <line x1="0" y1="90" x2="400" y2="90" stroke="#e5e7eb" strokeWidth="1" />
+                            {[0.25, 0.5, 0.75].map((pct) => (
+                              <line key={pct} x1="0" y1={180 * pct} x2="400" y2={180 * pct} stroke="#e5e7eb" strokeWidth="1" />
+                            ))}
                             
-                            {/* Weight line */}
+                            {/* CI Shading */}
+                            {showConfidenceInterval && (
+                              <polygon
+                                points={ciPathPoints}
+                                fill="#3b82f6"
+                                fillOpacity="0.15"
+                                stroke="none"
+                              />
+                            )}
+                            
+                            {/* Main weight line */}
                             <polyline
                               fill="none"
                               stroke="#3b82f6"
-                              strokeWidth="2"
-                              points={weeklyProjections.map((p, i) => {
-                                const x = (i / (weeklyProjections.length - 1)) * 400;
-                                const minW = Math.min(...weeklyProjections.map(p => p.weight));
-                                const maxW = Math.max(...weeklyProjections.map(p => p.weight));
-                                const range = maxW - minW || 1;
-                                const y = 110 - ((p.weight - minW) / range) * 100;
-                                return `${x},${y}`;
-                              }).join(' ')}
+                              strokeWidth="2.5"
+                              points={linePoints}
                             />
                             
                             {/* Scale weight line (with water) */}
                             {includeWaterChanges && (
                               <polyline
                                 fill="none"
-                                stroke="#3b82f6"
-                                strokeWidth="1"
-                                strokeDasharray="4,4"
-                                opacity="0.5"
+                                stroke="#93c5fd"
+                                strokeWidth="1.5"
+                                strokeDasharray="6,4"
                                 points={weeklyProjections.map((p, i) => {
                                   const x = (i / (weeklyProjections.length - 1)) * 400;
-                                  const minW = Math.min(...weeklyProjections.map(p => p.scaleWeight));
-                                  const maxW = Math.max(...weeklyProjections.map(p => p.scaleWeight));
-                                  const range = maxW - minW || 1;
-                                  const y = 110 - ((p.scaleWeight - minW) / range) * 100;
+                                  const range = maxVal - minVal || 1;
+                                  const y = 10 + 160 - ((p.scaleWeight - minVal) / range) * 160;
                                   return `${x},${y}`;
                                 }).join(' ')}
                               />
                             )}
+                            
+                            {/* Start/End markers */}
+                            <circle cx="0" cy={10 + 160 - ((weeklyProjections[0].weight - minVal) / (maxVal - minVal || 1)) * 160} r="4" fill="#3b82f6" />
+                            <circle cx="400" cy={10 + 160 - ((weeklyProjections[weeklyProjections.length - 1].weight - minVal) / (maxVal - minVal || 1)) * 160} r="4" fill="#3b82f6" />
                           </svg>
-                          <div className="absolute top-1 left-1 text-[10px] text-muted-foreground">
-                            {Math.max(...weeklyProjections.map(p => p.weight))}
-                          </div>
-                          <div className="absolute bottom-1 left-1 text-[10px] text-muted-foreground">
-                            {Math.min(...weeklyProjections.map(p => p.weight))}
-                          </div>
-                        </div>
+                        );
+                      })()}
+                      <div className="absolute top-2 left-2 text-xs text-muted-foreground">
+                        {Math.max(...weeklyProjections.map(p => p.weight + p.weightCI)).toFixed(0)}
                       </div>
-                      
-                      {/* Composition Graph */}
-                      <div>
-                        <div className="text-xs font-medium mb-1">Composition (lbs)</div>
-                        <div className="h-32 relative bg-slate-50 rounded border">
-                          <svg className="w-full h-full" viewBox="0 0 400 120" preserveAspectRatio="none">
-                            {/* Fat Mass */}
+                      <div className="absolute bottom-2 left-2 text-xs text-muted-foreground">
+                        {Math.min(...weeklyProjections.map(p => p.weight - p.weightCI)).toFixed(0)}
+                      </div>
+                      <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs text-muted-foreground">
+                        Weeks 0 → {totalWeeks}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Composition Graph */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Body Composition (lbs)</span>
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="flex items-center gap-1">
+                          <div className="w-3 h-3 bg-yellow-500 rounded" />
+                          Fat Mass
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <div className="w-3 h-3 bg-red-500 rounded" />
+                          FFM
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-48 relative bg-slate-50 rounded-lg border p-2">
+                      {(() => {
+                        const fatData = generateGraphWithCI(weeklyProjections, 'fatMass', 'fatMassCI', '#eab308', 180);
+                        const ffmData = generateGraphWithCI(weeklyProjections, 'ffm', 'ffmCI', '#ef4444', 180);
+                        
+                        // Combined min/max for shared scale
+                        const allVals = [
+                          ...weeklyProjections.map(p => p.fatMass - p.fatMassCI),
+                          ...weeklyProjections.map(p => p.fatMass + p.fatMassCI),
+                          ...weeklyProjections.map(p => p.ffm - p.ffmCI),
+                          ...weeklyProjections.map(p => p.ffm + p.ffmCI),
+                        ];
+                        const minVal = Math.min(...allVals);
+                        const maxVal = Math.max(...allVals);
+                        const range = maxVal - minVal || 1;
+                        
+                        const getY = (val: number) => 10 + 160 - ((val - minVal) / range) * 160;
+                        const getX = (i: number) => (i / (weeklyProjections.length - 1)) * 400;
+                        
+                        // Build CI polygons
+                        const fatCIPoints = [
+                          ...weeklyProjections.map((p, i) => `${getX(i)},${getY(p.fatMass + p.fatMassCI)}`),
+                          ...weeklyProjections.map((p, i) => `${getX(weeklyProjections.length - 1 - i)},${getY(weeklyProjections[weeklyProjections.length - 1 - i].fatMass - weeklyProjections[weeklyProjections.length - 1 - i].fatMassCI)}`),
+                        ].join(' ');
+                        
+                        const ffmCIPoints = [
+                          ...weeklyProjections.map((p, i) => `${getX(i)},${getY(p.ffm + p.ffmCI)}`),
+                          ...weeklyProjections.map((p, i) => `${getX(weeklyProjections.length - 1 - i)},${getY(weeklyProjections[weeklyProjections.length - 1 - i].ffm - weeklyProjections[weeklyProjections.length - 1 - i].ffmCI)}`),
+                        ].join(' ');
+                        
+                        return (
+                          <svg className="w-full h-full" viewBox="0 0 400 180" preserveAspectRatio="none">
+                            {/* Grid */}
+                            {[0.25, 0.5, 0.75].map((pct) => (
+                              <line key={pct} x1="0" y1={180 * pct} x2="400" y2={180 * pct} stroke="#e5e7eb" strokeWidth="1" />
+                            ))}
+                            
+                            {/* CI Shading */}
+                            {showConfidenceInterval && (
+                              <>
+                                <polygon points={fatCIPoints} fill="#eab308" fillOpacity="0.15" />
+                                <polygon points={ffmCIPoints} fill="#ef4444" fillOpacity="0.15" />
+                              </>
+                            )}
+                            
+                            {/* Fat Mass line */}
                             <polyline
                               fill="none"
                               stroke="#eab308"
-                              strokeWidth="2"
-                              points={weeklyProjections.map((p, i) => {
-                                const x = (i / (weeklyProjections.length - 1)) * 400;
-                                const minF = Math.min(...weeklyProjections.map(p => p.fatMass));
-                                const maxF = Math.max(...weeklyProjections.map(p => p.fatMass));
-                                const range = maxF - minF || 1;
-                                const y = 110 - ((p.fatMass - minF) / range) * 100;
-                                return `${x},${y}`;
-                              }).join(' ')}
+                              strokeWidth="2.5"
+                              points={weeklyProjections.map((p, i) => `${getX(i)},${getY(p.fatMass)}`).join(' ')}
                             />
                             
-                            {/* FFM */}
+                            {/* FFM line */}
                             <polyline
                               fill="none"
                               stroke="#ef4444"
-                              strokeWidth="2"
-                              points={weeklyProjections.map((p, i) => {
-                                const x = (i / (weeklyProjections.length - 1)) * 400;
-                                const minF = Math.min(...weeklyProjections.map(p => p.ffm));
-                                const maxF = Math.max(...weeklyProjections.map(p => p.ffm));
-                                const range = maxF - minF || 1;
-                                const y = 110 - ((p.ffm - minF) / range) * 100;
-                                return `${x},${y}`;
-                              }).join(' ')}
+                              strokeWidth="2.5"
+                              points={weeklyProjections.map((p, i) => `${getX(i)},${getY(p.ffm)}`).join(' ')}
                             />
                           </svg>
-                          <div className="absolute top-1 right-1 text-[10px] flex gap-2">
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 bg-yellow-500 rounded" />FM</span>
-                            <span className="flex items-center gap-1"><span className="w-2 h-2 bg-red-500 rounded" />FFM</span>
-                          </div>
+                        );
+                      })()}
+                      <div className="absolute top-2 left-2 text-xs text-muted-foreground">
+                        {Math.max(...weeklyProjections.map(p => Math.max(p.fatMass + p.fatMassCI, p.ffm + p.ffmCI))).toFixed(0)}
+                      </div>
+                      <div className="absolute bottom-2 left-2 text-xs text-muted-foreground">
+                        {Math.min(...weeklyProjections.map(p => Math.min(p.fatMass - p.fatMassCI, p.ffm - p.ffmCI))).toFixed(0)}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Body Fat % Graph */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Body Fat %</span>
+                    </div>
+                    <div className="h-40 relative bg-slate-50 rounded-lg border p-2">
+                      {(() => {
+                        const { ciPathPoints, linePoints, minVal, maxVal } = generateGraphWithCI(
+                          weeklyProjections, 'bodyFat', 'bodyFatCI', '#22c55e', 150
+                        );
+                        return (
+                          <svg className="w-full h-full" viewBox="0 0 400 150" preserveAspectRatio="none">
+                            {/* Grid */}
+                            {[0.25, 0.5, 0.75].map((pct) => (
+                              <line key={pct} x1="0" y1={150 * pct} x2="400" y2={150 * pct} stroke="#e5e7eb" strokeWidth="1" />
+                            ))}
+                            
+                            {/* CI Shading */}
+                            {showConfidenceInterval && (
+                              <polygon points={ciPathPoints} fill="#22c55e" fillOpacity="0.15" />
+                            )}
+                            
+                            {/* Line */}
+                            <polyline fill="none" stroke="#22c55e" strokeWidth="2.5" points={linePoints} />
+                            
+                            {/* Markers */}
+                            <circle cx="0" cy={10 + 130 - ((weeklyProjections[0].bodyFat - minVal) / (maxVal - minVal || 1)) * 130} r="4" fill="#22c55e" />
+                            <circle cx="400" cy={10 + 130 - ((weeklyProjections[weeklyProjections.length - 1].bodyFat - minVal) / (maxVal - minVal || 1)) * 130} r="4" fill="#22c55e" />
+                          </svg>
+                        );
+                      })()}
+                      <div className="absolute top-2 left-2 text-xs text-muted-foreground">
+                        {Math.max(...weeklyProjections.map(p => p.bodyFat + p.bodyFatCI)).toFixed(1)}%
+                      </div>
+                      <div className="absolute bottom-2 left-2 text-xs text-muted-foreground">
+                        {Math.min(...weeklyProjections.map(p => p.bodyFat - p.bodyFatCI)).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Summary Stats Box */}
+                  <div className="bg-gradient-to-br from-slate-100 to-slate-50 rounded-lg p-4 border">
+                    <h4 className="font-medium text-sm mb-3">Projection Summary</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Start → End</div>
+                        <div className="text-sm font-medium">
+                          {weeklyProjections[0].date.slice(5)} → {weeklyProjections[weeklyProjections.length - 1].date.slice(5)}
                         </div>
                       </div>
-                      
-                      {/* Body Fat % Graph */}
                       <div>
-                        <div className="text-xs font-medium mb-1">Body Fat %</div>
-                        <div className="h-24 relative bg-slate-50 rounded border">
-                          <svg className="w-full h-full" viewBox="0 0 400 90" preserveAspectRatio="none">
-                            <polyline
-                              fill="none"
-                              stroke="#22c55e"
-                              strokeWidth="2"
-                              points={weeklyProjections.map((p, i) => {
-                                const x = (i / (weeklyProjections.length - 1)) * 400;
-                                const minBf = Math.min(...weeklyProjections.map(p => p.bodyFat));
-                                const maxBf = Math.max(...weeklyProjections.map(p => p.bodyFat));
-                                const range = maxBf - minBf || 1;
-                                const y = 80 - ((p.bodyFat - minBf) / range) * 70;
-                                return `${x},${y}`;
-                              }).join(' ')}
-                            />
-                          </svg>
-                          <div className="absolute top-1 left-1 text-[10px] text-muted-foreground">
-                            {Math.max(...weeklyProjections.map(p => p.bodyFat)).toFixed(1)}%
-                          </div>
-                          <div className="absolute bottom-1 left-1 text-[10px] text-muted-foreground">
-                            {Math.min(...weeklyProjections.map(p => p.bodyFat)).toFixed(1)}%
-                          </div>
+                        <div className="text-xs text-muted-foreground">Duration</div>
+                        <div className="text-sm font-medium">{totalWeeks} weeks</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Final Weight</div>
+                        <div className="text-sm font-medium">
+                          {weeklyProjections[weeklyProjections.length - 1].weight} lbs
+                          {showConfidenceInterval && (
+                            <span className="text-xs text-muted-foreground ml-1">
+                              ±{weeklyProjections[weeklyProjections.length - 1].weightCI}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Final Body Fat</div>
+                        <div className="text-sm font-medium">
+                          {weeklyProjections[weeklyProjections.length - 1].bodyFat}%
+                          {showConfidenceInterval && (
+                            <span className="text-xs text-muted-foreground ml-1">
+                              ±{weeklyProjections[weeklyProjections.length - 1].bodyFatCI}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
-                  ) : (
-                    <ScrollArea className="h-[400px]">
-                      <table className="w-full text-xs">
-                        <thead className="sticky top-0 bg-white">
-                          <tr className="border-b">
-                            <th className="text-left p-1">Wk</th>
-                            <th className="text-left p-1">Date</th>
-                            <th className="text-right p-1">Weight</th>
-                            <th className="text-right p-1">FM</th>
-                            <th className="text-right p-1">FFM</th>
-                            <th className="text-right p-1">BF%</th>
-                            {includeWaterChanges && <th className="text-right p-1">H₂O</th>}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {weeklyProjections.map((p, i) => (
-                            <tr key={p.week} className={i % 2 === 0 ? 'bg-slate-50' : ''}>
-                              <td className="p-1">{p.week}</td>
-                              <td className="p-1">{p.date.slice(5)}</td>
-                              <td className="p-1 text-right font-medium">{p.weight}</td>
-                              <td className="p-1 text-right text-yellow-600">{p.fatMass}</td>
-                              <td className="p-1 text-right text-red-600">{p.ffm}</td>
-                              <td className="p-1 text-right text-green-600">{p.bodyFat}%</td>
-                              {includeWaterChanges && (
-                                <td className="p-1 text-right text-blue-600">{p.waterChange}</td>
-                              )}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </ScrollArea>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+                    
+                    {showConfidenceInterval && (
+                      <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
+                        <Info className="h-3 w-3 inline mr-1" />
+                        Shaded regions represent {Math.round(confidenceLevel * 100)}% confidence intervals accounting for 
+                        measurement error (SEE) and model uncertainty propagation over time.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <ScrollArea className="h-[500px]">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-white border-b">
+                      <tr>
+                        <th className="text-left p-2 font-medium">Week</th>
+                        <th className="text-left p-2 font-medium">Date</th>
+                        <th className="text-right p-2 font-medium">Weight</th>
+                        <th className="text-right p-2 font-medium">Fat Mass</th>
+                        <th className="text-right p-2 font-medium">FFM</th>
+                        <th className="text-right p-2 font-medium">BF%</th>
+                        {includeWaterChanges && <th className="text-right p-2 font-medium">H₂O</th>}
+                        {showConfidenceInterval && <th className="text-right p-2 font-medium">±CI</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {weeklyProjections.map((p, i) => (
+                        <tr key={p.week} className={i % 2 === 0 ? 'bg-slate-50' : ''}>
+                          <td className="p-2">{p.week}</td>
+                          <td className="p-2 text-muted-foreground">{p.date}</td>
+                          <td className="p-2 text-right font-medium">{p.weight}</td>
+                          <td className="p-2 text-right text-yellow-600">{p.fatMass}</td>
+                          <td className="p-2 text-right text-red-600">{p.ffm}</td>
+                          <td className="p-2 text-right text-green-600">{p.bodyFat}%</td>
+                          {includeWaterChanges && (
+                            <td className="p-2 text-right text-blue-600">{p.waterChange}</td>
+                          )}
+                          {showConfidenceInterval && (
+                            <td className="p-2 text-right text-muted-foreground text-xs">
+                              W: ±{p.weightCI}<br/>
+                              FM: ±{p.fatMassCI}<br/>
+                              FFM: ±{p.ffmCI}
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Warnings */}
-          {(targetMetrics.ffmi > 25 || targetMetrics.bodyFat < (gender === 'male' ? 6 : 14) || Math.abs(summary.pctFromFFM) > 30) && (
+          {(targetMetrics.ffmi > 25 || targetMetrics.bodyFat < (gender === 'male' ? 6 : 14) || Math.abs(summary.pctFromFFM) > 30 || !summary.fatChangeExceedsMDC) && (
             <Card className="border-amber-300 bg-amber-50">
               <CardContent className="pt-4">
                 <div className="flex items-start gap-2">
@@ -1297,6 +1551,9 @@ export default function BodyCompositionPage() {
                   <div>
                     <div className="font-medium text-amber-800">Considerations</div>
                     <ul className="text-sm text-amber-700 mt-1 space-y-1">
+                      {!summary.fatChangeExceedsMDC && (
+                        <li>• Projected fat mass change ({Math.abs(summary.totalFatChange)} lbs) is within measurement error (MDC: ±{summary.fatChangeMDC} lbs). Consider a longer timeline or ensure standardized assessment conditions.</li>
+                      )}
                       {targetMetrics.ffmi > 25 && (
                         <li>• FFMI &gt;25 is rare naturally - ensure realistic expectations</li>
                       )}
@@ -1317,8 +1574,9 @@ export default function BodyCompositionPage() {
           )}
 
           {/* References */}
-          <div className="text-[10px] text-muted-foreground text-center">
-            <p>Models based on: Forbes GB (2000), Heymsfield SB et al. (2014), Longland TM et al. (2016), Kreitzman SN et al. (1992)</p>
+          <div className="text-[10px] text-muted-foreground text-center space-y-1">
+            <p><strong>Partitioning Models:</strong> Forbes GB (2000), Heymsfield SB et al. (2014), Longland TM et al. (2016), Kreitzman SN et al. (1992)</p>
+            <p><strong>Measurement Error:</strong> Tinsley GM et al. (2021) "A Field-Based Three-Compartment Model" - MSSE</p>
           </div>
         </div>
       </div>
