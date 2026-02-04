@@ -10,8 +10,13 @@ import {
   getCurrentUser,
   getStaffProfile,
   onAuthStateChange,
+  isAdmin,
+  canViewAllClients,
   type StaffUser
 } from '@/lib/auth';
+
+// Re-export helper functions
+export { isAdmin, canViewAllClients };
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { useFitomicsStore } from '@/lib/store';
 

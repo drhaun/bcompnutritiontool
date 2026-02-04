@@ -3,6 +3,79 @@
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
+-- ============================================================================
+-- STAFF TABLE - Manages coaches, nutritionists, and admins
+-- ============================================================================
+
+create table if not exists public.staff (
+  id uuid primary key default uuid_generate_v4(),
+  auth_user_id uuid unique not null, -- References auth.users(id)
+  email text not null,
+  name text,
+  role text not null default 'coach' check (role in ('admin', 'coach', 'nutritionist')),
+  is_active boolean default true,
+  can_view_all_clients boolean default false, -- Admin grants this permission
+  permissions jsonb default '{}', -- For future granular permissions
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+-- Index for faster lookups
+create index if not exists idx_staff_auth_user_id on public.staff(auth_user_id);
+create index if not exists idx_staff_role on public.staff(role);
+
+-- RLS for staff table
+alter table public.staff enable row level security;
+
+-- Staff can view their own record
+create policy "Users can view own staff record" on public.staff
+  for select using (auth.uid() = auth_user_id);
+
+-- Admins can view all staff records
+create policy "Admins can view all staff" on public.staff
+  for select using (
+    exists (
+      select 1 from public.staff s 
+      where s.auth_user_id = auth.uid() 
+      and s.role = 'admin'
+    )
+  );
+
+-- Admins can insert staff records
+create policy "Admins can insert staff" on public.staff
+  for insert with check (
+    exists (
+      select 1 from public.staff s 
+      where s.auth_user_id = auth.uid() 
+      and s.role = 'admin'
+    )
+  );
+
+-- Admins can update staff records
+create policy "Admins can update staff" on public.staff
+  for update using (
+    exists (
+      select 1 from public.staff s 
+      where s.auth_user_id = auth.uid() 
+      and s.role = 'admin'
+    )
+  );
+
+-- Admins can delete staff records
+create policy "Admins can delete staff" on public.staff
+  for delete using (
+    exists (
+      select 1 from public.staff s 
+      where s.auth_user_id = auth.uid() 
+      and s.role = 'admin'
+    )
+  );
+
+-- Trigger for staff updated_at
+create trigger set_updated_at_staff
+before update on public.staff
+for each row execute procedure public.set_updated_at();
+
 -- Users table (app-level profile data)
 create table if not exists public.user_profiles (
   id uuid primary key default uuid_generate_v4(),
@@ -129,9 +202,19 @@ for each row execute procedure public.set_updated_at();
 -- Row Level Security for clients table
 alter table public.clients enable row level security;
 
--- Policy: Users can only see their own clients
+-- Policy: Users can see their own clients
 create policy "Users can view own clients" on public.clients
   for select using (auth.uid() = coach_id);
+
+-- Policy: Admins and users with can_view_all_clients can see ALL clients
+create policy "Admins can view all clients" on public.clients
+  for select using (
+    exists (
+      select 1 from public.staff s 
+      where s.auth_user_id = auth.uid() 
+      and (s.role = 'admin' or s.can_view_all_clients = true)
+    )
+  );
 
 -- Policy: Users can insert their own clients  
 create policy "Users can insert own clients" on public.clients
@@ -141,9 +224,29 @@ create policy "Users can insert own clients" on public.clients
 create policy "Users can update own clients" on public.clients
   for update using (auth.uid() = coach_id);
 
+-- Policy: Admins can update any client
+create policy "Admins can update all clients" on public.clients
+  for update using (
+    exists (
+      select 1 from public.staff s 
+      where s.auth_user_id = auth.uid() 
+      and s.role = 'admin'
+    )
+  );
+
 -- Policy: Users can delete their own clients
 create policy "Users can delete own clients" on public.clients
   for delete using (auth.uid() = coach_id);
+
+-- Policy: Admins can delete any client
+create policy "Admins can delete all clients" on public.clients
+  for delete using (
+    exists (
+      select 1 from public.staff s 
+      where s.auth_user_id = auth.uid() 
+      and s.role = 'admin'
+    )
+  );
 
 -- Migration: Add phase columns to existing clients table (run if table already exists)
 -- ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS phases jsonb default '[]';

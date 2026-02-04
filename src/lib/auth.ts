@@ -10,7 +10,26 @@ export interface StaffUser {
   email: string;
   name: string | null;
   role: 'admin' | 'coach' | 'nutritionist';
+  isActive: boolean;
+  canViewAllClients: boolean;
+  permissions: Record<string, boolean>;
   createdAt: string;
+  authUserId: string;
+}
+
+/**
+ * Check if user is an admin
+ */
+export function isAdmin(staff: StaffUser | null): boolean {
+  return staff?.role === 'admin';
+}
+
+/**
+ * Check if user can view all clients (admin or has permission)
+ */
+export function canViewAllClients(staff: StaffUser | null): boolean {
+  if (!staff) return false;
+  return staff.role === 'admin' || staff.canViewAllClients === true;
 }
 
 /**
@@ -148,8 +167,93 @@ export async function getStaffProfile(): Promise<StaffUser | null> {
     email: data.email,
     name: data.name,
     role: data.role,
+    isActive: data.is_active ?? true,
+    canViewAllClients: data.can_view_all_clients ?? false,
+    permissions: data.permissions ?? {},
     createdAt: data.created_at,
+    authUserId: data.auth_user_id,
   };
+}
+
+/**
+ * Get all staff members (admin only)
+ */
+export async function getAllStaff(): Promise<StaffUser[]> {
+  if (!supabase || !isSupabaseConfigured) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('staff')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) {
+    console.error('[Auth] getAllStaff error:', error);
+    return [];
+  }
+
+  return data.map((s: any) => ({
+    id: s.id,
+    email: s.email,
+    name: s.name,
+    role: s.role,
+    isActive: s.is_active ?? true,
+    canViewAllClients: s.can_view_all_clients ?? false,
+    permissions: s.permissions ?? {},
+    createdAt: s.created_at,
+    authUserId: s.auth_user_id,
+  }));
+}
+
+/**
+ * Update staff member (admin only)
+ */
+export async function updateStaffMember(
+  staffId: string, 
+  updates: Partial<Pick<StaffUser, 'name' | 'role' | 'isActive' | 'canViewAllClients' | 'permissions'>>
+): Promise<{ error: string | null }> {
+  if (!supabase || !isSupabaseConfigured) {
+    return { error: 'Supabase not configured' };
+  }
+
+  const { error } = await supabase
+    .from('staff')
+    .update({
+      name: updates.name,
+      role: updates.role,
+      is_active: updates.isActive,
+      can_view_all_clients: updates.canViewAllClients,
+      permissions: updates.permissions,
+    })
+    .eq('id', staffId);
+
+  return { error: error?.message || null };
+}
+
+/**
+ * Create staff record for existing auth user (admin only)
+ */
+export async function createStaffForUser(
+  authUserId: string,
+  email: string,
+  data: { name?: string; role?: 'admin' | 'coach' | 'nutritionist'; canViewAllClients?: boolean }
+): Promise<{ error: string | null }> {
+  if (!supabase || !isSupabaseConfigured) {
+    return { error: 'Supabase not configured' };
+  }
+
+  const { error } = await supabase
+    .from('staff')
+    .insert({
+      auth_user_id: authUserId,
+      email: email,
+      name: data.name || null,
+      role: data.role || 'coach',
+      can_view_all_clients: data.canViewAllClients || false,
+    });
+
+  return { error: error?.message || null };
 }
 
 /**

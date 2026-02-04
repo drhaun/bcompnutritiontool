@@ -38,8 +38,10 @@ import {
   Plus,
   SkipForward,
   LogOut,
-  UserCircle
+  UserCircle,
+  Shield
 } from 'lucide-react';
+import { isAdmin } from '@/lib/auth';
 
 const workflowSteps = [
   { href: '/setup', label: 'Profile', step: 1 },
@@ -210,6 +212,17 @@ export function Header() {
                   Settings
                 </Link>
               </DropdownMenuItem>
+              {isAdmin(staff) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin" className="flex items-center gap-2 text-purple-600">
+                      <Shield className="h-4 w-4" />
+                      Admin Panel
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </nav>
