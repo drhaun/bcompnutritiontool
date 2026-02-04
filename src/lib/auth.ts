@@ -158,26 +158,31 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 /**
- * Get staff profile for current user
+ * Get staff profile for current user (or specified userId)
  */
-export async function getStaffProfile(): Promise<StaffUser | null> {
+export async function getStaffProfile(userId?: string): Promise<StaffUser | null> {
   if (!supabase || !isSupabaseConfigured) {
     console.log('[Auth] getStaffProfile: Supabase not configured');
     return null;
   }
 
-  const user = await getCurrentUser();
-  if (!user) {
-    console.log('[Auth] getStaffProfile: No user logged in');
-    return null;
+  // If userId not provided, try to get from getCurrentUser (may hang in some cases)
+  let authUserId = userId;
+  if (!authUserId) {
+    const user = await getCurrentUser();
+    if (!user) {
+      console.log('[Auth] getStaffProfile: No user logged in');
+      return null;
+    }
+    authUserId = user.id;
   }
 
-  console.log('[Auth] getStaffProfile: Fetching for user:', user.id);
+  console.log('[Auth] getStaffProfile: Fetching for user:', authUserId);
   
   const { data, error } = await supabase
     .from('staff')
     .select('*')
-    .eq('auth_user_id', user.id)
+    .eq('auth_user_id', authUserId)
     .single();
 
   if (error) {

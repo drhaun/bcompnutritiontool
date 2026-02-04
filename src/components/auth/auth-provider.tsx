@@ -6,8 +6,6 @@ import {
   signIn, 
   signOut, 
   signUp, 
-  getSession, 
-  getCurrentUser,
   getStaffProfile,
   onAuthStateChange,
   isAdmin,
@@ -55,67 +53,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Get initial session
-    const initAuth = async () => {
-      try {
-        console.log('[AuthProvider] initAuth starting, isSupabaseConfigured:', isSupabaseConfigured);
-        const currentSession = await getSession();
-        console.log('[AuthProvider] Session:', currentSession ? 'found' : 'none');
-        setSession(currentSession);
-        
-        if (currentSession) {
-          const currentUser = await getCurrentUser();
-          console.log('[AuthProvider] User:', currentUser?.id);
-          setUser(currentUser);
-          
-          // Fetch staff profile - AWAIT it to ensure it completes before loading ends
-          console.log('[AuthProvider] Fetching staff profile...');
-          try {
-            const staffProfile = await getStaffProfile();
-            console.log('[AuthProvider] Staff profile result:', staffProfile);
-            setStaff(staffProfile);
-          } catch (err) {
-            console.error('[AuthProvider] Staff profile error:', err);
-          }
-          
-          // Trigger client sync with database
-          useFitomicsStore.getState().setAuthenticated(true);
-        }
-      } catch (error) {
-        console.error('[AuthProvider] Auth error:', error);
-      } finally {
-        setIsLoading(false);
-        clearTimeout(timeout);
-      }
-    };
+    // Note: We don't call initAuth() anymore because getSession() hangs.
+    // Instead, we rely entirely on onAuthStateChange which fires immediately with the cached session.
+    console.log('[AuthProvider] Waiting for onAuthStateChange to fire with cached session...');
 
-    initAuth();
-
-    // Subscribe to auth changes
+    // Subscribe to auth changes - Use session data directly, don't call additional API methods
     const { data: { subscription } } = onAuthStateChange(async (event, newSession) => {
-      console.log('[AuthProvider] Auth state changed:', event);
+      console.log('[AuthProvider] Auth state changed:', event, 'has session:', !!newSession);
       setSession(newSession);
       
-      if (newSession) {
-        const currentUser = await getCurrentUser();
-        console.log('[AuthProvider] onAuthStateChange - User:', currentUser?.id);
-        setUser(currentUser);
+      if (newSession?.user) {
+        // Use user from session directly - don't call getCurrentUser() as it may hang
+        console.log('[AuthProvider] onAuthStateChange - User from session:', newSession.user.id);
+        setUser(newSession.user);
         
-        // Fetch staff profile with proper error logging
-        console.log('[AuthProvider] onAuthStateChange - Fetching staff profile...');
+        // Clear timeout since we have auth now
+        clearTimeout(timeout);
+        
+        // Fetch staff profile with proper error logging - pass userId directly to avoid hanging
+        console.log('[AuthProvider] onAuthStateChange - Fetching staff profile for:', newSession.user.id);
         try {
-          const staffProfile = await getStaffProfile();
+          const staffProfile = await getStaffProfile(newSession.user.id);
           console.log('[AuthProvider] onAuthStateChange - Staff profile:', staffProfile);
           setStaff(staffProfile);
         } catch (err) {
           console.error('[AuthProvider] onAuthStateChange - Staff profile error:', err);
         }
         
+        // Set loading false now that we have user and staff
+        setIsLoading(false);
+        
         // Trigger client sync with database
         useFitomicsStore.getState().setAuthenticated(true);
       } else {
         setUser(null);
         setStaff(null);
+        setIsLoading(false);
         
         // Mark as not authenticated
         useFitomicsStore.getState().setAuthenticated(false);
@@ -140,8 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!result.error && result.user) {
       setUser(result.user);
       setSession(result.session);
-      console.log('[AuthProvider] User and session set, fetching staff profile...');
-      const staffProfile = await getStaffProfile();
+      console.log('[AuthProvider] User and session set, fetching staff profile for:', result.user.id);
+      const staffProfile = await getStaffProfile(result.user.id);
       console.log('[AuthProvider] Staff profile:', staffProfile);
       setStaff(staffProfile);
       
