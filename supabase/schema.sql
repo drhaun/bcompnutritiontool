@@ -4,6 +4,19 @@
 create extension if not exists "uuid-ossp";
 
 -- ============================================================================
+-- UTILITY FUNCTIONS (must be created before triggers that use them)
+-- ============================================================================
+
+-- Updated_at trigger function
+create or replace function public.set_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+-- ============================================================================
 -- STAFF TABLE - Manages coaches, nutritionists, and admins
 -- ============================================================================
 
@@ -253,14 +266,9 @@ create policy "Admins can delete all clients" on public.clients
 -- ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS active_phase_id uuid;
 -- ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS timeline_events jsonb default '[]';
 
--- Updated_at trigger
-create or replace function public.set_updated_at()
-returns trigger as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
+-- ============================================================================
+-- TRIGGERS FOR OTHER TABLES
+-- ============================================================================
 
 create trigger set_updated_at_user_profiles
 before update on public.user_profiles
