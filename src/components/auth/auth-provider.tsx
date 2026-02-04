@@ -65,8 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const currentUser = await getCurrentUser();
           setUser(currentUser);
           
-          // Staff profile is optional - don't block on it
-          getStaffProfile().then(setStaff).catch(() => {});
+          // Fetch staff profile with logging
+          getStaffProfile().then(staffProfile => {
+            console.log('[AuthProvider] Staff profile loaded:', staffProfile);
+            setStaff(staffProfile);
+          }).catch((err) => {
+            console.error('[AuthProvider] Staff profile error:', err);
+          });
           
           // Trigger client sync with database
           useFitomicsStore.getState().setAuthenticated(true);

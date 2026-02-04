@@ -148,20 +148,36 @@ export async function getCurrentUser(): Promise<User | null> {
  */
 export async function getStaffProfile(): Promise<StaffUser | null> {
   if (!supabase || !isSupabaseConfigured) {
+    console.log('[Auth] getStaffProfile: Supabase not configured');
     return null;
   }
 
   const user = await getCurrentUser();
-  if (!user) return null;
+  if (!user) {
+    console.log('[Auth] getStaffProfile: No user logged in');
+    return null;
+  }
 
-  const { data } = await supabase
+  console.log('[Auth] getStaffProfile: Fetching for user:', user.id);
+  
+  const { data, error } = await supabase
     .from('staff')
     .select('*')
     .eq('auth_user_id', user.id)
     .single();
 
-  if (!data) return null;
+  if (error) {
+    console.error('[Auth] getStaffProfile error:', error);
+    return null;
+  }
 
+  if (!data) {
+    console.log('[Auth] getStaffProfile: No staff record found');
+    return null;
+  }
+
+  console.log('[Auth] getStaffProfile: Found staff record:', data.role);
+  
   return {
     id: data.id,
     email: data.email,

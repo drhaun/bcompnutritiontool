@@ -62,6 +62,9 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { staff, isAuthenticated, isConfigured, signOut } = useAuth();
+  
+  // Debug logging
+  console.log('[Header] staff:', staff, 'isAdmin:', isAdmin(staff));
   const { 
     clients, 
     activeClientId, 
