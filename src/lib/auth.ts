@@ -179,44 +179,68 @@ export async function getStaffProfile(userId?: string): Promise<StaffUser | null
 
   console.log('[Auth] getStaffProfile: Fetching for user:', authUserId);
   
-  // Add timeout to prevent hanging
-  const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) => {
-    setTimeout(() => {
-      resolve({ data: null, error: { message: 'Staff query timed out after 5 seconds' } });
-    }, 5000);
-  });
+  // Try the query with retries (connection can be flaky)
+  const maxRetries = 3;
+  let lastError: any = null;
   
-  const queryPromise = supabase
-    .from('staff')
-    .select('*')
-    .eq('auth_user_id', authUserId)
-    .single();
-  
-  const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[Auth] getStaffProfile: Attempt ${attempt}/${maxRetries}`);
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) => {
+        setTimeout(() => {
+          resolve({ data: null, error: { message: `Staff query timed out after 10 seconds (attempt ${attempt})` } });
+        }, 10000);
+      });
+      
+      const queryPromise = supabase
+        .from('staff')
+        .select('*')
+        .eq('auth_user_id', authUserId)
+        .single();
+      
+      const result = await Promise.race([queryPromise, timeoutPromise]);
+      const { data, error } = result;
 
-  if (error) {
-    console.error('[Auth] getStaffProfile error:', error);
-    return null;
+      if (error) {
+        lastError = error;
+        console.warn(`[Auth] getStaffProfile attempt ${attempt} failed:`, error.message || JSON.stringify(error));
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
+          continue;
+        }
+      } else if (data) {
+        console.log('[Auth] getStaffProfile: Found staff record:', data.role);
+        return {
+          id: data.id,
+          email: data.email,
+          name: data.name,
+          role: data.role,
+          isActive: data.is_active ?? true,
+          canViewAllClients: data.can_view_all_clients ?? false,
+          permissions: data.permissions ?? {},
+          createdAt: data.created_at,
+          authUserId: data.auth_user_id,
+        };
+      }
+    } catch (err) {
+      lastError = err;
+      console.warn(`[Auth] getStaffProfile attempt ${attempt} exception:`, err);
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
+    }
   }
-
-  if (!data) {
-    console.log('[Auth] getStaffProfile: No staff record found');
-    return null;
-  }
-
-  console.log('[Auth] getStaffProfile: Found staff record:', data.role);
   
-  return {
-    id: data.id,
-    email: data.email,
-    name: data.name,
-    role: data.role,
-    isActive: data.is_active ?? true,
-    canViewAllClients: data.can_view_all_clients ?? false,
-    permissions: data.permissions ?? {},
-    createdAt: data.created_at,
-    authUserId: data.auth_user_id,
-  };
+  // All retries failed
+  if (lastError) {
+    console.error('[Auth] getStaffProfile all retries failed:', lastError.message || JSON.stringify(lastError));
+  } else {
+    console.log('[Auth] getStaffProfile: No staff record found after retries');
+  }
+  return null;
 }
 
 /**
