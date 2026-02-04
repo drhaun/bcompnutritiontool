@@ -114,16 +114,21 @@ export async function signOut(): Promise<{ error: string | null }> {
  * Get current session
  */
 export async function getSession(): Promise<Session | null> {
+  console.log('[Auth] getSession: Starting...');
   if (!supabase || !isSupabaseConfigured) {
+    console.log('[Auth] getSession: Supabase not configured');
     return null;
   }
 
   try {
+    console.log('[Auth] getSession: Calling supabase.auth.getSession()...');
     const { data, error } = await supabase.auth.getSession();
+    console.log('[Auth] getSession: Got response, error:', error?.message || 'none');
     if (error) {
       console.error('[Auth] getSession error:', error);
       return null;
     }
+    console.log('[Auth] getSession: Session exists:', !!data.session);
     return data.session;
   } catch (err) {
     console.error('[Auth] getSession exception:', err);
@@ -135,12 +140,21 @@ export async function getSession(): Promise<Session | null> {
  * Get current user
  */
 export async function getCurrentUser(): Promise<User | null> {
+  console.log('[Auth] getCurrentUser: Starting...');
   if (!supabase || !isSupabaseConfigured) {
+    console.log('[Auth] getCurrentUser: Supabase not configured');
     return null;
   }
 
-  const { data } = await supabase.auth.getUser();
-  return data.user;
+  try {
+    console.log('[Auth] getCurrentUser: Calling supabase.auth.getUser()...');
+    const { data, error } = await supabase.auth.getUser();
+    console.log('[Auth] getCurrentUser: Got response, user:', data.user?.id, 'error:', error?.message || 'none');
+    return data.user;
+  } catch (err) {
+    console.error('[Auth] getCurrentUser exception:', err);
+    return null;
+  }
 }
 
 /**
