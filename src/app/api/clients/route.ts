@@ -44,17 +44,32 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Fetch clients for this user
-    const { data: clients, error } = await supabase
+    // Check if user is admin or has full visibility
+    const { data: staffRecord } = await supabase
+      .from('staff')
+      .select('role, can_view_all_clients')
+      .eq('auth_user_id', user.id)
+      .single();
+    
+    const canViewAll = staffRecord?.role === 'admin' || staffRecord?.can_view_all_clients === true;
+    
+    // Fetch clients - admins see all, others see only their own
+    let query = supabase
       .from('clients')
       .select('*')
-      .eq('coach_id', user.id)
       .order('updated_at', { ascending: false });
+    
+    // Only filter by coach_id if user doesn't have full visibility
+    if (!canViewAll) {
+      query = query.eq('coach_id', user.id);
+    }
+    
+    const { data: clients, error } = await query;
     
     if (error) {
       console.error('Error fetching clients:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch clients' },
+        { error: 'Failed to fetch clients', details: error.message },
         { status: 500 }
       );
     }
