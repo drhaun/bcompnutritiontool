@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const timeout = setTimeout(() => {
       console.log('[AuthProvider] Timeout reached, forcing isLoading=false');
       setIsLoading(false);
-    }, 3000);
+    }, 8000); // Increased to 8s to allow staff profile to load
 
     // Skip auth if Supabase not configured
     if (!isSupabaseConfigured) {
@@ -58,20 +58,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Get initial session
     const initAuth = async () => {
       try {
+        console.log('[AuthProvider] initAuth starting, isSupabaseConfigured:', isSupabaseConfigured);
         const currentSession = await getSession();
+        console.log('[AuthProvider] Session:', currentSession ? 'found' : 'none');
         setSession(currentSession);
         
         if (currentSession) {
           const currentUser = await getCurrentUser();
+          console.log('[AuthProvider] User:', currentUser?.id);
           setUser(currentUser);
           
-          // Fetch staff profile with logging
-          getStaffProfile().then(staffProfile => {
-            console.log('[AuthProvider] Staff profile loaded:', staffProfile);
+          // Fetch staff profile - AWAIT it to ensure it completes before loading ends
+          console.log('[AuthProvider] Fetching staff profile...');
+          try {
+            const staffProfile = await getStaffProfile();
+            console.log('[AuthProvider] Staff profile result:', staffProfile);
             setStaff(staffProfile);
-          }).catch((err) => {
+          } catch (err) {
             console.error('[AuthProvider] Staff profile error:', err);
-          });
+          }
           
           // Trigger client sync with database
           useFitomicsStore.getState().setAuthenticated(true);
@@ -93,8 +98,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (newSession) {
         const currentUser = await getCurrentUser();
+        console.log('[AuthProvider] onAuthStateChange - User:', currentUser?.id);
         setUser(currentUser);
-        getStaffProfile().then(setStaff).catch(() => {});
+        
+        // Fetch staff profile with proper error logging
+        console.log('[AuthProvider] onAuthStateChange - Fetching staff profile...');
+        try {
+          const staffProfile = await getStaffProfile();
+          console.log('[AuthProvider] onAuthStateChange - Staff profile:', staffProfile);
+          setStaff(staffProfile);
+        } catch (err) {
+          console.error('[AuthProvider] onAuthStateChange - Staff profile error:', err);
+        }
         
         // Trigger client sync with database
         useFitomicsStore.getState().setAuthenticated(true);
