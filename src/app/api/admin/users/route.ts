@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 // Create admin client with service role key for user management
@@ -19,8 +20,8 @@ function getAdminClient() {
   });
 }
 
-// Get regular client for auth checks
-function getClient() {
+// Get client that uses cookies for session (like other API routes)
+async function getAuthClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   
@@ -28,20 +29,35 @@ function getClient() {
     return null;
   }
   
-  return createClient(supabaseUrl, supabaseAnonKey);
+  const cookieStore = await cookies();
+  
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          cookieStore.set(name, value, options);
+        });
+      },
+    },
+  });
 }
 
 // Check if current user is admin
-async function isCurrentUserAdmin(supabase: ReturnType<typeof createClient>): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser();
+async function isCurrentUserAdmin(supabase: ReturnType<typeof createServerClient>): Promise<boolean> {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  console.log('[Admin API] getUser result:', user?.id, 'error:', error?.message);
   if (!user) return false;
   
-  const { data: staff } = await supabase
+  const { data: staff, error: staffError } = await supabase
     .from('staff')
     .select('role')
     .eq('auth_user_id', user.id)
     .single();
   
+  console.log('[Admin API] Staff check:', staff?.role, 'error:', staffError?.message);
   return staff?.role === 'admin';
 }
 
@@ -50,22 +66,16 @@ async function isCurrentUserAdmin(supabase: ReturnType<typeof createClient>): Pr
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getClient();
+    const supabase = await getAuthClient();
     const adminClient = getAdminClient();
     
     if (!supabase || !adminClient) {
       return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
     }
     
-    // Get auth token from request
-    const authHeader = request.headers.get('authorization');
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      await supabase.auth.setSession({ access_token: token, refresh_token: '' });
-    }
-    
-    // Check admin status
+    // Check admin status using cookie-based session
     const isAdmin = await isCurrentUserAdmin(supabase);
+    console.log('[Admin API] isAdmin check result:', isAdmin);
     if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
     }
@@ -100,7 +110,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getClient();
+    const supabase = await getAuthClient();
     const adminClient = getAdminClient();
     
     if (!supabase || !adminClient) {

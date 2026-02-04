@@ -179,11 +179,20 @@ export async function getStaffProfile(userId?: string): Promise<StaffUser | null
 
   console.log('[Auth] getStaffProfile: Fetching for user:', authUserId);
   
-  const { data, error } = await supabase
+  // Add timeout to prevent hanging
+  const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) => {
+    setTimeout(() => {
+      resolve({ data: null, error: { message: 'Staff query timed out after 5 seconds' } });
+    }, 5000);
+  });
+  
+  const queryPromise = supabase
     .from('staff')
     .select('*')
     .eq('auth_user_id', authUserId)
     .single();
+  
+  const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
   if (error) {
     console.error('[Auth] getStaffProfile error:', error);
