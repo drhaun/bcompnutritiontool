@@ -17,6 +17,39 @@ end;
 $$ language plpgsql;
 
 -- ============================================================================
+-- SECURITY DEFINER FUNCTIONS (to avoid RLS recursion)
+-- These functions bypass RLS when checking admin/permission status
+-- ============================================================================
+
+-- Check if current user is admin
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists (
+    select 1 from public.staff
+    where auth_user_id = auth.uid()
+    and role = 'admin'
+  );
+$$;
+
+-- Check if current user can view all clients
+create or replace function public.can_view_all_clients()
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists (
+    select 1 from public.staff
+    where auth_user_id = auth.uid()
+    and (role = 'admin' or can_view_all_clients = true)
+  );
+$$;
+
+-- ============================================================================
 -- STAFF TABLE - Manages coaches, nutritionists, and admins
 -- ============================================================================
 
@@ -44,45 +77,21 @@ alter table public.staff enable row level security;
 create policy "Users can view own staff record" on public.staff
   for select using (auth.uid() = auth_user_id);
 
--- Admins can view all staff records
+-- Admins can view all staff records (using security definer function to avoid recursion)
 create policy "Admins can view all staff" on public.staff
-  for select using (
-    exists (
-      select 1 from public.staff s 
-      where s.auth_user_id = auth.uid() 
-      and s.role = 'admin'
-    )
-  );
+  for select using (public.is_admin());
 
 -- Admins can insert staff records
 create policy "Admins can insert staff" on public.staff
-  for insert with check (
-    exists (
-      select 1 from public.staff s 
-      where s.auth_user_id = auth.uid() 
-      and s.role = 'admin'
-    )
-  );
+  for insert with check (public.is_admin());
 
 -- Admins can update staff records
 create policy "Admins can update staff" on public.staff
-  for update using (
-    exists (
-      select 1 from public.staff s 
-      where s.auth_user_id = auth.uid() 
-      and s.role = 'admin'
-    )
-  );
+  for update using (public.is_admin());
 
 -- Admins can delete staff records
 create policy "Admins can delete staff" on public.staff
-  for delete using (
-    exists (
-      select 1 from public.staff s 
-      where s.auth_user_id = auth.uid() 
-      and s.role = 'admin'
-    )
-  );
+  for delete using (public.is_admin());
 
 -- Trigger for staff updated_at
 create trigger set_updated_at_staff
@@ -221,13 +230,7 @@ create policy "Users can view own clients" on public.clients
 
 -- Policy: Admins and users with can_view_all_clients can see ALL clients
 create policy "Admins can view all clients" on public.clients
-  for select using (
-    exists (
-      select 1 from public.staff s 
-      where s.auth_user_id = auth.uid() 
-      and (s.role = 'admin' or s.can_view_all_clients = true)
-    )
-  );
+  for select using (public.can_view_all_clients());
 
 -- Policy: Users can insert their own clients  
 create policy "Users can insert own clients" on public.clients
@@ -239,13 +242,7 @@ create policy "Users can update own clients" on public.clients
 
 -- Policy: Admins can update any client
 create policy "Admins can update all clients" on public.clients
-  for update using (
-    exists (
-      select 1 from public.staff s 
-      where s.auth_user_id = auth.uid() 
-      and s.role = 'admin'
-    )
-  );
+  for update using (public.is_admin());
 
 -- Policy: Users can delete their own clients
 create policy "Users can delete own clients" on public.clients
@@ -253,13 +250,7 @@ create policy "Users can delete own clients" on public.clients
 
 -- Policy: Admins can delete any client
 create policy "Admins can delete all clients" on public.clients
-  for delete using (
-    exists (
-      select 1 from public.staff s 
-      where s.auth_user_id = auth.uid() 
-      and s.role = 'admin'
-    )
-  );
+  for delete using (public.is_admin());
 
 -- Migration: Add phase columns to existing clients table (run if table already exists)
 -- ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS phases jsonb default '[]';
