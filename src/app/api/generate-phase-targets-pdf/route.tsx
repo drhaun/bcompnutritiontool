@@ -243,16 +243,13 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     lineHeight: 1.4,
   },
-  // Footer
+  // Footer - removed absolute positioning to prevent overlap
   footer: {
-    position: 'absolute',
-    bottom: 30,
-    left: 40,
-    right: 40,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 15,
+    marginTop: 'auto',
     borderTopWidth: 1,
     borderTopColor: '#eee',
   },
@@ -469,8 +466,8 @@ const PhaseTargetsPDF: React.FC<PhaseTargetsPDFProps & { logoSrc: string | null 
           </View>
         </View>
 
-        {/* Day-by-Day Targets Table */}
-        <View style={styles.section}>
+        {/* Day-by-Day Targets Table - wrap={false} keeps it together */}
+        <View style={styles.section} wrap={false}>
           <Text style={styles.sectionTitle}>Weekly Target Breakdown</Text>
           <View style={styles.tableContainer}>
             <View style={styles.tableHeader}>
@@ -482,7 +479,7 @@ const PhaseTargetsPDF: React.FC<PhaseTargetsPDFProps & { logoSrc: string | null 
               <Text style={[styles.tableHeaderCell, { width: '17%', textAlign: 'center' }]}>Fat</Text>
             </View>
             {dayTargets.map((day, index) => (
-              <View key={day.day} style={[styles.tableRow, index % 2 === 1 && styles.tableRowAlt]}>
+              <View key={day.day} style={[styles.tableRow, index % 2 === 1 && styles.tableRowAlt]} wrap={false}>
                 <Text style={[styles.tableCell, { width: '18%', fontWeight: 600 }]}>{day.day}</Text>
                 <View style={{ width: '14%' }}>
                   {day.isWorkout ? (

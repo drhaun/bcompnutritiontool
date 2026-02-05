@@ -438,19 +438,36 @@ export function PhaseTargetsEditor({
     ? (fatGrams / weightKg).toFixed(1)
     : effectiveFatPerKg.toFixed(1);
 
-  // Calculate base metabolic values
+  // Calculate base metabolic values - use measured/saved RMR if available
   const baseMetrics = useMemo(() => {
     if (!weightKg || !heightCm || !userProfile.age || !userProfile.gender) {
       return null;
     }
     
-    const rmr = calculateBMR(userProfile.gender, weightKg, heightCm, userProfile.age);
+    // Use the saved RMR from profile (which could be measured or calculated)
+    // Fall back to formula-based calculation if not available
+    let rmr: number;
+    let rmrSource: 'measured' | 'calculated' = 'calculated';
+    
+    if (userProfile.rmr && userProfile.rmr > 0) {
+      // Use the final saved RMR value from profile
+      rmr = userProfile.rmr;
+      rmrSource = userProfile.metabolicAssessment?.useMeasuredRMR ? 'measured' : 'calculated';
+    } else if (userProfile.metabolicAssessment?.calculatedRMR && userProfile.metabolicAssessment.calculatedRMR > 0) {
+      // Use the metabolic assessment's calculated RMR
+      rmr = userProfile.metabolicAssessment.calculatedRMR;
+      rmrSource = userProfile.metabolicAssessment.useMeasuredRMR ? 'measured' : 'calculated';
+    } else {
+      // Fallback to formula-based calculation
+      rmr = calculateBMR(userProfile.gender, weightKg, heightCm, userProfile.age);
+    }
+    
     const activityMultiplier = getActivityMultiplier(userProfile.activityLevel || 'Active (10-15k steps/day)');
     const neat = rmr * (activityMultiplier - 1);
     const tef = rmr * 0.1;
     
-    return { rmr, neat, tef, activityMultiplier };
-  }, [weightKg, heightCm, userProfile.age, userProfile.gender, userProfile.activityLevel]);
+    return { rmr, neat, tef, activityMultiplier, rmrSource };
+  }, [weightKg, heightCm, userProfile.age, userProfile.gender, userProfile.activityLevel, userProfile.rmr, userProfile.metabolicAssessment]);
 
   // Build full day configurations merging profile defaults with overrides
   const fullDayConfigs = useMemo((): Record<DayOfWeek, DayConfig> => {
@@ -689,18 +706,32 @@ export function PhaseTargetsEditor({
     setIsExportingPDF(true);
     
     try {
-      // Build day targets for PDF
+      // Build day targets for PDF - use saved phase targets if available, otherwise use full configs
+      const savedTargets = phase.nutritionTargets || [];
       const dayTargets = DAYS.map(day => {
         const config = fullDayConfigs[day];
+        const savedTarget = savedTargets.find(t => t.day === day);
         return {
           day,
-          isWorkoutDay: config?.isWorkoutDay || false,
-          calories: config?.calories || 0,
-          protein: config?.protein || 0,
-          carbs: config?.carbs || 0,
-          fat: config?.fat || 0,
+          isWorkout: savedTarget?.isWorkoutDay ?? config?.isWorkoutDay ?? false,
+          calories: savedTarget?.calories ?? savedTarget?.targetCalories ?? config?.calories ?? 0,
+          protein: savedTarget?.protein ?? config?.protein ?? 0,
+          carbs: savedTarget?.carbs ?? config?.carbs ?? 0,
+          fat: savedTarget?.fat ?? config?.fat ?? 0,
         };
       });
+      
+      // Calculate current stats from profile
+      const currentWeight = userProfile.weightLbs || 0;
+      const currentBodyFat = userProfile.bodyFatPercentage || 0;
+      const currentFatMass = currentWeight * (currentBodyFat / 100);
+      const currentLeanMass = currentWeight - currentFatMass;
+      
+      // Calculate target stats from phase
+      const targetWeight = phase.targetWeightLbs || currentWeight;
+      const targetBodyFat = phase.targetBodyFat || currentBodyFat;
+      const targetFatMass = targetWeight * (targetBodyFat / 100);
+      const targetLeanMass = targetWeight - targetFatMass;
       
       const response = await fetch('/api/generate-phase-targets-pdf', {
         method: 'POST',
@@ -708,28 +739,31 @@ export function PhaseTargetsEditor({
         body: JSON.stringify({
           clientName: userProfile.name || 'Client',
           phase: {
-            type: phase.goalType,
             name: phase.name,
+            goalType: phase.goalType,
             durationWeeks: phaseDuration,
-            weeklyRate: phase.rateOfChange || 0,
-            startDate: phase.startDate,
-            endDate: phase.endDate,
+            weeklyChange: phase.rateOfChange ? (phase.rateOfChange / 100) * currentWeight : 0,
+            startDate: new Date(phase.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            endDate: new Date(phase.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
           },
           currentStats: {
-            weight: userProfile.weightLbs || 0,
-            bodyFat: userProfile.bodyFatPercentage || 0,
+            weight: currentWeight,
+            bodyFat: currentBodyFat,
+            fatMass: currentFatMass,
+            leanMass: currentLeanMass,
+            tdee: weeklyAverages.avgTDEE,
           },
           targetStats: {
-            weight: phase.targetWeightLbs || userProfile.weightLbs || 0,
-            bodyFat: phase.targetBodyFat || userProfile.bodyFatPercentage || 0,
+            weight: targetWeight,
+            bodyFat: targetBodyFat,
+            fatMass: targetFatMass,
+            leanMass: targetLeanMass,
           },
           averageTargets: {
             calories: weeklyAverages.avgCalories,
             protein: weeklyAverages.avgProtein,
             carbs: weeklyAverages.avgCarbs,
             fat: weeklyAverages.avgFat,
-            workoutDays: weeklyAverages.workoutDayCount,
-            restDays: weeklyAverages.restDayCount,
           },
           dayTargets,
         }),
@@ -1630,7 +1664,9 @@ export function PhaseTargetsEditor({
                   </h4>
                   <div className="grid grid-cols-5 gap-2 text-center text-sm">
                     <div className="p-2 rounded bg-background">
-                      <p className="text-xs text-muted-foreground">RMR</p>
+                      <p className="text-xs text-muted-foreground">
+                        RMR {baseMetrics.rmrSource === 'measured' && <span className="text-green-600">(M)</span>}
+                      </p>
                       <p className="font-mono font-medium">{Math.round(baseMetrics.rmr)}</p>
                     </div>
                     <div className="p-2 rounded bg-background">
