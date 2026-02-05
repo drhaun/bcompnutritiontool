@@ -46,8 +46,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logo: {
-    width: 140,
-    height: 45,
+    width: 160,
+    height: 39,  // Maintains 4.1:1 aspect ratio of original image (1409x344)
   },
   title: {
     fontSize: 26,

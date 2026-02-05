@@ -558,11 +558,41 @@ export default function SetupPage() {
         })));
       }
       
-      // Metabolic assessment - zone data and activity level
-      if (userProfile.metabolicAssessment?.hasZoneData) {
-        setHasZoneData(true);
-        if (userProfile.metabolicAssessment.zoneCaloriesPerMin) {
-          setZoneCalories(userProfile.metabolicAssessment.zoneCaloriesPerMin);
+      // Metabolic assessment - RMR, body fat, zone data and activity level
+      if (userProfile.metabolicAssessment) {
+        const metAssess = userProfile.metabolicAssessment;
+        
+        // RMR settings
+        if (metAssess.useMeasuredRMR !== undefined) {
+          setUseMeasuredRMR(metAssess.useMeasuredRMR);
+        }
+        if (metAssess.measuredRMR !== undefined) {
+          setMeasuredRMR(metAssess.measuredRMR);
+        }
+        if (metAssess.selectedRMREquations?.length) {
+          setSelectedEquations(metAssess.selectedRMREquations);
+        }
+        if (metAssess.useAverageRMR !== undefined) {
+          setUseAverageRMR(metAssess.useAverageRMR);
+        }
+        
+        // Body fat settings
+        if (metAssess.useMeasuredBF !== undefined) {
+          setUseMeasuredBF(metAssess.useMeasuredBF);
+        }
+        if (metAssess.measuredBFPercent !== undefined) {
+          setMeasuredBFPercent(metAssess.measuredBFPercent);
+        }
+        if (metAssess.estimatedBFPercent !== undefined) {
+          setEstimatedBFPercent(metAssess.estimatedBFPercent);
+        }
+        
+        // Zone data
+        if (metAssess.hasZoneData) {
+          setHasZoneData(true);
+          if (metAssess.zoneCaloriesPerMin) {
+            setZoneCalories(metAssess.zoneCaloriesPerMin);
+          }
         }
       }
       if (userProfile.activityLevel) {

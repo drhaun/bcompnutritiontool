@@ -77,7 +77,9 @@ import {
   Leaf,
   ChevronDown,
   ChevronUp,
-  Beaker
+  Beaker,
+  Download,
+  Loader2
 } from 'lucide-react';
 import type { 
   Phase, 
@@ -309,6 +311,7 @@ export function PhaseTargetsEditor({
   const [copyTargetDays, setCopyTargetDays] = useState<DayOfWeek[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [targetsConfirmed, setTargetsConfirmed] = useState(phase.nutritionTargets?.length > 0);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   
   // Macro coefficient settings - slider-based
   const [proteinLevel, setProteinLevel] = useState<ProteinLevel>('moderate');
@@ -628,6 +631,85 @@ export function PhaseTargetsEditor({
     toast.success('Nutrition targets and meal settings saved for this phase');
   };
 
+  // Export phase targets PDF
+  const handleExportPDF = async () => {
+    if (!weeklyAverages || !fullDayConfigs) {
+      toast.error('Please configure nutrition targets first');
+      return;
+    }
+    
+    setIsExportingPDF(true);
+    
+    try {
+      // Build day targets for PDF
+      const dayTargets = DAYS.map(day => {
+        const config = fullDayConfigs[day];
+        return {
+          day,
+          isWorkoutDay: config?.isWorkoutDay || false,
+          calories: config?.calories || 0,
+          protein: config?.protein || 0,
+          carbs: config?.carbs || 0,
+          fat: config?.fat || 0,
+        };
+      });
+      
+      const response = await fetch('/api/generate-phase-targets-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName: userProfile.name || 'Client',
+          phase: {
+            type: phase.goalType,
+            name: phase.name,
+            durationWeeks: phaseDuration,
+            weeklyRate: phase.rateOfChange || 0,
+            startDate: phase.startDate,
+            endDate: phase.endDate,
+          },
+          currentStats: {
+            weight: userProfile.weightLbs || 0,
+            bodyFat: userProfile.bodyFatPercentage || 0,
+          },
+          targetStats: {
+            weight: phase.targetWeightLbs || userProfile.weightLbs || 0,
+            bodyFat: phase.targetBodyFat || userProfile.bodyFatPercentage || 0,
+          },
+          averageTargets: {
+            calories: weeklyAverages.avgCalories,
+            protein: weeklyAverages.avgProtein,
+            carbs: weeklyAverages.avgCarbs,
+            fat: weeklyAverages.avgFat,
+            workoutDays: weeklyAverages.workoutDayCount,
+            restDays: weeklyAverages.restDayCount,
+          },
+          dayTargets,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${userProfile.name || 'Client'}-${phase.name.replace(/\s+/g, '-')}-targets.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Phase targets PDF downloaded!');
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.error('Failed to generate PDF');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
   // Calculate phase duration
   const phaseDuration = useMemo(() => {
     const start = new Date(phase.startDate);
@@ -681,10 +763,31 @@ export function PhaseTargetsEditor({
                 </p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={onEditPhase} className="h-9">
-              <Edit2 className="h-3.5 w-3.5 mr-1.5" />
-              Edit
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExportPDF}
+                disabled={isExportingPDF || !weeklyAverages}
+                className="h-9 border-[#c19962] text-[#c19962] hover:bg-[#c19962]/10"
+              >
+                {isExportingPDF ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    Export PDF
+                  </>
+                )}
+              </Button>
+              <Button variant="outline" size="sm" onClick={onEditPhase} className="h-9">
+                <Edit2 className="h-3.5 w-3.5 mr-1.5" />
+                Edit
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
