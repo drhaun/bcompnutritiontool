@@ -339,14 +339,52 @@ export function PhaseTargetsEditor({
   const [expandedMicroCategory, setExpandedMicroCategory] = useState<string | null>(null);
   
   // Day configurations (overrides from profile defaults)
-  const [dayConfigs, setDayConfigs] = useState<Record<DayOfWeek, Partial<DayConfig>>>({
-    Monday: {},
-    Tuesday: {},
-    Wednesday: {},
-    Thursday: {},
-    Friday: {},
-    Saturday: {},
-    Sunday: {},
+  // Initialize from saved phase targets if they exist
+  const [dayConfigs, setDayConfigs] = useState<Record<DayOfWeek, Partial<DayConfig>>>(() => {
+    const initialConfigs: Record<DayOfWeek, Partial<DayConfig>> = {
+      Monday: {},
+      Tuesday: {},
+      Wednesday: {},
+      Thursday: {},
+      Friday: {},
+      Saturday: {},
+      Sunday: {},
+    };
+    
+    // If phase has saved nutrition targets, restore them as overrides
+    if (phase.nutritionTargets && phase.nutritionTargets.length > 0) {
+      phase.nutritionTargets.forEach(target => {
+        const day = target.day as DayOfWeek;
+        const savedTarget = target as any; // For accessing extended fields
+        
+        // Restore all saved values as explicit overrides
+        initialConfigs[day] = {
+          calories: target.calories || target.targetCalories,
+          protein: target.protein,
+          carbs: target.carbs,
+          fat: target.fat,
+          mealCount: target.meals,
+          snackCount: target.snacks,
+          wakeTime: savedTarget.wakeTime,
+          sleepTime: savedTarget.sleepTime,
+          preWorkoutMeal: savedTarget.preWorkoutMeal,
+          postWorkoutMeal: savedTarget.postWorkoutMeal,
+          mealContexts: savedTarget.mealContexts,
+          // Restore workouts - either from saved workouts array or create one if it was a workout day
+          workouts: savedTarget.workouts?.length > 0 
+            ? savedTarget.workouts 
+            : (target.isWorkoutDay ? [{
+                enabled: true,
+                type: 'Resistance Training' as WorkoutType,
+                timeSlot: 'evening' as WorkoutTimeSlot,
+                duration: 60,
+                intensity: 'Medium' as const,
+              }] : []),
+        };
+      });
+    }
+    
+    return initialConfigs;
   });
 
   // Map goal type for nutrition calc
@@ -572,17 +610,22 @@ export function PhaseTargetsEditor({
         ...prev,
         [targetDay]: {
           ...prev[targetDay],
+          // Copy schedule settings
           wakeTime: fullSourceConfig.wakeTime,
           sleepTime: fullSourceConfig.sleepTime,
+          // Copy workouts (this is key for workout vs rest day)
+          workouts: fullSourceConfig.workouts ? [...fullSourceConfig.workouts] : [],
+          // Copy meal structure
           mealCount: fullSourceConfig.mealCount,
           snackCount: fullSourceConfig.snackCount,
+          mealContexts: fullSourceConfig.mealContexts ? [...fullSourceConfig.mealContexts] : [],
           preWorkoutMeal: fullSourceConfig.preWorkoutMeal,
           postWorkoutMeal: fullSourceConfig.postWorkoutMeal,
-          // Optionally copy macros if they were customized
-          ...(sourceConfig.calories ? { calories: sourceConfig.calories } : {}),
-          ...(sourceConfig.protein ? { protein: sourceConfig.protein } : {}),
-          ...(sourceConfig.carbs ? { carbs: sourceConfig.carbs } : {}),
-          ...(sourceConfig.fat ? { fat: sourceConfig.fat } : {}),
+          // Copy macros (always copy the full source values to ensure consistency)
+          calories: fullSourceConfig.calories,
+          protein: fullSourceConfig.protein,
+          carbs: fullSourceConfig.carbs,
+          fat: fullSourceConfig.fat,
         }
       }));
     });
@@ -590,7 +633,7 @@ export function PhaseTargetsEditor({
     setShowCopyDialog(false);
     setCopySourceDay(null);
     setCopyTargetDays([]);
-    toast.success(`Settings copied to ${copyTargetDays.length} days`);
+    toast.success(`Settings copied to ${copyTargetDays.length} day${copyTargetDays.length !== 1 ? 's' : ''}`);
   };
 
   // Save and confirm targets
@@ -616,6 +659,9 @@ export function PhaseTargetsEditor({
         sleepTime: config?.sleepTime,
         preWorkoutMeal: config?.preWorkoutMeal,
         postWorkoutMeal: config?.postWorkoutMeal,
+        // Save workout details for restoration
+        workouts: config?.workouts || [],
+        mealContexts: config?.mealContexts || [],
       } as DayNutritionTargets & { 
         wakeTime?: string; 
         sleepTime?: string;
@@ -623,6 +669,8 @@ export function PhaseTargetsEditor({
         postWorkoutMeal?: boolean;
         workoutCalories?: number;
         energyAvailability?: number;
+        workouts?: WorkoutConfig[];
+        mealContexts?: MealContext[];
       };
     });
     
