@@ -467,6 +467,7 @@ export default function SetupPage() {
   
   // Handle hydration mismatch - wait for client-side store to be ready
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isSavingProgress, setIsSavingProgress] = useState(false);
   useEffect(() => {
     setIsHydrated(true);
   }, []);
@@ -1410,93 +1411,105 @@ export default function SetupPage() {
   };
 
   // Save progress without validation - allows saving incomplete profiles
-  const handleSaveProgress = () => {
-    // Save whatever data is available, even without a name
-    setUserProfile({
-      name: name.trim() || 'Unnamed Client',
-      gender,
-      age,
-      heightFt,
-      heightIn,
-      heightCm,
-      weightLbs,
-      weightKg,
-      bodyFatPercentage: bodyFatPercent,
-      workoutsPerWeek,
-      activityLevel,
-      rmr: finalRMR,
-      metabolicAssessment: {
-        useMeasuredRMR,
-        measuredRMR: useMeasuredRMR ? measuredRMR : undefined,
-        selectedRMREquations: selectedEquations,
-        useAverageRMR,
-        calculatedRMR: finalRMR,
-        useMeasuredBF,
-        measuredBFPercent: useMeasuredBF ? measuredBFPercent : undefined,
-        estimatedBFPercent: !useMeasuredBF ? estimatedBFPercent : undefined,
-        hasZoneData,
-        zoneCaloriesPerMin: hasZoneData ? zoneCalories : undefined,
-      },
-      addresses: addresses
-        .filter(a => a.street.trim() || a.city.trim() || a.zipCode.trim())
-        .map(a => ({
-          label: a.label,
-          address: a.street,
-          city: a.city,
-          state: a.state,
-          zipCode: a.zipCode,
-          isDefault: a.isDefault,
-        })),
-    });
+  const handleSaveProgress = async () => {
+    setIsSavingProgress(true);
     
-    // Save body comp goals if any goal type is selected
-    if (goalType) {
-      setBodyCompGoals({
-        goalType: goalType === 'performance' ? 'maintain' : goalType,
-        targetWeight: Math.round(targetWeight),
-        targetBodyFat: Math.round(targetBodyFat * 10) / 10,
-        timelineWeeks: Math.round(timelineWeeks),
-        weeklyWeightChange: Math.round(weeklyChange * 100) / 100,
-        performancePriority,
-        musclePreservation,
-        fatGainTolerance,
-        recompEmphasis,
-        assessmentReason,
+    try {
+      // Save whatever data is available, even without a name
+      setUserProfile({
+        name: name.trim() || 'Unnamed Client',
+        gender,
+        age,
+        heightFt,
+        heightIn,
+        heightCm,
+        weightLbs,
+        weightKg,
+        bodyFatPercentage: bodyFatPercent,
+        workoutsPerWeek,
+        activityLevel,
+        rmr: finalRMR,
+        metabolicAssessment: {
+          useMeasuredRMR,
+          measuredRMR: useMeasuredRMR ? measuredRMR : undefined,
+          selectedRMREquations: selectedEquations,
+          useAverageRMR,
+          calculatedRMR: finalRMR,
+          useMeasuredBF,
+          measuredBFPercent: useMeasuredBF ? measuredBFPercent : undefined,
+          estimatedBFPercent: !useMeasuredBF ? estimatedBFPercent : undefined,
+          hasZoneData,
+          zoneCaloriesPerMin: hasZoneData ? zoneCalories : undefined,
+        },
+        addresses: addresses
+          .filter(a => a.street.trim() || a.city.trim() || a.zipCode.trim())
+          .map(a => ({
+            label: a.label,
+            address: a.street,
+            city: a.city,
+            state: a.state,
+            zipCode: a.zipCode,
+            isDefault: a.isDefault,
+          })),
       });
+      
+      // Save body comp goals if any goal type is selected
+      if (goalType) {
+        setBodyCompGoals({
+          goalType: goalType === 'performance' ? 'maintain' : goalType,
+          targetWeight: Math.round(targetWeight),
+          targetBodyFat: Math.round(targetBodyFat * 10) / 10,
+          timelineWeeks: Math.round(timelineWeeks),
+          weeklyWeightChange: Math.round(weeklyChange * 100) / 100,
+          performancePriority,
+          musclePreservation,
+          fatGainTolerance,
+          recompEmphasis,
+          assessmentReason,
+        });
+      }
+      
+      // Save diet preferences
+      const allProteins = [
+        ...selectedProteins,
+        ...customProteins.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
+      ];
+      const allCarbs = [
+        ...selectedCarbs,
+        ...customCarbs.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
+      ];
+      const allFats = [
+        ...selectedFats,
+        ...customFats.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
+      ];
+      
+      setDietPreferences({
+        dietaryRestrictions: selectedRestrictions,
+        allergies: selectedAllergies,
+        preferredProteins: allProteins,
+        preferredCarbs: allCarbs,
+        preferredFats: allFats,
+        cuisinePreferences: selectedCuisines,
+        foodsToAvoid: foodsToAvoid.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
+        foodsToEmphasize: foodsToEmphasize.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
+        spiceLevel,
+        flavorProfiles: selectedFlavors,
+        varietyLevel,
+        micronutrientFocus: selectedMicronutrients,
+        budgetPreference,
+        cookingTimePreference: cookingTime,
+      });
+      
+      // Small delay to ensure store updates complete
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      toast.success('Progress saved! You can continue editing anytime.');
+    } catch (error) {
+      console.error('Error saving progress:', error);
+      toast.error('Failed to save progress. Please try again.');
+    } finally {
+      setIsSavingProgress(false);
     }
-    
-    // Save diet preferences
-    const allProteins = [
-      ...selectedProteins,
-      ...customProteins.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
-    ];
-    const allCarbs = [
-      ...selectedCarbs,
-      ...customCarbs.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
-    ];
-    const allFats = [
-      ...selectedFats,
-      ...customFats.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
-    ];
-    
-    setDietPreferences({
-      dietaryRestrictions: selectedRestrictions,
-      allergies: selectedAllergies,
-      preferredProteins: allProteins,
-      preferredCarbs: allCarbs,
-      preferredFats: allFats,
-      cuisinePreferences: selectedCuisines,
-      foodsToAvoid: foodsToAvoid.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
-      foodsToEmphasize: foodsToEmphasize.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
-      spiceLevel,
-      flavorProfiles: selectedFlavors,
-      varietyLevel,
-      micronutrientFocus: selectedMicronutrients,
-      budgetPreference,
-      cookingTimePreference: cookingTime,
-    });
-    
-    toast.success('Progress saved! You can continue editing anytime.');
   };
 
   const handleEquationToggle = (equation: RMREquation) => {
@@ -4499,10 +4512,20 @@ export default function SetupPage() {
                     onClick={handleSaveProgress} 
                     size="lg"
                     variant="outline"
+                    disabled={isSavingProgress}
                     className="border-[#c19962] text-[#c19962] hover:bg-[#c19962]/10"
                   >
-                    <CheckCircle2 className="mr-2 h-5 w-5" />
-                    Save Progress
+                    {isSavingProgress ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="mr-2 h-5 w-5" />
+                        Save Progress
+                      </>
+                    )}
                   </Button>
                   <Button 
                     onClick={handleSaveAndContinue} 
