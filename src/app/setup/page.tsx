@@ -465,7 +465,8 @@ export default function SetupPage() {
     setWeeklySchedule,
     setDietPreferences,
     activeClientId,
-    getActiveClient
+    getActiveClient,
+    saveActiveClientState
   } = useFitomicsStore();
   
   // Handle hydration mismatch - wait for client-side store to be ready
@@ -1468,8 +1469,13 @@ export default function SetupPage() {
       cookingTimePreference: cookingTime,
     });
     
-    toast.success('Profile saved!');
-    router.push('/planning');
+    // CRITICAL: Persist the changes to the client object before navigating
+    // Use setTimeout to ensure state updates complete first
+    setTimeout(() => {
+      saveActiveClientState();
+      toast.success('Profile saved!');
+      router.push('/planning');
+    }, 100);
   };
 
   // Save progress without validation - allows saving incomplete profiles
@@ -1563,7 +1569,13 @@ export default function SetupPage() {
       });
       
       // Small delay to ensure store updates complete
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // CRITICAL: Persist the changes to the client object
+      saveActiveClientState();
+      
+      // Another small delay for persistence
+      await new Promise(resolve => setTimeout(resolve, 200));
       
       toast.success('Progress saved! You can continue editing anytime.');
     } catch (error) {
