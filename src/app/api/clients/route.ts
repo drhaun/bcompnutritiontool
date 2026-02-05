@@ -164,6 +164,15 @@ export async function PUT(request: NextRequest) {
       );
     }
     
+    // Check if user is admin or has full visibility
+    const { data: staffRecord } = await supabase
+      .from('staff')
+      .select('role, can_view_all_clients')
+      .eq('auth_user_id', user.id)
+      .single();
+    
+    const canViewAll = staffRecord?.role === 'admin' || staffRecord?.can_view_all_clients === true;
+    
     const { clients: localClients } = await request.json();
     
     if (!Array.isArray(localClients)) {
@@ -173,23 +182,34 @@ export async function PUT(request: NextRequest) {
       );
     }
     
-    // Get existing clients from database
-    const { data: existingClients } = await supabase
+    // Get existing clients from database - respecting visibility rules
+    let existingQuery = supabase
       .from('clients')
-      .select('id, updated_at')
-      .eq('coach_id', user.id);
+      .select('id, updated_at, coach_id');
+    
+    if (!canViewAll) {
+      existingQuery = existingQuery.eq('coach_id', user.id);
+    }
+    
+    const { data: existingClients } = await existingQuery;
     
     const existingMap = new Map(
-      (existingClients || []).map(c => [c.id, new Date(c.updated_at)])
+      (existingClients || []).map(c => [c.id, { updatedAt: new Date(c.updated_at), coachId: c.coach_id }])
     );
     
     const toInsert: any[] = [];
     const toUpdate: any[] = [];
     
     for (const client of localClients) {
+      const existing = existingMap.get(client.id);
+      
+      // Preserve the original coach_id if updating someone else's client
+      // Only set to current user if this is a brand new client
+      const coachId = existing?.coachId || client.coachId || user.id;
+      
       const clientData = {
         id: client.id,
-        coach_id: user.id,
+        coach_id: coachId,
         name: client.name,
         email: client.email || null,
         phone: client.phone || null,
@@ -211,13 +231,12 @@ export async function PUT(request: NextRequest) {
         timeline_events: client.timelineEvents || [],
       };
       
-      const existingDate = existingMap.get(client.id);
       const localDate = new Date(client.updatedAt);
       
-      if (!existingDate) {
+      if (!existing) {
         // New client - insert
         toInsert.push(clientData);
-      } else if (localDate > existingDate) {
+      } else if (localDate > existing.updatedAt) {
         // Local is newer - update
         toUpdate.push(clientData);
       }
@@ -248,12 +267,17 @@ export async function PUT(request: NextRequest) {
       }
     }
     
-    // Fetch the latest state from database
-    const { data: syncedClients, error } = await supabase
+    // Fetch the latest state from database - respecting visibility rules
+    let syncQuery = supabase
       .from('clients')
       .select('*')
-      .eq('coach_id', user.id)
       .order('updated_at', { ascending: false });
+    
+    if (!canViewAll) {
+      syncQuery = syncQuery.eq('coach_id', user.id);
+    }
+    
+    const { data: syncedClients, error } = await syncQuery;
     
     if (error) {
       console.error('Error fetching synced clients:', error);

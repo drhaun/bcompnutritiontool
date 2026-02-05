@@ -29,6 +29,17 @@ async function createSupabaseClient() {
   );
 }
 
+// Helper to check if user can access all clients
+async function canUserAccessAllClients(supabase: any, userId: string): Promise<boolean> {
+  const { data: staffRecord } = await supabase
+    .from('staff')
+    .select('role, can_view_all_clients')
+    .eq('auth_user_id', userId)
+    .single();
+  
+  return staffRecord?.role === 'admin' || staffRecord?.can_view_all_clients === true;
+}
+
 // GET - Fetch a single client
 export async function GET(
   request: NextRequest,
@@ -44,12 +55,21 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const { data: client, error } = await supabase
+    // Check if user has full visibility
+    const canViewAll = await canUserAccessAllClients(supabase, user.id);
+    
+    // Build query - admins/coaches with visibility can access any client
+    let query = supabase
       .from('clients')
       .select('*')
-      .eq('id', id)
-      .eq('coach_id', user.id)
-      .single();
+      .eq('id', id);
+    
+    // Only restrict to own clients if user doesn't have full visibility
+    if (!canViewAll) {
+      query = query.eq('coach_id', user.id);
+    }
+    
+    const { data: client, error } = await query.single();
     
     if (error || !client) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
@@ -77,6 +97,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
+    // Check if user has full visibility
+    const canViewAll = await canUserAccessAllClients(supabase, user.id);
+    
     const body = await request.json();
     
     // Map frontend fields to database fields
@@ -102,13 +125,18 @@ export async function PATCH(
     if (body.activePhaseId !== undefined) updateData.active_phase_id = body.activePhaseId;
     if (body.timelineEvents !== undefined) updateData.timeline_events = body.timelineEvents;
     
-    const { data: client, error } = await supabase
+    // Build query - admins/coaches with visibility can update any client
+    let query = supabase
       .from('clients')
       .update(updateData)
-      .eq('id', id)
-      .eq('coach_id', user.id)
-      .select()
-      .single();
+      .eq('id', id);
+    
+    // Only restrict to own clients if user doesn't have full visibility
+    if (!canViewAll) {
+      query = query.eq('coach_id', user.id);
+    }
+    
+    const { data: client, error } = await query.select().single();
     
     if (error) {
       console.error('Error updating client:', error);
@@ -126,7 +154,7 @@ export async function PATCH(
   }
 }
 
-// DELETE - Delete a client
+// DELETE - Delete a client (only admins can delete other people's clients)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -141,11 +169,26 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const { error } = await supabase
+    // Check staff role - only admins can delete other people's clients
+    const { data: staffRecord } = await supabase
+      .from('staff')
+      .select('role')
+      .eq('auth_user_id', user.id)
+      .single();
+    
+    const isAdmin = staffRecord?.role === 'admin';
+    
+    // Build query - admins can delete any client, others can only delete their own
+    let query = supabase
       .from('clients')
       .delete()
-      .eq('id', id)
-      .eq('coach_id', user.id);
+      .eq('id', id);
+    
+    if (!isAdmin) {
+      query = query.eq('coach_id', user.id);
+    }
+    
+    const { error } = await query;
     
     if (error) {
       console.error('Error deleting client:', error);
