@@ -157,7 +157,7 @@ export async function createClientInDb(client: ClientProfile): Promise<ClientPro
 }
 
 /**
- * Update a client in Supabase
+ * Update a client in Supabase (creates if doesn't exist)
  */
 export async function updateClientInDb(
   clientId: string,
@@ -176,6 +176,36 @@ export async function updateClientInDb(
         console.log('[ClientSync] Not authenticated, update skipped');
         return null;
       }
+      
+      // If client doesn't exist (404), try to create it instead
+      if (response.status === 404) {
+        console.log('[ClientSync] Client not found in DB, creating new record for:', clientId);
+        
+        // Build a full client object for creation
+        const newClient: ClientProfile = {
+          id: clientId,
+          name: updates.userProfile?.name || 'Unnamed Client',
+          email: updates.email,
+          notes: updates.notes,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: updates.status || 'active',
+          userProfile: updates.userProfile || {},
+          bodyCompGoals: updates.bodyCompGoals || {},
+          dietPreferences: updates.dietPreferences || {},
+          weeklySchedule: updates.weeklySchedule || {},
+          phases: updates.phases || [],
+          activePhaseId: updates.activePhaseId,
+          timelineEvents: updates.timelineEvents || [],
+          nutritionTargets: updates.nutritionTargets || [],
+          mealPlan: updates.mealPlan || null,
+          currentStep: updates.currentStep || 1,
+          planHistory: updates.planHistory || [],
+        };
+        
+        return await createClientInDb(newClient);
+      }
+      
       const errorData = await response.json().catch(() => ({}));
       console.error('[ClientSync] Update failed:', errorData);
       throw new Error(errorData.error || 'Failed to update client');

@@ -139,8 +139,13 @@ export async function PATCH(
     const { data: client, error } = await query.select().single();
     
     if (error) {
+      // PGRST116 = no rows returned (client not found or not authorized)
+      if (error.code === 'PGRST116') {
+        console.log('Client update: No rows returned for id:', id, 'canViewAll:', canViewAll);
+        return NextResponse.json({ error: 'Client not found or not authorized' }, { status: 404 });
+      }
       console.error('Error updating client:', error);
-      return NextResponse.json({ error: 'Failed to update client' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to update client', details: error.message }, { status: 500 });
     }
     
     if (!client) {
