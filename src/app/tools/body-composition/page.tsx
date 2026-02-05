@@ -547,7 +547,7 @@ export default function BodyCompositionPage() {
 
   // PDF Export handler
   const handleExportPDF = async () => {
-    if (!nutritionTargets || !summary) {
+    if (!nutritionTargets || !summary || !projectedMetrics) {
       toast.error('Please complete the body composition setup first');
       return;
     }
@@ -556,7 +556,8 @@ export default function BodyCompositionPage() {
     try {
       // Calculate metabolic data
       const neat = neatEstimates[neatLevel];
-      const tefValue = Math.round(tdee * (tef / 100));
+      const tefValue = Math.round(effectiveRmr * (tef / 100));
+      const calculatedBmi = weightKg / (heightM * heightM);
       
       // Build projections array (first 8 weeks + final)
       const projectionsForPDF = weeklyProjections
@@ -578,19 +579,19 @@ export default function BodyCompositionPage() {
           age: age,
           gender: gender,
           bodyFat: currentBodyFat,
-          fatMass: fatMassLbs,
-          leanMass: ffmLbs,
-          bmi: bmi,
-          fmi: fmi,
-          ffmi: ffmi,
+          fatMass: currentMetrics.fatMassLbs,
+          leanMass: currentMetrics.ffmLbs,
+          bmi: Math.round(calculatedBmi * 10) / 10,
+          fmi: currentMetrics.fmi,
+          ffmi: currentMetrics.ffmi,
         },
         targetStats: {
-          weight: targetWeightResult,
-          bodyFat: targetBFResult,
-          fatMass: targetFMLbs,
-          leanMass: targetFFMLbs,
-          fmi: targetFMI,
-          ffmi: targetFFMI,
+          weight: projectedMetrics.weightLbs,
+          bodyFat: projectedMetrics.bodyFat,
+          fatMass: projectedMetrics.fatMassLbs,
+          leanMass: projectedMetrics.ffmLbs,
+          fmi: projectedMetrics.fmi,
+          ffmi: projectedMetrics.ffmi,
         },
         metabolicData: {
           rmr: effectiveRmr,
