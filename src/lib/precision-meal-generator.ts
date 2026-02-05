@@ -1,6 +1,12 @@
 /**
  * Precision Meal Generator
  * Combines AI meal concepts with database-accurate nutrition calculations
+ * 
+ * ACCURACY TARGETS:
+ * - Calories: ±5%
+ * - Protein: ±10%
+ * - Carbs: ±15%
+ * - Fat: ±10%
  */
 
 import OpenAI from 'openai';
@@ -21,6 +27,33 @@ import type {
   DietPreferences,
   DayOfWeek,
 } from '@/types';
+
+// Accuracy thresholds - tighter than before
+export const ACCURACY_THRESHOLDS = {
+  calories: 0.05,    // ±5%
+  protein: 0.10,     // ±10%
+  carbs: 0.15,       // ±15% (more flexible as it fills remaining)
+  fat: 0.10,         // ±10%
+};
+
+// Reasonable portion limits to prevent extraordinary amounts
+const PORTION_LIMITS: Record<string, { min: number; max: number; typical: number }> = {
+  primary_protein: { min: 100, max: 200, typical: 150 },   // Was 80-220
+  primary_carb: { min: 80, max: 250, typical: 150 },       // Was 80-350 (350g rice is absurd)
+  fat_source: { min: 8, max: 40, typical: 15 },            // Was 8-50
+  vegetable: { min: 75, max: 150, typical: 100 },          // Was 50-200
+  flavor: { min: 3, max: 20, typical: 10 },
+  default: { min: 30, max: 150, typical: 75 },
+};
+
+// Portion warnings for unusual amounts
+export const PORTION_WARNINGS = {
+  protein_high: 'This meal contains over 200g of protein source - consider splitting into two meals',
+  carbs_high: 'Carb portion exceeds typical serving (>250g) - verify this is intentional',
+  fat_low: 'Fat is under 5g - may affect satiety and nutrient absorption',
+  fat_high: 'Fat source exceeds 40g - consider using a leaner protein or reducing added fats',
+  vegetable_low: 'Low vegetable content - consider adding more for fiber and micronutrients',
+};
 
 interface MealConcept {
   name: string;
@@ -86,9 +119,56 @@ export async function generatePreciseMeal(
   return meal;
 }
 
+// Chef persona for AI prompts - emphasizes flavor and culinary expertise
+const CHEF_PERSONA = `
+You are an AWARD-WINNING MICHELIN-TRAINED CHEF who specializes in nutrition-optimized cuisine.
+Your food must be DELICIOUS FIRST - hitting macros means nothing if the client won't enjoy eating it.
+
+FLAVOR PRINCIPLES YOU LIVE BY:
+• Balance: Every dish needs acid (lemon, vinegar), fat, salt, and umami
+• Texture contrast: Combine crispy + creamy, crunchy + tender elements
+• Fresh herbs and aromatics transform simple ingredients into restaurant-quality meals
+• Proper seasoning is NON-NEGOTIABLE - taste as you cook
+• Visual appeal matters - we eat with our eyes first
+• Temperature contrast can make a dish memorable (warm protein on cool salad)
+
+COOKING EXCELLENCE:
+• Proteins should be properly seared, not steamed - get that Maillard reaction
+• Vegetables should have color and crunch, never mushy or gray
+• Grains should be fluffy and well-seasoned, never bland
+• Sauces and dressings tie everything together`;
+
+// Variety enforcement rules for preventing repetitive meals
+const buildVarietyRules = (
+  previousMeals: string[],
+  usedProteins: string[],
+  yesterdayCuisine: string
+): string => {
+  return `
+═══════════════════════════════════════════════════════════
+🎯 VARIETY REQUIREMENTS (STRICTLY ENFORCE)
+═══════════════════════════════════════════════════════════
+• NEVER repeat an exact meal name within 14 days
+• Same protein source MAX 2x per week
+  ${usedProteins.length > 0 ? `→ Already used this week: ${usedProteins.join(', ')}` : '→ No proteins used yet this week'}
+• Rotate cuisines daily - yesterday was ${yesterdayCuisine || 'unknown'}, choose DIFFERENT today
+• Include at least 3 different vegetables this week
+• Avoid similar cooking methods back-to-back (don't do stir-fry twice in a row)
+
+❌ RECENT MEALS TO AVOID (make something SIGNIFICANTLY different):
+${previousMeals.slice(-14).map((m, i) => `  ${i + 1}. ${m}`).join('\n') || '  None yet'}
+`;
+};
+
 /**
  * Get AI meal concept (what foods to use, not the macros)
  * Creates delicious, varied meals with proper culinary consideration
+ * 
+ * Enhanced with:
+ * - Chef persona for flavor emphasis
+ * - Strong personalization 
+ * - 14-meal variety tracking
+ * - Cuisine rotation
  */
 async function getMealConcept(
   openai: OpenAI,
@@ -161,23 +241,52 @@ async function getMealConcept(
 
   // Build cuisine variety guidance
   const recentMealTypes = previousMeals.map(m => {
-    if (m.toLowerCase().includes('asian') || m.toLowerCase().includes('stir') || m.toLowerCase().includes('teriyaki')) return 'asian';
-    if (m.toLowerCase().includes('mexican') || m.toLowerCase().includes('taco') || m.toLowerCase().includes('burrito')) return 'mexican';
-    if (m.toLowerCase().includes('mediterranean') || m.toLowerCase().includes('greek')) return 'mediterranean';
-    if (m.toLowerCase().includes('italian') || m.toLowerCase().includes('pasta')) return 'italian';
+    const lower = m.toLowerCase();
+    if (lower.includes('asian') || lower.includes('stir') || lower.includes('teriyaki') || lower.includes('thai') || lower.includes('chinese') || lower.includes('korean')) return 'asian';
+    if (lower.includes('mexican') || lower.includes('taco') || lower.includes('burrito') || lower.includes('southwest')) return 'mexican';
+    if (lower.includes('mediterranean') || lower.includes('greek') || lower.includes('falafel') || lower.includes('hummus')) return 'mediterranean';
+    if (lower.includes('italian') || lower.includes('pasta') || lower.includes('risotto')) return 'italian';
+    if (lower.includes('indian') || lower.includes('curry') || lower.includes('tikka') || lower.includes('masala')) return 'indian';
     return 'american';
   });
+  
+  // Extract used proteins from previous meals for variety tracking
+  const usedProteins: string[] = [];
+  previousMeals.slice(-14).forEach(m => {
+    const lower = m.toLowerCase();
+    if (lower.includes('chicken')) usedProteins.push('chicken');
+    if (lower.includes('salmon')) usedProteins.push('salmon');
+    if (lower.includes('beef') || lower.includes('steak')) usedProteins.push('beef');
+    if (lower.includes('turkey')) usedProteins.push('turkey');
+    if (lower.includes('shrimp') || lower.includes('prawn')) usedProteins.push('shrimp');
+    if (lower.includes('fish') || lower.includes('cod') || lower.includes('tilapia') || lower.includes('tuna')) usedProteins.push('fish');
+    if (lower.includes('egg')) usedProteins.push('eggs');
+    if (lower.includes('pork') || lower.includes('ham')) usedProteins.push('pork');
+    if (lower.includes('tofu') || lower.includes('tempeh')) usedProteins.push('tofu');
+  });
+  
+  // Count protein frequency to identify overused ones
+  const proteinCounts: Record<string, number> = {};
+  usedProteins.forEach(p => { proteinCounts[p] = (proteinCounts[p] || 0) + 1; });
+  const overusedProteins = Object.entries(proteinCounts)
+    .filter(([_, count]) => count >= 2)
+    .map(([protein]) => protein);
+  
+  const yesterdayCuisine = recentMealTypes.length > 0 ? recentMealTypes[recentMealTypes.length - 1] : 'unknown';
   
   const cuisinesToAvoid = recentMealTypes.slice(-3);
   const suggestedCuisines = cuisines.length > 0 
     ? cuisines.filter(c => !cuisinesToAvoid.includes(c.toLowerCase())).slice(0, 3)
-    : ['Mediterranean', 'Asian', 'Mexican', 'American', 'Italian'].filter(c => !cuisinesToAvoid.includes(c.toLowerCase())).slice(0, 3);
+    : ['Mediterranean', 'Asian', 'Mexican', 'American', 'Italian', 'Indian'].filter(c => !cuisinesToAvoid.includes(c.toLowerCase())).slice(0, 3);
+
+  // Build variety rules with enhanced tracking
+  const varietyRules = buildVarietyRules(previousMeals, [...new Set(usedProteins)], yesterdayCuisine);
 
   const prompt = `
-You are an expert culinary nutritionist and chef. Design a DELICIOUS, restaurant-quality meal that hits specific macros.
+${CHEF_PERSONA}
 
 ═══════════════════════════════════════════════════════════
-MEAL CONTEXT - CRITICAL FOR VARIETY
+🍳 MEAL CONTEXT
 ═══════════════════════════════════════════════════════════
 - Day: ${day}
 - Slot: ${slotLabel} at ${timeSlot || 'midday'}
@@ -185,13 +294,11 @@ MEAL CONTEXT - CRITICAL FOR VARIETY
 - Workout Timing: ${isWorkoutDay ? (workoutRelation === 'pre-workout' ? '⚡ PRE-WORKOUT - needs quick-digesting carbs, moderate protein, lower fat' : workoutRelation === 'post-workout' ? '💪 POST-WORKOUT - recovery focused: prioritize protein + carbs for glycogen replenishment' : 'Workout day but not around training') : 'Rest day - no workout timing considerations'}
 ${isSnack ? '- This is a SNACK: lighter portion, portable-friendly, quick to prepare' : ''}
 
-═══════════════════════════════════════════════════════════
-VARIETY REQUIREMENTS - MUST CREATE SOMETHING DIFFERENT!
-═══════════════════════════════════════════════════════════
-Recent meals to AVOID repeating (must be SIGNIFICANTLY different):
-${previousMeals.slice(-8).map((m, i) => `  ${i + 1}. ${m}`).join('\n') || '  None yet'}
-
-${previousMeals.length > 0 ? `⚠️ DO NOT create another "${previousMeals[previousMeals.length - 1]}" or similar!` : ''}
+${varietyRules}
+${overusedProteins.length > 0 ? `
+⚠️ OVERUSED PROTEINS THIS WEEK - USE DIFFERENT: ${overusedProteins.join(', ')}
+Consider alternatives like: ${['chicken', 'salmon', 'beef', 'turkey', 'shrimp', 'fish', 'eggs', 'tofu'].filter(p => !overusedProteins.includes(p)).slice(0, 4).join(', ')}
+` : ''}
 
 SUGGESTED CUISINE DIRECTION (pick ONE, make it authentic):
 ${suggestedCuisines.map(c => `  • ${c}`).join('\n')}
@@ -309,12 +416,26 @@ IMPORTANT:
     messages: [
       {
         role: 'system',
-        content: 'You are an expert chef-nutritionist. Create delicious, varied meals that hit macro targets. Never repeat similar meals. Make food that people WANT to eat. Include proper seasonings and cooking techniques.',
+        content: `You are an AWARD-WINNING MICHELIN-TRAINED CHEF who specializes in nutrition-optimized cuisine.
+        
+Your meals must be DELICIOUS FIRST - hitting macros means nothing if the client won't enjoy eating it.
+
+RULES:
+1. NEVER create generic "chicken rice broccoli" meals - every dish should have personality
+2. Proper seasoning is mandatory - include specific spices, herbs, and aromatics
+3. Texture and color variety make meals exciting
+4. Consider how flavors complement each other (acid balances richness, herbs brighten heavy proteins)
+5. Instructions should include cooking TECHNIQUES, not just "cook the chicken"
+6. Create something you'd be PROUD to serve in your restaurant
+
+Return ONLY valid JSON. Make food people CRAVE to eat.`,
       },
       { role: 'user', content: prompt },
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.85, // Higher temperature for more variety
+    temperature: 0.7, // Reduced from 0.85 for better consistency while maintaining creativity
+    presence_penalty: 0.3, // Discourage repetition
+    frequency_penalty: 0.2, // Encourage varied vocabulary
     max_tokens: 1000,
   });
 
@@ -409,15 +530,8 @@ async function buildMealFromConcept(
     const per100g = food.nutrients[primaryMacro];
     let grams = per100g > 0 ? (targetValue / per100g) * 100 : 100;
     
-    // Apply reasonable limits
-    const limits: Record<string, { min: number; max: number }> = {
-      primary_protein: { min: 100, max: 220 },
-      primary_carb: { min: 100, max: 300 },
-      fat_source: { min: 10, max: 40 },
-      vegetable: { min: 75, max: 200 },
-      flavor: { min: 5, max: 20 },
-    };
-    const limit = limits[role] || { min: 50, max: 150 };
+    // Apply reasonable limits from constants
+    const limit = PORTION_LIMITS[role] || PORTION_LIMITS.default;
     grams = Math.max(limit.min, Math.min(limit.max, grams));
     
     naivePortions.push({ food, role, grams, primaryMacro });
@@ -475,15 +589,8 @@ async function buildMealFromConcept(
       
       let newGrams = currentGrams * adjustedScale;
       
-      // Apply limits
-      const limits: Record<string, { min: number; max: number }> = {
-        primary_protein: { min: 80, max: 220 },
-        primary_carb: { min: 80, max: 350 },
-        fat_source: { min: 8, max: 50 },
-        vegetable: { min: 50, max: 200 },
-        flavor: { min: 3, max: 30 },
-      };
-      const limit = limits[portion.role] || { min: 30, max: 200 };
+      // Apply limits from constants
+      const limit = PORTION_LIMITS[portion.role] || PORTION_LIMITS.default;
       newGrams = Math.max(limit.min, Math.min(limit.max, newGrams));
       
       return scaleFood(portion.food, newGrams);
@@ -492,21 +599,22 @@ async function buildMealFromConcept(
     totals = calculateTotalMacros(scaledFoods);
   }
   
-  // Fourth pass: Balance macros - reduce excess protein, adjust carbs
-  // This is critical because scaling for calories often overshoots protein
+  // Fourth pass: Constraint-based macro balancing
+  // Uses ACCURACY_THRESHOLDS for tighter control
   
-  // If protein is significantly over, reduce protein source
+  // If protein is significantly over threshold, reduce protein source
   let proteinVar = (totals.protein - targetMacros.protein) / targetMacros.protein;
-  if (proteinVar > 0.15) {
+  if (proteinVar > ACCURACY_THRESHOLDS.protein) {
     const proteinIdx = naivePortions.findIndex(p => p.role === 'primary_protein');
     if (proteinIdx >= 0) {
       const proteinFood = naivePortions[proteinIdx].food;
       const per100g = proteinFood.nutrients.protein;
       if (per100g > 0) {
         const excess = totals.protein - targetMacros.protein;
-        const gramsToRemove = (excess / per100g) * 100 * 0.8; // Remove 80% of excess
+        const gramsToRemove = (excess / per100g) * 100 * 0.9; // Remove 90% of excess for tighter control
         let newGrams = scaledFoods[proteinIdx].scaledAmount - gramsToRemove;
-        newGrams = Math.max(80, Math.min(220, newGrams));
+        const limit = PORTION_LIMITS.primary_protein;
+        newGrams = Math.max(limit.min, Math.min(limit.max, newGrams));
         scaledFoods[proteinIdx] = scaleFood(proteinFood, newGrams);
         totals = calculateTotalMacros(scaledFoods);
       }
@@ -514,35 +622,58 @@ async function buildMealFromConcept(
   }
   
   // If calories dropped below target after protein reduction, add more carbs
+  // But respect the carb limit to avoid unreasonable portions
   const calorieDeficit = targetMacros.calories - totals.calories;
-  if (calorieDeficit > 30) {
+  if (calorieDeficit > 20) {  // More sensitive threshold
     const carbIdx = naivePortions.findIndex(p => p.role === 'primary_carb');
     if (carbIdx >= 0) {
       const carbFood = naivePortions[carbIdx].food;
       const calsper100g = carbFood.nutrients.calories;
       if (calsper100g > 0) {
-        const gramsToAdd = (calorieDeficit / calsper100g) * 100 * 0.7;
+        const gramsToAdd = (calorieDeficit / calsper100g) * 100 * 0.85;
         let newGrams = scaledFoods[carbIdx].scaledAmount + gramsToAdd;
-        newGrams = Math.max(80, Math.min(400, newGrams));
+        const limit = PORTION_LIMITS.primary_carb;
+        newGrams = Math.max(limit.min, Math.min(limit.max, newGrams));
         scaledFoods[carbIdx] = scaleFood(carbFood, newGrams);
         totals = calculateTotalMacros(scaledFoods);
       }
     }
   }
   
-  // If fat is significantly under, add more fat source
+  // If fat is under threshold, add more fat source
   const fatVar = (totals.fat - targetMacros.fat) / targetMacros.fat;
-  if (fatVar < -0.2) {
+  if (fatVar < -ACCURACY_THRESHOLDS.fat) {
     const fatIdx = naivePortions.findIndex(p => p.role === 'fat_source');
     if (fatIdx >= 0) {
       const fatFood = naivePortions[fatIdx].food;
       const per100g = fatFood.nutrients.fat;
       if (per100g > 0) {
         const deficit = targetMacros.fat - totals.fat;
-        const gramsToAdd = (deficit / per100g) * 100 * 0.8;
+        const gramsToAdd = (deficit / per100g) * 100 * 0.9;
         let newGrams = scaledFoods[fatIdx].scaledAmount + gramsToAdd;
-        newGrams = Math.max(8, Math.min(50, newGrams));
+        const limit = PORTION_LIMITS.fat_source;
+        newGrams = Math.max(limit.min, Math.min(limit.max, newGrams));
         scaledFoods[fatIdx] = scaleFood(fatFood, newGrams);
+      }
+    }
+  }
+  
+  // Fifth pass: Final precision tuning for calories within ±5%
+  // If still off target, make micro-adjustments to the primary carb
+  totals = calculateTotalMacros(scaledFoods);
+  const finalCalorieVar = Math.abs(totals.calories - targetMacros.calories) / targetMacros.calories;
+  if (finalCalorieVar > ACCURACY_THRESHOLDS.calories) {
+    const carbIdx = naivePortions.findIndex(p => p.role === 'primary_carb');
+    if (carbIdx >= 0) {
+      const carbFood = naivePortions[carbIdx].food;
+      const calsper100g = carbFood.nutrients.calories;
+      if (calsper100g > 0) {
+        const diff = targetMacros.calories - totals.calories;
+        const gramsAdjust = (diff / calsper100g) * 100;
+        let newGrams = scaledFoods[carbIdx].scaledAmount + gramsAdjust;
+        const limit = PORTION_LIMITS.primary_carb;
+        newGrams = Math.max(limit.min, Math.min(limit.max, newGrams));
+        scaledFoods[carbIdx] = scaleFood(carbFood, newGrams);
       }
     }
   }
@@ -573,8 +704,8 @@ function calculateTotalMacros(foods: ScaledFood[]): FoodNutrients {
 }
 
 /**
- * Fine-tune portions to get closer to targets
- * IMPORTANT: This function should only make minor adjustments and NEVER exceed calorie target
+ * Fine-tune portions to get closer to targets using constraint-based optimization
+ * IMPORTANT: Uses ACCURACY_THRESHOLDS for precision control
  */
 function refineMacros(
   foods: ScaledFood[],
@@ -586,26 +717,37 @@ function refineMacros(
   const calorieVariance = Math.abs(current.calories - target.calories) / target.calories;
   const proteinVariance = Math.abs(current.protein - target.protein) / target.protein;
   const carbsVariance = Math.abs(current.carbs - target.carbs) / target.carbs;
+  const fatVariance = Math.abs(current.fat - target.fat) / (target.fat || 1);
 
-  // If already within 5% on all macros, don't adjust
-  if (calorieVariance < 0.05 && proteinVariance < 0.1 && carbsVariance < 0.1) {
+  // If already within thresholds, don't adjust
+  if (
+    calorieVariance < ACCURACY_THRESHOLDS.calories &&
+    proteinVariance < ACCURACY_THRESHOLDS.protein &&
+    carbsVariance < ACCURACY_THRESHOLDS.carbs &&
+    fatVariance < ACCURACY_THRESHOLDS.fat
+  ) {
     return foods;
   }
 
-  // If we're OVER on calories, don't try to refine further - scaling should have handled this
-  if (current.calories > target.calories * 1.02) {
-    return foods;
+  // If we're significantly OVER on calories, scale down proportionally
+  if (current.calories > target.calories * (1 + ACCURACY_THRESHOLDS.calories)) {
+    const scaleFactor = target.calories / current.calories;
+    return foods.map((food, idx) => {
+      if (foodItems && foodItems[idx]) {
+        const newGrams = Math.max(PORTION_LIMITS.default.min, food.scaledAmount * scaleFactor);
+        return scaleFood(foodItems[idx].food, newGrams);
+      }
+      return food;
+    });
   }
 
-  // Only make small adjustments if we're UNDER target and need more of a specific macro
-  // This prevents the common case of adding too much and going over
   const refined = [...foods];
   
   // If protein is significantly under and we have room in calories
   const proteinDeficit = target.protein - current.protein;
   const calorieRoom = target.calories - current.calories;
   
-  if (proteinDeficit > 5 && calorieRoom > 50) {
+  if (proteinDeficit > 3 && calorieRoom > 30) {
     const proteinIdx = foods.findIndex(f => f.category === 'protein');
     if (proteinIdx >= 0 && foodItems && foodItems[proteinIdx]) {
       const proteinFood = foods[proteinIdx];
@@ -614,14 +756,50 @@ function refineMacros(
         // Only add enough to not exceed calorie target
         const maxAddGrams = (calorieRoom / proteinFood.nutrients.calories) * 100;
         const neededGrams = (proteinDeficit / per100g) * 100;
-        const addGrams = Math.min(maxAddGrams * 0.8, neededGrams); // Use 80% of available room
-        const newGrams = proteinFood.scaledAmount + addGrams;
+        const addGrams = Math.min(maxAddGrams * 0.9, neededGrams); // Use 90% of available room for precision
+        let newGrams = proteinFood.scaledAmount + addGrams;
+        const limit = PORTION_LIMITS.primary_protein;
+        newGrams = Math.max(limit.min, Math.min(limit.max, newGrams));
         refined[proteinIdx] = scaleFood(foodItems[proteinIdx].food, newGrams);
       }
     }
   }
 
   return refined;
+}
+
+/**
+ * Check portions for warnings about unusual amounts
+ */
+export function checkPortionWarnings(foods: ScaledFood[]): string[] {
+  const warnings: string[] = [];
+  
+  for (const food of foods) {
+    // Check for excessive protein portions
+    if (food.category === 'protein' && food.scaledAmount > PORTION_LIMITS.primary_protein.max) {
+      warnings.push(PORTION_WARNINGS.protein_high);
+    }
+    
+    // Check for excessive carb portions  
+    if ((food.category === 'grain' || food.category === 'carb') && 
+        food.scaledAmount > PORTION_LIMITS.primary_carb.max) {
+      warnings.push(PORTION_WARNINGS.carbs_high);
+    }
+  }
+  
+  // Check total fat
+  const totalFat = foods.reduce((sum, f) => sum + f.scaledNutrients.fat, 0);
+  if (totalFat < 5) {
+    warnings.push(PORTION_WARNINGS.fat_low);
+  }
+  
+  // Check vegetable content
+  const hasVegetables = foods.some(f => f.category === 'vegetable');
+  if (!hasVegetables) {
+    warnings.push(PORTION_WARNINGS.vegetable_low);
+  }
+  
+  return [...new Set(warnings)]; // Remove duplicates
 }
 
 /**

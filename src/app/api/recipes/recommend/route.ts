@@ -82,6 +82,66 @@ interface ScaledRecipe {
   is_low_carb: boolean;
   is_meal_prep_friendly: boolean;
   is_quick_prep: boolean;
+  // Substitution info (new - for soft filtering)
+  complianceStatus: 'strict' | 'adaptable' | 'excluded';
+  substitutionSuggestions?: string[];
+}
+
+// ============ SUBSTITUTION MAP ============
+// Common ingredient substitutions for dietary restrictions
+const SUBSTITUTION_MAP: Record<string, { pattern: RegExp; alternatives: string[]; restriction: string }[]> = {
+  'gluten-free': [
+    { pattern: /\b(wheat|bread|pasta|flour)\b/i, alternatives: ['gluten-free alternative', 'almond flour', 'rice flour', 'gluten-free pasta'], restriction: 'gluten-free' },
+    { pattern: /\b(soy sauce)\b/i, alternatives: ['tamari', 'coconut aminos'], restriction: 'gluten-free' },
+    { pattern: /\b(tortilla)\b/i, alternatives: ['corn tortilla', 'lettuce wrap'], restriction: 'gluten-free' },
+    { pattern: /\b(oats|oatmeal)\b/i, alternatives: ['certified gluten-free oats'], restriction: 'gluten-free' },
+    { pattern: /\b(breadcrumbs)\b/i, alternatives: ['almond flour', 'crushed pork rinds', 'gluten-free breadcrumbs'], restriction: 'gluten-free' },
+  ],
+  'dairy-free': [
+    { pattern: /\b(milk|cream)\b/i, alternatives: ['almond milk', 'coconut milk', 'oat milk'], restriction: 'dairy-free' },
+    { pattern: /\b(cheese|parmesan)\b/i, alternatives: ['nutritional yeast', 'dairy-free cheese'], restriction: 'dairy-free' },
+    { pattern: /\b(butter)\b/i, alternatives: ['olive oil', 'coconut oil', 'vegan butter'], restriction: 'dairy-free' },
+    { pattern: /\b(yogurt|greek yogurt)\b/i, alternatives: ['coconut yogurt', 'dairy-free yogurt'], restriction: 'dairy-free' },
+    { pattern: /\b(sour cream)\b/i, alternatives: ['cashew cream', 'dairy-free sour cream'], restriction: 'dairy-free' },
+  ],
+  'low-carb': [
+    { pattern: /\b(rice)\b/i, alternatives: ['cauliflower rice', 'riced broccoli'], restriction: 'low-carb' },
+    { pattern: /\b(potato)\b/i, alternatives: ['cauliflower', 'turnip', 'radishes'], restriction: 'low-carb' },
+    { pattern: /\b(bread|tortilla)\b/i, alternatives: ['lettuce wrap', 'low-carb tortilla'], restriction: 'low-carb' },
+    { pattern: /\b(pasta|noodles)\b/i, alternatives: ['zucchini noodles', 'shirataki noodles', 'spaghetti squash'], restriction: 'low-carb' },
+  ],
+  'keto': [
+    { pattern: /\b(rice)\b/i, alternatives: ['cauliflower rice'], restriction: 'keto' },
+    { pattern: /\b(potato)\b/i, alternatives: ['cauliflower mash', 'turnip'], restriction: 'keto' },
+    { pattern: /\b(bread)\b/i, alternatives: ['cloud bread', 'lettuce wrap'], restriction: 'keto' },
+    { pattern: /\b(sugar)\b/i, alternatives: ['erythritol', 'stevia', 'monk fruit'], restriction: 'keto' },
+    { pattern: /\b(honey|maple syrup)\b/i, alternatives: ['sugar-free syrup', 'stevia'], restriction: 'keto' },
+  ],
+};
+
+// Check if a recipe can be adapted for dietary restrictions
+function checkSubstitutions(
+  ingredientText: string,
+  restrictions: string[]
+): { canAdapt: boolean; suggestions: string[] } {
+  const suggestions: string[] = [];
+  
+  for (const restriction of restrictions) {
+    const restrictionSubs = SUBSTITUTION_MAP[restriction.toLowerCase()];
+    if (!restrictionSubs) continue;
+    
+    for (const sub of restrictionSubs) {
+      if (sub.pattern.test(ingredientText)) {
+        const matched = ingredientText.match(sub.pattern)?.[0] || 'ingredient';
+        suggestions.push(`Replace ${matched} with ${sub.alternatives[0]} (for ${restriction})`);
+      }
+    }
+  }
+  
+  return {
+    canAdapt: suggestions.length > 0,
+    suggestions,
+  };
 }
 
 // Calculate the optimal serving size to match target macros
@@ -332,18 +392,48 @@ export async function POST(request: NextRequest) {
       }
       
       // ========== DIETARY PATTERN CHECK ==========
-      // Check vegetarian/vegan requirements
+      // Check vegetarian/vegan requirements (these are STRICT - can't substitute meat)
       if (dietPreferences?.dietaryPattern) {
         const pattern = dietPreferences.dietaryPattern.toLowerCase();
         if (pattern.includes('vegan') && !recipe.is_vegan) continue;
         if (pattern.includes('vegetarian') && !recipe.is_vegetarian) continue;
       }
+      
+      // Track compliance status and substitution suggestions
+      let complianceStatus: 'strict' | 'adaptable' | 'excluded' = 'strict';
+      let substitutionSuggestions: string[] = [];
+      
       if (dietPreferences?.dietaryRestrictions) {
         const restrictions = dietPreferences.dietaryRestrictions.map(r => r.toLowerCase());
+        
+        // Vegan/vegetarian are strict (can't substitute meat/animal products easily)
         if (restrictions.includes('vegan') && !recipe.is_vegan) continue;
         if (restrictions.includes('vegetarian') && !recipe.is_vegetarian) continue;
-        if (restrictions.includes('gluten-free') && !recipe.is_gluten_free) continue;
-        if (restrictions.includes('dairy-free') && !recipe.is_dairy_free) continue;
+        
+        // For gluten-free and dairy-free, check if adaptable with substitutions
+        const softRestrictions = restrictions.filter(r => 
+          ['gluten-free', 'dairy-free', 'low-carb', 'keto'].includes(r)
+        );
+        
+        for (const restriction of softRestrictions) {
+          const isCompliant = 
+            (restriction === 'gluten-free' && recipe.is_gluten_free) ||
+            (restriction === 'dairy-free' && recipe.is_dairy_free) ||
+            (restriction === 'low-carb' && recipe.is_low_carb);
+          
+          if (!isCompliant) {
+            // Check if we can suggest substitutions
+            const { canAdapt, suggestions } = checkSubstitutions(ingredientText, [restriction]);
+            if (canAdapt) {
+              complianceStatus = 'adaptable';
+              substitutionSuggestions.push(...suggestions);
+            } else {
+              // No easy substitution available - still include but note it
+              complianceStatus = 'adaptable';
+              substitutionSuggestions.push(`Consider ${restriction} alternatives for this recipe`);
+            }
+          }
+        }
       }
 
       // Calculate optimal servings
@@ -389,7 +479,7 @@ export async function POST(request: NextRequest) {
       if (variance.caloriesPct > 30) continue;
 
       // Calculate match score
-      const { score, reasons } = calculateMatchScore(
+      let { score, reasons } = calculateMatchScore(
         {
           calories: recipe.calories,
           protein: recipe.protein,
@@ -406,6 +496,16 @@ export async function POST(request: NextRequest) {
         { caloriesPct: variance.caloriesPct, proteinPct: variance.proteinPct },
         dietPreferences
       );
+
+      // Adjust score based on compliance status
+      if (complianceStatus === 'strict') {
+        score += 10; // Bonus for strictly compliant recipes
+        reasons.push('✓ Fully compliant with dietary restrictions');
+      } else if (complianceStatus === 'adaptable') {
+        // Slight penalty but still include
+        score -= 5;
+        reasons.push('⚠️ Can be adapted with substitutions');
+      }
 
       processedRecipes.push({
         id: recipe.id,
@@ -433,17 +533,37 @@ export async function POST(request: NextRequest) {
         is_low_carb: recipe.is_low_carb,
         is_meal_prep_friendly: recipe.is_meal_prep_friendly,
         is_quick_prep: recipe.is_quick_prep,
+        complianceStatus,
+        substitutionSuggestions: substitutionSuggestions.length > 0 ? substitutionSuggestions : undefined,
       });
     }
 
-    // Sort by match score (highest first)
-    processedRecipes.sort((a, b) => b.matchScore - a.matchScore);
+    // Sort by match score (highest first), but prioritize strict compliance
+    processedRecipes.sort((a, b) => {
+      // First sort by compliance (strict > adaptable)
+      if (a.complianceStatus === 'strict' && b.complianceStatus !== 'strict') return -1;
+      if (b.complianceStatus === 'strict' && a.complianceStatus !== 'strict') return 1;
+      // Then by match score
+      return b.matchScore - a.matchScore;
+    });
 
-    // Return top results
+    // Count compliance types for user feedback
+    const strictCount = processedRecipes.filter(r => r.complianceStatus === 'strict').length;
+    const adaptableCount = processedRecipes.filter(r => r.complianceStatus === 'adaptable').length;
+
+    // Return top results with metadata about filtering
     return NextResponse.json({
       recipes: processedRecipes.slice(0, limit),
       total: processedRecipes.length,
       targetMacros,
+      filteringSummary: {
+        strictlyCompliant: strictCount,
+        adaptableWithSubstitutions: adaptableCount,
+        hasActiveRestrictions: (dietPreferences?.dietaryRestrictions?.length || 0) > 0,
+        message: adaptableCount > 0 
+          ? `Found ${strictCount} fully compliant recipes and ${adaptableCount} that can be adapted with simple substitutions.`
+          : undefined,
+      },
     });
 
   } catch (error) {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generatePreciseMeal } from '@/lib/precision-meal-generator';
+import { generatePreciseMeal, ACCURACY_THRESHOLDS, checkPortionWarnings } from '@/lib/precision-meal-generator';
 import type { 
   UserProfile, 
   BodyCompGoals, 
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       goalType: bodyCompGoals.goalType,
     });
     
-    // Validate macro accuracy
+    // Validate macro accuracy using tighter thresholds
     const variance = {
       calories: Math.abs(meal.totalMacros.calories - targetMacros.calories) / targetMacros.calories,
       protein: Math.abs(meal.totalMacros.protein - targetMacros.protein) / targetMacros.protein,
@@ -64,13 +64,32 @@ export async function POST(request: Request) {
       fat: targetMacros.fat > 0 ? Math.abs(meal.totalMacros.fat - targetMacros.fat) / targetMacros.fat : 0,
     };
     
-    const isAccurate = variance.calories < 0.15 && variance.protein < 0.15;
+    // Check against tighter accuracy thresholds
+    const isAccurate = 
+      variance.calories <= ACCURACY_THRESHOLDS.calories &&
+      variance.protein <= ACCURACY_THRESHOLDS.protein &&
+      variance.carbs <= ACCURACY_THRESHOLDS.carbs &&
+      variance.fat <= ACCURACY_THRESHOLDS.fat;
+    
+    // Get portion warnings if any
+    const warnings: string[] = [];
+    // Note: checkPortionWarnings would need the scaled foods, but we have the meal
+    // For now, check basic thresholds from the meal itself
+    if (meal.totalMacros.fat < 5) {
+      warnings.push('Low fat content may affect satiety');
+    }
     
     return NextResponse.json({ 
       success: true, 
       meal,
       accuracy: {
         withinTarget: isAccurate,
+        thresholds: {
+          calories: ACCURACY_THRESHOLDS.calories * 100,
+          protein: ACCURACY_THRESHOLDS.protein * 100,
+          carbs: ACCURACY_THRESHOLDS.carbs * 100,
+          fat: ACCURACY_THRESHOLDS.fat * 100,
+        },
         variance: {
           calories: Math.round(variance.calories * 100),
           protein: Math.round(variance.protein * 100),
@@ -78,6 +97,7 @@ export async function POST(request: Request) {
           fat: Math.round(variance.fat * 100),
         },
       },
+      warnings,
     });
     
   } catch (error) {

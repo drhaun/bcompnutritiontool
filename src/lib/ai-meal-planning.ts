@@ -83,6 +83,19 @@ PRACTICAL CONSTRAINTS:
 `;
 }
 
+// Chef persona for enhanced meal quality
+const CHEF_SYSTEM_PROMPT = `You are an AWARD-WINNING CHEF who also holds a nutrition certification.
+Your food must be DELICIOUS FIRST - macros mean nothing if the client won't enjoy eating.
+
+KEY PRINCIPLES:
+• Every dish needs proper seasoning - salt, pepper, herbs, spices, aromatics
+• Balance acid (lemon, vinegar), fat, salt, and umami in each meal
+• Texture contrast makes meals exciting - combine crispy, creamy, crunchy elements
+• Use fresh herbs to elevate simple ingredients
+• Make food that looks beautiful and tastes even better
+
+You NEVER create boring "plain chicken and rice" meals. Every dish should have personality and flavor.`;
+
 /**
  * Generate a single day's meal plan
  */
@@ -95,14 +108,30 @@ async function generateDayMealPlan(
   scheduleContext: string,
   previousMeals: string[] = []
 ): Promise<DayMealPlan> {
+  // Extract used proteins for variety tracking
+  const usedProteins: string[] = [];
+  previousMeals.forEach(m => {
+    const lower = m.toLowerCase();
+    if (lower.includes('chicken')) usedProteins.push('chicken');
+    if (lower.includes('salmon')) usedProteins.push('salmon');
+    if (lower.includes('beef') || lower.includes('steak')) usedProteins.push('beef');
+    if (lower.includes('turkey')) usedProteins.push('turkey');
+    if (lower.includes('shrimp')) usedProteins.push('shrimp');
+    if (lower.includes('fish') || lower.includes('cod') || lower.includes('tilapia')) usedProteins.push('fish');
+  });
+  const uniqueProteins = [...new Set(usedProteins)];
+  const overusedProteins = uniqueProteins.filter(p => usedProteins.filter(x => x === p).length >= 2);
+
   const prompt = `
-You are a professional nutritionist creating a precise meal plan for ${day}.
+You are creating a ${day} meal plan as an award-winning chef-nutritionist.
 
 ${userContext}
 
 ${dietaryContext}
 
-DAILY NUTRITION TARGETS (MUST HIT WITHIN ±5%):
+═══════════════════════════════════════════════════════════
+DAILY NUTRITION TARGETS (MUST HIT WITHIN ±5%)
+═══════════════════════════════════════════════════════════
 - Calories: ${dayTargets.targetCalories}
 - Protein: ${dayTargets.protein}g
 - Carbs: ${dayTargets.carbs}g
@@ -110,15 +139,20 @@ DAILY NUTRITION TARGETS (MUST HIT WITHIN ±5%):
 
 ${scheduleContext}
 
-${previousMeals.length > 0 ? `AVOID REPEATING these meals from earlier in the week: ${previousMeals.join(', ')}` : ''}
+═══════════════════════════════════════════════════════════
+🎯 VARIETY REQUIREMENTS (STRICTLY ENFORCE)
+═══════════════════════════════════════════════════════════
+${previousMeals.length > 0 ? `MEALS TO AVOID REPEATING: ${previousMeals.slice(-14).join(', ')}` : 'First day - establish variety!'}
+${overusedProteins.length > 0 ? `⚠️ OVERUSED PROTEINS - USE DIFFERENT: ${overusedProteins.join(', ')}` : ''}
 
 CRITICAL REQUIREMENTS:
-1. Create 3 meals and 2 snacks
-2. Each meal/snack must have EXACT portion sizes in grams or common measurements
-3. Include macros per ingredient (calories, protein, carbs, fat)
-4. Total daily macros MUST be within ±5% of targets
-5. Use realistic, easily available ingredients
-6. Provide simple, clear cooking instructions
+1. Create 3 meals and 2 snacks - each should be DELICIOUS and UNIQUE
+2. Every meal needs proper seasoning - specify herbs, spices, aromatics
+3. Each meal/snack must have EXACT portion sizes in grams
+4. Include macros per ingredient (calories, protein, carbs, fat)
+5. Total daily macros MUST be within ±5% of targets
+6. Make these meals something the client will LOOK FORWARD to eating
+7. Avoid repetitive "chicken and rice" meals - add creativity and flavor
 
 Return a JSON object with this EXACT structure:
 {
@@ -179,7 +213,7 @@ Return a JSON object with this EXACT structure:
     messages: [
       {
         role: 'system',
-        content: 'You are a precise nutritionist. Return ONLY valid JSON. Ensure all macro calculations are accurate.',
+        content: CHEF_SYSTEM_PROMPT + '\n\nReturn ONLY valid JSON. Ensure all macro calculations are accurate.',
       },
       {
         role: 'user',
@@ -187,7 +221,9 @@ Return a JSON object with this EXACT structure:
       },
     ],
     response_format: { type: 'json_object' },
-    temperature: 0.3,
+    temperature: 0.5, // Balanced for consistency + creativity
+    presence_penalty: 0.2, // Discourage repetition
+    frequency_penalty: 0.1,
     max_tokens: 4000,
   });
 

@@ -331,6 +331,18 @@ function categorizeFood(description: string, category?: string): FoodItem['categ
  * Calculate exact portion size to hit target macros
  * Uses linear optimization to find best serving sizes
  */
+// Category-specific portion limits for realistic, reasonable meals
+const CATEGORY_PORTION_LIMITS: Record<string, { min: number; max: number; typical: number }> = {
+  protein: { min: 100, max: 200, typical: 150 },   // e.g., chicken breast
+  carbs: { min: 80, max: 250, typical: 150 },      // e.g., rice, pasta
+  fats: { min: 8, max: 40, typical: 15 },          // e.g., oils, butter
+  dairy: { min: 50, max: 200, typical: 100 },      // e.g., yogurt, cheese
+  vegetables: { min: 75, max: 150, typical: 100 }, // e.g., broccoli, spinach
+  fruit: { min: 50, max: 150, typical: 100 },      // e.g., berries, banana
+  grain: { min: 80, max: 250, typical: 150 },      // e.g., oats, bread
+  other: { min: 30, max: 150, typical: 75 },
+};
+
 export function calculatePortions(
   foods: FoodItem[],
   targetMacros: FoodNutrients,
@@ -343,7 +355,7 @@ export function calculatePortions(
   const {
     primaryMacro = 'protein',
     minPortionG = 20,
-    maxPortionG = 500,
+    maxPortionG = 300, // Reduced from 500 to be more reasonable
   } = options;
 
   if (foods.length === 0) return [];
@@ -396,14 +408,20 @@ export function calculatePortions(
 
     const per100g = food.nutrients[optimizeMacro];
     if (per100g === 0) {
-      result.push(scaleFood(food, 50)); // Default small portion
+      const categoryLimits = CATEGORY_PORTION_LIMITS[food.category] || CATEGORY_PORTION_LIMITS.other;
+      result.push(scaleFood(food, categoryLimits.typical)); // Use typical for category
       continue;
     }
 
-    // Calculate portion to hit target (but limit to max)
+    // Get category-specific limits (more realistic than generic limits)
+    const categoryLimits = CATEGORY_PORTION_LIMITS[food.category] || CATEGORY_PORTION_LIMITS.other;
+    const effectiveMin = Math.max(minPortionG, categoryLimits.min);
+    const effectiveMax = Math.min(maxPortionG, categoryLimits.max);
+
+    // Calculate portion to hit target (but apply reasonable limits)
     const targetValue = Math.max(0, remainingMacros[optimizeMacro]);
     let grams = (targetValue / per100g) * 100;
-    grams = Math.min(maxPortionG, Math.max(minPortionG, grams));
+    grams = Math.min(effectiveMax, Math.max(effectiveMin, grams));
 
     const scaled = scaleFood(food, grams);
     result.push(scaled);
@@ -416,6 +434,51 @@ export function calculatePortions(
   }
 
   return result;
+}
+
+/**
+ * Validate that a meal's macros are within acceptable accuracy thresholds
+ * Returns detailed variance information and whether it passes
+ */
+export function validateMacroAccuracy(
+  actual: FoodNutrients,
+  target: FoodNutrients
+): {
+  isAccurate: boolean;
+  variance: Record<keyof FoodNutrients, number>;
+  warnings: string[];
+} {
+  const variance = {
+    calories: target.calories > 0 ? Math.abs(actual.calories - target.calories) / target.calories : 0,
+    protein: target.protein > 0 ? Math.abs(actual.protein - target.protein) / target.protein : 0,
+    carbs: target.carbs > 0 ? Math.abs(actual.carbs - target.carbs) / target.carbs : 0,
+    fat: target.fat > 0 ? Math.abs(actual.fat - target.fat) / target.fat : 0,
+  };
+  
+  // Tighter thresholds: ±5% calories, ±10% protein/fat, ±15% carbs
+  const thresholds = {
+    calories: 0.05,
+    protein: 0.10,
+    carbs: 0.15,
+    fat: 0.10,
+  };
+  
+  const warnings: string[] = [];
+  
+  if (variance.calories > thresholds.calories) {
+    warnings.push(`Calories ${variance.calories > 0 ? 'over' : 'under'} by ${Math.round(variance.calories * 100)}%`);
+  }
+  if (variance.protein > thresholds.protein) {
+    warnings.push(`Protein off by ${Math.round(variance.protein * 100)}%`);
+  }
+  
+  const isAccurate = 
+    variance.calories <= thresholds.calories &&
+    variance.protein <= thresholds.protein &&
+    variance.carbs <= thresholds.carbs &&
+    variance.fat <= thresholds.fat;
+  
+  return { isAccurate, variance, warnings };
 }
 
 /**
