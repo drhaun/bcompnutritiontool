@@ -505,6 +505,41 @@ export default function SetupPage() {
     setIsHydrated(true);
   }, []);
   
+  // Auto-save when leaving the page - CRITICAL for persistence
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Save immediately before the page unloads
+      if (activeClientId) {
+        console.log('[Setup] Auto-saving before page unload');
+        saveActiveClientState();
+      }
+    };
+    
+    // Save on browser refresh/close
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Cleanup: Save when component unmounts (navigation)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (activeClientId) {
+        console.log('[Setup] Auto-saving on component unmount');
+        saveActiveClientState();
+      }
+    };
+  }, [activeClientId, saveActiveClientState]);
+  
+  // Periodic auto-save every 30 seconds while editing
+  useEffect(() => {
+    if (!activeClientId) return;
+    
+    const autoSaveInterval = setInterval(() => {
+      console.log('[Setup] Periodic auto-save triggered');
+      saveActiveClientState();
+    }, 30000); // Save every 30 seconds
+    
+    return () => clearInterval(autoSaveInterval);
+  }, [activeClientId, saveActiveClientState]);
+  
   const activeClient = isHydrated ? getActiveClient() : null;
   
   // ============ BASIC INFO STATE ============

@@ -247,20 +247,26 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           planHistory: [],
         };
         
-        set((state) => ({
-          clients: [...state.clients, newClient],
-          activeClientId: id,
-          currentStep: 1,
-          userProfile: { name },
-          bodyCompGoals: {},
-          dietPreferences: {},
-          weeklySchedule: {},
-          phases: [],
-          activePhaseId: null,
-          nutritionTargets: [],
-          mealPlan: null,
-          error: null,
-        }));
+        console.log('[Store] Creating new client:', name, 'with ID:', id);
+        
+        set((state) => {
+          const updatedClients = [...state.clients, newClient];
+          console.log('[Store] Clients after creation:', updatedClients.length, updatedClients.map(c => c.name));
+          return {
+            clients: updatedClients,
+            activeClientId: id,
+            currentStep: 1,
+            userProfile: { name },
+            bodyCompGoals: {},
+            dietPreferences: {},
+            weeklySchedule: {},
+            phases: [],
+            activePhaseId: null,
+            nutritionTargets: [],
+            mealPlan: null,
+            error: null,
+          };
+        });
         
         // Sync to database if authenticated
         const state = get();
@@ -445,7 +451,10 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
       
       saveActiveClientState: () => {
         const state = get();
-        if (!state.activeClientId) return;
+        if (!state.activeClientId) {
+          console.log('[Store] saveActiveClientState: No active client ID, skipping');
+          return;
+        }
         
         const updates = {
           currentStep: state.currentStep,
@@ -460,8 +469,11 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           mealPlan: state.mealPlan,
         };
         
-        set((state) => ({
-          clients: state.clients.map(c => 
+        console.log('[Store] Saving active client state for ID:', state.activeClientId);
+        console.log('[Store] Saving profile:', updates.userProfile?.name, '| Step:', updates.currentStep);
+        
+        set((state) => {
+          const updatedClients = state.clients.map(c => 
             c.id === state.activeClientId
               ? {
                   ...c,
@@ -469,8 +481,10 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
                   ...updates,
                 }
               : c
-          ),
-        }));
+          );
+          console.log('[Store] Clients after save:', updatedClients.length, updatedClients.map(c => c.name));
+          return { clients: updatedClients };
+        });
         
         // Sync to database if authenticated
         if (state.isAuthenticated && state.activeClientId) {
@@ -1182,10 +1196,30 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
       setAuthenticated: (isAuthenticated) => {
         set({ isAuthenticated });
         if (isAuthenticated) {
-          // Wait a moment for auth cookies to propagate, then sync
-          setTimeout(() => {
-            get().loadClientsFromDatabase();
-          }, 500);
+          // Wait for hydration to complete before syncing
+          // This ensures local clients from localStorage are loaded first
+          let retryCount = 0;
+          const maxRetries = 25; // Max 5 seconds of waiting (25 * 200ms)
+          
+          const waitForHydration = () => {
+            retryCount++;
+            // Check if store has been hydrated from localStorage
+            if (useFitomicsStore.persist.hasHydrated()) {
+              console.log('[Store] Hydration complete, starting sync...');
+              get().loadClientsFromDatabase();
+            } else if (retryCount < maxRetries) {
+              console.log('[Store] Waiting for hydration before sync... (attempt', retryCount, ')');
+              // Try again in 200ms
+              setTimeout(waitForHydration, 200);
+            } else {
+              // Give up waiting - sync anyway with whatever state we have
+              console.warn('[Store] Hydration timeout, syncing with current state');
+              get().loadClientsFromDatabase();
+            }
+          };
+          
+          // Start checking after 500ms to allow auth cookies to propagate
+          setTimeout(waitForHydration, 500);
         }
       },
       
@@ -1196,27 +1230,48 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         set({ isSyncing: true, syncError: null });
         
         try {
-          // First, sync local clients to database (merge)
+          // CRITICAL: Preserve local clients - NEVER lose them
           const localClients = state.clients;
+          console.log('[Store] Local clients before sync:', localClients.length, localClients.map(c => c.name));
+          
           if (localClients.length > 0) {
             console.log('[Store] Syncing local clients to database...');
             const syncResult = await syncClientsToDb(localClients);
             
             if (syncResult.success) {
+              // IMPORTANT: Merge rather than replace - keep any local clients not in DB
+              const mergedClients = syncResult.clients;
+              
+              // Double-check we haven't lost any clients
+              if (mergedClients.length < localClients.length) {
+                console.warn('[Store] WARNING: Sync returned fewer clients than local!');
+                console.log('[Store] Local IDs:', localClients.map(c => c.id));
+                console.log('[Store] Synced IDs:', mergedClients.map(c => c.id));
+                
+                // Preserve any local clients that weren't in the sync result
+                const syncedIds = new Set(mergedClients.map(c => c.id));
+                const missingClients = localClients.filter(c => !syncedIds.has(c.id));
+                if (missingClients.length > 0) {
+                  console.log('[Store] Restoring missing clients:', missingClients.map(c => c.name));
+                  mergedClients.push(...missingClients);
+                }
+              }
+              
               set({
-                clients: syncResult.clients,
+                clients: mergedClients,
                 lastSyncedAt: new Date().toISOString(),
               });
-              console.log('[Store] Sync complete, loaded', syncResult.clients.length, 'clients');
+              console.log('[Store] Sync complete, total clients:', mergedClients.length);
             } else if (syncResult.error === 'Not authenticated') {
-              console.log('[Store] Not authenticated yet, will retry on next page load');
-              // Don't set isAuthenticated to false - auth might just be slow
+              console.log('[Store] Not authenticated - KEEPING local clients');
+              // CRITICAL: Do NOT modify clients - they should remain as-is from localStorage
             } else {
-              console.log('[Store] Sync failed:', syncResult.error);
+              console.log('[Store] Sync failed:', syncResult.error, '- KEEPING local clients');
+              // Don't lose local clients on sync failure
             }
           } else {
-            // No local clients, just fetch from database
-            console.log('[Store] Fetching clients from database...');
+            // No local clients, try fetching from database
+            console.log('[Store] No local clients, fetching from database...');
             const dbClients = await fetchClientsFromDb();
             
             if (dbClients.length > 0) {
@@ -1226,12 +1281,13 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
               });
               console.log('[Store] Loaded', dbClients.length, 'clients from database');
             } else {
-              console.log('[Store] No clients in database');
+              console.log('[Store] No clients in database (or not authenticated)');
             }
           }
         } catch (error) {
           console.error('[Store] Sync error:', error);
           set({ syncError: error instanceof Error ? error.message : 'Sync failed' });
+          // CRITICAL: Don't clear clients on error
         } finally {
           set({ isSyncing: false });
         }
@@ -1283,6 +1339,18 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         // Persist sync state
         lastSyncedAt: state.lastSyncedAt,
       }),
+      onRehydrateStorage: () => {
+        console.log('[Store] Starting rehydration from localStorage...');
+        return (state, error) => {
+          if (error) {
+            console.error('[Store] Rehydration error:', error);
+          } else if (state) {
+            console.log('[Store] Rehydration complete');
+            console.log('[Store] Restored clients:', state.clients?.length || 0, state.clients?.map(c => c.name) || []);
+            console.log('[Store] Active client ID:', state.activeClientId);
+          }
+        };
+      },
     }
   )
 );

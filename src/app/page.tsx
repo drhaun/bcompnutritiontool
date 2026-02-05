@@ -81,14 +81,25 @@ export default function HomePage() {
   // Handle hydration
   useEffect(() => {
     setIsHydrated(true);
+    // Debug logging to trace client persistence issues
+    console.log('[HomePage] Hydration complete');
+    console.log('[HomePage] Clients from store:', clients.length, clients.map(c => ({ id: c.id, name: c.name, status: c.status })));
   }, []);
+  
+  // Log when clients change
+  useEffect(() => {
+    if (isHydrated) {
+      console.log('[HomePage] Clients updated:', clients.length, clients.map(c => ({ id: c.id, name: c.name, status: c.status })));
+    }
+  }, [clients, isHydrated]);
   
   const activeClient = getActiveClient();
   
   // Filter and sort clients
+  // Note: clients without a status are treated as 'active' for backward compatibility
   const activeClients = useMemo(() => {
-    return clients
-      .filter(c => c.status === 'active')
+    const filtered = clients
+      .filter(c => !c.status || c.status === 'active') // Include clients with missing status
       .filter(c => {
         if (!searchQuery) return true;
         const query = searchQuery.toLowerCase();
@@ -99,6 +110,9 @@ export default function HomePage() {
         );
       })
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    
+    console.log('[HomePage] Active clients after filtering:', filtered.length, 'from', clients.length, 'total');
+    return filtered;
   }, [clients, searchQuery]);
 
   const archivedClients = clients.filter(c => c.status === 'archived');
@@ -108,7 +122,10 @@ export default function HomePage() {
   const handleCreateClient = () => {
     if (!newClientName.trim()) return;
     
+    console.log('[HomePage] Creating new client:', newClientName.trim());
     const clientId = createClient(newClientName.trim(), newClientEmail.trim() || undefined, newClientNotes.trim() || undefined);
+    console.log('[HomePage] Client created with ID:', clientId);
+    
     setIsNewClientOpen(false);
     setNewClientName('');
     setNewClientEmail('');
