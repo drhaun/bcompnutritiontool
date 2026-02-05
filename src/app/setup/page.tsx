@@ -650,8 +650,36 @@ export default function SetupPage() {
       if (dietPreferences.cookingTimePreference) {
         setCookingTime(dietPreferences.cookingTimePreference as typeof cookingTime);
       }
+      
+      // Restore weekly schedule / lifestyle data
+      // Use Monday's schedule as the default (all days should have same defaults)
+      const mondaySchedule = weeklySchedule?.Monday || weeklySchedule?.monday;
+      if (mondaySchedule) {
+        if (mondaySchedule.wakeTime) {
+          setWakeTime(mondaySchedule.wakeTime);
+        }
+        if (mondaySchedule.sleepTime) {
+          setBedTime(mondaySchedule.sleepTime);
+        }
+        if (mondaySchedule.workStartTime) {
+          setWorkStartTime(mondaySchedule.workStartTime);
+          setWorkType('office'); // Has work times, so assume not "none"
+        }
+        if (mondaySchedule.workEndTime) {
+          setWorkEndTime(mondaySchedule.workEndTime);
+        }
+        if (mondaySchedule.mealCount !== undefined) {
+          setMealsPerDay(mondaySchedule.mealCount);
+        }
+        if (mondaySchedule.snackCount !== undefined) {
+          setSnacksPerDay(mondaySchedule.snackCount);
+        }
+        if (mondaySchedule.mealContexts?.length) {
+          setMealContexts(mondaySchedule.mealContexts);
+        }
+      }
     }
-  }, [isHydrated, userProfile, bodyCompGoals, dietPreferences, activeClient]);
+  }, [isHydrated, userProfile, bodyCompGoals, dietPreferences, weeklySchedule, activeClient]);
 
   // ============ BODY COMPOSITION STATE ============
   const [useMeasuredBF, setUseMeasuredBF] = useState(false);
@@ -1567,6 +1595,26 @@ export default function SetupPage() {
         budgetPreference,
         cookingTimePreference: cookingTime,
       });
+      
+      // Build and save weekly schedule with defaults (lifestyle data)
+      const defaultDaySchedule = {
+        wakeTime,
+        sleepTime: bedTime,
+        workStartTime: workType !== 'none' ? workStartTime : undefined,
+        workEndTime: workType !== 'none' ? workEndTime : undefined,
+        workouts: [],
+        mealCount: mealsPerDay,
+        snackCount: snacksPerDay,
+        mealContexts: mealContexts,
+      };
+      
+      // Create schedule for each day
+      const scheduleData: Record<string, typeof defaultDaySchedule> = {};
+      DAYS_OF_WEEK.forEach(day => {
+        scheduleData[day] = { ...defaultDaySchedule };
+      });
+      
+      setWeeklySchedule(scheduleData);
       
       // Small delay to ensure store updates complete
       await new Promise(resolve => setTimeout(resolve, 100));
