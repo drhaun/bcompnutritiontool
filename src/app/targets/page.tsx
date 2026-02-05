@@ -56,7 +56,9 @@ import {
   Info,
   RefreshCw,
   Utensils,
-  Zap
+  Zap,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import type { DayOfWeek, Macros } from '@/types';
 
@@ -109,6 +111,7 @@ export default function TargetsPage() {
   const [showCoefficientSettings, setShowCoefficientSettings] = useState(false);
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Monday');
   const [confirmedTargets, setConfirmedTargets] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   
   // Macro coefficient settings
   const [proteinLevel, setProteinLevel] = useState<ProteinLevel>('moderate');
@@ -541,6 +544,99 @@ export default function TargetsPage() {
   const handleRecalculate = () => {
     calculateNutritionTargets();
     toast.success('Targets recalculated!');
+  };
+
+  const handleExportPDF = async () => {
+    setIsExportingPDF(true);
+    try {
+      // Calculate average targets
+      const avgCalories = Math.round(dayTargets.reduce((sum, d) => sum + d.targetCalories, 0) / 7);
+      const avgProtein = Math.round(dayTargets.reduce((sum, d) => sum + d.protein, 0) / 7);
+      const avgCarbs = Math.round(dayTargets.reduce((sum, d) => sum + d.carbs, 0) / 7);
+      const avgFat = Math.round(dayTargets.reduce((sum, d) => sum + d.fat, 0) / 7);
+
+      // Get current and target stats
+      const currentWeight = userProfile.weightLbs || 0;
+      const currentBodyFat = userProfile.bodyFatPercentage || 0;
+      const currentFatMass = currentWeight * (currentBodyFat / 100);
+      const currentLeanMass = currentWeight - currentFatMass;
+      
+      const targetWeight = bodyCompGoals.targetWeightLbs || currentWeight;
+      const targetBodyFat = bodyCompGoals.targetBodyFat || currentBodyFat;
+      const targetFatMass = targetWeight * (targetBodyFat / 100);
+      const targetLeanMass = targetWeight - targetFatMass;
+      
+      // Calculate TDEE from day targets
+      const avgTDEE = Math.round(dayTargets.reduce((sum, d) => sum + d.totalTDEE, 0) / 7);
+
+      const pdfData = {
+        clientName: userProfile.name || '',
+        phase: {
+          name: `${goalType === 'lose_fat' ? 'Fat Loss' : goalType === 'gain_muscle' ? 'Muscle Building' : 'Maintenance'} Phase`,
+          goalType: goalType,
+          startDate: bodyCompGoals.startDate || new Date().toLocaleDateString(),
+          endDate: bodyCompGoals.timelineWeeks 
+            ? new Date(Date.now() + (bodyCompGoals.timelineWeeks * 7 * 24 * 60 * 60 * 1000)).toLocaleDateString()
+            : 'Ongoing',
+          durationWeeks: bodyCompGoals.timelineWeeks || 12,
+          weeklyChange: bodyCompGoals.weeklyWeightChange || 0,
+        },
+        currentStats: {
+          weight: currentWeight,
+          bodyFat: currentBodyFat,
+          fatMass: currentFatMass,
+          leanMass: currentLeanMass,
+          tdee: avgTDEE,
+        },
+        targetStats: {
+          weight: targetWeight,
+          bodyFat: targetBodyFat,
+          fatMass: targetFatMass,
+          leanMass: targetLeanMass,
+        },
+        averageTargets: {
+          calories: avgCalories,
+          protein: avgProtein,
+          carbs: avgCarbs,
+          fat: avgFat,
+        },
+        dayTargets: dayTargets.map(d => ({
+          day: d.day,
+          isWorkout: d.isWorkoutDay,
+          calories: d.targetCalories,
+          protein: d.protein,
+          carbs: d.carbs,
+          fat: d.fat,
+        })),
+      };
+
+      const response = await fetch('/api/generate-phase-targets-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pdfData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${userProfile.name ? userProfile.name.replace(/\s+/g, '-') + '-' : ''}nutrition-phase-plan.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Phase plan PDF exported successfully!');
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.error('Failed to export PDF. Please try again.');
+    } finally {
+      setIsExportingPDF(false);
+    }
   };
 
   // Stats calculations
@@ -1440,27 +1536,59 @@ export default function TargetsPage() {
             {/* Confirm Actions */}
             <Card className="border-[#c19962]">
               <CardContent className="pt-6">
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={handleRecalculate}>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Recalculate
+                <div className="flex flex-col gap-4">
+                  {/* Export PDF Notice */}
+                  <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Download className="h-4 w-4 text-amber-600" />
+                      <span className="text-sm text-amber-800">
+                        <strong>Export targets only?</strong> Download a PDF with phase design and nutrition targets (no meal plan).
+                      </span>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleExportPDF}
+                      disabled={isExportingPDF}
+                      className="border-amber-400 text-amber-700 hover:bg-amber-100"
+                    >
+                      {isExportingPDF ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4 mr-2" />
+                          Export Phase Plan PDF
+                        </>
+                      )}
                     </Button>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={() => router.push('/preferences')}>
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back to Preferences
-                    </Button>
-                    <Button 
-                      onClick={handleConfirmTargets} 
-                      size="lg"
-                      className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
-                    >
-                      <Check className="mr-2 h-4 w-4" />
-                      Confirm & Generate Meal Plan
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" onClick={handleRecalculate}>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Recalculate
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" onClick={() => router.push('/preferences')}>
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Preferences
+                      </Button>
+                      <Button 
+                        onClick={handleConfirmTargets} 
+                        size="lg"
+                        className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+                      >
+                        <Check className="mr-2 h-4 w-4" />
+                        Confirm & Generate Meal Plan
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>

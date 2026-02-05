@@ -131,6 +131,7 @@ export async function syncClientsToDb(localClients: ClientProfile[]): Promise<{
 
 /**
  * Create a new client in Supabase
+ * Returns the created client with the database-generated UUID
  */
 export async function createClientInDb(client: ClientProfile): Promise<ClientProfile | null> {
   try {
@@ -148,8 +149,16 @@ export async function createClientInDb(client: ClientProfile): Promise<ClientPro
     }
     
     const data = await response.json();
-    console.log('[ClientSync] Client created successfully:', data.client?.id);
-    return dbClientToStoreClient(data.client);
+    const dbClient = dbClientToStoreClient(data.client);
+    
+    // If the local ID was different (non-UUID), log the mapping
+    if (data.localId && data.localId !== data.client.id) {
+      console.log('[ClientSync] Client created with ID mapping:', data.localId, '->', data.client.id);
+    } else {
+      console.log('[ClientSync] Client created successfully:', data.client?.id);
+    }
+    
+    return dbClient;
   } catch (error) {
     console.error('[ClientSync] Error creating client:', error);
     return null;

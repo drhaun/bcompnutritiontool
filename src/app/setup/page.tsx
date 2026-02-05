@@ -21,7 +21,10 @@ import { ProgressSummary } from '@/components/layout/progress-summary';
 import { useFitomicsStore } from '@/lib/store';
 import { toast } from 'sonner';
 import { 
-  ArrowRight, 
+  ArrowRight,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   User, 
   Target, 
   Calculator,
@@ -468,6 +471,35 @@ export default function SetupPage() {
   // Handle hydration mismatch - wait for client-side store to be ready
   const [isHydrated, setIsHydrated] = useState(false);
   const [isSavingProgress, setIsSavingProgress] = useState(false);
+  const [activeTab, setActiveTab] = useState<'basics' | 'lifestyle' | 'meals' | 'preferences' | 'advanced'>('basics');
+  
+  // Tab navigation helpers
+  const tabs = ['basics', 'lifestyle', 'meals', 'preferences', 'advanced'] as const;
+  const tabLabels = {
+    basics: 'Basics',
+    lifestyle: 'Lifestyle',
+    meals: 'Meals',
+    preferences: 'Preferences',
+    advanced: 'Advanced',
+  };
+  const currentTabIndex = tabs.indexOf(activeTab);
+  const isFirstTab = currentTabIndex === 0;
+  const isLastTab = currentTabIndex === tabs.length - 1;
+  
+  const goToNextTab = () => {
+    if (!isLastTab) {
+      setActiveTab(tabs[currentTabIndex + 1]);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+  
+  const goToPrevTab = () => {
+    if (!isFirstTab) {
+      setActiveTab(tabs[currentTabIndex - 1]);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+  
   useEffect(() => {
     setIsHydrated(true);
   }, []);
@@ -1457,15 +1489,15 @@ export default function SetupPage() {
       if (goalType) {
         setBodyCompGoals({
           goalType: goalType === 'performance' ? 'maintain' : goalType,
-          targetWeight: Math.round(targetWeight),
-          targetBodyFat: Math.round(targetBodyFat * 10) / 10,
-          timelineWeeks: Math.round(timelineWeeks),
-          weeklyWeightChange: Math.round(weeklyChange * 100) / 100,
+          targetWeightLbs: Math.round(targetWeightLbs * 10) / 10,
+          targetBodyFat: Math.round(targetBodyFatPercent * 10) / 10,
+          weeklyWeightChange: Math.round((timelineCalc.weeklyChangeLbs || 0) * 100) / 100,
+          timelineWeeks: timelineCalc.weeks,
           performancePriority,
           musclePreservation,
           fatGainTolerance,
-          recompEmphasis,
-          assessmentReason,
+          lifestyleCommitment,
+          trackingCommitment,
         });
       }
       
@@ -1544,7 +1576,7 @@ export default function SetupPage() {
 
             {/* Main Content - Full Width */}
             <div className="space-y-6">
-                <Tabs defaultValue="basics" className="w-full">
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
                   <TabsList className="grid w-full grid-cols-5 mb-8 h-12 p-1">
                     <TabsTrigger value="basics" className="flex items-center gap-2 text-sm font-medium data-[state=active]:bg-[#c19962] data-[state=active]:text-[#00263d]">
                       <User className="h-4 w-4" />
@@ -4506,35 +4538,82 @@ export default function SetupPage() {
                 </div>
                 {/* End hidden section for legacy Target Body Composition and Timeline */}
 
-                {/* Save & Continue */}
-                <div className="flex justify-end gap-3 pt-4">
-                  <Button 
-                    onClick={handleSaveProgress} 
-                    size="lg"
-                    variant="outline"
-                    disabled={isSavingProgress}
-                    className="border-[#c19962] text-[#c19962] hover:bg-[#c19962]/10"
-                  >
-                    {isSavingProgress ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="mr-2 h-5 w-5" />
-                        Save Progress
-                      </>
-                    )}
-                  </Button>
-                  <Button 
-                    onClick={handleSaveAndContinue} 
-                    size="lg"
-                    className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
-                  >
-                    Save & Continue to Planning
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
+                {/* Navigation & Save */}
+                <div className="border-t border-slate-200 pt-6 mt-8">
+                  {/* Tab Navigation */}
+                  <div className="flex items-center justify-between mb-4">
+                    <Button 
+                      onClick={goToPrevTab}
+                      variant="outline"
+                      disabled={isFirstTab}
+                      className="gap-2"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      {!isFirstTab && tabLabels[tabs[currentTabIndex - 1]]}
+                      {isFirstTab && 'Previous'}
+                    </Button>
+                    
+                    <div className="flex items-center gap-2">
+                      {tabs.map((tab, index) => (
+                        <button
+                          key={tab}
+                          onClick={() => {
+                            setActiveTab(tab);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className={cn(
+                            "w-2.5 h-2.5 rounded-full transition-all",
+                            activeTab === tab 
+                              ? "bg-[#c19962] scale-125" 
+                              : "bg-slate-300 hover:bg-slate-400"
+                          )}
+                          title={tabLabels[tab]}
+                        />
+                      ))}
+                    </div>
+                    
+                    <Button 
+                      onClick={goToNextTab}
+                      variant="outline"
+                      disabled={isLastTab}
+                      className="gap-2"
+                    >
+                      {!isLastTab && tabLabels[tabs[currentTabIndex + 1]]}
+                      {isLastTab && 'Next'}
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  {/* Save Buttons */}
+                  <div className="flex justify-end gap-3">
+                    <Button 
+                      onClick={handleSaveProgress} 
+                      size="lg"
+                      variant="outline"
+                      disabled={isSavingProgress}
+                      className="border-[#c19962] text-[#c19962] hover:bg-[#c19962]/10"
+                    >
+                      {isSavingProgress ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="mr-2 h-5 w-5" />
+                          Save Progress
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      onClick={handleSaveAndContinue} 
+                      size="lg"
+                      className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+                    >
+                      Save & Continue to Planning
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </div>
                 </div>
             </div>
           </div>

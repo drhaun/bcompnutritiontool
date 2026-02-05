@@ -84,6 +84,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Helper to check if a string is a valid UUID
+function isValidUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
 // POST - Create a new client
 export async function POST(request: NextRequest) {
   try {
@@ -102,9 +108,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Create client with coach_id set to current user
-    const clientData = {
+    // Only include ID if it's a valid UUID, otherwise let DB generate one
+    const clientData: Record<string, any> = {
       coach_id: user.id,
-      name: body.name,
+      name: body.name || 'Unnamed Client',
       email: body.email || null,
       phone: body.phone || null,
       notes: body.notes || null,
@@ -125,6 +132,11 @@ export async function POST(request: NextRequest) {
       timeline_events: body.timelineEvents || [],
     };
     
+    // Only include ID if it's a valid UUID
+    if (body.id && isValidUUID(body.id)) {
+      clientData.id = body.id;
+    }
+    
     const { data: client, error } = await supabase
       .from('clients')
       .insert(clientData)
@@ -134,12 +146,16 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error creating client:', error);
       return NextResponse.json(
-        { error: 'Failed to create client' },
+        { error: 'Failed to create client', details: error.message },
         { status: 500 }
       );
     }
     
-    return NextResponse.json({ client });
+    // Return the client with the local ID mapping if we generated a new UUID
+    return NextResponse.json({ 
+      client,
+      localId: body.id, // Return the original local ID so client can update mapping
+    });
   } catch (error) {
     console.error('Clients POST error:', error);
     return NextResponse.json(

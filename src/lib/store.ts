@@ -31,9 +31,18 @@ import {
   deleteClientFromDb,
 } from './client-sync';
 
-// Generate unique ID
-const generateId = () => `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-const generatePhaseId = () => `phase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+// Generate UUID v4 (compatible with Supabase)
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+// Generate unique ID (now uses UUID format for database compatibility)
+const generateId = () => generateUUID();
+const generatePhaseId = () => generateUUID();
 
 // Session note type for the floating notes panel
 export interface SessionNote {

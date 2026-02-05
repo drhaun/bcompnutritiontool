@@ -31,7 +31,11 @@ import {
   Info,
   Crosshair,
   AlertTriangle,
+  Download,
+  Loader2,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import {
   Tooltip,
   TooltipContent,
@@ -291,6 +295,9 @@ export default function BodyCompositionPage() {
   const [hoveredWeek, setHoveredWeek] = useState<number | null>(null);
   const [selectedGraphVar, setSelectedGraphVar] = useState<'weight' | 'bodyFat' | 'fatMass' | 'ffm'>('weight');
   
+  // PDF Export
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  
   // Derived calculations
   const heightCm = useMemo(() => (heightFt * 12 + heightIn) * 2.54, [heightFt, heightIn]);
   const heightM = heightCm / 100;
@@ -537,6 +544,104 @@ export default function BodyCompositionPage() {
     const carbG = Math.round((cals - protein * 4 - fatG * 9) / 4);
     return { calories: cals, protein, carbs: Math.max(50, carbG), fat: fatG, deficit: Math.round(deficit) };
   }, [tdee, summary, calculatedTimeline.weeks, weightKg, proteinLevel]);
+
+  // PDF Export handler
+  const handleExportPDF = async () => {
+    if (!nutritionTargets || !summary) {
+      toast.error('Please complete the body composition setup first');
+      return;
+    }
+
+    setIsExportingPDF(true);
+    try {
+      // Calculate metabolic data
+      const neat = neatValues.daily;
+      const tefValue = Math.round(tdee * (tef / 100));
+      
+      // Build projections array (first 8 weeks + final)
+      const projectionsForPDF = weeklyProjections
+        .filter((_, idx) => idx % Math.max(1, Math.floor(weeklyProjections.length / 8)) === 0 || idx === weeklyProjections.length - 1)
+        .slice(0, 9)
+        .map(p => ({
+          week: p.week,
+          weight: p.weight,
+          bodyFat: p.bodyFat,
+          fatMass: p.fatMass,
+          leanMass: p.ffm,
+        }));
+
+      const pdfData = {
+        clientName: '', // No client name for standalone calculator
+        currentStats: {
+          weight: currentWeight,
+          height: heightFt * 12 + heightIn,
+          age: age,
+          gender: gender,
+          bodyFat: currentBodyFat,
+          fatMass: fatMassLbs,
+          leanMass: ffmLbs,
+          bmi: bmi,
+          fmi: fmi,
+          ffmi: ffmi,
+        },
+        targetStats: {
+          weight: targetWeightResult,
+          bodyFat: targetBFResult,
+          fatMass: targetFMLbs,
+          leanMass: targetFFMLbs,
+          fmi: targetFMI,
+          ffmi: targetFFMI,
+        },
+        metabolicData: {
+          rmr: effectiveRmr,
+          neat: neat,
+          tef: tefValue,
+          eee: eee,
+          tdee: tdee,
+        },
+        phase: {
+          goalType: phaseType === 'fat_loss' ? 'lose_fat' : phaseType === 'muscle_gain' ? 'gain_muscle' : 'recomp',
+          durationWeeks: calculatedTimeline.weeks,
+          weeklyChange: effectiveRate,
+          startDate: startDate,
+        },
+        projections: projectionsForPDF,
+        startingTargets: {
+          calories: nutritionTargets.calories,
+          protein: nutritionTargets.protein,
+          carbs: nutritionTargets.carbs,
+          fat: nutritionTargets.fat,
+        },
+      };
+
+      const response = await fetch('/api/generate-body-comp-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pdfData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'body-composition-report.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Body composition report exported successfully!');
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.error('Failed to export PDF. Please try again.');
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   // Graph variable configurations
   const graphConfigs = {
@@ -1549,11 +1654,31 @@ export default function BodyCompositionPage() {
           {nutritionTargets && (
             <Card className="bg-white border-0 shadow-lg rounded-2xl">
               <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-100">
-                <CardTitle className="flex items-center gap-2 text-[#00263d] text-sm font-semibold">
-                  <Activity className="h-4 w-4 text-[#c19962]" />
-                  Estimated Nutrition Targets
-                  <Badge className="bg-amber-100 text-amber-700 border-0 text-[9px] ml-1">Starting Point</Badge>
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-[#00263d] text-sm font-semibold">
+                    <Activity className="h-4 w-4 text-[#c19962]" />
+                    Estimated Nutrition Targets
+                    <Badge className="bg-amber-100 text-amber-700 border-0 text-[9px] ml-1">Starting Point</Badge>
+                  </CardTitle>
+                  <Button
+                    onClick={handleExportPDF}
+                    disabled={isExportingPDF}
+                    size="sm"
+                    className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d] text-xs h-8"
+                  >
+                    {isExportingPDF ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3 w-3 mr-1.5" />
+                        Export Report PDF
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="p-3">
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
