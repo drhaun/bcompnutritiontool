@@ -555,7 +555,7 @@ export default function BodyCompositionPage() {
     setIsExportingPDF(true);
     try {
       // Calculate metabolic data
-      const neat = neatValues.daily;
+      const neat = neatEstimates[neatLevel];
       const tefValue = Math.round(tdee * (tef / 100));
       
       // Build projections array (first 8 weeks + final)
