@@ -1409,6 +1409,96 @@ export default function SetupPage() {
     router.push('/planning');
   };
 
+  // Save progress without validation - allows saving incomplete profiles
+  const handleSaveProgress = () => {
+    // Save whatever data is available, even without a name
+    setUserProfile({
+      name: name.trim() || 'Unnamed Client',
+      gender,
+      age,
+      heightFt,
+      heightIn,
+      heightCm,
+      weightLbs,
+      weightKg,
+      bodyFatPercentage: bodyFatPercent,
+      workoutsPerWeek,
+      activityLevel,
+      rmr: finalRMR,
+      metabolicAssessment: {
+        useMeasuredRMR,
+        measuredRMR: useMeasuredRMR ? measuredRMR : undefined,
+        selectedRMREquations: selectedEquations,
+        useAverageRMR,
+        calculatedRMR: finalRMR,
+        useMeasuredBF,
+        measuredBFPercent: useMeasuredBF ? measuredBFPercent : undefined,
+        estimatedBFPercent: !useMeasuredBF ? estimatedBFPercent : undefined,
+        hasZoneData,
+        zoneCaloriesPerMin: hasZoneData ? zoneCalories : undefined,
+      },
+      addresses: addresses
+        .filter(a => a.street.trim() || a.city.trim() || a.zipCode.trim())
+        .map(a => ({
+          label: a.label,
+          address: a.street,
+          city: a.city,
+          state: a.state,
+          zipCode: a.zipCode,
+          isDefault: a.isDefault,
+        })),
+    });
+    
+    // Save body comp goals if any goal type is selected
+    if (goalType) {
+      setBodyCompGoals({
+        goalType: goalType === 'performance' ? 'maintain' : goalType,
+        targetWeight: Math.round(targetWeight),
+        targetBodyFat: Math.round(targetBodyFat * 10) / 10,
+        timelineWeeks: Math.round(timelineWeeks),
+        weeklyWeightChange: Math.round(weeklyChange * 100) / 100,
+        performancePriority,
+        musclePreservation,
+        fatGainTolerance,
+        recompEmphasis,
+        assessmentReason,
+      });
+    }
+    
+    // Save diet preferences
+    const allProteins = [
+      ...selectedProteins,
+      ...customProteins.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
+    ];
+    const allCarbs = [
+      ...selectedCarbs,
+      ...customCarbs.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
+    ];
+    const allFats = [
+      ...selectedFats,
+      ...customFats.split(/[,\n]/).map(s => s.trim()).filter(Boolean)
+    ];
+    
+    setDietPreferences({
+      dietaryRestrictions: selectedRestrictions,
+      allergies: selectedAllergies,
+      preferredProteins: allProteins,
+      preferredCarbs: allCarbs,
+      preferredFats: allFats,
+      cuisinePreferences: selectedCuisines,
+      foodsToAvoid: foodsToAvoid.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
+      foodsToEmphasize: foodsToEmphasize.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
+      spiceLevel,
+      flavorProfiles: selectedFlavors,
+      varietyLevel,
+      micronutrientFocus: selectedMicronutrients,
+      budgetPreference,
+      cookingTimePreference: cookingTime,
+    });
+    
+    toast.success('Progress saved! You can continue editing anytime.');
+  };
+
   const handleEquationToggle = (equation: RMREquation) => {
     setSelectedEquations(prev => {
       if (prev.includes(equation)) {
@@ -4404,7 +4494,16 @@ export default function SetupPage() {
                 {/* End hidden section for legacy Target Body Composition and Timeline */}
 
                 {/* Save & Continue */}
-                <div className="flex justify-end pt-4">
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button 
+                    onClick={handleSaveProgress} 
+                    size="lg"
+                    variant="outline"
+                    className="border-[#c19962] text-[#c19962] hover:bg-[#c19962]/10"
+                  >
+                    <CheckCircle2 className="mr-2 h-5 w-5" />
+                    Save Progress
+                  </Button>
                   <Button 
                     onClick={handleSaveAndContinue} 
                     size="lg"

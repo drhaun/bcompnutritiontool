@@ -67,24 +67,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('[AuthProvider] onAuthStateChange - User from session:', newSession.user.id);
         setUser(newSession.user);
         
-        // Clear timeout since we have auth now
+        // Clear timeout and set loading false IMMEDIATELY - don't wait for staff profile
         clearTimeout(timeout);
-        
-        // Fetch staff profile with proper error logging - pass userId directly to avoid hanging
-        console.log('[AuthProvider] onAuthStateChange - Fetching staff profile for:', newSession.user.id);
-        try {
-          const staffProfile = await getStaffProfile(newSession.user.id);
-          console.log('[AuthProvider] onAuthStateChange - Staff profile:', staffProfile);
-          setStaff(staffProfile);
-        } catch (err) {
-          console.error('[AuthProvider] onAuthStateChange - Staff profile error:', err);
-        }
-        
-        // Set loading false now that we have user and staff
         setIsLoading(false);
         
         // Trigger client sync with database
         useFitomicsStore.getState().setAuthenticated(true);
+        
+        // Fetch staff profile in the BACKGROUND - don't block UI
+        console.log('[AuthProvider] onAuthStateChange - Fetching staff profile in background for:', newSession.user.id);
+        getStaffProfile(newSession.user.id)
+          .then(staffProfile => {
+            console.log('[AuthProvider] Staff profile loaded:', staffProfile);
+            setStaff(staffProfile);
+          })
+          .catch(err => {
+            console.error('[AuthProvider] Staff profile error:', err);
+          });
       } else {
         setUser(null);
         setStaff(null);
@@ -113,14 +112,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!result.error && result.user) {
       setUser(result.user);
       setSession(result.session);
-      console.log('[AuthProvider] User and session set, fetching staff profile for:', result.user.id);
-      const staffProfile = await getStaffProfile(result.user.id);
-      console.log('[AuthProvider] Staff profile:', staffProfile);
-      setStaff(staffProfile);
       
-      // Trigger client sync with database
+      // Trigger client sync with database immediately
       console.log('[AuthProvider] Triggering client sync...');
       useFitomicsStore.getState().setAuthenticated(true);
+      
+      // Fetch staff profile in background - don't block sign-in
+      console.log('[AuthProvider] Fetching staff profile in background for:', result.user.id);
+      getStaffProfile(result.user.id)
+        .then(staffProfile => {
+          console.log('[AuthProvider] Staff profile loaded:', staffProfile);
+          setStaff(staffProfile);
+        })
+        .catch(err => {
+          console.error('[AuthProvider] Staff profile error:', err);
+        });
     }
     return { error: result.error };
   };
