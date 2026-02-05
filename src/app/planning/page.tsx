@@ -157,6 +157,8 @@ export default function PlanningPage() {
   const [customGoalName, setCustomGoalName] = useState('');
   const [newPhaseStart, setNewPhaseStart] = useState(() => new Date().toISOString().split('T')[0]);
   const [newPhaseEnd, setNewPhaseEnd] = useState('');
+  const [manualDurationWeeks, setManualDurationWeeks] = useState<number | null>(null); // User-selected duration
+  const [recompBias, setRecompBias] = useState<'maintenance' | 'deficit' | 'surplus'>('maintenance'); // For recomp: direction of slight calorie adjustment
   
   // Timeline events dialog state (events stored in zustand)
   const [showEventDialog, setShowEventDialog] = useState(false);
@@ -368,13 +370,28 @@ export default function PlanningPage() {
   const targetFFMI = heightMeters > 0 ? (targetFFMLbs * 0.453592) / (heightMeters * heightMeters) : 0;
   const targetFMI = heightMeters > 0 ? (targetFatMassLbs * 0.453592) / (heightMeters * heightMeters) : 0;
   
-  // Calculate timeline based on targets and rate
+  // Calculate timeline based on targets and rate OR manual selection
   const calculatedTimeline = useMemo(() => {
     const weightChange = Math.abs(targetWeightLbs - currentWeightLbs);
     const weeklyChangeLbs = (rateOfChange / 100) * currentWeightLbs;
     
+    // If user manually selected a duration, use that
+    if (manualDurationWeeks !== null) {
+      const endDate = new Date(newPhaseStart);
+      endDate.setDate(endDate.getDate() + manualDurationWeeks * 7);
+      return {
+        weeks: manualDurationWeeks,
+        endDate: endDate.toISOString().split('T')[0],
+        weeklyChangeLbs: weeklyChangeLbs !== 0 ? Math.round(weeklyChangeLbs * 100) / 100 : undefined,
+        totalChange: weeklyChangeLbs !== 0 ? Math.round(weightChange * 10) / 10 : undefined,
+      };
+    }
+    
     if (weeklyChangeLbs === 0 || ['performance', 'health', 'other'].includes(newPhaseGoal)) {
-      return { weeks: 12, endDate: '' }; // Default 12 weeks for non-body-comp focused phases
+      const defaultWeeks = 12; // Default 12 weeks for non-body-comp focused phases
+      const endDate = new Date(newPhaseStart);
+      endDate.setDate(endDate.getDate() + defaultWeeks * 7);
+      return { weeks: defaultWeeks, endDate: endDate.toISOString().split('T')[0] };
     }
     
     const weeks = Math.ceil(weightChange / weeklyChangeLbs);
@@ -387,14 +404,14 @@ export default function PlanningPage() {
       weeklyChangeLbs: Math.round(weeklyChangeLbs * 100) / 100,
       totalChange: Math.round(weightChange * 10) / 10,
     };
-  }, [targetWeightLbs, currentWeightLbs, rateOfChange, newPhaseStart, newPhaseGoal]);
+  }, [targetWeightLbs, currentWeightLbs, rateOfChange, newPhaseStart, newPhaseGoal, manualDurationWeeks]);
   
-  // Update end date when timeline is calculated
+  // Update end date when timeline is calculated (only if not manually set)
   useEffect(() => {
-    if (calculatedTimeline.endDate) {
+    if (calculatedTimeline.endDate && manualDurationWeeks === null) {
       setNewPhaseEnd(calculatedTimeline.endDate);
     }
-  }, [calculatedTimeline.endDate]);
+  }, [calculatedTimeline.endDate, manualDurationWeeks]);
   
   // Generate suggested phase name
   const suggestedPhaseName = useMemo(() => {
@@ -532,6 +549,8 @@ export default function PlanningPage() {
       setTargetMode('bf');
       setCustomMetrics([]);
       setSaveCurrentToProfile(false);
+      setManualDurationWeeks(null);
+      setRecompBias('maintenance');
     }
   };
   
@@ -666,6 +685,15 @@ export default function PlanningPage() {
     setFatGainTolerance(phase.fatGainTolerance);
     setLifestyleCommitment(phase.lifestyleCommitment);
     setTrackingCommitment(phase.trackingCommitment);
+    
+    // Calculate and set manual duration from existing phase dates
+    const startDate = new Date(phase.startDate);
+    const endDate = new Date(phase.endDate);
+    const weeksDiff = Math.round((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    setManualDurationWeeks(weeksDiff);
+    
+    // Reset recomp bias for editing
+    setRecompBias('maintenance');
     
     // Set current stats from phase starting values if available
     if (phase.startingWeightLbs) setEditCurrentWeight(phase.startingWeightLbs);
@@ -2287,17 +2315,20 @@ export default function PlanningPage() {
                               <>
                                 <div className="grid grid-cols-4 gap-2">
                                   {[
-                                    { rate: 0, label: 'Maintenance', desc: 'Steady recomp', color: 'green', recommended: true },
-                                    { rate: 0.15, label: 'Slight Deficit', desc: 'Fat loss focus', color: 'blue', recommended: false },
-                                    { rate: -0.15, label: 'Slight Surplus', desc: 'Muscle focus', color: 'purple', recommended: false },
+                                    { bias: 'maintenance' as const, rate: 0, label: 'Maintenance', desc: 'Steady recomp', color: 'green', recommended: true },
+                                    { bias: 'deficit' as const, rate: 0.15, label: 'Slight Deficit', desc: 'Fat loss focus', color: 'blue', recommended: false },
+                                    { bias: 'surplus' as const, rate: 0.15, label: 'Slight Surplus', desc: 'Muscle focus', color: 'purple', recommended: false },
                                   ].map((preset) => (
                                     <button
-                                      key={preset.rate}
+                                      key={preset.bias}
                                       type="button"
-                                      onClick={() => setRateOfChange(Math.abs(preset.rate))}
+                                      onClick={() => {
+                                        setRecompBias(preset.bias);
+                                        setRateOfChange(preset.rate);
+                                      }}
                                       className={cn(
                                         "p-3 rounded-lg border-2 text-center transition-all relative",
-                                        rateOfChange === Math.abs(preset.rate)
+                                        recompBias === preset.bias
                                           ? preset.color === 'green' ? "border-green-500 bg-green-50 ring-2 ring-green-200" :
                                             preset.color === 'blue' ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" :
                                             "border-purple-500 bg-purple-50 ring-2 ring-purple-200"
@@ -2315,7 +2346,7 @@ export default function PlanningPage() {
                                         preset.color === 'blue' ? "text-blue-700" :
                                         "text-purple-700"
                                       )}>
-                                        {preset.rate === 0 ? '0%' : `${preset.rate > 0 ? '-' : '+'}${Math.abs(preset.rate)}%`}
+                                        {preset.bias === 'maintenance' ? '0%' : preset.bias === 'deficit' ? `-${preset.rate}%` : `+${preset.rate}%`}
                                       </p>
                                       <p className="text-xs font-medium">{preset.label}</p>
                                       <p className="text-[10px] text-muted-foreground">{preset.desc}</p>
@@ -2411,6 +2442,7 @@ export default function PlanningPage() {
                                   key={preset.weeks}
                                   type="button"
                                   onClick={() => {
+                                    setManualDurationWeeks(preset.weeks);
                                     const start = new Date(newPhaseStart);
                                     const end = new Date(start);
                                     end.setDate(end.getDate() + (preset.weeks * 7));
@@ -2437,7 +2469,7 @@ export default function PlanningPage() {
                               {/* Custom Weeks Input */}
                               <div className={cn(
                                 "p-3 rounded-lg border-2 text-center transition-all relative flex flex-col justify-center",
-                                ![4, 8, 12].includes(calculatedTimeline.weeks)
+                                manualDurationWeeks !== null && ![4, 8, 12].includes(manualDurationWeeks)
                                   ? "border-[#c19962] bg-[#c19962]/10 ring-2 ring-[#c19962]/30"
                                   : "hover:border-[#c19962]/50"
                               )}>
@@ -2445,9 +2477,10 @@ export default function PlanningPage() {
                                 <div className="flex items-center justify-center gap-1">
                                   <Input
                                     type="number"
-                                    value={calculatedTimeline.weeks}
+                                    value={manualDurationWeeks ?? calculatedTimeline.weeks}
                                     onChange={(e) => {
-                                      const weeks = Math.max(1, Math.min(52, Number(e.target.value)));
+                                      const weeks = Math.max(1, Math.min(52, Number(e.target.value) || 1));
+                                      setManualDurationWeeks(weeks);
                                       const start = new Date(newPhaseStart);
                                       const end = new Date(start);
                                       end.setDate(end.getDate() + (weeks * 7));
