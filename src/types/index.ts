@@ -93,6 +93,33 @@ export interface PhaseCustomMetric {
   unit: string;
 }
 
+// Check-in data for tracking actual progress
+export interface PhaseCheckIn {
+  id: string;
+  date: string;              // ISO date string
+  weekNumber: number;        // Week number in the phase (0 = start)
+  
+  // Body composition measurements
+  weight?: number;           // lbs
+  bodyFat?: number;          // percentage
+  
+  // Calculated from above
+  fatMass?: number;          // lbs
+  leanMass?: number;         // lbs
+  
+  // Optional additional measurements
+  waist?: number;            // inches
+  hips?: number;             // inches
+  chest?: number;            // inches
+  
+  // Performance metrics (for performance goals)
+  customMetricValues?: Record<string, string>;  // metric id -> actual value
+  
+  // Notes
+  notes?: string;
+  createdAt: string;
+}
+
 // Phase - A time-bound goal period with targets and meal plan
 export interface Phase {
   id: string;
@@ -136,6 +163,9 @@ export interface Phase {
   // Calculated targets + meal plan
   nutritionTargets: DayNutritionTargets[];
   mealPlan: WeeklyMealPlan | null;
+  
+  // Progress tracking - actual check-ins vs projected
+  checkIns?: PhaseCheckIn[];
   
   notes?: string;
   createdAt: string;

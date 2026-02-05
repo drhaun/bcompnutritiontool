@@ -59,7 +59,7 @@ import {
   Settings2,
   Utensils
 } from 'lucide-react';
-import type { Phase, GoalType, PerformancePriority, MusclePreservation, FatGainTolerance, LifestyleCommitment, TrackingCommitment, TimelineEvent, TimelineEventType, DayNutritionTargets } from '@/types';
+import type { Phase, GoalType, PerformancePriority, MusclePreservation, FatGainTolerance, LifestyleCommitment, TrackingCommitment, TimelineEvent, TimelineEventType, DayNutritionTargets, PhaseCheckIn } from '@/types';
 import { PhaseCalendar } from '@/components/planning/phase-calendar';
 import { PhaseTargetsEditor } from '@/components/planning/phase-targets-editor';
 
@@ -164,6 +164,14 @@ export default function PlanningPage() {
   const [newEventDate, setNewEventDate] = useState('');
   const [newEventType, setNewEventType] = useState<TimelineEventType>('milestone');
   const [newEventNotes, setNewEventNotes] = useState('');
+  
+  // Check-in / Progress tracking state
+  const [showCheckInDialog, setShowCheckInDialog] = useState(false);
+  const [checkInPhaseId, setCheckInPhaseId] = useState<string | null>(null);
+  const [checkInDate, setCheckInDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [checkInWeight, setCheckInWeight] = useState<number | ''>('');
+  const [checkInBodyFat, setCheckInBodyFat] = useState<number | ''>('');
+  const [checkInNotes, setCheckInNotes] = useState('');
   
   // Body composition targets for phase
   const [targetWeightLbs, setTargetWeightLbs] = useState(0);
@@ -432,6 +440,85 @@ export default function PlanningPage() {
   const handleDeleteEvent = (eventId: string) => {
     deleteTimelineEvent(eventId);
     toast.success('Event removed');
+  };
+  
+  // Open check-in dialog for a phase
+  const handleOpenCheckIn = (phaseId: string) => {
+    setCheckInPhaseId(phaseId);
+    setCheckInDate(new Date().toISOString().split('T')[0]);
+    setCheckInWeight('');
+    setCheckInBodyFat('');
+    setCheckInNotes('');
+    setShowCheckInDialog(true);
+  };
+  
+  // Add check-in to phase
+  const handleAddCheckIn = () => {
+    if (!checkInPhaseId) return;
+    
+    const phase = phases.find(p => p.id === checkInPhaseId);
+    if (!phase) {
+      toast.error('Phase not found');
+      return;
+    }
+    
+    if (!checkInWeight && !checkInBodyFat) {
+      toast.error('Please enter at least weight or body fat');
+      return;
+    }
+    
+    // Calculate week number
+    const startDate = new Date(phase.startDate);
+    const checkDate = new Date(checkInDate);
+    const weekNumber = Math.floor((checkDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    
+    // Calculate body comp values
+    const weight = typeof checkInWeight === 'number' ? checkInWeight : undefined;
+    const bf = typeof checkInBodyFat === 'number' ? checkInBodyFat : undefined;
+    const fatMass = weight && bf ? weight * (bf / 100) : undefined;
+    const leanMass = weight && bf ? weight - fatMass! : undefined;
+    
+    const newCheckIn: PhaseCheckIn = {
+      id: `checkin-${Date.now()}`,
+      date: checkInDate,
+      weekNumber,
+      weight,
+      bodyFat: bf,
+      fatMass,
+      leanMass,
+      notes: checkInNotes || undefined,
+      createdAt: new Date().toISOString(),
+    };
+    
+    const existingCheckIns = phase.checkIns || [];
+    updatePhase(checkInPhaseId, {
+      checkIns: [...existingCheckIns, newCheckIn],
+      updatedAt: new Date().toISOString(),
+    });
+    
+    setShowCheckInDialog(false);
+    toast.success('Check-in recorded!');
+  };
+  
+  // Delete a check-in
+  const handleDeleteCheckIn = (phaseId: string, checkInId: string) => {
+    const phase = phases.find(p => p.id === phaseId);
+    if (!phase) return;
+    
+    const updatedCheckIns = (phase.checkIns || []).filter(c => c.id !== checkInId);
+    updatePhase(phaseId, {
+      checkIns: updatedCheckIns,
+      updatedAt: new Date().toISOString(),
+    });
+    toast.success('Check-in removed');
+  };
+  
+  // Calculate projected weight for a given week
+  const getProjectedWeight = (phase: Phase, weekNumber: number): number => {
+    const startWeight = phase.startingWeightLbs || editCurrentWeight;
+    const weeklyChange = (phase.rateOfChange / 100) * startWeight;
+    const change = phase.goalType === 'fat_loss' ? -weeklyChange : weeklyChange;
+    return startWeight + (change * weekNumber);
   };
   
   // Reset wizard when dialog closes
@@ -898,6 +985,84 @@ export default function PlanningPage() {
               </DialogContent>
             </Dialog>
             
+            {/* Check-In Dialog */}
+            <Dialog open={showCheckInDialog} onOpenChange={setShowCheckInDialog}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Scale className="h-5 w-5 text-[#c19962]" />
+                    Record Check-In
+                  </DialogTitle>
+                  <DialogDescription>
+                    Log your actual measurements to track progress against projections.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Check-In Date</Label>
+                    <Input
+                      type="date"
+                      value={checkInDate}
+                      onChange={(e) => setCheckInDate(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Weight (lbs)</Label>
+                      <Input
+                        type="number"
+                        placeholder="Enter weight"
+                        value={checkInWeight}
+                        onChange={(e) => setCheckInWeight(e.target.value ? Number(e.target.value) : '')}
+                        step="0.1"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Body Fat %</Label>
+                      <Input
+                        type="number"
+                        placeholder="Optional"
+                        value={checkInBodyFat}
+                        onChange={(e) => setCheckInBodyFat(e.target.value ? Number(e.target.value) : '')}
+                        step="0.1"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Show calculated values if both entered */}
+                  {typeof checkInWeight === 'number' && typeof checkInBodyFat === 'number' && (
+                    <div className="p-3 rounded-lg bg-muted/50 grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Fat Mass</p>
+                        <p className="font-medium">{(checkInWeight * (checkInBodyFat / 100)).toFixed(1)} lbs</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Lean Mass</p>
+                        <p className="font-medium">{(checkInWeight * (1 - checkInBodyFat / 100)).toFixed(1)} lbs</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <Label>Notes (optional)</Label>
+                    <Input
+                      placeholder="How are you feeling? Any notable changes?"
+                      value={checkInNotes}
+                      onChange={(e) => setCheckInNotes(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowCheckInDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddCheckIn} className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]">
+                    Save Check-In
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
                 
                 {/* Create Phase Dialog */}
                 <Dialog open={showCreateDialog} onOpenChange={handleDialogClose}>
@@ -2223,6 +2388,173 @@ export default function PlanningPage() {
                               </p>
                             </div>
                           </div>
+                          
+                          {/* Phase Duration Selector for Body Comp Goals */}
+                          <div className="space-y-3 pt-2">
+                            <div className="flex items-center gap-2">
+                              <div className="p-2 rounded-lg bg-[#c19962]/20">
+                                <Clock className="h-4 w-4 text-[#c19962]" />
+                              </div>
+                              <div>
+                                <Label className="text-sm font-semibold">Phase Duration</Label>
+                                <p className="text-xs text-muted-foreground">Select duration or let it calculate from rate</p>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-4 gap-2">
+                              {[
+                                { weeks: 4, label: 'Mini Cut/Bulk', desc: 'Short intensive' },
+                                { weeks: 8, label: 'Standard', desc: 'Recommended' },
+                                { weeks: 12, label: 'Extended', desc: 'Full transformation' },
+                              ].map((preset) => (
+                                <button
+                                  key={preset.weeks}
+                                  type="button"
+                                  onClick={() => {
+                                    const start = new Date(newPhaseStart);
+                                    const end = new Date(start);
+                                    end.setDate(end.getDate() + (preset.weeks * 7));
+                                    setNewPhaseEnd(end.toISOString().split('T')[0]);
+                                  }}
+                                  className={cn(
+                                    "p-3 rounded-lg border-2 text-center transition-all relative",
+                                    calculatedTimeline.weeks === preset.weeks
+                                      ? "border-[#c19962] bg-[#c19962]/10 ring-2 ring-[#c19962]/30"
+                                      : "hover:border-[#c19962]/50 hover:bg-[#c19962]/5"
+                                  )}
+                                >
+                                  {preset.weeks === 8 && (
+                                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] bg-[#c19962] text-white px-2 py-0.5 rounded-full font-medium">
+                                      Recommended
+                                    </span>
+                                  )}
+                                  <p className="font-bold text-lg text-[#00263d]">{preset.weeks}</p>
+                                  <p className="text-xs font-medium">{preset.label}</p>
+                                  <p className="text-[10px] text-muted-foreground">{preset.desc}</p>
+                                </button>
+                              ))}
+                              
+                              {/* Custom Weeks Input */}
+                              <div className={cn(
+                                "p-3 rounded-lg border-2 text-center transition-all relative flex flex-col justify-center",
+                                ![4, 8, 12].includes(calculatedTimeline.weeks)
+                                  ? "border-[#c19962] bg-[#c19962]/10 ring-2 ring-[#c19962]/30"
+                                  : "hover:border-[#c19962]/50"
+                              )}>
+                                <p className="text-xs font-medium text-muted-foreground mb-1">Custom</p>
+                                <div className="flex items-center justify-center gap-1">
+                                  <Input
+                                    type="number"
+                                    value={calculatedTimeline.weeks}
+                                    onChange={(e) => {
+                                      const weeks = Math.max(1, Math.min(52, Number(e.target.value)));
+                                      const start = new Date(newPhaseStart);
+                                      const end = new Date(start);
+                                      end.setDate(end.getDate() + (weeks * 7));
+                                      setNewPhaseEnd(end.toISOString().split('T')[0]);
+                                    }}
+                                    min="1"
+                                    max="52"
+                                    className="h-8 w-14 text-center font-bold text-sm p-1"
+                                  />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-1">weeks</p>
+                              </div>
+                            </div>
+                            
+                            {/* Projected Change Preview */}
+                            {calculatedTimeline.weeklyChangeLbs && (
+                              <div className="p-3 rounded-lg bg-gradient-to-r from-[#c19962]/10 to-[#00263d]/5 border border-[#c19962]/30">
+                                <div className="flex items-center justify-between text-sm mb-2">
+                                  <span className="font-medium text-[#00263d]">Projected Outcome</span>
+                                  <Badge className="bg-[#c19962] text-white">{calculatedTimeline.weeks} weeks</Badge>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3 text-center">
+                                  <div>
+                                    <p className="text-lg font-bold text-[#00263d]">{editCurrentWeight.toFixed(0)}</p>
+                                    <p className="text-[10px] text-muted-foreground">Start (lbs)</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-lg font-bold text-[#c19962]">
+                                      {newPhaseGoal === 'fat_loss' ? '→' : newPhaseGoal === 'muscle_gain' ? '→' : '↔'}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {calculatedTimeline.totalChange > 0 ? '+' : ''}{calculatedTimeline.totalChange} lbs
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-lg font-bold text-[#00263d]">{targetWeightLbs.toFixed(0)}</p>
+                                    <p className="text-[10px] text-muted-foreground">Target (lbs)</p>
+                                  </div>
+                                </div>
+                                
+                                {/* Projection Chart */}
+                                <div className="mt-4 pt-3 border-t border-[#c19962]/20">
+                                  <p className="text-xs font-medium text-[#00263d] mb-2">Weight Projection</p>
+                                  <div className="relative h-24 bg-white rounded-lg border overflow-hidden">
+                                    <svg className="w-full h-full" viewBox="0 0 300 80" preserveAspectRatio="none">
+                                      {/* Grid lines */}
+                                      {[0, 25, 50, 75, 100].map((pct) => (
+                                        <line key={pct} x1={pct * 3} y1="0" x2={pct * 3} y2="80" stroke="#e5e7eb" strokeWidth="1" />
+                                      ))}
+                                      {[0, 40, 80].map((y) => (
+                                        <line key={y} x1="0" y1={y} x2="300" y2={y} stroke="#e5e7eb" strokeWidth="1" />
+                                      ))}
+                                      
+                                      {/* Projection line */}
+                                      {(() => {
+                                        const startWeight = editCurrentWeight;
+                                        const endWeight = targetWeightLbs;
+                                        const minW = Math.min(startWeight, endWeight) - 5;
+                                        const maxW = Math.max(startWeight, endWeight) + 5;
+                                        const range = maxW - minW;
+                                        const startY = 75 - ((startWeight - minW) / range) * 70;
+                                        const endY = 75 - ((endWeight - minW) / range) * 70;
+                                        
+                                        return (
+                                          <>
+                                            {/* Area under curve */}
+                                            <path
+                                              d={`M 0 ${startY} L 300 ${endY} L 300 80 L 0 80 Z`}
+                                              fill={newPhaseGoal === 'fat_loss' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(59, 130, 246, 0.1)'}
+                                            />
+                                            {/* Projection line */}
+                                            <line
+                                              x1="0"
+                                              y1={startY}
+                                              x2="300"
+                                              y2={endY}
+                                              stroke={newPhaseGoal === 'fat_loss' ? '#22c55e' : '#3b82f6'}
+                                              strokeWidth="3"
+                                              strokeLinecap="round"
+                                            />
+                                            {/* Start point */}
+                                            <circle cx="0" cy={startY} r="5" fill="#00263d" />
+                                            {/* End point */}
+                                            <circle cx="300" cy={endY} r="5" fill="#c19962" />
+                                          </>
+                                        );
+                                      })()}
+                                    </svg>
+                                    
+                                    {/* Labels */}
+                                    <div className="absolute top-1 left-2 text-[9px] font-medium text-slate-500">
+                                      {editCurrentWeight.toFixed(0)} lbs
+                                    </div>
+                                    <div className="absolute bottom-1 left-2 text-[9px] text-slate-400">
+                                      Week 0
+                                    </div>
+                                    <div className="absolute top-1 right-2 text-[9px] font-medium text-[#c19962]">
+                                      {targetWeightLbs.toFixed(0)} lbs
+                                    </div>
+                                    <div className="absolute bottom-1 right-2 text-[9px] text-slate-400">
+                                      Week {calculatedTimeline.weeks}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                       
@@ -3147,6 +3479,19 @@ export default function PlanningPage() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
+                                      className="h-8 w-8 text-[#c19962] hover:text-[#c19962] hover:bg-[#c19962]/10"
+                                      onClick={() => handleOpenCheckIn(phase.id)}
+                                    >
+                                      <Scale className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Record Check-In</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
                                       className="h-8 w-8"
                                       onClick={() => handleOpenEditDialog(phase)}
                                     >
@@ -3184,6 +3529,140 @@ export default function PlanningPage() {
                               </div>
                             </div>
                           </div>
+                          
+                          {/* Progress Tracking Chart - Show if check-ins exist */}
+                          {(phase.checkIns && phase.checkIns.length > 0) && (
+                            <div className="mt-4 pt-4 border-t" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                  <Activity className="h-3.5 w-3.5" />
+                                  Progress Tracking
+                                </p>
+                                <Badge variant="outline" className="text-[10px]">
+                                  {phase.checkIns.length} check-in{phase.checkIns.length > 1 ? 's' : ''}
+                                </Badge>
+                              </div>
+                              
+                              {/* Progress Chart */}
+                              <div className="relative h-20 bg-muted/30 rounded-lg overflow-hidden">
+                                <svg className="w-full h-full" viewBox="0 0 300 60" preserveAspectRatio="none">
+                                  {/* Calculate chart data */}
+                                  {(() => {
+                                    const startWeight = phase.startingWeightLbs || editCurrentWeight;
+                                    const targetWeight = phase.targetWeightLbs;
+                                    const checkIns = phase.checkIns || [];
+                                    const totalWeeks = duration;
+                                    
+                                    // Calculate min/max for Y axis
+                                    const allWeights = [startWeight, targetWeight, ...checkIns.map(c => c.weight).filter(Boolean) as number[]];
+                                    const minW = Math.min(...allWeights) - 2;
+                                    const maxW = Math.max(...allWeights) + 2;
+                                    const range = maxW - minW || 1;
+                                    
+                                    const getY = (weight: number) => 55 - ((weight - minW) / range) * 50;
+                                    const getX = (week: number) => (week / totalWeeks) * 290 + 5;
+                                    
+                                    // Projected line points
+                                    const projectedStartY = getY(startWeight);
+                                    const projectedEndY = getY(targetWeight);
+                                    
+                                    // Check-in points
+                                    const checkInPoints = checkIns
+                                      .filter(c => c.weight)
+                                      .map(c => ({
+                                        x: getX(c.weekNumber),
+                                        y: getY(c.weight!),
+                                        weight: c.weight!,
+                                        week: c.weekNumber,
+                                      }));
+                                    
+                                    return (
+                                      <>
+                                        {/* Projected line (dashed) */}
+                                        <line
+                                          x1="5"
+                                          y1={projectedStartY}
+                                          x2="295"
+                                          y2={projectedEndY}
+                                          stroke="#94a3b8"
+                                          strokeWidth="2"
+                                          strokeDasharray="4 4"
+                                        />
+                                        
+                                        {/* Actual progress line (if 2+ check-ins) */}
+                                        {checkInPoints.length >= 2 && (
+                                          <polyline
+                                            points={[{ x: 5, y: projectedStartY }, ...checkInPoints].map(p => `${p.x},${p.y}`).join(' ')}
+                                            fill="none"
+                                            stroke="#c19962"
+                                            strokeWidth="2.5"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                          />
+                                        )}
+                                        
+                                        {/* Check-in points */}
+                                        {checkInPoints.map((point, i) => (
+                                          <g key={i}>
+                                            <circle cx={point.x} cy={point.y} r="4" fill="#c19962" />
+                                            <circle cx={point.x} cy={point.y} r="2" fill="white" />
+                                          </g>
+                                        ))}
+                                        
+                                        {/* Start point */}
+                                        <circle cx="5" cy={projectedStartY} r="3" fill="#64748b" />
+                                        
+                                        {/* Target point */}
+                                        <circle cx="295" cy={projectedEndY} r="3" fill="#22c55e" stroke="#22c55e" strokeWidth="1" />
+                                      </>
+                                    );
+                                  })()}
+                                </svg>
+                                
+                                {/* Legend */}
+                                <div className="absolute bottom-1 left-2 flex items-center gap-3 text-[9px]">
+                                  <span className="flex items-center gap-1">
+                                    <span className="w-3 h-0.5 bg-slate-400" style={{ borderStyle: 'dashed' }}></span>
+                                    Projected
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <span className="w-3 h-0.5 bg-[#c19962]"></span>
+                                    Actual
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              {/* Latest Check-In Summary */}
+                              {phase.checkIns && phase.checkIns.length > 0 && (() => {
+                                const latestCheckIn = phase.checkIns[phase.checkIns.length - 1];
+                                const projectedAtWeek = getProjectedWeight(phase, latestCheckIn.weekNumber);
+                                const diff = latestCheckIn.weight ? latestCheckIn.weight - projectedAtWeek : 0;
+                                const isOnTrack = Math.abs(diff) < 1;
+                                const isAhead = phase.goalType === 'fat_loss' ? diff < -1 : diff > 1;
+                                
+                                return (
+                                  <div className="mt-2 p-2 rounded bg-muted/50 text-xs">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground">
+                                        Week {latestCheckIn.weekNumber}: {latestCheckIn.weight?.toFixed(1)} lbs
+                                      </span>
+                                      <span className={cn(
+                                        "font-medium",
+                                        isOnTrack ? "text-green-600" : isAhead ? "text-blue-600" : "text-amber-600"
+                                      )}>
+                                        {isOnTrack ? 'On Track' : isAhead ? 'Ahead of Plan' : 'Behind Plan'}
+                                        {!isOnTrack && latestCheckIn.weight && (
+                                          <span className="ml-1 text-muted-foreground">
+                                            ({diff > 0 ? '+' : ''}{diff.toFixed(1)} lbs)
+                                          </span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     );
