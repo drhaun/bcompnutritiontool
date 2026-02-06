@@ -134,23 +134,80 @@ export async function POST(request: NextRequest) {
     
     // Only include ID if it's a valid UUID
     if (body.id && isValidUUID(body.id)) {
-      clientData.id = body.id;
+      // Check if a client with this ID already exists (possibly from another coach)
+      const { data: existingClient } = await supabase
+        .from('clients')
+        .select('id, coach_id')
+        .eq('id', body.id)
+        .maybeSingle();
+      
+      if (existingClient) {
+        // Client exists - check ownership
+        if (existingClient.coach_id !== user.id) {
+          console.log('[Clients API] Client exists but owned by different coach, generating new ID');
+          // Don't use the provided ID, let DB generate a new one
+        } else {
+          // Same owner, we can use the ID
+          clientData.id = body.id;
+        }
+      } else {
+        // Client doesn't exist, safe to use the ID
+        clientData.id = body.id;
+      }
     }
     
     console.log('[Clients API] Creating client with coach_id:', user.id);
     console.log('[Clients API] Client data ID:', clientData.id || 'auto-generated');
     
+    // Use upsert to handle the case where client might already exist
+    // This will insert if new, or update if exists (with matching coach_id due to RLS)
     const { data: client, error } = await supabase
       .from('clients')
-      .insert(clientData)
+      .upsert(clientData, { 
+        onConflict: 'id',
+        ignoreDuplicates: false 
+      })
       .select()
       .single();
     
     if (error) {
-      console.error('[Clients API] Error creating client:', error);
+      console.error('[Clients API] Error creating/upserting client:', error);
       console.error('[Clients API] Error code:', error.code);
       console.error('[Clients API] Error details:', error.details);
       console.error('[Clients API] Error hint:', error.hint);
+      
+      // If it's a duplicate key or RLS violation, try again without the ID
+      if (error.code === '23505' || error.code === '42501' || error.message?.includes('policy') || error.message?.includes('duplicate')) {
+        console.log('[Clients API] Retrying without explicit ID (conflict detected)');
+        
+        // Remove the ID and let the database generate a new one
+        delete clientData.id;
+        
+        const { data: retryClient, error: retryError } = await supabase
+          .from('clients')
+          .insert(clientData)
+          .select()
+          .single();
+        
+        if (retryError) {
+          console.error('[Clients API] Retry also failed:', retryError);
+          return NextResponse.json(
+            { 
+              error: 'Failed to create client', 
+              details: retryError.message,
+              code: retryError.code
+            },
+            { status: 500 }
+          );
+        }
+        
+        return NextResponse.json({ 
+          client: retryClient,
+          localId: body.id, // Return the original local ID so client can update mapping
+          newIdGenerated: true,
+        });
+      }
+      
       return NextResponse.json(
         { 
           error: 'Failed to create client', 
