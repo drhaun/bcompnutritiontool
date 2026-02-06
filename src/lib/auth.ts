@@ -111,6 +111,41 @@ export async function signOut(): Promise<{ error: string | null }> {
 }
 
 /**
+ * Clear invalid session (useful when refresh token errors occur)
+ * This clears local storage and forces a clean state
+ */
+export async function clearInvalidSession(): Promise<void> {
+  console.log('[Auth] Clearing invalid session...');
+  
+  // Clear Supabase auth from local storage
+  if (typeof window !== 'undefined') {
+    // Clear all Supabase-related keys
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('supabase') || key.includes('sb-'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => {
+      console.log('[Auth] Removing localStorage key:', key);
+      localStorage.removeItem(key);
+    });
+  }
+  
+  // Also try to sign out properly (may fail if token is invalid, that's ok)
+  if (supabase && isSupabaseConfigured) {
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (e) {
+      console.log('[Auth] signOut during clearInvalidSession failed (expected):', e);
+    }
+  }
+  
+  console.log('[Auth] Invalid session cleared');
+}
+
+/**
  * Get current session
  */
 export async function getSession(): Promise<Session | null> {

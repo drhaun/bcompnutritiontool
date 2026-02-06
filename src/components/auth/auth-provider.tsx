@@ -10,6 +10,7 @@ import {
   onAuthStateChange,
   isAdmin,
   canViewAllClients,
+  clearInvalidSession,
   type StaffUser
 } from '@/lib/auth';
 
@@ -60,6 +61,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Subscribe to auth changes - Use session data directly, don't call additional API methods
     const { data: { subscription } } = onAuthStateChange(async (event, newSession) => {
       console.log('[AuthProvider] Auth state changed:', event, 'has session:', !!newSession);
+      
+      // Handle token refresh errors gracefully
+      if (event === 'TOKEN_REFRESHED' && !newSession) {
+        console.log('[AuthProvider] Token refresh failed, clearing session');
+        await clearInvalidSession();
+        setUser(null);
+        setSession(null);
+        setStaff(null);
+        setIsLoading(false);
+        useFitomicsStore.getState().setAuthenticated(false);
+        return;
+      }
+      
+      // Handle sign out or session expiry
+      if (event === 'SIGNED_OUT') {
+        console.log('[AuthProvider] Session ended, clearing state');
+        setUser(null);
+        setSession(null);
+        setStaff(null);
+        setIsLoading(false);
+        useFitomicsStore.getState().setAuthenticated(false);
+        return;
+      }
+      
       setSession(newSession);
       
       if (newSession?.user) {
