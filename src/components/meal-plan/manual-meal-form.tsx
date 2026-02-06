@@ -246,6 +246,10 @@ export function ManualMealForm({ slot, existingMeal, dietPreferences, onSave, on
   const [builderStep, setBuilderStep] = useState<BuilderStep>('protein');
   const [selectedFlavorEnhancers, setSelectedFlavorEnhancers] = useState<string[]>([]);
   
+  // AI flavor tips state
+  const [isGettingFlavorTips, setIsGettingFlavorTips] = useState(false);
+  const [aiFlavorTips, setAiFlavorTips] = useState<string | null>(null);
+  
   // Initialize from existing meal
   useEffect(() => {
     if (existingMeal?.ingredients) {
@@ -503,6 +507,58 @@ export function ManualMealForm({ slot, existingMeal, dietPreferences, onSave, on
       toast.error('Failed to get AI suggestion');
     } finally {
       setIsGettingAiSuggestion(false);
+    }
+  };
+  
+  // Get AI flavor and prep tips
+  const getAiFlavorTips = async () => {
+    if (selectedFoods.length === 0) {
+      toast.error('Add some ingredients first');
+      return;
+    }
+    
+    setIsGettingFlavorTips(true);
+    try {
+      const ingredients = selectedFoods.map(food => ({
+        name: food.name,
+        grams: food.customGrams || Math.round(food.serving_size * food.servings),
+        category: food.category,
+      }));
+      
+      const response = await fetch('/api/generate-flavor-tips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ingredients,
+          cuisinePreferences: dietPreferences?.cuisinePreferences,
+          allergies: dietPreferences?.allergies,
+          mealContext: slot.label,
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAiFlavorTips(data.rawText || data.tips?.fullText);
+        
+        // Optionally add tips to instructions
+        if (data.rawText && !instructions.includes('AI Flavor Tips')) {
+          setInstructions(prev => {
+            const existing = prev.trim();
+            return existing 
+              ? `${existing}\n\n--- AI Flavor & Prep Tips ---\n${data.rawText}`
+              : `--- AI Flavor & Prep Tips ---\n${data.rawText}`;
+          });
+        }
+        
+        toast.success('AI flavor tips generated and added to instructions!');
+      } else {
+        throw new Error('Failed to get tips');
+      }
+    } catch (error) {
+      console.error('Flavor tips error:', error);
+      toast.error('Failed to get AI flavor tips');
+    } finally {
+      setIsGettingFlavorTips(false);
     }
   };
   
@@ -1028,15 +1084,72 @@ export function ManualMealForm({ slot, existingMeal, dietPreferences, onSave, on
           <div className="space-y-4">
             {/* Step-specific content */}
             {builderStep === 'flavor' ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
+                {/* AI Flavor Tips - Primary CTA */}
+                <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-purple-900 flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-purple-600" />
+                        AI Flavor & Prep Recommendations
+                      </h4>
+                      <p className="text-xs text-purple-700 mt-1">
+                        Get personalized cooking tips, seasoning recommendations, and preparation instructions specifically for your selected ingredients.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={getAiFlavorTips}
+                      disabled={isGettingFlavorTips || selectedFoods.length === 0}
+                      className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+                    >
+                      {isGettingFlavorTips ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Get AI Tips
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {selectedFoods.length === 0 && (
+                    <p className="text-xs text-orange-600 mt-2 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Add ingredients in previous steps first
+                    </p>
+                  )}
+                </div>
+                
+                {/* AI Tips Display */}
+                {aiFlavorTips && (
+                  <div className="p-4 bg-white rounded-lg border border-green-200 shadow-sm">
+                    <h4 className="font-medium text-green-800 mb-2 flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      Your Personalized Flavor Tips
+                    </h4>
+                    <div className="text-sm text-gray-700 whitespace-pre-wrap max-h-48 overflow-y-auto">
+                      {aiFlavorTips}
+                    </div>
+                    <p className="text-xs text-green-600 mt-2">
+                      ✓ Tips added to preparation instructions below
+                    </p>
+                  </div>
+                )}
+                
+                <Separator />
+                
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-[#c19962]" />
-                    Add Flavor Enhancers (Low Calorie Additions)
+                    Quick-Add Flavor Enhancers (Low Calorie)
                   </Label>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  These are low-calorie seasonings and additions that make your meal taste amazing without significantly impacting macros.
+                  Or manually select seasonings and additions that make your meal taste amazing.
                 </p>
                 
                 <div className="grid grid-cols-2 gap-3">
@@ -1165,7 +1278,7 @@ export function ManualMealForm({ slot, existingMeal, dietPreferences, onSave, on
             )}
             
             {/* Navigation buttons */}
-            <div className="flex justify-between pt-2">
+            <div className="flex justify-between items-center pt-4 border-t">
               <Button
                 variant="outline"
                 size="sm"
@@ -1174,15 +1287,62 @@ export function ManualMealForm({ slot, existingMeal, dietPreferences, onSave, on
               >
                 ← Previous
               </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={nextBuilderStep}
-                className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
-              >
-                {builderStep === 'flavor' ? 'Review Meal →' : 'Next Step →'}
-              </Button>
+              
+              <div className="flex items-center gap-2">
+                {/* Show Save button on flavor step if ingredients are selected */}
+                {builderStep === 'flavor' && selectedFoods.length > 0 && name.trim() && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSave}
+                    className="border-green-300 text-green-700 hover:bg-green-50"
+                  >
+                    <Save className="h-4 w-4 mr-1" />
+                    Save Now
+                  </Button>
+                )}
+                
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={nextBuilderStep}
+                  className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+                >
+                  {builderStep === 'flavor' ? 'Review & Save →' : 'Next Step →'}
+                </Button>
+              </div>
             </div>
+          </div>
+        )}
+        
+        {/* Review Step Header */}
+        {builderMode === 'guided' && builderStep === 'review' && (
+          <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+            <h3 className="font-semibold text-green-800 flex items-center gap-2 mb-2">
+              <CheckCircle className="h-5 w-5" />
+              Review Your Meal
+            </h3>
+            <p className="text-sm text-green-700">
+              Review your selected ingredients below. You can adjust serving sizes, add more ingredients, or edit the preparation instructions before saving.
+            </p>
+            {name.trim() && selectedFoods.length > 0 && (
+              <div className="flex items-center gap-3 mt-3">
+                <Button 
+                  onClick={handleSave}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Meal
+                </Button>
+                <span className="text-xs text-green-600">Ready to save!</span>
+              </div>
+            )}
+            {(!name.trim() || selectedFoods.length === 0) && (
+              <p className="text-xs text-orange-600 mt-2 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                {!name.trim() ? 'Enter a meal name above' : 'Add at least one ingredient'}
+              </p>
+            )}
           </div>
         )}
         
