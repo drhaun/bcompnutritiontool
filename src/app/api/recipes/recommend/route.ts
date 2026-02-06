@@ -51,6 +51,7 @@ interface ScaledRecipe {
     carbs: number;
     fat: number;
     fiber: number;
+    recipe_servings: number; // How many servings the full recipe makes
   };
   // Scaled to target
   scaled: {
@@ -70,7 +71,7 @@ interface ScaledRecipe {
     caloriesPct: number;
     proteinPct: number;
   };
-  // Recipe details
+  // Recipe details - already scaled to per-serving amounts
   ingredients: { item: string; amount: string }[];
   directions: string[];
   image_url: string | null;
@@ -142,6 +143,116 @@ function checkSubstitutions(
     canAdapt: suggestions.length > 0,
     suggestions,
   };
+}
+
+// Estimate how many servings the full recipe makes
+// This is needed because ingredients are often stored for the full recipe
+// while nutrition is per serving
+function estimateRecipeServings(
+  recipe: { 
+    recipe_servings?: number; 
+    serving_size_g?: number | null;
+    calories: number;
+    ingredients: { item: string; amount: string }[];
+  }
+): number {
+  // If database has explicit servings, use that
+  if (recipe.recipe_servings && recipe.recipe_servings > 0) {
+    return recipe.recipe_servings;
+  }
+  
+  // Estimate based on ingredient quantities
+  // Look for common bulk indicators in ingredients
+  let estimatedServings = 1;
+  
+  for (const ing of recipe.ingredients || []) {
+    const amount = ing.amount?.toLowerCase() || '';
+    const item = ing.item?.toLowerCase() || '';
+    
+    // Protein indicators (chicken, beef, etc.)
+    if (item.includes('chicken') || item.includes('beef') || item.includes('pork') || 
+        item.includes('turkey') || item.includes('fish') || item.includes('salmon')) {
+      // Parse the amount
+      const lbMatch = amount.match(/([\d.]+)\s*(lb|lbs|pound|pounds)/i);
+      const ozMatch = amount.match(/([\d.]+)\s*(oz|ounce|ounces)/i);
+      const gMatch = amount.match(/([\d.]+)\s*(g|gram|grams)/i);
+      
+      if (lbMatch) {
+        const lbs = parseFloat(lbMatch[1]);
+        // 4oz (113g) is typical serving of protein
+        // 1 lb = 16oz = ~4 servings
+        estimatedServings = Math.max(estimatedServings, Math.round(lbs * 4));
+      } else if (ozMatch) {
+        const oz = parseFloat(ozMatch[1]);
+        estimatedServings = Math.max(estimatedServings, Math.round(oz / 4));
+      } else if (gMatch) {
+        const g = parseFloat(gMatch[1]);
+        // ~115g per serving
+        estimatedServings = Math.max(estimatedServings, Math.round(g / 115));
+      }
+    }
+    
+    // Rice/grain indicators
+    if (item.includes('rice') || item.includes('pasta') || item.includes('quinoa')) {
+      const cupMatch = amount.match(/([\d.]+)\s*(cup|cups)/i);
+      if (cupMatch) {
+        const cups = parseFloat(cupMatch[1]);
+        // 1 cup cooked is about 1 serving, but dry rice expands 3x
+        if (amount.includes('dry') || amount.includes('uncooked')) {
+          estimatedServings = Math.max(estimatedServings, Math.round(cups * 3));
+        } else {
+          estimatedServings = Math.max(estimatedServings, Math.round(cups));
+        }
+      }
+    }
+  }
+  
+  // Sanity check - most recipes make 2-6 servings
+  return Math.max(1, Math.min(8, estimatedServings));
+}
+
+// Scale ingredient amounts to per-serving
+function scaleIngredientsToPerServing(
+  ingredients: { item: string; amount: string }[],
+  recipeServings: number
+): { item: string; amount: string }[] {
+  if (recipeServings <= 1) return ingredients;
+  
+  return ingredients.map(ing => {
+    const amount = ing.amount || '';
+    
+    // Try to parse the amount and scale it down
+    const numMatch = amount.match(/^([\d.\/]+)\s*(.*)$/);
+    if (numMatch) {
+      let value: number;
+      // Handle fractions like 1/2
+      if (numMatch[1].includes('/')) {
+        const parts = numMatch[1].split('/');
+        value = parseFloat(parts[0]) / parseFloat(parts[1]);
+      } else {
+        value = parseFloat(numMatch[1]) || 1;
+      }
+      
+      // Scale down to per-serving
+      const scaledValue = value / recipeServings;
+      const unit = numMatch[2]?.trim() || '';
+      
+      // Format nicely
+      if (scaledValue >= 1) {
+        return { item: ing.item, amount: `${Math.round(scaledValue * 10) / 10} ${unit}`.trim() };
+      } else if (scaledValue >= 0.25) {
+        // Convert to fractions for readability
+        if (scaledValue >= 0.75) return { item: ing.item, amount: `3/4 ${unit}`.trim() };
+        if (scaledValue >= 0.5) return { item: ing.item, amount: `1/2 ${unit}`.trim() };
+        if (scaledValue >= 0.33) return { item: ing.item, amount: `1/3 ${unit}`.trim() };
+        return { item: ing.item, amount: `1/4 ${unit}`.trim() };
+      } else {
+        return { item: ing.item, amount: `${Math.round(scaledValue * 100) / 100} ${unit}`.trim() };
+      }
+    }
+    
+    return ing;
+  });
 }
 
 // Calculate the optimal serving size to match target macros
@@ -436,6 +547,20 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Estimate how many servings the full recipe makes
+      const recipeServings = estimateRecipeServings({
+        recipe_servings: recipe.recipe_servings,
+        serving_size_g: recipe.serving_size_g,
+        calories: recipe.calories,
+        ingredients: recipe.ingredients,
+      });
+      
+      // Scale ingredients to per-serving amounts
+      const perServingIngredients = scaleIngredientsToPerServing(
+        recipe.ingredients,
+        recipeServings
+      );
+      
       // Calculate optimal servings
       const optimalServings = calculateOptimalServings(
         { 
@@ -521,10 +646,11 @@ export async function POST(request: NextRequest) {
           carbs: recipe.carbs,
           fat: recipe.fat,
           fiber: recipe.fiber,
+          recipe_servings: recipeServings, // How many servings the full recipe makes
         },
         scaled,
         variance,
-        ingredients: recipe.ingredients,
+        ingredients: perServingIngredients, // Now scaled to per-serving amounts!
         directions: recipe.directions,
         image_url: recipe.image_url,
         matchScore: Math.round(score),
