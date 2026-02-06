@@ -145,23 +145,22 @@ function checkSubstitutions(
   };
 }
 
-// Estimate how many servings the full recipe makes
-// This is needed because ingredients are often stored for the full recipe
-// while nutrition is per serving
-function estimateRecipeServings(
+// Get the number of servings the full recipe makes
+// Uses the database column if available, otherwise falls back to estimation
+function getRecipeServings(
   recipe: { 
-    recipe_servings?: number; 
+    recipe_servings?: number | null; 
     serving_size_g?: number | null;
     calories: number;
     ingredients: { item: string; amount: string }[];
   }
 ): number {
-  // If database has explicit servings, use that
+  // If database has explicit servings, use that (preferred!)
   if (recipe.recipe_servings && recipe.recipe_servings > 0) {
     return recipe.recipe_servings;
   }
   
-  // Estimate based on ingredient quantities
+  // Fallback: Estimate based on ingredient quantities
   // Look for common bulk indicators in ingredients
   let estimatedServings = 1;
   
@@ -547,8 +546,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Estimate how many servings the full recipe makes
-      const recipeServings = estimateRecipeServings({
+      // Get how many servings the full recipe makes (from DB or estimate)
+      const recipeServings = getRecipeServings({
         recipe_servings: recipe.recipe_servings,
         serving_size_g: recipe.serving_size_g,
         calories: recipe.calories,
