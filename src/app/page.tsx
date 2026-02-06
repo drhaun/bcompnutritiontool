@@ -549,38 +549,49 @@ export default function HomePage() {
                     )}
                     Cloud Sync
                   </CardTitle>
-                  {isAuthenticated && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2"
-                      onClick={() => syncToDatabase()}
-                      disabled={isSyncing}
-                    >
-                      {isSyncing ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4" />
-                      )}
-                    </Button>
-                  )}
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
                 {isAuthenticated ? (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
                       <span className="text-green-700">Connected to Supabase</span>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      {clients.length} client{clients.length !== 1 ? 's' : ''} in local storage
+                    </p>
                     {lastSyncedAt && (
                       <p className="text-xs text-muted-foreground">
                         Last synced: {new Date(lastSyncedAt).toLocaleString()}
                       </p>
                     )}
                     {syncError && (
-                      <p className="text-xs text-red-600">{syncError}</p>
+                      <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
+                        Sync error: {syncError}
+                      </div>
                     )}
+                    
+                    {/* Manual Sync Button */}
+                    <Button
+                      variant={clients.length > 0 ? "default" : "outline"}
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => syncToDatabase()}
+                      disabled={isSyncing}
+                    >
+                      {isSyncing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Syncing...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4" />
+                          Sync {clients.length > 0 ? `${clients.length} Client${clients.length !== 1 ? 's' : ''} to Cloud` : 'with Cloud'}
+                        </>
+                      )}
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-2">

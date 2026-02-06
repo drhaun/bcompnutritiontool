@@ -295,10 +295,24 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         
         // Sync to database if authenticated
         const state = get();
+        console.log('[Store] isAuthenticated:', state.isAuthenticated);
         if (state.isAuthenticated) {
-          createClientInDb(newClient).catch(err => {
-            console.error('[Store] Failed to sync new client:', err);
-          });
+          console.log('[Store] Syncing new client to database...');
+          createClientInDb(newClient)
+            .then(result => {
+              if (result) {
+                console.log('[Store] Client synced successfully:', result.id);
+              } else {
+                console.error('[Store] Client sync returned null - check API logs');
+                set({ syncError: 'Failed to sync new client to database' });
+              }
+            })
+            .catch(err => {
+              console.error('[Store] Failed to sync new client:', err);
+              set({ syncError: `Sync error: ${err.message || 'Unknown error'}` });
+            });
+        } else {
+          console.warn('[Store] Not authenticated - client stored locally only');
         }
         
         return id;

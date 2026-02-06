@@ -311,52 +311,90 @@ export async function getAllStaff(): Promise<StaffUser[]> {
 
 /**
  * Update staff member (admin only)
+ * Uses server-side API to bypass RLS issues
  */
 export async function updateStaffMember(
   staffId: string, 
   updates: Partial<Pick<StaffUser, 'name' | 'role' | 'isActive' | 'canViewAllClients' | 'permissions'>>
 ): Promise<{ error: string | null }> {
-  if (!supabase || !isSupabaseConfigured) {
+  if (!isSupabaseConfigured) {
     return { error: 'Supabase not configured' };
   }
 
-  const { error } = await supabase
-    .from('staff')
-    .update({
-      name: updates.name,
-      role: updates.role,
-      is_active: updates.isActive,
-      can_view_all_clients: updates.canViewAllClients,
-      permissions: updates.permissions,
-    })
-    .eq('id', staffId);
+  console.log('[Auth] Updating staff member:', staffId, 'with updates:', updates);
 
-  return { error: error?.message || null };
+  try {
+    // Use the server-side API route which has admin privileges
+    const response = await fetch('/api/admin/staff', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        staffId,
+        name: updates.name,
+        role: updates.role,
+        isActive: updates.isActive,
+        canViewAllClients: updates.canViewAllClients,
+        permissions: updates.permissions,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('[Auth] Update staff API error:', result.error);
+      return { error: result.error || 'Failed to update staff record' };
+    }
+
+    console.log('[Auth] Staff record updated successfully');
+    return { error: null };
+  } catch (err) {
+    console.error('[Auth] Update staff exception:', err);
+    return { error: 'Network error updating staff record' };
+  }
 }
 
 /**
  * Create staff record for existing auth user (admin only)
+ * Uses server-side API to bypass RLS issues
  */
 export async function createStaffForUser(
   authUserId: string,
   email: string,
   data: { name?: string; role?: 'admin' | 'coach' | 'nutritionist'; canViewAllClients?: boolean }
 ): Promise<{ error: string | null }> {
-  if (!supabase || !isSupabaseConfigured) {
+  if (!isSupabaseConfigured) {
     return { error: 'Supabase not configured' };
   }
 
-  const { error } = await supabase
-    .from('staff')
-    .insert({
-      auth_user_id: authUserId,
-      email: email,
-      name: data.name || null,
-      role: data.role || 'coach',
-      can_view_all_clients: data.canViewAllClients || false,
+  console.log('[Auth] Creating staff record for user:', authUserId, email);
+
+  try {
+    // Use the server-side API route which has admin privileges
+    const response = await fetch('/api/admin/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        authUserId,
+        email,
+        name: data.name || null,
+        role: data.role || 'coach',
+        canViewAllClients: data.canViewAllClients || false,
+      }),
     });
 
-  return { error: error?.message || null };
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('[Auth] Create staff API error:', result.error);
+      return { error: result.error || 'Failed to create staff record' };
+    }
+
+    console.log('[Auth] Staff record created successfully');
+    return { error: null };
+  } catch (err) {
+    console.error('[Auth] Create staff exception:', err);
+    return { error: 'Network error creating staff record' };
+  }
 }
 
 /**

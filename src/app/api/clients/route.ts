@@ -45,13 +45,24 @@ export async function GET(request: NextRequest) {
     }
     
     // Check if user is admin or has full visibility
-    const { data: staffRecord } = await supabase
+    const { data: staffRecord, error: staffError } = await supabase
       .from('staff')
       .select('role, can_view_all_clients')
       .eq('auth_user_id', user.id)
       .single();
     
+    // Log staff lookup for debugging
+    if (staffError) {
+      console.warn('[Clients API] Staff lookup error for user', user.id, ':', staffError.message);
+    } else {
+      console.log('[Clients API] Staff record found:', { 
+        role: staffRecord?.role, 
+        canViewAll: staffRecord?.can_view_all_clients 
+      });
+    }
+    
     const canViewAll = staffRecord?.role === 'admin' || staffRecord?.can_view_all_clients === true;
+    console.log('[Clients API] User visibility - canViewAll:', canViewAll, 'userId:', user.id);
     
     // Fetch clients - admins see all, others see only their own
     let query = supabase
@@ -67,16 +78,27 @@ export async function GET(request: NextRequest) {
     const { data: clients, error } = await query;
     
     if (error) {
-      console.error('Error fetching clients:', error);
+      console.error('[Clients API] Error fetching clients:', error);
       return NextResponse.json(
         { error: 'Failed to fetch clients', details: error.message },
         { status: 500 }
       );
     }
     
-    return NextResponse.json({ clients: clients || [] });
+    console.log('[Clients API] Returning', clients?.length || 0, 'clients');
+    return NextResponse.json({ 
+      clients: clients || [],
+      // Include visibility info for debugging
+      _debug: {
+        userId: user.id,
+        hasStaffRecord: !!staffRecord,
+        staffRole: staffRecord?.role,
+        canViewAllClients: staffRecord?.can_view_all_clients,
+        canViewAll,
+      }
+    });
   } catch (error) {
-    console.error('Clients GET error:', error);
+    console.error('[Clients API] GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -327,27 +349,48 @@ export async function PUT(request: NextRequest) {
       // If database is newer, we'll fetch it in the response
     }
     
+    // Track errors for debugging
+    const errors: string[] = [];
+    let insertedCount = 0;
+    let updatedCount = 0;
+    
     // Perform inserts
     if (toInsert.length > 0) {
-      const { error: insertError } = await supabase
+      console.log('[Clients API] Inserting', toInsert.length, 'clients for coach:', user.id);
+      console.log('[Clients API] Clients to insert:', toInsert.map(c => ({ id: c.id, name: c.name, coach_id: c.coach_id })));
+      
+      const { data: insertedData, error: insertError } = await supabase
         .from('clients')
-        .insert(toInsert);
+        .insert(toInsert)
+        .select();
       
       if (insertError) {
-        console.error('Error inserting clients:', insertError);
+        console.error('[Clients API] Insert error:', insertError);
+        console.error('[Clients API] Insert error code:', insertError.code);
+        console.error('[Clients API] Insert error details:', insertError.details);
+        console.error('[Clients API] Insert error hint:', insertError.hint);
+        errors.push(`Insert failed: ${insertError.message} (code: ${insertError.code})`);
+      } else {
+        insertedCount = insertedData?.length || 0;
+        console.log('[Clients API] Successfully inserted', insertedCount, 'clients');
       }
     }
     
     // Perform updates
     for (const client of toUpdate) {
       const { id, ...updateData } = client;
+      console.log('[Clients API] Updating client:', id);
+      
       const { error: updateError } = await supabase
         .from('clients')
         .update(updateData)
         .eq('id', id);
       
       if (updateError) {
-        console.error('Error updating client:', updateError);
+        console.error('[Clients API] Update error for client', id, ':', updateError);
+        errors.push(`Update failed for ${id}: ${updateError.message}`);
+      } else {
+        updatedCount++;
       }
     }
     
@@ -364,17 +407,28 @@ export async function PUT(request: NextRequest) {
     const { data: syncedClients, error } = await syncQuery;
     
     if (error) {
-      console.error('Error fetching synced clients:', error);
+      console.error('[Clients API] Error fetching synced clients:', error);
       return NextResponse.json(
-        { error: 'Sync partially failed' },
+        { error: 'Sync partially failed', details: error.message, insertErrors: errors },
         { status: 500 }
       );
     }
     
+    console.log('[Clients API] Sync complete - inserted:', insertedCount, 'updated:', updatedCount, 'total in DB:', syncedClients?.length || 0);
+    
+    // Return with error info if any errors occurred
     return NextResponse.json({
       clients: syncedClients || [],
-      inserted: toInsert.length,
-      updated: toUpdate.length,
+      inserted: insertedCount,
+      updated: updatedCount,
+      attempted: { insert: toInsert.length, update: toUpdate.length },
+      errors: errors.length > 0 ? errors : undefined,
+      _debug: {
+        userId: user.id,
+        canViewAll,
+        toInsertCount: toInsert.length,
+        toUpdateCount: toUpdate.length,
+      }
     });
   } catch (error) {
     console.error('Clients PUT error:', error);

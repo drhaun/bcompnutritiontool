@@ -1,6 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+
+// Fitomics Logo URL for PDF
+// Must be a full URL for @react-pdf/renderer to access it
+const FITOMICS_LOGO_URL = typeof window !== 'undefined' 
+  ? `${window.location.origin}/images/fitomics_horizontal_gold.png` 
+  : undefined;
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -689,6 +695,7 @@ export default function MealPlanPage() {
           weeklySchedule,
           nutritionTargets,
           mealPlan,
+          logoUrl: FITOMICS_LOGO_URL,
         }),
       });
       
@@ -871,6 +878,7 @@ export default function MealPlanPage() {
             ? nutritionTargets.filter(t => t.day === options.singleDay)
             : nutritionTargets,
           mealPlan: exportMealPlan,
+          logoUrl: FITOMICS_LOGO_URL,
           options: {
             includeGroceryList: options.includeGroceryList,
             includeRecipes: options.includeRecipes,

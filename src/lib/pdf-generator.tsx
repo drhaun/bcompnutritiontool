@@ -5,6 +5,7 @@ import {
   View,
   StyleSheet,
   Font,
+  Image,
 } from '@react-pdf/renderer';
 import type {
   UserProfile,
@@ -468,10 +469,13 @@ const Header = ({ title }: { title: string }) => (
   </View>
 );
 
-const Footer = ({ pageNum }: { pageNum: number }) => (
+const Footer = () => (
   <View style={styles.footer} fixed>
     <Text style={styles.footerText}>Fitomics Personalized Nutrition Strategy • Confidential</Text>
-    <Text style={styles.pageNumber}>Page {pageNum}</Text>
+    <Text 
+      style={styles.pageNumber} 
+      render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} 
+    />
   </View>
 );
 
@@ -723,6 +727,7 @@ interface MealPlanPDFProps {
   nutritionTargets: DayNutritionTargets[];
   mealPlan: WeeklyMealPlan;
   groceryList: Record<string, { name: string; totalAmount: string }[]>;
+  logoUrl?: string; // Optional high-resolution logo URL
 }
 
 export const MealPlanPDF = ({
@@ -733,6 +738,7 @@ export const MealPlanPDF = ({
   nutritionTargets,
   mealPlan,
   groceryList,
+  logoUrl,
 }: MealPlanPDFProps) => {
   // Calculate averages
   const avgCalories = nutritionTargets.length > 0 
@@ -765,14 +771,23 @@ export const MealPlanPDF = ({
     return daySchedule?.workouts && daySchedule.workouts.some(w => w.enabled);
   });
   
-  let pageNumber = 1;
-
   return (
     <Document>
       {/* ====== COVER PAGE ====== */}
       <Page size="A4" style={styles.page}>
         <View style={styles.coverPage}>
-          <Text style={styles.coverLogo}>FITOMICS</Text>
+          {logoUrl ? (
+            <Image 
+              src={logoUrl} 
+              style={{ 
+                width: 220, 
+                height: 'auto', 
+                marginBottom: 25,
+              }} 
+            />
+          ) : (
+            <Text style={styles.coverLogo}>FITOMICS</Text>
+          )}
           <Text style={styles.coverTitle}>PERSONALIZED</Text>
           <Text style={styles.coverTitle}>NUTRITION STRATEGY</Text>
           <Text style={styles.coverSubtitle}>Evidence-Based • Individualized • Results-Driven</Text>
@@ -841,7 +856,7 @@ export const MealPlanPDF = ({
             goals, preferences, and lifestyle factors.
           </Text>
         </View>
-        <Footer pageNum={pageNumber++} />
+        <Footer />
       </Page>
 
       {/* ====== CLIENT PROFILE PAGE ====== */}
@@ -974,7 +989,7 @@ export const MealPlanPDF = ({
           </Text>
         </View>
         
-        <Footer pageNum={pageNumber++} />
+        <Footer />
       </Page>
 
       {/* ====== SCHEDULE & LIFESTYLE PAGE ====== */}
@@ -1089,7 +1104,7 @@ export const MealPlanPDF = ({
           </View>
         </View>
         
-        <Footer pageNum={pageNumber++} />
+        <Footer />
       </Page>
 
       {/* ====== NUTRITION TARGETS PAGE ====== */}
@@ -1187,7 +1202,7 @@ export const MealPlanPDF = ({
           })}
         </View>
         
-        <Footer pageNum={pageNumber++} />
+        <Footer />
       </Page>
 
       {/* ====== DAILY MEAL PLAN PAGES ====== */}
@@ -1260,7 +1275,7 @@ export const MealPlanPDF = ({
               }
             })}
             
-            <Footer pageNum={pageNumber++} />
+            <Footer />
           </Page>
         );
       })}
@@ -1335,7 +1350,7 @@ export const MealPlanPDF = ({
           </View>
         </View>
         
-        <Footer pageNum={pageNumber} />
+        <Footer />
       </Page>
     </Document>
   );

@@ -42,6 +42,7 @@ export function storeClientToApiFormat(client: ClientProfile) {
     phone: client.phone || null,
     notes: client.notes || null,
     status: client.status,
+    coachId: client.coachId, // Include coachId if set (API will use current user if undefined)
     userProfile: client.userProfile,
     bodyCompGoals: client.bodyCompGoals,
     dietPreferences: client.dietPreferences,
@@ -65,20 +66,31 @@ export function storeClientToApiFormat(client: ClientProfile) {
  */
 export async function fetchClientsFromDb(): Promise<ClientProfile[]> {
   try {
+    console.log('[ClientSync] Fetching clients from database...');
+    
     const response = await fetch('/api/clients', {
       credentials: 'include', // Ensure cookies are sent
     });
     
     if (!response.ok) {
       if (response.status === 401) {
-        console.log('[ClientSync] Not authenticated, using local storage');
+        console.log('[ClientSync] Not authenticated (401), using local storage');
         return [];
       }
+      const errorText = await response.text();
+      console.error('[ClientSync] Fetch failed:', response.status, errorText);
       throw new Error('Failed to fetch clients');
     }
     
     const data = await response.json();
-    return (data.clients || []).map(dbClientToStoreClient);
+    console.log('[ClientSync] Fetch response:', {
+      clientCount: data.clients?.length || 0,
+      debug: data._debug,
+    });
+    
+    const clients = (data.clients || []).map(dbClientToStoreClient);
+    console.log('[ClientSync] Returning', clients.length, 'clients');
+    return clients;
   } catch (error) {
     console.error('[ClientSync] Error fetching clients:', error);
     return [];
@@ -94,6 +106,8 @@ export async function syncClientsToDb(localClients: ClientProfile[]): Promise<{
   error?: string;
 }> {
   try {
+    console.log('[ClientSync] Starting sync with', localClients.length, 'local clients');
+    
     const response = await fetch('/api/clients', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -109,15 +123,66 @@ export async function syncClientsToDb(localClients: ClientProfile[]): Promise<{
         return { success: false, clients: localClients, error: 'Not authenticated' };
       }
       const errorData = await response.json().catch(() => ({}));
+      console.error('[ClientSync] Sync API error:', errorData);
       throw new Error(errorData.error || 'Failed to sync clients');
     }
     
     const data = await response.json();
-    console.log(`[ClientSync] Synced: ${data.inserted} inserted, ${data.updated} updated`);
+    console.log('[ClientSync] Sync response:', {
+      inserted: data.inserted,
+      updated: data.updated,
+      attempted: data.attempted,
+      clientsReturned: data.clients?.length || 0,
+      errors: data.errors,
+      debug: data._debug,
+    });
+    
+    // CRITICAL: If there were errors inserting/updating, DON'T lose local clients!
+    if (data.errors && data.errors.length > 0) {
+      console.error('[ClientSync] Sync had errors:', data.errors);
+      
+      // If we tried to insert clients but they failed, keep local clients
+      if (data.attempted?.insert > 0 && data.inserted === 0) {
+        console.error('[ClientSync] CRITICAL: Insert failed! Keeping local clients to prevent data loss');
+        return {
+          success: false,
+          clients: localClients,
+          error: data.errors.join('; '),
+        };
+      }
+    }
+    
+    // Verify we got clients back - if not, keep local clients
+    if (!data.clients || data.clients.length === 0) {
+      console.warn('[ClientSync] WARNING: Sync returned 0 clients!');
+      if (localClients.length > 0) {
+        console.warn('[ClientSync] Had', localClients.length, 'local clients, keeping them');
+        return {
+          success: false,
+          clients: localClients,
+          error: data.errors?.join('; ') || 'Sync returned no clients',
+        };
+      }
+    }
+    
+    // EXTRA SAFETY: If we had local clients but got fewer back, merge them
+    const dbClients = (data.clients || []).map(dbClientToStoreClient);
+    if (localClients.length > 0 && dbClients.length < localClients.length) {
+      console.warn('[ClientSync] Database returned fewer clients than local. Merging to prevent loss.');
+      const dbIds = new Set(dbClients.map(c => c.id));
+      const missingLocal = localClients.filter(c => !dbIds.has(c.id));
+      if (missingLocal.length > 0) {
+        console.log('[ClientSync] Preserving', missingLocal.length, 'local clients not in database');
+        return {
+          success: true,
+          clients: [...dbClients, ...missingLocal],
+        };
+      }
+    }
     
     return {
       success: true,
-      clients: (data.clients || []).map(dbClientToStoreClient),
+      clients: dbClients,
     };
   } catch (error) {
     console.error('[ClientSync] Error syncing clients:', error);

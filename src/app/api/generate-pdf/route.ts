@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       weeklySchedule,
       nutritionTargets,
       mealPlan,
+      logoUrl, // Optional high-resolution logo URL
     } = body;
     
     if (!mealPlan) {
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
         nutritionTargets,
         mealPlan,
         groceryList,
+        logoUrl, // Pass logo URL if provided
       }) as any
     );
     

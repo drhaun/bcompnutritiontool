@@ -408,6 +408,75 @@ Return ONLY a JSON object with this structure:
 }
 
 /**
+ * Clean and format ingredient name for display
+ * - Removes leading special characters (., -, etc.)
+ * - Converts to title case
+ * - Handles common formatting issues from parsing
+ */
+function cleanIngredientName(name: string): string {
+  if (!name) return '';
+  
+  // Trim and remove leading special characters (period, dash, bullet, etc.)
+  let cleaned = name.trim().replace(/^[.\-•*]+\s*/, '');
+  
+  // Fix common parsing issues where first letter got captured as part of amount unit
+  // e.g., "reen onion stalks" -> "Green onion stalks"
+  // e.g., "arlic cloves" -> "Garlic cloves"
+  // Check if name starts with lowercase and looks like a truncated word
+  const commonTruncatedWords: Record<string, string> = {
+    'reen': 'Green',
+    'arlic': 'Garlic', 
+    'pinach': 'Spinach',
+    'roccoli': 'Broccoli',
+    'arrot': 'Carrot',
+    'nion': 'Onion',
+    'hicken': 'Chicken',
+    'eef': 'Beef',
+    'almon': 'Salmon',
+    'hrimp': 'Shrimp',
+    'urkey': 'Turkey',
+    'ggs': 'Eggs',
+    'utter': 'Butter',
+    'heese': 'Cheese',
+    'ilk': 'Milk',
+    'ream': 'Cream',
+    'rown': 'Brown',
+    'hite': 'White',
+    'utternut': 'Butternut',
+    'one': 'Bone',
+    'haved': 'Shaved',
+  };
+  
+  for (const [truncated, full] of Object.entries(commonTruncatedWords)) {
+    if (cleaned.toLowerCase().startsWith(truncated)) {
+      cleaned = full + cleaned.slice(truncated.length);
+      break;
+    }
+  }
+  
+  // Also remove any leading single lowercase letter followed by space (parsing artifacts)
+  // e.g., "s brown rice" -> "brown rice"
+  cleaned = cleaned.replace(/^([a-z])\s+(?=[a-zA-Z])/, '');
+  
+  // Convert to title case (capitalize first letter of each word)
+  cleaned = cleaned
+    .toLowerCase()
+    .split(' ')
+    .map((word, index) => {
+      // Don't capitalize certain small words unless first word
+      const smallWords = ['a', 'an', 'the', 'and', 'or', 'of', 'to', 'for', 'with', 'in', 'on'];
+      if (index > 0 && smallWords.includes(word)) {
+        return word;
+      }
+      // Capitalize first letter
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+  
+  return cleaned;
+}
+
+/**
  * Consolidate grocery list from weekly meal plan
  */
 export function consolidateGroceryList(mealPlan: WeeklyMealPlan): Record<string, { name: string; totalAmount: string; category: string; meals: string[] }[]> {
@@ -415,6 +484,7 @@ export function consolidateGroceryList(mealPlan: WeeklyMealPlan): Record<string,
     amounts: { value: number; unit: string }[]; 
     category: string; 
     meals: string[];
+    originalName: string; // Keep original for better display
   }> = new Map();
   
   // Process all days and meals
@@ -430,7 +500,11 @@ export function consolidateGroceryList(mealPlan: WeeklyMealPlan): Record<string,
         // Skip if ingredient is malformed
         if (!ingredient?.item) continue;
         
-        const key = ingredient.item.toLowerCase().trim();
+        // Clean the ingredient name and create a key for grouping
+        const cleanedName = cleanIngredientName(ingredient.item);
+        if (!cleanedName) continue; // Skip if name is empty after cleaning
+        
+        const key = cleanedName.toLowerCase();
         const existing = groceryMap.get(key);
         
         // Parse amount - handle various formats
@@ -466,6 +540,7 @@ export function consolidateGroceryList(mealPlan: WeeklyMealPlan): Record<string,
             amounts: [{ value, unit }],
             category: ingredient.category || 'other',
             meals: [`${day} - ${meal.name}`],
+            originalName: cleanedName, // Store the cleaned, formatted name
           });
         }
       }
@@ -482,24 +557,56 @@ export function consolidateGroceryList(mealPlan: WeeklyMealPlan): Record<string,
     other: [],
   };
   
-  for (const [name, data] of groceryMap) {
+  /**
+   * Normalize unit for display - consistent capitalization
+   */
+  const normalizeUnit = (unit: string): string => {
+    const unitLower = unit.toLowerCase().trim();
+    
+    // Handle common unit abbreviations with standard casing
+    const unitMap: Record<string, string> = {
+      'tbsp': 'tbsp',
+      'tsp': 'tsp',
+      'oz': 'oz',
+      'lb': 'lb',
+      'lbs': 'lb',
+      'g': 'g',
+      'kg': 'kg',
+      'ml': 'ml',
+      'l': 'L',
+      'cup': 'cup',
+      'cups': 'cups',
+      'serving': 'serving',
+      'servings': 'servings',
+    };
+    
+    // Check for exact matches first
+    if (unitMap[unitLower]) {
+      return unitMap[unitLower];
+    }
+    
+    // Return original with first letter capitalized for other units
+    return unit.charAt(0).toLowerCase() + unit.slice(1);
+  };
+
+  for (const [, data] of groceryMap) {
     // Round amounts to practical values
-    const totalAmount = data.amounts
+    const amountParts = data.amounts
       .map(a => {
         // Round to practical amounts based on unit
         let roundedValue = a.value;
-        const unit = a.unit.toLowerCase();
+        const unitLower = a.unit.toLowerCase();
         
-        if (unit.includes('oz') || unit.includes('lb') || unit.includes('g')) {
+        if (unitLower.includes('oz') || unitLower.includes('lb') || unitLower === 'g' || unitLower === 'kg') {
           // Round to nearest 0.5 for weights
           roundedValue = Math.round(a.value * 2) / 2;
-        } else if (unit.includes('cup') || unit.includes('tbsp') || unit.includes('tsp')) {
+        } else if (unitLower.includes('cup') || unitLower.includes('tbsp') || unitLower.includes('tsp')) {
           // Round to nearest 0.25 for volume measurements
           roundedValue = Math.round(a.value * 4) / 4;
-        } else if (unit.includes('slice') || unit.includes('serving') || unit.includes('piece')) {
+        } else if (unitLower.includes('slice') || unitLower.includes('serving') || unitLower.includes('piece')) {
           // Round up to whole numbers for countable items
           roundedValue = Math.ceil(a.value);
-        } else if (unit.includes('dash') || unit.includes('pinch')) {
+        } else if (unitLower.includes('dash') || unitLower.includes('pinch')) {
           // Round up dashes and pinches
           roundedValue = Math.ceil(a.value);
         } else {
@@ -507,19 +614,30 @@ export function consolidateGroceryList(mealPlan: WeeklyMealPlan): Record<string,
           roundedValue = Math.round(a.value * 10) / 10;
         }
         
+        // Skip if rounds to 0
+        if (roundedValue === 0) {
+          return null;
+        }
+        
         // Format the value - no decimals for whole numbers
         const formattedValue = roundedValue % 1 === 0 
           ? roundedValue.toString() 
           : roundedValue.toFixed(roundedValue % 0.25 === 0 ? 2 : 1).replace(/\.?0+$/, '');
         
-        return `${formattedValue} ${a.unit}`;
+        return `${formattedValue} ${normalizeUnit(a.unit)}`;
       })
-      .join(' + ');
+      .filter(Boolean);
     
+    // Skip item if all amounts rounded to 0
+    if (amountParts.length === 0) {
+      continue;
+    }
+    
+    const totalAmount = amountParts.join(' + ');
     const category = data.category in result ? data.category : 'other';
     
     result[category].push({
-      name: name.charAt(0).toUpperCase() + name.slice(1),
+      name: data.originalName, // Use the already cleaned and formatted name
       totalAmount,
       category,
       meals: data.meals,
