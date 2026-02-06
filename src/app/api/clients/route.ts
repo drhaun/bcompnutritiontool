@@ -137,6 +137,9 @@ export async function POST(request: NextRequest) {
       clientData.id = body.id;
     }
     
+    console.log('[Clients API] Creating client with coach_id:', user.id);
+    console.log('[Clients API] Client data ID:', clientData.id || 'auto-generated');
+    
     const { data: client, error } = await supabase
       .from('clients')
       .insert(clientData)
@@ -144,9 +147,17 @@ export async function POST(request: NextRequest) {
       .single();
     
     if (error) {
-      console.error('Error creating client:', error);
+      console.error('[Clients API] Error creating client:', error);
+      console.error('[Clients API] Error code:', error.code);
+      console.error('[Clients API] Error details:', error.details);
+      console.error('[Clients API] Error hint:', error.hint);
       return NextResponse.json(
-        { error: 'Failed to create client', details: error.message },
+        { 
+          error: 'Failed to create client', 
+          details: error.message,
+          code: error.code,
+          hint: error.hint 
+        },
         { status: 500 }
       );
     }
