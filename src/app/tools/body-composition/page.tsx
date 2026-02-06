@@ -255,6 +255,31 @@ export default function BodyCompositionPage() {
   const [theoreticalFM, setTheoreticalFM] = useState<number>(25);
   const [theoreticalFFM, setTheoreticalFFM] = useState<number>(165);
   
+  // Calculate optimal FM/FFM for HR = 1.00 based on current height
+  const getOptimalExploreValues = (hM: number) => {
+    // FMI where HR = 1.0 is approximately 7.3 (from MORTALITY_RISK.fmi.points)
+    // FFMI where HR = 1.0 is approximately 16.1 (from MORTALITY_RISK.ffmi.points)
+    const optimalFMI = 7.3;
+    const optimalFFMI = 16.1;
+    const optimalFatMassKg = optimalFMI * (hM * hM);
+    const optimalFFMKg = optimalFFMI * (hM * hM);
+    return {
+      fatMassLbs: Math.round(optimalFatMassKg / 0.453592 * 10) / 10,
+      ffmLbs: Math.round(optimalFFMKg / 0.453592 * 10) / 10,
+    };
+  };
+  
+  // Effect to set optimal explore values when toggled on
+  const handleExploreToggle = (enabled: boolean) => {
+    setUseTheoretical(enabled);
+    if (enabled) {
+      const hM = heightCm / 100;
+      const optimal = getOptimalExploreValues(hM);
+      setTheoreticalFM(optimal.fatMassLbs);
+      setTheoreticalFFM(optimal.ffmLbs);
+    }
+  };
+  
   // Timeline start date
   const [startDate, setStartDate] = useState<string>(formatDate(new Date()));
   
@@ -1025,7 +1050,7 @@ export default function BodyCompositionPage() {
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     <Label className="text-[10px] text-slate-500">Explore</Label>
-                    <Switch checked={useTheoretical} onCheckedChange={setUseTheoretical} />
+                    <Switch checked={useTheoretical} onCheckedChange={handleExploreToggle} />
                     <Crosshair className={`h-4 w-4 ${useTheoretical ? 'text-purple-500' : 'text-slate-300'}`} />
                   </div>
                 </div>
@@ -1296,192 +1321,231 @@ export default function BodyCompositionPage() {
             </Card>
           </div>
 
-          {/* Row 2: Goal, Target, Rate */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            
-            {/* Goal */}
-            <Card className="bg-white border-0 shadow-lg rounded-2xl">
-              <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-100">
-                <CardTitle className="flex items-center gap-2 text-[#00263d] text-sm font-semibold">
-                  <div className="flex items-center justify-center w-5 h-5 rounded-full bg-[#00263d] text-white text-[10px] font-bold">2</div>
-                  <Target className="h-4 w-4 text-blue-500" />
-                  Select Goal
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 space-y-2">
-                {[
-                  { value: 'fat_loss', label: 'Fat Loss', desc: 'Reduce body fat', icon: TrendingDown, color: 'from-red-500 to-orange-500', iconColor: 'text-red-500', bgColor: 'bg-red-50' },
-                  { value: 'muscle_gain', label: 'Build Muscle', desc: 'Add lean mass', icon: TrendingUp, color: 'from-blue-500 to-cyan-500', iconColor: 'text-blue-500', bgColor: 'bg-blue-50' },
-                  { value: 'recomposition', label: 'Recomposition', desc: 'Both simultaneously', icon: RefreshCcw, color: 'from-purple-500 to-pink-500', iconColor: 'text-purple-500', bgColor: 'bg-purple-50' },
-                ].map(({ value, label, desc, icon: Icon, color, iconColor, bgColor }) => (
-                  <button key={value} onClick={() => setPhaseType(value as any)}
-                    className={`w-full p-2.5 rounded-xl text-left transition-all ${phaseType === value ? `bg-gradient-to-r ${color} text-white shadow-lg` : `${bgColor} hover:shadow-md`}`}>
-                    <div className="flex items-center gap-2">
-                      <Icon className={`h-4 w-4 ${phaseType === value ? 'text-white' : iconColor}`} />
-                      <div className="flex-1">
-                        <div className={`font-semibold text-sm ${phaseType === value ? 'text-white' : 'text-slate-700'}`}>{label}</div>
-                        <div className={`text-[9px] ${phaseType === value ? 'text-white/80' : 'text-slate-500'}`}>{desc}</div>
-                      </div>
-                      {phaseType === value && <CheckCircle2 className="h-4 w-4 text-white" />}
+          {/* Row 2: Goal Setup - Consolidated Card */}
+          <Card className="bg-white border-0 shadow-lg rounded-2xl">
+            <CardHeader className="pb-3 pt-4 px-6 border-b border-slate-100">
+              <CardTitle className="flex items-center gap-3 text-[#00263d] text-lg font-bold">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[#00263d] to-[#003a5c] text-white text-sm font-bold">2</div>
+                <Target className="h-5 w-5 text-[#c19962]" />
+                Goal Configuration
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Goal Type Selection */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                      <span className="text-xs font-bold text-blue-600">A</span>
                     </div>
-                  </button>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Target */}
-            <Card className="bg-white border-0 shadow-lg rounded-2xl">
-              <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-100">
-                <CardTitle className="flex items-center gap-2 text-[#00263d] text-sm font-semibold">
-                  <div className="flex items-center justify-center w-5 h-5 rounded-full bg-[#00263d] text-white text-[10px] font-bold">3</div>
-                  <Scale className="h-4 w-4 text-green-500" />
-                  Set Target
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 space-y-2">
-                {phaseType === 'recomposition' ? (
-                  <div className="space-y-1.5">
-                    {Object.entries(RECOMP_EXPECTATIONS).map(([key, val]) => (
-                      <button key={key} onClick={() => setRecompExperience(key as any)}
-                        className={`w-full p-2.5 rounded-xl text-left transition-all ${recompExperience === key ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md' : 'bg-slate-50 hover:bg-slate-100'}`}>
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold text-xs">{val.label}</span>
-                          <span className={`text-[10px] ${recompExperience === key ? 'text-white/80' : 'text-slate-500'}`}>{val.probability}%</span>
-                        </div>
-                        <div className={`text-[9px] mt-0.5 ${recompExperience === key ? 'text-white/70' : 'text-slate-400'}`}>
-                          -{val.monthlyFatLoss} FM / +{val.monthlyMuscleGain} FFM /mo
+                    Select Your Goal
+                  </h3>
+                  <div className="space-y-2">
+                    {[
+                      { value: 'fat_loss', label: 'Fat Loss', desc: 'Reduce body fat while preserving muscle', icon: TrendingDown, color: 'from-red-500 to-orange-500', iconColor: 'text-red-500', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
+                      { value: 'muscle_gain', label: 'Build Muscle', desc: 'Add lean mass with controlled fat gain', icon: TrendingUp, color: 'from-blue-500 to-cyan-500', iconColor: 'text-blue-500', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
+                      { value: 'recomposition', label: 'Recomposition', desc: 'Lose fat and gain muscle simultaneously', icon: RefreshCcw, color: 'from-purple-500 to-pink-500', iconColor: 'text-purple-500', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' },
+                    ].map(({ value, label, desc, icon: Icon, color, iconColor, bgColor, borderColor }) => (
+                      <button key={value} onClick={() => setPhaseType(value as any)}
+                        className={`w-full p-4 rounded-xl text-left transition-all border-2 ${phaseType === value ? `bg-gradient-to-r ${color} text-white shadow-lg border-transparent` : `${bgColor} ${borderColor} hover:shadow-md`}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${phaseType === value ? 'bg-white/20' : 'bg-white'}`}>
+                            <Icon className={`h-5 w-5 ${phaseType === value ? 'text-white' : iconColor}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className={`font-bold text-base ${phaseType === value ? 'text-white' : 'text-slate-700'}`}>{label}</div>
+                            <div className={`text-xs mt-0.5 ${phaseType === value ? 'text-white/80' : 'text-slate-500'}`}>{desc}</div>
+                          </div>
+                          {phaseType === value && <CheckCircle2 className="h-6 w-6 text-white" />}
                         </div>
                       </button>
                     ))}
                   </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-5 gap-1">
-                      {[{ value: 'body_fat', label: 'BF%' }, { value: 'fmi', label: 'FMI' }, { value: 'ffmi', label: 'FFMI' }, { value: 'fat_mass', label: 'FM' }, { value: 'ffm', label: 'FFM' }].map(({ value, label }) => (
-                        <button key={value} onClick={() => setTargetMethod(value as any)}
-                          className={`text-[9px] font-semibold py-1.5 rounded-lg transition-colors ${targetMethod === value ? 'bg-[#00263d] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                          {label}
+                </div>
+
+                {/* Target Setting */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                      <span className="text-xs font-bold text-green-600">B</span>
+                    </div>
+                    Set Your Target
+                  </h3>
+                  {phaseType === 'recomposition' ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-500 mb-3">Select your training experience level:</p>
+                      {Object.entries(RECOMP_EXPECTATIONS).map(([key, val]) => (
+                        <button key={key} onClick={() => setRecompExperience(key as any)}
+                          className={`w-full p-4 rounded-xl text-left transition-all border-2 ${recompExperience === key ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg border-transparent' : 'bg-purple-50 border-purple-200 hover:bg-purple-100'}`}>
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-sm">{val.label}</span>
+                            <Badge className={`${recompExperience === key ? 'bg-white/20 text-white' : 'bg-purple-200 text-purple-700'} border-0`}>{val.probability}% success</Badge>
+                          </div>
+                          <div className={`text-xs mt-1.5 ${recompExperience === key ? 'text-white/80' : 'text-purple-600'}`}>
+                            Expected: -{val.monthlyFatLoss} lbs fat / +{val.monthlyMuscleGain} lbs muscle per month
+                          </div>
                         </button>
                       ))}
                     </div>
-                    <div className="bg-slate-50 rounded-xl p-3">
-                      {targetMethod === 'body_fat' && (
-                        <div className="space-y-2">
-                          <div className="flex justify-between"><Label className="text-[10px] text-slate-500">Target BF%</Label><span className="text-sm font-bold text-[#00263d]">{targetBodyFat}%</span></div>
-                          <Slider value={[targetBodyFat]} onValueChange={([v]) => setTargetBodyFat(v)} min={5} max={35} step={0.5} />
-                          <div className="text-[9px] text-slate-400">Current: {currentBodyFat}%</div>
-                        </div>
-                      )}
-                      {targetMethod === 'fmi' && (
-                        <div className="space-y-2">
-                          <div className="flex justify-between"><Label className="text-[10px] text-slate-500">Target FMI</Label><span className="text-sm font-bold text-[#00263d]">{targetFMI}</span></div>
-                          <Slider value={[targetFMI]} onValueChange={([v]) => setTargetFMI(v)} min={2} max={15} step={0.5} />
-                          <div className="text-[9px] text-slate-400">Current: {currentMetrics.fmi}</div>
-                        </div>
-                      )}
-                      {targetMethod === 'ffmi' && (
-                        <div className="space-y-2">
-                          <div className="flex justify-between"><Label className="text-[10px] text-slate-500">Target FFMI</Label><span className="text-sm font-bold text-[#00263d]">{targetFFMI}</span></div>
-                          <Slider value={[targetFFMI]} onValueChange={([v]) => setTargetFFMI(v)} min={16} max={28} step={0.5} />
-                          <div className="text-[9px] text-slate-400">Current: {currentMetrics.ffmi}</div>
-                        </div>
-                      )}
-                      {targetMethod === 'fat_mass' && (
-                        <div className="space-y-2">
-                          <Label className="text-[10px] text-slate-500">Target Fat Mass (lbs)</Label>
-                          <Input type="number" value={targetFatMass} onChange={(e) => setTargetFatMass(Number(e.target.value))} className="h-8 text-center font-bold" />
-                          <div className="text-[9px] text-slate-400">Current: {currentMetrics.fatMassLbs} lbs</div>
-                        </div>
-                      )}
-                      {targetMethod === 'ffm' && (
-                        <div className="space-y-2">
-                          <Label className="text-[10px] text-slate-500">Target FFM (lbs)</Label>
-                          <Input type="number" value={targetFFM} onChange={(e) => setTargetFFM(Number(e.target.value))} className="h-8 text-center font-bold" />
-                          <div className="text-[9px] text-slate-400">Current: {currentMetrics.ffmLbs} lbs</div>
-                        </div>
-                      )}
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Target Method Selector */}
+                      <div className="flex rounded-xl overflow-hidden border-2 border-slate-200 bg-slate-50">
+                        {[{ value: 'body_fat', label: 'Body Fat %' }, { value: 'fmi', label: 'FMI' }, { value: 'ffmi', label: 'FFMI' }, { value: 'fat_mass', label: 'Fat Mass' }, { value: 'ffm', label: 'FFM' }].map(({ value, label }) => (
+                          <button key={value} onClick={() => setTargetMethod(value as any)}
+                            className={`flex-1 text-xs font-semibold py-3 transition-colors ${targetMethod === value ? 'bg-[#00263d] text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* Target Input Area */}
+                      <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-5 border border-slate-200">
+                        {targetMethod === 'body_fat' && (
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                              <Label className="text-sm font-medium text-slate-600">Target Body Fat %</Label>
+                              <span className="text-2xl font-bold text-[#00263d]">{targetBodyFat}%</span>
+                            </div>
+                            <Slider value={[targetBodyFat]} onValueChange={([v]) => setTargetBodyFat(v)} min={5} max={35} step={0.5} className="py-2" />
+                            <div className="flex justify-between text-xs text-slate-400">
+                              <span>5% (Essential)</span>
+                              <span className="font-medium text-slate-600">Current: {currentBodyFat}%</span>
+                              <span>35%</span>
+                            </div>
+                          </div>
+                        )}
+                        {targetMethod === 'fmi' && (
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                              <Label className="text-sm font-medium text-slate-600">Target Fat Mass Index</Label>
+                              <span className="text-2xl font-bold text-[#00263d]">{targetFMI}</span>
+                            </div>
+                            <Slider value={[targetFMI]} onValueChange={([v]) => setTargetFMI(v)} min={2} max={15} step={0.5} className="py-2" />
+                            <div className="flex justify-between text-xs text-slate-400">
+                              <span>2 (Very Lean)</span>
+                              <span className="font-medium text-slate-600">Current: {currentMetrics.fmi}</span>
+                              <span>15</span>
+                            </div>
+                          </div>
+                        )}
+                        {targetMethod === 'ffmi' && (
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                              <Label className="text-sm font-medium text-slate-600">Target Fat-Free Mass Index</Label>
+                              <span className="text-2xl font-bold text-[#00263d]">{targetFFMI}</span>
+                            </div>
+                            <Slider value={[targetFFMI]} onValueChange={([v]) => setTargetFFMI(v)} min={16} max={28} step={0.5} className="py-2" />
+                            <div className="flex justify-between text-xs text-slate-400">
+                              <span>16 (Below Avg)</span>
+                              <span className="font-medium text-slate-600">Current: {currentMetrics.ffmi}</span>
+                              <span>28 (Elite)</span>
+                            </div>
+                          </div>
+                        )}
+                        {targetMethod === 'fat_mass' && (
+                          <div className="space-y-4">
+                            <Label className="text-sm font-medium text-slate-600">Target Fat Mass (lbs)</Label>
+                            <Input type="number" value={targetFatMass} onChange={(e) => setTargetFatMass(Number(e.target.value))} className="h-12 text-xl text-center font-bold bg-white" />
+                            <p className="text-xs text-slate-500 text-center">Current: {currentMetrics.fatMassLbs} lbs</p>
+                          </div>
+                        )}
+                        {targetMethod === 'ffm' && (
+                          <div className="space-y-4">
+                            <Label className="text-sm font-medium text-slate-600">Target Fat-Free Mass (lbs)</Label>
+                            <Input type="number" value={targetFFM} onChange={(e) => setTargetFFM(Number(e.target.value))} className="h-12 text-xl text-center font-bold bg-white" />
+                            <p className="text-xs text-slate-500 text-center">Current: {currentMetrics.ffmLbs} lbs</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+                  )}
+                </div>
 
-            {/* Rate & Timeline */}
-            <Card className="bg-white border-0 shadow-lg rounded-2xl">
-              <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-100">
-                <CardTitle className="flex items-center gap-2 text-[#00263d] text-sm font-semibold">
-                  <div className="flex items-center justify-center w-5 h-5 rounded-full bg-[#00263d] text-white text-[10px] font-bold">4</div>
-                  <Clock className="h-4 w-4 text-amber-500" />
-                  Rate & Timeline
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 space-y-2">
-                {phaseType !== 'recomposition' && (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[10px] text-slate-500">Custom Rate</Label>
-                      <Switch checked={useCustomRate} onCheckedChange={setUseCustomRate} />
+                {/* Rate & Timeline */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center">
+                      <span className="text-xs font-bold text-amber-600">C</span>
                     </div>
-                    {useCustomRate ? (
-                      <div className="bg-slate-50 rounded-xl p-2.5">
-                        <div className="flex items-center gap-2">
-                          <Slider value={[customRate]} onValueChange={([v]) => setCustomRate(v)} min={0.1} max={1.5} step={0.05} className="flex-1" />
-                          <span className="text-sm font-bold text-[#00263d] w-14 text-center">{customRate}%</span>
+                    Rate & Timeline
+                  </h3>
+                  
+                  {phaseType !== 'recomposition' && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <Label className="text-sm text-slate-600 font-medium">Use Custom Rate</Label>
+                        <Switch checked={useCustomRate} onCheckedChange={setUseCustomRate} />
+                      </div>
+                      
+                      {useCustomRate ? (
+                        <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
+                          <div className="flex items-center gap-3">
+                            <Slider value={[customRate]} onValueChange={([v]) => setCustomRate(v)} min={0.1} max={1.5} step={0.05} className="flex-1" />
+                            <span className="text-xl font-bold text-amber-700 w-16 text-center">{customRate}%</span>
+                          </div>
+                          <div className="text-sm text-center text-amber-600 mt-2 font-medium">
+                            ≈ {Math.round(currentWeight * customRate / 100 * 10) / 10} lbs per week
+                          </div>
                         </div>
-                        <div className="text-[9px] text-center text-slate-400 mt-1">≈ {Math.round(currentWeight * customRate / 100 * 10) / 10} lbs/wk</div>
-                      </div>
-                    ) : (
-                      <div className="space-y-1 max-h-28 overflow-y-auto">
-                        {Object.entries(phaseType === 'fat_loss' ? RATE_PRESETS.fat_loss : RATE_PRESETS.muscle_gain).map(([key, val]) => {
-                          const isSelected = phaseType === 'fat_loss' ? fatLossRateKey === key : muscleGainRateKey === key;
-                          return (
-                            <button key={key} onClick={() => phaseType === 'fat_loss' ? setFatLossRateKey(key) : setMuscleGainRateKey(key)}
-                              className={`w-full p-2 rounded-lg text-left transition-all ${isSelected ? `bg-gradient-to-r ${phaseType === 'fat_loss' ? 'from-red-500 to-orange-500' : 'from-blue-500 to-cyan-500'} text-white` : 'bg-slate-50 hover:bg-slate-100'}`}>
-                              <div className="flex justify-between items-center">
-                                <span className="font-semibold text-[11px]">{val.label}</span>
-                                <span className={`text-[9px] px-1 py-0.5 rounded ${isSelected ? 'bg-white/20' : 'bg-slate-200'}`}>{val.rate}%</span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                )}
-                
-                {/* Start Date Input */}
-                <div>
-                  <Label className="text-[9px] font-medium text-slate-500 uppercase">Start Date</Label>
-                  <Input 
-                    type="date" 
-                    value={startDate} 
-                    onChange={(e) => setStartDate(e.target.value)} 
-                    className="h-8 text-xs bg-slate-50 rounded-lg text-center"
-                  />
-                </div>
-                
-                {/* Timeline Summary */}
-                <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-2.5 text-white text-center">
-                  <Calendar className="h-3.5 w-3.5 mx-auto mb-0.5 text-white/80" />
-                  <div className="text-xl font-bold">{calculatedTimeline.weeks} weeks</div>
-                  <div className="text-[9px] text-white/80">
-                    {new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} → {new Date(weeklyProjections[weeklyProjections.length - 1]?.date || startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      ) : (
+                        <div className="space-y-2">
+                          {Object.entries(phaseType === 'fat_loss' ? RATE_PRESETS.fat_loss : RATE_PRESETS.muscle_gain).map(([key, val]) => {
+                            const isSelected = phaseType === 'fat_loss' ? fatLossRateKey === key : muscleGainRateKey === key;
+                            return (
+                              <button key={key} onClick={() => phaseType === 'fat_loss' ? setFatLossRateKey(key) : setMuscleGainRateKey(key)}
+                                className={`w-full p-3 rounded-xl text-left transition-all border-2 ${isSelected ? `bg-gradient-to-r ${phaseType === 'fat_loss' ? 'from-red-500 to-orange-500' : 'from-blue-500 to-cyan-500'} text-white border-transparent shadow-md` : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <span className="font-bold text-sm">{val.label}</span>
+                                    <span className={`text-xs ml-2 ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>{val.description}</span>
+                                  </div>
+                                  <Badge className={`${isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'} border-0 text-sm`}>{val.rate}%/wk</Badge>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Start Date */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-600">Start Date</Label>
+                    <Input 
+                      type="date" 
+                      value={startDate} 
+                      onChange={(e) => setStartDate(e.target.value)} 
+                      className="h-11 text-sm bg-slate-50 rounded-xl text-center border-slate-200"
+                    />
+                  </div>
+                  
+                  {/* Timeline Summary */}
+                  <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-4 text-white text-center shadow-lg">
+                    <Calendar className="h-5 w-5 mx-auto mb-1 text-white/80" />
+                    <div className="text-3xl font-bold">{calculatedTimeline.weeks} weeks</div>
+                    <div className="text-sm text-white/90 mt-1">
+                      {new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} → {new Date(weeklyProjections[weeklyProjections.length - 1]?.date || startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                  </div>
+                  
+                  {/* Success Probability */}
+                  <div className={`rounded-xl p-4 border-2 ${feasibility.probability >= 70 ? 'bg-green-50 border-green-200' : feasibility.probability >= 40 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-slate-700">Success Probability</span>
+                      <Badge className={`${feasibility.probability >= 70 ? 'bg-green-500' : feasibility.probability >= 40 ? 'bg-amber-500' : 'bg-red-500'} text-white border-0 text-base px-3`}>{feasibility.probability}%</Badge>
+                    </div>
+                    <div className="h-3 bg-white/60 rounded-full overflow-hidden shadow-inner">
+                      <div className={`h-full rounded-full transition-all ${feasibility.probability >= 70 ? 'bg-green-500' : feasibility.probability >= 40 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${feasibility.probability}%` }} />
+                    </div>
+                    <p className="text-xs mt-2 text-slate-600">{feasibility.message}</p>
                   </div>
                 </div>
-                
-                <div className={`rounded-xl p-2.5 border ${feasibility.probability >= 70 ? 'bg-green-50 border-green-200' : feasibility.probability >= 40 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-semibold text-slate-700">Success Probability</span>
-                    <Badge className={`${feasibility.probability >= 70 ? 'bg-green-500' : feasibility.probability >= 40 ? 'bg-amber-500' : 'bg-red-500'} text-white border-0 text-[10px]`}>{feasibility.probability}%</Badge>
-                  </div>
-                  <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${feasibility.probability >= 70 ? 'bg-green-500' : feasibility.probability >= 40 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${feasibility.probability}%` }} />
-                  </div>
-                  <p className="text-[9px] mt-1 text-slate-600">{feasibility.message}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Row 3: Results */}
           {projectedMetrics && summary && (
