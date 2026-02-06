@@ -383,6 +383,55 @@ export default function MealPlanPage() {
 
   // Consolidated grocery list with smart quantity parsing
   const groceryList = useMemo(() => {
+    // Normalize units for proper combining
+    const normalizeUnit = (unit: string): string => {
+      const u = unit.toLowerCase().trim();
+      // Weight units -> g
+      if (u === 'g' || u === 'gram' || u === 'grams') return 'g';
+      if (u === 'kg' || u === 'kilogram' || u === 'kilograms') return 'kg';
+      if (u === 'oz' || u === 'ounce' || u === 'ounces') return 'oz';
+      if (u === 'lb' || u === 'lbs' || u === 'pound' || u === 'pounds') return 'lb';
+      // Volume units
+      if (u === 'ml' || u === 'milliliter' || u === 'milliliters') return 'ml';
+      if (u === 'l' || u === 'liter' || u === 'liters') return 'L';
+      if (u === 'cup' || u === 'cups') return 'cup';
+      if (u === 'tbsp' || u === 'tablespoon' || u === 'tablespoons') return 'tbsp';
+      if (u === 'tsp' || u === 'teaspoon' || u === 'teaspoons') return 'tsp';
+      // Count units
+      if (u === '' || u === 'serving' || u === 'servings') return 'serving';
+      if (u === 'piece' || u === 'pieces' || u === 'pcs') return 'piece';
+      if (u === 'scoop' || u === 'scoops') return 'scoop';
+      if (u === 'slice' || u === 'slices') return 'slice';
+      return u;
+    };
+    
+    // Check if two units are compatible for combining
+    const unitsCompatible = (u1: string, u2: string): boolean => {
+      if (u1 === u2) return true;
+      // Weight units can combine with each other
+      const weightUnits = ['g', 'kg', 'oz', 'lb'];
+      if (weightUnits.includes(u1) && weightUnits.includes(u2)) return true;
+      // Volume units can combine
+      const volumeUnits = ['ml', 'L', 'cup', 'tbsp', 'tsp'];
+      if (volumeUnits.includes(u1) && volumeUnits.includes(u2)) return true;
+      return false;
+    };
+    
+    // Convert to base unit for combining
+    const convertToBaseUnit = (qty: number, unit: string): { qty: number; unit: string } => {
+      // Convert everything to grams for weight
+      if (unit === 'kg') return { qty: qty * 1000, unit: 'g' };
+      if (unit === 'oz') return { qty: qty * 28.35, unit: 'g' };
+      if (unit === 'lb') return { qty: qty * 453.6, unit: 'g' };
+      // Convert to ml for volume
+      if (unit === 'L') return { qty: qty * 1000, unit: 'ml' };
+      if (unit === 'cup') return { qty: qty * 240, unit: 'ml' };
+      if (unit === 'tbsp') return { qty: qty * 15, unit: 'ml' };
+      if (unit === 'tsp') return { qty: qty * 5, unit: 'ml' };
+      return { qty, unit };
+    };
+    
+    // Use a key that includes the unit type to avoid bad combinations
     const ingredientMap: Map<string, { 
       qty: number; 
       unit: string; 
@@ -399,13 +448,12 @@ export default function MealPlanPage() {
             if (!ingredient?.item) return;
             
             const name = ingredient.item.toLowerCase().trim();
-            const existing = ingredientMap.get(name);
             
-            // Parse amount - handle various formats
+            // Parse amount - handle various formats like "100g", "2 cups", "1/2 tbsp"
             const amountStr = ingredient.amount || '1 serving';
             const amountMatch = amountStr.match(/^([\d.\/]+)\s*(.*)$/);
             let value = 1;
-            let unit = 'serving';
+            let rawUnit = 'serving';
             
             if (amountMatch) {
               // Handle fractions like 1/2
@@ -415,23 +463,43 @@ export default function MealPlanPage() {
               } else {
                 value = parseFloat(amountMatch[1]) || 1;
               }
-              unit = amountMatch[2]?.trim() || 'serving';
+              rawUnit = amountMatch[2]?.trim() || 'serving';
             }
             
-            if (existing) {
-              // Combine with same unit
-              if (existing.unit === unit || existing.unit === 'serving') {
-                existing.qty += value;
-                if (existing.unit === 'serving') existing.unit = unit;
-              } else {
-                // Different units - append
-                existing.qty += value;
-              }
+            const unit = normalizeUnit(rawUnit);
+            const converted = convertToBaseUnit(value, unit);
+            
+            // Create a key that includes the base unit to prevent bad combinations
+            const unitCategory = ['g', 'kg', 'oz', 'lb'].includes(unit) ? 'weight' 
+              : ['ml', 'L', 'cup', 'tbsp', 'tsp'].includes(unit) ? 'volume' 
+              : 'count';
+            const mapKey = `${name}|${unitCategory}`;
+            
+            const existing = ingredientMap.get(mapKey);
+            
+            if (existing && unitsCompatible(existing.unit, converted.unit)) {
+              // Same base unit - add quantities
+              existing.qty += converted.qty;
               existing.usedIn += 1;
+            } else if (existing) {
+              // Different unit types - store separately
+              const altKey = `${mapKey}|alt`;
+              const altExisting = ingredientMap.get(altKey);
+              if (altExisting) {
+                altExisting.qty += converted.qty;
+                altExisting.usedIn += 1;
+              } else {
+                ingredientMap.set(altKey, { 
+                  qty: converted.qty, 
+                  unit: converted.unit,
+                  category: ingredient.category || 'other',
+                  usedIn: 1
+                });
+              }
             } else {
-              ingredientMap.set(name, { 
-                qty: value, 
-                unit,
+              ingredientMap.set(mapKey, { 
+                qty: converted.qty, 
+                unit: converted.unit,
                 category: ingredient.category || 'other',
                 usedIn: 1
               });
@@ -441,14 +509,34 @@ export default function MealPlanPage() {
       });
     }
     
+    // Format quantities nicely
+    const formatQuantity = (qty: number, unit: string): { qty: number; unit: string } => {
+      // Convert large gram amounts to kg
+      if (unit === 'g' && qty >= 1000) {
+        return { qty: Math.round(qty / 100) / 10, unit: 'kg' };
+      }
+      // Convert large ml amounts to L
+      if (unit === 'ml' && qty >= 1000) {
+        return { qty: Math.round(qty / 100) / 10, unit: 'L' };
+      }
+      // Round appropriately
+      if (qty >= 100) return { qty: Math.round(qty), unit };
+      if (qty >= 10) return { qty: Math.round(qty * 10) / 10, unit };
+      return { qty: Math.round(qty * 100) / 100, unit };
+    };
+    
     return Array.from(ingredientMap.entries())
-      .map(([name, data]) => ({ 
-        name: name.charAt(0).toUpperCase() + name.slice(1), 
-        qty: Math.round(data.qty * 10) / 10, // Round to 1 decimal
-        unit: data.unit,
-        category: data.category,
-        usedIn: data.usedIn
-      }))
+      .map(([key, data]) => {
+        const name = key.split('|')[0];
+        const formatted = formatQuantity(data.qty, data.unit);
+        return { 
+          name: name.charAt(0).toUpperCase() + name.slice(1), 
+          qty: formatted.qty,
+          unit: formatted.unit,
+          category: data.category,
+          usedIn: data.usedIn
+        };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [mealPlan]);
 
