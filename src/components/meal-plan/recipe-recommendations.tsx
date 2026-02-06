@@ -177,7 +177,7 @@ export function RecipeRecommendations({
     }
   }, [slot, dietPreferences, excludeRecipes]);
 
-  // Fetch ALL recipes from the full library (no variance filtering)
+  // Fetch ALL recipes from the full library (no filtering at all)
   const fetchAllRecipes = useCallback(async () => {
     // Only fetch if we haven't already
     if (allRecipes.length > 0) return;
@@ -193,14 +193,14 @@ export function RecipeRecommendations({
           mealContext: {
             slotType: slot.type,
             slotLabel: slot.label,
-            workoutRelation: slot.workoutRelation,
-            isWorkoutDay: slot.workoutRelation !== 'none',
+            workoutRelation: 'none',
+            isWorkoutDay: false,
             timeOfDay: getTimeOfDay(slot.timeSlot),
           },
-          dietPreferences,
+          dietPreferences: null, // No dietary filtering for "Show All"
           excludeRecipes: [], // Don't exclude any
-          limit: 200, // Get full library
-          skipVarianceFilter: true, // Tell API to skip the calorie variance filter
+          limit: 500, // Get full library
+          skipAllFilters: true, // Skip ALL filtering - just return all recipes
         }),
       });
 
@@ -214,7 +214,7 @@ export function RecipeRecommendations({
     } finally {
       setIsLoading(false);
     }
-  }, [slot, dietPreferences, allRecipes.length]);
+  }, [slot, allRecipes.length]);
 
   useEffect(() => {
     if (isOpen) {

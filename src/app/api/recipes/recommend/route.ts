@@ -408,7 +408,15 @@ function calculateMatchScore(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { targetMacros, mealContext, dietPreferences, excludeRecipes, limit = 5, skipVarianceFilter = false } = body as RecipeRecommendationRequest & { skipVarianceFilter?: boolean };
+    const { 
+      targetMacros, 
+      mealContext, 
+      dietPreferences, 
+      excludeRecipes, 
+      limit = 5, 
+      skipVarianceFilter = false,
+      skipAllFilters = false  // When true, skip ALL filtering and return all recipes
+    } = body as RecipeRecommendationRequest & { skipVarianceFilter?: boolean; skipAllFilters?: boolean };
 
     // Build the query - only get recipes with complete data (ingredients + directions)
     let query = supabase
@@ -458,14 +466,14 @@ export async function POST(request: NextRequest) {
     // Process and rank recipes
     const processedRecipes: ScaledRecipe[] = [];
     
-    // Combine all allergies
-    const allAllergies = [
+    // Combine all allergies (only if not skipping all filters)
+    const allAllergies = skipAllFilters ? [] : [
       ...(dietPreferences?.allergies || []),
       ...(dietPreferences?.customAllergies || []),
     ].filter(Boolean).map(a => a.toLowerCase());
     
-    // Foods to avoid
-    const foodsToAvoid = (dietPreferences?.foodsToAvoid || []).map(f => f.toLowerCase());
+    // Foods to avoid (only if not skipping all filters)
+    const foodsToAvoid = skipAllFilters ? [] : (dietPreferences?.foodsToAvoid || []).map(f => f.toLowerCase());
 
     for (const recipe of recipes) {
       // Skip recipes without complete ingredient/direction data
@@ -483,8 +491,8 @@ export async function POST(request: NextRequest) {
       const allText = ingredientText + ' ' + recipeName;
       
       // ========== STRICT ALLERGY CHECK ==========
-      // Allergies are CRITICAL - must filter these out completely
-      if (allAllergies.length > 0) {
+      // Allergies are CRITICAL - must filter these out completely (unless skipAllFilters)
+      if (!skipAllFilters && allAllergies.length > 0) {
         const allergenFound = allAllergies.find(allergen => allText.includes(allergen));
         if (allergenFound) {
           console.log(`[Recipes] Excluding "${recipe.name}" - contains allergen: ${allergenFound}`);
@@ -493,8 +501,8 @@ export async function POST(request: NextRequest) {
       }
       
       // ========== FOODS TO AVOID CHECK ==========
-      // Client explicitly doesn't want these foods
-      if (foodsToAvoid.length > 0) {
+      // Client explicitly doesn't want these foods (unless skipAllFilters)
+      if (!skipAllFilters && foodsToAvoid.length > 0) {
         const avoidedFound = foodsToAvoid.find(food => allText.includes(food));
         if (avoidedFound) {
           console.log(`[Recipes] Excluding "${recipe.name}" - contains avoided food: ${avoidedFound}`);
@@ -503,8 +511,8 @@ export async function POST(request: NextRequest) {
       }
       
       // ========== DIETARY PATTERN CHECK ==========
-      // Check vegetarian/vegan requirements (these are STRICT - can't substitute meat)
-      if (dietPreferences?.dietaryPattern) {
+      // Check vegetarian/vegan requirements (unless skipAllFilters)
+      if (!skipAllFilters && dietPreferences?.dietaryPattern) {
         const pattern = dietPreferences.dietaryPattern.toLowerCase();
         if (pattern.includes('vegan') && !recipe.is_vegan) continue;
         if (pattern.includes('vegetarian') && !recipe.is_vegetarian) continue;
@@ -514,7 +522,7 @@ export async function POST(request: NextRequest) {
       let complianceStatus: 'strict' | 'adaptable' | 'excluded' = 'strict';
       let substitutionSuggestions: string[] = [];
       
-      if (dietPreferences?.dietaryRestrictions) {
+      if (!skipAllFilters && dietPreferences?.dietaryRestrictions) {
         const restrictions = dietPreferences.dietaryRestrictions.map(r => r.toLowerCase());
         
         // Vegan/vegetarian are strict (can't substitute meat/animal products easily)
@@ -601,8 +609,8 @@ export async function POST(request: NextRequest) {
       };
 
       // Skip if variance is too high (>50% off target calories)
-      // Unless skipVarianceFilter is true (for browsing full library)
-      if (!skipVarianceFilter && variance.caloriesPct > 50) continue;
+      // Unless skipVarianceFilter or skipAllFilters is true (for browsing full library)
+      if (!skipVarianceFilter && !skipAllFilters && variance.caloriesPct > 50) continue;
 
       // Calculate match score
       let { score, reasons } = calculateMatchScore(
