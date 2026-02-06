@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -528,17 +528,8 @@ export default function SetupPage() {
     };
   }, [activeClientId, saveActiveClientState]);
   
-  // Periodic auto-save every 30 seconds while editing
-  useEffect(() => {
-    if (!activeClientId) return;
-    
-    const autoSaveInterval = setInterval(() => {
-      console.log('[Setup] Periodic auto-save triggered');
-      saveActiveClientState();
-    }, 30000); // Save every 30 seconds
-    
-    return () => clearInterval(autoSaveInterval);
-  }, [activeClientId, saveActiveClientState]);
+  // NOTE: Removed periodic auto-save - it was causing issues by saving store state
+  // while user was still editing local form state, effectively reverting their changes.
   
   const activeClient = isHydrated ? getActiveClient() : null;
   
@@ -552,9 +543,16 @@ export default function SetupPage() {
   const [heightIn, setHeightIn] = useState(10);
   const [weightLbs, setWeightLbs] = useState(180);
   
-  // Sync state with store after hydration
+  // Track if we've initialized local state from store (only do this ONCE)
+  const hasInitializedFromStore = useRef(false);
+  
+  // Sync state with store after hydration - ONLY ONCE on initial load
+  // This prevents store updates (from syncs) from overwriting user's edits
   useEffect(() => {
-    if (isHydrated) {
+    if (isHydrated && !hasInitializedFromStore.current) {
+      hasInitializedFromStore.current = true;
+      console.log('[Setup] Initializing local state from store (one-time)');
+      
       // User profile
       setName(userProfile.name || activeClient?.name || '');
       setGender(userProfile.gender || 'Male');
@@ -714,7 +712,8 @@ export default function SetupPage() {
         }
       }
     }
-  }, [isHydrated, userProfile, bodyCompGoals, dietPreferences, weeklySchedule, activeClient]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated]); // Only depend on isHydrated - run once when hydration completes
 
   // ============ BODY COMPOSITION STATE ============
   const [useMeasuredBF, setUseMeasuredBF] = useState(false);
