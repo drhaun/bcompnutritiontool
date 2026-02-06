@@ -255,12 +255,13 @@ export default function BodyCompositionPage() {
   const [theoreticalFM, setTheoreticalFM] = useState<number>(25);
   const [theoreticalFFM, setTheoreticalFFM] = useState<number>(165);
   
-  // Calculate optimal FM/FFM for HR = 1.00 based on current height
+  // Calculate optimal FM/FFM for explore mode based on current height
   const getOptimalExploreValues = (hM: number) => {
     // FMI where HR = 1.0 is approximately 7.3 (from MORTALITY_RISK.fmi.points)
-    // FFMI where HR = 1.0 is approximately 16.1 (from MORTALITY_RISK.ffmi.points)
-    const optimalFMI = 7.3;
-    const optimalFFMI = 16.1;
+    // FFMI where HR is LOWEST (~0.70) is approximately 21.5 (from MORTALITY_RISK.ffmi.points)
+    // This represents optimal health outcomes from the mortality research
+    const optimalFMI = 7.3;   // HR = 1.0 (neutral risk)
+    const optimalFFMI = 21.5; // HR = 0.70 (lowest mortality risk)
     const optimalFatMassKg = optimalFMI * (hM * hM);
     const optimalFFMKg = optimalFFMI * (hM * hM);
     return {
