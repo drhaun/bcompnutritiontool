@@ -374,32 +374,33 @@ export function RecipeRecommendations({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="flex items-center gap-2">
-                <ChefHat className="h-5 w-5 text-[#c19962]" />
-                Recipe Library for {slot.label}
+      <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-3 border-b bg-background sticky top-0 z-10">
+          {/* Title Row */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <DialogTitle className="flex items-center gap-2 text-lg">
+                <ChefHat className="h-5 w-5 text-[#c19962] flex-shrink-0" />
+                <span className="truncate">Recipe Library for {slot.label}</span>
               </DialogTitle>
-              <DialogDescription>
-                Browse recipes scaled to your targets • {filteredRecipes.length} of {allRecipes.length} recipes
+              <DialogDescription className="mt-1">
+                {filteredRecipes.length} of {allRecipes.length} recipes • scaled to your targets
               </DialogDescription>
             </div>
             
-            {/* Sort & Filter Controls */}
-            <div className="flex items-center gap-2">
+            {/* Sort & Filter Controls - Compact */}
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-                <SelectTrigger className="w-[140px] h-8 text-xs">
-                  <ArrowUpDown className="h-3 w-3 mr-1" />
-                  <SelectValue placeholder="Sort by" />
+                <SelectTrigger className="w-[130px] h-8 text-xs">
+                  <ArrowUpDown className="h-3 w-3 mr-1 flex-shrink-0" />
+                  <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="match">Best Match</SelectItem>
-                  <SelectItem value="protein_desc">Highest Protein</SelectItem>
-                  <SelectItem value="calories_asc">Lowest Calories</SelectItem>
-                  <SelectItem value="calories_desc">Highest Calories</SelectItem>
-                  <SelectItem value="prep_time">Quickest Prep</SelectItem>
+                  <SelectItem value="protein_desc">High Protein</SelectItem>
+                  <SelectItem value="calories_asc">Low Calories</SelectItem>
+                  <SelectItem value="calories_desc">High Calories</SelectItem>
+                  <SelectItem value="prep_time">Quick Prep</SelectItem>
                 </SelectContent>
               </Select>
               
@@ -407,10 +408,9 @@ export function RecipeRecommendations({
                 variant={showFilters ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setShowFilters(!showFilters)}
-                className={cn("h-8", showFilters && "bg-[#c19962] hover:bg-[#e4ac61]")}
+                className={cn("h-8 px-2", showFilters && "bg-[#c19962] hover:bg-[#e4ac61]")}
               >
-                <Filter className="h-3 w-3 mr-1" />
-                Filters
+                <Filter className="h-3 w-3" />
                 {hasActiveFilters && (
                   <span className="ml-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
                     !
@@ -419,62 +419,56 @@ export function RecipeRecommendations({
               </Button>
               
               {hasActiveFilters && (
-                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs">
-                  <X className="h-3 w-3 mr-1" />
-                  Clear
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 px-2">
+                  <X className="h-3 w-3" />
                 </Button>
               )}
             </div>
           </div>
           
-          {/* Expanded Filter Panel */}
+          {/* Expanded Filter Panel - More compact grid layout */}
           {showFilters && (
             <div className="mt-3 p-3 bg-muted/50 rounded-lg border">
-              <div className="flex items-center gap-6">
-                <Label className="text-xs font-medium text-muted-foreground">Quick Filters:</Label>
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                    <Checkbox 
-                      checked={filters.highProtein}
-                      onCheckedChange={(c) => setFilters(f => ({ ...f, highProtein: !!c }))}
-                    />
-                    <Dumbbell className="h-3 w-3 text-purple-600" />
-                    High Protein
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                    <Checkbox 
-                      checked={filters.quickPrep}
-                      onCheckedChange={(c) => setFilters(f => ({ ...f, quickPrep: !!c }))}
-                    />
-                    <Clock className="h-3 w-3 text-blue-600" />
-                    Quick Prep
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                    <Checkbox 
-                      checked={filters.mealPrepFriendly}
-                      onCheckedChange={(c) => setFilters(f => ({ ...f, mealPrepFriendly: !!c }))}
-                    />
-                    <Utensils className="h-3 w-3 text-green-600" />
-                    Meal Prep
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                    <Checkbox 
-                      checked={filters.lowCarb}
-                      onCheckedChange={(c) => setFilters(f => ({ ...f, lowCarb: !!c }))}
-                    />
-                    <Salad className="h-3 w-3 text-orange-600" />
-                    Low Carb
-                  </label>
-                </div>
-                
-                <Separator orientation="vertical" className="h-6" />
-                
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-3 items-center">
                 <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <Checkbox 
+                    checked={filters.highProtein}
+                    onCheckedChange={(c) => setFilters(f => ({ ...f, highProtein: !!c }))}
+                  />
+                  <Dumbbell className="h-3 w-3 text-purple-600" />
+                  <span className="truncate">High Protein</span>
+                </label>
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <Checkbox 
+                    checked={filters.quickPrep}
+                    onCheckedChange={(c) => setFilters(f => ({ ...f, quickPrep: !!c }))}
+                  />
+                  <Clock className="h-3 w-3 text-blue-600" />
+                  <span className="truncate">Quick Prep</span>
+                </label>
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <Checkbox 
+                    checked={filters.mealPrepFriendly}
+                    onCheckedChange={(c) => setFilters(f => ({ ...f, mealPrepFriendly: !!c }))}
+                  />
+                  <Utensils className="h-3 w-3 text-green-600" />
+                  <span className="truncate">Meal Prep</span>
+                </label>
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <Checkbox 
+                    checked={filters.lowCarb}
+                    onCheckedChange={(c) => setFilters(f => ({ ...f, lowCarb: !!c }))}
+                  />
+                  <Salad className="h-3 w-3 text-orange-600" />
+                  <span className="truncate">Low Carb</span>
+                </label>
+                <div className="hidden md:block" /> {/* Spacer */}
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer col-span-2 md:col-span-1">
                   <Checkbox 
                     checked={showAllRecipes}
                     onCheckedChange={(c) => setShowAllRecipes(!!c)}
                   />
-                  Show All (ignore calorie variance)
+                  <span className="truncate">Show All</span>
                 </label>
               </div>
             </div>
@@ -510,30 +504,34 @@ export function RecipeRecommendations({
           )}
         </DialogHeader>
 
-        <div className="flex gap-4 flex-1 overflow-hidden">
+        <div className="flex gap-4 flex-1 overflow-hidden px-6">
           {/* Recipe List */}
-          <div className="w-1/2 flex flex-col">
-            {/* Search */}
-            <Input
-              placeholder="Search recipes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="mb-3"
-            />
+          <div className="w-1/2 flex flex-col min-w-0 py-4">
+            {/* Search & Target Row */}
+            <div className="flex items-center gap-2 mb-3">
+              <Input
+                placeholder="Search recipes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1"
+              />
+            </div>
             
-            {/* Target Info */}
-            <div className="flex items-center gap-2 mb-3 text-sm text-muted-foreground">
-              <span>Target:</span>
-              <Badge variant="outline">{slot.targetMacros.calories} cal</Badge>
-              <Badge variant="outline">{slot.targetMacros.protein}g P</Badge>
+            {/* Target Info - Compact */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-3 text-xs">
+              <span className="text-muted-foreground">Target:</span>
+              <Badge variant="outline" className="h-5 text-[10px]">{slot.targetMacros.calories} cal</Badge>
+              <Badge variant="outline" className="h-5 text-[10px]">{slot.targetMacros.protein}g P</Badge>
+              <Badge variant="outline" className="h-5 text-[10px]">{slot.targetMacros.carbs}g C</Badge>
+              <Badge variant="outline" className="h-5 text-[10px]">{slot.targetMacros.fat}g F</Badge>
               {slot.workoutRelation !== 'none' && (
-                <Badge className="bg-[#c19962] text-[#00263d]">
+                <Badge className="bg-[#c19962] text-[#00263d] h-5 text-[10px]">
                   {slot.workoutRelation}
                 </Badge>
               )}
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 -mr-4 pr-4">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-[#c19962]" />
@@ -637,9 +635,9 @@ export function RecipeRecommendations({
           </div>
 
           {/* Recipe Detail */}
-          <div className="w-1/2 border-l pl-4">
+          <div className="w-1/2 border-l pl-4 min-w-0 py-4">
             {selectedRecipe ? (
-              <ScrollArea className="h-full">
+              <ScrollArea className="h-full -mr-4 pr-4">
                 <div className="space-y-4 pr-2">
                   {/* Recipe Header */}
                   <div>
@@ -829,7 +827,7 @@ export function RecipeRecommendations({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        <div className="flex justify-end gap-2 px-6 py-4 border-t bg-background">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
