@@ -169,7 +169,6 @@ export function RecipeRecommendations({
 
       const data = await response.json();
       setRecipes(data.recipes || []);
-      setAllRecipes(data.recipes || []); // Store full set
     } catch (error) {
       console.error('Recipe recommendation error:', error);
       toast.error('Failed to load recipe recommendations');
@@ -177,6 +176,45 @@ export function RecipeRecommendations({
       setIsLoading(false);
     }
   }, [slot, dietPreferences, excludeRecipes]);
+
+  // Fetch ALL recipes from the full library (no variance filtering)
+  const fetchAllRecipes = useCallback(async () => {
+    // Only fetch if we haven't already
+    if (allRecipes.length > 0) return;
+    
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch('/api/recipes/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetMacros: slot.targetMacros,
+          mealContext: {
+            slotType: slot.type,
+            slotLabel: slot.label,
+            workoutRelation: slot.workoutRelation,
+            isWorkoutDay: slot.workoutRelation !== 'none',
+            timeOfDay: getTimeOfDay(slot.timeSlot),
+          },
+          dietPreferences,
+          excludeRecipes: [], // Don't exclude any
+          limit: 200, // Get full library
+          skipVarianceFilter: true, // Tell API to skip the calorie variance filter
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch all recipes');
+
+      const data = await response.json();
+      setAllRecipes(data.recipes || []);
+    } catch (error) {
+      console.error('Fetch all recipes error:', error);
+      toast.error('Failed to load full recipe library');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [slot, dietPreferences, allRecipes.length]);
 
   useEffect(() => {
     if (isOpen) {
@@ -187,8 +225,16 @@ export function RecipeRecommendations({
       setSortBy('match');
       setShowAllRecipes(false);
       setSelectedRecipe(null);
+      setAllRecipes([]); // Reset all recipes so they can be fetched fresh
     }
   }, [isOpen, fetchRecommendations]);
+
+  // Fetch all recipes when "Show All" is toggled on
+  useEffect(() => {
+    if (showAllRecipes && allRecipes.length === 0) {
+      fetchAllRecipes();
+    }
+  }, [showAllRecipes, allRecipes.length, fetchAllRecipes]);
 
   // Reset when recipe is selected
   useEffect(() => {

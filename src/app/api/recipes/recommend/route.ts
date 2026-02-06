@@ -407,8 +407,8 @@ function calculateMatchScore(
 
 export async function POST(request: NextRequest) {
   try {
-    const body: RecipeRecommendationRequest = await request.json();
-    const { targetMacros, mealContext, dietPreferences, excludeRecipes, limit = 5 } = body;
+    const body = await request.json();
+    const { targetMacros, mealContext, dietPreferences, excludeRecipes, limit = 5, skipVarianceFilter = false } = body as RecipeRecommendationRequest & { skipVarianceFilter?: boolean };
 
     // Build the query - only get recipes with complete data (ingredients + directions)
     let query = supabase
@@ -439,8 +439,9 @@ export async function POST(request: NextRequest) {
       query = query.order('suitable_for_post_workout', { ascending: false });
     }
 
-    // Get recipes - fetch more to have better selection after filtering
-    const { data: recipes, error } = await query.limit(100);
+    // Get recipes - fetch more when showing full library
+    const fetchLimit = skipVarianceFilter ? 500 : 100;
+    const { data: recipes, error } = await query.limit(fetchLimit);
 
     if (error) {
       console.error('Supabase error:', error);
@@ -600,8 +601,8 @@ export async function POST(request: NextRequest) {
       };
 
       // Skip if variance is too high (>50% off target calories)
-      // Relaxed from 30% to allow more variety - scoring will rank better matches higher
-      if (variance.caloriesPct > 50) continue;
+      // Unless skipVarianceFilter is true (for browsing full library)
+      if (!skipVarianceFilter && variance.caloriesPct > 50) continue;
 
       // Calculate match score
       let { score, reasons } = calculateMatchScore(
