@@ -39,19 +39,48 @@ export async function GET() {
       .not('ingredients', 'is', null)
       .not('directions', 'is', null);
 
-    // Get some sample recipes that are missing ingredients or directions
-    const { data: missingData } = await supabase
+    // Get sample recipes to check data format
+    const { data: sampleRecipes } = await supabase
       .from('ni_recipes')
-      .select('name, slug, is_active, ingredients, directions')
-      .or('ingredients.is.null,directions.is.null')
-      .limit(10);
+      .select('name, slug, ingredients, directions')
+      .eq('is_active', true)
+      .limit(5);
 
-    // Get inactive recipes
-    const { data: inactiveRecipes } = await supabase
+    // Check ingredients format
+    const ingredientFormats = sampleRecipes?.map(r => {
+      const ing = r.ingredients;
+      return {
+        name: r.name,
+        ingredientsType: typeof ing,
+        isArray: Array.isArray(ing),
+        length: Array.isArray(ing) ? ing.length : (typeof ing === 'string' ? ing.length : 0),
+        sample: Array.isArray(ing) ? ing[0] : (typeof ing === 'string' ? ing.substring(0, 100) : ing),
+        directionsType: typeof r.directions,
+        directionsIsArray: Array.isArray(r.directions),
+        directionsLength: Array.isArray(r.directions) ? r.directions.length : 0,
+      };
+    });
+
+    // Count how many would pass the array check
+    const { data: allRecipes } = await supabase
       .from('ni_recipes')
-      .select('name, slug')
-      .eq('is_active', false)
-      .limit(20);
+      .select('name, ingredients, directions')
+      .eq('is_active', true);
+
+    let passArrayCheck = 0;
+    let failArrayCheck = 0;
+    const failedRecipes: string[] = [];
+
+    allRecipes?.forEach(r => {
+      const ingIsArray = Array.isArray(r.ingredients) && r.ingredients.length > 0;
+      const dirIsArray = Array.isArray(r.directions) && r.directions.length > 0;
+      if (ingIsArray && dirIsArray) {
+        passArrayCheck++;
+      } else {
+        failArrayCheck++;
+        failedRecipes.push(`${r.name} (ing:${Array.isArray(r.ingredients)}, dir:${Array.isArray(r.directions)})`);
+      }
+    });
 
     return NextResponse.json({
       counts: {
@@ -60,15 +89,11 @@ export async function GET() {
         withIngredients: withIngredientsCount,
         withDirections: withDirectionsCount,
         passAllFilters: fullFilterCount,
+        passArrayCheck,
+        failArrayCheck,
       },
-      sampleMissingData: missingData?.map(r => ({
-        name: r.name,
-        slug: r.slug,
-        is_active: r.is_active,
-        hasIngredients: !!r.ingredients,
-        hasDirections: !!r.directions,
-      })),
-      inactiveRecipes: inactiveRecipes?.map(r => r.name),
+      ingredientFormats,
+      failedRecipes: failedRecipes.slice(0, 20),
     });
   } catch (error) {
     console.error('Debug error:', error);
