@@ -150,6 +150,7 @@ export function RecipeRecommendations({
       const response = await fetch('/api/recipes/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store', // Prevent caching
         body: JSON.stringify({
           targetMacros: slot.targetMacros,
           mealContext: {
@@ -178,9 +179,9 @@ export function RecipeRecommendations({
   }, [slot, dietPreferences, excludeRecipes]);
 
   // Fetch ALL recipes from the full library (no filtering at all)
-  const fetchAllRecipes = useCallback(async () => {
-    // Only fetch if we haven't already
-    if (allRecipes.length > 0) return;
+  const fetchAllRecipes = useCallback(async (forceRefresh = false) => {
+    // Only skip if we have recipes AND not forcing refresh
+    if (allRecipes.length > 0 && !forceRefresh) return;
     
     setIsLoading(true);
     
@@ -188,6 +189,7 @@ export function RecipeRecommendations({
       const response = await fetch('/api/recipes/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store', // Prevent caching
         body: JSON.stringify({
           targetMacros: slot.targetMacros,
           mealContext: {
@@ -214,7 +216,7 @@ export function RecipeRecommendations({
     } finally {
       setIsLoading(false);
     }
-  }, [slot, allRecipes.length]);
+  }, [slot]);
 
   useEffect(() => {
     if (isOpen) {
@@ -231,10 +233,10 @@ export function RecipeRecommendations({
 
   // Fetch all recipes when "Show All" is toggled on
   useEffect(() => {
-    if (showAllRecipes && allRecipes.length === 0) {
-      fetchAllRecipes();
+    if (showAllRecipes) {
+      fetchAllRecipes(allRecipes.length === 0); // Force refresh if empty
     }
-  }, [showAllRecipes, allRecipes.length, fetchAllRecipes]);
+  }, [showAllRecipes, fetchAllRecipes]);
 
   // Reset when recipe is selected
   useEffect(() => {

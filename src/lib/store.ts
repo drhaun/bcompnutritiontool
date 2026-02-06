@@ -44,6 +44,31 @@ const generateUUID = () => {
 const generateId = () => generateUUID();
 const generatePhaseId = () => generateUUID();
 
+// Debounce mechanism for auto-saving
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+const SAVE_DEBOUNCE_MS = 500; // Increased from 100ms to 500ms for reliability
+
+const debouncedSave = (saveFunc: () => void) => {
+  // Clear any pending save
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  // Schedule new save
+  saveTimeout = setTimeout(() => {
+    saveFunc();
+    saveTimeout = null;
+  }, SAVE_DEBOUNCE_MS);
+};
+
+// Force immediate save (call before navigation)
+export const flushPendingSaves = async (store: ReturnType<typeof useFitomicsStore.getState>) => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+  }
+  await store.saveActiveClientState();
+};
+
 // Session note type for the floating notes panel
 export interface SessionNote {
   id: string;
@@ -282,7 +307,11 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
       selectClient: (clientId) => {
         const state = get();
         
-        // First, save current client state if there's an active client
+        // First, flush any pending saves and save current client state
+        if (saveTimeout) {
+          clearTimeout(saveTimeout);
+          saveTimeout = null;
+        }
         if (state.activeClientId) {
           state.saveActiveClientState();
         }
@@ -354,13 +383,19 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           
           // If we migrated, save the updated client state
           if (phases.length > 0 && !client.phases?.length) {
-            setTimeout(() => get().saveActiveClientState(), 100);
+            debouncedSave(() => get().saveActiveClientState());
           }
         }
       },
       
       deselectClient: () => {
         const state = get();
+        
+        // Flush any pending saves before deselecting
+        if (saveTimeout) {
+          clearTimeout(saveTimeout);
+          saveTimeout = null;
+        }
         
         // Save current client state before deselecting
         if (state.activeClientId) {
@@ -545,7 +580,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         }));
         
         // Auto-save to client
-        setTimeout(() => get().saveActiveClientState(), 100);
+        debouncedSave(() => get().saveActiveClientState());
         
         return id;
       },
@@ -560,7 +595,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         }));
         
         // Auto-save to client
-        setTimeout(() => get().saveActiveClientState(), 100);
+        debouncedSave(() => get().saveActiveClientState());
       },
       
       deletePhase: (phaseId) => {
@@ -571,7 +606,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         });
         
         // Auto-save to client
-        setTimeout(() => get().saveActiveClientState(), 100);
+        debouncedSave(() => get().saveActiveClientState());
       },
       
       setActivePhase: (phaseId) => {
@@ -590,7 +625,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         }
         
         // Auto-save to client
-        setTimeout(() => get().saveActiveClientState(), 100);
+        debouncedSave(() => get().saveActiveClientState());
       },
       
       duplicatePhase: (phaseId, newName) => {
@@ -617,7 +652,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         }));
         
         // Auto-save to client
-        setTimeout(() => get().saveActiveClientState(), 100);
+        debouncedSave(() => get().saveActiveClientState());
         
         return newId;
       },
@@ -650,7 +685,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         set({ timelineEvents: newEvents });
         
         // Auto-save to client
-        setTimeout(() => get().saveActiveClientState(), 100);
+        debouncedSave(() => get().saveActiveClientState());
         
         return id;
       },
@@ -663,7 +698,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         }));
         
         // Auto-save to client
-        setTimeout(() => get().saveActiveClientState(), 100);
+        debouncedSave(() => get().saveActiveClientState());
       },
       
       deleteTimelineEvent: (eventId) => {
@@ -672,7 +707,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         }));
         
         // Auto-save to client
-        setTimeout(() => get().saveActiveClientState(), 100);
+        debouncedSave(() => get().saveActiveClientState());
       },
       
       // ============ SESSION NOTES ACTIONS ============
@@ -730,29 +765,29 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         set((state) => ({
           userProfile: { ...state.userProfile, ...profile },
         }));
-        // Auto-save after a brief delay to batch updates
-        setTimeout(() => get().saveActiveClientState(), 100);
+        // Auto-save with debounce to batch rapid updates
+        debouncedSave(() => get().saveActiveClientState());
       },
       
       setBodyCompGoals: (goals) => {
         set((state) => ({
           bodyCompGoals: { ...state.bodyCompGoals, ...goals },
         }));
-        setTimeout(() => get().saveActiveClientState(), 100);
+        debouncedSave(() => get().saveActiveClientState());
       },
       
       setDietPreferences: (prefs) => {
         set((state) => ({
           dietPreferences: { ...state.dietPreferences, ...prefs },
         }));
-        setTimeout(() => get().saveActiveClientState(), 100);
+        debouncedSave(() => get().saveActiveClientState());
       },
       
       setWeeklySchedule: (schedule) => {
         set((state) => ({
           weeklySchedule: { ...state.weeklySchedule, ...schedule },
         }));
-        setTimeout(() => get().saveActiveClientState(), 100);
+        debouncedSave(() => get().saveActiveClientState());
       },
 
       setNutritionTargets: (targets) => {
