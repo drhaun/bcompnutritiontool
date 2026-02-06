@@ -161,7 +161,7 @@ export function RecipeRecommendations({
           },
           dietPreferences,
           excludeRecipes,
-          limit: 30, // Get more recipes for browsing
+          limit: 50, // Get more recipes for browsing
         }),
       });
 

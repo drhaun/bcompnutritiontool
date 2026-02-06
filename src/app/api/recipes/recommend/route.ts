@@ -439,8 +439,8 @@ export async function POST(request: NextRequest) {
       query = query.order('suitable_for_post_workout', { ascending: false });
     }
 
-    // Get recipes
-    const { data: recipes, error } = await query.limit(50); // Get more to filter/rank
+    // Get recipes - fetch more to have better selection after filtering
+    const { data: recipes, error } = await query.limit(100);
 
     if (error) {
       console.error('Supabase error:', error);
@@ -599,8 +599,9 @@ export async function POST(request: NextRequest) {
           : 0,
       };
 
-      // Skip if variance is too high (>30% off target calories)
-      if (variance.caloriesPct > 30) continue;
+      // Skip if variance is too high (>50% off target calories)
+      // Relaxed from 30% to allow more variety - scoring will rank better matches higher
+      if (variance.caloriesPct > 50) continue;
 
       // Calculate match score
       let { score, reasons } = calculateMatchScore(
