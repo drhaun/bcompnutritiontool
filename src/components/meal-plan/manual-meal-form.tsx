@@ -1315,34 +1315,71 @@ export function ManualMealForm({ slot, existingMeal, dietPreferences, onSave, on
           </div>
         )}
         
-        {/* Review Step Header */}
+        {/* Review Step Header & Actions */}
         {builderMode === 'guided' && builderStep === 'review' && (
-          <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-            <h3 className="font-semibold text-green-800 flex items-center gap-2 mb-2">
-              <CheckCircle className="h-5 w-5" />
-              Review Your Meal
-            </h3>
-            <p className="text-sm text-green-700">
-              Review your selected ingredients below. You can adjust serving sizes, add more ingredients, or edit the preparation instructions before saving.
-            </p>
-            {name.trim() && selectedFoods.length > 0 && (
-              <div className="flex items-center gap-3 mt-3">
-                <Button 
-                  onClick={handleSave}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Meal
-                </Button>
-                <span className="text-xs text-green-600">Ready to save!</span>
-              </div>
-            )}
-            {(!name.trim() || selectedFoods.length === 0) && (
-              <p className="text-xs text-orange-600 mt-2 flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" />
-                {!name.trim() ? 'Enter a meal name above' : 'Add at least one ingredient'}
+          <div className="space-y-4">
+            <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+              <h3 className="font-semibold text-green-800 flex items-center gap-2 mb-2">
+                <CheckCircle className="h-5 w-5" />
+                Step 6: Review & Save Your Meal
+              </h3>
+              <p className="text-sm text-green-700 mb-4">
+                Review your selected ingredients below. Adjust serving sizes if needed, then save your meal.
               </p>
-            )}
+              
+              {/* Meal Name - Inline Edit */}
+              {!name.trim() && (
+                <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <Label className="text-sm font-medium text-orange-800 flex items-center gap-2 mb-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Enter a meal name to save
+                  </Label>
+                  <Input
+                    placeholder="e.g., Grilled Chicken Power Bowl"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="bg-white"
+                    autoFocus
+                  />
+                </div>
+              )}
+              
+              {/* Save Actions */}
+              <div className="flex items-center justify-between gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBuilderStep('flavor')}
+                >
+                  ← Back to Flavor
+                </Button>
+                
+                <div className="flex items-center gap-3">
+                  {name.trim() && selectedFoods.length > 0 ? (
+                    <>
+                      <span className="text-xs text-green-600 font-medium">✓ Ready to save!</span>
+                      <Button 
+                        onClick={handleSave}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        size="lg"
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Meal
+                      </Button>
+                    </>
+                  ) : (
+                    <Button 
+                      disabled
+                      className="opacity-50"
+                      size="lg"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {!name.trim() ? 'Enter Name to Save' : 'Add Ingredients to Save'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
         
@@ -1520,19 +1557,33 @@ export function ManualMealForm({ slot, existingMeal, dietPreferences, onSave, on
           />
         </div>
         
-        {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4">
+        {/* Actions - Always visible at bottom */}
+        <div className={cn(
+          "flex justify-between items-center gap-3 pt-4 border-t",
+          builderMode === 'guided' && builderStep === 'review' && "sticky bottom-0 bg-white py-4 -mx-6 px-6 shadow-lg border-t-2"
+        )}>
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleSave}
-            disabled={!name.trim() || selectedFoods.length === 0}
-            className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {existingMeal ? 'Update Meal' : 'Save Meal'}
-          </Button>
+          <div className="flex items-center gap-3">
+            {builderMode === 'guided' && builderStep !== 'review' && (
+              <Button
+                variant="outline"
+                onClick={() => setBuilderStep('review')}
+                disabled={selectedFoods.length === 0}
+              >
+                Skip to Review →
+              </Button>
+            )}
+            <Button 
+              onClick={handleSave}
+              disabled={!name.trim() || selectedFoods.length === 0}
+              className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {existingMeal ? 'Update Meal' : 'Save Meal'}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
