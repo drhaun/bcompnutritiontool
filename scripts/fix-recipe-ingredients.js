@@ -175,12 +175,15 @@ for (const line of lines) {
   }
   
   // Create SQL update statement
+  // Note: ingredients is jsonb, directions is text[]
   const ingredientsJson = JSON.stringify(ingredients);
-  const directionsJson = JSON.stringify(directions);
+  
+  // Format directions as PostgreSQL text array
+  const directionsArray = directions.map(d => `"${escapeSql(d).replace(/"/g, '\\"')}"`).join(',');
   
   const sql = `UPDATE ni_recipes SET 
   ingredients = '${escapeSql(ingredientsJson)}'::jsonb,
-  directions = '${escapeSql(directionsJson)}'::jsonb
+  directions = ARRAY[${directions.map(d => `'${escapeSql(d)}'`).join(',')}]::text[]
 WHERE slug = '${escapeSql(slug)}';`;
   
   sqlStatements.push(sql);
