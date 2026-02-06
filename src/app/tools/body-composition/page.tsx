@@ -256,14 +256,20 @@ export default function BodyCompositionPage() {
   const [theoreticalFFM, setTheoreticalFFM] = useState<number>(165);
   
   // Calculate optimal FM/FFM for explore mode based on current height
+  // Uses 95th percentile values for both leanness and muscularity
   const getOptimalExploreValues = (hM: number) => {
-    // FMI where HR = 1.0 is approximately 7.3 (from MORTALITY_RISK.fmi.points)
-    // FFMI where HR is LOWEST (~0.70) is approximately 21.5 (from MORTALITY_RISK.ffmi.points)
-    // This represents optimal health outcomes from the mortality research
-    const optimalFMI = 7.3;   // HR = 1.0 (neutral risk)
-    const optimalFFMI = 21.5; // HR = 0.70 (lowest mortality risk)
-    const optimalFatMassKg = optimalFMI * (hM * hM);
-    const optimalFFMKg = optimalFFMI * (hM * hM);
+    // 95th percentile values from population data:
+    // - Body Fat: 6% (leaner than 95% of population)
+    // - FFMI: 24.5 (more muscular than 95% of population)
+    const targetBFPercent = 6;  // 95th percentile leanness
+    const targetFFMI = 24.5;    // 95th percentile muscularity
+    
+    // Calculate FFM from FFMI: FFM (kg) = FFMI * height²
+    const optimalFFMKg = targetFFMI * (hM * hM);
+    
+    // Calculate FM from body fat %: if BF% = FM/(FM+FFM), then FM = (BF%/(100-BF%)) * FFM
+    const optimalFatMassKg = (targetBFPercent / (100 - targetBFPercent)) * optimalFFMKg;
+    
     return {
       fatMassLbs: Math.round(optimalFatMassKg / 0.453592 * 10) / 10,
       ffmLbs: Math.round(optimalFFMKg / 0.453592 * 10) / 10,
