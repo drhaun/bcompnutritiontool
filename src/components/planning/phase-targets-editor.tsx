@@ -1698,35 +1698,63 @@ export function PhaseTargetsEditor({
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">Calories</Label>
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={selectedDayConfig.calories}
-                        onChange={(e) => updateDayConfig(selectedDay, { calories: Number(e.target.value) })}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d+$/.test(val)) {
+                            updateDayConfig(selectedDay, { calories: val === '' ? 0 : parseInt(val, 10) });
+                          }
+                        }}
                       />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">Protein (g)</Label>
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={selectedDayConfig.protein}
-                        onChange={(e) => updateDayConfig(selectedDay, { protein: Number(e.target.value) })}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d+$/.test(val)) {
+                            updateDayConfig(selectedDay, { protein: val === '' ? 0 : parseInt(val, 10) });
+                          }
+                        }}
                       />
                       <p className="text-[10px] text-muted-foreground">{(selectedDayConfig.protein / weightKg).toFixed(1)} g/kg</p>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">Carbs (g)</Label>
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={selectedDayConfig.carbs}
-                        onChange={(e) => updateDayConfig(selectedDay, { carbs: Number(e.target.value) })}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d+$/.test(val)) {
+                            updateDayConfig(selectedDay, { carbs: val === '' ? 0 : parseInt(val, 10) });
+                          }
+                        }}
                       />
                       <p className="text-[10px] text-muted-foreground">{(selectedDayConfig.carbs / weightKg).toFixed(1)} g/kg</p>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">Fat (g)</Label>
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={selectedDayConfig.fat}
-                        onChange={(e) => updateDayConfig(selectedDay, { fat: Number(e.target.value) })}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d+$/.test(val)) {
+                            updateDayConfig(selectedDay, { fat: val === '' ? 0 : parseInt(val, 10) });
+                          }
+                        }}
                       />
                       <p className="text-[10px] text-muted-foreground">{(selectedDayConfig.fat / weightKg).toFixed(1)} g/kg</p>
                     </div>
@@ -1838,12 +1866,17 @@ export function PhaseTargetsEditor({
                             <div className="space-y-1.5">
                               <Label className="text-xs font-medium text-green-700">Duration (min)</Label>
                               <Input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={selectedDayConfig.workouts[0]?.duration || 60}
                                 onChange={(e) => {
-                                  const updatedWorkouts = [...selectedDayConfig.workouts];
-                                  updatedWorkouts[0] = { ...updatedWorkouts[0], duration: Number(e.target.value) };
-                                  updateDayConfig(selectedDay, { workouts: updatedWorkouts });
+                                  const val = e.target.value;
+                                  if (val === '' || /^\d+$/.test(val)) {
+                                    const updatedWorkouts = [...selectedDayConfig.workouts];
+                                    updatedWorkouts[0] = { ...updatedWorkouts[0], duration: val === '' ? 0 : parseInt(val, 10) };
+                                    updateDayConfig(selectedDay, { workouts: updatedWorkouts });
+                                  }
                                 }}
                                 className="h-9 text-sm bg-white border-green-200"
                               />

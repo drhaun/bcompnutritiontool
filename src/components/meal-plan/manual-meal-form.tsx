@@ -1286,9 +1286,16 @@ export function ManualMealForm({ slot, existingMeal, dietPreferences, onSave, on
                     </div>
                     <div className="w-20">
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={grams}
-                        onChange={(e) => updateGrams(idx, parseInt(e.target.value) || 0)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d+$/.test(val)) {
+                            updateGrams(idx, val === '' ? 0 : parseInt(val, 10));
+                          }
+                        }}
                         className="h-8 text-xs text-center"
                       />
                     </div>

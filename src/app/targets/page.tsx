@@ -1417,9 +1417,16 @@ export default function TargetsPage() {
                           <div className="space-y-2">
                             <Label className="text-xs">Calories</Label>
                             <Input
-                              type="number"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               value={customOverrides[selectedDay]?.calories ?? selectedDayTargets.targetCalories}
-                              onChange={(e) => updateCustomOverride(selectedDay, 'calories', Number(e.target.value))}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || /^\d+$/.test(val)) {
+                                  updateCustomOverride(selectedDay, 'calories', val === '' ? selectedDayTargets.targetCalories : parseInt(val, 10));
+                                }
+                              }}
                               className="text-center font-bold"
                             />
                             <p className="text-[10px] text-muted-foreground text-center">
@@ -1429,9 +1436,16 @@ export default function TargetsPage() {
                           <div className="space-y-2">
                             <Label className="text-xs">Protein (g)</Label>
                             <Input
-                              type="number"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               value={customOverrides[selectedDay]?.protein ?? selectedDayTargets.protein}
-                              onChange={(e) => updateCustomOverride(selectedDay, 'protein', Number(e.target.value))}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || /^\d+$/.test(val)) {
+                                  updateCustomOverride(selectedDay, 'protein', val === '' ? selectedDayTargets.protein : parseInt(val, 10));
+                                }
+                              }}
                               className="text-center font-bold"
                             />
                             <p className="text-[10px] text-muted-foreground text-center">
@@ -1441,9 +1455,16 @@ export default function TargetsPage() {
                           <div className="space-y-2">
                             <Label className="text-xs">Carbs (g)</Label>
                             <Input
-                              type="number"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               value={customOverrides[selectedDay]?.carbs ?? selectedDayTargets.carbs}
-                              onChange={(e) => updateCustomOverride(selectedDay, 'carbs', Number(e.target.value))}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || /^\d+$/.test(val)) {
+                                  updateCustomOverride(selectedDay, 'carbs', val === '' ? selectedDayTargets.carbs : parseInt(val, 10));
+                                }
+                              }}
                               className="text-center font-bold"
                             />
                             <p className="text-[10px] text-muted-foreground text-center">
@@ -1453,9 +1474,16 @@ export default function TargetsPage() {
                           <div className="space-y-2">
                             <Label className="text-xs">Fat (g)</Label>
                             <Input
-                              type="number"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               value={customOverrides[selectedDay]?.fat ?? selectedDayTargets.fat}
-                              onChange={(e) => updateCustomOverride(selectedDay, 'fat', Number(e.target.value))}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || /^\d+$/.test(val)) {
+                                  updateCustomOverride(selectedDay, 'fat', val === '' ? selectedDayTargets.fat : parseInt(val, 10));
+                                }
+                              }}
                               className="text-center font-bold"
                             />
                             <p className="text-[10px] text-muted-foreground text-center">
