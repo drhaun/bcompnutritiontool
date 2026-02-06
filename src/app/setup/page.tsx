@@ -2719,7 +2719,7 @@ export default function SetupPage() {
                             <RadioGroupItem value="Sedentary (0-5k steps/day)" className="sr-only" />
                             <p className="font-semibold">Sedentary</p>
                             <p className="text-xs text-muted-foreground">0-5k steps</p>
-                            <p className="text-sm font-bold text-[#c19962] mt-2">~{Math.round(finalRMR * 0.1)} kcal</p>
+                            <p className="text-sm font-bold text-[#c19962] mt-2">~{Math.round(finalRMR * 0.08)} kcal</p>
                           </label>
                           <label className={cn(
                             "flex flex-col p-4 border rounded-lg cursor-pointer transition-all text-center",
@@ -2728,7 +2728,7 @@ export default function SetupPage() {
                             <RadioGroupItem value="Light Active (5-10k steps/day)" className="sr-only" />
                             <p className="font-semibold">Light</p>
                             <p className="text-xs text-muted-foreground">5-10k steps</p>
-                            <p className="text-sm font-bold text-[#c19962] mt-2">~{Math.round(finalRMR * 0.25)} kcal</p>
+                            <p className="text-sm font-bold text-[#c19962] mt-2">~{Math.round(finalRMR * 0.15)} kcal</p>
                           </label>
                           <label className={cn(
                             "flex flex-col p-4 border rounded-lg cursor-pointer transition-all text-center",
@@ -2737,7 +2737,7 @@ export default function SetupPage() {
                             <RadioGroupItem value="Active (10-15k steps/day)" className="sr-only" />
                             <p className="font-semibold">Active</p>
                             <p className="text-xs text-muted-foreground">10-15k steps</p>
-                            <p className="text-sm font-bold text-[#c19962] mt-2">~{Math.round(finalRMR * 0.4)} kcal</p>
+                            <p className="text-sm font-bold text-[#c19962] mt-2">~{Math.round(finalRMR * 0.25)} kcal</p>
                           </label>
                           <label className={cn(
                             "flex flex-col p-4 border rounded-lg cursor-pointer transition-all text-center",
@@ -2746,7 +2746,7 @@ export default function SetupPage() {
                             <RadioGroupItem value="Labor Intensive (>15k steps/day)" className="sr-only" />
                             <p className="font-semibold">Labor</p>
                             <p className="text-xs text-muted-foreground">{'>'}15k steps</p>
-                            <p className="text-sm font-bold text-[#c19962] mt-2">~{Math.round(finalRMR * 0.55)} kcal</p>
+                            <p className="text-sm font-bold text-[#c19962] mt-2">~{Math.round(finalRMR * 0.35)} kcal</p>
                           </label>
                         </RadioGroup>
                       </CardContent>

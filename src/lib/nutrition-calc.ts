@@ -287,25 +287,28 @@ export function calculateBMR(
  * These are MORE CONSERVATIVE than traditional Harris-Benedict multipliers.
  * Research shows traditional multipliers tend to overestimate NEAT.
  * 
- * Conservative multipliers based on:
- * - Westerterp (2013): "Physical activity and physical activity induced energy expenditure"
+ * Conservative NEAT multipliers based on:
  * - Pontzer et al (2016): Constrained total energy expenditure model
- * - Typical step-based energy expenditure estimates
+ * - Westerterp (2013): "Physical activity and physical activity induced energy expenditure"
+ * - Step-based energy estimates (~30-50 kcal per 1000 steps)
  * 
- * Traditional vs Conservative:
- * - Sedentary: 1.2 → 1.1 (desk job, minimal movement)
- * - Light Active: 1.375 → 1.25 (some walking, light daily activity)
- * - Active: 1.55 → 1.4 (regular movement, active job or lifestyle)
- * - Labor Intensive: 1.725 → 1.55 (physically demanding job)
+ * These are MORE CONSERVATIVE than traditional Harris-Benedict multipliers
+ * because we calculate exercise separately (EEE) and want to avoid double-counting.
+ * 
+ * NEAT estimates (for ~2000 kcal RMR):
+ * - Sedentary: ~150 kcal (desk job, <5k steps)
+ * - Light: ~300 kcal (some walking, 5-10k steps)  
+ * - Active: ~500 kcal (on feet frequently, 10-15k steps)
+ * - Labor: ~700 kcal (physical job, >15k steps)
  */
 export function getActivityMultiplier(activityLevel: ActivityLevel): number {
   const multipliers: Record<ActivityLevel, number> = {
-    'Sedentary (0-5k steps/day)': 1.1,
-    'Light Active (5-10k steps/day)': 1.25,
-    'Active (10-15k steps/day)': 1.4,
-    'Labor Intensive (>15k steps/day)': 1.55,
+    'Sedentary (0-5k steps/day)': 1.08,      // NEAT ≈ 8% of RMR
+    'Light Active (5-10k steps/day)': 1.15,   // NEAT ≈ 15% of RMR
+    'Active (10-15k steps/day)': 1.25,        // NEAT ≈ 25% of RMR
+    'Labor Intensive (>15k steps/day)': 1.35, // NEAT ≈ 35% of RMR
   };
-  return multipliers[activityLevel] ?? 1.1;
+  return multipliers[activityLevel] ?? 1.08;
 }
 
 /**
