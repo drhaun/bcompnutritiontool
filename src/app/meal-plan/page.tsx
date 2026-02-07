@@ -26,7 +26,14 @@ import { ProgressSteps } from '@/components/layout/progress-steps';
 import { ProgressSummary } from '@/components/layout/progress-summary';
 import { MealSlotCard, ManualMealForm, MealSwapDialog, RecipeRecommendations } from '@/components/meal-plan';
 import { useFitomicsStore } from '@/lib/store';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { format, subDays } from 'date-fns';
+import {
+  LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+  ResponsiveContainer, Legend,
+} from 'recharts';
 import { 
   ArrowLeft, 
   Download, 
@@ -60,23 +67,34 @@ import {
   User,
   LayoutList,
   Pill,
-  ExternalLink,
   Plus,
-  Link2,
   ClipboardCopy,
+  Pencil,
+  Bookmark,
+  PanelLeftClose,
+  Globe,
+  TrendingUp,
+  Heart,
+  Clock,
+  Scale,
+  ArrowDownToLine,
+  ArrowUpFromLine,
 } from 'lucide-react';
-import type { DayOfWeek, MealSlot, Meal, Macros, DietPreferences, SupplementEntry, MealSupplement } from '@/types';
+import { Input } from '@/components/ui/input';
+import type { DayOfWeek, DayNutritionTargets, MealSlot, Meal, Macros, DietPreferences, SupplementEntry, MealSupplement, CoachLink } from '@/types';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-// ============ DISPENSARY & AFFILIATE QUICK LINKS ============
-const QUICK_LINKS = [
-  { label: 'Fullscript', url: 'https://us.fullscript.com/welcome/fitomics', color: 'text-emerald-700', bg: 'bg-emerald-50' },
-  { label: 'Thorne', url: 'https://www.thorne.com/u/fitomics', color: 'text-blue-700', bg: 'bg-blue-50' },
-  { label: 'Kion', url: 'https://glnk.io/j6vy/drcodyhaun', color: 'text-orange-700', bg: 'bg-orange-50' },
-  { label: 'Amazon', url: 'https://www.amazon.com/shop/drcodyhaun?ref_=cm_sw_r_cp_ud_aipsfshop_TR9BE41CEZHSP4D9XM23', color: 'text-amber-700', bg: 'bg-amber-50' },
-  { label: 'Elemental Formulations', url: 'https://eformulations.co/?ref=fitomics', color: 'text-purple-700', bg: 'bg-purple-50' },
+// ============ DEFAULT DISPENSARY & AFFILIATE LINKS ============
+const DEFAULT_COACH_LINKS: CoachLink[] = [
+  { id: 'fullscript', label: 'Fullscript', url: 'https://us.fullscript.com/welcome/fitomics', color: 'text-emerald-700', bg: 'bg-emerald-50', isDefault: true },
+  { id: 'thorne', label: 'Thorne', url: 'https://www.thorne.com/u/fitomics', color: 'text-blue-700', bg: 'bg-blue-50', isDefault: true },
+  { id: 'kion', label: 'Kion', url: 'https://glnk.io/j6vy/drcodyhaun', color: 'text-orange-700', bg: 'bg-orange-50', isDefault: true },
+  { id: 'amazon', label: 'Amazon', url: 'https://www.amazon.com/shop/drcodyhaun?ref_=cm_sw_r_cp_ud_aipsfshop_TR9BE41CEZHSP4D9XM23', color: 'text-amber-700', bg: 'bg-amber-50', isDefault: true },
+  { id: 'elemental', label: 'Elemental Formulations', url: 'https://eformulations.co/?ref=fitomics', color: 'text-purple-700', bg: 'bg-purple-50', isDefault: true },
 ];
+
+const COACH_LINKS_STORAGE_KEY = 'fitomics_coach_links';
 
 // ============ UTILITY FUNCTIONS ============
 
@@ -282,6 +300,154 @@ export default function MealPlanPage() {
   const [generatingImproved, setGeneratingImproved] = useState<Record<number, boolean>>({});
   // Stable ref to prevent re-fetch on every render
   const cronometerFetchedRef = useRef<number | null>(null);
+
+  // ============ CRONOMETER MODAL STATE (mirrors Planning page) ============
+  type CronometerModalType = 'trends' | 'foodlog' | 'biometrics' | 'fasting' | 'targets' | null;
+  const [activeCronometerModal, setActiveCronometerModal] = useState<CronometerModalType>(null);
+  const [cmDateRange, setCmDateRange] = useState({ from: subDays(new Date(), 21), to: new Date() });
+  const [isFetchingCM, setIsFetchingCM] = useState(false);
+  const [cmData, setCmData] = useState<{
+    success: boolean;
+    daysAnalyzed: number;
+    dateRange: { start: string; end: string };
+    trendData: Array<{ date: string; calories: number; protein: number; carbs: number; fat: number; fiber: number }>;
+    macroDistribution: Array<{ name: string; value: number; grams: number; color: string }>;
+    averages: { calories: number; protein: number; carbs: number; fat: number; fiber: number };
+    foodLog: Array<{
+      date: string; completed: boolean; totalCalories: number; protein: number; carbs: number; fat: number; fiber: number;
+      meals: Array<{ name: string; calories: number; protein: number; carbs: number; fat: number; foods: Array<{ name: string; serving: string }> }>;
+    }>;
+    fasts: Array<{ name: string; start: string; finish: string | null; comments: string; duration: string | null; ongoing: boolean }>;
+    biometrics: Array<{ date: string; type: string; value: number; unit: string }>;
+    micronutrientAverages: Array<{ name: string; value: number }>;
+    targets: Record<string, { min?: number; max?: number; unit: string }>;
+  } | null>(null);
+  const [cmTargets, setCmTargets] = useState<{
+    kcal: number | null; protein: number | null; total_carbs: number | null; fat: number | null;
+  } | null>(null);
+
+  const CHART_COLORS = { gold: '#c19962', red: '#ef4444', blue: '#3b82f6', yellow: '#eab308', green: '#22c55e', purple: '#a855f7' };
+
+  const fetchCMDashboard = useCallback(async () => {
+    if (!cronometerClientId) return;
+    setIsFetchingCM(true);
+    try {
+      const params = new URLSearchParams({
+        start: format(cmDateRange.from, 'yyyy-MM-dd'),
+        end: format(cmDateRange.to, 'yyyy-MM-dd'),
+        client_id: String(cronometerClientId),
+      });
+      const res = await fetch(`/api/cronometer/dashboard?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCmData(data);
+      }
+    } catch (err) {
+      console.error('[MealPlan] Cronometer fetch failed:', err);
+    } finally {
+      setIsFetchingCM(false);
+    }
+  }, [cronometerClientId, cmDateRange]);
+
+  const fetchCMTargets = useCallback(async () => {
+    if (!cronometerClientId) return;
+    try {
+      const params = new URLSearchParams({ client_id: String(cronometerClientId) });
+      const res = await fetch(`/api/cronometer/targets?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCmTargets(data.targets || null);
+      }
+    } catch (err) {
+      console.error('[MealPlan] Cronometer targets fetch failed:', err);
+    }
+  }, [cronometerClientId]);
+
+  const openCronometerModal = useCallback((modal: CronometerModalType) => {
+    setActiveCronometerModal(modal);
+    if (!cmData && modal !== 'targets') {
+      fetchCMDashboard();
+    }
+    if (modal === 'targets' && !cmTargets) {
+      fetchCMTargets();
+      if (!cmData) fetchCMDashboard();
+    }
+  }, [cmData, cmTargets, fetchCMDashboard, fetchCMTargets]);
+
+  // ============ COACH LINKS (Left Sidebar) ============
+  const [coachLinks, setCoachLinks] = useState<CoachLink[]>(DEFAULT_COACH_LINKS);
+  const [linksExpanded, setLinksExpanded] = useState(false);
+  const [addingLink, setAddingLink] = useState(false);
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
+  const [linkForm, setLinkForm] = useState({ label: '', url: '' });
+
+  // Load coach links from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(COACH_LINKS_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as CoachLink[];
+        // Merge: keep defaults, add any custom links
+        const defaultIds = new Set(DEFAULT_COACH_LINKS.map(l => l.id));
+        const customLinks = parsed.filter(l => !defaultIds.has(l.id));
+        // Also keep any edits to default links (url changes)
+        const mergedDefaults = DEFAULT_COACH_LINKS.map(d => {
+          const edited = parsed.find(p => p.id === d.id);
+          return edited ? { ...d, url: edited.url, label: edited.label } : d;
+        });
+        setCoachLinks([...mergedDefaults, ...customLinks]);
+      }
+    } catch {
+      // Use defaults
+    }
+  }, []);
+
+  // Persist coach links to localStorage
+  const saveCoachLinks = useCallback((links: CoachLink[]) => {
+    setCoachLinks(links);
+    try {
+      localStorage.setItem(COACH_LINKS_STORAGE_KEY, JSON.stringify(links));
+    } catch {
+      // Silent fail
+    }
+  }, []);
+
+  const handleAddLink = useCallback(() => {
+    if (!linkForm.label.trim() || !linkForm.url.trim()) return;
+    let url = linkForm.url.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+    const newLink: CoachLink = {
+      id: `custom_${Date.now()}`,
+      label: linkForm.label.trim(),
+      url,
+      color: 'text-slate-700',
+      bg: 'bg-slate-50',
+      isDefault: false,
+    };
+    saveCoachLinks([...coachLinks, newLink]);
+    setLinkForm({ label: '', url: '' });
+    setAddingLink(false);
+  }, [linkForm, coachLinks, saveCoachLinks]);
+
+  const handleUpdateLink = useCallback((id: string) => {
+    if (!linkForm.label.trim() || !linkForm.url.trim()) return;
+    let url = linkForm.url.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+    const updated = coachLinks.map(l =>
+      l.id === id ? { ...l, label: linkForm.label.trim(), url } : l
+    );
+    saveCoachLinks(updated);
+    setEditingLinkId(null);
+    setLinkForm({ label: '', url: '' });
+  }, [linkForm, coachLinks, saveCoachLinks]);
+
+  const handleDeleteLink = useCallback((id: string) => {
+    saveCoachLinks(coachLinks.filter(l => l.id !== id));
+  }, [coachLinks, saveCoachLinks]);
   
   useEffect(() => {
     setIsHydrated(true);
@@ -1326,43 +1492,6 @@ export default function MealPlanPage() {
           </Card>
         )}
 
-        {/* Dispensary & Affiliate Quick Links */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Link2 className="h-4 w-4 text-[#c19962]" />
-              Dispensary & Supplement Links
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {QUICK_LINKS.map((link) => (
-                <div key={link.label} className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 ${link.bg}`}>
-                  <span className={`text-xs font-medium ${link.color}`}>{link.label}</span>
-                  <div className="flex items-center gap-0.5 ml-1">
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(link.url, link.label)}
-                      className="p-0.5 rounded hover:bg-black/5 transition-colors"
-                      title="Copy link"
-                    >
-                      <ClipboardCopy className="h-3 w-3 text-muted-foreground" />
-                    </button>
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-0.5 rounded hover:bg-black/5 transition-colors"
-                      title="Open in new tab"
-                    >
-                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     );
   };
@@ -1616,6 +1745,292 @@ export default function MealPlanPage() {
         </Card>
 
         <div className="flex gap-4">
+          {/* Left Sidebar - Coach Quick Links */}
+          <div className={`hidden lg:block transition-all shrink-0 ${linksExpanded ? 'w-[220px]' : 'w-12'}`}>
+            <div className="sticky top-20">
+              <Card className="border-[#c19962]/30 overflow-hidden">
+                {/* Toggle Header */}
+                <button
+                  type="button"
+                  onClick={() => setLinksExpanded(!linksExpanded)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-2 hover:bg-muted/50 transition-colors border-b"
+                >
+                  {linksExpanded ? (
+                    <>
+                      <PanelLeftClose className="h-4 w-4 text-[#c19962] shrink-0" />
+                      <span className="text-xs font-semibold text-[#00263d] truncate">Quick Links</span>
+                    </>
+                  ) : (
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Bookmark className="h-4 w-4 text-[#c19962]" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs">Quick Links</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </button>
+
+                {/* Collapsed: Icon-only link buttons */}
+                {!linksExpanded && (
+                  <div className="flex flex-col items-center gap-1 py-2 px-1">
+                    {coachLinks.map((link) => (
+                      <TooltipProvider key={link.id} delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-colors hover:ring-2 hover:ring-[#c19962]/40 ${link.bg || 'bg-slate-50'} ${link.color || 'text-slate-700'}`}
+                            >
+                              {link.label.substring(0, 2).toUpperCase()}
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="text-xs">
+                            <p className="font-medium">{link.label}</p>
+                            <p className="text-muted-foreground truncate max-w-[200px]">{link.url}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ))}
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => { setLinksExpanded(true); setAddingLink(true); }}
+                            className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted/60 transition-colors border border-dashed"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs">Add custom link</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                )}
+
+                {/* Expanded: Full link list with actions */}
+                {linksExpanded && (
+                  <div className="p-2 space-y-1.5">
+                    {coachLinks.map((link) => (
+                      <div key={link.id}>
+                        {editingLinkId === link.id ? (
+                          <div className="space-y-1.5 p-2 rounded-lg bg-muted/40">
+                            <Input
+                              value={linkForm.label}
+                              onChange={(e) => setLinkForm(f => ({ ...f, label: e.target.value }))}
+                              placeholder="Label"
+                              className="h-7 text-xs"
+                              autoFocus
+                            />
+                            <Input
+                              value={linkForm.url}
+                              onChange={(e) => setLinkForm(f => ({ ...f, url: e.target.value }))}
+                              placeholder="https://..."
+                              className="h-7 text-xs"
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateLink(link.id); }}
+                            />
+                            <div className="flex gap-1">
+                              <Button size="sm" className="h-6 text-[10px] flex-1 bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]" onClick={() => handleUpdateLink(link.id)}>
+                                Save
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2" onClick={() => { setEditingLinkId(null); setLinkForm({ label: '', url: '' }); }}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors hover:bg-muted/40 ${link.bg || 'bg-slate-50/50'}`}>
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`flex-1 min-w-0 flex items-center gap-1.5 ${link.color || 'text-slate-700'}`}
+                            >
+                              <Globe className="h-3 w-3 shrink-0 opacity-60" />
+                              <span className="text-xs font-medium truncate">{link.label}</span>
+                            </a>
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(link.url, link.label)}
+                                className="p-1 rounded hover:bg-black/5"
+                                title="Copy link"
+                              >
+                                <ClipboardCopy className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setEditingLinkId(link.id); setLinkForm({ label: link.label, url: link.url }); }}
+                                className="p-1 rounded hover:bg-black/5"
+                                title="Edit link"
+                              >
+                                <Pencil className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                              {!link.isDefault && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteLink(link.id)}
+                                  className="p-1 rounded hover:bg-red-50"
+                                  title="Remove link"
+                                >
+                                  <Trash2 className="h-3 w-3 text-red-400" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Add Link Form */}
+                    {addingLink ? (
+                      <div className="space-y-1.5 p-2 rounded-lg border border-dashed border-[#c19962]/40 bg-[#c19962]/5">
+                        <Input
+                          value={linkForm.label}
+                          onChange={(e) => setLinkForm(f => ({ ...f, label: e.target.value }))}
+                          placeholder="Link name (e.g. My Dispensary)"
+                          className="h-7 text-xs"
+                          autoFocus
+                        />
+                        <Input
+                          value={linkForm.url}
+                          onChange={(e) => setLinkForm(f => ({ ...f, url: e.target.value }))}
+                          placeholder="https://..."
+                          className="h-7 text-xs"
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleAddLink(); }}
+                        />
+                        <div className="flex gap-1">
+                          <Button size="sm" className="h-6 text-[10px] flex-1 bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]" onClick={handleAddLink}>
+                            <Plus className="h-3 w-3 mr-0.5" /> Add
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2" onClick={() => { setAddingLink(false); setLinkForm({ label: '', url: '' }); }}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setAddingLink(true); setLinkForm({ label: '', url: '' }); }}
+                        className="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg border border-dashed text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
+                      >
+                        <Plus className="h-3 w-3" /> Add Link
+                      </button>
+                    )}
+                  </div>
+                )}
+              </Card>
+
+              {/* Cronometer Data Panel */}
+              {hasCronometerLink && (
+                <Card className="border-amber-300/50 overflow-hidden mt-2">
+                  {/* Toggle Header */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // If collapsed, just expand sidebar so icons are visible
+                      if (!linksExpanded) setLinksExpanded(true);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-2 hover:bg-amber-50/50 transition-colors border-b bg-amber-50/30"
+                  >
+                    {linksExpanded ? (
+                      <>
+                        <TrendingUp className="h-4 w-4 text-amber-600 shrink-0" />
+                        <span className="text-xs font-semibold text-[#00263d] truncate">Cronometer</span>
+                      </>
+                    ) : (
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <TrendingUp className="h-4 w-4 text-amber-600" />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="text-xs">Cronometer Data</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </button>
+
+                  {/* Collapsed: Icon-only buttons */}
+                  {!linksExpanded && (
+                    <div className="flex flex-col items-center gap-1 py-2 px-1">
+                      {([
+                        { id: 'trends' as const, icon: TrendingUp, label: 'Trends' },
+                        { id: 'foodlog' as const, icon: Utensils, label: 'Food Log' },
+                        { id: 'biometrics' as const, icon: Heart, label: 'Biometrics' },
+                        { id: 'fasting' as const, icon: Clock, label: 'Fasting' },
+                        { id: 'targets' as const, icon: Target, label: 'Targets' },
+                      ]).map(({ id, icon: Icon, label }) => (
+                        <TooltipProvider key={id} delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => openCronometerModal(id)}
+                                className={cn(
+                                  "w-9 h-9 rounded-lg flex items-center justify-center transition-all",
+                                  activeCronometerModal === id
+                                    ? "bg-amber-500 text-white"
+                                    : "text-muted-foreground hover:bg-amber-50 hover:text-amber-700"
+                                )}
+                              >
+                                <Icon className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="text-xs">{label}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ))}
+                      {isFetchingCM && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500 mt-1" />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Expanded: Full labels */}
+                  {linksExpanded && (
+                    <div className="p-2 space-y-1">
+                      {([
+                        { id: 'trends' as const, icon: TrendingUp, label: 'Trends' },
+                        { id: 'foodlog' as const, icon: Utensils, label: 'Food Log' },
+                        { id: 'biometrics' as const, icon: Heart, label: 'Biometrics' },
+                        { id: 'fasting' as const, icon: Clock, label: 'Fasting' },
+                        { id: 'targets' as const, icon: Target, label: 'Targets' },
+                      ]).map(({ id, icon: Icon, label }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => openCronometerModal(id)}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                            activeCronometerModal === id
+                              ? "bg-amber-100 text-amber-800"
+                              : "text-muted-foreground hover:bg-amber-50 hover:text-amber-700"
+                          )}
+                        >
+                          <Icon className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{label}</span>
+                        </button>
+                      ))}
+                      {isFetchingCM && (
+                        <div className="flex items-center justify-center gap-1.5 py-1 text-xs text-amber-600">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Loading...
+                        </div>
+                      )}
+                      <p className="text-[10px] text-muted-foreground text-center pt-1 truncate">
+                        {cronometerClientName || `Client #${cronometerClientId}`}
+                      </p>
+                    </div>
+                  )}
+                </Card>
+              )}
+            </div>
+          </div>
+
           {/* Main Content */}
           <div className={`flex-1 transition-all ${showPreview || showGroceryList ? 'max-w-[60%]' : ''}`}>
             {viewMode === 'day-types' ? (
@@ -2511,6 +2926,515 @@ export default function MealPlanPage() {
               Export PDF
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============ CRONOMETER DATA MODALS ============ */}
+
+      {/* Trends Modal */}
+      <Dialog open={activeCronometerModal === 'trends'} onOpenChange={(open) => !open && setActiveCronometerModal(null)}>
+        <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-[#c19962]" />
+              Nutrition Trends
+            </DialogTitle>
+            <DialogDescription>
+              {cronometerClientName || 'Client'} &mdash; {format(cmDateRange.from, 'MMM d')} to {format(cmDateRange.to, 'MMM d, yyyy')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 mb-4">
+            {[7, 14, 21, 30, 60].map(n => (
+              <Button key={n} variant="ghost" size="sm"
+                className={cn("h-7 text-xs", Math.round((cmDateRange.to.getTime() - cmDateRange.from.getTime()) / 86400000) === n && "bg-[#c19962]/10 text-[#c19962]")}
+                onClick={() => { setCmDateRange({ from: subDays(new Date(), n), to: new Date() }); setTimeout(fetchCMDashboard, 50); }}
+              >{n}d</Button>
+            ))}
+            <Button variant="outline" size="sm" className="h-7 text-xs ml-auto" onClick={fetchCMDashboard} disabled={isFetchingCM}>
+              {isFetchingCM ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            </Button>
+          </div>
+          {!cmData ? (
+            <div className="py-12 text-center text-muted-foreground">
+              {isFetchingCM ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : 'No data loaded'}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-5 gap-3">
+                {[
+                  { label: 'Calories', value: cmData.averages.calories, unit: 'kcal' },
+                  { label: 'Protein', value: cmData.averages.protein, unit: 'g' },
+                  { label: 'Carbs', value: cmData.averages.carbs, unit: 'g' },
+                  { label: 'Fat', value: cmData.averages.fat, unit: 'g' },
+                  { label: 'Fiber', value: cmData.averages.fiber, unit: 'g' },
+                ].map(m => (
+                  <div key={m.label} className="text-center p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground">{m.label}</p>
+                    <p className="text-lg font-bold">{Math.round(m.value)}</p>
+                    <p className="text-xs text-muted-foreground">{m.unit}/day avg</p>
+                  </div>
+                ))}
+              </div>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Calorie Trend</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={cmData.trendData}>
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                        <XAxis dataKey="date" tickFormatter={v => { try { return format(new Date(v), 'M/d'); } catch { return v; } }} fontSize={10} />
+                        <YAxis fontSize={10} />
+                        <RechartsTooltip />
+                        <Area type="monotone" dataKey="calories" stroke={CHART_COLORS.gold} fill={CHART_COLORS.gold} fillOpacity={0.2} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Macronutrient Trends</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={cmData.trendData}>
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                        <XAxis dataKey="date" tickFormatter={v => { try { return format(new Date(v), 'M/d'); } catch { return v; } }} fontSize={10} />
+                        <YAxis fontSize={10} />
+                        <RechartsTooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="protein" stroke={CHART_COLORS.red} strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="carbs" stroke={CHART_COLORS.blue} strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="fat" stroke={CHART_COLORS.yellow} strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+              {cmData.macroDistribution.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm">Average Macro Distribution</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="h-[180px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={cmData.macroDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, value }) => `${name} ${value}%`}>
+                            {cmData.macroDistribution.map((entry, i) => (
+                              <Cell key={i} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Food Log Modal */}
+      <Dialog open={activeCronometerModal === 'foodlog'} onOpenChange={(open) => !open && setActiveCronometerModal(null)}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Utensils className="h-5 w-5 text-[#c19962]" />
+              Food Log
+            </DialogTitle>
+            <DialogDescription>
+              Recent daily food entries from Cronometer
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 mb-4">
+            {[7, 14, 21, 30].map(n => (
+              <Button key={n} variant="ghost" size="sm"
+                className={cn("h-7 text-xs", Math.round((cmDateRange.to.getTime() - cmDateRange.from.getTime()) / 86400000) === n && "bg-[#c19962]/10 text-[#c19962]")}
+                onClick={() => { setCmDateRange({ from: subDays(new Date(), n), to: new Date() }); setTimeout(fetchCMDashboard, 50); }}
+              >{n}d</Button>
+            ))}
+            <Button variant="outline" size="sm" className="h-7 text-xs ml-auto" onClick={fetchCMDashboard} disabled={isFetchingCM}>
+              {isFetchingCM ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            </Button>
+          </div>
+          {!cmData ? (
+            <div className="py-12 text-center text-muted-foreground">
+              {isFetchingCM ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : 'No data loaded'}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {cmData.foodLog.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">No food log entries for this period</p>
+              ) : (
+                cmData.foodLog.map(day => (
+                  <Card key={day.date}>
+                    <CardHeader className="pb-2 pt-3 px-4">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm">
+                          {(() => { try { return format(new Date(day.date), 'EEE, MMM d'); } catch { return day.date; } })()}
+                        </CardTitle>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span><strong className="text-foreground">{day.totalCalories}</strong> kcal</span>
+                          <span>P: {day.protein}g</span>
+                          <span>C: {day.carbs}g</span>
+                          <span>F: {day.fat}g</span>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3">
+                      <div className="space-y-2">
+                        {day.meals.map((meal, mi) => (
+                          <div key={mi} className="text-xs">
+                            <div className="flex items-center justify-between font-medium text-muted-foreground mb-0.5">
+                              <span>{meal.name}</span>
+                              <span>{meal.calories} kcal</span>
+                            </div>
+                            <div className="pl-3 space-y-0.5">
+                              {meal.foods.slice(0, 5).map((f, fi) => (
+                                <p key={fi} className="text-muted-foreground">{f.name} <span className="opacity-60">({f.serving})</span></p>
+                              ))}
+                              {meal.foods.length > 5 && (
+                                <p className="text-muted-foreground opacity-60">+{meal.foods.length - 5} more items</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Biometrics Modal */}
+      <Dialog open={activeCronometerModal === 'biometrics'} onOpenChange={(open) => !open && setActiveCronometerModal(null)}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Heart className="h-5 w-5 text-red-500" />
+              Biometrics
+            </DialogTitle>
+            <DialogDescription>
+              Weight, body fat, and other tracked metrics from Cronometer
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 mb-4">
+            {[30, 60, 90].map(n => (
+              <Button key={n} variant="ghost" size="sm"
+                className={cn("h-7 text-xs", Math.round((cmDateRange.to.getTime() - cmDateRange.from.getTime()) / 86400000) === n && "bg-[#c19962]/10 text-[#c19962]")}
+                onClick={() => { setCmDateRange({ from: subDays(new Date(), n), to: new Date() }); setTimeout(fetchCMDashboard, 50); }}
+              >{n}d</Button>
+            ))}
+            <Button variant="outline" size="sm" className="h-7 text-xs ml-auto" onClick={fetchCMDashboard} disabled={isFetchingCM}>
+              {isFetchingCM ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            </Button>
+          </div>
+          {!cmData ? (
+            <div className="py-12 text-center text-muted-foreground">
+              {isFetchingCM ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : 'No data loaded'}
+            </div>
+          ) : cmData.biometrics.length === 0 ? (
+            <div className="text-center py-12">
+              <Scale className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">No biometric data found for this date range</p>
+              <p className="text-xs text-muted-foreground mt-1">Try expanding the date range</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(
+                cmData.biometrics.reduce((acc, bio) => {
+                  if (!acc[bio.type]) acc[bio.type] = [];
+                  acc[bio.type].push(bio);
+                  return acc;
+                }, {} as Record<string, typeof cmData.biometrics>)
+              ).map(([type, data]) => {
+                const sorted = [...data].sort((a, b) => a.date.localeCompare(b.date));
+                const latest = sorted[sorted.length - 1];
+                const first = sorted[0];
+                const unit = latest?.unit || '';
+                const change = sorted.length >= 2 ? Math.round((latest.value - first.value) * 100) / 100 : null;
+                return (
+                  <Card key={type}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm">{type}</CardTitle>
+                        <div className="flex items-center gap-2">
+                          {change !== null && (
+                            <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full",
+                              change > 0 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                              : change < 0 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                              : "bg-gray-100 text-gray-600"
+                            )}>{change > 0 ? '+' : ''}{change} {unit}</span>
+                          )}
+                          <span className="text-lg font-bold text-[#c19962]">{latest.value} {unit}</span>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[120px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={sorted}>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                            <XAxis dataKey="date" tickFormatter={v => { try { return format(new Date(v), 'M/d'); } catch { return v; } }} fontSize={10} />
+                            <YAxis fontSize={10} domain={['auto', 'auto']} />
+                            <RechartsTooltip />
+                            <Line type="monotone" dataKey="value" stroke={CHART_COLORS.gold} strokeWidth={2} dot={{ fill: CHART_COLORS.gold, r: 3 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Fasting Modal */}
+      <Dialog open={activeCronometerModal === 'fasting'} onOpenChange={(open) => !open && setActiveCronometerModal(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-[#c19962]" />
+              Fasting History
+            </DialogTitle>
+            <DialogDescription>
+              Fasting records from Cronometer
+            </DialogDescription>
+          </DialogHeader>
+          {!cmData ? (
+            <div className="py-12 text-center text-muted-foreground">
+              {isFetchingCM ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : 'No data loaded'}
+            </div>
+          ) : cmData.fasts.length === 0 ? (
+            <div className="text-center py-12">
+              <Clock className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">No fasting records found</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {cmData.fasts.map((fast, i) => (
+                <Card key={i}>
+                  <CardContent className="py-3 px-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{fast.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {fast.start} {fast.finish ? `\u2192 ${fast.finish}` : ''}
+                        </p>
+                        {fast.comments && (
+                          <p className="text-xs text-muted-foreground mt-1 italic">{fast.comments}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        {fast.ongoing ? (
+                          <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700">Ongoing</Badge>
+                        ) : fast.duration ? (
+                          <Badge variant="secondary" className="text-xs">{fast.duration}</Badge>
+                        ) : null}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Targets Sync Modal */}
+      <Dialog open={activeCronometerModal === 'targets'} onOpenChange={(open) => !open && setActiveCronometerModal(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-[#c19962]" />
+              Cronometer Targets
+            </DialogTitle>
+            <DialogDescription>
+              Sync nutrition targets between Fitomics and Cronometer
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Current Cronometer Targets */}
+            <div>
+              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                <ArrowDownToLine className="h-4 w-4 text-[#c19962]" />
+                Current Cronometer Targets
+              </h4>
+              {cmTargets ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-4 gap-3">
+                    {[
+                      { label: 'Calories', value: cmTargets.kcal, unit: 'kcal' },
+                      { label: 'Protein', value: cmTargets.protein, unit: 'g' },
+                      { label: 'Carbs', value: cmTargets.total_carbs, unit: 'g' },
+                      { label: 'Fat', value: cmTargets.fat, unit: 'g' },
+                    ].map(t => (
+                      <div key={t.label} className="text-center p-3 bg-muted/50 rounded-lg border">
+                        <p className="text-xs text-muted-foreground">{t.label}</p>
+                        <p className="text-lg font-bold">{t.value != null ? Math.round(t.value) : '—'}</p>
+                        <p className="text-xs text-muted-foreground">{t.unit}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {activePhase && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        if (!activePhase || !cmTargets) return;
+                        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+                        const cal = Math.round(cmTargets.kcal || 0);
+                        const newTargets: DayNutritionTargets[] = days.map(day => ({
+                          day,
+                          isWorkoutDay: false,
+                          tdee: cal,
+                          targetCalories: cal,
+                          protein: Math.round(cmTargets.protein || 0),
+                          carbs: Math.round(cmTargets.total_carbs || 0),
+                          fat: Math.round(cmTargets.fat || 0),
+                        }));
+                        updatePhase(activePhase.id, {
+                          nutritionTargets: newTargets,
+                          updatedAt: new Date().toISOString(),
+                        });
+                        toast.success('Cronometer targets applied to active phase');
+                      }}
+                    >
+                      <ArrowDownToLine className="h-4 w-4 mr-2" />
+                      Apply to Active Phase ({activePhase.name})
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" className="w-full" onClick={fetchCMTargets}>
+                    <RefreshCw className="h-3 w-3 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Button variant="outline" size="sm" onClick={fetchCMTargets}>
+                    Load Cronometer Targets
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Push Phase Targets to Cronometer */}
+            <div>
+              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                <ArrowUpFromLine className="h-4 w-4 text-[#c19962]" />
+                Push Phase Targets to Cronometer
+              </h4>
+              {activePhase ? (
+                <div className="space-y-3">
+                  {activePhase.nutritionTargets && activePhase.nutritionTargets.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-4 gap-3">
+                        {(() => {
+                          const t = activePhase.nutritionTargets[0];
+                          return [
+                            { label: 'Calories', value: t.targetCalories, unit: 'kcal' },
+                            { label: 'Protein', value: t.protein, unit: 'g' },
+                            { label: 'Carbs', value: t.carbs, unit: 'g' },
+                            { label: 'Fat', value: t.fat, unit: 'g' },
+                          ].map(m => (
+                            <div key={m.label} className="text-center p-3 bg-muted/50 rounded-lg border">
+                              <p className="text-xs text-muted-foreground">{m.label}</p>
+                              <p className="text-lg font-bold">{Math.round(m.value)}</p>
+                              <p className="text-xs text-muted-foreground">{m.unit}</p>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={async () => {
+                          if (!cronometerClientId || !activePhase?.nutritionTargets?.[0]) return;
+                          const t = activePhase.nutritionTargets[0];
+                          try {
+                            const res = await fetch('/api/cronometer/targets', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                client_id: String(cronometerClientId),
+                                calories: t.targetCalories,
+                                protein: t.protein,
+                                carbs: t.carbs,
+                                fat: t.fat,
+                              }),
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              toast.success('Targets pushed to Cronometer');
+                            } else {
+                              toast.error(data.error || 'Cronometer API does not support setting targets remotely. Please update targets manually in the Cronometer app.');
+                            }
+                          } catch {
+                            toast.error('Failed to push targets. Please update them manually in Cronometer.');
+                          }
+                        }}
+                      >
+                        <ArrowUpFromLine className="h-4 w-4 mr-2" />
+                        Push to Cronometer
+                      </Button>
+                      <p className="text-xs text-muted-foreground text-center">
+                        Note: Cronometer&apos;s API may not support remote target updates. If this fails, update targets manually in the Cronometer app.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No nutrition targets set for this phase yet. Set targets in the Planning step first.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No active phase selected. Create or select a phase first.
+                </p>
+              )}
+            </div>
+
+            {/* Recent Intake vs Targets comparison */}
+            {cmData && cmTargets && (
+              <>
+                <Separator />
+                <div>
+                  <h4 className="text-sm font-medium mb-3">Recent Intake vs Targets</h4>
+                  <div className="grid grid-cols-4 gap-3">
+                    {[
+                      { label: 'Calories', avg: cmData.averages.calories, target: cmTargets.kcal, unit: 'kcal' },
+                      { label: 'Protein', avg: cmData.averages.protein, target: cmTargets.protein, unit: 'g' },
+                      { label: 'Carbs', avg: cmData.averages.carbs, target: cmTargets.total_carbs, unit: 'g' },
+                      { label: 'Fat', avg: cmData.averages.fat, target: cmTargets.fat, unit: 'g' },
+                    ].map(c => {
+                      const diff = c.target ? Math.round(c.avg - c.target) : null;
+                      return (
+                        <div key={c.label} className="text-center p-3 rounded-lg border">
+                          <p className="text-xs text-muted-foreground">{c.label}</p>
+                          <p className="text-sm font-bold">{Math.round(c.avg)}</p>
+                          <p className="text-xs text-muted-foreground">of {c.target != null ? Math.round(c.target) : '—'}</p>
+                          {diff !== null && (
+                            <p className={cn("text-xs font-medium", diff > 0 ? "text-red-500" : diff < 0 ? "text-green-500" : "text-gray-500")}>
+                              {diff > 0 ? '+' : ''}{diff} {c.unit}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

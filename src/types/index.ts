@@ -724,6 +724,16 @@ export interface AppState {
   error: string | null;
 }
 
+// Coach Quick Links (persisted per coach in localStorage)
+export interface CoachLink {
+  id: string;
+  label: string;
+  url: string;
+  color?: string; // tailwind text color class
+  bg?: string;    // tailwind bg color class
+  isDefault?: boolean; // true for built-in links
+}
+
 // API Response Types
 export interface MealPlanGenerationResponse {
   success: boolean;
