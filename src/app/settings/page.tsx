@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -29,7 +30,9 @@ import {
   Calendar,
   Activity,
   UserCircle,
-  ArrowRight
+  ArrowRight,
+  Search,
+  BarChart3,
 } from 'lucide-react';
 
 interface CronometerClient {
@@ -42,6 +45,7 @@ interface CronometerClient {
 
 export default function SettingsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { clients: fitomicsClients, updateClient } = useFitomicsStore();
   const [isLoading, setIsLoading] = useState(true);
   const [cronometerStatus, setCronometerStatus] = useState<{
@@ -53,9 +57,26 @@ export default function SettingsPage() {
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [linkingClientId, setLinkingClientId] = useState<number | null>(null);
   const [selectedFitomicsClient, setSelectedFitomicsClient] = useState<string>('');
+  const [clientSearch, setClientSearch] = useState('');
 
   // Get active Fitomics clients
   const activeFitomicsClients = fitomicsClients.filter(c => c.status === 'active');
+
+  // Sort clients alphabetically and filter by search query
+  const filteredClients = useMemo(() => {
+    const sorted = [...clients].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
+
+    if (!clientSearch.trim()) return sorted;
+
+    const query = clientSearch.toLowerCase().trim();
+    return sorted.filter(
+      (c) =>
+        c.name.toLowerCase().includes(query) ||
+        (c.email && c.email.toLowerCase().includes(query))
+    );
+  }, [clients, clientSearch]);
 
   // Get linked Fitomics client for a Cronometer client
   const getLinkedFitomicsClient = (cronometerClientId: number) => {
@@ -89,6 +110,11 @@ export default function SettingsPage() {
       });
       toast.success(`Unlinked ${fitomicsClient.name} from Cronometer`);
     }
+  };
+
+  // Navigate to Cronometer Dashboard for a specific client
+  const viewClientLog = (clientId: number) => {
+    router.push(`/tools/cronometer-dashboard?client_id=${clientId}`);
   };
 
   // Check for OAuth callback messages
@@ -251,7 +277,7 @@ export default function SettingsPage() {
                 <div>
                   <p className="font-medium">Connect your Cronometer Pro account</p>
                   <p className="text-sm text-muted-foreground">
-                    You'll be redirected to Cronometer to authorize access
+                    You&apos;ll be redirected to Cronometer to authorize access
                   </p>
                 </div>
                 <Button onClick={connectCronometer}>
@@ -304,10 +330,30 @@ export default function SettingsPage() {
 
                 {/* Clients List */}
                 <div>
-                  <h3 className="font-semibold flex items-center gap-2 mb-3">
-                    <Users className="h-4 w-4" />
-                    Cronometer Clients ({clients.length})
-                  </h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Cronometer Clients ({clients.length})
+                    </h3>
+                  </div>
+
+                  {/* Search bar */}
+                  {clients.length > 0 && (
+                    <div className="relative mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search clients by name or email..."
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                        className="pl-9"
+                      />
+                      {clientSearch && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                          {filteredClients.length} of {clients.length}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   
                   {clients.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
@@ -315,10 +361,16 @@ export default function SettingsPage() {
                       <p>No clients found in your Cronometer Pro account</p>
                       <p className="text-sm">Invite clients from the Cronometer dashboard</p>
                     </div>
+                  ) : filteredClients.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Search className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                      <p>No clients match &ldquo;{clientSearch}&rdquo;</p>
+                      <p className="text-sm">Try a different search term</p>
+                    </div>
                   ) : (
                     <ScrollArea className="h-[400px]">
                       <div className="space-y-3">
-                        {clients.map((client) => {
+                        {filteredClients.map((client) => {
                           const linkedClient = getLinkedFitomicsClient(client.client_id);
                           const isLinking = linkingClientId === client.client_id;
                           
@@ -328,86 +380,100 @@ export default function SettingsPage() {
                               className={`p-3 border rounded-lg ${linkedClient ? 'border-green-200 bg-green-50/50' : ''}`}
                             >
                               <div className="flex items-center justify-between">
-                                <div className="flex-1">
+                                <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <p className="font-medium">{client.name}</p>
+                                    <p className="font-medium truncate">{client.name}</p>
                                     {getStatusBadge(client.status)}
                                   </div>
                                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    {client.email && <span>{client.email}</span>}
-                                    <span className="text-xs">ID: {client.client_id}</span>
+                                    {client.email && <span className="truncate">{client.email}</span>}
+                                    <span className="text-xs shrink-0">ID: {client.client_id}</span>
                                   </div>
                                 </div>
                                 
-                                {linkedClient ? (
-                                  <div className="flex items-center gap-2">
-                                    <div className="text-right">
-                                      <div className="flex items-center gap-1 text-sm text-green-700">
-                                        <Link2 className="h-3 w-3" />
-                                        <span>Linked to</span>
-                                      </div>
-                                      <p className="font-medium text-green-800">{linkedClient.name}</p>
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => unlinkClient(client.client_id)}
-                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    >
-                                      <Unlink className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                ) : isLinking ? (
-                                  <div className="flex items-center gap-2">
-                                    <Select
-                                      value={selectedFitomicsClient}
-                                      onValueChange={setSelectedFitomicsClient}
-                                    >
-                                      <SelectTrigger className="w-[180px]">
-                                        <SelectValue placeholder="Select client..." />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {activeFitomicsClients
-                                          .filter(c => !c.cronometerClientId)
-                                          .map((fc) => (
-                                            <SelectItem key={fc.id} value={fc.id}>
-                                              <div className="flex items-center gap-2">
-                                                <UserCircle className="h-3 w-3" />
-                                                {fc.name}
-                                              </div>
-                                            </SelectItem>
-                                          ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <Button
-                                      size="sm"
-                                      onClick={() => linkClient(client, selectedFitomicsClient)}
-                                      disabled={!selectedFitomicsClient}
-                                    >
-                                      Link
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => {
-                                        setLinkingClientId(null);
-                                        setSelectedFitomicsClient('');
-                                      }}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                ) : (
+                                <div className="flex items-center gap-2 shrink-0 ml-2">
+                                  {/* View Log button */}
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setLinkingClientId(client.client_id)}
-                                    disabled={activeFitomicsClients.filter(c => !c.cronometerClientId).length === 0}
+                                    onClick={() => viewClientLog(client.client_id)}
+                                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                    title="View nutrition log"
                                   >
-                                    <Link2 className="h-4 w-4 mr-1" />
-                                    Link to Fitomics
+                                    <BarChart3 className="h-4 w-4 mr-1" />
+                                    View Log
                                   </Button>
-                                )}
+
+                                  {linkedClient ? (
+                                    <div className="flex items-center gap-2">
+                                      <div className="text-right">
+                                        <div className="flex items-center gap-1 text-sm text-green-700">
+                                          <Link2 className="h-3 w-3" />
+                                          <span>Linked to</span>
+                                        </div>
+                                        <p className="font-medium text-green-800">{linkedClient.name}</p>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => unlinkClient(client.client_id)}
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      >
+                                        <Unlink className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ) : isLinking ? (
+                                    <div className="flex items-center gap-2">
+                                      <Select
+                                        value={selectedFitomicsClient}
+                                        onValueChange={setSelectedFitomicsClient}
+                                      >
+                                        <SelectTrigger className="w-[180px]">
+                                          <SelectValue placeholder="Select client..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {activeFitomicsClients
+                                            .filter(c => !c.cronometerClientId)
+                                            .map((fc) => (
+                                              <SelectItem key={fc.id} value={fc.id}>
+                                                <div className="flex items-center gap-2">
+                                                  <UserCircle className="h-3 w-3" />
+                                                  {fc.name}
+                                                </div>
+                                              </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                      </Select>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => linkClient(client, selectedFitomicsClient)}
+                                        disabled={!selectedFitomicsClient}
+                                      >
+                                        Link
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setLinkingClientId(null);
+                                          setSelectedFitomicsClient('');
+                                        }}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setLinkingClientId(client.client_id)}
+                                      disabled={activeFitomicsClients.filter(c => !c.cronometerClientId).length === 0}
+                                    >
+                                      <Link2 className="h-4 w-4 mr-1" />
+                                      Link to Fitomics
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                               
                               {client.last_activity && (

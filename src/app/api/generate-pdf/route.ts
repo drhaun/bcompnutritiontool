@@ -18,6 +18,7 @@ export async function POST(request: Request) {
       nutritionTargets,
       mealPlan,
       logoUrl, // Optional high-resolution logo URL
+      options, // PDF section options
     } = body;
     
     if (!mealPlan) {
@@ -27,7 +28,9 @@ export async function POST(request: Request) {
       );
     }
     
-    const groceryList = consolidateGroceryList(mealPlan as WeeklyMealPlan);
+    const groceryList = (options?.includeGroceryList !== false)
+      ? consolidateGroceryList(mealPlan as WeeklyMealPlan)
+      : {};
     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfBuffer = await renderToBuffer(
@@ -40,6 +43,7 @@ export async function POST(request: Request) {
         mealPlan,
         groceryList,
         logoUrl, // Pass logo URL if provided
+        options: options || {},
       }) as any
     );
     

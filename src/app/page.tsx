@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -44,7 +44,9 @@ import {
   Cloud,
   CloudOff,
   RefreshCw,
-  Loader2
+  Loader2,
+  Link2,
+  Unlink
 } from 'lucide-react';
 import { useFitomicsStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
@@ -61,6 +63,7 @@ export default function HomePage() {
     deleteClient,
     archiveClient,
     duplicateClient,
+    updateClient,
     getActiveClient,
     // Sync state
     isSyncing,
@@ -77,6 +80,21 @@ export default function HomePage() {
   const [newClientEmail, setNewClientEmail] = useState('');
   const [newClientNotes, setNewClientNotes] = useState('');
   const [isHydrated, setIsHydrated] = useState(false);
+
+  // Cronometer integration for new client dialog
+  const [cronometerConnected, setCronometerConnected] = useState(false);
+  const [cronometerClients, setCronometerClients] = useState<Array<{
+    client_id: number;
+    name: string;
+    email?: string;
+    status: string;
+  }>>([]);
+  const [selectedCronometerClient, setSelectedCronometerClient] = useState<{
+    client_id: number;
+    name: string;
+    email?: string;
+  } | null>(null);
+  const [cronometerSearchQuery, setCronometerSearchQuery] = useState('');
   
   // Handle hydration
   useEffect(() => {
@@ -93,6 +111,49 @@ export default function HomePage() {
     }
   }, [clients, isHydrated]);
   
+  // Fetch Cronometer status + client list on mount
+  useEffect(() => {
+    if (!isHydrated) return;
+    let cancelled = false;
+    const init = async () => {
+      try {
+        const statusRes = await fetch('/api/cronometer/status');
+        if (!statusRes.ok || cancelled) return;
+        const statusData = await statusRes.json();
+        if (!statusData.connected) return;
+        setCronometerConnected(true);
+
+        const clientsRes = await fetch('/api/cronometer/clients');
+        if (clientsRes.ok && !cancelled) {
+          const data = await clientsRes.json();
+          setCronometerClients(data.clients || []);
+        }
+      } catch {
+        // non-fatal
+      }
+    };
+    init();
+    return () => { cancelled = true; };
+  }, [isHydrated]);
+
+  // Filtered + sorted Cronometer clients for the dialog picker
+  const filteredCronometerClients = useMemo(() => {
+    const q = cronometerSearchQuery.toLowerCase().trim();
+    return cronometerClients
+      .filter(c => {
+        if (!q) return true;
+        return (c.name || '').toLowerCase().includes(q)
+          || (c.email || '').toLowerCase().includes(q);
+      })
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [cronometerClients, cronometerSearchQuery]);
+
+  // Check if a Cronometer client is already linked to a Fitomics profile
+  const getLinkedFitomicsClientName = useCallback((cronometerClientId: number): string | null => {
+    const linked = clients.find(c => c.cronometerClientId === cronometerClientId);
+    return linked ? linked.name : null;
+  }, [clients]);
+
   const activeClient = getActiveClient();
   
   // Filter and sort clients
@@ -126,10 +187,21 @@ export default function HomePage() {
     const clientId = createClient(newClientName.trim(), newClientEmail.trim() || undefined, newClientNotes.trim() || undefined);
     console.log('[HomePage] Client created with ID:', clientId);
     
+    // If a Cronometer client was selected, link it immediately
+    if (selectedCronometerClient) {
+      console.log('[HomePage] Linking Cronometer client:', selectedCronometerClient.client_id, selectedCronometerClient.name);
+      updateClient(clientId, {
+        cronometerClientId: selectedCronometerClient.client_id,
+        cronometerClientName: selectedCronometerClient.name,
+      });
+    }
+    
     setIsNewClientOpen(false);
     setNewClientName('');
     setNewClientEmail('');
     setNewClientNotes('');
+    setSelectedCronometerClient(null);
+    setCronometerSearchQuery('');
     router.push('/setup');
   };
 
@@ -610,8 +682,14 @@ export default function HomePage() {
       </div>
 
       {/* New Client Dialog */}
-      <Dialog open={isNewClientOpen} onOpenChange={setIsNewClientOpen}>
-        <DialogContent>
+      <Dialog open={isNewClientOpen} onOpenChange={(open) => {
+        setIsNewClientOpen(open);
+        if (!open) {
+          setSelectedCronometerClient(null);
+          setCronometerSearchQuery('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Create New Client</DialogTitle>
             <DialogDescription>
@@ -619,6 +697,86 @@ export default function HomePage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Cronometer Quick-Link Section */}
+            {cronometerConnected && cronometerClients.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-1.5">
+                  <Link2 className="h-3.5 w-3.5 text-[#c19962]" />
+                  Link Cronometer Client (Optional)
+                </Label>
+                {selectedCronometerClient ? (
+                  <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800">
+                    <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                      <Link2 className="h-3.5 w-3.5" />
+                      <span><strong>{selectedCronometerClient.name}</strong></span>
+                      {selectedCronometerClient.email && (
+                        <span className="text-xs text-green-600/70 dark:text-green-400/70">{selectedCronometerClient.email}</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCronometerClient(null)}
+                      className="text-green-600 hover:text-red-500 transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      placeholder="Search Cronometer clients..."
+                      value={cronometerSearchQuery}
+                      onChange={(e) => setCronometerSearchQuery(e.target.value)}
+                      className="h-9 text-sm"
+                    />
+                    <div className="max-h-36 overflow-y-auto border rounded-lg divide-y">
+                      {filteredCronometerClients.length === 0 ? (
+                        <p className="text-xs text-muted-foreground py-3 text-center">
+                          {cronometerSearchQuery ? 'No matches' : 'No Cronometer clients'}
+                        </p>
+                      ) : (
+                        filteredCronometerClients.map(c => {
+                          const linkedTo = getLinkedFitomicsClientName(c.client_id);
+                          return (
+                            <button
+                              key={c.client_id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCronometerClient({
+                                  client_id: c.client_id,
+                                  name: c.name,
+                                  email: c.email,
+                                });
+                                // Auto-fill name and email if empty
+                                if (!newClientName.trim()) setNewClientName(c.name);
+                                if (!newClientEmail.trim() && c.email) setNewClientEmail(c.email);
+                                setCronometerSearchQuery('');
+                              }}
+                              className={cn(
+                                "w-full flex items-center justify-between px-3 py-2 text-sm text-left transition-colors",
+                                linkedTo
+                                  ? "opacity-50 hover:bg-muted/50"
+                                  : "hover:bg-[#c19962]/10"
+                              )}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-medium truncate">{c.name}</span>
+                                {c.email && <span className="text-xs text-muted-foreground truncate">{c.email}</span>}
+                              </div>
+                              {linkedTo && (
+                                <Badge variant="outline" className="text-xs shrink-0 ml-2">Linked to {linkedTo}</Badge>
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </>
+                )}
+                <Separator />
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="name">Client Name *</Label>
               <Input
@@ -626,7 +784,7 @@ export default function HomePage() {
                 placeholder="Enter client's full name"
                 value={newClientName}
                 onChange={(e) => setNewClientName(e.target.value)}
-                autoFocus
+                autoFocus={!cronometerConnected || cronometerClients.length === 0}
               />
             </div>
             <div className="space-y-2">
@@ -658,7 +816,7 @@ export default function HomePage() {
               disabled={!newClientName.trim()}
               className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
             >
-              Create & Start Setup
+              {selectedCronometerClient ? 'Create & Link' : 'Create & Start Setup'}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </DialogFooter>

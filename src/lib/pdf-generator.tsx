@@ -462,9 +462,13 @@ const styles = StyleSheet.create({
 const DAYS_ORDER: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 // Helper Components
-const Header = ({ title }: { title: string }) => (
+const Header = ({ title, logoUrl }: { title: string; logoUrl?: string }) => (
   <View style={styles.header}>
-    <Text style={styles.headerLogo}>FITOMICS</Text>
+    {logoUrl ? (
+      <Image src={logoUrl} style={{ width: 90, height: 'auto' }} />
+    ) : (
+      <Text style={styles.headerLogo}>FITOMICS</Text>
+    )}
     <Text style={styles.headerText}>{title}</Text>
   </View>
 );
@@ -492,54 +496,13 @@ const Tag = ({ text }: { text: string }) => (
   </View>
 );
 
-const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: number; context?: string }) => {
-  // Get source label
-  const getSourceLabel = () => {
-    switch (meal.source) {
-      case 'ai': return 'AI Generated';
-      case 'manual': return 'Custom';
-      case 'swapped': return 'Swapped';
-      case 'recipe': return 'Recipe';
-      default: return null;
-    }
-  };
-  
-  const getSourceColor = () => {
-    switch (meal.source) {
-      case 'ai': return { bg: '#f3e8ff', text: '#7c3aed' };
-      case 'manual': return { bg: '#dbeafe', text: '#2563eb' };
-      case 'swapped': return { bg: '#ffedd5', text: '#ea580c' };
-      case 'recipe': return { bg: '#dcfce7', text: '#16a34a' };
-      default: return { bg: '#f3f4f6', text: '#6b7280' };
-    }
-  };
-  
-  const sourceLabel = getSourceLabel();
-  const sourceColor = getSourceColor();
-  
+const MealCard = ({ meal, mealNumber, showRecipes = true, showRationale = true }: { meal: Meal; mealNumber: number; context?: string; showRecipes?: boolean; showRationale?: boolean }) => {
   return (
     <View style={styles.mealCard} wrap={false}>
       <View style={styles.mealHeader}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={styles.mealName}>
-            {meal.type === 'meal' ? `Meal ${mealNumber}` : `Snack ${mealNumber}`}: {meal.name}
-          </Text>
-          {sourceLabel && (
-            <View style={{
-              backgroundColor: sourceColor.bg,
-              paddingHorizontal: 6,
-              paddingVertical: 2,
-              borderRadius: 8,
-            }}>
-              <Text style={{ 
-                fontSize: 7, 
-                color: sourceColor.text,
-              }}>
-                {sourceLabel}
-              </Text>
-            </View>
-          )}
-        </View>
+        <Text style={styles.mealName}>
+          {meal.type === 'meal' ? `Meal ${mealNumber}` : `Snack ${mealNumber}`}: {meal.name}
+        </Text>
         <Text style={styles.mealTime}>{meal.time} • {meal.prepTime}</Text>
       </View>
       
@@ -583,10 +546,10 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
         </View>
       )}
       
-      {/* AI Rationale */}
-      {(meal.aiRationale || context) && (
+      {/* Meal Context / Rationale - only when toggled on */}
+      {showRationale && meal.aiRationale && !meal.aiRationale.includes('provides') && !meal.aiRationale.includes('supports your') && (
         <View style={styles.mealRationale}>
-          <Text style={styles.rationaleText}>{meal.aiRationale || context}</Text>
+          <Text style={styles.rationaleText}>{meal.aiRationale}</Text>
         </View>
       )}
       
@@ -634,40 +597,44 @@ const MealCard = ({ meal, mealNumber, context }: { meal: Meal; mealNumber: numbe
       )}
       
       {/* Ingredients Section */}
-      <View style={styles.ingredientsList}>
-        <Text style={styles.ingredientsTitle}>INGREDIENTS:</Text>
-        {meal.ingredients && meal.ingredients.length > 0 ? (
-          meal.ingredients.map((ing, idx) => (
-            <View key={idx} style={styles.ingredientItem}>
-              <Text style={styles.ingredientBullet}>•</Text>
-              <Text style={styles.ingredientText}>
-                {ing.amount ? `${ing.amount} ` : ''}{ing.item || 'Ingredient'}
-              </Text>
-            </View>
-          ))
-        ) : (
-          <Text style={{ fontSize: 8, color: COLORS.gray, fontStyle: 'italic' }}>
-            See app for detailed ingredient list
-          </Text>
-        )}
-      </View>
+      {showRecipes && (
+        <View style={styles.ingredientsList}>
+          <Text style={styles.ingredientsTitle}>INGREDIENTS:</Text>
+          {meal.ingredients && meal.ingredients.length > 0 ? (
+            meal.ingredients.map((ing, idx) => (
+              <View key={idx} style={styles.ingredientItem}>
+                <Text style={styles.ingredientBullet}>•</Text>
+                <Text style={styles.ingredientText}>
+                  {ing.amount ? `${ing.amount} ` : ''}{ing.item || 'Ingredient'}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={{ fontSize: 8, color: COLORS.gray, fontStyle: 'italic' }}>
+              See app for detailed ingredient list
+            </Text>
+          )}
+        </View>
+      )}
       
       {/* Instructions Section */}
-      <View style={styles.instructionsList}>
-        <Text style={styles.instructionsTitle}>INSTRUCTIONS:</Text>
-        {meal.instructions && meal.instructions.length > 0 ? (
-          meal.instructions.map((inst, idx) => (
-            <View key={idx} style={styles.instructionItem}>
-              <Text style={styles.instructionNumber}>{idx + 1}.</Text>
-              <Text style={styles.instructionText}>{inst}</Text>
-            </View>
-          ))
-        ) : (
-          <Text style={{ fontSize: 8, color: COLORS.gray, fontStyle: 'italic' }}>
-            Prepare according to recipe - see app for detailed instructions
-          </Text>
-        )}
-      </View>
+      {showRecipes && (
+        <View style={styles.instructionsList}>
+          <Text style={styles.instructionsTitle}>INSTRUCTIONS:</Text>
+          {meal.instructions && meal.instructions.length > 0 ? (
+            meal.instructions.map((inst, idx) => (
+              <View key={idx} style={styles.instructionItem}>
+                <Text style={styles.instructionNumber}>{idx + 1}.</Text>
+                <Text style={styles.instructionText}>{inst}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={{ fontSize: 8, color: COLORS.gray, fontStyle: 'italic' }}>
+              Prepare according to recipe - see app for detailed instructions
+            </Text>
+          )}
+        </View>
+      )}
     </View>
   );
 };
@@ -718,6 +685,19 @@ const calculateIndices = (weightLbs: number, bodyFatPct: number, heightCm: numbe
   return { fmi: fmi.toFixed(1), ffmi: ffmi.toFixed(1), fatMassLbs: (fatMassKg * 2.20462).toFixed(1), ffmLbs: (ffmKg * 2.20462).toFixed(1) };
 };
 
+// PDF export options
+interface PDFOptions {
+  includeGroceryList?: boolean;
+  includeRecipes?: boolean;
+  includeCoverPage?: boolean;
+  includeClientProfile?: boolean;
+  includeSchedule?: boolean;
+  includeNutritionTargets?: boolean;
+  includeDietPreferences?: boolean;
+  includeMealContext?: boolean;
+  selectedDays?: string[];
+}
+
 // Main PDF Document Component
 interface MealPlanPDFProps {
   userProfile: Partial<UserProfile>;
@@ -728,6 +708,7 @@ interface MealPlanPDFProps {
   mealPlan: WeeklyMealPlan;
   groceryList: Record<string, { name: string; totalAmount: string }[]>;
   logoUrl?: string; // Optional high-resolution logo URL
+  options?: PDFOptions;
 }
 
 export const MealPlanPDF = ({
@@ -739,7 +720,18 @@ export const MealPlanPDF = ({
   mealPlan,
   groceryList,
   logoUrl,
+  options = {},
 }: MealPlanPDFProps) => {
+  // Resolve options with defaults
+  const showCover = options.includeCoverPage !== false;
+  const showProfile = options.includeClientProfile !== false;
+  const showSchedule = options.includeSchedule !== false;
+  const showNutritionTargets = options.includeNutritionTargets !== false;
+  const showRecipes = options.includeRecipes !== false;
+  const showGrocery = options.includeGroceryList !== false;
+  const showDietPrefs = options.includeDietPreferences !== false;
+  const showMealContext = options.includeMealContext !== false;
+  const daysToShow = options.selectedDays || DAYS_ORDER;
   // Calculate averages
   const avgCalories = nutritionTargets.length > 0 
     ? nutritionTargets.reduce((sum, t) => sum + t.targetCalories, 0) / nutritionTargets.length 
@@ -774,7 +766,7 @@ export const MealPlanPDF = ({
   return (
     <Document>
       {/* ====== COVER PAGE ====== */}
-      <Page size="A4" style={styles.page}>
+      {showCover && <Page size="A4" style={styles.page}>
         <View style={styles.coverPage}>
           {logoUrl ? (
             <Image 
@@ -857,11 +849,11 @@ export const MealPlanPDF = ({
           </Text>
         </View>
         <Footer />
-      </Page>
+      </Page>}
 
       {/* ====== CLIENT PROFILE PAGE ====== */}
-      <Page size="A4" style={styles.page}>
-        <Header title="Client Profile Summary" />
+      {showProfile && <Page size="A4" style={styles.page}>
+        <Header title="Client Profile Summary" logoUrl={logoUrl} />
         <Text style={styles.sectionTitle}>YOUR PROFILE & GOALS</Text>
         
         <View style={styles.twoColumn}>
@@ -990,21 +982,25 @@ export const MealPlanPDF = ({
         </View>
         
         <Footer />
-      </Page>
+      </Page>}
 
       {/* ====== SCHEDULE & LIFESTYLE PAGE ====== */}
-      <Page size="A4" style={styles.page}>
-        <Header title="Schedule & Lifestyle" />
-        <Text style={styles.sectionTitle}>YOUR WEEKLY SCHEDULE</Text>
+      {showSchedule && <Page size="A4" style={styles.page}>
+        <Header title="Schedule & Lifestyle" logoUrl={logoUrl} />
+        <Text style={styles.sectionTitle}>{daysToShow.length === 1 ? `${(daysToShow[0] as string).toUpperCase()} SCHEDULE` : 'YOUR WEEKLY SCHEDULE'}</Text>
         
-        <Text style={styles.sectionSubtitle}>Workout Schedule ({workoutDays.length} days/week)</Text>
-        <View style={styles.tagRow}>
-          {workoutDays.length > 0 ? workoutDays.map(day => (
-            <Tag key={day} text={day} />
-          )) : <Text style={styles.bodyText}>No workout days configured</Text>}
-        </View>
+        {daysToShow.length > 1 && (
+          <>
+            <Text style={styles.sectionSubtitle}>Workout Schedule ({workoutDays.filter(d => daysToShow.includes(d)).length} days{daysToShow.length === 7 ? '/week' : ` of ${daysToShow.length} selected`})</Text>
+            <View style={styles.tagRow}>
+              {workoutDays.filter(d => daysToShow.includes(d)).length > 0 ? workoutDays.filter(d => daysToShow.includes(d)).map(day => (
+                <Tag key={day} text={day} />
+              )) : <Text style={styles.bodyText}>No workout days configured</Text>}
+            </View>
+          </>
+        )}
         
-        <Text style={styles.sectionSubtitle}>Daily Schedule Overview</Text>
+        <Text style={styles.sectionSubtitle}>{daysToShow.length === 1 ? 'Day Schedule' : 'Daily Schedule Overview'}</Text>
         <View style={styles.table}>
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>Day</Text>
@@ -1014,7 +1010,7 @@ export const MealPlanPDF = ({
             <Text style={styles.tableHeaderCell}>Workout</Text>
             <Text style={styles.tableHeaderCell}>TDEE</Text>
           </View>
-          {DAYS_ORDER.map((day, idx) => {
+          {(daysToShow as DayOfWeek[]).map((day, idx) => {
             const daySchedule = weeklySchedule[day];
             const targets = nutritionTargets.find(t => t.day === day);
             const hasWorkout = daySchedule?.workouts?.some(w => w.enabled);
@@ -1031,86 +1027,90 @@ export const MealPlanPDF = ({
           })}
         </View>
         
-        {/* Diet Preferences Summary */}
-        <Text style={styles.sectionTitle}>DIET PREFERENCES</Text>
-        
-        <View style={styles.twoColumn}>
-          <View style={styles.column}>
-            {dietPreferences.dietaryRestrictions && dietPreferences.dietaryRestrictions.length > 0 && (
-              <>
-                <Text style={styles.sectionSubtitle}>Dietary Restrictions</Text>
-                <View style={styles.tagRow}>
-                  {dietPreferences.dietaryRestrictions.map((r, i) => <Tag key={i} text={r} />)}
-                </View>
-              </>
-            )}
+        {/* Diet Preferences Summary - conditionally shown */}
+        {showDietPrefs && (
+          <>
+            <Text style={styles.sectionTitle}>DIET PREFERENCES</Text>
             
-            {dietPreferences.preferredProteins && dietPreferences.preferredProteins.length > 0 && (
-              <>
-                <Text style={styles.sectionSubtitle}>Preferred Proteins</Text>
-                <View style={styles.tagRow}>
-                  {dietPreferences.preferredProteins.slice(0, 8).map((p, i) => <Tag key={i} text={p} />)}
-                  {dietPreferences.preferredProteins.length > 8 && <Tag text={`+${dietPreferences.preferredProteins.length - 8} more`} />}
-                </View>
-              </>
-            )}
-            
-            {dietPreferences.cuisinePreferences && dietPreferences.cuisinePreferences.length > 0 && (
-              <>
-                <Text style={styles.sectionSubtitle}>Cuisine Preferences</Text>
-                <View style={styles.tagRow}>
-                  {dietPreferences.cuisinePreferences.map((c, i) => <Tag key={i} text={c} />)}
-                </View>
-              </>
-            )}
-          </View>
-          
-          <View style={styles.column}>
-            {dietPreferences.foodsToAvoid && dietPreferences.foodsToAvoid.length > 0 && (
-              <>
-                <Text style={styles.sectionSubtitle}>Foods to Avoid</Text>
-                <View style={styles.tagRow}>
-                  {dietPreferences.foodsToAvoid.slice(0, 6).map((f, i) => <Tag key={i} text={f} />)}
-                  {dietPreferences.foodsToAvoid.length > 6 && <Tag text={`+${dietPreferences.foodsToAvoid.length - 6} more`} />}
-                </View>
-              </>
-            )}
-            
-            {dietPreferences.foodsToEmphasize && dietPreferences.foodsToEmphasize.length > 0 && (
-              <>
-                <Text style={styles.sectionSubtitle}>Foods to Emphasize</Text>
-                <View style={styles.tagRow}>
-                  {dietPreferences.foodsToEmphasize.slice(0, 6).map((f, i) => <Tag key={i} text={f} />)}
-                  {dietPreferences.foodsToEmphasize.length > 6 && <Tag text={`+${dietPreferences.foodsToEmphasize.length - 6} more`} />}
-                </View>
-              </>
-            )}
-            
-            <Text style={styles.sectionSubtitle}>Meal Prep Style</Text>
-            <View style={styles.infoBox}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Home Cooking</Text>
-                <Text style={styles.infoValue}>{dietPreferences.homeCookingInterest || 'Medium'}</Text>
+            <View style={styles.twoColumn}>
+              <View style={styles.column}>
+                {dietPreferences.dietaryRestrictions && dietPreferences.dietaryRestrictions.length > 0 && (
+                  <>
+                    <Text style={styles.sectionSubtitle}>Dietary Restrictions</Text>
+                    <View style={styles.tagRow}>
+                      {dietPreferences.dietaryRestrictions.map((r, i) => <Tag key={i} text={r} />)}
+                    </View>
+                  </>
+                )}
+                
+                {dietPreferences.preferredProteins && dietPreferences.preferredProteins.length > 0 && (
+                  <>
+                    <Text style={styles.sectionSubtitle}>Preferred Proteins</Text>
+                    <View style={styles.tagRow}>
+                      {dietPreferences.preferredProteins.slice(0, 8).map((p, i) => <Tag key={i} text={p} />)}
+                      {dietPreferences.preferredProteins.length > 8 && <Tag text={`+${dietPreferences.preferredProteins.length - 8} more`} />}
+                    </View>
+                  </>
+                )}
+                
+                {dietPreferences.cuisinePreferences && dietPreferences.cuisinePreferences.length > 0 && (
+                  <>
+                    <Text style={styles.sectionSubtitle}>Cuisine Preferences</Text>
+                    <View style={styles.tagRow}>
+                      {dietPreferences.cuisinePreferences.map((c, i) => <Tag key={i} text={c} />)}
+                    </View>
+                  </>
+                )}
               </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Cooking Time</Text>
-                <Text style={styles.infoValue}>{dietPreferences.cookingTimePreference || 'Moderate'}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Budget</Text>
-                <Text style={styles.infoValue}>{dietPreferences.budgetPreference || 'Moderate'}</Text>
+              
+              <View style={styles.column}>
+                {dietPreferences.foodsToAvoid && dietPreferences.foodsToAvoid.length > 0 && (
+                  <>
+                    <Text style={styles.sectionSubtitle}>Foods to Avoid</Text>
+                    <View style={styles.tagRow}>
+                      {dietPreferences.foodsToAvoid.slice(0, 6).map((f, i) => <Tag key={i} text={f} />)}
+                      {dietPreferences.foodsToAvoid.length > 6 && <Tag text={`+${dietPreferences.foodsToAvoid.length - 6} more`} />}
+                    </View>
+                  </>
+                )}
+                
+                {dietPreferences.foodsToEmphasize && dietPreferences.foodsToEmphasize.length > 0 && (
+                  <>
+                    <Text style={styles.sectionSubtitle}>Foods to Emphasize</Text>
+                    <View style={styles.tagRow}>
+                      {dietPreferences.foodsToEmphasize.slice(0, 6).map((f, i) => <Tag key={i} text={f} />)}
+                      {dietPreferences.foodsToEmphasize.length > 6 && <Tag text={`+${dietPreferences.foodsToEmphasize.length - 6} more`} />}
+                    </View>
+                  </>
+                )}
+                
+                <Text style={styles.sectionSubtitle}>Meal Prep Style</Text>
+                <View style={styles.infoBox}>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Home Cooking</Text>
+                    <Text style={styles.infoValue}>{dietPreferences.homeCookingInterest || 'Medium'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Cooking Time</Text>
+                    <Text style={styles.infoValue}>{dietPreferences.cookingTimePreference || 'Moderate'}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Budget</Text>
+                    <Text style={styles.infoValue}>{dietPreferences.budgetPreference || 'Moderate'}</Text>
+                  </View>
+                </View>
               </View>
             </View>
-          </View>
-        </View>
+          </>
+        )}
         
         <Footer />
-      </Page>
+      </Page>}
 
       {/* ====== NUTRITION TARGETS PAGE ====== */}
-      <Page size="A4" style={styles.page}>
-        <Header title="Nutrition Targets" />
-        <Text style={styles.sectionTitle}>DAILY NUTRITION TARGETS</Text>
+      {showNutritionTargets && <Page size="A4" style={styles.page}>
+        <Header title="Nutrition Targets" logoUrl={logoUrl} />
+        <Text style={styles.sectionTitle}>{daysToShow.length === 1 ? `${(daysToShow[0] as string).toUpperCase()} NUTRITION TARGETS` : 'DAILY NUTRITION TARGETS'}</Text>
         
         <View style={styles.highlightBox}>
           <Text style={styles.highlightTitle}>How These Targets Were Calculated</Text>
@@ -1131,7 +1131,7 @@ export const MealPlanPDF = ({
             <Text style={styles.tableHeaderCell}>Carbs</Text>
             <Text style={styles.tableHeaderCell}>Fat</Text>
           </View>
-          {DAYS_ORDER.map((day, idx) => {
+          {(daysToShow as DayOfWeek[]).map((day, idx) => {
             const targets = nutritionTargets.find(t => t.day === day);
             const diff = targets ? Math.round(targets.targetCalories - targets.tdee) : 0;
             return (
@@ -1152,16 +1152,18 @@ export const MealPlanPDF = ({
           })}
         </View>
         
-        <Text style={styles.sectionSubtitle}>Weekly Summary</Text>
+        <Text style={styles.sectionSubtitle}>{daysToShow.length === 1 ? 'Day Summary' : 'Summary'}</Text>
         <View style={styles.infoBox}>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Average Daily Calories</Text>
             <Text style={styles.infoValue}>{Math.round(avgCalories)} kcal</Text>
           </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Weekly Calorie Total</Text>
-            <Text style={styles.infoValue}>{Math.round(avgCalories * 7)} kcal</Text>
-          </View>
+          {daysToShow.length > 1 && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>{daysToShow.length === 7 ? 'Weekly' : `${daysToShow.length}-Day`} Calorie Total</Text>
+              <Text style={styles.infoValue}>{Math.round(avgCalories * daysToShow.length)} kcal</Text>
+            </View>
+          )}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Protein (daily avg)</Text>
             <Text style={styles.infoValue}>{Math.round(avgProtein)}g ({(avgProtein / ((userProfile.weightLbs || 1) * 0.453592)).toFixed(1)}g/kg)</Text>
@@ -1178,7 +1180,7 @@ export const MealPlanPDF = ({
             <Text style={styles.tableHeaderCell}>Variance</Text>
             <Text style={styles.tableHeaderCell}>Status</Text>
           </View>
-          {DAYS_ORDER.map((day, idx) => {
+          {(daysToShow as DayOfWeek[]).map((day, idx) => {
             const targets = nutritionTargets.find(t => t.day === day);
             const dayPlan = mealPlan[day];
             const actualCal = dayPlan?.dailyTotals?.calories || 0;
@@ -1203,38 +1205,21 @@ export const MealPlanPDF = ({
         </View>
         
         <Footer />
-      </Page>
+      </Page>}
 
       {/* ====== DAILY MEAL PLAN PAGES ====== */}
-      {DAYS_ORDER.map(day => {
-        const dayPlan = mealPlan[day];
+      {daysToShow.map(day => {
+        const dayPlan = mealPlan[day as DayOfWeek];
         if (!dayPlan) return null;
         
         const targets = nutritionTargets.find(t => t.day === day);
-        const daySchedule = weeklySchedule[day];
+        const daySchedule = weeklySchedule[day as DayOfWeek];
         let mealNum = 0;
         let snackNum = 0;
         
-        // Generate context for meals based on schedule
-        const getMealContext = (meal: Meal, index: number) => {
-          if (targets?.isWorkoutDay && index === 0) {
-            return "Higher carbs to fuel your workout later today";
-          }
-          if (targets?.isWorkoutDay && meal.time && meal.time.includes('PM')) {
-            return "Post-workout nutrition to support recovery and muscle protein synthesis";
-          }
-          if (meal.type === 'snack') {
-            return "Strategic snack to maintain energy levels and hit daily protein targets";
-          }
-          if (index === dayPlan.meals.length - 1) {
-            return "Evening meal balanced to complete daily macro targets";
-          }
-          return null;
-        };
-        
         return (
           <Page key={day} size="A4" style={styles.page}>
-            <Header title={`${day} Meal Plan`} />
+            <Header title={`${day} Meal Plan`} logoUrl={logoUrl} />
             <Text style={styles.sectionTitle}>{day.toUpperCase()} {targets?.isWorkoutDay ? '(WORKOUT DAY)' : '(REST DAY)'}</Text>
             
             {/* Day Summary */}
@@ -1268,10 +1253,10 @@ export const MealPlanPDF = ({
             {dayPlan.meals.filter(meal => meal !== null && meal !== undefined).map((meal, idx) => {
               if (meal.type === 'meal') {
                 mealNum++;
-                return <MealCard key={idx} meal={meal} mealNumber={mealNum} context={getMealContext(meal, idx) || undefined} />;
+                return <MealCard key={idx} meal={meal} mealNumber={mealNum} showRecipes={showRecipes} showRationale={showMealContext} />;
               } else {
                 snackNum++;
-                return <MealCard key={idx} meal={meal} mealNumber={snackNum} context={getMealContext(meal, idx) || undefined} />;
+                return <MealCard key={idx} meal={meal} mealNumber={snackNum} showRecipes={showRecipes} showRationale={showMealContext} />;
               }
             })}
             
@@ -1281,8 +1266,8 @@ export const MealPlanPDF = ({
       })}
 
       {/* ====== GROCERY LIST PAGE ====== */}
-      <Page size="A4" style={styles.page}>
-        <Header title="Grocery List" />
+      {showGrocery && <Page size="A4" style={styles.page}>
+        <Header title="Grocery List" logoUrl={logoUrl} />
         <Text style={styles.sectionTitle}>CONSOLIDATED GROCERY LIST</Text>
         
         <Text style={styles.bodyText}>
@@ -1351,7 +1336,7 @@ export const MealPlanPDF = ({
         </View>
         
         <Footer />
-      </Page>
+      </Page>}
     </Document>
   );
 };

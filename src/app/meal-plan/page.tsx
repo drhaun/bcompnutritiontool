@@ -55,7 +55,9 @@ import {
   FileDown,
   ListChecks,
   Book,
-  RefreshCw
+  RefreshCw,
+  User,
+  LayoutList
 } from 'lucide-react';
 import type { DayOfWeek, MealSlot, Meal, Macros, DietPreferences } from '@/types';
 
@@ -212,8 +214,15 @@ export default function MealPlanPage() {
   const [exportOptions, setExportOptions] = useState({
     includeGroceryList: true,
     includeRecipes: true,
-    exportType: 'full' as 'full' | 'single',
+    includeCoverPage: true,
+    includeClientProfile: true,
+    includeSchedule: true,
+    includeNutritionTargets: true,
+    includeDietPreferences: true,
+    includeMealContext: true,
+    exportType: 'full' as 'full' | 'single' | 'custom',
     selectedDay: 'Monday' as DayOfWeek,
+    selectedDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as DayOfWeek[],
   });
   const cancelGenerationRef = useRef(false);
   
@@ -759,7 +768,7 @@ export default function MealPlanPage() {
             carbs: dayTargetsForDay.carbs,
             fat: dayTargetsForDay.fat,
           },
-          dietaryRestriction: dietPreferences?.dietaryRestriction || 'none',
+          dietaryRestriction: dietPreferences?.dietaryRestrictions?.join(', ') || 'none',
           allergies: dietPreferences?.allergies || [],
           preferredProteins: dietPreferences?.preferredProteins || [],
           preferredCarbs: dietPreferences?.preferredCarbs || [],
@@ -790,31 +799,38 @@ export default function MealPlanPage() {
       
       const data = await response.json();
       
-      // Update all meals for this day
-      if (data.meals && Array.isArray(data.meals)) {
-        data.meals.forEach((mealData: { name: string; description: string; calories: number; protein: number; carbs: number; fat: number; ingredients: string[]; instructions: string[]; prepTime: number }, idx: number) => {
-          if (mealData) {
-            // Convert API response format to Meal type
+      // API returns { dayPlan: { meals: [{ slot, meal: {...} }], ... } }
+      const dayPlanMeals = data.dayPlan?.meals || data.meals;
+      
+      if (dayPlanMeals && Array.isArray(dayPlanMeals)) {
+        dayPlanMeals.forEach((entry: { slot?: unknown; meal?: { name: string; description: string; calories: number; protein: number; carbs: number; fat: number; ingredients: string[]; instructions: string[]; prepTime: number }; name?: string; description?: string; calories?: number; protein?: number; carbs?: number; fat?: number; ingredients?: string[]; instructions?: string[]; prepTime?: number }, idx: number) => {
+          // Handle both { slot, meal: {...} } and flat { name, calories, ... } formats
+          const mealData = entry.meal || entry;
+          if (mealData && mealData.name) {
+            const ingredients = (mealData.ingredients || []).map((ing: string | { item?: string; amount?: string }) =>
+              typeof ing === 'string'
+                ? { item: ing, amount: '', calories: 0, protein: 0, carbs: 0, fat: 0, category: 'other' as const }
+                : { item: (ing as { item?: string }).item || '', amount: (ing as { amount?: string }).amount || '', calories: 0, protein: 0, carbs: 0, fat: 0, category: 'other' as const }
+            );
+            const slot = mealSlots[idx];
+            const totalMacros = {
+              calories: mealData.calories || 0,
+              protein: mealData.protein || 0,
+              carbs: mealData.carbs || 0,
+              fat: mealData.fat || 0,
+            };
             const meal: Meal = {
               name: mealData.name,
-              description: mealData.description,
-              ingredients: mealData.ingredients.map(ing => ({
-                item: ing,
-                amount: '',
-                calories: 0,
-                protein: 0,
-                carbs: 0,
-                fat: 0,
-                category: 'other' as const,
-              })),
-              instructions: mealData.instructions,
-              totalMacros: {
-                calories: mealData.calories,
-                protein: mealData.protein,
-                carbs: mealData.carbs,
-                fat: mealData.fat,
-              },
-              prepTime: mealData.prepTime,
+              time: slot?.timeSlot || '',
+              context: '',
+              type: slot?.type || 'meal',
+              aiRationale: mealData.description || '',
+              ingredients,
+              instructions: mealData.instructions || [],
+              totalMacros,
+              targetMacros: slot?.targetMacros || totalMacros,
+              workoutRelation: slot?.workoutRelation || 'none',
+              prepTime: String(mealData.prepTime || '15'),
               source: 'ai',
               isLocked: false,
             };
@@ -832,17 +848,24 @@ export default function MealPlanPage() {
   };
 
   // Export with options
-  const handleExportWithOptions = async (options: {
-    includeGroceryList: boolean;
-    includeRecipes: boolean;
-    singleDay?: DayOfWeek;
-  }) => {
+  const handleExportWithOptions = async () => {
     try {
       setIsDownloading(true);
       
-      const exportMealPlan = options.singleDay
-        ? { [options.singleDay]: mealPlan?.[options.singleDay] }
-        : mealPlan;
+      // Determine which days to include
+      const daysToInclude: DayOfWeek[] = exportOptions.exportType === 'full'
+        ? DAYS
+        : exportOptions.exportType === 'single'
+          ? [exportOptions.selectedDay]
+          : exportOptions.selectedDays;
+      
+      // Filter meal plan to only include selected days
+      const exportMealPlan: Record<string, unknown> = {};
+      daysToInclude.forEach(day => {
+        if (mealPlan?.[day]) {
+          exportMealPlan[day] = mealPlan[day];
+        }
+      });
       
       // Build phase-aware body comp goals for the PDF
       const pdfBodyCompGoals = activePhase ? {
@@ -874,15 +897,19 @@ export default function MealPlanPage() {
           bodyCompGoals: pdfBodyCompGoals,
           dietPreferences,
           weeklySchedule,
-          nutritionTargets: options.singleDay 
-            ? nutritionTargets.filter(t => t.day === options.singleDay)
-            : nutritionTargets,
+          nutritionTargets: nutritionTargets.filter(t => daysToInclude.includes(t.day)),
           mealPlan: exportMealPlan,
           logoUrl: FITOMICS_LOGO_URL,
           options: {
-            includeGroceryList: options.includeGroceryList,
-            includeRecipes: options.includeRecipes,
-            singleDay: options.singleDay,
+            includeGroceryList: exportOptions.includeGroceryList,
+            includeRecipes: exportOptions.includeRecipes,
+            includeCoverPage: exportOptions.includeCoverPage,
+            includeClientProfile: exportOptions.includeClientProfile,
+            includeSchedule: exportOptions.includeSchedule,
+            includeNutritionTargets: exportOptions.includeNutritionTargets,
+            includeDietPreferences: exportOptions.includeDietPreferences,
+            includeMealContext: exportOptions.includeMealContext,
+            selectedDays: daysToInclude,
           },
         }),
       });
@@ -894,9 +921,10 @@ export default function MealPlanPage() {
       const link = document.createElement('a');
       link.href = url;
       const clientName = userProfile.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'client';
-      const fileName = options.singleDay 
-        ? `${clientName}_${options.singleDay}_meal_plan_${new Date().toISOString().split('T')[0]}.pdf`
-        : `${clientName}_nutrition_strategy_${new Date().toISOString().split('T')[0]}.pdf`;
+      const dayLabel = daysToInclude.length === 1 ? daysToInclude[0] 
+        : daysToInclude.length < 7 ? `${daysToInclude.length}_days`
+        : 'weekly';
+      const fileName = `${clientName}_${dayLabel}_meal_plan_${new Date().toISOString().split('T')[0]}.pdf`;
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
@@ -1676,137 +1704,308 @@ export default function MealPlanPage() {
 
       {/* Export Dialog */}
       <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileDown className="h-5 w-5 text-[#c19962]" />
               Export Client Plan
             </DialogTitle>
             <DialogDescription>
-              Create a comprehensive PDF for your client with all the resources they need.
+              Customize what to include, then preview below.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-6 py-4">
-            {/* Export Scope */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">What to Export</Label>
+          <div className="space-y-4">
+            {/* Days to Include */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Days to Include</Label>
               <RadioGroup
                 value={exportOptions.exportType}
-                onValueChange={(v) => setExportOptions(prev => ({ ...prev, exportType: v as 'full' | 'single' }))}
-                className="grid grid-cols-2 gap-3"
+                onValueChange={(v) => {
+                  const newType = v as 'full' | 'single' | 'custom';
+                  setExportOptions(prev => ({
+                    ...prev,
+                    exportType: newType,
+                    ...(newType === 'single' && viewMode === 'day-types' && currentDayType ? { selectedDay: currentDayType.days[0] } : {}),
+                    ...(newType === 'custom' && viewMode === 'day-types' && currentDayType ? { selectedDays: currentDayType.days } : {}),
+                    ...(newType === 'single' ? { includeCoverPage: false, includeSchedule: false, includeGroceryList: false } : {}),
+                    ...(newType === 'full' ? { includeCoverPage: true, includeClientProfile: true, includeSchedule: true, includeNutritionTargets: true, includeDietPreferences: true, includeMealContext: true, includeGroceryList: true, selectedDays: DAYS } : {}),
+                  }));
+                }}
+                className="grid grid-cols-3 gap-2"
               >
-                <div className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer ${
-                  exportOptions.exportType === 'full' ? 'border-[#c19962] bg-[#c19962]/5' : ''
-                }`}>
-                  <RadioGroupItem value="full" id="export-full" />
-                  <Label htmlFor="export-full" className="cursor-pointer">
-                    <span className="font-medium">Full Week</span>
-                    <p className="text-xs text-muted-foreground">All 7 days of meal plans</p>
-                  </Label>
-                </div>
-                <div className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer ${
-                  exportOptions.exportType === 'single' ? 'border-[#c19962] bg-[#c19962]/5' : ''
-                }`}>
-                  <RadioGroupItem value="single" id="export-single" />
-                  <Label htmlFor="export-single" className="cursor-pointer">
-                    <span className="font-medium">Single Day</span>
-                    <p className="text-xs text-muted-foreground">Export just one day</p>
-                  </Label>
-                </div>
+                {[
+                  { value: 'full', label: 'Full Week', desc: 'All 7 days' },
+                  { value: 'single', label: 'Single Day', desc: 'One day' },
+                  { value: 'custom', label: 'Custom', desc: 'Pick days' },
+                ].map(opt => (
+                  <div key={opt.value} className={`flex items-center space-x-2 p-2.5 border rounded-lg cursor-pointer transition-all ${exportOptions.exportType === opt.value ? 'border-[#c19962] bg-[#c19962]/5' : ''}`}>
+                    <RadioGroupItem value={opt.value} id={`export-${opt.value}`} />
+                    <Label htmlFor={`export-${opt.value}`} className="cursor-pointer">
+                      <span className="font-medium text-sm">{opt.label}</span>
+                      <p className="text-[10px] text-muted-foreground">{opt.desc}</p>
+                    </Label>
+                  </div>
+                ))}
               </RadioGroup>
               
               {exportOptions.exportType === 'single' && (
-                <div className="grid grid-cols-7 gap-1 pt-2">
-                  {DAYS.map(day => (
-                    <Button
-                      key={day}
-                      variant={exportOptions.selectedDay === day ? 'default' : 'outline'}
-                      size="sm"
-                      className={`text-xs h-9 ${exportOptions.selectedDay === day ? 'bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]' : ''}`}
-                      onClick={() => setExportOptions(prev => ({ ...prev, selectedDay: day }))}
-                    >
-                      {day.substring(0, 3)}
-                    </Button>
-                  ))}
+                <div className="grid grid-cols-7 gap-1">
+                  {DAYS.map(day => {
+                    const hasMeals = (mealPlan?.[day]?.meals?.filter(m => m !== null).length || 0) > 0;
+                    return (
+                      <Button key={day} variant={exportOptions.selectedDay === day ? 'default' : 'outline'} size="sm"
+                        className={`text-xs h-9 relative ${exportOptions.selectedDay === day ? 'bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]' : ''} ${!hasMeals ? 'opacity-50' : ''}`}
+                        onClick={() => setExportOptions(prev => ({ ...prev, selectedDay: day }))}
+                      >
+                        {day.substring(0, 3)}
+                        {hasMeals && <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {exportOptions.exportType === 'custom' && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-7 gap-1">
+                    {DAYS.map(day => {
+                      const isSelected = exportOptions.selectedDays.includes(day);
+                      const hasMeals = (mealPlan?.[day]?.meals?.filter(m => m !== null).length || 0) > 0;
+                      return (
+                        <Button key={day} variant={isSelected ? 'default' : 'outline'} size="sm"
+                          className={`text-xs h-9 relative ${isSelected ? 'bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]' : ''} ${!hasMeals ? 'opacity-50' : ''}`}
+                          onClick={() => setExportOptions(prev => ({
+                            ...prev,
+                            selectedDays: isSelected ? prev.selectedDays.filter(d => d !== day) : [...prev.selectedDays, day],
+                          }))}
+                        >
+                          {day.substring(0, 3)}
+                          {hasMeals && <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2"
+                      onClick={() => setExportOptions(prev => ({ ...prev, selectedDays: [...DAYS] }))}
+                    >All</Button>
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2"
+                      onClick={() => setExportOptions(prev => ({ ...prev, selectedDays: [] }))}
+                    >None</Button>
+                    {dayTypes.map(dt => (
+                      <Button key={dt.id} variant="ghost" size="sm" className="h-6 text-[10px] px-2"
+                        onClick={() => setExportOptions(prev => ({ ...prev, selectedDays: dt.days }))}
+                      >
+                        {dt.isWorkoutDay ? <Dumbbell className="h-3 w-3 mr-0.5" /> : <Coffee className="h-3 w-3 mr-0.5" />}
+                        {dt.label}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
             
-            {/* Include Options */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">Include in PDF</Label>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3 p-3 border rounded-lg">
-                  <Checkbox
-                    id="include-grocery"
-                    checked={exportOptions.includeGroceryList}
-                    onCheckedChange={(checked) => 
-                      setExportOptions(prev => ({ ...prev, includeGroceryList: checked === true }))
-                    }
-                  />
-                  <Label htmlFor="include-grocery" className="cursor-pointer flex-1">
-                    <div className="flex items-center gap-2">
-                      <ListChecks className="h-4 w-4 text-green-600" />
-                      <span className="font-medium">Grocery List</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Consolidated shopping list for all meals</p>
-                  </Label>
-                </div>
-                
-                <div className="flex items-center gap-3 p-3 border rounded-lg">
-                  <Checkbox
-                    id="include-recipes"
-                    checked={exportOptions.includeRecipes}
-                    onCheckedChange={(checked) => 
-                      setExportOptions(prev => ({ ...prev, includeRecipes: checked === true }))
-                    }
-                  />
-                  <Label htmlFor="include-recipes" className="cursor-pointer flex-1">
-                    <div className="flex items-center gap-2">
-                      <Book className="h-4 w-4 text-blue-600" />
-                      <span className="font-medium">Full Recipes</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Detailed instructions and ingredients for each meal</p>
-                  </Label>
-                </div>
+            {/* PDF Sections */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">PDF Sections</Label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { key: 'includeCoverPage' as const, label: 'Cover Page', icon: FileText },
+                  { key: 'includeClientProfile' as const, label: 'Client Profile', icon: User },
+                  { key: 'includeSchedule' as const, label: 'Schedule', icon: Calendar },
+                  { key: 'includeDietPreferences' as const, label: 'Diet Prefs', icon: Utensils },
+                  { key: 'includeNutritionTargets' as const, label: 'Targets Table', icon: Target },
+                  { key: 'includeRecipes' as const, label: 'Recipes', icon: Book },
+                  { key: 'includeMealContext' as const, label: 'Meal Context', icon: Info },
+                  { key: 'includeGroceryList' as const, label: 'Grocery List', icon: ListChecks },
+                ].map(({ key, label, icon: Icon }) => (
+                  <div key={key}
+                    className={`flex items-center gap-2 p-2 border rounded-lg cursor-pointer transition-all ${exportOptions[key] ? 'border-[#c19962]/50 bg-[#c19962]/5' : 'opacity-50'}`}
+                    onClick={() => setExportOptions(prev => ({ ...prev, [key]: !prev[key] }))}
+                  >
+                    <Checkbox checked={exportOptions[key]}
+                      onCheckedChange={(checked) => setExportOptions(prev => ({ ...prev, [key]: checked === true }))}
+                      className="pointer-events-none h-3.5 w-3.5"
+                    />
+                    <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="font-medium text-xs">{label}</span>
+                  </div>
+                ))}
               </div>
             </div>
             
-            {/* Preview Info */}
-            <div className="p-3 bg-muted/50 rounded-lg text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                <Info className="h-4 w-4" />
-                <span className="font-medium">Export Preview</span>
+            {/* Live Page Preview */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Label className="text-xs font-medium">Page Preview</Label>
+                </div>
+                <span className="text-[10px] text-muted-foreground">
+                  {(() => {
+                    const days = exportOptions.exportType === 'full' ? DAYS : exportOptions.exportType === 'single' ? [exportOptions.selectedDay] : exportOptions.selectedDays;
+                    const daysWithData = days.filter(d => (mealPlan?.[d]?.meals?.filter(m => m !== null).length || 0) > 0);
+                    let p = 0;
+                    if (exportOptions.includeCoverPage) p++;
+                    if (exportOptions.includeClientProfile) p++;
+                    if (exportOptions.includeSchedule) p++;
+                    if (exportOptions.includeNutritionTargets) p++;
+                    p += daysWithData.length;
+                    if (exportOptions.includeGroceryList) p++;
+                    return `${p} page${p !== 1 ? 's' : ''}`;
+                  })()}
+                </span>
               </div>
-              <ul className="text-xs text-muted-foreground space-y-1 ml-6 list-disc">
-                <li>{exportOptions.exportType === 'full' ? '7-day meal plan' : `${exportOptions.selectedDay}'s meals`}</li>
-                <li>Client profile & nutrition targets</li>
-                {exportOptions.includeGroceryList && <li>Organized grocery shopping list</li>}
-                {exportOptions.includeRecipes && <li>Complete recipes with instructions</li>}
-                <li>Macros summary per meal</li>
-              </ul>
+              <div className="bg-muted/50 rounded-lg border p-3">
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {(() => {
+                    const previewDays = exportOptions.exportType === 'full' ? DAYS : exportOptions.exportType === 'single' ? [exportOptions.selectedDay] : exportOptions.selectedDays;
+                    const avgCal = nutritionTargets.length > 0 ? Math.round(nutritionTargets.reduce((s, t) => s + t.targetCalories, 0) / nutritionTargets.length) : 0;
+                    
+                    const hasAnyPages = exportOptions.includeCoverPage || exportOptions.includeClientProfile || exportOptions.includeSchedule || exportOptions.includeNutritionTargets || exportOptions.includeGroceryList || previewDays.some(d => (mealPlan?.[d]?.meals?.filter(m => m !== null).length || 0) > 0);
+
+                    if (!hasAnyPages) {
+                      return (
+                        <div className="w-full py-4 text-center text-muted-foreground">
+                          <FileText className="h-5 w-5 mx-auto mb-1 opacity-30" />
+                          <p className="text-[10px]">No pages to preview</p>
+                        </div>
+                      );
+                    }
+
+                    // Compact page thumbnail (fits ~6 across in 440px)
+                    const Pg = ({ label, accent, children }: { label: string; accent?: boolean; children: React.ReactNode }) => (
+                      <div className="flex flex-col items-center gap-0.5">
+                        <div className={`w-[60px] h-[84px] bg-white rounded-[3px] border flex flex-col overflow-hidden transition-all ${accent ? 'shadow-sm ring-1 ring-[#c19962]/30' : 'shadow-sm border-gray-200'}`}>
+                          <div className="h-[2px] bg-gradient-to-r from-[#c19962] to-[#e4ac61] shrink-0" />
+                          <div className="flex-1 p-1 overflow-hidden">{children}</div>
+                          <div className="h-[8px] border-t border-gray-100 flex items-center justify-center">
+                            <span className="text-[3px] text-gray-300">FITOMICS</span>
+                          </div>
+                        </div>
+                        <span className="text-[8px] text-muted-foreground leading-none">{label}</span>
+                      </div>
+                    );
+
+                    return (
+                      <>
+                        {exportOptions.includeCoverPage && (
+                          <Pg label="Cover" accent>
+                            <div className="flex flex-col items-center justify-center h-full text-center">
+                              <div className="w-5 h-[1px] bg-[#c19962]/30 mb-0.5" />
+                              <p className="text-[4px] font-bold text-[#00263d] leading-none">NUTRITION</p>
+                              <p className="text-[4px] font-bold text-[#00263d] leading-none">STRATEGY</p>
+                              <div className="w-5 h-[1px] bg-[#c19962]/30 my-0.5" />
+                              <p className="text-[3.5px] font-bold text-[#00263d] truncate w-full">{userProfile.name || 'Client'}</p>
+                              <div className="bg-[#00263d] rounded-sm px-1 py-[1px] mt-0.5">
+                                <p className="text-[3px] text-white">{avgCal} kcal</p>
+                              </div>
+                            </div>
+                          </Pg>
+                        )}
+
+                        {exportOptions.includeClientProfile && (
+                          <Pg label="Profile">
+                            <p className="text-[3.5px] font-bold text-[#00263d] mb-0.5">PROFILE</p>
+                            <div className="space-y-[1px]">
+                              <div className="h-[3px] bg-gray-100 rounded w-full" />
+                              <div className="h-[3px] bg-gray-100 rounded w-3/4" />
+                              <div className="h-[3px] bg-gray-100 rounded w-full" />
+                              <div className="h-[3px] bg-gray-100 rounded w-2/3" />
+                            </div>
+                            <div className="border-l border-[#c19962] pl-0.5 mt-1">
+                              <div className="h-[3px] bg-[#c19962]/20 rounded w-3/4" />
+                            </div>
+                          </Pg>
+                        )}
+
+                        {exportOptions.includeSchedule && (
+                          <Pg label="Schedule">
+                            <p className="text-[3.5px] font-bold text-[#00263d] mb-0.5">SCHEDULE</p>
+                            <div className="space-y-[2px]">
+                              {DAYS.slice(0, 5).map(d => {
+                                const hasWk = weeklySchedule[d]?.workouts?.some(w => w.enabled);
+                                return <div key={d} className={`h-[3px] rounded-sm ${hasWk ? 'bg-[#c19962]/30' : 'bg-gray-100'}`} />;
+                              })}
+                            </div>
+                          </Pg>
+                        )}
+
+                        {exportOptions.includeNutritionTargets && (
+                          <Pg label="Targets">
+                            <p className="text-[3.5px] font-bold text-[#00263d] mb-0.5">TARGETS</p>
+                            <div className="grid grid-cols-2 gap-[1px] mb-1">
+                              {['Cal', 'Pro', 'Carb', 'Fat'].map(m => (
+                                <div key={m} className="bg-gray-50 rounded-[1px] py-[1px] text-center">
+                                  <p className="text-[3px] font-bold text-[#00263d]">{m}</p>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="space-y-[2px]">
+                              {[70, 85, 60, 90].map((w, i) => (
+                                <div key={i} className="h-[3px] bg-gray-100 rounded-sm relative overflow-hidden">
+                                  <div className="absolute inset-y-0 left-0 bg-[#c19962]/30 rounded-sm" style={{ width: `${w}%` }} />
+                                </div>
+                              ))}
+                            </div>
+                          </Pg>
+                        )}
+
+                        {previewDays.map(day => {
+                          const dp = mealPlan?.[day];
+                          const dt = nutritionTargets.find(t => t.day === day);
+                          const meals = dp?.meals?.filter(m => m !== null) || [];
+                          if (meals.length === 0) return null;
+                          return (
+                            <Pg key={day} label={day.substring(0, 3)}>
+                              <div className="flex items-center justify-between mb-0.5">
+                                <p className="text-[3.5px] font-bold text-[#00263d]">{day.substring(0, 3).toUpperCase()}</p>
+                                {dt?.isWorkoutDay && <div className="w-1 h-1 rounded-full bg-[#c19962]" />}
+                              </div>
+                              <div className="bg-[#00263d] rounded-[1px] py-[1px] px-0.5 mb-0.5">
+                                <p className="text-[3px] text-white text-center">{Math.round(dp?.dailyTotals?.calories || 0)} cal</p>
+                              </div>
+                              {meals.slice(0, 3).map((meal, mi) => (
+                                <div key={mi} className="border-l border-[#c19962]/30 pl-0.5 mb-[1px]">
+                                  <p className="text-[3px] text-[#00263d] truncate leading-tight">{meal.name}</p>
+                                  {exportOptions.includeRecipes && <div className="h-[2px] bg-gray-100 rounded w-3/4 mt-[1px]" />}
+                                </div>
+                              ))}
+                              {meals.length > 3 && <p className="text-[2.5px] text-gray-300">+{meals.length - 3}</p>}
+                            </Pg>
+                          );
+                        })}
+
+                        {exportOptions.includeGroceryList && (
+                          <Pg label="Grocery">
+                            <p className="text-[3.5px] font-bold text-[#00263d] mb-0.5">GROCERY</p>
+                            <div className="space-y-[2px]">
+                              {[1, 2, 3, 4, 5, 6].map(i => (
+                                <div key={i} className="flex items-center gap-[2px]">
+                                  <div className="w-[3px] h-[3px] border border-gray-200 rounded-[1px] shrink-0" />
+                                  <div className="h-[2px] bg-gray-100 rounded flex-1" style={{ width: `${30 + (i * 10) % 50}%` }} />
+                                </div>
+                              ))}
+                            </div>
+                          </Pg>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
             </div>
           </div>
           
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowExportDialog(false)}>
-              Cancel
-            </Button>
+          <DialogFooter className="gap-2 mt-2">
+            <Button variant="outline" onClick={() => setShowExportDialog(false)}>Cancel</Button>
             <Button
-              onClick={() => handleExportWithOptions({
-                includeGroceryList: exportOptions.includeGroceryList,
-                includeRecipes: exportOptions.includeRecipes,
-                singleDay: exportOptions.exportType === 'single' ? exportOptions.selectedDay : undefined,
-              })}
-              disabled={isDownloading}
+              onClick={handleExportWithOptions}
+              disabled={isDownloading || (exportOptions.exportType === 'custom' && exportOptions.selectedDays.length === 0)}
               className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
             >
-              {isDownloading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4 mr-2" />
-              )}
+              {isDownloading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
               Export PDF
             </Button>
           </DialogFooter>

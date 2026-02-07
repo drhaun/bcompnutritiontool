@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,8 +57,19 @@ import {
   ChevronUp,
   Activity,
   Settings2,
-  Utensils
+  Utensils,
+  Link2,
+  Loader2,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  RefreshCw
 } from 'lucide-react';
+import { format, subDays } from 'date-fns';
+import {
+  LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
+  ResponsiveContainer, Legend
+} from 'recharts';
 import type { Phase, GoalType, PerformancePriority, MusclePreservation, FatGainTolerance, LifestyleCommitment, TrackingCommitment, TimelineEvent, TimelineEventType, DayNutritionTargets, PhaseCheckIn } from '@/types';
 import { PhaseCalendar } from '@/components/planning/phase-calendar';
 import { PhaseTargetsEditor } from '@/components/planning/phase-targets-editor';
@@ -213,6 +224,86 @@ export default function PlanningPage() {
   const [lifestyleCommitment, setLifestyleCommitment] = useState<LifestyleCommitment>('fully_committed');
   const [trackingCommitment, setTrackingCommitment] = useState<TrackingCommitment>('committed_tracking');
   
+  // ============ CRONOMETER DATA PANEL STATE ============
+  type CronometerModalType = 'trends' | 'foodlog' | 'biometrics' | 'fasting' | 'targets' | null;
+  const [activeCronometerModal, setActiveCronometerModal] = useState<CronometerModalType>(null);
+  const [cronometerDateRange, setCronometerDateRange] = useState({
+    from: subDays(new Date(), 21),
+    to: new Date(),
+  });
+  const [isFetchingCronometer, setIsFetchingCronometer] = useState(false);
+  const [cronometerData, setCronometerData] = useState<{
+    success: boolean;
+    daysAnalyzed: number;
+    dateRange: { start: string; end: string };
+    trendData: Array<{ date: string; calories: number; protein: number; carbs: number; fat: number; fiber: number }>;
+    macroDistribution: Array<{ name: string; value: number; grams: number; color: string }>;
+    averages: { calories: number; protein: number; carbs: number; fat: number; fiber: number };
+    foodLog: Array<{
+      date: string; completed: boolean; totalCalories: number; protein: number; carbs: number; fat: number; fiber: number;
+      meals: Array<{ name: string; calories: number; protein: number; carbs: number; fat: number; foods: Array<{ name: string; serving: string }> }>;
+    }>;
+    fasts: Array<{ name: string; start: string; finish: string | null; comments: string; duration: string | null; ongoing: boolean }>;
+    biometrics: Array<{ date: string; type: string; value: number; unit: string }>;
+    micronutrientAverages: Array<{ name: string; value: number }>;
+    targets: Record<string, { min?: number; max?: number; unit: string }>;
+  } | null>(null);
+  // Cronometer targets (separate lightweight fetch)
+  const [cronometerTargets, setCronometerTargets] = useState<{
+    kcal: number | null; protein: number | null; total_carbs: number | null; fat: number | null;
+  } | null>(null);
+
+  const hasCronometerLink = !!(activeClient?.cronometerClientId);
+
+  const fetchCronometerDashboard = useCallback(async () => {
+    if (!activeClient?.cronometerClientId) return;
+    setIsFetchingCronometer(true);
+    try {
+      const params = new URLSearchParams({
+        start: format(cronometerDateRange.from, 'yyyy-MM-dd'),
+        end: format(cronometerDateRange.to, 'yyyy-MM-dd'),
+        client_id: String(activeClient.cronometerClientId),
+      });
+      const res = await fetch(`/api/cronometer/dashboard?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCronometerData(data);
+      }
+    } catch (err) {
+      console.error('[Planning] Cronometer fetch failed:', err);
+    } finally {
+      setIsFetchingCronometer(false);
+    }
+  }, [activeClient?.cronometerClientId, cronometerDateRange]);
+
+  const fetchCronometerTargets = useCallback(async () => {
+    if (!activeClient?.cronometerClientId) return;
+    try {
+      const params = new URLSearchParams({ client_id: String(activeClient.cronometerClientId) });
+      const res = await fetch(`/api/cronometer/targets?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCronometerTargets(data.targets || null);
+      }
+    } catch (err) {
+      console.error('[Planning] Cronometer targets fetch failed:', err);
+    }
+  }, [activeClient?.cronometerClientId]);
+
+  const openCronometerModal = useCallback((modal: CronometerModalType) => {
+    setActiveCronometerModal(modal);
+    // Fetch data lazily on first open
+    if (!cronometerData && modal !== 'targets') {
+      fetchCronometerDashboard();
+    }
+    if (modal === 'targets' && !cronometerTargets) {
+      fetchCronometerTargets();
+      if (!cronometerData) fetchCronometerDashboard();
+    }
+  }, [cronometerData, cronometerTargets, fetchCronometerDashboard, fetchCronometerTargets]);
+
+  const CHART_COLORS = { gold: '#c19962', red: '#ef4444', blue: '#3b82f6', yellow: '#eab308', green: '#22c55e', purple: '#a855f7' };
+
   // Base profile values
   const profileWeightLbs = userProfile.weightLbs || 180;
   const profileBodyFat = userProfile.bodyFatPercentage || 20;
@@ -3851,6 +3942,45 @@ export default function PlanningPage() {
           )}
           
           </div>
+
+          {/* Right Toolbar - Cronometer Data Panel */}
+          {hasCronometerLink && (
+            <div className="w-12 shrink-0">
+              <div className="sticky top-8 flex flex-col items-center gap-1 pt-2">
+                <p className="text-[10px] font-medium text-muted-foreground tracking-wider [writing-mode:vertical-lr] rotate-180 mb-3 select-none">
+                  CRONOMETER
+                </p>
+                {([
+                  { id: 'trends' as const, icon: TrendingUp, label: 'Trends' },
+                  { id: 'foodlog' as const, icon: Utensils, label: 'Food Log' },
+                  { id: 'biometrics' as const, icon: Heart, label: 'Biometrics' },
+                  { id: 'fasting' as const, icon: Clock, label: 'Fasting' },
+                  { id: 'targets' as const, icon: Target, label: 'Targets' },
+                ]).map(({ id, icon: Icon, label }) => (
+                  <Tooltip key={id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => openCronometerModal(id)}
+                        className={cn(
+                          "w-10 h-10 rounded-lg flex items-center justify-center transition-all",
+                          activeCronometerModal === id
+                            ? "bg-[#c19962] text-[#00263d]"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">{label}</TooltipContent>
+                  </Tooltip>
+                ))}
+                {isFetchingCronometer && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground mt-2" />
+                )}
+              </div>
+            </div>
+          )}
+
           </div>
           
           {/* Phase Targets Modal - Full Screen on Desktop */}
@@ -3908,7 +4038,521 @@ export default function PlanningPage() {
               </div>
             </DialogContent>
           </Dialog>
-          
+
+          {/* ============ CRONOMETER DATA MODALS ============ */}
+
+          {/* Trends Modal */}
+          <Dialog open={activeCronometerModal === 'trends'} onOpenChange={(open) => !open && setActiveCronometerModal(null)}>
+            <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-[#c19962]" />
+                  Nutrition Trends
+                </DialogTitle>
+                <DialogDescription>
+                  {activeClient?.cronometerClientName || 'Client'} &mdash; {format(cronometerDateRange.from, 'MMM d')} to {format(cronometerDateRange.to, 'MMM d, yyyy')}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex gap-2 mb-4">
+                {[7, 14, 21, 30, 60].map(n => (
+                  <Button key={n} variant="ghost" size="sm"
+                    className={cn("h-7 text-xs", Math.round((cronometerDateRange.to.getTime() - cronometerDateRange.from.getTime()) / 86400000) === n && "bg-[#c19962]/10 text-[#c19962]")}
+                    onClick={() => { setCronometerDateRange({ from: subDays(new Date(), n), to: new Date() }); setTimeout(fetchCronometerDashboard, 50); }}
+                  >{n}d</Button>
+                ))}
+                <Button variant="outline" size="sm" className="h-7 text-xs ml-auto" onClick={fetchCronometerDashboard} disabled={isFetchingCronometer}>
+                  {isFetchingCronometer ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                </Button>
+              </div>
+              {!cronometerData ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  {isFetchingCronometer ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : 'No data loaded'}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Averages Summary */}
+                  <div className="grid grid-cols-5 gap-3">
+                    {[
+                      { label: 'Calories', value: cronometerData.averages.calories, unit: 'kcal' },
+                      { label: 'Protein', value: cronometerData.averages.protein, unit: 'g' },
+                      { label: 'Carbs', value: cronometerData.averages.carbs, unit: 'g' },
+                      { label: 'Fat', value: cronometerData.averages.fat, unit: 'g' },
+                      { label: 'Fiber', value: cronometerData.averages.fiber, unit: 'g' },
+                    ].map(m => (
+                      <div key={m.label} className="text-center p-3 bg-muted/50 rounded-lg">
+                        <p className="text-xs text-muted-foreground">{m.label}</p>
+                        <p className="text-lg font-bold">{Math.round(m.value)}</p>
+                        <p className="text-xs text-muted-foreground">{m.unit}/day avg</p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Calorie Trend */}
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm">Calorie Trend</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="h-[200px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={cronometerData.trendData}>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                            <XAxis dataKey="date" tickFormatter={v => { try { return format(new Date(v), 'M/d'); } catch { return v; } }} fontSize={10} />
+                            <YAxis fontSize={10} />
+                            <RechartsTooltip />
+                            <Area type="monotone" dataKey="calories" stroke={CHART_COLORS.gold} fill={CHART_COLORS.gold} fillOpacity={0.2} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  {/* Macro Trends */}
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm">Macronutrient Trends</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="h-[200px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={cronometerData.trendData}>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                            <XAxis dataKey="date" tickFormatter={v => { try { return format(new Date(v), 'M/d'); } catch { return v; } }} fontSize={10} />
+                            <YAxis fontSize={10} />
+                            <RechartsTooltip />
+                            <Legend />
+                            <Line type="monotone" dataKey="protein" stroke={CHART_COLORS.red} strokeWidth={2} dot={false} />
+                            <Line type="monotone" dataKey="carbs" stroke={CHART_COLORS.blue} strokeWidth={2} dot={false} />
+                            <Line type="monotone" dataKey="fat" stroke={CHART_COLORS.yellow} strokeWidth={2} dot={false} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  {/* Macro Distribution Pie */}
+                  {cronometerData.macroDistribution.length > 0 && (
+                    <Card>
+                      <CardHeader className="pb-2"><CardTitle className="text-sm">Average Macro Distribution</CardTitle></CardHeader>
+                      <CardContent>
+                        <div className="h-[180px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie data={cronometerData.macroDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, value }) => `${name} ${value}%`}>
+                                {cronometerData.macroDistribution.map((entry, i) => (
+                                  <Cell key={i} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Food Log Modal */}
+          <Dialog open={activeCronometerModal === 'foodlog'} onOpenChange={(open) => !open && setActiveCronometerModal(null)}>
+            <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Utensils className="h-5 w-5 text-[#c19962]" />
+                  Food Log
+                </DialogTitle>
+                <DialogDescription>
+                  Recent daily food entries from Cronometer
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex gap-2 mb-4">
+                {[7, 14, 21, 30].map(n => (
+                  <Button key={n} variant="ghost" size="sm"
+                    className={cn("h-7 text-xs", Math.round((cronometerDateRange.to.getTime() - cronometerDateRange.from.getTime()) / 86400000) === n && "bg-[#c19962]/10 text-[#c19962]")}
+                    onClick={() => { setCronometerDateRange({ from: subDays(new Date(), n), to: new Date() }); setTimeout(fetchCronometerDashboard, 50); }}
+                  >{n}d</Button>
+                ))}
+                <Button variant="outline" size="sm" className="h-7 text-xs ml-auto" onClick={fetchCronometerDashboard} disabled={isFetchingCronometer}>
+                  {isFetchingCronometer ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                </Button>
+              </div>
+              {!cronometerData ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  {isFetchingCronometer ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : 'No data loaded'}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {cronometerData.foodLog.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No food log entries for this period</p>
+                  ) : (
+                    cronometerData.foodLog.map(day => (
+                      <Card key={day.date}>
+                        <CardHeader className="pb-2 pt-3 px-4">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm">
+                              {(() => { try { return format(new Date(day.date), 'EEE, MMM d'); } catch { return day.date; } })()}
+                            </CardTitle>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span><strong className="text-foreground">{day.totalCalories}</strong> kcal</span>
+                              <span>P: {day.protein}g</span>
+                              <span>C: {day.carbs}g</span>
+                              <span>F: {day.fat}g</span>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-3">
+                          <div className="space-y-2">
+                            {day.meals.map((meal, mi) => (
+                              <div key={mi} className="text-xs">
+                                <div className="flex items-center justify-between font-medium text-muted-foreground mb-0.5">
+                                  <span>{meal.name}</span>
+                                  <span>{meal.calories} kcal</span>
+                                </div>
+                                <div className="pl-3 space-y-0.5">
+                                  {meal.foods.slice(0, 5).map((f, fi) => (
+                                    <p key={fi} className="text-muted-foreground">{f.name} <span className="opacity-60">({f.serving})</span></p>
+                                  ))}
+                                  {meal.foods.length > 5 && (
+                                    <p className="text-muted-foreground opacity-60">+{meal.foods.length - 5} more items</p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Biometrics Modal */}
+          <Dialog open={activeCronometerModal === 'biometrics'} onOpenChange={(open) => !open && setActiveCronometerModal(null)}>
+            <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Heart className="h-5 w-5 text-red-500" />
+                  Biometrics
+                </DialogTitle>
+                <DialogDescription>
+                  Weight, body fat, and other tracked metrics from Cronometer
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex gap-2 mb-4">
+                {[30, 60, 90].map(n => (
+                  <Button key={n} variant="ghost" size="sm"
+                    className={cn("h-7 text-xs", Math.round((cronometerDateRange.to.getTime() - cronometerDateRange.from.getTime()) / 86400000) === n && "bg-[#c19962]/10 text-[#c19962]")}
+                    onClick={() => { setCronometerDateRange({ from: subDays(new Date(), n), to: new Date() }); setTimeout(fetchCronometerDashboard, 50); }}
+                  >{n}d</Button>
+                ))}
+                <Button variant="outline" size="sm" className="h-7 text-xs ml-auto" onClick={fetchCronometerDashboard} disabled={isFetchingCronometer}>
+                  {isFetchingCronometer ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                </Button>
+              </div>
+              {!cronometerData ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  {isFetchingCronometer ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : 'No data loaded'}
+                </div>
+              ) : cronometerData.biometrics.length === 0 ? (
+                <div className="text-center py-12">
+                  <Scale className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">No biometric data found for this date range</p>
+                  <p className="text-xs text-muted-foreground mt-1">Try expanding the date range</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(
+                    cronometerData.biometrics.reduce((acc, bio) => {
+                      if (!acc[bio.type]) acc[bio.type] = [];
+                      acc[bio.type].push(bio);
+                      return acc;
+                    }, {} as Record<string, typeof cronometerData.biometrics>)
+                  ).map(([type, data]) => {
+                    const sorted = [...data].sort((a, b) => a.date.localeCompare(b.date));
+                    const latest = sorted[sorted.length - 1];
+                    const first = sorted[0];
+                    const unit = latest?.unit || '';
+                    const change = sorted.length >= 2 ? Math.round((latest.value - first.value) * 100) / 100 : null;
+                    return (
+                      <Card key={type}>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm">{type}</CardTitle>
+                            <div className="flex items-center gap-2">
+                              {change !== null && (
+                                <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full",
+                                  change > 0 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                  : change < 0 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                  : "bg-gray-100 text-gray-600"
+                                )}>{change > 0 ? '+' : ''}{change} {unit}</span>
+                              )}
+                              <span className="text-lg font-bold text-[#c19962]">{latest.value} {unit}</span>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-[120px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={sorted}>
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                                <XAxis dataKey="date" tickFormatter={v => { try { return format(new Date(v), 'M/d'); } catch { return v; } }} fontSize={10} />
+                                <YAxis fontSize={10} domain={['auto', 'auto']} />
+                                <RechartsTooltip />
+                                <Line type="monotone" dataKey="value" stroke={CHART_COLORS.gold} strokeWidth={2} dot={{ fill: CHART_COLORS.gold, r: 3 }} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Fasting Modal */}
+          <Dialog open={activeCronometerModal === 'fasting'} onOpenChange={(open) => !open && setActiveCronometerModal(null)}>
+            <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-[#c19962]" />
+                  Fasting History
+                </DialogTitle>
+                <DialogDescription>
+                  Fasting records from Cronometer
+                </DialogDescription>
+              </DialogHeader>
+              {!cronometerData ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  {isFetchingCronometer ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : 'No data loaded'}
+                </div>
+              ) : cronometerData.fasts.length === 0 ? (
+                <div className="text-center py-12">
+                  <Clock className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">No fasting records found</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {cronometerData.fasts.map((fast, i) => (
+                    <Card key={i}>
+                      <CardContent className="py-3 px-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{fast.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {fast.start} {fast.finish ? `\u2192 ${fast.finish}` : ''}
+                            </p>
+                            {fast.comments && (
+                              <p className="text-xs text-muted-foreground mt-1 italic">{fast.comments}</p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            {fast.ongoing ? (
+                              <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700">Ongoing</Badge>
+                            ) : fast.duration ? (
+                              <Badge variant="secondary" className="text-xs">{fast.duration}</Badge>
+                            ) : null}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Targets Sync Modal */}
+          <Dialog open={activeCronometerModal === 'targets'} onOpenChange={(open) => !open && setActiveCronometerModal(null)}>
+            <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-[#c19962]" />
+                  Cronometer Targets
+                </DialogTitle>
+                <DialogDescription>
+                  Sync nutrition targets between Fitomics and Cronometer
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6">
+                {/* Current Cronometer Targets */}
+                <div>
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <ArrowDownToLine className="h-4 w-4 text-[#c19962]" />
+                    Current Cronometer Targets
+                  </h4>
+                  {cronometerTargets ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-4 gap-3">
+                        {[
+                          { label: 'Calories', value: cronometerTargets.kcal, unit: 'kcal' },
+                          { label: 'Protein', value: cronometerTargets.protein, unit: 'g' },
+                          { label: 'Carbs', value: cronometerTargets.total_carbs, unit: 'g' },
+                          { label: 'Fat', value: cronometerTargets.fat, unit: 'g' },
+                        ].map(t => (
+                          <div key={t.label} className="text-center p-3 bg-muted/50 rounded-lg border">
+                            <p className="text-xs text-muted-foreground">{t.label}</p>
+                            <p className="text-lg font-bold">{t.value != null ? Math.round(t.value) : '—'}</p>
+                            <p className="text-xs text-muted-foreground">{t.unit}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {activePhase && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => {
+                            if (!activePhase || !cronometerTargets) return;
+                            // Build nutrition targets from Cronometer's values
+                            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+                            const cal = Math.round(cronometerTargets.kcal || 0);
+                            const newTargets: DayNutritionTargets[] = days.map(day => ({
+                              day,
+                              isWorkoutDay: false,
+                              tdee: cal,
+                              targetCalories: cal,
+                              protein: Math.round(cronometerTargets.protein || 0),
+                              carbs: Math.round(cronometerTargets.total_carbs || 0),
+                              fat: Math.round(cronometerTargets.fat || 0),
+                            }));
+                            updatePhase(activePhase.id, {
+                              nutritionTargets: newTargets,
+                              updatedAt: new Date().toISOString(),
+                            });
+                            toast.success('Cronometer targets applied to active phase');
+                          }}
+                        >
+                          <ArrowDownToLine className="h-4 w-4 mr-2" />
+                          Apply to Active Phase ({activePhase.name})
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" className="w-full" onClick={fetchCronometerTargets}>
+                        <RefreshCw className="h-3 w-3 mr-2" />
+                        Refresh
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Button variant="outline" size="sm" onClick={fetchCronometerTargets}>
+                        Load Cronometer Targets
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Push Phase Targets to Cronometer */}
+                <div>
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <ArrowUpFromLine className="h-4 w-4 text-[#c19962]" />
+                    Push Phase Targets to Cronometer
+                  </h4>
+                  {activePhase ? (
+                    <div className="space-y-3">
+                      {activePhase.nutritionTargets && activePhase.nutritionTargets.length > 0 ? (
+                        <>
+                          <div className="grid grid-cols-4 gap-3">
+                            {(() => {
+                              const t = activePhase.nutritionTargets[0]; // Use first day as representative
+                              return [
+                                { label: 'Calories', value: t.targetCalories, unit: 'kcal' },
+                                { label: 'Protein', value: t.protein, unit: 'g' },
+                                { label: 'Carbs', value: t.carbs, unit: 'g' },
+                                { label: 'Fat', value: t.fat, unit: 'g' },
+                              ].map(m => (
+                                <div key={m.label} className="text-center p-3 bg-muted/50 rounded-lg border">
+                                  <p className="text-xs text-muted-foreground">{m.label}</p>
+                                  <p className="text-lg font-bold">{Math.round(m.value)}</p>
+                                  <p className="text-xs text-muted-foreground">{m.unit}</p>
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={async () => {
+                              if (!activeClient?.cronometerClientId || !activePhase?.nutritionTargets?.[0]) return;
+                              const t = activePhase.nutritionTargets[0];
+                              try {
+                                const res = await fetch('/api/cronometer/targets', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    client_id: String(activeClient.cronometerClientId),
+                                    calories: t.targetCalories,
+                                    protein: t.protein,
+                                    carbs: t.carbs,
+                                    fat: t.fat,
+                                  }),
+                                });
+                                const data = await res.json();
+                                if (data.success) {
+                                  toast.success('Targets pushed to Cronometer');
+                                } else {
+                                  toast.error(data.error || 'Cronometer API does not support setting targets remotely. Please update targets manually in the Cronometer app.');
+                                }
+                              } catch {
+                                toast.error('Failed to push targets. Please update them manually in Cronometer.');
+                              }
+                            }}
+                          >
+                            <ArrowUpFromLine className="h-4 w-4 mr-2" />
+                            Push to Cronometer
+                          </Button>
+                          <p className="text-xs text-muted-foreground text-center">
+                            Note: Cronometer&apos;s API may not support remote target updates. If this fails, update targets manually in the Cronometer app.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No nutrition targets set for this phase yet. Set targets in the Nutrition Targets section first.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No active phase selected. Create or select a phase first.
+                    </p>
+                  )}
+                </div>
+
+                {/* Recent Intake vs Targets comparison */}
+                {cronometerData && cronometerTargets && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h4 className="text-sm font-medium mb-3">Recent Intake vs Targets</h4>
+                      <div className="grid grid-cols-4 gap-3">
+                        {[
+                          { label: 'Calories', avg: cronometerData.averages.calories, target: cronometerTargets.kcal, unit: 'kcal' },
+                          { label: 'Protein', avg: cronometerData.averages.protein, target: cronometerTargets.protein, unit: 'g' },
+                          { label: 'Carbs', avg: cronometerData.averages.carbs, target: cronometerTargets.total_carbs, unit: 'g' },
+                          { label: 'Fat', avg: cronometerData.averages.fat, target: cronometerTargets.fat, unit: 'g' },
+                        ].map(c => {
+                          const diff = c.target ? Math.round(c.avg - c.target) : null;
+                          return (
+                            <div key={c.label} className="text-center p-3 rounded-lg border">
+                              <p className="text-xs text-muted-foreground">{c.label}</p>
+                              <p className="text-sm font-bold">{Math.round(c.avg)}</p>
+                              <p className="text-xs text-muted-foreground">of {c.target != null ? Math.round(c.target) : '—'}</p>
+                              {diff !== null && (
+                                <p className={cn("text-xs font-medium", diff > 0 ? "text-red-500" : diff < 0 ? "text-green-500" : "text-gray-500")}>
+                                  {diff > 0 ? '+' : ''}{diff} {c.unit}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
         </div>
       </div>
     </div>

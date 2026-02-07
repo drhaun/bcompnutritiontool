@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,7 +63,11 @@ import {
   Truck,
   X as XIcon,
   MapPin,
-  Plus
+  Plus,
+  Link2,
+  Unlink,
+  ArrowDownToLine,
+  ExternalLink
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -543,6 +547,25 @@ export default function SetupPage() {
   const [heightIn, setHeightIn] = useState(10);
   const [weightLbs, setWeightLbs] = useState(180);
   
+  // ============ CRONOMETER INTEGRATION STATE ============
+  const [cronometerConnected, setCronometerConnected] = useState(false);
+  const [cronometerClients, setCronometerClients] = useState<Array<{
+    client_id: number;
+    name: string;
+    email?: string;
+    status: string;
+  }>>([]);
+  const [cronometerLinkOpen, setCronometerLinkOpen] = useState(false);
+  const [cronometerLinkSearch, setCronometerLinkSearch] = useState('');
+  const [nameInputFocused, setNameInputFocused] = useState(false);
+  const [cronometerBiometrics, setCronometerBiometrics] = useState<{
+    latestWeight: { value: number; unit: string; date: string } | null;
+    latestBodyFat: { value: number; date: string } | null;
+    latestCalories: { value: number; date: string } | null;
+  } | null>(null);
+  const [isFetchingBiometrics, setIsFetchingBiometrics] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
   // Track if we've initialized local state from store (only do this ONCE)
   const hasInitializedFromStore = useRef(false);
   
@@ -714,6 +737,125 @@ export default function SetupPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHydrated]); // Only depend on isHydrated - run once when hydration completes
+
+  // ============ CRONOMETER INTEGRATION ============
+  // Fetch biometrics for a linked Cronometer client
+  const fetchCronometerBiometrics = useCallback(async (clientId: number) => {
+    setIsFetchingBiometrics(true);
+    try {
+      const res = await fetch(`/api/cronometer/client-biometrics?client_id=${clientId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCronometerBiometrics({
+          latestWeight: data.latestWeight || null,
+          latestBodyFat: data.latestBodyFat || null,
+          latestCalories: data.latestCalories || null,
+        });
+      }
+    } catch (err) {
+      console.error('[Setup] Failed to fetch Cronometer biometrics:', err);
+    } finally {
+      setIsFetchingBiometrics(false);
+    }
+  }, []);
+
+  // On mount: check Cronometer connection & fetch client list
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    let cancelled = false;
+
+    const initCronometer = async () => {
+      try {
+        // Check connection status
+        const statusRes = await fetch('/api/cronometer/status');
+        if (!statusRes.ok || cancelled) return;
+        const statusData = await statusRes.json();
+
+        if (!statusData.connected) {
+          setCronometerConnected(false);
+          return;
+        }
+
+        setCronometerConnected(true);
+
+        // Fetch client list for name matching
+        const clientsRes = await fetch('/api/cronometer/clients');
+        if (clientsRes.ok && !cancelled) {
+          const clientsData = await clientsRes.json();
+          setCronometerClients(clientsData.clients || []);
+        }
+
+        // If current client is already linked, fetch their biometrics
+        const linked = activeClient?.cronometerClientId;
+        if (linked && !cancelled) {
+          fetchCronometerBiometrics(linked);
+        }
+      } catch (err) {
+        console.error('[Setup] Cronometer init failed (non-fatal):', err);
+      }
+    };
+
+    initCronometer();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated]); // Run once after hydration
+
+  // Smart name matching: filter Cronometer clients by typed name
+  const cronometerNameMatches = useMemo(() => {
+    if (!cronometerConnected || !name || name.length < 2) return [];
+    const query = name.toLowerCase().trim();
+    return cronometerClients.filter(c => {
+      const cName = (c.name || '').toLowerCase();
+      const cEmail = (c.email || '').toLowerCase();
+      return cName.includes(query) || cEmail.includes(query);
+    }).slice(0, 8); // Limit to 8 suggestions
+  }, [cronometerConnected, name, cronometerClients]);
+
+  // Helper: check if a Cronometer client is linked to ANY Fitomics profile
+  const getLinkedFitomicsClientName = useCallback((cronometerClientId: number): string | null => {
+    const { clients: allClients } = useFitomicsStore.getState();
+    const linked = allClients.find(
+      c => c.cronometerClientId === cronometerClientId && c.id !== activeClientId
+    );
+    return linked ? linked.name : null;
+  }, [activeClientId]);
+
+  // Link a Cronometer client to the current Fitomics profile
+  const linkCronometerClient = useCallback((client: { client_id: number; name: string }) => {
+    if (!activeClientId) return;
+    const { updateClient } = useFitomicsStore.getState();
+    updateClient(activeClientId, {
+      cronometerClientId: client.client_id,
+      cronometerClientName: client.name,
+    });
+    setCronometerLinkOpen(false);
+    fetchCronometerBiometrics(client.client_id);
+    toast.success(`Linked to Cronometer: ${client.name}`);
+  }, [activeClientId, fetchCronometerBiometrics]);
+
+  // Unlink Cronometer client from the current profile
+  const unlinkCronometerClient = useCallback(() => {
+    if (!activeClientId) return;
+    const { updateClient } = useFitomicsStore.getState();
+    updateClient(activeClientId, {
+      cronometerClientId: undefined,
+      cronometerClientName: undefined,
+    });
+    setCronometerBiometrics(null);
+    toast.success('Unlinked from Cronometer');
+  }, [activeClientId]);
+
+  // Convert Cronometer weight to lbs if needed
+  const cronometerWeightLbs = useMemo(() => {
+    const w = cronometerBiometrics?.latestWeight;
+    if (!w) return null;
+    const unit = (w.unit || '').toLowerCase();
+    if (unit === 'kg' || unit === 'kilograms') {
+      return { value: Math.round(w.value * 2.20462 * 10) / 10, unit: 'lbs', date: w.date, originalUnit: w.unit, originalValue: w.value };
+    }
+    return { value: w.value, unit: 'lbs', date: w.date, originalUnit: w.unit, originalValue: w.value };
+  }, [cronometerBiometrics]);
 
   // ============ BODY COMPOSITION STATE ============
   const [useMeasuredBF, setUseMeasuredBF] = useState(false);
@@ -1736,17 +1878,178 @@ export default function SetupPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
+                    {/* Cronometer Link Banner */}
+                    {cronometerConnected && (
+                      <div className={cn(
+                        "flex items-center justify-between px-4 py-2.5 rounded-lg border text-sm",
+                        activeClient?.cronometerClientId
+                          ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800"
+                          : "bg-muted/50 border-dashed"
+                      )}>
+                        {activeClient?.cronometerClientId ? (
+                          <>
+                            <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                              <Link2 className="h-4 w-4" />
+                              <span>Linked to Cronometer: <strong>{activeClient.cronometerClientName || `Client #${activeClient.cronometerClientId}`}</strong></span>
+                              {isFetchingBiometrics && <Loader2 className="h-3 w-3 animate-spin" />}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                              onClick={unlinkCronometerClient}
+                            >
+                              <Unlink className="h-3 w-3 mr-1" />
+                              Unlink
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Link2 className="h-4 w-4" />
+                              <span>Link this client to a Cronometer profile for weight & body fat reference data</span>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => {
+                                setCronometerLinkOpen(!cronometerLinkOpen);
+                                if (cronometerLinkOpen) setCronometerLinkSearch('');
+                              }}
+                            >
+                              {cronometerLinkOpen ? 'Cancel' : 'Link to Cronometer'}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Cronometer Link Picker (when banner "Link" is clicked) */}
+                    {cronometerConnected && cronometerLinkOpen && !activeClient?.cronometerClientId && (
+                      <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                        <p className="text-xs text-muted-foreground mb-2">Select a Cronometer client to link:</p>
+                        <Input
+                          placeholder="Search clients..."
+                          value={cronometerLinkSearch}
+                          onChange={(e) => setCronometerLinkSearch(e.target.value)}
+                          className="h-9 text-sm mb-2"
+                          autoFocus
+                        />
+                        <div className="max-h-48 overflow-y-auto space-y-1">
+                          {(() => {
+                            const query = cronometerLinkSearch.toLowerCase().trim();
+                            const filtered = cronometerClients
+                              .filter(c => {
+                                if (!query) return true;
+                                return (c.name || '').toLowerCase().includes(query)
+                                  || (c.email || '').toLowerCase().includes(query);
+                              })
+                              .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+                            if (filtered.length === 0) {
+                              return (
+                                <p className="text-xs text-muted-foreground py-2 text-center">
+                                  {cronometerClients.length === 0 ? 'No Cronometer clients found' : 'No matches'}
+                                </p>
+                              );
+                            }
+
+                            return filtered.map(c => {
+                              const linkedTo = getLinkedFitomicsClientName(c.client_id);
+                              return (
+                                <button
+                                  key={c.client_id}
+                                  onClick={() => {
+                                    linkCronometerClient(c);
+                                    setCronometerLinkSearch('');
+                                  }}
+                                  className={cn(
+                                    "w-full flex items-center justify-between px-3 py-2 rounded-md text-left text-sm transition-colors",
+                                    linkedTo
+                                      ? "opacity-60 hover:bg-muted/50"
+                                      : "hover:bg-[#c19962]/10"
+                                  )}
+                                >
+                                  <div>
+                                    <span className="font-medium">{c.name}</span>
+                                    {c.email && <span className="text-xs text-muted-foreground ml-2">{c.email}</span>}
+                                  </div>
+                                  {linkedTo && (
+                                    <Badge variant="outline" className="text-xs">Linked to {linkedTo}</Badge>
+                                  )}
+                                </button>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Name & Gender Row */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
+                      <div className="space-y-2 relative">
                         <Label htmlFor="name" className="text-sm font-medium">Client Name</Label>
                         <Input
                           id="name"
+                          ref={nameInputRef}
                           placeholder="Full name"
                           value={name}
                           onChange={(e) => setName(e.target.value)}
+                          onFocus={() => {
+                            setNameInputFocused(true);
+                            if (cronometerConnected && !activeClient?.cronometerClientId) {
+                              setCronometerLinkOpen(false); // Close manual picker if open
+                            }
+                          }}
+                          onBlur={() => {
+                            // Small delay so click events on dropdown items fire first
+                            setTimeout(() => setNameInputFocused(false), 200);
+                          }}
                           className="h-11"
                         />
+                        {/* Smart Cronometer name match dropdown */}
+                        {cronometerConnected && !activeClient?.cronometerClientId && cronometerNameMatches.length > 0 && name.length >= 2 && nameInputFocused && (
+                          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-lg shadow-lg overflow-hidden">
+                            <div className="px-3 py-1.5 bg-muted/50 border-b">
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Link2 className="h-3 w-3" />
+                                Matching Cronometer clients
+                              </p>
+                            </div>
+                            <div className="max-h-48 overflow-y-auto">
+                              {cronometerNameMatches.map(c => {
+                                const linkedTo = getLinkedFitomicsClientName(c.client_id);
+                                return (
+                                  <button
+                                    key={c.client_id}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault(); // Prevent blur before click fires
+                                      linkCronometerClient(c);
+                                      setName(c.name);
+                                    }}
+                                    className={cn(
+                                      "w-full flex items-center justify-between px-3 py-2 text-sm transition-colors",
+                                      linkedTo
+                                        ? "opacity-60 hover:bg-muted/50"
+                                        : "hover:bg-[#c19962]/10"
+                                    )}
+                                  >
+                                    <div>
+                                      <span className="font-medium">{c.name}</span>
+                                      {c.email && <span className="text-xs text-muted-foreground ml-2">{c.email}</span>}
+                                    </div>
+                                    {linkedTo ? (
+                                      <Badge variant="outline" className="text-xs">Linked to {linkedTo}</Badge>
+                                    ) : (
+                                      <Badge variant="secondary" className="text-xs">Link</Badge>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Gender */}
@@ -1928,6 +2231,28 @@ export default function SetupPage() {
                           </div>
                           <span className="text-xs text-muted-foreground pb-1">= {weightKg.toFixed(1)} kg</span>
                         </div>
+                        {/* Cronometer weight reference */}
+                        {cronometerWeightLbs && (
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <p className="text-xs text-muted-foreground">
+                              Cronometer: <strong className="text-foreground">{cronometerWeightLbs.value} lbs</strong>
+                              <span className="ml-1">
+                                ({new Date(cronometerWeightLbs.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})
+                              </span>
+                            </p>
+                            {Math.abs(cronometerWeightLbs.value - weightLbs) > 0.1 && (
+                              <button
+                                type="button"
+                                onClick={() => setWeightLbs(cronometerWeightLbs.value)}
+                                className="inline-flex items-center gap-1 text-xs text-[#c19962] hover:text-[#a88652] font-medium"
+                                title="Apply Cronometer weight"
+                              >
+                                <ArrowDownToLine className="h-3 w-3" />
+                                Apply
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -2040,6 +2365,37 @@ export default function SetupPage() {
                         <p className="text-xs text-muted-foreground">
                           Visual estimate or mirror/photo-based assessment
                         </p>
+                      </div>
+                    )}
+
+                    {/* Cronometer body fat reference */}
+                    {cronometerBiometrics?.latestBodyFat && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-muted-foreground">
+                          Cronometer: <strong className="text-foreground">{cronometerBiometrics.latestBodyFat.value}%</strong>
+                          <span className="ml-1">
+                            ({new Date(cronometerBiometrics.latestBodyFat.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})
+                          </span>
+                        </p>
+                        {(() => {
+                          const cronBF = cronometerBiometrics.latestBodyFat!.value;
+                          const currentBF = useMeasuredBF ? measuredBFPercent : estimatedBFPercent;
+                          const setter = useMeasuredBF ? setMeasuredBFPercent : setEstimatedBFPercent;
+                          if (Math.abs(cronBF - currentBF) > 0.1) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setter(cronBF)}
+                                className="inline-flex items-center gap-1 text-xs text-[#c19962] hover:text-[#a88652] font-medium"
+                                title="Apply Cronometer body fat %"
+                              >
+                                <ArrowDownToLine className="h-3 w-3" />
+                                Apply
+                              </button>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     )}
 

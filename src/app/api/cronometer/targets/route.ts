@@ -62,6 +62,81 @@ export async function GET(request: NextRequest) {
 }
 
 /**
+ * POST handler: Best-effort attempt to push nutrition targets to Cronometer.
+ * 
+ * Cronometer's documented API only supports reading targets (not writing).
+ * This handler attempts an undocumented write approach and gracefully handles failure.
+ */
+export async function POST(request: NextRequest) {
+  const tokenResult = await resolveCronometerToken(request);
+  
+  if (!tokenResult.accessToken) {
+    return NextResponse.json(
+      { error: 'Not connected to Cronometer' },
+      { status: 401 }
+    );
+  }
+  
+  try {
+    const body = await request.json();
+    const { client_id, calories, protein, carbs, fat } = body;
+    
+    if (!calories && !protein && !carbs && !fat) {
+      return NextResponse.json(
+        { error: 'At least one target value (calories, protein, carbs, fat) is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Attempt undocumented set_targets endpoint
+    const setTargetBody: Record<string, unknown> = {};
+    if (client_id) setTargetBody.client_id = client_id;
+    
+    // Try to structure targets matching Cronometer's expected format
+    const targets: Record<string, { min: number; max: number; unit: string }> = {};
+    if (calories) targets['Energy'] = { min: calories, max: calories, unit: 'kcal' };
+    if (protein) targets['Protein'] = { min: protein, max: protein, unit: 'g' };
+    if (carbs) targets['Carbohydrates'] = { min: carbs, max: carbs, unit: 'g' };
+    if (fat) targets['Fat'] = { min: fat, max: fat, unit: 'g' };
+    
+    setTargetBody.targets = targets;
+    
+    // Best-effort: try the undocumented endpoint
+    const res = await fetch('https://cronometer.com/api_v1/set_targets', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${tokenResult.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(setTargetBody),
+    });
+    
+    if (res.ok) {
+      let response = NextResponse.json({ success: true, message: 'Targets updated in Cronometer' });
+      response = backfillCronometerCookies(response, tokenResult);
+      return response;
+    }
+    
+    // If the endpoint doesn't exist or returns an error, handle gracefully
+    const errorText = await res.text().catch(() => 'Unknown error');
+    console.warn('[Cronometer] set_targets attempt failed:', res.status, errorText);
+    
+    return NextResponse.json({
+      success: false,
+      error: 'Cronometer API does not currently support remote target updates. Please update targets manually in the Cronometer app.',
+      details: `API returned ${res.status}`,
+    }, { status: 200 }); // Return 200 so frontend handles it as a known limitation
+    
+  } catch (error) {
+    console.error('Cronometer push targets error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to push targets. Please update them manually in the Cronometer app.' },
+      { status: 200 }
+    );
+  }
+}
+
+/**
  * Extract a target value from the raw Cronometer targets object
  * Tries multiple possible key names
  */

@@ -446,6 +446,8 @@ export async function removeClient(
 
 /**
  * Biometric data point
+ * The exact shape returned by Cronometer is not formally documented, so we
+ * accept the known fields plus allow extra keys for forward-compatibility.
  */
 export interface CronometerBiometric {
   name: string;
@@ -453,6 +455,8 @@ export interface CronometerBiometric {
   unit: string;
   day: string;
   time?: string;
+  // Allow additional/undocumented fields from the API
+  [key: string]: unknown;
 }
 
 /**

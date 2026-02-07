@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -138,6 +138,7 @@ interface BiometricData {
   type: string;
   value: number;
   unit: string;
+  source?: string;
 }
 
 interface DashboardData {
@@ -240,13 +241,17 @@ const getMealIcon = (mealName: string) => {
 
 export default function CronometerDashboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { clients } = useFitomicsStore();
+  
+  // Read client_id from URL query parameter (e.g. from Settings "View Log" button)
+  const urlClientId = searchParams.get('client_id');
   
   // State
   const [isLoading, setIsLoading] = useState(false);
   const [cronometerStatus, setCronometerStatus] = useState<{ connected: boolean; configured: boolean } | null>(null);
   const [cronometerClients, setCronometerClients] = useState<Array<{ client_id: number; name: string; email?: string }>>([]);
-  const [selectedClient, setSelectedClient] = useState<string>('self');
+  const [selectedClient, setSelectedClient] = useState<string>(urlClientId || 'self');
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [dateRange, setDateRange] = useState({
     from: subDays(new Date(), 21),
@@ -272,10 +277,15 @@ export default function CronometerDashboardPage() {
           const data = await clientsRes.json();
           setCronometerClients(data.clients || []);
           
-          // Auto-select linked client if available
-          const activeClient = clients.find(c => c.cronometerClientId);
-          if (activeClient?.cronometerClientId) {
-            setSelectedClient(activeClient.cronometerClientId.toString());
+          // If a client_id was provided via URL, use it (highest priority)
+          // Otherwise, auto-select linked client if available
+          if (urlClientId) {
+            setSelectedClient(urlClientId);
+          } else {
+            const activeClient = clients.find(c => c.cronometerClientId);
+            if (activeClient?.cronometerClientId) {
+              setSelectedClient(activeClient.cronometerClientId.toString());
+            }
           }
         }
       } catch (error) {
@@ -284,7 +294,7 @@ export default function CronometerDashboardPage() {
     };
     
     checkConnection();
-  }, [clients]);
+  }, [clients, urlClientId]);
   
   // Fetch dashboard data
   const fetchDashboardData = useCallback(async () => {
@@ -483,19 +493,20 @@ export default function CronometerDashboardPage() {
               </div>
               
               {/* Quick Presets */}
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setDateRange({ from: subDays(new Date(), 7), to: new Date() })}>
-                  7 days
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setDateRange({ from: subDays(new Date(), 14), to: new Date() })}>
-                  14 days
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setDateRange({ from: subDays(new Date(), 21), to: new Date() })}>
-                  21 days
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setDateRange({ from: subDays(new Date(), 30), to: new Date() })}>
-                  30 days
-                </Button>
+              <div className="flex flex-wrap gap-1">
+                {[7, 14, 21, 30, 60, 90].map((n) => {
+                  const isActive = differenceInDays(dateRange.to, dateRange.from) === n;
+                  return (
+                    <Button
+                      key={n}
+                      variant={isActive ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => setDateRange({ from: subDays(new Date(), n), to: new Date() })}
+                    >
+                      {n}d
+                    </Button>
+                  );
+                })}
               </div>
               
               {/* Load Button */}
@@ -1122,21 +1133,33 @@ export default function CronometerDashboardPage() {
                     {dashboardData.biometrics.length === 0 ? (
                       <div className="text-center py-12">
                         <Scale className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">No biometric data available</p>
+                        <p className="text-muted-foreground">No biometric data found for this date range</p>
                         <p className="text-sm text-muted-foreground mt-1">
-                          Biometric data (weight, body fat, etc.) may not be available via the API
+                          Biometric entries (weight, body fat %, blood pressure, etc.) logged in Cronometer will appear here
                         </p>
                         <Alert className="mt-6 text-left">
                           <Activity className="h-4 w-4" />
-                          <AlertTitle>API Limitation</AlertTitle>
+                          <AlertTitle>How to see biometric data</AlertTitle>
                           <AlertDescription>
-                            Cronometer's API currently has limited support for biometric/wearable data export.
-                            To view full biometric history, please use the Cronometer web or mobile app directly.
+                            Make sure the client has logged biometric data in Cronometer (via the app, web, or a connected wearable) 
+                            during the selected date range. Try expanding the date range if you expect to see data.
                           </AlertDescription>
                         </Alert>
                       </div>
                     ) : (
                       <div className="space-y-4">
+                        {/* Summary badges */}
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {(() => {
+                            const types = new Set(dashboardData.biometrics.map(b => b.type));
+                            return (
+                              <p className="text-sm text-muted-foreground">
+                                {dashboardData.biometrics.length} data point{dashboardData.biometrics.length !== 1 ? 's' : ''} across {types.size} metric{types.size !== 1 ? 's' : ''}
+                              </p>
+                            );
+                          })()}
+                        </div>
+                        
                         {/* Group biometrics by type */}
                         {Object.entries(
                           dashboardData.biometrics.reduce((acc, bio) => {
@@ -1147,22 +1170,42 @@ export default function CronometerDashboardPage() {
                         ).map(([type, data]) => {
                           const sortedData = data.sort((a, b) => a.date.localeCompare(b.date));
                           const latestValue = sortedData[sortedData.length - 1];
+                          const firstValue = sortedData[0];
                           const unit = latestValue?.unit || '';
+                          
+                          // Calculate change over the period
+                          const change = sortedData.length >= 2 
+                            ? round(latestValue.value - firstValue.value, 2) 
+                            : null;
                           
                           return (
                             <Card key={type}>
                               <CardHeader className="pb-2">
                                 <div className="flex items-center justify-between">
                                   <CardTitle className="text-sm">{type}</CardTitle>
-                                  {latestValue && (
-                                    <span className="text-lg font-bold text-[#c19962]">
-                                      {latestValue.value} {unit}
-                                    </span>
-                                  )}
+                                  <div className="flex items-center gap-2">
+                                    {change !== null && (
+                                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                                        change > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                                        : change < 0 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
+                                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                                      }`}>
+                                        {change > 0 ? '+' : ''}{change} {unit}
+                                      </span>
+                                    )}
+                                    {latestValue && (
+                                      <span className="text-lg font-bold text-[#c19962]">
+                                        {latestValue.value} {unit}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
                                   {sortedData.length} data point{sortedData.length !== 1 ? 's' : ''} • 
                                   Latest: {latestValue?.date ? format(new Date(latestValue.date), 'MMM d, yyyy') : 'N/A'}
+                                  {firstValue && sortedData.length >= 2 && (
+                                    <> • First: {format(new Date(firstValue.date), 'MMM d, yyyy')}</>
+                                  )}
                                 </p>
                               </CardHeader>
                               <CardContent>

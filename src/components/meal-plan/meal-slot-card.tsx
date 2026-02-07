@@ -310,19 +310,7 @@ export function MealSlotCard({
     return <TrendingDown className="h-3 w-3 text-blue-500" />;
   };
 
-  // Source badge
-  const getSourceBadge = () => {
-    if (!slot.meal?.source) return null;
-    const config: Record<string, { label: string; className: string }> = {
-      ai: { label: 'AI Generated', className: 'bg-purple-100 text-purple-700' },
-      manual: { label: 'Custom', className: 'bg-blue-100 text-blue-700' },
-      swapped: { label: 'Swapped', className: 'bg-orange-100 text-orange-700' },
-      recipe: { label: 'Recipe', className: 'bg-green-100 text-green-700' },
-      fdc: { label: 'FDC Data', className: 'bg-cyan-100 text-cyan-700' },
-    };
-    const source = config[slot.meal.source] || { label: slot.meal.source, className: 'bg-gray-100 text-gray-700' };
-    return <Badge className={cn('text-xs', source.className)}>{source.label}</Badge>;
-  };
+  // Source badge removed - was causing overlap in meal title area
   
   const handleSaveNote = () => {
     onUpdateNote(slot.slotIndex, noteValue);
@@ -418,7 +406,6 @@ export function MealSlotCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-sm font-medium">{slot.label}</CardTitle>
-            {getSourceBadge()}
             {slot.isLocked && (
               <Badge variant="secondary" className="text-xs">
                 <Lock className="h-3 w-3 mr-1" />
@@ -641,12 +628,7 @@ export function MealSlotCard({
           </div>
         )}
         
-        {/* AI Rationale (if present) */}
-        {filledMeal.aiRationale && (
-          <div className="text-xs bg-green-50 border border-green-200 rounded p-2 mb-3">
-            <p className="text-green-800 italic">💡 {filledMeal.aiRationale}</p>
-          </div>
-        )}
+        {/* AI Rationale removed - was showing auto-generated disclaimer text */}
         
         {/* Staff Note */}
         {filledMeal.staffNote && !showNoteInput && (
@@ -735,22 +717,20 @@ export function MealSlotCard({
             <MessageSquare className="h-3 w-3 mr-1" />
             {filledMeal.staffNote ? 'Edit Note' : 'Add Note'}
           </Button>
-          {!filledMeal.aiRationale && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="text-xs h-7"
-              onClick={() => onGenerateNote(slot.slotIndex)}
-              disabled={isGeneratingNote}
-            >
-              {isGeneratingNote ? (
-                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-              ) : (
-                <Sparkles className="h-3 w-3 mr-1" />
-              )}
-              AI Note
-            </Button>
-          )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-xs h-7"
+            onClick={() => onGenerateNote(slot.slotIndex)}
+            disabled={isGeneratingNote}
+          >
+            {isGeneratingNote ? (
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            ) : (
+              <Sparkles className="h-3 w-3 mr-1" />
+            )}
+            AI Note
+          </Button>
           <Button 
             variant="ghost" 
             size="sm" 
