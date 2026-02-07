@@ -280,6 +280,16 @@ export interface UserProfile {
   activityLevel?: ActivityLevel;
   workoutsPerWeek?: number;
   
+  // Workout defaults (saved from profile setup)
+  workoutDefaults?: WorkoutDefaults;
+  
+  // Section notes (captured during profile setup conversation)
+  scheduleNotes?: string;    // Notes under sleep/work schedule
+  workoutNotes?: string;     // Notes under workout defaults / activity level
+  
+  // Supplement tracking
+  supplements?: SupplementEntry[];
+  
   // Additional context
   healthGoals?: string;
   performanceGoals?: string;
@@ -287,6 +297,17 @@ export interface UserProfile {
   
   // Addresses for location-based features (meal delivery, travel planning)
   addresses?: ClientAddress[];
+}
+
+// Supplement entry for client profile
+export type SupplementTiming = 'morning' | 'pre_workout' | 'intra_workout' | 'post_workout' | 'with_meals' | 'before_bed' | 'as_needed';
+
+export interface SupplementEntry {
+  name: string;
+  dosage?: string;        // e.g., "5g", "2 capsules"
+  timing: SupplementTiming[];
+  notes?: string;         // Brand, purpose, link, etc.
+  detectedFromCronometer?: boolean; // Was this auto-detected from Cronometer logs?
 }
 
 export type ActivityLevel = 
@@ -459,7 +480,16 @@ export interface MealContext {
   location: MealLocation;
   timeRange: string;
   isRoutine: boolean;
+  clientNotes?: string; // Free-text: what the client normally does for this meal
 }
+
+// Peri-workout nutrition preferences
+export type PeriWorkoutPreference =
+  | 'full_meal'         // Full meal 1-2h before/after
+  | 'light_snack'       // Light snack/shake 30-60 min before/after
+  | 'supplement_only'   // EAA/protein/carb supplement only
+  | 'fasted'            // Prefers training fasted (pre) or delayed eating (post)
+  | 'flexible';         // No strong preference
 
 // Nutrient timing preferences
 export interface NutrientTimingPrefs {
@@ -468,6 +498,10 @@ export interface NutrientTimingPrefs {
   includePostWorkoutMeal: boolean;
   energyDistribution: 'front_loaded' | 'steady' | 'back_loaded' | 'workout_focused';
   liquidCaloriesPreference: 'minimize' | 'moderate' | 'include_shakes';
+  // Enhanced peri-workout preferences
+  preWorkoutPreference?: PeriWorkoutPreference;
+  postWorkoutPreference?: PeriWorkoutPreference;
+  periWorkoutNotes?: string; // Free-text for specifics (e.g., "gets nauseous if eating within 1h of training")
 }
 
 // Workout defaults
@@ -586,6 +620,13 @@ export interface Meal {
   source?: MealSource;       // How the meal was created
   lastModified?: string;     // ISO timestamp of last modification
   isLocked?: boolean;        // Whether meal is locked from regeneration
+  // Cronometer-informed adaptive meal planning
+  adaptiveContext?: {
+    whatChanged: string;
+    keptFoods: string[];
+    swappedFoods: { from: string; to: string }[];
+    basedOnDays: number;
+  };
 }
 
 // Meal slot for the modular builder

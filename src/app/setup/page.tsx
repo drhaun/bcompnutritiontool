@@ -67,7 +67,11 @@ import {
   Link2,
   Unlink,
   ArrowDownToLine,
-  ExternalLink
+  ExternalLink,
+  Pill,
+  Trash2,
+  MessageSquare,
+  StickyNote,
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -87,7 +91,10 @@ import type {
   MealPrepMethod,
   MealLocation,
   DayOfWeek,
-  MealContext
+  MealContext,
+  PeriWorkoutPreference,
+  SupplementEntry,
+  SupplementTiming,
 } from '@/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { getDefaultZoneCalories, getActivityMultiplier } from '@/lib/nutrition-calc';
@@ -329,6 +336,34 @@ const FASTING_PROTOCOLS = [
   { value: '18_6', label: '18:6', description: '18h fast, 6h eating window (intermediate)' },
   { value: '20_4', label: '20:4', description: '20h fast, 4h eating window (advanced)' },
   { value: 'custom', label: 'Custom', description: 'Set your own fasting/feeding windows' },
+];
+
+// Common supplements grouped by category
+const COMMON_SUPPLEMENTS: { category: string; items: string[] }[] = [
+  { category: 'Protein & Amino Acids', items: ['Whey Protein', 'Casein Protein', 'Plant Protein', 'EAA (Essential Amino Acids)', 'BCAA', 'Collagen Peptides'] },
+  { category: 'Performance', items: ['Creatine Monohydrate', 'Beta-Alanine', 'Caffeine', 'Citrulline Malate', 'Pre-Workout Blend', 'Carb Powder (Cluster Dextrin/Cyclic Dextrin)'] },
+  { category: 'Health & Recovery', items: ['Fish Oil / Omega-3', 'Vitamin D3', 'Magnesium', 'Zinc', 'Multivitamin', 'Probiotic', 'Ashwagandha', 'Turmeric / Curcumin'] },
+  { category: 'Electrolytes & Hydration', items: ['Electrolyte Mix', 'Sodium / Salt Tabs', 'Potassium'] },
+  { category: 'Digestive', items: ['Digestive Enzymes', 'Fiber Supplement', 'Glutamine'] },
+  { category: 'Sleep & Stress', items: ['Melatonin', 'Magnesium Glycinate', 'Theanine', 'GABA'] },
+];
+
+const SUPPLEMENT_TIMING_OPTIONS: { value: SupplementTiming; label: string }[] = [
+  { value: 'morning', label: 'Morning' },
+  { value: 'pre_workout', label: 'Pre-Workout' },
+  { value: 'intra_workout', label: 'Intra-Workout' },
+  { value: 'post_workout', label: 'Post-Workout' },
+  { value: 'with_meals', label: 'With Meals' },
+  { value: 'before_bed', label: 'Before Bed' },
+  { value: 'as_needed', label: 'As Needed' },
+];
+
+const PERI_WORKOUT_OPTIONS: { value: PeriWorkoutPreference; label: string; description: string }[] = [
+  { value: 'full_meal', label: 'Full Meal', description: 'Solid meal 1-2h before/after' },
+  { value: 'light_snack', label: 'Light Snack/Shake', description: 'Quick snack or shake 30-60 min' },
+  { value: 'supplement_only', label: 'Supplement Only', description: 'EAA, protein, or carb supplement' },
+  { value: 'fasted', label: 'Fasted / Delayed', description: 'No food near training window' },
+  { value: 'flexible', label: 'Flexible', description: 'No strong preference' },
 ];
 
 // Quick setup templates for meals
@@ -656,6 +691,25 @@ export default function SetupPage() {
         setActivityLevel(userProfile.activityLevel);
       }
       
+      // Workout settings
+      if (userProfile.workoutsPerWeek !== undefined) {
+        setWorkoutsPerWeek(userProfile.workoutsPerWeek);
+      }
+      if (userProfile.workoutDefaults) {
+        const wd = userProfile.workoutDefaults;
+        if (wd.type) setDefaultWorkoutType(wd.type);
+        if (wd.timeSlot) setDefaultTimeSlot(wd.timeSlot);
+        if (wd.duration) setDefaultDuration(wd.duration);
+        if (wd.intensity) setDefaultIntensity(wd.intensity);
+      }
+      
+      // Section notes
+      if (userProfile.scheduleNotes) setScheduleNotes(userProfile.scheduleNotes);
+      if (userProfile.workoutNotes) setWorkoutNotes(userProfile.workoutNotes);
+      
+      // Supplements
+      if (userProfile.supplements?.length) setSupplements(userProfile.supplements);
+      
       // Diet preferences
       if (dietPreferences.dietaryRestrictions?.length) {
         setSelectedRestrictions(dietPreferences.dietaryRestrictions);
@@ -921,6 +975,17 @@ export default function SetupPage() {
   const [includePreWorkoutSnack, setIncludePreWorkoutSnack] = useState(true);
   const [includePostWorkoutMeal, setIncludePostWorkoutMeal] = useState(true);
   const [energyDistribution, setEnergyDistribution] = useState<'front_loaded' | 'steady' | 'back_loaded' | 'workout_focused'>('steady');
+  const [preWorkoutPreference, setPreWorkoutPreference] = useState<PeriWorkoutPreference>('light_snack');
+  const [postWorkoutPreference, setPostWorkoutPreference] = useState<PeriWorkoutPreference>('full_meal');
+  const [periWorkoutNotes, setPeriWorkoutNotes] = useState('');
+  
+  // Section notes
+  const [scheduleNotes, setScheduleNotes] = useState('');
+  const [workoutNotes, setWorkoutNotes] = useState('');
+  
+  // Supplements
+  const [supplements, setSupplements] = useState<SupplementEntry[]>([]);
+  const [newSupplementName, setNewSupplementName] = useState('');
 
   // ============ DIET PREFERENCES STATE ============
   const [selectedRestrictions, setSelectedRestrictions] = useState<string[]>([]);
@@ -1564,7 +1629,7 @@ export default function SetupPage() {
       return;
     }
     
-    // Save user profile with metabolic assessment
+    // Save user profile with metabolic assessment and workout defaults
     setUserProfile({
       name: name.trim(),
       gender,
@@ -1578,6 +1643,15 @@ export default function SetupPage() {
       workoutsPerWeek,
       activityLevel,
       rmr: finalRMR,
+      workoutDefaults: {
+        type: defaultWorkoutType,
+        timeSlot: defaultTimeSlot,
+        duration: defaultDuration,
+        intensity: defaultIntensity,
+      },
+      scheduleNotes: scheduleNotes || undefined,
+      workoutNotes: workoutNotes || undefined,
+      supplements: supplements.length > 0 ? supplements : undefined,
       metabolicAssessment: {
         useMeasuredRMR,
         measuredRMR: useMeasuredRMR ? measuredRMR : undefined,
@@ -1701,6 +1775,15 @@ export default function SetupPage() {
         workoutsPerWeek,
         activityLevel,
         rmr: finalRMR,
+        workoutDefaults: {
+          type: defaultWorkoutType,
+          timeSlot: defaultTimeSlot,
+          duration: defaultDuration,
+          intensity: defaultIntensity,
+        },
+        scheduleNotes: scheduleNotes || undefined,
+        workoutNotes: workoutNotes || undefined,
+        supplements: supplements.length > 0 ? supplements : undefined,
         metabolicAssessment: {
           useMeasuredRMR,
           measuredRMR: useMeasuredRMR ? measuredRMR : undefined,
@@ -2962,6 +3045,22 @@ export default function SetupPage() {
                     </Card>
                     </div>
 
+                    {/* Schedule Notes */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <StickyNote className="h-3.5 w-3.5" />
+                        Schedule Notes
+                        <Badge variant="outline" className="text-[10px]">Optional</Badge>
+                      </Label>
+                      <Textarea
+                        value={scheduleNotes}
+                        onChange={(e) => setScheduleNotes(e.target.value)}
+                        placeholder="Any relevant notes about their sleep/work routine, shift patterns, travel schedule, etc."
+                        className="min-h-[60px] resize-none text-sm"
+                        rows={2}
+                      />
+                    </div>
+
                     {/* Workout Defaults */}
                     <Card className="border-0 shadow-sm">
                       <CardHeader className="pb-4">
@@ -3107,6 +3206,22 @@ export default function SetupPage() {
                         </RadioGroup>
                       </CardContent>
                     </Card>
+
+                    {/* Workout & Activity Notes */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <StickyNote className="h-3.5 w-3.5" />
+                        Workout & Activity Notes
+                        <Badge variant="outline" className="text-[10px]">Optional</Badge>
+                      </Label>
+                      <Textarea
+                        value={workoutNotes}
+                        onChange={(e) => setWorkoutNotes(e.target.value)}
+                        placeholder="Any relevant context about their training history, injury considerations, movement limitations, daily activity patterns, commute (walks/bikes), hobbies, etc."
+                        className="min-h-[60px] resize-none text-sm"
+                        rows={2}
+                      />
+                    </div>
 
                     {/* Zone-Based Calorie Data */}
                     <Card>
@@ -3321,7 +3436,7 @@ export default function SetupPage() {
                           Affects how macros are distributed and meal complexity. More meals = smaller portions, better for muscle gain. Fewer meals = larger portions, often easier for fat loss.
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="space-y-6">
                         <div className="grid grid-cols-2 gap-6">
                           <div className="space-y-2">
                             <Label>Meals Per Day</Label>
@@ -3365,21 +3480,159 @@ export default function SetupPage() {
                             ~{Math.round(100 / (mealsPerDay + snacksPerDay))}% calories each
                           </Badge>
                         </div>
+
+                        <Separator />
+
+                        {/* Individual Meal Settings - moved here for natural conversation flow */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">Individual Meal Settings</Label>
+                            <Badge variant="outline" className="text-xs">Optional</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Expand each meal to customize settings and add notes about what the client typically does for that meal.
+                          </p>
+                          
+                          <Accordion type="multiple" className="w-full">
+                            {mealContexts.map((meal) => (
+                              <AccordionItem key={meal.id} value={meal.id} className="border rounded-lg mb-2 px-3">
+                                <AccordionTrigger className="hover:no-underline py-3">
+                                  <div className="flex items-center gap-3 text-left">
+                                    <div className={cn(
+                                      "p-1.5 rounded",
+                                      meal.type === 'meal' ? "bg-[#c19962]/20" : "bg-muted"
+                                    )}>
+                                      {meal.type === 'meal' ? (
+                                        <Utensils className="h-3.5 w-3.5 text-[#c19962]" />
+                                      ) : (
+                                        <Coffee className="h-3.5 w-3.5 text-muted-foreground" />
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium text-sm">{meal.label}</span>
+                                      <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                        <span>{MEAL_PREP_METHODS.find(m => m.value === meal.prepMethod)?.label}</span>
+                                        <span>•</span>
+                                        <span>{meal.timeRange}</span>
+                                        <span>•</span>
+                                        <span>{MEAL_LOCATIONS.find(l => l.value === meal.location)?.label}</span>
+                                        {meal.clientNotes && (
+                                          <>
+                                            <span>•</span>
+                                            <MessageSquare className="h-2.5 w-2.5" />
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pb-4 pt-2 space-y-3">
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div className="space-y-1.5">
+                                      <Label className="text-xs text-muted-foreground">Prep Method</Label>
+                                      <Select 
+                                        value={meal.prepMethod}
+                                        onValueChange={(v) => updateMealContext(meal.id, 'prepMethod', v)}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" sideOffset={4} align="start">
+                                          {MEAL_PREP_METHODS.map((method) => (
+                                            <SelectItem key={method.value} value={method.value} className="text-xs">
+                                              {method.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <Label className="text-xs text-muted-foreground">Prep Time</Label>
+                                      <Select 
+                                        value={meal.prepTime}
+                                        onValueChange={(v) => updateMealContext(meal.id, 'prepTime', v)}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" sideOffset={4} align="start">
+                                          {PREP_TIMES.map((time) => (
+                                            <SelectItem key={time} value={time} className="text-xs">{time}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <Label className="text-xs text-muted-foreground">Location</Label>
+                                      <Select 
+                                        value={meal.location}
+                                        onValueChange={(v) => updateMealContext(meal.id, 'location', v)}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" sideOffset={4} align="start">
+                                          {MEAL_LOCATIONS.map((loc) => (
+                                            <SelectItem key={loc.value} value={loc.value} className="text-xs">
+                                              {loc.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <Label className="text-xs text-muted-foreground">Time Window</Label>
+                                      <Select 
+                                        value={meal.timeRange}
+                                        onValueChange={(v) => updateMealContext(meal.id, 'timeRange', v)}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" sideOffset={4} align="start">
+                                          {MEAL_TIME_RANGES.map((range) => (
+                                            <SelectItem key={range} value={range} className="text-xs">{range}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+                                  {/* Client notes for this meal */}
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                                      <MessageSquare className="h-3 w-3" />
+                                      What does the client normally do for this {meal.type}?
+                                    </Label>
+                                    <Textarea
+                                      value={meal.clientNotes || ''}
+                                      onChange={(e) => updateMealContext(meal.id, 'clientNotes', e.target.value)}
+                                      placeholder={meal.type === 'meal'
+                                        ? `e.g., "Usually grabs a burrito bowl from Chipotle" or "Skips this meal most days" or "Makes overnight oats the night before"`
+                                        : `e.g., "Usually has a protein bar from the vending machine" or "Trail mix from home"`}
+                                      className="min-h-[50px] resize-none text-xs"
+                                      rows={2}
+                                    />
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            ))}
+                          </Accordion>
+                        </div>
                       </CardContent>
                     </Card>
 
-                    {/* Nutrient Timing */}
+                    {/* Nutrient Timing Preferences */}
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <Zap className="h-5 w-5 text-[#c19962]" />
-                          Nutrient Timing
+                          Nutrient Timing Preferences
                         </CardTitle>
                         <CardDescription>
                           How calories are distributed through the day. Evidence shows timing matters most for athletes and during aggressive diets.
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="space-y-6">
                         <div className="space-y-2">
                           <Label>Energy Distribution Pattern</Label>
                           <RadioGroup
@@ -3432,35 +3685,94 @@ export default function SetupPage() {
 
                         <Separator />
 
-                        <div className="space-y-3">
-                          <Label className="text-sm font-medium">Workout Nutrition</Label>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className={cn(
-                              "flex items-center justify-between p-3 border rounded-lg transition-all",
-                              includePreWorkoutSnack ? "border-[#c19962]/50 bg-[#c19962]/5" : ""
-                            )}>
-                              <div>
-                                <Label className="text-sm">Pre-Workout Fuel</Label>
-                                <p className="text-xs text-muted-foreground">30-60 min before training</p>
+                        {/* Peri-Workout Nutrition Preferences */}
+                        <div className="space-y-4">
+                          <div>
+                            <Label className="text-sm font-medium">Peri-Workout Nutrition Preferences</Label>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Positioning carbohydrate and protein around training windows is generally recommended to support performance and recovery. These preferences help us design plans that respect the client&apos;s comfort while optimizing nutrient timing.
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Pre-Workout */}
+                            <div className="space-y-2 p-3 border rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-medium">Pre-Workout</Label>
+                                <Switch
+                                  checked={includePreWorkoutSnack}
+                                  onCheckedChange={setIncludePreWorkoutSnack}
+                                />
                               </div>
-                              <Switch
-                                checked={includePreWorkoutSnack}
-                                onCheckedChange={setIncludePreWorkoutSnack}
-                              />
+                              {includePreWorkoutSnack && (
+                                <Select value={preWorkoutPreference} onValueChange={(v) => setPreWorkoutPreference(v as PeriWorkoutPreference)}>
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent position="popper" sideOffset={4} align="start">
+                                    {PERI_WORKOUT_OPTIONS.filter(o => o.value !== 'fasted').map(opt => (
+                                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                        <span className="font-medium">{opt.label}</span>
+                                        <span className="text-muted-foreground ml-1">— {opt.description}</span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                              {!includePreWorkoutSnack && (
+                                <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
+                                  Client prefers fasted training. We&apos;ll recommend hydration + EAA/creatine supplement and ensure adequate nutrition in surrounding meals.
+                                </p>
+                              )}
                             </div>
-                            <div className={cn(
-                              "flex items-center justify-between p-3 border rounded-lg transition-all",
-                              includePostWorkoutMeal ? "border-[#c19962]/50 bg-[#c19962]/5" : ""
-                            )}>
-                              <div>
-                                <Label className="text-sm">Post-Workout Recovery</Label>
-                                <p className="text-xs text-muted-foreground">Within 2 hours after</p>
+
+                            {/* Post-Workout */}
+                            <div className="space-y-2 p-3 border rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-medium">Post-Workout</Label>
+                                <Switch
+                                  checked={includePostWorkoutMeal}
+                                  onCheckedChange={setIncludePostWorkoutMeal}
+                                />
                               </div>
-                              <Switch
-                                checked={includePostWorkoutMeal}
-                                onCheckedChange={setIncludePostWorkoutMeal}
-                              />
+                              {includePostWorkoutMeal && (
+                                <Select value={postWorkoutPreference} onValueChange={(v) => setPostWorkoutPreference(v as PeriWorkoutPreference)}>
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent position="popper" sideOffset={4} align="start">
+                                    {PERI_WORKOUT_OPTIONS.filter(o => o.value !== 'fasted').map(opt => (
+                                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                        <span className="font-medium">{opt.label}</span>
+                                        <span className="text-muted-foreground ml-1">— {opt.description}</span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                              {!includePostWorkoutMeal && (
+                                <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded">
+                                  Client prefers delayed post-workout eating. We&apos;ll emphasize protein and carb intake in the next scheduled meal.
+                                </p>
+                              )}
                             </div>
+                          </div>
+
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-xs text-blue-800">
+                              <strong>Guidance:</strong> Even when fasted training is preferred, we generally recommend the client stays hydrated and considers EAAs, creatine, and/or a light carb source that is easy on digestion to support performance and minimize muscle protein breakdown. Post-training, prioritizing protein (25-40g) and carbohydrate is ideal within 1-2 hours.
+                            </p>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Peri-Workout Notes</Label>
+                            <Textarea
+                              value={periWorkoutNotes}
+                              onChange={(e) => setPeriWorkoutNotes(e.target.value)}
+                              placeholder="e.g., 'Gets nauseous eating within 1h of training', 'Prefers liquid calories post-workout', 'Currently uses Kion Aminos pre-training'"
+                              className="min-h-[50px] resize-none text-xs"
+                              rows={2}
+                            />
                           </div>
                         </div>
                       </CardContent>
@@ -3548,198 +3860,258 @@ export default function SetupPage() {
                       </CardContent>
                     </Card>
 
-                    {/* Meal Prep Context */}
+                    {/* Meal Prep Defaults */}
                     <Card className="border-0 shadow-sm">
                       <CardHeader className="pb-4">
                         <CardTitle className="flex items-center gap-2 text-lg">
                           <ChefHat className="h-5 w-5 text-[#c19962]" />
-                          Meal Preparation
+                          Meal Preparation Defaults
                         </CardTitle>
+                        <CardDescription>
+                          Applies to all meals by default. Individual meals can be customized in the Daily Meal Structure section above.
+                        </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-6">
-                        {/* Default Settings */}
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium">Default Settings</Label>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p>Applies to all meals. Customize individual meals below if needed.</p>
-                              </TooltipContent>
-                            </Tooltip>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Meal Prep Method</Label>
+                            <Select value={defaultMealPrepMethod} onValueChange={(v) => setDefaultMealPrepMethod(v as MealPrepMethod)}>
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent position="popper" sideOffset={4} align="start">
+                                {MEAL_PREP_METHODS.map(pm => (
+                                  <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">Meal Prep Method</Label>
-                              <Select value={defaultMealPrepMethod} onValueChange={(v) => setDefaultMealPrepMethod(v as MealPrepMethod)}>
-                                <SelectTrigger className="h-9">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4} align="start">
-                                  {MEAL_PREP_METHODS.map(pm => (
-                                    <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">Meal Location</Label>
-                              <Select value={defaultMealLocation} onValueChange={(v) => setDefaultMealLocation(v as MealLocation)}>
-                                <SelectTrigger className="h-9">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4} align="start">
-                                  {MEAL_LOCATIONS.map(loc => (
-                                    <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">Snack Prep</Label>
-                              <Select value={defaultSnackPrepMethod} onValueChange={(v) => setDefaultSnackPrepMethod(v as MealPrepMethod)}>
-                                <SelectTrigger className="h-9">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4} align="start">
-                                  {MEAL_PREP_METHODS.map(pm => (
-                                    <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">Snack Location</Label>
-                              <Select value={defaultSnackLocation} onValueChange={(v) => setDefaultSnackLocation(v as MealLocation)}>
-                                <SelectTrigger className="h-9">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4} align="start">
-                                  {MEAL_LOCATIONS.map(loc => (
-                                    <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Meal Location</Label>
+                            <Select value={defaultMealLocation} onValueChange={(v) => setDefaultMealLocation(v as MealLocation)}>
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent position="popper" sideOffset={4} align="start">
+                                {MEAL_LOCATIONS.map(loc => (
+                                  <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Snack Prep</Label>
+                            <Select value={defaultSnackPrepMethod} onValueChange={(v) => setDefaultSnackPrepMethod(v as MealPrepMethod)}>
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent position="popper" sideOffset={4} align="start">
+                                {MEAL_PREP_METHODS.map(pm => (
+                                  <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Snack Location</Label>
+                            <Select value={defaultSnackLocation} onValueChange={(v) => setDefaultSnackLocation(v as MealLocation)}>
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent position="popper" sideOffset={4} align="start">
+                                {MEAL_LOCATIONS.map(loc => (
+                                  <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
-                        
-                        <Separator />
-                        
-                        {/* Per-Meal Customization */}
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium">Individual Meal Settings</Label>
-                            <Badge variant="outline" className="text-xs">Optional customization</Badge>
+                      </CardContent>
+                    </Card>
+
+                    {/* Supplements */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Pill className="h-5 w-5 text-[#c19962]" />
+                          Supplements
+                          <Badge variant="outline" className="text-xs">Optional</Badge>
+                        </CardTitle>
+                        <CardDescription>
+                          Track current supplements and timing preferences. This informs meal plan generation and nutrient timing. Supplements detected in Cronometer will be noted for reference.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {/* Quick-add from common supplements */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Add from Common Supplements</Label>
+                          <div className="space-y-3">
+                            {COMMON_SUPPLEMENTS.map((category) => (
+                              <div key={category.category}>
+                                <p className="text-xs font-medium text-muted-foreground mb-1.5">{category.category}</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {category.items.map((item) => {
+                                    const isAdded = supplements.some(s => s.name === item);
+                                    return (
+                                      <button
+                                        key={item}
+                                        type="button"
+                                        onClick={() => {
+                                          if (isAdded) {
+                                            setSupplements(prev => prev.filter(s => s.name !== item));
+                                          } else {
+                                            setSupplements(prev => [...prev, { name: item, timing: ['as_needed'] }]);
+                                          }
+                                        }}
+                                        className={cn(
+                                          "px-2 py-1 text-xs rounded-full border transition-all",
+                                          isAdded
+                                            ? "bg-[#c19962] text-white border-[#c19962]"
+                                            : "hover:border-[#c19962]/50 hover:bg-[#c19962]/5"
+                                        )}
+                                      >
+                                        {isAdded ? '✓ ' : ''}{item}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            Expand each meal to override defaults. This helps when different meals have different contexts (e.g., lunch at office, dinner at home).
-                          </p>
-                          
-                          <Accordion type="multiple" className="w-full">
-                            {mealContexts.map((meal) => (
-                              <AccordionItem key={meal.id} value={meal.id} className="border rounded-lg mb-2 px-3">
-                                <AccordionTrigger className="hover:no-underline py-3">
-                                  <div className="flex items-center gap-3 text-left">
-                                    <div className={cn(
-                                      "p-1.5 rounded",
-                                      meal.type === 'meal' ? "bg-[#c19962]/20" : "bg-muted"
-                                    )}>
-                                      {meal.type === 'meal' ? (
-                                        <Utensils className="h-3.5 w-3.5 text-[#c19962]" />
-                                      ) : (
-                                        <Coffee className="h-3.5 w-3.5 text-muted-foreground" />
-                                      )}
+                        </div>
+
+                        {/* Custom supplement entry */}
+                        <div className="flex gap-2">
+                          <Input
+                            value={newSupplementName}
+                            onChange={(e) => setNewSupplementName(e.target.value)}
+                            placeholder="Add custom supplement..."
+                            className="flex-1 h-9 text-sm"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && newSupplementName.trim()) {
+                                e.preventDefault();
+                                if (!supplements.some(s => s.name.toLowerCase() === newSupplementName.trim().toLowerCase())) {
+                                  setSupplements(prev => [...prev, { name: newSupplementName.trim(), timing: ['as_needed'] }]);
+                                }
+                                setNewSupplementName('');
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9"
+                            onClick={() => {
+                              if (newSupplementName.trim() && !supplements.some(s => s.name.toLowerCase() === newSupplementName.trim().toLowerCase())) {
+                                setSupplements(prev => [...prev, { name: newSupplementName.trim(), timing: ['as_needed'] }]);
+                                setNewSupplementName('');
+                              }
+                            }}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        {/* Active supplements list with timing */}
+                        {supplements.length > 0 && (
+                          <>
+                            <Separator />
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium">Active Supplements ({supplements.length})</Label>
+                              <div className="space-y-2">
+                                {supplements.map((supp, idx) => (
+                                  <div key={supp.name} className="p-3 border rounded-lg space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <Pill className="h-3.5 w-3.5 text-[#c19962]" />
+                                        <span className="font-medium text-sm">{supp.name}</span>
+                                        {supp.detectedFromCronometer && (
+                                          <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700">Cronometer</Badge>
+                                        )}
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500"
+                                        onClick={() => setSupplements(prev => prev.filter((_, i) => i !== idx))}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
                                     </div>
-                                    <div>
-                                      <span className="font-medium text-sm">{meal.label}</span>
-                                      <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                                        <span>{MEAL_PREP_METHODS.find(m => m.value === meal.prepMethod)?.label}</span>
-                                        <span>•</span>
-                                        <span>{meal.timeRange}</span>
-                                        <span>•</span>
-                                        <span>{MEAL_LOCATIONS.find(l => l.value === meal.location)?.label}</span>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div className="space-y-1">
+                                        <Label className="text-[10px] text-muted-foreground">Dosage</Label>
+                                        <Input
+                                          value={supp.dosage || ''}
+                                          onChange={(e) => {
+                                            const updated = [...supplements];
+                                            updated[idx] = { ...updated[idx], dosage: e.target.value };
+                                            setSupplements(updated);
+                                          }}
+                                          placeholder="e.g., 5g, 2 caps"
+                                          className="h-7 text-xs"
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Label className="text-[10px] text-muted-foreground">Notes</Label>
+                                        <Input
+                                          value={supp.notes || ''}
+                                          onChange={(e) => {
+                                            const updated = [...supplements];
+                                            updated[idx] = { ...updated[idx], notes: e.target.value };
+                                            setSupplements(updated);
+                                          }}
+                                          placeholder="Brand, purpose, link..."
+                                          className="h-7 text-xs"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-[10px] text-muted-foreground">Timing</Label>
+                                      <div className="flex flex-wrap gap-1">
+                                        {SUPPLEMENT_TIMING_OPTIONS.map((opt) => {
+                                          const isSelected = supp.timing.includes(opt.value);
+                                          return (
+                                            <button
+                                              key={opt.value}
+                                              type="button"
+                                              onClick={() => {
+                                                const updated = [...supplements];
+                                                const currentTimings = updated[idx].timing;
+                                                updated[idx] = {
+                                                  ...updated[idx],
+                                                  timing: isSelected
+                                                    ? currentTimings.filter(t => t !== opt.value)
+                                                    : [...currentTimings, opt.value],
+                                                };
+                                                setSupplements(updated);
+                                              }}
+                                              className={cn(
+                                                "px-2 py-0.5 text-[10px] rounded-full border transition-all",
+                                                isSelected
+                                                  ? "bg-[#c19962]/20 border-[#c19962] text-[#c19962] font-medium"
+                                                  : "hover:border-[#c19962]/30"
+                                              )}
+                                            >
+                                              {opt.label}
+                                            </button>
+                                          );
+                                        })}
                                       </div>
                                     </div>
                                   </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="pb-4 pt-2">
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    <div className="space-y-1.5">
-                                      <Label className="text-xs text-muted-foreground">Prep Method</Label>
-                                      <Select 
-                                        value={meal.prepMethod}
-                                        onValueChange={(v) => updateMealContext(meal.id, 'prepMethod', v)}
-                                      >
-                                        <SelectTrigger className="h-8 text-xs">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent position="popper" sideOffset={4} align="start">
-                                          {MEAL_PREP_METHODS.map((method) => (
-                                            <SelectItem key={method.value} value={method.value} className="text-xs">
-                                              {method.label}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                      <Label className="text-xs text-muted-foreground">Prep Time</Label>
-                                      <Select 
-                                        value={meal.prepTime}
-                                        onValueChange={(v) => updateMealContext(meal.id, 'prepTime', v)}
-                                      >
-                                        <SelectTrigger className="h-8 text-xs">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent position="popper" sideOffset={4} align="start">
-                                          {PREP_TIMES.map((time) => (
-                                            <SelectItem key={time} value={time} className="text-xs">{time}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                      <Label className="text-xs text-muted-foreground">Location</Label>
-                                      <Select 
-                                        value={meal.location}
-                                        onValueChange={(v) => updateMealContext(meal.id, 'location', v)}
-                                      >
-                                        <SelectTrigger className="h-8 text-xs">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent position="popper" sideOffset={4} align="start">
-                                          {MEAL_LOCATIONS.map((loc) => (
-                                            <SelectItem key={loc.value} value={loc.value} className="text-xs">
-                                              {loc.label}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                      <Label className="text-xs text-muted-foreground">Time Window</Label>
-                                      <Select 
-                                        value={meal.timeRange}
-                                        onValueChange={(v) => updateMealContext(meal.id, 'timeRange', v)}
-                                      >
-                                        <SelectTrigger className="h-8 text-xs">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent position="popper" sideOffset={4} align="start">
-                                          {MEAL_TIME_RANGES.map((range) => (
-                                            <SelectItem key={range} value={range} className="text-xs">{range}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                  </div>
-                                </AccordionContent>
-                              </AccordionItem>
-                            ))}
-                          </Accordion>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        <div className="p-3 bg-muted/50 rounded-lg">
+                          <p className="text-xs text-muted-foreground">
+                            <strong>Tip:</strong> We commonly recommend supplements via our FullScript, Amazon affiliate, and Kion affiliate accounts. Include any relevant links in the notes field for easy reference.
+                          </p>
                         </div>
                       </CardContent>
                     </Card>

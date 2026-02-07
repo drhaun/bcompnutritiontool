@@ -113,6 +113,18 @@ interface MealSlotCardProps {
   onBrowseRecipes?: (slotIndex: number) => void;
   isGenerating: boolean;
   isGeneratingNote: boolean;
+  // Cronometer adaptive mode
+  currentPattern?: {
+    mealGroup: string;
+    commonFoods: { name: string; serving: string; frequency: number }[];
+    avgMacros: Macros;
+    daysSampled: number;
+  };
+  adaptiveTips?: { tips: string[]; summary: string; macroGap: Macros } | null;
+  onGetTips?: (slotIndex: number) => Promise<void>;
+  onGenerateImproved?: (slotIndex: number) => Promise<void>;
+  isGeneratingTips?: boolean;
+  isGeneratingImproved?: boolean;
 }
 
 export function MealSlotCard({
@@ -128,10 +140,18 @@ export function MealSlotCard({
   onBrowseRecipes,
   isGenerating,
   isGeneratingNote,
+  // Cronometer adaptive
+  currentPattern,
+  adaptiveTips,
+  onGetTips,
+  onGenerateImproved,
+  isGeneratingTips,
+  isGeneratingImproved,
 }: MealSlotCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [showRecommendations, setShowRecommendations] = useState(false);
+  const [showPattern, setShowPattern] = useState(true);
   const [noteValue, setNoteValue] = useState(slot.meal?.staffNote || '');
   
   const hasMeal = slot.meal !== null;
@@ -347,13 +367,103 @@ export function MealSlotCard({
             </Badge>
           )}
           
-          {isGenerating ? (
+          {/* Cronometer Current Pattern (empty slot) */}
+          {currentPattern && currentPattern.commonFoods.length > 0 && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50/60 p-2.5">
+              <button
+                type="button"
+                className="flex items-center justify-between w-full text-left"
+                onClick={() => setShowPattern(!showPattern)}
+              >
+                <span className="text-xs font-medium text-amber-800 flex items-center gap-1">
+                  <Utensils className="h-3 w-3" />
+                  Current Pattern ({currentPattern.daysSampled} days)
+                </span>
+                {showPattern ? <ChevronUp className="h-3 w-3 text-amber-600" /> : <ChevronDown className="h-3 w-3 text-amber-600" />}
+              </button>
+              {showPattern && (
+                <div className="mt-2 space-y-1.5">
+                  <div className="text-[10px] text-amber-700 space-y-0.5">
+                    {currentPattern.commonFoods.slice(0, 5).map((f, i) => (
+                      <div key={i} className="flex justify-between">
+                        <span className="truncate mr-2">{f.name}</span>
+                        <span className="shrink-0 text-amber-500">{f.frequency}/{currentPattern.daysSampled}d</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[10px] text-amber-700 pt-1 border-t border-amber-200">
+                    Avg: {currentPattern.avgMacros.calories} cal | {currentPattern.avgMacros.protein}g P | {currentPattern.avgMacros.carbs}g C | {currentPattern.avgMacros.fat}g F
+                  </div>
+                  {/* Macro gap vs target */}
+                  <div className="text-[10px] font-medium text-amber-800">
+                    Gap: {(() => {
+                      const gaps = [];
+                      const cd = currentPattern.avgMacros.calories - slot.targetMacros.calories;
+                      const pd = currentPattern.avgMacros.protein - slot.targetMacros.protein;
+                      if (Math.abs(cd) > 30) gaps.push(`${cd > 0 ? '+' : ''}${Math.round(cd)} cal`);
+                      if (Math.abs(pd) > 3) gaps.push(`${pd > 0 ? '+' : ''}${Math.round(pd)}g P`);
+                      return gaps.length ? gaps.join(', ') : 'Close to target';
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Adaptive Tips Display (empty slot) */}
+          {adaptiveTips && (
+            <div className="mb-3 rounded-lg border border-green-200 bg-green-50/60 p-2.5">
+              <p className="text-xs font-medium text-green-800 mb-1.5">
+                <Lightbulb className="h-3 w-3 inline mr-1" />
+                Coaching Tips
+              </p>
+              <p className="text-[10px] text-green-700 mb-1.5 italic">{adaptiveTips.summary}</p>
+              <ol className="text-[10px] text-green-800 space-y-1 list-decimal list-inside">
+                {adaptiveTips.tips.map((tip, i) => (
+                  <li key={i}>{tip}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {isGenerating || isGeneratingImproved ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="h-6 w-6 animate-spin text-[#c19962]" />
-              <span className="ml-2 text-sm text-muted-foreground">Generating meal...</span>
+              <span className="ml-2 text-sm text-muted-foreground">
+                {isGeneratingImproved ? 'Generating improved meal...' : 'Generating meal...'}
+              </span>
             </div>
           ) : (
             <div className="space-y-2">
+              {/* Cronometer adaptive actions */}
+              {currentPattern && currentPattern.commonFoods.length > 0 && (
+                <div className="flex gap-2">
+                  {onGetTips && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 border-amber-300 text-amber-700 hover:bg-amber-50"
+                      onClick={() => onGetTips(slot.slotIndex)}
+                      disabled={isGeneratingTips}
+                    >
+                      {isGeneratingTips ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5 mr-1" />}
+                      Get Tips
+                    </Button>
+                  )}
+                  {onGenerateImproved && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 border-amber-300 text-amber-700 hover:bg-amber-50"
+                      onClick={() => onGenerateImproved(slot.slotIndex)}
+                      disabled={isGeneratingImproved}
+                    >
+                      <Sparkles className="h-3.5 w-3.5 mr-1" />
+                      Improve Current
+                    </Button>
+                  )}
+                </div>
+              )}
               {/* Primary: Browse Curated Recipes */}
               {onBrowseRecipes && (
                 <Button 
@@ -436,11 +546,64 @@ export function MealSlotCard({
       </CardHeader>
       
       <CardContent className="pt-0">
-        {/* Meal Name & Time */}
-        <div className="flex items-center justify-between mb-2">
-          <p className="font-semibold text-[#00263d]">{filledMeal.name}</p>
-          <span className="text-xs text-muted-foreground">{filledMeal.time} • {filledMeal.prepTime}</span>
+        {/* Meal Name & Prep Time */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <p className="font-semibold text-[#00263d] truncate min-w-0">{filledMeal.name}</p>
+          {filledMeal.prepTime && (
+            <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">~{filledMeal.prepTime} prep</span>
+          )}
         </div>
+
+        {/* Adaptive Context - shows what changed from current pattern */}
+        {filledMeal.adaptiveContext && (
+          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50/50 p-2.5 text-xs">
+            <p className="font-medium text-amber-800 mb-1">
+              <Lightbulb className="h-3 w-3 inline mr-1" />
+              Adapted from current pattern ({filledMeal.adaptiveContext.basedOnDays} days)
+            </p>
+            <p className="text-amber-700 text-[11px] mb-1.5">{filledMeal.adaptiveContext.whatChanged}</p>
+            {filledMeal.adaptiveContext.keptFoods.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-1">
+                {filledMeal.adaptiveContext.keptFoods.map((f, i) => (
+                  <Badge key={i} variant="outline" className="text-[10px] h-4 bg-green-50 border-green-200 text-green-700">
+                    {f}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {filledMeal.adaptiveContext.swappedFoods.length > 0 && (
+              <div className="text-[10px] text-amber-600 space-y-0.5">
+                {filledMeal.adaptiveContext.swappedFoods.map((s, i) => (
+                  <div key={i}>{s.from} → {s.to}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Cronometer Pattern context (filled slot) */}
+        {currentPattern && currentPattern.commonFoods.length > 0 && !filledMeal.adaptiveContext && (
+          <div className="mb-2 rounded border border-amber-200/60 bg-amber-50/30 px-2 py-1.5">
+            <button
+              type="button"
+              className="flex items-center justify-between w-full text-left"
+              onClick={() => setShowPattern(!showPattern)}
+            >
+              <span className="text-[10px] text-amber-700 flex items-center gap-1">
+                <Utensils className="h-2.5 w-2.5" />
+                Current pattern: {currentPattern.avgMacros.calories} cal | {currentPattern.avgMacros.protein}g P
+              </span>
+              {showPattern ? <ChevronUp className="h-2.5 w-2.5 text-amber-500" /> : <ChevronDown className="h-2.5 w-2.5 text-amber-500" />}
+            </button>
+            {showPattern && (
+              <div className="mt-1 text-[10px] text-amber-600 space-y-0.5">
+                {currentPattern.commonFoods.slice(0, 4).map((f, i) => (
+                  <div key={i} className="truncate">{f.name} ({f.serving})</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         
         {/* Enhanced Macros Summary with Variance */}
         <TooltipProvider delayDuration={100}>

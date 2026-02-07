@@ -206,6 +206,36 @@ export default function SchedulePage() {
 
   // ============ EFFECTS ============
 
+  // Restore workout defaults from user profile (saved during setup)
+  useEffect(() => {
+    if (!isHydrated) return;
+    if (userProfile.workoutsPerWeek !== undefined) {
+      setWorkoutsPerWeek(userProfile.workoutsPerWeek);
+    }
+    if (userProfile.workoutDefaults) {
+      const wd = userProfile.workoutDefaults;
+      if (wd.type) setDefaultWorkoutType(wd.type);
+      if (wd.timeSlot) setDefaultTimeSlot(wd.timeSlot);
+      if (wd.duration) setDefaultDuration(wd.duration);
+      if (wd.intensity) setDefaultIntensity(wd.intensity);
+    }
+    // Restore schedule from weeklySchedule if available
+    const mondaySchedule = weeklySchedule?.Monday;
+    if (mondaySchedule) {
+      if (mondaySchedule.wakeTime) setWakeTime(mondaySchedule.wakeTime);
+      if (mondaySchedule.sleepTime) setBedTime(mondaySchedule.sleepTime);
+      if (mondaySchedule.workStartTime) {
+        setWorkStartTime(mondaySchedule.workStartTime);
+        setWorkType('office');
+      }
+      if (mondaySchedule.workEndTime) setWorkEndTime(mondaySchedule.workEndTime);
+      if (mondaySchedule.mealCount !== undefined) setMealsPerDay(mondaySchedule.mealCount);
+      if (mondaySchedule.snackCount !== undefined) setSnacksPerDay(mondaySchedule.snackCount);
+      if (mondaySchedule.mealContexts?.length) setMealContexts(mondaySchedule.mealContexts);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated]);
+
   // Generate meal contexts when meals/snacks change
   useEffect(() => {
     const contexts: MealContext[] = [];

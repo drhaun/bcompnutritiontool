@@ -21,6 +21,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { ProgressSteps } from '@/components/layout/progress-steps';
 import { ProgressSummary } from '@/components/layout/progress-summary';
 import { MealSlotCard, ManualMealForm, MealSwapDialog, RecipeRecommendations } from '@/components/meal-plan';
@@ -159,6 +160,31 @@ interface DayType {
   avgProtein: number;
 }
 
+// ============ CRONOMETER ADAPTIVE TYPES ============
+
+interface CronometerFoodLogEntry {
+  date: string;
+  totalCalories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  meals: {
+    name: string; // "Breakfast", "Lunch", "Dinner", "Snacks"
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    foods: { name: string; serving: string }[];
+  }[];
+}
+
+interface MealPattern {
+  mealGroup: string;
+  commonFoods: { name: string; serving: string; frequency: number }[];
+  avgMacros: Macros;
+  daysSampled: number;
+}
+
 export default function MealPlanPage() {
   const router = useRouter();
   const {
@@ -184,6 +210,8 @@ export default function MealPlanPage() {
     activePhaseId,
     getActivePhase,
     updatePhase,
+    // Client management
+    getActiveClient,
   } = useFitomicsStore();
   
   // Get active phase data (if any)
@@ -225,10 +253,134 @@ export default function MealPlanPage() {
     selectedDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as DayOfWeek[],
   });
   const cancelGenerationRef = useRef(false);
+
+  // ============ CRONOMETER ADAPTIVE MODE STATE ============
+  const activeClient = getActiveClient();
+  const cronometerClientId = activeClient?.cronometerClientId;
+  const cronometerClientName = activeClient?.cronometerClientName;
+  const hasCronometerLink = !!cronometerClientId;
+  const [cronometerMode, setCronometerMode] = useState(false);
+  const [isFetchingCronometer, setIsFetchingCronometer] = useState(false);
+  const [cronometerFoodLog, setCronometerFoodLog] = useState<CronometerFoodLogEntry[] | null>(null);
+  const [cronometerDateRange, setCronometerDateRange] = useState<{ start: string; end: string } | null>(null);
+  const [adaptiveTips, setAdaptiveTips] = useState<Record<string, { tips: string[]; summary: string; macroGap: Macros } | null>>({});
+  const [generatingTips, setGeneratingTips] = useState<Record<number, boolean>>({});
+  const [generatingImproved, setGeneratingImproved] = useState<Record<number, boolean>>({});
+  // Stable ref to prevent re-fetch on every render
+  const cronometerFetchedRef = useRef<number | null>(null);
   
   useEffect(() => {
     setIsHydrated(true);
   }, []);
+
+  // ============ CRONOMETER DATA FETCHING ============
+
+  // Fetch once when toggle is turned on, keyed by clientId to avoid duplicate calls
+  useEffect(() => {
+    if (!cronometerMode || !cronometerClientId || isFetchingCronometer) return;
+    // Already fetched for this client -- skip
+    if (cronometerFetchedRef.current === cronometerClientId && cronometerFoodLog !== null) return;
+
+    const fetchData = async () => {
+      setIsFetchingCronometer(true);
+      try {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - 14);
+        const startStr = start.toISOString().split('T')[0];
+        const endStr = end.toISOString().split('T')[0];
+        const res = await fetch(`/api/cronometer/dashboard?start=${startStr}&end=${endStr}&client_id=${cronometerClientId}`);
+        if (!res.ok) throw new Error('Failed to fetch Cronometer data');
+        const data = await res.json();
+        setCronometerFoodLog(data.foodLog || []);
+        setCronometerDateRange({ start: startStr, end: endStr });
+        cronometerFetchedRef.current = cronometerClientId;
+      } catch (err) {
+        console.error('Failed to fetch Cronometer food log:', err);
+        setCronometerFoodLog(null);
+        setCronometerMode(false);
+      } finally {
+        setIsFetchingCronometer(false);
+      }
+    };
+    fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cronometerMode, cronometerClientId]);
+
+  // Aggregate food log into meal patterns
+  const mealPatterns = useMemo((): Record<string, MealPattern> => {
+    if (!cronometerFoodLog || cronometerFoodLog.length === 0) return {};
+
+    const groups: Record<string, {
+      macros: { calories: number; protein: number; carbs: number; fat: number }[];
+      foods: Record<string, { serving: string; count: number }>;
+      daysWithData: number;
+    }> = {};
+
+    for (const day of cronometerFoodLog) {
+      if (!day.meals) continue;
+      for (const meal of day.meals) {
+        const group = meal.name; // "Breakfast", "Lunch", "Dinner", "Snacks"
+        if (!groups[group]) {
+          groups[group] = { macros: [], foods: {}, daysWithData: 0 };
+        }
+        groups[group].daysWithData++;
+        groups[group].macros.push({
+          calories: meal.calories || 0,
+          protein: meal.protein || 0,
+          carbs: meal.carbs || 0,
+          fat: meal.fat || 0,
+        });
+        for (const food of (meal.foods || [])) {
+          const key = food.name;
+          if (!groups[group].foods[key]) {
+            groups[group].foods[key] = { serving: food.serving, count: 0 };
+          }
+          groups[group].foods[key].count++;
+        }
+      }
+    }
+
+    const patterns: Record<string, MealPattern> = {};
+    for (const [groupName, data] of Object.entries(groups)) {
+      const count = data.macros.length || 1;
+      const avgMacros: Macros = {
+        calories: Math.round(data.macros.reduce((s, m) => s + m.calories, 0) / count),
+        protein: Math.round(data.macros.reduce((s, m) => s + m.protein, 0) / count),
+        carbs: Math.round(data.macros.reduce((s, m) => s + m.carbs, 0) / count),
+        fat: Math.round(data.macros.reduce((s, m) => s + m.fat, 0) / count),
+      };
+
+      const commonFoods = Object.entries(data.foods)
+        .map(([name, info]) => ({ name, serving: info.serving, frequency: info.count }))
+        .sort((a, b) => b.frequency - a.frequency)
+        .slice(0, 8);
+
+      patterns[groupName] = {
+        mealGroup: groupName,
+        commonFoods,
+        avgMacros,
+        daysSampled: data.daysWithData,
+      };
+    }
+
+    return patterns;
+  }, [cronometerFoodLog]);
+
+  // Map Cronometer meal groups to slot labels
+  const getPatternForSlot = useCallback((slotLabel: string, slotType: 'meal' | 'snack'): MealPattern | undefined => {
+    if (!cronometerMode || Object.keys(mealPatterns).length === 0) return undefined;
+
+    // Direct mapping by slot label
+    const label = slotLabel.toLowerCase();
+    if (label.includes('meal 1') || label.includes('breakfast')) return mealPatterns['Breakfast'];
+    if (label.includes('meal 2') || label.includes('lunch')) return mealPatterns['Lunch'];
+    if (label.includes('meal 3') || label.includes('dinner')) return mealPatterns['Dinner'];
+    if (slotType === 'snack') return mealPatterns['Snacks'];
+    // Fallback: if there are more meals, map sequentially
+    if (label.includes('meal 4')) return mealPatterns['Dinner']; // late meal ~ dinner pattern
+    return undefined;
+  }, [cronometerMode, mealPatterns]);
 
   // ============ COMPUTE DAY TYPES ============
   
@@ -554,6 +706,124 @@ export default function MealPlanPage() {
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [mealPlan]);
+
+  // ============ CRONOMETER ADAPTIVE HANDLERS ============
+
+  const handleGetTips = useCallback(async (slotIndex: number) => {
+    const slotData = mealSlots.find(s => s.slotIndex === slotIndex);
+    if (!slotData) return;
+    
+    const pattern = getPatternForSlot(slotData.label, slotData.type);
+    if (!pattern) return;
+
+    const key = `${currentDay}-${slotIndex}`;
+    setGeneratingTips(prev => ({ ...prev, [slotIndex]: true }));
+    try {
+      const goalType = activePhase?.goalType || bodyCompGoals.goalType || '';
+      const res = await fetch('/api/generate-adaptive-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'tips',
+          slot: {
+            label: slotData.label,
+            type: slotData.type,
+            targetMacros: slotData.targetMacros,
+            timeSlot: slotData.timeSlot,
+            workoutRelation: slotData.workoutRelation,
+          },
+          currentPattern: pattern,
+          dailyTargets: dayTargets ? {
+            calories: dayTargets.targetCalories,
+            protein: dayTargets.protein,
+            carbs: dayTargets.carbs,
+            fat: dayTargets.fat,
+          } : { calories: 2000, protein: 150, carbs: 200, fat: 70 },
+          clientContext: {
+            name: userProfile.name,
+            goalType,
+            phaseName: activePhase?.name,
+            dietaryRestrictions: dietPreferences.dietaryRestrictions,
+            preferredProteins: dietPreferences.preferredProteins,
+            foodsToAvoid: dietPreferences.foodsToAvoid,
+            foodsToEmphasize: dietPreferences.foodsToEmphasize,
+            allergies: dietPreferences.allergies,
+          },
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to get tips');
+      const data = await res.json();
+      setAdaptiveTips(prev => ({
+        ...prev,
+        [key]: {
+          tips: data.tips || [],
+          summary: data.summary || '',
+          macroGap: data.macroGap || { calories: 0, protein: 0, carbs: 0, fat: 0 },
+        },
+      }));
+      toast.success('Coaching tips generated');
+    } catch (err) {
+      console.error('Failed to get adaptive tips:', err);
+      toast.error('Failed to generate tips');
+    } finally {
+      setGeneratingTips(prev => ({ ...prev, [slotIndex]: false }));
+    }
+  }, [mealSlots, currentDay, dayTargets, getPatternForSlot, userProfile, bodyCompGoals, dietPreferences, activePhase]);
+
+  const handleGenerateImproved = useCallback(async (slotIndex: number) => {
+    const slotData = mealSlots.find(s => s.slotIndex === slotIndex);
+    if (!slotData) return;
+    
+    const pattern = getPatternForSlot(slotData.label, slotData.type);
+    if (!pattern) return;
+
+    setGeneratingImproved(prev => ({ ...prev, [slotIndex]: true }));
+    try {
+      const goalType = activePhase?.goalType || bodyCompGoals.goalType || '';
+      const res = await fetch('/api/generate-adaptive-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'improve',
+          slot: {
+            label: slotData.label,
+            type: slotData.type,
+            targetMacros: slotData.targetMacros,
+            timeSlot: slotData.timeSlot,
+            workoutRelation: slotData.workoutRelation,
+          },
+          currentPattern: pattern,
+          dailyTargets: dayTargets ? {
+            calories: dayTargets.targetCalories,
+            protein: dayTargets.protein,
+            carbs: dayTargets.carbs,
+            fat: dayTargets.fat,
+          } : { calories: 2000, protein: 150, carbs: 200, fat: 70 },
+          clientContext: {
+            name: userProfile.name,
+            goalType,
+            phaseName: activePhase?.name,
+            dietaryRestrictions: dietPreferences.dietaryRestrictions,
+            preferredProteins: dietPreferences.preferredProteins,
+            foodsToAvoid: dietPreferences.foodsToAvoid,
+            foodsToEmphasize: dietPreferences.foodsToEmphasize,
+            allergies: dietPreferences.allergies,
+          },
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to generate improved meal');
+      const data = await res.json();
+      if (data.meal) {
+        updateMeal(currentDay, slotIndex, data.meal);
+        toast.success('Improved meal generated from Cronometer patterns');
+      }
+    } catch (err) {
+      console.error('Failed to generate improved meal:', err);
+      toast.error('Failed to generate improved meal');
+    } finally {
+      setGeneratingImproved(prev => ({ ...prev, [slotIndex]: false }));
+    }
+  }, [mealSlots, currentDay, dayTargets, getPatternForSlot, updateMeal, userProfile, bodyCompGoals, dietPreferences, activePhase]);
 
   // ============ HANDLERS ============
   
@@ -1041,6 +1311,61 @@ export default function MealPlanPage() {
               </Button>
             </div>
             
+            {/* Cronometer Context Toggle */}
+            {hasCronometerLink && (
+              <TooltipProvider delayDuration={200}>
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${cronometerMode ? 'border-amber-400 bg-amber-50' : 'border-transparent'}`}>
+                <Switch
+                  id="cronometer-mode"
+                  checked={cronometerMode}
+                  onCheckedChange={(checked) => {
+                    setCronometerMode(checked);
+                    if (!checked) {
+                      setAdaptiveTips({});
+                    }
+                  }}
+                  className="data-[state=checked]:bg-amber-500"
+                />
+                <Label htmlFor="cronometer-mode" className="text-xs font-medium cursor-pointer whitespace-nowrap">
+                  {isFetchingCronometer ? (
+                    <span className="flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading...
+                    </span>
+                  ) : (
+                    'Cronometer Context'
+                  )}
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs text-xs leading-relaxed">
+                    <p className="font-semibold mb-1">Cronometer Adaptive Mode</p>
+                    <p className="mb-1">
+                      Pulls the last <strong>14 days</strong> of food log data from Cronometer
+                      for <strong>{cronometerClientName || `Client #${cronometerClientId}`}</strong> and
+                      aggregates their eating patterns by meal.
+                    </p>
+                    <p className="mb-1">
+                      Each meal slot shows what they typically eat, average macros, and the gap vs. targets.
+                      Use &quot;Get Tips&quot; for coaching advice or &quot;Generate Improved&quot; to create
+                      a meal that keeps familiar foods while closing macro gaps.
+                    </p>
+                    {cronometerDateRange && (
+                      <p className="text-muted-foreground mt-1">
+                        Data range: {cronometerDateRange.start} to {cronometerDateRange.end}
+                      </p>
+                    )}
+                    <p className="text-muted-foreground">
+                      API call is made once per toggle — no repeated requests.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              </TooltipProvider>
+            )}
+
             {/* Preview Toggle */}
             <Button
               variant={showPreview ? 'default' : 'outline'}
@@ -1361,6 +1686,12 @@ export default function MealPlanPage() {
                             onGenerateNote={handleGenerateNote}
                             isGenerating={generatingSlots[idx] || false}
                             isGeneratingNote={generatingNotes[idx] || false}
+                            currentPattern={cronometerMode ? getPatternForSlot(slot.label, slot.type) : undefined}
+                            adaptiveTips={cronometerMode ? adaptiveTips[`${currentDay}-${slot.slotIndex}`] : undefined}
+                            onGetTips={cronometerMode ? handleGetTips : undefined}
+                            onGenerateImproved={cronometerMode ? handleGenerateImproved : undefined}
+                            isGeneratingTips={generatingTips[slot.slotIndex] || false}
+                            isGeneratingImproved={generatingImproved[slot.slotIndex] || false}
                           />
                         ))}
                       </div>
@@ -1454,6 +1785,12 @@ export default function MealPlanPage() {
                             onGenerateNote={handleGenerateNote}
                             isGenerating={generatingSlots[idx] || false}
                             isGeneratingNote={generatingNotes[idx] || false}
+                            currentPattern={cronometerMode ? getPatternForSlot(slot.label, slot.type) : undefined}
+                            adaptiveTips={cronometerMode ? adaptiveTips[`${selectedDay}-${slot.slotIndex}`] : undefined}
+                            onGetTips={cronometerMode ? handleGetTips : undefined}
+                            onGenerateImproved={cronometerMode ? handleGenerateImproved : undefined}
+                            isGeneratingTips={generatingTips[slot.slotIndex] || false}
+                            isGeneratingImproved={generatingImproved[slot.slotIndex] || false}
                           />
                         ))}
                       </div>

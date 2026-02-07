@@ -503,7 +503,7 @@ const MealCard = ({ meal, mealNumber, showRecipes = true, showRationale = true }
         <Text style={styles.mealName}>
           {meal.type === 'meal' ? `Meal ${mealNumber}` : `Snack ${mealNumber}`}: {meal.name}
         </Text>
-        <Text style={styles.mealTime}>{meal.time} • {meal.prepTime}</Text>
+        {meal.prepTime && <Text style={styles.mealTime}>~{meal.prepTime} prep</Text>}
       </View>
       
       <View style={styles.mealMacros}>
