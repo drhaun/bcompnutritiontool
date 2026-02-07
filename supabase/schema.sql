@@ -62,6 +62,10 @@ create table if not exists public.staff (
   is_active boolean default true,
   can_view_all_clients boolean default false, -- Admin grants this permission
   permissions jsonb default '{}', -- For future granular permissions
+  -- Cronometer OAuth token (persisted for cross-device access)
+  cronometer_access_token text,
+  cronometer_user_id text,
+  cronometer_connected_at timestamp with time zone,
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );

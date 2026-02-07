@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDiarySummary, getDataSummary, getNutritionTargets, CronometerDiarySummary } from '@/lib/cronometer';
+import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronometer-token';
 
 /**
  * Import Cronometer diary data for nutrition analysis
@@ -10,16 +11,17 @@ import { getDiarySummary, getDataSummary, getNutritionTargets, CronometerDiarySu
  * - end: End date (YYYY-MM-DD)
  */
 export async function GET(request: NextRequest) {
-  // Check cookie first, then fall back to env var for local dev
-  const accessToken = request.cookies.get('cronometer_access_token')?.value
-    || process.env.CRONOMETER_ACCESS_TOKEN;
+  // Resolve token from cookie → DB → env
+  const tokenResult = await resolveCronometerToken(request);
   
-  if (!accessToken) {
+  if (!tokenResult.accessToken) {
     return NextResponse.json(
       { error: 'Not connected to Cronometer' },
       { status: 401 }
     );
   }
+
+  const accessToken = tokenResult.accessToken;
   
   const searchParams = request.nextUrl.searchParams;
   const clientIdParam = searchParams.get('client_id');
@@ -165,13 +167,17 @@ export async function GET(request: NextRequest) {
     // Transform to format expected by Nutrition Analysis
     const transformedData = transformCronometerData(filteredDays, targets);
     
-    return NextResponse.json({
+    let response = NextResponse.json({
       success: true,
       daysImported: transformedData.summary.daysAnalyzed,
       daysWithEntries: daysWithData,
       data: transformedData,
       targets,
     });
+
+    // Backfill cookies if token came from database
+    response = backfillCronometerCookies(response, tokenResult);
+    return response;
   } catch (error) {
     console.error('Cronometer import error:', error);
     return NextResponse.json(

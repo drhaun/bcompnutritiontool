@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDiarySummary } from '@/lib/cronometer';
+import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronometer-token';
 
 /**
  * Get diary summary for a client
@@ -11,11 +12,10 @@ import { getDiarySummary } from '@/lib/cronometer';
  * - food: Include food breakdown (true/false)
  */
 export async function GET(request: NextRequest) {
-  // Check cookie first, then fall back to env var for local dev
-  const accessToken = request.cookies.get('cronometer_access_token')?.value
-    || process.env.CRONOMETER_ACCESS_TOKEN;
+  // Resolve token from cookie → DB → env
+  const tokenResult = await resolveCronometerToken(request);
   
-  if (!accessToken) {
+  if (!tokenResult.accessToken) {
     return NextResponse.json(
       { error: 'Not connected to Cronometer' },
       { status: 401 }
@@ -38,10 +38,13 @@ export async function GET(request: NextRequest) {
   
   try {
     const data = await getDiarySummary(
-      { accessToken, clientId },
+      { accessToken: tokenResult.accessToken, clientId },
       { day, start, end, food }
     );
-    return NextResponse.json(data);
+    let response = NextResponse.json(data);
+    // Backfill cookies if token came from database
+    response = backfillCronometerCookies(response, tokenResult);
+    return response;
   } catch (error) {
     console.error('Cronometer diary error:', error);
     return NextResponse.json(

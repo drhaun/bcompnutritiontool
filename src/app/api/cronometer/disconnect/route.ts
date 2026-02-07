@@ -1,23 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deauthorizeUser } from '@/lib/cronometer';
+import { resolveCronometerToken, clearCronometerTokenFromDatabase } from '@/lib/cronometer-token';
 
 /**
  * Disconnect from Cronometer
- * Clears local cookies and optionally revokes the token on Cronometer's side
+ * Clears token from:
+ *   1. Cronometer's side (revoke token via API)
+ *   2. Supabase database (cross-device persistence)
+ *   3. Local cookies
  */
 export async function POST(request: NextRequest) {
-  const accessToken = request.cookies.get('cronometer_access_token')?.value
-    || process.env.CRONOMETER_ACCESS_TOKEN;
+  // Resolve the token to revoke it on Cronometer's side
+  const tokenResult = await resolveCronometerToken(request);
+  const accessToken = tokenResult.accessToken;
   
   // Try to revoke the token on Cronometer's side (optional, may fail)
   if (accessToken) {
     try {
       await deauthorizeUser(accessToken);
-      console.log('[Cronometer] Token revoked successfully');
+      console.log('[Cronometer] Token revoked on Cronometer side');
     } catch (error) {
-      // Token revocation failed - that's okay, we'll still clear local cookies
+      // Token revocation failed - that's okay, we'll still clear local storage
       console.log('[Cronometer] Token revocation failed (may already be invalid):', error);
     }
+  }
+  
+  // Clear the token from the database
+  try {
+    await clearCronometerTokenFromDatabase(request);
+    console.log('[Cronometer] Token cleared from database');
+  } catch (error) {
+    console.error('[Cronometer] Failed to clear token from database:', error);
   }
   
   // Create response

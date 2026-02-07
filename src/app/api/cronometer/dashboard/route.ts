@@ -6,6 +6,7 @@ import {
   getNutritionTargets,
   CronometerDiarySummary 
 } from '@/lib/cronometer';
+import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronometer-token';
 
 /**
  * Fetch comprehensive Cronometer data for dashboard visualization
@@ -16,16 +17,17 @@ import {
  * - end: End date (YYYY-MM-DD)
  */
 export async function GET(request: NextRequest) {
-  // Check cookie first, then fall back to env var for local dev
-  const accessToken = request.cookies.get('cronometer_access_token')?.value
-    || process.env.CRONOMETER_ACCESS_TOKEN;
+  // Resolve token from cookie → DB → env
+  const tokenResult = await resolveCronometerToken(request);
   
-  if (!accessToken) {
+  if (!tokenResult.accessToken) {
     return NextResponse.json(
       { error: 'Not connected to Cronometer' },
       { status: 401 }
     );
   }
+
+  const accessToken = tokenResult.accessToken;
   
   const searchParams = request.nextUrl.searchParams;
   const clientIdParam = searchParams.get('client_id');
@@ -209,7 +211,7 @@ export async function GET(request: NextRequest) {
       value: round(total / totalDays, 1),
     })).sort((a, b) => a.name.localeCompare(b.name));
     
-    return NextResponse.json({
+    let response = NextResponse.json({
       success: true,
       daysAnalyzed: validDays.length,
       daysWithEntries: dataSummary.days || [],
@@ -235,6 +237,10 @@ export async function GET(request: NextRequest) {
       // Targets for comparison
       targets,
     });
+
+    // Backfill cookies if token came from database
+    response = backfillCronometerCookies(response, tokenResult);
+    return response;
   } catch (error) {
     console.error('Cronometer dashboard error:', error);
     return NextResponse.json(

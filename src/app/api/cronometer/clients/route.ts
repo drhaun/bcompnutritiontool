@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProClients } from '@/lib/cronometer';
+import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronometer-token';
 
 /**
  * Get list of Cronometer Pro clients
@@ -7,11 +8,10 @@ import { getProClients } from '@/lib/cronometer';
  * Regular accounts can still use "My Data" option.
  */
 export async function GET(request: NextRequest) {
-  // Check cookie first, then fall back to env var for local dev
-  const accessToken = request.cookies.get('cronometer_access_token')?.value
-    || process.env.CRONOMETER_ACCESS_TOKEN;
+  // Resolve token from cookie → DB → env
+  const tokenResult = await resolveCronometerToken(request);
   
-  if (!accessToken) {
+  if (!tokenResult.accessToken) {
     return NextResponse.json(
       { error: 'Not connected to Cronometer' },
       { status: 401 }
@@ -19,8 +19,11 @@ export async function GET(request: NextRequest) {
   }
   
   try {
-    const data = await getProClients(accessToken);
-    return NextResponse.json(data);
+    const data = await getProClients(tokenResult.accessToken);
+    let response = NextResponse.json(data);
+    // Backfill cookies if token came from database
+    response = backfillCronometerCookies(response, tokenResult);
+    return response;
   } catch (error) {
     console.error('Cronometer clients error:', error);
     

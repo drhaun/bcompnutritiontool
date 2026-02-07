@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNutritionTargets } from '@/lib/cronometer';
+import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronometer-token';
 
 /**
  * Fetch nutrition targets from Cronometer for a specific client
@@ -9,11 +10,10 @@ import { getNutritionTargets } from '@/lib/cronometer';
  * - day: Specific day (optional, defaults to today)
  */
 export async function GET(request: NextRequest) {
-  // Check cookie first, then fall back to env var for local dev
-  const accessToken = request.cookies.get('cronometer_access_token')?.value
-    || process.env.CRONOMETER_ACCESS_TOKEN;
+  // Resolve token from cookie → DB → env
+  const tokenResult = await resolveCronometerToken(request);
   
-  if (!accessToken) {
+  if (!tokenResult.accessToken) {
     return NextResponse.json(
       { error: 'Not connected to Cronometer' },
       { status: 401 }
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   const day = searchParams.get('day') || undefined;
   
   try {
-    const rawTargets = await getNutritionTargets({ accessToken, clientId }, day);
+    const rawTargets = await getNutritionTargets({ accessToken: tokenResult.accessToken, clientId }, day);
     
     // Extract macro targets from the raw response
     // Cronometer returns targets as { nutrientName: { min?: number, max?: number, unit: string } }
@@ -45,10 +45,13 @@ export async function GET(request: NextRequest) {
       raw: rawTargets,
     };
     
-    return NextResponse.json({
+    let response = NextResponse.json({
       success: true,
       targets: extractedTargets,
     });
+    // Backfill cookies if token came from database
+    response = backfillCronometerCookies(response, tokenResult);
+    return response;
   } catch (error) {
     console.error('Cronometer targets error:', error);
     return NextResponse.json(

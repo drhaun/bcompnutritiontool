@@ -1,25 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isCronometerConfigured } from '@/lib/cronometer';
+import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronometer-token';
 
 /**
  * Check Cronometer connection status
  * 
- * Token resolution order:
- * 1. Cookie (set after OAuth flow)
- * 2. Environment variable (for local development convenience)
+ * Token resolution order (database is source of truth):
+ * 1. Database (Supabase staff record - cross-device, always latest)
+ * 2. Cookie (fast fallback when DB unavailable)
+ * 3. Environment variable (for local development convenience)
  */
 export async function GET(request: NextRequest) {
   const isConfigured = isCronometerConfigured();
   
-  // Check cookie first, then fall back to env var for local dev
-  const accessToken = request.cookies.get('cronometer_access_token')?.value 
-    || process.env.CRONOMETER_ACCESS_TOKEN;
-  const userId = request.cookies.get('cronometer_user_id')?.value
-    || process.env.CRONOMETER_USER_ID;
+  // Use the shared token resolver (DB → cookie → env)
+  const tokenResult = await resolveCronometerToken(request);
   
-  return NextResponse.json({
+  let response = NextResponse.json({
     configured: isConfigured,
-    connected: !!(accessToken && userId),
-    userId: userId || null,
+    connected: !!(tokenResult.accessToken && tokenResult.userId),
+    userId: tokenResult.userId || null,
+    tokenSource: tokenResult.source, // Helpful for debugging
   });
+
+  // If the token came from the database, backfill/update the cookie
+  // so subsequent requests on this device are fast and use the latest token
+  response = backfillCronometerCookies(response, tokenResult);
+  
+  return response;
 }
