@@ -58,11 +58,25 @@ import {
   Book,
   RefreshCw,
   User,
-  LayoutList
+  LayoutList,
+  Pill,
+  ExternalLink,
+  Plus,
+  Link2,
+  ClipboardCopy,
 } from 'lucide-react';
-import type { DayOfWeek, MealSlot, Meal, Macros, DietPreferences } from '@/types';
+import type { DayOfWeek, MealSlot, Meal, Macros, DietPreferences, SupplementEntry, MealSupplement } from '@/types';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// ============ DISPENSARY & AFFILIATE QUICK LINKS ============
+const QUICK_LINKS = [
+  { label: 'Fullscript', url: 'https://us.fullscript.com/welcome/fitomics', color: 'text-emerald-700', bg: 'bg-emerald-50' },
+  { label: 'Thorne', url: 'https://www.thorne.com/u/fitomics', color: 'text-blue-700', bg: 'bg-blue-50' },
+  { label: 'Kion', url: 'https://glnk.io/j6vy/drcodyhaun', color: 'text-orange-700', bg: 'bg-orange-50' },
+  { label: 'Amazon', url: 'https://www.amazon.com/shop/drcodyhaun?ref_=cm_sw_r_cp_ud_aipsfshop_TR9BE41CEZHSP4D9XM23', color: 'text-amber-700', bg: 'bg-amber-50' },
+  { label: 'Elemental Formulations', url: 'https://eformulations.co/?ref=fitomics', color: 'text-purple-700', bg: 'bg-purple-50' },
+];
 
 // ============ UTILITY FUNCTIONS ============
 
@@ -871,6 +885,13 @@ export default function MealPlanPage() {
     }
   };
 
+  // Update supplements on a specific meal
+  const handleUpdateMealSupplements = (day: DayOfWeek, slotIndex: number, supplements: MealSupplement[]) => {
+    const slot = mealSlots[slotIndex];
+    if (!slot.meal) return;
+    updateMeal(day, slotIndex, { ...slot.meal, supplements });
+  };
+
   const handleGenerateNote = async (slotIndex: number) => {
     const slot = mealSlots[slotIndex];
     if (!slot.meal) return;
@@ -1208,6 +1229,142 @@ export default function MealPlanPage() {
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  // ============ SUPPLEMENTS & QUICK LINKS RENDER ============
+  const clientSupplements = activeClient?.userProfile?.supplements || [];
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} link copied`);
+  };
+
+  const renderSupplementsCard = (day: DayOfWeek) => {
+    // Get supplements relevant to this day's context
+    const daySchedule = weeklySchedule[day];
+    const isWorkoutDay = nutritionTargets.find(t => t.day === day)?.isWorkoutDay ?? daySchedule?.workouts?.some(w => w.enabled);
+
+    // Filter client supplements by timing relevance
+    const morningSupps = clientSupplements.filter(s => s.timing.includes('morning'));
+    const preWorkoutSupps = clientSupplements.filter(s => s.timing.includes('pre_workout'));
+    const intraWorkoutSupps = clientSupplements.filter(s => s.timing.includes('intra_workout'));
+    const postWorkoutSupps = clientSupplements.filter(s => s.timing.includes('post_workout'));
+    const withMealsSupps = clientSupplements.filter(s => s.timing.includes('with_meals'));
+    const beforeBedSupps = clientSupplements.filter(s => s.timing.includes('before_bed'));
+    const asNeededSupps = clientSupplements.filter(s => s.timing.includes('as_needed'));
+
+    const timingGroups = [
+      { label: 'Morning', icon: Sun, supps: morningSupps, show: true },
+      { label: 'Pre-Workout', icon: Zap, supps: preWorkoutSupps, show: !!isWorkoutDay },
+      { label: 'Intra-Workout', icon: Dumbbell, supps: intraWorkoutSupps, show: !!isWorkoutDay },
+      { label: 'Post-Workout', icon: Target, supps: postWorkoutSupps, show: !!isWorkoutDay },
+      { label: 'With Meals', icon: Utensils, supps: withMealsSupps, show: true },
+      { label: 'Before Bed', icon: Moon, supps: beforeBedSupps, show: true },
+      { label: 'As Needed', icon: Pill, supps: asNeededSupps, show: true },
+    ].filter(g => g.show && g.supps.length > 0);
+
+    return (
+      <div className="space-y-4 mt-6">
+        {/* Client Supplements */}
+        {clientSupplements.length > 0 && (
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Pill className="h-4 w-4 text-[#c19962]" />
+                Supplement Schedule
+                <Badge variant="outline" className="text-[10px] ml-1">
+                  {clientSupplements.length} active
+                </Badge>
+                {isWorkoutDay && (
+                  <Badge className="text-[10px] bg-green-100 text-green-700 border-green-300">
+                    <Dumbbell className="h-2.5 w-2.5 mr-0.5" /> Workout Day
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {timingGroups.map(({ label, icon: Icon, supps }) => (
+                <div key={label} className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 ml-5">
+                    {supps.map((s) => (
+                      <div
+                        key={s.name}
+                        className="flex items-center gap-1 px-2 py-1 bg-muted/60 rounded-md text-xs"
+                      >
+                        <span className="font-medium">{s.name}</span>
+                        {s.dosage && (
+                          <span className="text-muted-foreground">({s.dosage})</span>
+                        )}
+                        {s.notes && (
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs text-xs">
+                                {s.notes}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {clientSupplements.length > 0 && timingGroups.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">
+                  Supplements are configured but none have timing set for the current view. Edit supplement timing in the client profile.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Dispensary & Affiliate Quick Links */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Link2 className="h-4 w-4 text-[#c19962]" />
+              Dispensary & Supplement Links
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {QUICK_LINKS.map((link) => (
+                <div key={link.label} className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 ${link.bg}`}>
+                  <span className={`text-xs font-medium ${link.color}`}>{link.label}</span>
+                  <div className="flex items-center gap-0.5 ml-1">
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(link.url, link.label)}
+                      className="p-0.5 rounded hover:bg-black/5 transition-colors"
+                      title="Copy link"
+                    >
+                      <ClipboardCopy className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-0.5 rounded hover:bg-black/5 transition-colors"
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   };
 
   if (!isHydrated) {
@@ -1677,6 +1834,7 @@ export default function MealPlanPage() {
                             onEditMeal={(i) => setEditingSlot(i)}
                             onSwapMeal={(i) => setSwappingSlot(i)}
                             onBrowseRecipes={(i) => setBrowsingRecipesSlot(i)}
+                            onUpdateSupplements={(i, supps) => handleUpdateMealSupplements(currentDay, i, supps)}
                             onDeleteMeal={(i) => {
                               deleteMeal(currentDay, i);
                               toast.success('Meal removed');
@@ -1696,6 +1854,9 @@ export default function MealPlanPage() {
                         ))}
                       </div>
                     )}
+
+                    {/* Supplements & Quick Links */}
+                    {renderSupplementsCard(currentDay)}
                   </>
                 )}
               </div>
@@ -1776,6 +1937,7 @@ export default function MealPlanPage() {
                             onEditMeal={(i) => setEditingSlot(i)}
                             onSwapMeal={(i) => setSwappingSlot(i)}
                             onBrowseRecipes={(i) => setBrowsingRecipesSlot(i)}
+                            onUpdateSupplements={(i, supps) => handleUpdateMealSupplements(selectedDay, i, supps)}
                             onDeleteMeal={(i) => {
                               deleteMeal(selectedDay, i);
                               toast.success('Meal removed');
@@ -1795,6 +1957,9 @@ export default function MealPlanPage() {
                         ))}
                       </div>
                     )}
+
+                    {/* Supplements & Quick Links */}
+                    {renderSupplementsCard(selectedDay)}
                   </TabsContent>
                 ))}
               </Tabs>

@@ -603,6 +603,12 @@ export interface Ingredient {
 // Source of how a meal was created
 export type MealSource = 'ai' | 'manual' | 'swapped' | 'recipe';
 
+export interface MealSupplement {
+  name: string;
+  dosage?: string;
+  notes?: string;             // e.g., brand, link, purpose
+}
+
 export interface Meal {
   name: string;
   time: string;
@@ -620,6 +626,8 @@ export interface Meal {
   source?: MealSource;       // How the meal was created
   lastModified?: string;     // ISO timestamp of last modification
   isLocked?: boolean;        // Whether meal is locked from regeneration
+  // Supplements attached to this meal
+  supplements?: MealSupplement[];
   // Cronometer-informed adaptive meal planning
   adaptiveContext?: {
     whatChanged: string;

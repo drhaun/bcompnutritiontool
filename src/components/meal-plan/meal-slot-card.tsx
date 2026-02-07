@@ -30,10 +30,13 @@ import {
   Lightbulb,
   Target,
   Plus,
-  Minus
+  Minus,
+  Pill,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { MealSlot, Meal, Macros, DietPreferences } from '@/types';
+import { Input } from '@/components/ui/input';
+import type { MealSlot, Meal, Macros, DietPreferences, MealSupplement } from '@/types';
 
 // Quick adjustment suggestions with macro impact
 const QUICK_ADJUSTMENTS = {
@@ -111,6 +114,7 @@ interface MealSlotCardProps {
   onUpdateNote: (slotIndex: number, note: string) => void;
   onGenerateNote: (slotIndex: number) => Promise<void>;
   onBrowseRecipes?: (slotIndex: number) => void;
+  onUpdateSupplements?: (slotIndex: number, supplements: MealSupplement[]) => void;
   isGenerating: boolean;
   isGeneratingNote: boolean;
   // Cronometer adaptive mode
@@ -138,6 +142,7 @@ export function MealSlotCard({
   onUpdateNote,
   onGenerateNote,
   onBrowseRecipes,
+  onUpdateSupplements,
   isGenerating,
   isGeneratingNote,
   // Cronometer adaptive
@@ -153,6 +158,9 @@ export function MealSlotCard({
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [showPattern, setShowPattern] = useState(true);
   const [noteValue, setNoteValue] = useState(slot.meal?.staffNote || '');
+  const [showSuppInput, setShowSuppInput] = useState(false);
+  const [newSuppName, setNewSuppName] = useState('');
+  const [newSuppDosage, setNewSuppDosage] = useState('');
   
   const hasMeal = slot.meal !== null;
   // Note: meal is accessed after early return when !hasMeal, so it's safe to assert non-null
@@ -820,6 +828,95 @@ export function MealSlotCard({
             </div>
           </div>
         )}
+
+        {/* Meal Supplements */}
+        {filledMeal.supplements && filledMeal.supplements.length > 0 && (
+          <div className="mb-3">
+            <div className="flex flex-wrap gap-1">
+              {filledMeal.supplements.map((supp, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-50 border border-purple-200 rounded text-[10px] text-purple-700"
+                >
+                  <Pill className="h-2.5 w-2.5" />
+                  {supp.name}{supp.dosage ? ` (${supp.dosage})` : ''}
+                  {onUpdateSupplements && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = filledMeal.supplements!.filter((_, i) => i !== idx);
+                        onUpdateSupplements(slot.slotIndex, updated);
+                      }}
+                      className="ml-0.5 hover:text-red-500"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Add Supplement Input */}
+        {showSuppInput && onUpdateSupplements && (
+          <div className="mb-3 flex gap-1.5 items-end">
+            <div className="flex-1 space-y-1">
+              <Input
+                value={newSuppName}
+                onChange={(e) => setNewSuppName(e.target.value)}
+                placeholder="Supplement name..."
+                className="h-7 text-xs"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newSuppName.trim()) {
+                    e.preventDefault();
+                    const existing = filledMeal.supplements || [];
+                    onUpdateSupplements(slot.slotIndex, [
+                      ...existing,
+                      { name: newSuppName.trim(), dosage: newSuppDosage.trim() || undefined },
+                    ]);
+                    setNewSuppName('');
+                    setNewSuppDosage('');
+                    setShowSuppInput(false);
+                  }
+                }}
+              />
+            </div>
+            <Input
+              value={newSuppDosage}
+              onChange={(e) => setNewSuppDosage(e.target.value)}
+              placeholder="Dosage"
+              className="h-7 text-xs w-20"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2"
+              onClick={() => {
+                if (newSuppName.trim()) {
+                  const existing = filledMeal.supplements || [];
+                  onUpdateSupplements(slot.slotIndex, [
+                    ...existing,
+                    { name: newSuppName.trim(), dosage: newSuppDosage.trim() || undefined },
+                  ]);
+                  setNewSuppName('');
+                  setNewSuppDosage('');
+                }
+                setShowSuppInput(false);
+              }}
+            >
+              <Plus className="h-3 w-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-1.5"
+              onClick={() => { setShowSuppInput(false); setNewSuppName(''); setNewSuppDosage(''); }}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
         
         {/* Expanded Content */}
         {isExpanded && (
@@ -880,6 +977,17 @@ export function MealSlotCard({
             <MessageSquare className="h-3 w-3 mr-1" />
             {filledMeal.staffNote ? 'Edit Note' : 'Add Note'}
           </Button>
+          {onUpdateSupplements && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-xs h-7"
+              onClick={() => setShowSuppInput(true)}
+            >
+              <Pill className="h-3 w-3 mr-1" />
+              Add Supplement
+            </Button>
+          )}
           <Button 
             variant="outline" 
             size="sm" 
