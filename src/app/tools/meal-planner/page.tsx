@@ -107,6 +107,9 @@ const DIETARY_RESTRICTIONS = [
 export default function MealPlannerPage() {
   const router = useRouter();
 
+  // Free-form context (primary input)
+  const [freeFormContext, setFreeFormContext] = useState('');
+
   // Meal Target
   const [mealType, setMealType] = useState<MealType>('lunch');
   const [targetCalories, setTargetCalories] = useState(500);
@@ -114,6 +117,17 @@ export default function MealPlannerPage() {
   const [targetCarbs, setTargetCarbs] = useState(50);
   const [targetFat, setTargetFat] = useState(15);
   const [macroFlexibility, setMacroFlexibility] = useState(10); // +/- percentage
+
+  // Daily totals context (optional — helps AI fit meal within budget)
+  const [showDailyTotals, setShowDailyTotals] = useState(false);
+  const [dailyCalories, setDailyCalories] = useState(2200);
+  const [dailyProtein, setDailyProtein] = useState(180);
+  const [dailyCarbs, setDailyCarbs] = useState(220);
+  const [dailyFat, setDailyFat] = useState(70);
+  const [caloriesUsed, setCaloriesUsed] = useState(0);
+  const [proteinUsed, setProteinUsed] = useState(0);
+  const [carbsUsed, setCarbsUsed] = useState(0);
+  const [fatUsed, setFatUsed] = useState(0);
 
   // Preferences
   const [prepComplexity, setPrepComplexity] = useState<PrepComplexity>('moderate');
@@ -128,6 +142,14 @@ export default function MealPlannerPage() {
   const [mealTime, setMealTime] = useState('12:30');
   const [location, setLocation] = useState('Home');
   const [specialRequests, setSpecialRequests] = useState('');
+
+  // Daily remaining budget
+  const dailyRemaining = useMemo(() => ({
+    calories: dailyCalories - caloriesUsed,
+    protein: dailyProtein - proteinUsed,
+    carbs: dailyCarbs - carbsUsed,
+    fat: dailyFat - fatUsed,
+  }), [dailyCalories, dailyProtein, dailyCarbs, dailyFat, caloriesUsed, proteinUsed, carbsUsed, fatUsed]);
 
   // Generation State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -204,6 +226,7 @@ export default function MealPlannerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mealType,
+          freeFormContext: freeFormContext.trim() || undefined,
           targets: {
             calories: targetCalories,
             protein: targetProtein,
@@ -211,6 +234,13 @@ export default function MealPlannerPage() {
             fat: targetFat,
             flexibility: macroFlexibility,
           },
+          dailyTotals: showDailyTotals ? {
+            calories: dailyCalories,
+            protein: dailyProtein,
+            carbs: dailyCarbs,
+            fat: dailyFat,
+            remaining: dailyRemaining,
+          } : undefined,
           preferences: {
             prepComplexity,
             mealStyle,
@@ -390,43 +420,36 @@ export default function MealPlannerPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column - Inputs */}
           <div className="space-y-6">
-            {/* Quick Presets */}
-            <Card>
+            {/* Free-Form Context (primary input) */}
+            <Card className="border-[#c19962]/40">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Lightbulb className="h-5 w-5 text-yellow-500" />
-                  Quick Presets
+                  <Sparkles className="h-5 w-5 text-[#c19962]" />
+                  What are you looking for?
                 </CardTitle>
-                <CardDescription>Start with a common meal template</CardDescription>
+                <CardDescription>
+                  Describe the meal scenario, client needs, dietary recall, or any context that will help generate the best recommendation.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={() => applyPreset('high_protein_breakfast')}>
-                    🍳 High-Protein Breakfast
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => applyPreset('balanced_lunch')}>
-                    🥗 Balanced Lunch
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => applyPreset('light_dinner')}>
-                    🍽️ Light Dinner
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => applyPreset('post_workout')}>
-                    💪 Post-Workout
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => applyPreset('protein_snack')}>
-                    🥜 Protein Snack
-                  </Button>
-                </div>
+                <Textarea
+                  placeholder="e.g., Client needs a high-protein post-workout breakfast that's quick to prepare, they're dairy-free and training for a half marathon. They had a 6am training session and need something ready by 7:15am. Prefers savory over sweet. Previous day was low on iron and vitamin C..."
+                  value={freeFormContext}
+                  onChange={(e) => setFreeFormContext(e.target.value)}
+                  rows={4}
+                  className="resize-y min-h-[100px]"
+                />
               </CardContent>
             </Card>
 
-            {/* Meal Type Selection */}
+            {/* Meal Type Selection (optional refinement) */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Utensils className="h-5 w-5 text-[#c19962]" />
                   Meal Type
                 </CardTitle>
+                <CardDescription>Optional — select to refine</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-3 gap-2">
@@ -448,7 +471,7 @@ export default function MealPlannerPage() {
               </CardContent>
             </Card>
 
-            {/* Macro Targets */}
+            {/* Macro Targets — typed inputs */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -456,71 +479,208 @@ export default function MealPlannerPage() {
                   Macro Targets
                 </CardTitle>
                 <CardDescription>
-                  Calculated calories: {actualCalories} 
+                  From macros: {actualCalories} kcal
                   {Math.abs(actualCalories - targetCalories) > 20 && (
-                    <span className="text-yellow-600 ml-2">(adjust to match target)</span>
+                    <span className="text-amber-600 ml-2">(macros ={actualCalories}, target ={targetCalories})</span>
                   )}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Target Calories: {targetCalories}</Label>
-                  <Slider
-                    min={100}
-                    max={1500}
-                    step={25}
-                    value={[targetCalories]}
-                    onValueChange={(v) => setTargetCalories(v[0])}
-                  />
+                {/* Quick-set presets */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-xs text-muted-foreground self-center mr-1">Quick Set:</span>
+                  {[
+                    { label: 'High Protein', cal: 500, p: 50, c: 30, f: 12 },
+                    { label: 'Balanced', cal: 550, p: 40, c: 50, f: 18 },
+                    { label: 'Low Carb', cal: 450, p: 40, c: 15, f: 28 },
+                    { label: 'Post-Workout', cal: 400, p: 35, c: 45, f: 8 },
+                    { label: 'Light Snack', cal: 200, p: 20, c: 15, f: 6 },
+                  ].map((preset) => (
+                    <Button
+                      key={preset.label}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-7 px-2"
+                      onClick={() => {
+                        setTargetCalories(preset.cal);
+                        setTargetProtein(preset.p);
+                        setTargetCarbs(preset.c);
+                        setTargetFat(preset.f);
+                      }}
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm">Protein: {targetProtein}g</Label>
-                    <Slider
-                      min={10}
-                      max={100}
-                      step={5}
-                      value={[targetProtein]}
-                      onValueChange={(v) => setTargetProtein(v[0])}
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Calories</Label>
+                    <Input
+                      type="number"
+                      min={50}
+                      max={2000}
+                      value={targetCalories}
+                      onChange={(e) => setTargetCalories(Number(e.target.value) || 0)}
+                      className="font-mono text-center h-9"
                     />
-                    <p className="text-xs text-muted-foreground text-center">{macroPercentages.protein}%</p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm">Carbs: {targetCarbs}g</Label>
-                    <Slider
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Protein (g)</Label>
+                    <Input
+                      type="number"
                       min={0}
-                      max={150}
-                      step={5}
-                      value={[targetCarbs]}
-                      onValueChange={(v) => setTargetCarbs(v[0])}
+                      max={200}
+                      value={targetProtein}
+                      onChange={(e) => {
+                        const v = Number(e.target.value) || 0;
+                        setTargetProtein(v);
+                        setTargetCalories(v * 4 + targetCarbs * 4 + targetFat * 9);
+                      }}
+                      className="font-mono text-center h-9"
                     />
-                    <p className="text-xs text-muted-foreground text-center">{macroPercentages.carbs}%</p>
+                    <p className="text-[10px] text-muted-foreground text-center">{macroPercentages.protein}%</p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm">Fat: {targetFat}g</Label>
-                    <Slider
-                      min={5}
-                      max={60}
-                      step={1}
-                      value={[targetFat]}
-                      onValueChange={(v) => setTargetFat(v[0])}
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Carbs (g)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={300}
+                      value={targetCarbs}
+                      onChange={(e) => {
+                        const v = Number(e.target.value) || 0;
+                        setTargetCarbs(v);
+                        setTargetCalories(targetProtein * 4 + v * 4 + targetFat * 9);
+                      }}
+                      className="font-mono text-center h-9"
                     />
-                    <p className="text-xs text-muted-foreground text-center">{macroPercentages.fat}%</p>
+                    <p className="text-[10px] text-muted-foreground text-center">{macroPercentages.carbs}%</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Fat (g)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={targetFat}
+                      onChange={(e) => {
+                        const v = Number(e.target.value) || 0;
+                        setTargetFat(v);
+                        setTargetCalories(targetProtein * 4 + targetCarbs * 4 + v * 9);
+                      }}
+                      className="font-mono text-center h-9"
+                    />
+                    <p className="text-[10px] text-muted-foreground text-center">{macroPercentages.fat}%</p>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm">Macro Flexibility: ±{macroFlexibility}%</Label>
-                  <Slider
+                <div className="flex items-center gap-3">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Flexibility ±</Label>
+                  <Input
+                    type="number"
                     min={0}
-                    max={20}
-                    step={5}
-                    value={[macroFlexibility]}
-                    onValueChange={(v) => setMacroFlexibility(v[0])}
+                    max={30}
+                    value={macroFlexibility}
+                    onChange={(e) => setMacroFlexibility(Number(e.target.value) || 0)}
+                    className="font-mono text-center h-8 w-16"
                   />
+                  <span className="text-xs text-muted-foreground">%</span>
                 </div>
               </CardContent>
+            </Card>
+
+            {/* Daily Totals Context (optional) */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Target className="h-5 w-5 text-blue-500" />
+                    Daily Budget
+                  </CardTitle>
+                  <Button
+                    variant={showDailyTotals ? 'default' : 'outline'}
+                    size="sm"
+                    className={cn("text-xs h-7", showDailyTotals && "bg-[#00263d] hover:bg-[#00263d]/80")}
+                    onClick={() => setShowDailyTotals(!showDailyTotals)}
+                  >
+                    {showDailyTotals ? 'Enabled' : 'Off'}
+                  </Button>
+                </div>
+                <CardDescription>
+                  Optionally set total daily targets and what&apos;s already been consumed so the meal fits within your remaining budget.
+                </CardDescription>
+              </CardHeader>
+              {showDailyTotals && (
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Daily Cal</Label>
+                      <Input type="number" value={dailyCalories} onChange={(e) => setDailyCalories(Number(e.target.value) || 0)} className="font-mono text-center h-8 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Daily P (g)</Label>
+                      <Input type="number" value={dailyProtein} onChange={(e) => setDailyProtein(Number(e.target.value) || 0)} className="font-mono text-center h-8 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Daily C (g)</Label>
+                      <Input type="number" value={dailyCarbs} onChange={(e) => setDailyCarbs(Number(e.target.value) || 0)} className="font-mono text-center h-8 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Daily F (g)</Label>
+                      <Input type="number" value={dailyFat} onChange={(e) => setDailyFat(Number(e.target.value) || 0)} className="font-mono text-center h-8 text-xs" />
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Used Cal</Label>
+                      <Input type="number" value={caloriesUsed} onChange={(e) => setCaloriesUsed(Number(e.target.value) || 0)} className="font-mono text-center h-8 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Used P</Label>
+                      <Input type="number" value={proteinUsed} onChange={(e) => setProteinUsed(Number(e.target.value) || 0)} className="font-mono text-center h-8 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Used C</Label>
+                      <Input type="number" value={carbsUsed} onChange={(e) => setCarbsUsed(Number(e.target.value) || 0)} className="font-mono text-center h-8 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Used F</Label>
+                      <Input type="number" value={fatUsed} onChange={(e) => setFatUsed(Number(e.target.value) || 0)} className="font-mono text-center h-8 text-xs" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 pt-1">
+                    {[
+                      { label: 'Cal left', value: dailyRemaining.calories, unit: '' },
+                      { label: 'P left', value: dailyRemaining.protein, unit: 'g' },
+                      { label: 'C left', value: dailyRemaining.carbs, unit: 'g' },
+                      { label: 'F left', value: dailyRemaining.fat, unit: 'g' },
+                    ].map(({ label, value, unit }) => (
+                      <div key={label} className={cn(
+                        "text-center rounded px-1 py-1",
+                        value < 0 ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
+                      )}>
+                        <p className="text-xs font-mono font-semibold">{value}{unit}</p>
+                        <p className="text-[10px]">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs w-full h-7"
+                    onClick={() => {
+                      setTargetCalories(Math.max(0, dailyRemaining.calories));
+                      setTargetProtein(Math.max(0, dailyRemaining.protein));
+                      setTargetCarbs(Math.max(0, dailyRemaining.carbs));
+                      setTargetFat(Math.max(0, dailyRemaining.fat));
+                    }}
+                  >
+                    Set meal targets to remaining budget
+                  </Button>
+                </CardContent>
+              )}
             </Card>
 
             {/* Preferences */}

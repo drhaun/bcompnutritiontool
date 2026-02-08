@@ -7,7 +7,7 @@ export const maxDuration = 60;
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { analysis, targets } = body;
+    const { analysis, targets, mode, nutrientGroups } = body;
     
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -40,9 +40,7 @@ export async function POST(request: Request) {
       .map((f: any) => `${f.name} (${f.count}x, ${f.totalCalories} cal total)`)
       .join(', ');
 
-    const prompt = `You are an expert registered dietitian and sports nutritionist. Analyze this client's nutrition data and provide actionable recommendations.
-
-CURRENT NUTRITION ANALYSIS:
+    const nutritionContext = `CURRENT NUTRITION ANALYSIS:
 - Average Daily: ${analysis.summary.totalCalories} calories, ${analysis.summary.totalProtein}g protein, ${analysis.summary.totalCarbs}g carbs, ${analysis.summary.totalFat}g fat
 - Days Analyzed: ${analysis.summary.daysAnalyzed}
 - Overall Score: ${analysis.summary.overallScore}/100
@@ -63,7 +61,64 @@ RATIO ISSUES:
 ${ratioIssues || 'All ratios optimal'}
 
 TOP CONSUMED FOODS:
-${topFoodsText}
+${topFoodsText}`;
+
+    // ===== CORRECTIVE MEAL PLAN MODE =====
+    if (mode === 'corrective_meal_plan') {
+      const weakGroups = (nutrientGroups || [])
+        .map((g: any) => `${g.name} (${g.avgAdequacy}% adequacy): ${g.message}`)
+        .join('\n');
+
+      const correctivePrompt = `You are an expert registered dietitian and sports nutritionist. Create a detailed, COMPLETE corrective meal plan for ONE full day that specifically targets this client's nutritional gaps.
+
+${nutritionContext}
+
+WEAK FUNCTIONAL NUTRIENT GROUPS:
+${weakGroups || 'None specified'}
+
+Create a DETAILED corrective day plan with these requirements:
+1. Design 4-5 meals/snacks that hit the calorie and macro targets
+2. Specifically address the TOP deficiencies by choosing foods rich in those nutrients
+3. Minimize or swap foods that contribute to the excesses
+4. For EACH meal, provide:
+   - Meal name and time
+   - Complete ingredient list with exact portions (grams/cups/tbsp)
+   - Brief preparation instructions
+   - Per-meal macros (calories, protein, carbs, fat)
+   - Which specific deficient nutrients this meal addresses and approximately how much it contributes
+5. End with a DAY TOTAL summary and a brief explanation of how this day corrects the identified issues
+6. Include practical tips: prep time, substitutions for common allergens, and meal prep advice
+
+Be specific with real foods, real portions, and realistic recipes. This should be a plan someone could follow TODAY. Use nutrient-dense whole foods. Aim for clinical accuracy in nutrient content estimates.
+
+Format as clear, readable text with headers for each meal. Do NOT return JSON — return well-formatted plain text.`;
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert clinical dietitian. Provide detailed, actionable corrective meal plans with real foods and accurate nutrient estimates. Use clear formatting with meal headers, bullet points for ingredients, and macro breakdowns.'
+          },
+          { role: 'user', content: correctivePrompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 3000,
+      });
+
+      const content = completion.choices[0]?.message?.content || '';
+
+      return NextResponse.json({
+        recommendations: content,
+        correctivePlan: content,
+        sampleDay: null,
+      });
+    }
+
+    // ===== STANDARD RECOMMENDATIONS MODE =====
+    const prompt = `You are an expert registered dietitian and sports nutritionist. Analyze this client's nutrition data and provide actionable recommendations.
+
+${nutritionContext}
 
 Provide:
 1. A concise analysis (3-4 sentences) of overall diet quality

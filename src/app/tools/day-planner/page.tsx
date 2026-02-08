@@ -56,6 +56,11 @@ interface MealSlot {
   prepMethod: PrepMethod;
   location: string;
   notes: string;
+  // Per-meal macro targets (auto-computed then customizable)
+  targetCalories: number;
+  targetProtein: number;
+  targetCarbs: number;
+  targetFat: number;
 }
 
 interface GeneratedMeal {
@@ -103,6 +108,10 @@ const COMMON_CARBS = [
   'Rice', 'Oats', 'Bread', 'Pasta', 'Potatoes', 'Sweet Potatoes', 'Quinoa', 'Fruits', 'Beans'
 ];
 
+const COMMON_FATS = [
+  'Olive Oil', 'Avocado', 'Nuts', 'Seeds', 'Butter', 'Coconut Oil', 'Cheese', 'Nut Butter', 'Fatty Fish', 'Dark Chocolate'
+];
+
 const DIETARY_RESTRICTIONS = [
   'None', 'Vegetarian', 'Vegan', 'Gluten-Free', 'Dairy-Free', 'Keto', 'Low-Carb', 'Paleo'
 ];
@@ -111,6 +120,10 @@ const DIETARY_RESTRICTIONS = [
 
 export default function DayPlannerPage() {
   const router = useRouter();
+
+  // Free-form context (primary input)
+  const [freeFormContext, setFreeFormContext] = useState('');
+  const [clientGoal, setClientGoal] = useState<'fat_loss' | 'muscle_gain' | 'maintenance' | 'performance'>('maintenance');
 
   // Client Context
   const [clientName, setClientName] = useState('');
@@ -122,7 +135,9 @@ export default function DayPlannerPage() {
   const [allergies, setAllergies] = useState('');
   const [preferredProteins, setPreferredProteins] = useState<string[]>(['Chicken', 'Eggs']);
   const [preferredCarbs, setPreferredCarbs] = useState<string[]>(['Rice', 'Oats']);
+  const [preferredFats, setPreferredFats] = useState<string[]>(['Olive Oil', 'Avocado']);
   const [foodsToAvoid, setFoodsToAvoid] = useState('');
+  const [foodsToEmphasize, setFoodsToEmphasize] = useState('');
 
   // Day Context
   const [dayType, setDayType] = useState<'workout' | 'rest'>('workout');
@@ -134,11 +149,11 @@ export default function DayPlannerPage() {
 
   // Meal Slots
   const [mealSlots, setMealSlots] = useState<MealSlot[]>([
-    { id: '1', type: 'breakfast', time: '08:00', prepMethod: 'cook', location: 'Home', notes: '' },
-    { id: '2', type: 'snack', time: '10:30', prepMethod: 'quick', location: 'Work', notes: '' },
-    { id: '3', type: 'lunch', time: '12:30', prepMethod: 'meal_prep', location: 'Work', notes: '' },
-    { id: '4', type: 'snack', time: '15:30', prepMethod: 'quick', location: 'Work', notes: '' },
-    { id: '5', type: 'dinner', time: '19:00', prepMethod: 'cook', location: 'Home', notes: '' },
+    { id: '1', type: 'breakfast', time: '08:00', prepMethod: 'cook', location: 'Home', notes: '', targetCalories: 0, targetProtein: 0, targetCarbs: 0, targetFat: 0 },
+    { id: '2', type: 'snack', time: '10:30', prepMethod: 'quick', location: 'Work', notes: '', targetCalories: 0, targetProtein: 0, targetCarbs: 0, targetFat: 0 },
+    { id: '3', type: 'lunch', time: '12:30', prepMethod: 'meal_prep', location: 'Work', notes: '', targetCalories: 0, targetProtein: 0, targetCarbs: 0, targetFat: 0 },
+    { id: '4', type: 'snack', time: '15:30', prepMethod: 'quick', location: 'Work', notes: '', targetCalories: 0, targetProtein: 0, targetCarbs: 0, targetFat: 0 },
+    { id: '5', type: 'dinner', time: '19:00', prepMethod: 'cook', location: 'Home', notes: '', targetCalories: 0, targetProtein: 0, targetCarbs: 0, targetFat: 0 },
   ]);
 
   // Generation State
@@ -157,6 +172,10 @@ export default function DayPlannerPage() {
       prepMethod: 'quick',
       location: 'Home',
       notes: '',
+      targetCalories: 0,
+      targetProtein: 0,
+      targetCarbs: 0,
+      targetFat: 0,
     }]);
   };
 
@@ -182,6 +201,102 @@ export default function DayPlannerPage() {
     );
   };
 
+  const toggleFat = (fat: string) => {
+    setPreferredFats(prev =>
+      prev.includes(fat) ? prev.filter(f => f !== fat) : [...prev, fat]
+    );
+  };
+
+  // Update a meal slot's macro target and auto-recalculate calories
+  const updateSlotMacro = (id: string, field: 'targetCalories' | 'targetProtein' | 'targetCarbs' | 'targetFat', value: number) => {
+    setMealSlots(prev => prev.map(m => {
+      if (m.id !== id) return m;
+      const updated = { ...m, [field]: value };
+      // When macro grams change, auto-recalculate slot calories
+      if (field !== 'targetCalories') {
+        updated.targetCalories = updated.targetProtein * 4 + updated.targetCarbs * 4 + updated.targetFat * 9;
+      }
+      return updated;
+    }));
+  };
+
+  // Auto-distribute daily macros across meal slots using nutrient-timing logic
+  const autoDistributeMacros = () => {
+    const sorted = [...mealSlots].sort((a, b) => a.time.localeCompare(b.time));
+    const n = sorted.length;
+    if (n === 0) return;
+
+    // Parse workout timing to an hour
+    const workoutHour = dayType === 'workout'
+      ? workoutTiming === 'morning' ? 7 : workoutTiming === 'midday' ? 12 : 18
+      : -1;
+
+    // Assign weight to each meal based on type and proximity to workout
+    const weights = sorted.map(slot => {
+      const hour = parseInt(slot.time.split(':')[0]) || 12;
+      let w = slot.type === 'snack' ? 0.6 : 1.0; // Snacks get less by default
+      // Near workout? Boost carbs/protein weight
+      if (workoutHour >= 0) {
+        const diff = Math.abs(hour - workoutHour);
+        if (diff <= 1) w += 0.4; // Pre/post workout
+        else if (diff <= 2) w += 0.15;
+      }
+      return w;
+    });
+    const totalW = weights.reduce((s, w) => s + w, 0);
+
+    // Protein: distribute evenly across meals (evidence-based: ~0.4g/kg per feeding)
+    // Carbs: weight towards around workout
+    // Fat: spread evenly but lower near workout
+    const carbWeights = sorted.map((slot, i) => {
+      const hour = parseInt(slot.time.split(':')[0]) || 12;
+      let cw = weights[i];
+      if (workoutHour >= 0) {
+        const diff = Math.abs(hour - workoutHour);
+        if (diff <= 1) cw *= 1.5; // More carbs around training
+        if (diff <= 2 && hour > workoutHour) cw *= 1.3; // Post-workout boost
+      }
+      return cw;
+    });
+    const totalCW = carbWeights.reduce((s, w) => s + w, 0);
+
+    const fatWeights = sorted.map((slot, i) => {
+      const hour = parseInt(slot.time.split(':')[0]) || 12;
+      let fw = weights[i];
+      if (workoutHour >= 0) {
+        const diff = Math.abs(hour - workoutHour);
+        if (diff <= 1) fw *= 0.5; // Less fat around training
+      }
+      return fw;
+    });
+    const totalFW = fatWeights.reduce((s, w) => s + w, 0);
+
+    const newSlots = sorted.map((slot, i) => {
+      const p = Math.round(targetProtein * (weights[i] / totalW));
+      const c = Math.round(targetCarbs * (carbWeights[i] / totalCW));
+      const f = Math.round(targetFat * (fatWeights[i] / totalFW));
+      const cal = p * 4 + c * 4 + f * 9;
+      return { ...slot, targetProtein: p, targetCarbs: c, targetFat: f, targetCalories: cal };
+    });
+    setMealSlots(newSlots);
+  };
+
+  // Rolling budget: how much of each macro is still unallocated
+  const rollingBudget = useMemo(() => {
+    const allocated = mealSlots.reduce((acc, s) => ({
+      calories: acc.calories + s.targetCalories,
+      protein: acc.protein + s.targetProtein,
+      carbs: acc.carbs + s.targetCarbs,
+      fat: acc.fat + s.targetFat,
+    }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+    return {
+      calories: targetCalories - allocated.calories,
+      protein: targetProtein - allocated.protein,
+      carbs: targetCarbs - allocated.carbs,
+      fat: targetFat - allocated.fat,
+    };
+  }, [mealSlots, targetCalories, targetProtein, targetCarbs, targetFat]);
+
   // Macro distribution calculation
   const macroDistribution = useMemo(() => {
     const totalCals = targetProtein * 4 + targetCarbs * 4 + targetFat * 9;
@@ -203,12 +318,16 @@ export default function DayPlannerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientName,
+          freeFormContext: freeFormContext.trim() || undefined,
+          clientGoal,
           targets: { calories: targetCalories, protein: targetProtein, carbs: targetCarbs, fat: targetFat },
           dietaryRestriction,
           allergies: allergies.split(',').map(a => a.trim()).filter(Boolean),
           preferredProteins,
           preferredCarbs,
+          preferredFats,
           foodsToAvoid: foodsToAvoid.split(',').map(f => f.trim()).filter(Boolean),
+          foodsToEmphasize: foodsToEmphasize.split(',').map(f => f.trim()).filter(Boolean),
           dayContext: {
             dayType,
             workoutTiming: dayType === 'workout' ? workoutTiming : 'none',
@@ -348,6 +467,49 @@ export default function DayPlannerPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column - Inputs */}
           <div className="space-y-6">
+            {/* Free-Form Context (primary input — always visible) */}
+            <Card className="border-[#c19962]/40">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-[#c19962]" />
+                  Describe the Day
+                </CardTitle>
+                <CardDescription>
+                  Provide context about the client, their schedule, consultation notes, dietary recall, or any requirements for this day.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Textarea
+                  placeholder="e.g., Client works 12-hour shifts as a nurse, needs portable meals, trying to hit 180g protein on 2200 cal, has a morning workout at 6am. They prefer savory breakfasts and need low-prep lunches they can eat on break. Previous week was low on iron and fiber..."
+                  value={freeFormContext}
+                  onChange={(e) => setFreeFormContext(e.target.value)}
+                  rows={4}
+                  className="resize-y min-h-[100px]"
+                />
+                <div className="flex items-center gap-3">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Goal:</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      { value: 'fat_loss', label: 'Fat Loss' },
+                      { value: 'muscle_gain', label: 'Muscle Gain' },
+                      { value: 'maintenance', label: 'Maintenance' },
+                      { value: 'performance', label: 'Performance' },
+                    ] as const).map((g) => (
+                      <Button
+                        key={g.value}
+                        variant={clientGoal === g.value ? 'default' : 'outline'}
+                        size="sm"
+                        className={cn("text-xs h-7 px-2", clientGoal === g.value && "bg-[#00263d] hover:bg-[#00263d]/80")}
+                        onClick={() => setClientGoal(g.value)}
+                      >
+                        {g.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Tabs defaultValue="client" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="client">Client & Targets</TabsTrigger>
@@ -361,7 +523,7 @@ export default function DayPlannerPage() {
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Target className="h-5 w-5 text-[#c19962]" />
-                      Client Information
+                      Client & Macro Targets
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -376,56 +538,92 @@ export default function DayPlannerPage() {
 
                     <Separator />
 
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Target Calories: {targetCalories}</Label>
-                        <Slider
-                          min={1200}
-                          max={4000}
-                          step={50}
-                          value={[targetCalories]}
-                          onValueChange={(v) => setTargetCalories(v[0])}
+                    {/* Quick-set presets */}
+                    <div className="flex flex-wrap gap-2">
+                      <span className="text-xs text-muted-foreground self-center mr-1">Quick Set:</span>
+                      {[
+                        { label: 'Cut 1800', cal: 1800, p: 160, c: 150, f: 55 },
+                        { label: 'Cut 2000', cal: 2000, p: 180, c: 170, f: 60 },
+                        { label: 'Maintain 2400', cal: 2400, p: 170, c: 240, f: 75 },
+                        { label: 'Gain 2800', cal: 2800, p: 190, c: 310, f: 85 },
+                        { label: 'Bulk 3200', cal: 3200, p: 210, c: 370, f: 95 },
+                      ].map((preset) => (
+                        <Button
+                          key={preset.label}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => {
+                            setTargetCalories(preset.cal);
+                            setTargetProtein(preset.p);
+                            setTargetCarbs(preset.c);
+                            setTargetFat(preset.f);
+                          }}
+                        >
+                          {preset.label}
+                        </Button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Calories</Label>
+                        <Input
+                          type="number"
+                          min={800}
+                          max={5000}
+                          value={targetCalories}
+                          onChange={(e) => setTargetCalories(Number(e.target.value) || 0)}
+                          className="font-mono text-center h-9"
                         />
                       </div>
-
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label>Protein (g): {targetProtein}</Label>
-                          <Slider
-                            min={50}
-                            max={300}
-                            step={5}
-                            value={[targetProtein]}
-                            onValueChange={(v) => setTargetProtein(v[0])}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Carbs (g): {targetCarbs}</Label>
-                          <Slider
-                            min={50}
-                            max={400}
-                            step={5}
-                            value={[targetCarbs]}
-                            onValueChange={(v) => setTargetCarbs(v[0])}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Fat (g): {targetFat}</Label>
-                          <Slider
-                            min={30}
-                            max={150}
-                            step={5}
-                            value={[targetFat]}
-                            onValueChange={(v) => setTargetFat(v[0])}
-                          />
-                        </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Protein (g)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={400}
+                          value={targetProtein}
+                          onChange={(e) => {
+                            const v = Number(e.target.value) || 0;
+                            setTargetProtein(v);
+                            setTargetCalories(v * 4 + targetCarbs * 4 + targetFat * 9);
+                          }}
+                          className="font-mono text-center h-9"
+                        />
+                        <p className="text-[10px] text-muted-foreground text-center">{macroDistribution.protein}%</p>
                       </div>
-
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>Macro Split:</span>
-                        <Badge variant="secondary">P: {macroDistribution.protein}%</Badge>
-                        <Badge variant="secondary">C: {macroDistribution.carbs}%</Badge>
-                        <Badge variant="secondary">F: {macroDistribution.fat}%</Badge>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Carbs (g)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={600}
+                          value={targetCarbs}
+                          onChange={(e) => {
+                            const v = Number(e.target.value) || 0;
+                            setTargetCarbs(v);
+                            setTargetCalories(targetProtein * 4 + v * 4 + targetFat * 9);
+                          }}
+                          className="font-mono text-center h-9"
+                        />
+                        <p className="text-[10px] text-muted-foreground text-center">{macroDistribution.carbs}%</p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Fat (g)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={200}
+                          value={targetFat}
+                          onChange={(e) => {
+                            const v = Number(e.target.value) || 0;
+                            setTargetFat(v);
+                            setTargetCalories(targetProtein * 4 + targetCarbs * 4 + v * 9);
+                          }}
+                          className="font-mono text-center h-9"
+                        />
+                        <p className="text-[10px] text-muted-foreground text-center">{macroDistribution.fat}%</p>
                       </div>
                     </div>
                   </CardContent>
@@ -492,6 +690,31 @@ export default function DayPlannerPage() {
                           </Badge>
                         ))}
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Preferred Fats</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {COMMON_FATS.map((fat) => (
+                          <Badge
+                            key={fat}
+                            variant={preferredFats.includes(fat) ? 'default' : 'outline'}
+                            className="cursor-pointer"
+                            onClick={() => toggleFat(fat)}
+                          >
+                            {fat}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Foods to Emphasize (comma-separated)</Label>
+                      <Input
+                        placeholder="e.g., Leafy greens, Berries, Salmon"
+                        value={foodsToEmphasize}
+                        onChange={(e) => setFoodsToEmphasize(e.target.value)}
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -614,17 +837,59 @@ export default function DayPlannerPage() {
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg flex items-center gap-2">
                         <Clock className="h-5 w-5 text-[#c19962]" />
-                        Meal Schedule
+                        Meal Schedule & Targets
                       </CardTitle>
-                      <Button variant="outline" size="sm" onClick={addMealSlot}>
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add Meal
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={autoDistributeMacros}
+                          title="Auto-distribute daily macros across meals using nutrient timing logic"
+                        >
+                          <Zap className="h-4 w-4 mr-1" />
+                          Auto-Distribute
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={addMealSlot}>
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add Meal
+                        </Button>
+                      </div>
                     </div>
-                    <CardDescription>Define the structure and timing of meals for this day</CardDescription>
+                    <CardDescription>
+                      Define meal timing and per-meal macro targets. Click &quot;Auto-Distribute&quot; to intelligently allocate macros based on workout timing and nutrient timing principles, then customize.
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <ScrollArea className="h-[400px] pr-4">
+                  <CardContent className="space-y-3">
+                    {/* Rolling Budget */}
+                    <div className="grid grid-cols-4 gap-2 p-2 rounded-lg bg-muted/50">
+                      {[
+                        { label: 'Cal', value: rollingBudget.calories, total: targetCalories },
+                        { label: 'Protein', value: rollingBudget.protein, total: targetProtein, unit: 'g' },
+                        { label: 'Carbs', value: rollingBudget.carbs, total: targetCarbs, unit: 'g' },
+                        { label: 'Fat', value: rollingBudget.fat, total: targetFat, unit: 'g' },
+                      ].map(({ label, value, total, unit }) => (
+                        <div key={label} className="text-center">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label} remaining</p>
+                          <p className={cn(
+                            "text-sm font-mono font-semibold",
+                            value < 0 ? "text-red-600" : value === 0 ? "text-emerald-600" : "text-foreground"
+                          )}>
+                            {value}{unit || ''}
+                          </p>
+                          <div className="w-full bg-gray-200 rounded-full h-1 mt-0.5">
+                            <div
+                              className={cn(
+                                "h-1 rounded-full transition-all",
+                                value < 0 ? "bg-red-500" : value <= total * 0.1 ? "bg-emerald-500" : "bg-blue-400"
+                              )}
+                              style={{ width: `${Math.min(Math.max(((total - value) / Math.max(total, 1)) * 100, 0), 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <ScrollArea className="h-[500px] pr-4">
                       <div className="space-y-4">
                         {mealSlots.sort((a, b) => a.time.localeCompare(b.time)).map((slot, index) => (
                           <Card key={slot.id} className="border-dashed">
@@ -633,6 +898,9 @@ export default function DayPlannerPage() {
                                 <div className="flex items-center gap-2">
                                   <Badge variant="secondary">{index + 1}</Badge>
                                   <span className="font-medium">{slot.time}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {MEAL_TYPES.find(t => t.value === slot.type)?.label}
+                                  </span>
                                 </div>
                                 <Button
                                   variant="ghost"
@@ -702,6 +970,58 @@ export default function DayPlannerPage() {
                                     placeholder="Home, Work, Gym..."
                                     className="h-8"
                                   />
+                                </div>
+                              </div>
+
+                              {/* Per-meal macro targets */}
+                              <div className="mt-3 pt-3 border-t border-dashed">
+                                <div className="flex items-center justify-between mb-2">
+                                  <Label className="text-xs text-muted-foreground font-medium">Meal Macro Targets</Label>
+                                  <span className="text-[10px] text-muted-foreground font-mono">
+                                    ={slot.targetProtein * 4 + slot.targetCarbs * 4 + slot.targetFat * 9} cal
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-4 gap-2">
+                                  <div className="space-y-0.5">
+                                    <Label className="text-[10px] text-muted-foreground">Cal</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      value={slot.targetCalories}
+                                      onChange={(e) => updateSlotMacro(slot.id, 'targetCalories', Number(e.target.value) || 0)}
+                                      className="h-7 text-xs font-mono text-center"
+                                    />
+                                  </div>
+                                  <div className="space-y-0.5">
+                                    <Label className="text-[10px] text-muted-foreground">Protein</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      value={slot.targetProtein}
+                                      onChange={(e) => updateSlotMacro(slot.id, 'targetProtein', Number(e.target.value) || 0)}
+                                      className="h-7 text-xs font-mono text-center"
+                                    />
+                                  </div>
+                                  <div className="space-y-0.5">
+                                    <Label className="text-[10px] text-muted-foreground">Carbs</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      value={slot.targetCarbs}
+                                      onChange={(e) => updateSlotMacro(slot.id, 'targetCarbs', Number(e.target.value) || 0)}
+                                      className="h-7 text-xs font-mono text-center"
+                                    />
+                                  </div>
+                                  <div className="space-y-0.5">
+                                    <Label className="text-[10px] text-muted-foreground">Fat</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      value={slot.targetFat}
+                                      onChange={(e) => updateSlotMacro(slot.id, 'targetFat', Number(e.target.value) || 0)}
+                                      className="h-7 text-xs font-mono text-center"
+                                    />
+                                  </div>
                                 </div>
                               </div>
 

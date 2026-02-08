@@ -690,14 +690,17 @@ export default function BodyCompositionPage() {
     const data = config.data;
     if (data.length === 0) return null;
     
-    const padding = { left: 55, right: 20, top: 25, bottom: 40 };
-    const width = 600;
-    const height = 220;
+    const padding = { left: 58, right: 24, top: 20, bottom: 44 };
+    const width = 720;
+    const height = 310;
     const graphWidth = width - padding.left - padding.right;
     const graphHeight = height - padding.top - padding.bottom;
     
-    const min = Math.min(...data) - (Math.max(...data) - Math.min(...data)) * 0.1;
-    const max = Math.max(...data) + (Math.max(...data) - Math.min(...data)) * 0.1;
+    const dataMin = Math.min(...data);
+    const dataMax = Math.max(...data);
+    const dataRange = dataMax - dataMin;
+    const min = dataMin - dataRange * 0.08;
+    const max = dataMax + dataRange * 0.08;
     const range = max - min || 1;
     
     const points = data.map((v, i) => ({
@@ -707,45 +710,43 @@ export default function BodyCompositionPage() {
       week: i
     }));
     
-    // Y-axis ticks
-    const yTicks = 5;
+    const yTicks = 6;
     const yTickValues = Array.from({ length: yTicks }, (_, i) => min + (range * i) / (yTicks - 1));
     
-    // X-axis ticks (show every few weeks)
-    const xTickInterval = Math.max(1, Math.floor(data.length / 8));
+    const xTickInterval = Math.max(1, Math.floor(data.length / 10));
     const xTicks = data.map((_, i) => i).filter(i => i % xTickInterval === 0 || i === data.length - 1);
     
     return (
       <svg 
-        className="w-full cursor-crosshair" 
+        className="w-full cursor-crosshair select-none" 
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="xMidYMid meet"
         onMouseLeave={() => setHoveredWeek(null)}
       >
         <defs>
           <linearGradient id="graphAreaFill" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={config.color} stopOpacity="0.15" />
-            <stop offset="100%" stopColor={config.color} stopOpacity="0.02" />
+            <stop offset="0%" stopColor={config.color} stopOpacity="0.12" />
+            <stop offset="100%" stopColor={config.color} stopOpacity="0.01" />
           </linearGradient>
         </defs>
         
-        {/* Background */}
-        <rect x={padding.left} y={padding.top} width={graphWidth} height={graphHeight} fill="#f8fafc" rx="4" />
+        {/* Clean background */}
+        <rect x={padding.left} y={padding.top} width={graphWidth} height={graphHeight} fill="#fafbfc" rx="2" />
         
-        {/* Horizontal grid lines */}
+        {/* Horizontal grid lines — subtle */}
         {yTickValues.map((val, i) => {
           const y = padding.top + graphHeight - ((val - min) / range) * graphHeight;
           return (
             <g key={i}>
-              <line x1={padding.left} y1={y} x2={padding.left + graphWidth} y2={y} stroke="#e2e8f0" strokeWidth="1" />
-              <text x={padding.left - 8} y={y + 4} fontSize="11" fill="#64748b" textAnchor="end" fontWeight="500">
+              <line x1={padding.left} y1={y} x2={padding.left + graphWidth} y2={y} stroke="#e8ecf0" strokeWidth="0.75" />
+              <text x={padding.left - 10} y={y + 3.5} fontSize="10" fill="#8896a4" textAnchor="end" fontFamily="ui-monospace, monospace" fontWeight="500">
                 {val.toFixed(1)}
               </text>
             </g>
           );
         })}
         
-        {/* X-axis labels - show dates */}
+        {/* X-axis labels */}
         {xTicks.map(i => {
           const x = padding.left + (i / Math.max(1, data.length - 1)) * graphWidth;
           const dateStr = weeklyProjections[i]?.date || '';
@@ -753,9 +754,12 @@ export default function BodyCompositionPage() {
           const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
           const day = dateObj.getDate();
           return (
-            <text key={i} x={x} y={height - 12} fontSize="9" fill="#64748b" textAnchor="middle" fontWeight="500">
-              {month} {day}
-            </text>
+            <g key={i}>
+              <line x1={x} y1={padding.top + graphHeight} x2={x} y2={padding.top + graphHeight + 4} stroke="#cbd5e1" strokeWidth="0.75" />
+              <text x={x} y={height - 14} fontSize="9" fill="#8896a4" textAnchor="middle" fontFamily="ui-monospace, monospace" fontWeight="500">
+                {month} {day}
+              </text>
+            </g>
           );
         })}
         
@@ -767,12 +771,12 @@ export default function BodyCompositionPage() {
           />
         )}
         
-        {/* Main line */}
+        {/* Main line — clean and precise */}
         <path 
           d={createSmoothCurve(points)} 
           fill="none" 
           stroke={config.color} 
-          strokeWidth="3" 
+          strokeWidth="2.5" 
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -780,7 +784,6 @@ export default function BodyCompositionPage() {
         {/* Interactive hit areas and points */}
         {points.map((p, i) => (
           <g key={i}>
-            {/* Invisible hit area */}
             <rect 
               x={p.x - 15} y={padding.top} 
               width={30} height={graphHeight}
@@ -788,59 +791,38 @@ export default function BodyCompositionPage() {
               className="cursor-pointer"
               onMouseEnter={() => setHoveredWeek(i)}
             />
-            {/* Start point */}
             {i === 0 && (
-              <circle cx={p.x} cy={p.y} r="6" fill="#ef4444" stroke="#fff" strokeWidth="2" />
+              <circle cx={p.x} cy={p.y} r="5" fill="#ef4444" stroke="#fff" strokeWidth="2" />
             )}
-            {/* End point */}
             {i === points.length - 1 && (
-              <circle cx={p.x} cy={p.y} r="6" fill="#22c55e" stroke="#fff" strokeWidth="2" />
+              <circle cx={p.x} cy={p.y} r="5" fill="#22c55e" stroke="#fff" strokeWidth="2" />
             )}
-            {/* Hovered point */}
             {hoveredWeek === i && i !== 0 && i !== points.length - 1 && (
-              <circle cx={p.x} cy={p.y} r="6" fill={config.color} stroke="#fff" strokeWidth="2" />
+              <>
+                <line x1={p.x} y1={padding.top} x2={p.x} y2={padding.top + graphHeight} stroke={config.color} strokeWidth="0.75" strokeDasharray="3,3" opacity="0.4" />
+                <circle cx={p.x} cy={p.y} r="5" fill={config.color} stroke="#fff" strokeWidth="2" />
+              </>
             )}
           </g>
         ))}
         
-        {/* Hover vertical line and tooltip */}
+        {/* Hover tooltip */}
         {hoveredWeek !== null && points[hoveredWeek] && weeklyProjections[hoveredWeek] && (() => {
           const dateStr = weeklyProjections[hoveredWeek].date;
           const dateObj = new Date(dateStr);
           const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const tooltipX = Math.min(width - 120, Math.max(5, points[hoveredWeek].x - 60));
+          const tooltipY = Math.max(5, points[hoveredWeek].y - 62);
           return (
             <g>
-              <line 
-                x1={points[hoveredWeek].x} y1={padding.top} 
-                x2={points[hoveredWeek].x} y2={padding.top + graphHeight} 
-                stroke={config.color} strokeWidth="1" strokeDasharray="4" opacity="0.5"
-              />
-              <rect 
-                x={Math.min(width - 110, Math.max(5, points[hoveredWeek].x - 55))} 
-                y={Math.max(5, points[hoveredWeek].y - 58)} 
-                width="110" height="53" rx="6" 
-                fill="#1e293b" 
-                filter="drop-shadow(0 4px 6px rgba(0,0,0,0.1))"
-              />
-              <text 
-                x={Math.min(width - 110, Math.max(5, points[hoveredWeek].x - 55)) + 55} 
-                y={Math.max(5, points[hoveredWeek].y - 58) + 16} 
-                fontSize="10" fill="#94a3b8" textAnchor="middle" fontWeight="500"
-              >
-                Week {hoveredWeek}
+              <rect x={tooltipX} y={tooltipY} width="120" height="55" rx="8" fill="#0f172a" fillOpacity="0.95" />
+              <text x={tooltipX + 60} y={tooltipY + 16} fontSize="9" fill="#94a3b8" textAnchor="middle" fontWeight="500" fontFamily="ui-monospace, monospace">
+                Wk {hoveredWeek}
               </text>
-              <text 
-                x={Math.min(width - 110, Math.max(5, points[hoveredWeek].x - 55)) + 55} 
-                y={Math.max(5, points[hoveredWeek].y - 58) + 32} 
-                fontSize="11" fill="#fff" textAnchor="middle" fontWeight="600"
-              >
+              <text x={tooltipX + 60} y={tooltipY + 31} fontSize="10" fill="#cbd5e1" textAnchor="middle" fontWeight="500">
                 {formattedDate}
               </text>
-              <text 
-                x={Math.min(width - 110, Math.max(5, points[hoveredWeek].x - 55)) + 55} 
-                y={Math.max(5, points[hoveredWeek].y - 58) + 48} 
-                fontSize="14" fill={config.color} textAnchor="middle" fontWeight="700"
-              >
+              <text x={tooltipX + 60} y={tooltipY + 48} fontSize="15" fill={config.color} textAnchor="middle" fontWeight="700" fontFamily="ui-monospace, monospace">
                 {data[hoveredWeek]}{config.unit}
               </text>
             </g>
@@ -848,13 +830,15 @@ export default function BodyCompositionPage() {
         })()}
         
         {/* Axis labels */}
-        <text x={width / 2} y={height - 2} fontSize="10" fill="#94a3b8" textAnchor="middle">Timeline</text>
+        <text x={padding.left + graphWidth / 2} y={height - 1} fontSize="9" fill="#94a3b8" textAnchor="middle" letterSpacing="0.5">
+          TIMELINE
+        </text>
         <text 
-          x={12} y={height / 2} 
-          fontSize="10" fill="#94a3b8" textAnchor="middle" 
-          transform={`rotate(-90, 12, ${height / 2})`}
+          x={10} y={padding.top + graphHeight / 2} 
+          fontSize="9" fill="#94a3b8" textAnchor="middle" letterSpacing="0.5"
+          transform={`rotate(-90, 10, ${padding.top + graphHeight / 2})`}
         >
-          {config.label} ({config.unit.trim()})
+          {config.label.toUpperCase()} ({config.unit.trim()})
         </text>
       </svg>
     );
@@ -862,154 +846,157 @@ export default function BodyCompositionPage() {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-gradient-to-br from-[#00263d] via-[#003a5c] to-[#00263d] p-4 lg:p-6">
-        <div className="max-w-[1600px] mx-auto space-y-4">
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-[#001a2c] to-slate-950 p-4 lg:p-8">
+        <div className="max-w-[1680px] mx-auto space-y-6">
           
           {/* Header */}
-          <div className="flex items-center justify-center gap-3 py-2">
-            <div className="p-2.5 bg-gradient-to-br from-[#c19962] to-[#d4af7a] rounded-xl shadow-lg">
-              <Sparkles className="h-6 w-6 text-white" />
+          <header className="text-center py-6">
+            <div className="inline-flex items-center gap-4 mb-2">
+              <div className="h-px w-16 bg-gradient-to-r from-transparent to-[#c19962]/60" />
+              <h1 className="text-3xl lg:text-4xl font-light text-white tracking-tight">
+                Body Composition <span className="font-semibold">Planner</span>
+              </h1>
+              <div className="h-px w-16 bg-gradient-to-l from-transparent to-[#c19962]/60" />
             </div>
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">Body Composition Planner</h1>
-              <p className="text-xs text-white/50">Evidence-based goal setting with interactive risk analysis</p>
-            </div>
-          </div>
+            <p className="text-sm text-slate-400 font-light tracking-wide">Evidence-based goal setting &middot; Interactive risk analysis &middot; Projected outcomes</p>
+          </header>
 
-          {/* Row 1: Current Stats + Where You Stand + Risk */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* ═══ Section 1: Assessment ═══ */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             
             {/* Current Stats & Metabolism */}
-            <Card className="lg:col-span-4 bg-white border-0 shadow-lg rounded-2xl">
-              <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-100">
-                <CardTitle className="flex items-center gap-2 text-[#00263d] text-sm font-semibold">
-                  <div className="flex items-center justify-center w-5 h-5 rounded-full bg-[#00263d] text-white text-[10px] font-bold">1</div>
-                  <User className="h-4 w-4 text-[#c19962]" />
-                  Current Stats & Metabolism
+            <Card className="lg:col-span-4 bg-white/[0.97] backdrop-blur border border-slate-200/60 shadow-xl shadow-black/5 rounded-2xl overflow-hidden">
+              <CardHeader className="pb-3 px-5 pt-5">
+                <CardTitle className="flex items-center gap-3 text-[#00263d]">
+                  <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#00263d] text-[#c19962] text-xs font-bold">1</div>
+                  <div>
+                    <div className="text-sm font-semibold tracking-tight">Current Stats & Metabolism</div>
+                    <div className="text-[10px] text-slate-400 font-normal mt-0.5">Biometrics &middot; Energy expenditure</div>
+                  </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-3 space-y-2">
+              <CardContent className="px-5 pb-5 space-y-3">
                 {/* Biometrics Row */}
-                <div className="grid grid-cols-4 gap-2">
-                  <div>
-                    <Label className="text-[9px] font-medium text-slate-500 uppercase">Gender</Label>
+                <div className="grid grid-cols-4 gap-2.5">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Gender</Label>
                     <Select value={gender} onValueChange={(v: 'male' | 'female') => setGender(v)}>
-                      <SelectTrigger className="h-7 text-xs bg-slate-50 rounded-lg"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs bg-slate-50/80 border-slate-200 rounded-lg"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="male">Male</SelectItem>
                         <SelectItem value="female">Female</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label className="text-[9px] font-medium text-slate-500 uppercase">Age</Label>
-                    <Input type="number" value={age} onChange={(e) => setAge(Number(e.target.value))} className="h-7 text-xs bg-slate-50 rounded-lg text-center" />
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Age</Label>
+                    <Input type="number" value={age} onChange={(e) => setAge(Number(e.target.value))} className="h-8 text-xs bg-slate-50/80 border-slate-200 rounded-lg text-center font-mono" />
                   </div>
-                  <div className="col-span-2">
-                    <Label className="text-[9px] font-medium text-slate-500 uppercase">Height</Label>
-                    <div className="flex gap-1">
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Height</Label>
+                    <div className="flex gap-1.5">
                       <div className="relative flex-1">
-                        <Input type="number" value={heightFt} onChange={(e) => setHeightFt(Number(e.target.value))} className="h-7 text-xs bg-slate-50 rounded-lg pr-5 text-center" />
-                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] text-slate-400">ft</span>
+                        <Input type="number" value={heightFt} onChange={(e) => setHeightFt(Number(e.target.value))} className="h-8 text-xs bg-slate-50/80 border-slate-200 rounded-lg pr-6 text-center font-mono" />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">ft</span>
                       </div>
                       <div className="relative flex-1">
-                        <Input type="number" value={heightIn} onChange={(e) => setHeightIn(Number(e.target.value))} className="h-7 text-xs bg-slate-50 rounded-lg pr-5 text-center" />
-                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] text-slate-400">in</span>
+                        <Input type="number" value={heightIn} onChange={(e) => setHeightIn(Number(e.target.value))} className="h-8 text-xs bg-slate-50/80 border-slate-200 rounded-lg pr-6 text-center font-mono" />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">in</span>
                       </div>
                     </div>
                   </div>
                 </div>
                 
                 {/* Weight & BF */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-[9px] font-medium text-slate-500 uppercase">Weight (lbs)</Label>
-                    <Input type="number" value={currentWeight} onChange={(e) => setCurrentWeight(Number(e.target.value))} className="h-9 text-base font-bold bg-slate-50 rounded-lg text-center" />
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Weight (lbs)</Label>
+                    <Input type="number" value={currentWeight} onChange={(e) => setCurrentWeight(Number(e.target.value))} className="h-10 text-base font-bold font-mono bg-slate-50/80 border-slate-200 rounded-lg text-center" />
                   </div>
-                  <div>
-                    <Label className="text-[9px] font-medium text-slate-500 uppercase">Body Fat %</Label>
-                    <Input type="number" step="0.1" value={currentBodyFat} onChange={(e) => setCurrentBodyFat(Number(e.target.value))} className="h-9 text-base font-bold bg-slate-50 rounded-lg text-center" />
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Body Fat %</Label>
+                    <Input type="number" step="0.1" value={currentBodyFat} onChange={(e) => setCurrentBodyFat(Number(e.target.value))} className="h-10 text-base font-bold font-mono bg-slate-50/80 border-slate-200 rounded-lg text-center" />
                   </div>
                 </div>
                 
-                {/* Derived Composition */}
-                <div className="grid grid-cols-4 gap-1.5 text-center">
-                  <div className="bg-amber-50 rounded-lg p-1.5 border border-amber-100">
-                    <div className="text-sm font-bold text-amber-700">{currentMetrics.fatMassLbs}</div>
-                    <div className="text-[8px] text-amber-600">FM (lbs)</div>
+                {/* Derived Composition — clean data row */}
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="bg-amber-50/70 rounded-lg p-2 border border-amber-100/80">
+                    <div className="text-sm font-bold font-mono text-amber-700">{currentMetrics.fatMassLbs}</div>
+                    <div className="text-[9px] text-amber-600/80 font-medium">FM (lbs)</div>
                   </div>
-                  <div className="bg-blue-50 rounded-lg p-1.5 border border-blue-100">
-                    <div className="text-sm font-bold text-blue-700">{currentMetrics.ffmLbs}</div>
-                    <div className="text-[8px] text-blue-600">FFM (lbs)</div>
+                  <div className="bg-blue-50/70 rounded-lg p-2 border border-blue-100/80">
+                    <div className="text-sm font-bold font-mono text-blue-700">{currentMetrics.ffmLbs}</div>
+                    <div className="text-[9px] text-blue-600/80 font-medium">FFM (lbs)</div>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-1.5">
-                    <Badge className={`${getFMIBenchmark(currentMetrics.fmi).bg} ${getFMIBenchmark(currentMetrics.fmi).color} border-0 text-[9px] px-1`}>
+                  <div className="bg-slate-50/80 rounded-lg p-2 border border-slate-100">
+                    <Badge className={`${getFMIBenchmark(currentMetrics.fmi).bg} ${getFMIBenchmark(currentMetrics.fmi).color} border-0 text-[10px] font-mono px-1.5`}>
                       {currentMetrics.fmi}
                     </Badge>
-                    <div className="text-[8px] text-slate-500">FMI</div>
+                    <div className="text-[9px] text-slate-500 mt-0.5">FMI</div>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-1.5">
-                    <Badge className={`${getFFMIBenchmark(currentMetrics.ffmi).bg} ${getFFMIBenchmark(currentMetrics.ffmi).color} border-0 text-[9px] px-1`}>
+                  <div className="bg-slate-50/80 rounded-lg p-2 border border-slate-100">
+                    <Badge className={`${getFFMIBenchmark(currentMetrics.ffmi).bg} ${getFFMIBenchmark(currentMetrics.ffmi).color} border-0 text-[10px] font-mono px-1.5`}>
                       {currentMetrics.ffmi}
                     </Badge>
-                    <div className="text-[8px] text-slate-500">FFMI</div>
+                    <div className="text-[9px] text-slate-500 mt-0.5">FFMI</div>
                   </div>
                 </div>
                 
-                <Separator className="my-1" />
+                <Separator className="my-1.5" />
                 
                 {/* RMR Section */}
-                <div className="bg-slate-50 rounded-lg p-2 space-y-2">
+                <div className="bg-slate-50/60 rounded-xl p-3 space-y-2.5 border border-slate-100/80">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[9px] font-semibold text-slate-600 uppercase flex items-center gap-1">
-                      <Zap className="h-3 w-3 text-orange-500" />
+                    <Label className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <Zap className="h-3.5 w-3.5 text-amber-500" />
                       Resting Metabolic Rate
                     </Label>
-                    <div className="flex rounded-md overflow-hidden border border-slate-200">
+                    <div className="flex rounded-lg overflow-hidden border border-slate-200">
                       <button 
                         onClick={() => setRmrSource('estimated')} 
-                        className={`px-2 py-0.5 text-[8px] font-medium ${rmrSource === 'estimated' ? 'bg-orange-500 text-white' : 'bg-white text-slate-600'}`}
+                        className={`px-2.5 py-1 text-[9px] font-semibold transition-colors ${rmrSource === 'estimated' ? 'bg-[#00263d] text-[#c19962]' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
                       >
                         Estimated
                       </button>
                       <button 
                         onClick={() => setRmrSource('measured')} 
-                        className={`px-2 py-0.5 text-[8px] font-medium border-l border-slate-200 ${rmrSource === 'measured' ? 'bg-orange-500 text-white' : 'bg-white text-slate-600'}`}
+                        className={`px-2.5 py-1 text-[9px] font-semibold border-l border-slate-200 transition-colors ${rmrSource === 'measured' ? 'bg-[#00263d] text-[#c19962]' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
                       >
                         Measured
                       </button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2.5">
                     <div className="text-center">
-                      <div className="text-[8px] text-slate-400 uppercase">Mifflin-St Jeor</div>
-                      <div className={`text-base font-bold ${rmrSource === 'estimated' ? 'text-orange-600' : 'text-slate-400'}`}>{estimatedRmr}</div>
+                      <div className="text-[9px] text-slate-400 uppercase tracking-wider">Mifflin-St Jeor</div>
+                      <div className={`text-lg font-bold font-mono ${rmrSource === 'estimated' ? 'text-[#00263d]' : 'text-slate-300'}`}>{estimatedRmr}</div>
                     </div>
                     {rmrSource === 'measured' ? (
-                      <div>
-                        <div className="text-[8px] text-slate-400 uppercase text-center">Measured RMR</div>
+                      <div className="space-y-0.5">
+                        <div className="text-[9px] text-slate-400 uppercase tracking-wider text-center">Measured RMR</div>
                         <Input 
                           type="number" 
                           value={measuredRmr} 
                           onChange={(e) => setMeasuredRmr(Number(e.target.value))} 
-                          className="h-7 text-sm font-bold bg-white rounded-lg text-center border-orange-200" 
+                          className="h-8 text-sm font-bold font-mono bg-white rounded-lg text-center border-[#c19962]/30" 
                         />
                       </div>
                     ) : (
                       <div className="text-center">
-                        <div className="text-[8px] text-slate-400 uppercase">Using</div>
-                        <div className="text-base font-bold text-orange-600">{effectiveRmr} kcal</div>
+                        <div className="text-[9px] text-slate-400 uppercase tracking-wider">Using</div>
+                        <div className="text-lg font-bold font-mono text-[#00263d]">{effectiveRmr} <span className="text-xs font-normal text-slate-400">kcal</span></div>
                       </div>
                     )}
                   </div>
                 </div>
                 
                 {/* NEAT & Activity */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-[9px] font-medium text-slate-500 uppercase">NEAT Level</Label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">NEAT Level</Label>
                     <Select value={neatLevel} onValueChange={(v: any) => setNeatLevel(v)}>
-                      <SelectTrigger className="h-7 text-[10px] bg-slate-50 rounded-lg"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-8 text-[10px] bg-slate-50/80 border-slate-200 rounded-lg"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="sedentary" className="text-xs">Sedentary (+{neatEstimates.sedentary})</SelectItem>
                         <SelectItem value="light" className="text-xs">Light (+{neatEstimates.light})</SelectItem>
@@ -1019,28 +1006,29 @@ export default function BodyCompositionPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label className="text-[9px] font-medium text-slate-500 uppercase">TEF (%)</Label>
-                    <Input type="number" value={tef} onChange={(e) => setTef(Number(e.target.value))} className="h-7 text-xs bg-slate-50 rounded-lg text-center" />
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">TEF (%)</Label>
+                    <Input type="number" value={tef} onChange={(e) => setTef(Number(e.target.value))} className="h-8 text-xs font-mono bg-slate-50/80 border-slate-200 rounded-lg text-center" />
                   </div>
                 </div>
                 
                 {/* Exercise */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-[9px] font-medium text-slate-500 uppercase">EEE (kcal/session)</Label>
-                    <Input type="number" value={eee} onChange={(e) => setEee(Number(e.target.value))} className="h-7 text-xs bg-slate-50 rounded-lg text-center" />
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">EEE (kcal/session)</Label>
+                    <Input type="number" value={eee} onChange={(e) => setEee(Number(e.target.value))} className="h-8 text-xs font-mono bg-slate-50/80 border-slate-200 rounded-lg text-center" />
                   </div>
-                  <div>
-                    <Label className="text-[9px] font-medium text-slate-500 uppercase">Workouts/Week</Label>
-                    <Input type="number" value={workoutsPerWeek} onChange={(e) => setWorkoutsPerWeek(Number(e.target.value))} className="h-7 text-xs bg-slate-50 rounded-lg text-center" />
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Workouts/Week</Label>
+                    <Input type="number" value={workoutsPerWeek} onChange={(e) => setWorkoutsPerWeek(Number(e.target.value))} className="h-8 text-xs font-mono bg-slate-50/80 border-slate-200 rounded-lg text-center" />
                   </div>
                 </div>
                 
-                {/* TDEE Result */}
-                <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl p-2 text-center">
-                  <div className="text-lg font-bold text-white">{tdee} <span className="text-xs font-normal opacity-80">kcal/day</span></div>
-                  <div className="text-[8px] text-white/70">
+                {/* TDEE Result — prominent display */}
+                <div className="bg-[#00263d] rounded-xl p-3 text-center">
+                  <div className="text-[9px] text-[#c19962]/80 uppercase tracking-widest font-semibold mb-0.5">Total Daily Energy Expenditure</div>
+                  <div className="text-2xl font-bold font-mono text-white">{tdee} <span className="text-sm font-normal text-slate-400">kcal/day</span></div>
+                  <div className="text-[9px] text-slate-400 mt-1 font-mono">
                     RMR {effectiveRmr} + NEAT {neatEstimates[neatLevel]} + TEF {Math.round(effectiveRmr * tef / 100)} + EEE {Math.round(eee * workoutsPerWeek / 7)}/day
                   </div>
                 </div>
@@ -1048,42 +1036,45 @@ export default function BodyCompositionPage() {
             </Card>
 
             {/* Where You Stand + Explorer */}
-            <Card className="lg:col-span-4 bg-white border-0 shadow-lg rounded-2xl">
-              <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-100">
+            <Card className="lg:col-span-4 bg-white/[0.97] backdrop-blur border border-slate-200/60 shadow-xl shadow-black/5 rounded-2xl overflow-hidden">
+              <CardHeader className="pb-3 px-5 pt-5">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-[#00263d] text-sm font-semibold">
-                    <BarChart3 className="h-4 w-4 text-purple-500" />
-                    Where You Stand
+                  <CardTitle className="flex items-center gap-3 text-[#00263d]">
+                    <BarChart3 className="h-4 w-4 text-indigo-500" />
+                    <div>
+                      <div className="text-sm font-semibold tracking-tight">Where You Stand</div>
+                      <div className="text-[10px] text-slate-400 font-normal mt-0.5">Population percentiles</div>
+                    </div>
                   </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-[10px] text-slate-500">Explore</Label>
+                  <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-200/80">
+                    <Label className="text-[10px] text-slate-500 font-medium">Explore</Label>
                     <Switch checked={useTheoretical} onCheckedChange={handleExploreToggle} />
-                    <Crosshair className={`h-4 w-4 ${useTheoretical ? 'text-purple-500' : 'text-slate-300'}`} />
+                    <Crosshair className={`h-3.5 w-3.5 ${useTheoretical ? 'text-indigo-500' : 'text-slate-300'}`} />
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-4 space-y-3">
+              <CardContent className="px-5 pb-5 space-y-4">
                 {/* Explorer inputs */}
                 {useTheoretical && (
-                  <div className="bg-purple-50 rounded-xl p-3 border border-purple-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Crosshair className="h-4 w-4 text-purple-500" />
-                      <span className="text-xs font-semibold text-purple-700">Explore Theoretical Values</span>
+                  <div className="bg-indigo-50/60 rounded-xl p-3.5 border border-indigo-200/60">
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <Crosshair className="h-4 w-4 text-indigo-500" />
+                      <span className="text-xs font-semibold text-indigo-700">Theoretical Composition Explorer</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <Label className="text-[9px] text-purple-600">Fat Mass (lbs)</Label>
-                        <Input type="number" value={theoreticalFM} onChange={(e) => setTheoreticalFM(Number(e.target.value))} className="h-9 text-sm bg-white border-purple-200 rounded-lg text-center font-bold" />
+                    <div className="grid grid-cols-3 gap-2.5">
+                      <div className="space-y-1">
+                        <Label className="text-[9px] text-indigo-600 uppercase tracking-wider font-medium">Fat Mass (lbs)</Label>
+                        <Input type="number" value={theoreticalFM} onChange={(e) => setTheoreticalFM(Number(e.target.value))} className="h-9 text-sm bg-white border-indigo-200 rounded-lg text-center font-bold font-mono" />
                       </div>
-                      <div>
-                        <Label className="text-[9px] text-purple-600">FFM (lbs)</Label>
-                        <Input type="number" value={theoreticalFFM} onChange={(e) => setTheoreticalFFM(Number(e.target.value))} className="h-9 text-sm bg-white border-purple-200 rounded-lg text-center font-bold" />
+                      <div className="space-y-1">
+                        <Label className="text-[9px] text-indigo-600 uppercase tracking-wider font-medium">FFM (lbs)</Label>
+                        <Input type="number" value={theoreticalFFM} onChange={(e) => setTheoreticalFFM(Number(e.target.value))} className="h-9 text-sm bg-white border-indigo-200 rounded-lg text-center font-bold font-mono" />
                       </div>
-                      <div>
-                        <Label className="text-[9px] text-purple-600">Result</Label>
-                        <div className="h-9 bg-purple-100 rounded-lg flex flex-col items-center justify-center">
-                          <span className="text-sm font-bold text-purple-700">{theoreticalMetrics.bodyFat}%</span>
-                          <span className="text-[8px] text-purple-500">{theoreticalMetrics.weight} lbs</span>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] text-indigo-600 uppercase tracking-wider font-medium">Result</Label>
+                        <div className="h-9 bg-indigo-100/80 rounded-lg flex flex-col items-center justify-center">
+                          <span className="text-sm font-bold font-mono text-indigo-700">{theoreticalMetrics.bodyFat}%</span>
+                          <span className="text-[8px] text-indigo-500 font-medium">{theoreticalMetrics.weight} lbs</span>
                         </div>
                       </div>
                     </div>
@@ -1092,9 +1083,10 @@ export default function BodyCompositionPage() {
                 
                 {/* Body Fat Percentile */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold text-slate-700">Body Fat Percentile (Leanness)</span>
+                      <span className="text-xs font-semibold text-slate-700">Body Fat Percentile</span>
+                      <Badge variant="outline" className="text-[8px] px-1.5 py-0 border-slate-200 text-slate-500">Leanness</Badge>
                       <Tooltip>
                         <TooltipTrigger><Info className="h-3.5 w-3.5 text-slate-400 cursor-help" /></TooltipTrigger>
                         <CitationTooltip citation={CITATIONS.bfPercentile} />
@@ -1102,39 +1094,38 @@ export default function BodyCompositionPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {useTheoretical && (
-                        <span className="text-[10px] text-purple-600 font-semibold bg-purple-100 px-1.5 py-0.5 rounded">{theoreticalMetrics.bfPercentile}th</span>
+                        <span className="text-[10px] text-indigo-600 font-bold bg-indigo-100 px-1.5 py-0.5 rounded font-mono">{theoreticalMetrics.bfPercentile}th</span>
                       )}
-                      <span className="text-sm font-bold text-slate-700">{currentMetrics.bfPercentile}th percentile</span>
+                      <span className="text-sm font-bold font-mono text-slate-700">{currentMetrics.bfPercentile}<sup className="text-[8px] font-normal">th</sup></span>
                     </div>
                   </div>
-                  <div className="relative h-8 bg-gradient-to-r from-red-400 via-yellow-400 to-green-400 rounded-lg overflow-hidden shadow-inner">
+                  <div className="relative h-7 bg-gradient-to-r from-red-400 via-amber-400 to-green-400 rounded-md overflow-hidden shadow-inner">
                     {[10, 25, 50, 75, 90].map(p => (
-                      <div key={p} className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: `${p}%` }}>
-                        <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[7px] text-white font-medium">{p}</span>
+                      <div key={p} className="absolute top-0 bottom-0 w-px bg-white/30" style={{ left: `${p}%` }}>
+                        <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[7px] text-white/80 font-mono">{p}</span>
                       </div>
                     ))}
-                    {/* Current marker */}
-                    <div className="absolute top-0 bottom-0 w-1.5 bg-[#00263d] shadow-lg transition-all duration-300 rounded-full" style={{ left: `${Math.max(2, Math.min(98, currentMetrics.bfPercentile))}%`, transform: 'translateX(-50%)' }}>
-                      <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-b-[6px] border-l-transparent border-r-transparent border-b-[#00263d]" />
+                    <div className="absolute top-0 bottom-0 w-1 bg-[#00263d] shadow-lg transition-all duration-500 rounded-full" style={{ left: `${Math.max(2, Math.min(98, currentMetrics.bfPercentile))}%`, transform: 'translateX(-50%)' }}>
+                      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[5px] border-l-transparent border-r-transparent border-b-[#00263d]" />
                     </div>
-                    {/* Theoretical marker */}
                     {useTheoretical && (
-                      <div className="absolute top-0 bottom-0 w-1.5 bg-purple-600 shadow-lg transition-all duration-300 rounded-full" style={{ left: `${Math.max(2, Math.min(98, theoreticalMetrics.bfPercentile))}%`, transform: 'translateX(-50%)' }}>
-                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-b-[6px] border-l-transparent border-r-transparent border-b-purple-600" />
+                      <div className="absolute top-0 bottom-0 w-1 bg-indigo-600 shadow-lg transition-all duration-500 rounded-full" style={{ left: `${Math.max(2, Math.min(98, theoreticalMetrics.bfPercentile))}%`, transform: 'translateX(-50%)' }}>
+                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[5px] border-l-transparent border-r-transparent border-b-indigo-600" />
                       </div>
                     )}
                   </div>
-                  <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
-                    <span>← Less lean</span>
-                    <span>Leaner →</span>
+                  <div className="flex justify-between text-[9px] text-slate-400 mt-1">
+                    <span>&larr; Less lean</span>
+                    <span>Leaner &rarr;</span>
                   </div>
                 </div>
                 
                 {/* FFMI Percentile */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold text-slate-700">Muscularity (FFMI) Percentile</span>
+                      <span className="text-xs font-semibold text-slate-700">FFMI Percentile</span>
+                      <Badge variant="outline" className="text-[8px] px-1.5 py-0 border-slate-200 text-slate-500">Muscularity</Badge>
                       <Tooltip>
                         <TooltipTrigger><Info className="h-3.5 w-3.5 text-slate-400 cursor-help" /></TooltipTrigger>
                         <CitationTooltip citation={CITATIONS.ffmiPercentile} />
@@ -1142,59 +1133,62 @@ export default function BodyCompositionPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {useTheoretical && (
-                        <span className="text-[10px] text-purple-600 font-semibold bg-purple-100 px-1.5 py-0.5 rounded">{theoreticalMetrics.ffmiPercentile}th</span>
+                        <span className="text-[10px] text-indigo-600 font-bold bg-indigo-100 px-1.5 py-0.5 rounded font-mono">{theoreticalMetrics.ffmiPercentile}th</span>
                       )}
-                      <span className="text-sm font-bold text-slate-700">{currentMetrics.ffmiPercentile}th percentile</span>
+                      <span className="text-sm font-bold font-mono text-slate-700">{currentMetrics.ffmiPercentile}<sup className="text-[8px] font-normal">th</sup></span>
                     </div>
                   </div>
-                  <div className="relative h-8 bg-gradient-to-r from-red-400 via-yellow-400 to-green-400 rounded-lg overflow-hidden shadow-inner">
+                  <div className="relative h-7 bg-gradient-to-r from-red-400 via-amber-400 to-green-400 rounded-md overflow-hidden shadow-inner">
                     {[10, 25, 50, 75, 90].map(p => (
-                      <div key={p} className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: `${p}%` }}>
-                        <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[7px] text-white font-medium">{p}</span>
+                      <div key={p} className="absolute top-0 bottom-0 w-px bg-white/30" style={{ left: `${p}%` }}>
+                        <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[7px] text-white/80 font-mono">{p}</span>
                       </div>
                     ))}
-                    <div className="absolute top-0 bottom-0 w-1.5 bg-[#00263d] shadow-lg transition-all duration-300 rounded-full" style={{ left: `${Math.max(2, Math.min(98, currentMetrics.ffmiPercentile))}%`, transform: 'translateX(-50%)' }}>
-                      <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-b-[6px] border-l-transparent border-r-transparent border-b-[#00263d]" />
+                    <div className="absolute top-0 bottom-0 w-1 bg-[#00263d] shadow-lg transition-all duration-500 rounded-full" style={{ left: `${Math.max(2, Math.min(98, currentMetrics.ffmiPercentile))}%`, transform: 'translateX(-50%)' }}>
+                      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[5px] border-l-transparent border-r-transparent border-b-[#00263d]" />
                     </div>
                     {useTheoretical && (
-                      <div className="absolute top-0 bottom-0 w-1.5 bg-purple-600 shadow-lg transition-all duration-300 rounded-full" style={{ left: `${Math.max(2, Math.min(98, theoreticalMetrics.ffmiPercentile))}%`, transform: 'translateX(-50%)' }}>
-                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-b-[6px] border-l-transparent border-r-transparent border-b-purple-600" />
+                      <div className="absolute top-0 bottom-0 w-1 bg-indigo-600 shadow-lg transition-all duration-500 rounded-full" style={{ left: `${Math.max(2, Math.min(98, theoreticalMetrics.ffmiPercentile))}%`, transform: 'translateX(-50%)' }}>
+                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[5px] border-l-transparent border-r-transparent border-b-indigo-600" />
                       </div>
                     )}
                   </div>
-                  <div className="flex justify-between text-[9px] text-slate-400 mt-0.5">
-                    <span>← Less muscular</span>
-                    <span>More muscular →</span>
+                  <div className="flex justify-between text-[9px] text-slate-400 mt-1">
+                    <span>&larr; Less muscular</span>
+                    <span>More muscular &rarr;</span>
                   </div>
                 </div>
                 
                 {/* Summary badges */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-2 text-center border border-amber-200">
-                    <div className="text-[9px] text-amber-600 mb-0.5">Body Fat</div>
-                    <Badge className={`${getFMIBenchmark(useTheoretical ? theoreticalMetrics.fmi : currentMetrics.fmi).bg} ${getFMIBenchmark(useTheoretical ? theoreticalMetrics.fmi : currentMetrics.fmi).color} border-0 text-[11px] px-2`}>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="bg-amber-50/60 rounded-xl p-2.5 text-center border border-amber-100/80">
+                    <div className="text-[9px] text-amber-600/80 uppercase tracking-wider font-medium mb-1">Body Fat</div>
+                    <Badge className={`${getFMIBenchmark(useTheoretical ? theoreticalMetrics.fmi : currentMetrics.fmi).bg} ${getFMIBenchmark(useTheoretical ? theoreticalMetrics.fmi : currentMetrics.fmi).color} border-0 text-[11px] px-2 font-semibold`}>
                       {getFMIBenchmark(useTheoretical ? theoreticalMetrics.fmi : currentMetrics.fmi).label}
                     </Badge>
-                    <div className="text-[10px] text-amber-700 mt-0.5 font-semibold">{useTheoretical ? theoreticalMetrics.bodyFat : currentBodyFat}% / {useTheoretical ? theoreticalMetrics.fmi : currentMetrics.fmi} FMI</div>
+                    <div className="text-[10px] text-amber-700 mt-1 font-semibold font-mono">{useTheoretical ? theoreticalMetrics.bodyFat : currentBodyFat}% &middot; {useTheoretical ? theoreticalMetrics.fmi : currentMetrics.fmi} FMI</div>
                   </div>
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-2 text-center border border-blue-200">
-                    <div className="text-[9px] text-blue-600 mb-0.5">Muscularity</div>
-                    <Badge className={`${getFFMIBenchmark(useTheoretical ? theoreticalMetrics.ffmi : currentMetrics.ffmi).bg} ${getFFMIBenchmark(useTheoretical ? theoreticalMetrics.ffmi : currentMetrics.ffmi).color} border-0 text-[11px] px-2`}>
+                  <div className="bg-blue-50/60 rounded-xl p-2.5 text-center border border-blue-100/80">
+                    <div className="text-[9px] text-blue-600/80 uppercase tracking-wider font-medium mb-1">Muscularity</div>
+                    <Badge className={`${getFFMIBenchmark(useTheoretical ? theoreticalMetrics.ffmi : currentMetrics.ffmi).bg} ${getFFMIBenchmark(useTheoretical ? theoreticalMetrics.ffmi : currentMetrics.ffmi).color} border-0 text-[11px] px-2 font-semibold`}>
                       {getFFMIBenchmark(useTheoretical ? theoreticalMetrics.ffmi : currentMetrics.ffmi).label}
                     </Badge>
-                    <div className="text-[10px] text-blue-700 mt-0.5 font-semibold">{useTheoretical ? theoreticalMetrics.ffmi : currentMetrics.ffmi} FFMI</div>
+                    <div className="text-[10px] text-blue-700 mt-1 font-semibold font-mono">{useTheoretical ? theoreticalMetrics.ffmi : currentMetrics.ffmi} FFMI</div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Mortality Risk */}
-            <Card className="lg:col-span-4 bg-white border-0 shadow-lg rounded-2xl">
-              <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-100">
+            <Card className="lg:col-span-4 bg-white/[0.97] backdrop-blur border border-slate-200/60 shadow-xl shadow-black/5 rounded-2xl overflow-hidden">
+              <CardHeader className="pb-3 px-5 pt-5">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-[#00263d] text-sm font-semibold">
-                    <Heart className="h-4 w-4 text-red-500" />
-                    Mortality Risk
+                  <CardTitle className="flex items-center gap-3 text-[#00263d]">
+                    <Heart className="h-4 w-4 text-rose-500" />
+                    <div>
+                      <div className="text-sm font-semibold tracking-tight">Mortality Risk</div>
+                      <div className="text-[10px] text-slate-400 font-normal mt-0.5">Hazard ratio by body composition</div>
+                    </div>
                   </CardTitle>
                   <Tooltip>
                     <TooltipTrigger><Info className="h-4 w-4 text-slate-400 cursor-help" /></TooltipTrigger>
@@ -1202,19 +1196,19 @@ export default function BodyCompositionPage() {
                   </Tooltip>
                 </div>
               </CardHeader>
-              <CardContent className="p-4 space-y-3">
+              <CardContent className="px-5 pb-5 space-y-4">
                 {/* FMI Risk Curve */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-semibold text-slate-600">Fat Mass Index (FMI)</span>
-                    <span className="text-[10px] text-slate-500">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-semibold text-slate-600">Fat Mass Index (FMI)</span>
+                    <span className="text-[10px] text-slate-500 font-mono">
                       HR: <span className={`font-bold ${getHazardRatio(useTheoretical ? theoreticalMetrics.fmi : currentMetrics.fmi, 'fmi') <= 1.1 ? 'text-green-600' : getHazardRatio(useTheoretical ? theoreticalMetrics.fmi : currentMetrics.fmi, 'fmi') <= 1.5 ? 'text-amber-600' : 'text-red-600'}`}>
                         {getHazardRatio(useTheoretical ? theoreticalMetrics.fmi : currentMetrics.fmi, 'fmi').toFixed(2)}
                       </span>
                     </span>
                   </div>
-                  <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-2 h-32">
-                    <svg className="w-full h-full" viewBox="0 0 380 100" preserveAspectRatio="xMidYMid meet">
+                  <div className="bg-slate-50/60 rounded-xl p-2.5 h-40 border border-slate-100/80">
+                    <svg className="w-full h-full" viewBox="0 0 380 120" preserveAspectRatio="xMidYMid meet">
                       <defs>
                         <linearGradient id="fmiGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                           <stop offset="0%" stopColor="#ef4444" />
@@ -1222,58 +1216,58 @@ export default function BodyCompositionPage() {
                           <stop offset="50%" stopColor="#22c55e" />
                           <stop offset="100%" stopColor="#ef4444" />
                         </linearGradient>
-                        <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                        <filter id="glow"><feGaussianBlur stdDeviation="1.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
                       </defs>
-                      {[0.25, 0.5, 0.75].map(p => <line key={p} x1="30" y1={10 + 70 * p} x2="360" y2={10 + 70 * p} stroke="#e2e8f0" strokeWidth="0.5" />)}
+                      {[0.25, 0.5, 0.75].map(p => <line key={p} x1="30" y1={10 + 85 * p} x2="360" y2={10 + 85 * p} stroke="#e8ecf0" strokeWidth="0.5" />)}
                       {(() => {
                         const minX = 2, maxX = 18;
                         const scaleX = (x: number) => 30 + ((x - minX) / (maxX - minX)) * 330;
-                        return <rect x={scaleX(5)} y="10" width={scaleX(9) - scaleX(5)} height="70" fill="#22c55e" fillOpacity="0.12" rx="4" />;
+                        return <rect x={scaleX(5)} y="10" width={scaleX(9) - scaleX(5)} height="85" fill="#22c55e" fillOpacity="0.08" rx="4" />;
                       })()}
                       {(() => {
                         const minY = 0.9, maxY = 2.5;
-                        const y = 80 - ((1 - minY) / (maxY - minY)) * 70;
-                        return <><line x1="30" y1={y} x2="360" y2={y} stroke="#94a3b8" strokeWidth="1" strokeDasharray="3" /><text x="365" y={y + 3} fontSize="7" fill="#94a3b8">1</text></>;
+                        const y = 95 - ((1 - minY) / (maxY - minY)) * 85;
+                        return <><line x1="30" y1={y} x2="360" y2={y} stroke="#94a3b8" strokeWidth="0.75" strokeDasharray="3" /><text x="365" y={y + 3} fontSize="7" fill="#94a3b8" fontFamily="ui-monospace, monospace">1.0</text></>;
                       })()}
                       {(() => {
                         const minX = 2, maxX = 18, minY = 0.9, maxY = 2.5;
                         const points = MORTALITY_RISK.fmi.points.filter(p => p.x <= maxX).map(p => ({
                           x: 30 + ((p.x - minX) / (maxX - minX)) * 330,
-                          y: 80 - ((p.hr - minY) / (maxY - minY)) * 70
+                          y: 95 - ((p.hr - minY) / (maxY - minY)) * 85
                         }));
                         const currentFMI = currentMetrics.fmi;
                         const theoreticalFMI = theoreticalMetrics.fmi;
                         const cx = 30 + ((currentFMI - minX) / (maxX - minX)) * 330;
-                        const cy = 80 - ((getHazardRatio(currentFMI, 'fmi') - minY) / (maxY - minY)) * 70;
+                        const cy = 95 - ((getHazardRatio(currentFMI, 'fmi') - minY) / (maxY - minY)) * 85;
                         const tx = 30 + ((theoreticalFMI - minX) / (maxX - minX)) * 330;
-                        const ty = 80 - ((getHazardRatio(theoreticalFMI, 'fmi') - minY) / (maxY - minY)) * 70;
+                        const ty = 95 - ((getHazardRatio(theoreticalFMI, 'fmi') - minY) / (maxY - minY)) * 85;
                         return (
                           <>
-                            <path d={createSmoothCurve(points)} fill="none" stroke="url(#fmiGrad)" strokeWidth="2.5" strokeLinecap="round" filter="url(#glow)" />
+                            <path d={createSmoothCurve(points)} fill="none" stroke="url(#fmiGrad)" strokeWidth="2" strokeLinecap="round" filter="url(#glow)" />
                             {useTheoretical && <line x1={cx} y1={cy} x2={tx} y2={ty} stroke="#c19962" strokeWidth="1.5" strokeDasharray="4" />}
-                            <circle cx={cx} cy={cy} r="6" fill="#00263d" stroke="#fff" strokeWidth="2" />
-                            {useTheoretical && <circle cx={tx} cy={ty} r="6" fill="#9333ea" stroke="#fff" strokeWidth="2" />}
+                            <circle cx={cx} cy={cy} r="5" fill="#00263d" stroke="#fff" strokeWidth="2" />
+                            {useTheoretical && <circle cx={tx} cy={ty} r="5" fill="#6366f1" stroke="#fff" strokeWidth="2" />}
                           </>
                         );
                       })()}
-                      <text x="195" y="95" fontSize="8" fill="#64748b" textAnchor="middle">FMI (kg/m²)</text>
-                      {[4, 8, 12, 16].map(v => <text key={v} x={30 + ((v - 2) / 16) * 330} y="90" fontSize="7" fill="#94a3b8" textAnchor="middle">{v}</text>)}
+                      <text x="195" y="113" fontSize="8" fill="#8896a4" textAnchor="middle" fontFamily="ui-monospace, monospace">FMI (kg/m²)</text>
+                      {[4, 8, 12, 16].map(v => <text key={v} x={30 + ((v - 2) / 16) * 330} y="108" fontSize="7" fill="#94a3b8" textAnchor="middle" fontFamily="ui-monospace, monospace">{v}</text>)}
                     </svg>
                   </div>
                 </div>
                 
                 {/* FFMI Risk Curve */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-semibold text-slate-600">Fat-Free Mass Index (FFMI)</span>
-                    <span className="text-[10px] text-slate-500">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-semibold text-slate-600">Fat-Free Mass Index (FFMI)</span>
+                    <span className="text-[10px] text-slate-500 font-mono">
                       HR: <span className={`font-bold ${getHazardRatio(useTheoretical ? theoreticalMetrics.ffmi : currentMetrics.ffmi, 'ffmi') <= 0.85 ? 'text-green-600' : getHazardRatio(useTheoretical ? theoreticalMetrics.ffmi : currentMetrics.ffmi, 'ffmi') <= 1.1 ? 'text-amber-600' : 'text-red-600'}`}>
                         {getHazardRatio(useTheoretical ? theoreticalMetrics.ffmi : currentMetrics.ffmi, 'ffmi').toFixed(2)}
                       </span>
                     </span>
                   </div>
-                  <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-2 h-32">
-                    <svg className="w-full h-full" viewBox="0 0 380 100" preserveAspectRatio="xMidYMid meet">
+                  <div className="bg-slate-50/60 rounded-xl p-2.5 h-40 border border-slate-100/80">
+                    <svg className="w-full h-full" viewBox="0 0 380 120" preserveAspectRatio="xMidYMid meet">
                       <defs>
                         <linearGradient id="ffmiGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                           <stop offset="0%" stopColor="#ef4444" />
@@ -1281,90 +1275,93 @@ export default function BodyCompositionPage() {
                           <stop offset="100%" stopColor="#22c55e" />
                         </linearGradient>
                       </defs>
-                      {[0.25, 0.5, 0.75].map(p => <line key={p} x1="30" y1={10 + 70 * p} x2="360" y2={10 + 70 * p} stroke="#e2e8f0" strokeWidth="0.5" />)}
+                      {[0.25, 0.5, 0.75].map(p => <line key={p} x1="30" y1={10 + 85 * p} x2="360" y2={10 + 85 * p} stroke="#e8ecf0" strokeWidth="0.5" />)}
                       {(() => {
                         const minX = 14, maxX = 26;
                         const scaleX = (x: number) => 30 + ((x - minX) / (maxX - minX)) * 330;
-                        return <rect x={scaleX(19)} y="10" width={scaleX(24) - scaleX(19)} height="70" fill="#22c55e" fillOpacity="0.12" rx="4" />;
+                        return <rect x={scaleX(19)} y="10" width={scaleX(24) - scaleX(19)} height="85" fill="#22c55e" fillOpacity="0.08" rx="4" />;
                       })()}
                       {(() => {
                         const minY = 0.6, maxY = 2.5;
-                        const y = 80 - ((1 - minY) / (maxY - minY)) * 70;
-                        return <><line x1="30" y1={y} x2="360" y2={y} stroke="#94a3b8" strokeWidth="1" strokeDasharray="3" /><text x="365" y={y + 3} fontSize="7" fill="#94a3b8">1</text></>;
+                        const y = 95 - ((1 - minY) / (maxY - minY)) * 85;
+                        return <><line x1="30" y1={y} x2="360" y2={y} stroke="#94a3b8" strokeWidth="0.75" strokeDasharray="3" /><text x="365" y={y + 3} fontSize="7" fill="#94a3b8" fontFamily="ui-monospace, monospace">1.0</text></>;
                       })()}
                       {(() => {
                         const minX = 14, maxX = 26, minY = 0.6, maxY = 2.5;
                         const points = MORTALITY_RISK.ffmi.points.filter(p => p.x >= minX && p.x <= maxX).map(p => ({
                           x: 30 + ((p.x - minX) / (maxX - minX)) * 330,
-                          y: 80 - ((p.hr - minY) / (maxY - minY)) * 70
+                          y: 95 - ((p.hr - minY) / (maxY - minY)) * 85
                         }));
                         const currentFFMI = Math.min(Math.max(currentMetrics.ffmi, minX), maxX);
                         const theoreticalFFMI = Math.min(Math.max(theoreticalMetrics.ffmi, minX), maxX);
                         const cx = 30 + ((currentFFMI - minX) / (maxX - minX)) * 330;
-                        const cy = 80 - ((getHazardRatio(currentMetrics.ffmi, 'ffmi') - minY) / (maxY - minY)) * 70;
+                        const cy = 95 - ((getHazardRatio(currentMetrics.ffmi, 'ffmi') - minY) / (maxY - minY)) * 85;
                         const tx = 30 + ((theoreticalFFMI - minX) / (maxX - minX)) * 330;
-                        const ty = 80 - ((getHazardRatio(theoreticalMetrics.ffmi, 'ffmi') - minY) / (maxY - minY)) * 70;
+                        const ty = 95 - ((getHazardRatio(theoreticalMetrics.ffmi, 'ffmi') - minY) / (maxY - minY)) * 85;
                         return (
                           <>
-                            <path d={createSmoothCurve(points)} fill="none" stroke="url(#ffmiGrad)" strokeWidth="2.5" strokeLinecap="round" filter="url(#glow)" />
+                            <path d={createSmoothCurve(points)} fill="none" stroke="url(#ffmiGrad)" strokeWidth="2" strokeLinecap="round" filter="url(#glow)" />
                             {useTheoretical && <line x1={cx} y1={cy} x2={tx} y2={ty} stroke="#c19962" strokeWidth="1.5" strokeDasharray="4" />}
-                            <circle cx={cx} cy={cy} r="6" fill="#00263d" stroke="#fff" strokeWidth="2" />
-                            {useTheoretical && <circle cx={tx} cy={ty} r="6" fill="#9333ea" stroke="#fff" strokeWidth="2" />}
+                            <circle cx={cx} cy={cy} r="5" fill="#00263d" stroke="#fff" strokeWidth="2" />
+                            {useTheoretical && <circle cx={tx} cy={ty} r="5" fill="#6366f1" stroke="#fff" strokeWidth="2" />}
                           </>
                         );
                       })()}
-                      <text x="195" y="95" fontSize="8" fill="#64748b" textAnchor="middle">FFMI (kg/m²)</text>
-                      {[16, 18, 20, 22, 24].map(v => <text key={v} x={30 + ((v - 14) / 12) * 330} y="90" fontSize="7" fill="#94a3b8" textAnchor="middle">{v}</text>)}
+                      <text x="195" y="113" fontSize="8" fill="#8896a4" textAnchor="middle" fontFamily="ui-monospace, monospace">FFMI (kg/m²)</text>
+                      {[16, 18, 20, 22, 24].map(v => <text key={v} x={30 + ((v - 14) / 12) * 330} y="108" fontSize="7" fill="#94a3b8" textAnchor="middle" fontFamily="ui-monospace, monospace">{v}</text>)}
                     </svg>
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-center gap-3 text-[9px] text-slate-500">
-                  <span className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-[#00263d]" />Current</span>
-                  {useTheoretical && <span className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-purple-600" />Theoretical</span>}
-                  <span className="flex items-center gap-1"><div className="w-5 h-2.5 rounded bg-green-500/20" />Optimal</span>
+                <div className="flex items-center justify-center gap-4 text-[10px] text-slate-500 pt-1">
+                  <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-[#00263d]" />Current</span>
+                  {useTheoretical && <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />Theoretical</span>}
+                  <span className="flex items-center gap-1.5"><div className="w-5 h-2.5 rounded bg-green-500/15 border border-green-500/20" />Optimal Range</span>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Row 2: Goal Setup - Consolidated Card */}
-          <Card className="bg-white border-0 shadow-lg rounded-2xl">
-            <CardHeader className="pb-3 pt-4 px-6 border-b border-slate-100">
-              <CardTitle className="flex items-center gap-3 text-[#00263d] text-lg font-bold">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[#00263d] to-[#003a5c] text-white text-sm font-bold">2</div>
+          {/* ═══ Section 2: Goal Configuration ═══ */}
+          <Card className="bg-white/[0.97] backdrop-blur border border-slate-200/60 shadow-xl shadow-black/5 rounded-2xl overflow-hidden">
+            <CardHeader className="pb-4 pt-5 px-6 border-b border-slate-100/80">
+              <CardTitle className="flex items-center gap-3 text-[#00263d]">
+                <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#00263d] text-[#c19962] text-xs font-bold">2</div>
                 <Target className="h-5 w-5 text-[#c19962]" />
-                Goal Configuration
+                <div>
+                  <div className="text-base font-semibold tracking-tight">Goal Configuration</div>
+                  <div className="text-[10px] text-slate-400 font-normal mt-0.5">Define phase type, target, and rate of change</div>
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
                 {/* Goal Type Selection */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
-                      <span className="text-xs font-bold text-blue-600">A</span>
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2.5">
+                    <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center border border-slate-200">
+                      <span className="text-[10px] font-bold text-slate-600">A</span>
                     </div>
                     Select Your Goal
                   </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {[
-                      { value: 'fat_loss', label: 'Fat Loss', desc: 'Reduce body fat while preserving muscle', icon: TrendingDown, color: 'from-red-500 to-orange-500', iconColor: 'text-red-500', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
-                      { value: 'muscle_gain', label: 'Build Muscle', desc: 'Add lean mass with controlled fat gain', icon: TrendingUp, color: 'from-blue-500 to-cyan-500', iconColor: 'text-blue-500', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
-                      { value: 'recomposition', label: 'Recomposition', desc: 'Lose fat and gain muscle simultaneously', icon: RefreshCcw, color: 'from-purple-500 to-pink-500', iconColor: 'text-purple-500', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' },
-                    ].map(({ value, label, desc, icon: Icon, color, iconColor, bgColor, borderColor }) => (
+                      { value: 'fat_loss', label: 'Fat Loss', desc: 'Reduce body fat while preserving muscle', icon: TrendingDown, activeColor: 'bg-[#00263d]', iconColor: 'text-rose-500', bgColor: 'bg-white', borderColor: 'border-slate-200' },
+                      { value: 'muscle_gain', label: 'Build Muscle', desc: 'Add lean mass with controlled fat gain', icon: TrendingUp, activeColor: 'bg-[#00263d]', iconColor: 'text-blue-500', bgColor: 'bg-white', borderColor: 'border-slate-200' },
+                      { value: 'recomposition', label: 'Recomposition', desc: 'Lose fat and gain muscle simultaneously', icon: RefreshCcw, activeColor: 'bg-[#00263d]', iconColor: 'text-indigo-500', bgColor: 'bg-white', borderColor: 'border-slate-200' },
+                    ].map(({ value, label, desc, icon: Icon, activeColor, iconColor, bgColor, borderColor }) => (
                       <button key={value} onClick={() => setPhaseType(value as any)}
-                        className={`w-full p-4 rounded-xl text-left transition-all border-2 ${phaseType === value ? `bg-gradient-to-r ${color} text-white shadow-lg border-transparent` : `${bgColor} ${borderColor} hover:shadow-md`}`}>
+                        className={`w-full p-4 rounded-xl text-left transition-all border ${phaseType === value ? `${activeColor} text-white shadow-lg border-transparent` : `${bgColor} ${borderColor} hover:border-slate-300 hover:shadow-sm`}`}>
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${phaseType === value ? 'bg-white/20' : 'bg-white'}`}>
-                            <Icon className={`h-5 w-5 ${phaseType === value ? 'text-white' : iconColor}`} />
+                          <div className={`p-2 rounded-lg ${phaseType === value ? 'bg-white/15' : 'bg-slate-50'}`}>
+                            <Icon className={`h-5 w-5 ${phaseType === value ? 'text-[#c19962]' : iconColor}`} />
                           </div>
                           <div className="flex-1">
-                            <div className={`font-bold text-base ${phaseType === value ? 'text-white' : 'text-slate-700'}`}>{label}</div>
-                            <div className={`text-xs mt-0.5 ${phaseType === value ? 'text-white/80' : 'text-slate-500'}`}>{desc}</div>
+                            <div className={`font-semibold text-sm ${phaseType === value ? 'text-white' : 'text-slate-700'}`}>{label}</div>
+                            <div className={`text-xs mt-0.5 ${phaseType === value ? 'text-white/70' : 'text-slate-500'}`}>{desc}</div>
                           </div>
-                          {phaseType === value && <CheckCircle2 className="h-6 w-6 text-white" />}
+                          {phaseType === value && <CheckCircle2 className="h-5 w-5 text-[#c19962]" />}
                         </div>
                       </button>
                     ))}
@@ -1372,25 +1369,25 @@ export default function BodyCompositionPage() {
                 </div>
 
                 {/* Target Setting */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-                      <span className="text-xs font-bold text-green-600">B</span>
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2.5">
+                    <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center border border-slate-200">
+                      <span className="text-[10px] font-bold text-slate-600">B</span>
                     </div>
                     Set Your Target
                   </h3>
                   {phaseType === 'recomposition' ? (
-                    <div className="space-y-2">
-                      <p className="text-xs text-slate-500 mb-3">Select your training experience level:</p>
+                    <div className="space-y-2.5">
+                      <p className="text-xs text-slate-500">Select your training experience level:</p>
                       {Object.entries(RECOMP_EXPECTATIONS).map(([key, val]) => (
                         <button key={key} onClick={() => setRecompExperience(key as any)}
-                          className={`w-full p-4 rounded-xl text-left transition-all border-2 ${recompExperience === key ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg border-transparent' : 'bg-purple-50 border-purple-200 hover:bg-purple-100'}`}>
+                          className={`w-full p-3.5 rounded-xl text-left transition-all border ${recompExperience === key ? 'bg-[#00263d] text-white shadow-lg border-transparent' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}>
                           <div className="flex justify-between items-center">
-                            <span className="font-bold text-sm">{val.label}</span>
-                            <Badge className={`${recompExperience === key ? 'bg-white/20 text-white' : 'bg-purple-200 text-purple-700'} border-0`}>{val.probability}% success</Badge>
+                            <span className="font-semibold text-sm">{val.label}</span>
+                            <Badge className={`${recompExperience === key ? 'bg-[#c19962]/20 text-[#c19962]' : 'bg-slate-100 text-slate-600'} border-0 font-mono text-[10px]`}>{val.probability}%</Badge>
                           </div>
-                          <div className={`text-xs mt-1.5 ${recompExperience === key ? 'text-white/80' : 'text-purple-600'}`}>
-                            Expected: -{val.monthlyFatLoss} lbs fat / +{val.monthlyMuscleGain} lbs muscle per month
+                          <div className={`text-xs mt-1 font-mono ${recompExperience === key ? 'text-slate-400' : 'text-slate-500'}`}>
+                            -{val.monthlyFatLoss} lbs fat / +{val.monthlyMuscleGain} lbs muscle per month
                           </div>
                         </button>
                       ))}
@@ -1398,17 +1395,17 @@ export default function BodyCompositionPage() {
                   ) : (
                     <div className="space-y-4">
                       {/* Target Method Selector */}
-                      <div className="flex rounded-xl overflow-hidden border-2 border-slate-200 bg-slate-50">
-                        {[{ value: 'body_fat', label: 'Body Fat %' }, { value: 'fmi', label: 'FMI' }, { value: 'ffmi', label: 'FFMI' }, { value: 'fat_mass', label: 'Fat Mass' }, { value: 'ffm', label: 'FFM' }].map(({ value, label }) => (
+                      <div className="flex rounded-lg overflow-hidden border border-slate-200 bg-slate-50/80">
+                        {[{ value: 'body_fat', label: 'BF%' }, { value: 'fmi', label: 'FMI' }, { value: 'ffmi', label: 'FFMI' }, { value: 'fat_mass', label: 'FM' }, { value: 'ffm', label: 'FFM' }].map(({ value, label }) => (
                           <button key={value} onClick={() => setTargetMethod(value as any)}
-                            className={`flex-1 text-xs font-semibold py-3 transition-colors ${targetMethod === value ? 'bg-[#00263d] text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            className={`flex-1 text-[11px] font-semibold py-2.5 transition-colors ${targetMethod === value ? 'bg-[#00263d] text-[#c19962]' : 'text-slate-500 hover:bg-slate-100'}`}>
                             {label}
                           </button>
                         ))}
                       </div>
                       
                       {/* Target Input Area */}
-                      <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-5 border border-slate-200">
+                      <div className="bg-slate-50/60 rounded-xl p-5 border border-slate-100/80">
                         {targetMethod === 'body_fat' && (
                           <div className="space-y-4">
                             <div className="flex justify-between items-center">
@@ -1471,29 +1468,29 @@ export default function BodyCompositionPage() {
                 </div>
 
                 {/* Rate & Timeline */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center">
-                      <span className="text-xs font-bold text-amber-600">C</span>
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2.5">
+                    <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center border border-slate-200">
+                      <span className="text-[10px] font-bold text-slate-600">C</span>
                     </div>
                     Rate & Timeline
                   </h3>
                   
                   {phaseType !== 'recomposition' && (
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
-                        <Label className="text-sm text-slate-600 font-medium">Use Custom Rate</Label>
+                      <div className="flex items-center justify-between p-3 bg-slate-50/60 rounded-xl border border-slate-100/80">
+                        <Label className="text-sm text-slate-600 font-medium">Custom Rate</Label>
                         <Switch checked={useCustomRate} onCheckedChange={setUseCustomRate} />
                       </div>
                       
                       {useCustomRate ? (
-                        <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
+                        <div className="bg-slate-50/60 rounded-xl p-4 border border-slate-100/80">
                           <div className="flex items-center gap-3">
                             <Slider value={[customRate]} onValueChange={([v]) => setCustomRate(v)} min={0.1} max={1.5} step={0.05} className="flex-1" />
-                            <span className="text-xl font-bold text-amber-700 w-16 text-center">{customRate}%</span>
+                            <span className="text-xl font-bold font-mono text-[#00263d] w-16 text-center">{customRate}%</span>
                           </div>
-                          <div className="text-sm text-center text-amber-600 mt-2 font-medium">
-                            ≈ {Math.round(currentWeight * customRate / 100 * 10) / 10} lbs per week
+                          <div className="text-xs text-center text-slate-500 mt-2 font-mono">
+                            &asymp; {Math.round(currentWeight * customRate / 100 * 10) / 10} lbs per week
                           </div>
                         </div>
                       ) : (
@@ -1502,13 +1499,13 @@ export default function BodyCompositionPage() {
                             const isSelected = phaseType === 'fat_loss' ? fatLossRateKey === key : muscleGainRateKey === key;
                             return (
                               <button key={key} onClick={() => phaseType === 'fat_loss' ? setFatLossRateKey(key) : setMuscleGainRateKey(key)}
-                                className={`w-full p-3 rounded-xl text-left transition-all border-2 ${isSelected ? `bg-gradient-to-r ${phaseType === 'fat_loss' ? 'from-red-500 to-orange-500' : 'from-blue-500 to-cyan-500'} text-white border-transparent shadow-md` : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
+                                className={`w-full p-3 rounded-xl text-left transition-all border ${isSelected ? 'bg-[#00263d] text-white border-transparent shadow-md' : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}>
                                 <div className="flex justify-between items-center">
                                   <div>
-                                    <span className="font-bold text-sm">{val.label}</span>
-                                    <span className={`text-xs ml-2 ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>{val.description}</span>
+                                    <span className="font-semibold text-sm">{val.label}</span>
+                                    <span className={`text-xs ml-2 ${isSelected ? 'text-slate-400' : 'text-slate-400'}`}>{val.description}</span>
                                   </div>
-                                  <Badge className={`${isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'} border-0 text-sm`}>{val.rate}%/wk</Badge>
+                                  <Badge className={`${isSelected ? 'bg-[#c19962]/20 text-[#c19962]' : 'bg-slate-100 text-slate-600'} border-0 font-mono text-[11px]`}>{val.rate}%/wk</Badge>
                                 </div>
                               </button>
                             );
@@ -1519,124 +1516,156 @@ export default function BodyCompositionPage() {
                   )}
                   
                   {/* Start Date */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-600">Start Date</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Start Date</Label>
                     <Input 
                       type="date" 
                       value={startDate} 
                       onChange={(e) => setStartDate(e.target.value)} 
-                      className="h-11 text-sm bg-slate-50 rounded-xl text-center border-slate-200"
+                      className="h-10 text-sm bg-slate-50/80 border-slate-200 rounded-lg text-center font-mono"
                     />
                   </div>
                   
                   {/* Timeline Summary */}
-                  <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-4 text-white text-center shadow-lg">
-                    <Calendar className="h-5 w-5 mx-auto mb-1 text-white/80" />
-                    <div className="text-3xl font-bold">{calculatedTimeline.weeks} weeks</div>
-                    <div className="text-sm text-white/90 mt-1">
-                      {new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} → {new Date(weeklyProjections[weeklyProjections.length - 1]?.date || startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  <div className="bg-[#00263d] rounded-xl p-4 text-center">
+                    <Calendar className="h-4 w-4 mx-auto mb-1 text-[#c19962]/60" />
+                    <div className="text-3xl font-bold font-mono text-white">{calculatedTimeline.weeks} <span className="text-sm font-normal text-slate-400">weeks</span></div>
+                    <div className="text-xs text-slate-400 mt-1 font-mono">
+                      {new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} &rarr; {new Date(weeklyProjections[weeklyProjections.length - 1]?.date || startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
                   </div>
                   
                   {/* Success Probability */}
-                  <div className={`rounded-xl p-4 border-2 ${feasibility.probability >= 70 ? 'bg-green-50 border-green-200' : feasibility.probability >= 40 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
+                  <div className={`rounded-xl p-4 border ${feasibility.probability >= 70 ? 'bg-green-50/50 border-green-200/60' : feasibility.probability >= 40 ? 'bg-amber-50/50 border-amber-200/60' : 'bg-red-50/50 border-red-200/60'}`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-slate-700">Success Probability</span>
-                      <Badge className={`${feasibility.probability >= 70 ? 'bg-green-500' : feasibility.probability >= 40 ? 'bg-amber-500' : 'bg-red-500'} text-white border-0 text-base px-3`}>{feasibility.probability}%</Badge>
+                      <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Success Probability</span>
+                      <span className={`font-bold font-mono text-lg ${feasibility.probability >= 70 ? 'text-green-600' : feasibility.probability >= 40 ? 'text-amber-600' : 'text-red-600'}`}>{feasibility.probability}%</span>
                     </div>
-                    <div className="h-3 bg-white/60 rounded-full overflow-hidden shadow-inner">
-                      <div className={`h-full rounded-full transition-all ${feasibility.probability >= 70 ? 'bg-green-500' : feasibility.probability >= 40 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${feasibility.probability}%` }} />
+                    <div className="h-2 bg-slate-200/50 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${feasibility.probability >= 70 ? 'bg-green-500' : feasibility.probability >= 40 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${feasibility.probability}%` }} />
                     </div>
-                    <p className="text-xs mt-2 text-slate-600">{feasibility.message}</p>
+                    <p className="text-[11px] mt-2 text-slate-500">{feasibility.message}</p>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Row 3: Results */}
+          {/* ═══ Section 3: Projected Results ═══ */}
           {projectedMetrics && summary && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
               {/* Parameters + Results */}
-              <Card className="lg:col-span-4 bg-white border-0 shadow-lg rounded-2xl">
-                <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-100">
-                  <CardTitle className="flex items-center gap-2 text-[#00263d] text-sm font-semibold">
-                    <Zap className="h-4 w-4 text-[#c19962]" />
-                    Projected Results
+              <Card className="lg:col-span-4 bg-white/[0.97] backdrop-blur border border-slate-200/60 shadow-xl shadow-black/5 rounded-2xl overflow-hidden">
+                <CardHeader className="pb-3 px-5 pt-5">
+                  <CardTitle className="flex items-center gap-3 text-[#00263d]">
+                    <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#00263d] text-[#c19962] text-xs font-bold">3</div>
+                    <div>
+                      <div className="text-sm font-semibold tracking-tight">Projected Results</div>
+                      <div className="text-[10px] text-slate-400 font-normal mt-0.5">Estimated outcomes</div>
+                    </div>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-3 space-y-2">
-                  <div className="grid grid-cols-4 gap-2">
-                    <div className="col-span-2">
-                      <Label className="text-[9px] text-slate-400 uppercase">Protein</Label>
+                <CardContent className="px-5 pb-5 space-y-3">
+                  {/* Parameter controls */}
+                  <div className="grid grid-cols-4 gap-2.5">
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Protein Level</Label>
                       <Select value={proteinLevel} onValueChange={(v: any) => setProteinLevel(v)}>
-                        <SelectTrigger className="h-7 text-[10px] bg-slate-50"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-8 text-[10px] bg-slate-50/80 border-slate-200"><SelectValue /></SelectTrigger>
                         <SelectContent>{Object.entries(PROTEIN_EFFECT).map(([k, v]) => <SelectItem key={k} value={k} className="text-xs">{v.label}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div className="flex items-end justify-center gap-1 pb-1">
-                      <Label className="text-[8px] text-slate-400">Water</Label>
+                    <div className="flex flex-col items-center justify-end gap-1 pb-0.5">
+                      <Label className="text-[9px] text-slate-400 uppercase">Water</Label>
                       <Switch checked={includeWaterChanges} onCheckedChange={setIncludeWaterChanges} />
                     </div>
-                    <div className="flex items-end justify-center gap-1 pb-1">
-                      <Label className="text-[8px] text-slate-400">CI</Label>
+                    <div className="flex flex-col items-center justify-end gap-1 pb-0.5">
+                      <Label className="text-[9px] text-slate-400 uppercase">CI</Label>
                       <Switch checked={showCI} onCheckedChange={setShowCI} />
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-slate-50 rounded-lg p-2 text-center">
-                      <div className="text-xl font-bold text-[#00263d]">{projectedMetrics.weightLbs}</div>
-                      <div className="text-[9px] text-slate-500">Weight</div>
-                      <div className={`text-[10px] font-medium ${summary.totalWeightChange < 0 ? 'text-green-600' : 'text-blue-600'}`}>{summary.totalWeightChange < 0 ? '' : '+'}{summary.totalWeightChange}</div>
+                  {/* Key outcomes */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="bg-slate-50/60 rounded-xl p-3 text-center border border-slate-100/80">
+                      <div className="text-2xl font-bold font-mono text-[#00263d]">{projectedMetrics.weightLbs}</div>
+                      <div className="text-[10px] text-slate-500 font-medium">Weight (lbs)</div>
+                      <div className={`text-[11px] font-semibold font-mono mt-0.5 ${summary.totalWeightChange < 0 ? 'text-green-600' : 'text-blue-600'}`}>
+                        {summary.totalWeightChange < 0 ? '' : '+'}{summary.totalWeightChange}
+                      </div>
                     </div>
-                    <div className="bg-slate-50 rounded-lg p-2 text-center">
-                      <div className="text-xl font-bold text-[#00263d]">{projectedMetrics.bodyFat}%</div>
-                      <div className="text-[9px] text-slate-500">Body Fat</div>
-                      <div className={`text-[10px] font-medium ${projectedMetrics.bodyFat < currentBodyFat ? 'text-green-600' : 'text-orange-600'}`}>{(projectedMetrics.bodyFat - currentBodyFat).toFixed(1)}%</div>
+                    <div className="bg-slate-50/60 rounded-xl p-3 text-center border border-slate-100/80">
+                      <div className="text-2xl font-bold font-mono text-[#00263d]">{projectedMetrics.bodyFat}%</div>
+                      <div className="text-[10px] text-slate-500 font-medium">Body Fat</div>
+                      <div className={`text-[11px] font-semibold font-mono mt-0.5 ${projectedMetrics.bodyFat < currentBodyFat ? 'text-green-600' : 'text-amber-600'}`}>
+                        {(projectedMetrics.bodyFat - currentBodyFat).toFixed(1)}%
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="bg-slate-50 rounded-lg p-2 text-sm space-y-1">
-                    <div className="flex justify-between"><span className="text-slate-500 text-[10px]">FM</span><span className="font-semibold text-xs">{projectedMetrics.fatMassLbs} <span className={`text-[9px] ${summary.totalFatChange < 0 ? 'text-green-600' : 'text-red-500'}`}>({summary.totalFatChange})</span></span></div>
-                    <div className="flex justify-between"><span className="text-slate-500 text-[10px]">FFM</span><span className="font-semibold text-xs">{projectedMetrics.ffmLbs} <span className={`text-[9px] ${summary.totalFFMChange >= 0 ? 'text-green-600' : 'text-red-500'}`}>({summary.totalFFMChange >= 0 ? '+' : ''}{summary.totalFFMChange})</span></span></div>
+                  {/* Composition breakdown */}
+                  <div className="bg-slate-50/60 rounded-xl p-3 border border-slate-100/80 space-y-2">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">Fat Mass</span>
+                      <span className="text-sm font-bold font-mono text-[#00263d]">
+                        {projectedMetrics.fatMassLbs}
+                        <span className={`text-[10px] ml-1.5 ${summary.totalFatChange < 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          ({summary.totalFatChange})
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">Fat-Free Mass</span>
+                      <span className="text-sm font-bold font-mono text-[#00263d]">
+                        {projectedMetrics.ffmLbs}
+                        <span className={`text-[10px] ml-1.5 ${summary.totalFFMChange >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          ({summary.totalFFMChange >= 0 ? '+' : ''}{summary.totalFFMChange})
+                        </span>
+                      </span>
+                    </div>
                   </div>
                   
-                  <div className="h-2 rounded-full overflow-hidden flex bg-slate-200">
-                    <div className="bg-amber-500" style={{ width: `${summary.pctFromFat}%` }} />
-                    <div className="bg-rose-500" style={{ width: `${summary.pctFromFFM}%` }} />
-                  </div>
-                  <div className="flex justify-between text-[8px]">
-                    <span className="text-amber-600">Fat: {summary.pctFromFat}%</span>
-                    <span className="text-rose-600">FFM: {summary.pctFromFFM}%</span>
+                  {/* Weight change composition bar */}
+                  <div>
+                    <div className="h-2 rounded-full overflow-hidden flex bg-slate-200/60">
+                      <div className="bg-amber-500 transition-all" style={{ width: `${summary.pctFromFat}%` }} />
+                      <div className="bg-rose-400 transition-all" style={{ width: `${summary.pctFromFFM}%` }} />
+                    </div>
+                    <div className="flex justify-between text-[9px] mt-1">
+                      <span className="text-amber-600 font-medium">Fat: {summary.pctFromFat}%</span>
+                      <span className="text-rose-500 font-medium">FFM: {summary.pctFromFFM}%</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Timeline Graphs */}
-              <Card className="lg:col-span-8 bg-white border-0 shadow-lg rounded-2xl">
-                <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-100">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <CardTitle className="flex items-center gap-2 text-[#00263d] text-sm font-semibold">
-                      <LineChart className="h-4 w-4 text-purple-500" />
-                      Timeline Projection
+              <Card className="lg:col-span-8 bg-white/[0.97] backdrop-blur border border-slate-200/60 shadow-xl shadow-black/5 rounded-2xl overflow-hidden">
+                <CardHeader className="pb-3 px-5 pt-5">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <CardTitle className="flex items-center gap-3 text-[#00263d]">
+                      <LineChart className="h-4 w-4 text-indigo-500" />
+                      <div>
+                        <div className="text-sm font-semibold tracking-tight">Timeline Projection</div>
+                        <div className="text-[10px] text-slate-400 font-normal mt-0.5">Weekly trajectory</div>
+                      </div>
                     </CardTitle>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       {/* Variable selector tabs */}
-                      <div className="flex rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                      <div className="flex rounded-lg overflow-hidden border border-slate-200 bg-slate-50/80">
                         {[
                           { key: 'weight', label: 'Weight', color: '#6366f1' },
-                          { key: 'bodyFat', label: 'Body Fat', color: '#f59e0b' },
-                          { key: 'fatMass', label: 'Fat Mass', color: '#ef4444' },
+                          { key: 'bodyFat', label: 'BF%', color: '#f59e0b' },
+                          { key: 'fatMass', label: 'FM', color: '#ef4444' },
                           { key: 'ffm', label: 'FFM', color: '#22c55e' },
                         ].map(({ key, label, color }) => (
                           <button 
                             key={key}
                             onClick={() => setSelectedGraphVar(key as any)} 
-                            className={`px-3 py-1.5 text-xs font-medium transition-all ${
+                            className={`px-3 py-1.5 text-[11px] font-semibold transition-all ${
                               selectedGraphVar === key 
-                                ? 'text-white shadow-sm' 
-                                : 'text-slate-600 hover:bg-slate-100'
+                                ? 'text-white' 
+                                : 'text-slate-500 hover:bg-slate-100'
                             }`}
                             style={{ backgroundColor: selectedGraphVar === key ? color : undefined }}
                           >
@@ -1646,71 +1675,70 @@ export default function BodyCompositionPage() {
                       </div>
                       {/* Graph/Table toggle */}
                       <div className="flex rounded-lg overflow-hidden border border-slate-200">
-                        <button onClick={() => setViewMode('graph')} className={`px-2.5 py-1.5 text-xs font-medium ${viewMode === 'graph' ? 'bg-[#00263d] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+                        <button onClick={() => setViewMode('graph')} className={`px-2.5 py-1.5 transition-colors ${viewMode === 'graph' ? 'bg-[#00263d] text-[#c19962]' : 'bg-white text-slate-400 hover:bg-slate-50'}`}>
                           <LineChart className="h-3.5 w-3.5" />
                         </button>
-                        <button onClick={() => setViewMode('table')} className={`px-2.5 py-1.5 text-xs font-medium border-l border-slate-200 ${viewMode === 'table' ? 'bg-[#00263d] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+                        <button onClick={() => setViewMode('table')} className={`px-2.5 py-1.5 border-l border-slate-200 transition-colors ${viewMode === 'table' ? 'bg-[#00263d] text-[#c19962]' : 'bg-white text-slate-400 hover:bg-slate-50'}`}>
                           <Table className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="p-4">
+                <CardContent className="px-5 pb-5">
                   {viewMode === 'graph' ? (
                     <div className="space-y-3">
-                      {/* Summary stats for selected variable */}
-                      <div className="flex items-center justify-between px-2">
-                        <div className="flex items-center gap-4">
+                      {/* Summary stats */}
+                      <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-5">
                           <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-red-500" />
-                            <span className="text-xs text-slate-600">Start: <span className="font-bold text-slate-800">{graphConfigs[selectedGraphVar].data[0]}{graphConfigs[selectedGraphVar].unit}</span></span>
+                            <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                            <span className="text-[11px] text-slate-500">Start: <span className="font-bold font-mono text-slate-700">{graphConfigs[selectedGraphVar].data[0]}{graphConfigs[selectedGraphVar].unit}</span></span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-green-500" />
-                            <span className="text-xs text-slate-600">End: <span className="font-bold text-slate-800">{graphConfigs[selectedGraphVar].data[graphConfigs[selectedGraphVar].data.length - 1]}{graphConfigs[selectedGraphVar].unit}</span></span>
+                            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                            <span className="text-[11px] text-slate-500">End: <span className="font-bold font-mono text-slate-700">{graphConfigs[selectedGraphVar].data[graphConfigs[selectedGraphVar].data.length - 1]}{graphConfigs[selectedGraphVar].unit}</span></span>
                           </div>
                         </div>
-                        <div className="text-xs text-slate-500">
-                          Change: <span className={`font-bold ${(graphConfigs[selectedGraphVar].data[graphConfigs[selectedGraphVar].data.length - 1] - graphConfigs[selectedGraphVar].data[0]) < 0 ? 'text-green-600' : 'text-blue-600'}`}>
+                        <span className="text-[11px] text-slate-400">
+                          &Delta; <span className={`font-bold font-mono ${(graphConfigs[selectedGraphVar].data[graphConfigs[selectedGraphVar].data.length - 1] - graphConfigs[selectedGraphVar].data[0]) < 0 ? 'text-green-600' : 'text-blue-600'}`}>
                             {(graphConfigs[selectedGraphVar].data[graphConfigs[selectedGraphVar].data.length - 1] - graphConfigs[selectedGraphVar].data[0]) > 0 ? '+' : ''}
                             {(graphConfigs[selectedGraphVar].data[graphConfigs[selectedGraphVar].data.length - 1] - graphConfigs[selectedGraphVar].data[0]).toFixed(1)}{graphConfigs[selectedGraphVar].unit}
                           </span>
-                        </div>
+                        </span>
                       </div>
                       
-                      {/* Large graph */}
-                      <div className="bg-white rounded-xl border border-slate-100 p-2">
+                      {/* Chart */}
+                      <div className="bg-slate-50/40 rounded-xl border border-slate-100/60 p-3">
                         <LargeGraph />
                       </div>
                       
-                      {/* Hint */}
-                      <p className="text-center text-[10px] text-slate-400">Hover over the graph to see values at each week</p>
+                      <p className="text-center text-[10px] text-slate-400">Hover over the chart to inspect values at each week</p>
                     </div>
                   ) : (
-                    <ScrollArea className="h-64">
+                    <ScrollArea className="h-[320px]">
                       <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-white border-b border-slate-200">
+                        <thead className="sticky top-0 bg-white/95 backdrop-blur border-b border-slate-200">
                           <tr>
-                            <th className="py-2 px-2 text-left text-xs text-slate-500 font-semibold">Week</th>
-                            <th className="py-2 px-2 text-xs text-slate-500 font-semibold">Weight</th>
-                            <th className="py-2 px-2 text-xs text-slate-500 font-semibold">BF%</th>
-                            <th className="py-2 px-2 text-xs text-slate-500 font-semibold">Fat Mass</th>
-                            <th className="py-2 px-2 text-xs text-slate-500 font-semibold">FFM</th>
-                            <th className="py-2 px-2 text-xs text-slate-500 font-semibold">FMI</th>
-                            <th className="py-2 px-2 text-xs text-slate-500 font-semibold">FFMI</th>
+                            <th className="py-2.5 px-3 text-left text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Wk</th>
+                            <th className="py-2.5 px-3 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Weight</th>
+                            <th className="py-2.5 px-3 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">BF%</th>
+                            <th className="py-2.5 px-3 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">FM</th>
+                            <th className="py-2.5 px-3 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">FFM</th>
+                            <th className="py-2.5 px-3 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">FMI</th>
+                            <th className="py-2.5 px-3 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">FFMI</th>
                           </tr>
                         </thead>
                         <tbody>
                           {weeklyProjections.map((p, i) => (
-                            <tr key={i} className={`border-b border-slate-50 ${i === 0 ? 'bg-red-50' : i === weeklyProjections.length - 1 ? 'bg-green-50' : 'hover:bg-slate-50'}`}>
-                              <td className="py-2 px-2 font-semibold text-slate-700">{p.week}</td>
-                              <td className="py-2 px-2 text-center font-medium">{p.weight}</td>
-                              <td className="py-2 px-2 text-center font-medium">{p.bodyFat}%</td>
-                              <td className="py-2 px-2 text-center font-medium">{p.fatMass}</td>
-                              <td className="py-2 px-2 text-center font-medium">{p.ffm}</td>
-                              <td className="py-2 px-2 text-center text-slate-500">{p.fmi}</td>
-                              <td className="py-2 px-2 text-center text-slate-500">{p.ffmi}</td>
+                            <tr key={i} className={`border-b border-slate-50 ${i === 0 ? 'bg-red-50/40' : i === weeklyProjections.length - 1 ? 'bg-green-50/40' : 'hover:bg-slate-50/50'}`}>
+                              <td className="py-2 px-3 font-semibold font-mono text-slate-600 text-xs">{p.week}</td>
+                              <td className="py-2 px-3 text-center font-mono text-xs">{p.weight}</td>
+                              <td className="py-2 px-3 text-center font-mono text-xs">{p.bodyFat}%</td>
+                              <td className="py-2 px-3 text-center font-mono text-xs">{p.fatMass}</td>
+                              <td className="py-2 px-3 text-center font-mono text-xs">{p.ffm}</td>
+                              <td className="py-2 px-3 text-center font-mono text-xs text-slate-400">{p.fmi}</td>
+                              <td className="py-2 px-3 text-center font-mono text-xs text-slate-400">{p.ffmi}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1722,21 +1750,23 @@ export default function BodyCompositionPage() {
             </div>
           )}
 
-          {/* Estimated Nutrition Targets */}
+          {/* ═══ Section 4: Nutrition Targets ═══ */}
           {nutritionTargets && (
-            <Card className="bg-white border-0 shadow-lg rounded-2xl">
-              <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-100">
+            <Card className="bg-white/[0.97] backdrop-blur border border-slate-200/60 shadow-xl shadow-black/5 rounded-2xl overflow-hidden">
+              <CardHeader className="pb-3 px-6 pt-5 border-b border-slate-100/80">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-[#00263d] text-sm font-semibold">
+                  <CardTitle className="flex items-center gap-3 text-[#00263d]">
                     <Activity className="h-4 w-4 text-[#c19962]" />
-                    Estimated Nutrition Targets
-                    <Badge className="bg-amber-100 text-amber-700 border-0 text-[9px] ml-1">Starting Point</Badge>
+                    <div>
+                      <div className="text-sm font-semibold tracking-tight">Estimated Nutrition Targets</div>
+                      <div className="text-[10px] text-slate-400 font-normal mt-0.5">Starting point &middot; Adjust based on biofeedback</div>
+                    </div>
                   </CardTitle>
                   <Button
                     onClick={handleExportPDF}
                     disabled={isExportingPDF}
                     size="sm"
-                    className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d] text-xs h-8"
+                    className="bg-[#00263d] hover:bg-[#003a5c] text-[#c19962] text-xs h-9 px-4 rounded-lg"
                   >
                     {isExportingPDF ? (
                       <>
@@ -1752,45 +1782,44 @@ export default function BodyCompositionPage() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-3">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
-                  <div className="bg-gradient-to-br from-[#c19962] to-[#d4af7a] rounded-xl p-2.5 text-center text-white">
-                    <div className="text-xl font-bold">{nutritionTargets.calories}</div>
-                    <div className="text-[9px] opacity-80">Est. Calories</div>
-                    <div className={`text-[10px] ${nutritionTargets.deficit < 0 ? 'text-green-200' : 'text-blue-200'}`}>
+              <CardContent className="px-6 pb-6 pt-5">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                  <div className="bg-[#00263d] rounded-xl p-3.5 text-center">
+                    <div className="text-2xl font-bold font-mono text-white">{nutritionTargets.calories}</div>
+                    <div className="text-[9px] text-[#c19962]/80 uppercase tracking-wider font-medium mt-0.5">Calories</div>
+                    <div className={`text-[10px] font-mono mt-0.5 ${nutritionTargets.deficit < 0 ? 'text-green-400' : 'text-blue-400'}`}>
                       {nutritionTargets.deficit < 0 ? '' : '+'}{nutritionTargets.deficit}/day
                     </div>
                   </div>
-                  <div className="bg-red-50 rounded-xl p-2.5 text-center border border-red-100">
-                    <div className="text-xl font-bold text-red-600">{nutritionTargets.protein}g</div>
-                    <div className="text-[9px] text-red-500">Est. Protein</div>
-                    <div className="text-[10px] text-red-400">{Math.round(nutritionTargets.protein * 4)} kcal</div>
+                  <div className="bg-rose-50/60 rounded-xl p-3.5 text-center border border-rose-100/80">
+                    <div className="text-2xl font-bold font-mono text-rose-600">{nutritionTargets.protein}g</div>
+                    <div className="text-[9px] text-rose-500/80 uppercase tracking-wider font-medium mt-0.5">Protein</div>
+                    <div className="text-[10px] text-rose-400 font-mono">{Math.round(nutritionTargets.protein * 4)} kcal</div>
                   </div>
-                  <div className="bg-amber-50 rounded-xl p-2.5 text-center border border-amber-100">
-                    <div className="text-xl font-bold text-amber-600">{nutritionTargets.carbs}g</div>
-                    <div className="text-[9px] text-amber-500">Est. Carbs</div>
-                    <div className="text-[10px] text-amber-400">{Math.round(nutritionTargets.carbs * 4)} kcal</div>
+                  <div className="bg-amber-50/60 rounded-xl p-3.5 text-center border border-amber-100/80">
+                    <div className="text-2xl font-bold font-mono text-amber-600">{nutritionTargets.carbs}g</div>
+                    <div className="text-[9px] text-amber-500/80 uppercase tracking-wider font-medium mt-0.5">Carbs</div>
+                    <div className="text-[10px] text-amber-400 font-mono">{Math.round(nutritionTargets.carbs * 4)} kcal</div>
                   </div>
-                  <div className="bg-blue-50 rounded-xl p-2.5 text-center border border-blue-100">
-                    <div className="text-xl font-bold text-blue-600">{nutritionTargets.fat}g</div>
-                    <div className="text-[9px] text-blue-500">Est. Fat</div>
-                    <div className="text-[10px] text-blue-400">{Math.round(nutritionTargets.fat * 9)} kcal</div>
+                  <div className="bg-blue-50/60 rounded-xl p-3.5 text-center border border-blue-100/80">
+                    <div className="text-2xl font-bold font-mono text-blue-600">{nutritionTargets.fat}g</div>
+                    <div className="text-[9px] text-blue-500/80 uppercase tracking-wider font-medium mt-0.5">Fat</div>
+                    <div className="text-[10px] text-blue-400 font-mono">{Math.round(nutritionTargets.fat * 9)} kcal</div>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-200">
-                    <div className="text-lg font-bold text-slate-700">{tdee}</div>
-                    <div className="text-[9px] text-slate-500">Est. TDEE</div>
-                    <div className="text-[10px] text-slate-400">Maintenance</div>
+                  <div className="bg-slate-50/60 rounded-xl p-3.5 text-center border border-slate-100/80">
+                    <div className="text-2xl font-bold font-mono text-slate-700">{tdee}</div>
+                    <div className="text-[9px] text-slate-500/80 uppercase tracking-wider font-medium mt-0.5">TDEE</div>
+                    <div className="text-[10px] text-slate-400 font-mono">Maintenance</div>
                   </div>
                 </div>
                 
                 {/* Disclaimer */}
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-[10px] text-amber-800 leading-relaxed">
-                    <strong>Important:</strong> These are estimated starting targets based on predictive equations and should be used as a baseline only. 
-                    <span className="text-amber-600 font-semibold"> Fitomics coaching and programming</span> utilizes dynamic monitoring and ongoing adjustments 
-                    as your body composition and physiology change. Static intake recommendations are not recommended for optimal results—nutrition should be 
-                    periodized and adjusted based on real-world progress, biofeedback, and metabolic adaptation.
+                <div className="bg-slate-50/60 border border-slate-200/60 rounded-xl p-4 flex items-start gap-3">
+                  <AlertTriangle className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-[11px] text-slate-500 leading-relaxed">
+                    <strong className="text-slate-600">Disclaimer:</strong> These are estimated starting targets based on predictive equations and should be used as a baseline only. 
+                    <span className="text-slate-600 font-semibold"> Fitomics coaching and programming</span> utilizes dynamic monitoring and ongoing adjustments 
+                    as your body composition and physiology change. Nutrition should be periodized and adjusted based on real-world progress, biofeedback, and metabolic adaptation.
                   </div>
                 </div>
               </CardContent>

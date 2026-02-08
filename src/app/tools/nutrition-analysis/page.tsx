@@ -273,6 +273,133 @@ const FOOD_NUTRIENT_SOURCES: Record<string, string[]> = {
   'B12 (Cobalamin)': ['Meat', 'Fish', 'Eggs', 'Dairy', 'Fortified foods'],
 };
 
+// ============ FUNCTIONAL NUTRIENT GROUPINGS ============
+
+interface NutrientGroupAssessment {
+  name: string;
+  description: string;
+  nutrients: string[];
+  avgAdequacy: number; // 0-100
+  status: 'excellent' | 'good' | 'fair' | 'poor';
+  message: string;
+}
+
+const FUNCTIONAL_GROUPS: { name: string; description: string; nutrients: string[] }[] = [
+  { name: 'Bone Health', description: 'Calcium, Vitamin D, Vitamin K, Magnesium, Phosphorus', nutrients: ['Calcium', 'Vitamin D', 'Vitamin K', 'Magnesium', 'Phosphorus'] },
+  { name: 'Antioxidant Defense', description: 'Vitamin C, Vitamin E, Selenium, Zinc', nutrients: ['Vitamin C', 'Vitamin E', 'Selenium', 'Zinc'] },
+  { name: 'Energy Metabolism', description: 'B1, B2, B3, B5, B6, Iron, Magnesium', nutrients: ['B1 (Thiamine)', 'B2 (Riboflavin)', 'B3 (Niacin)', 'B5 (Pantothenic Acid)', 'B6 (Pyridoxine)', 'Iron', 'Magnesium'] },
+  { name: 'Cardiovascular', description: 'Omega-3, Potassium, Magnesium, Fiber', nutrients: ['Omega-3', 'Potassium', 'Magnesium', 'Fiber'] },
+  { name: 'Immune Function', description: 'Vitamin C, Vitamin D, Zinc, Selenium, Vitamin A', nutrients: ['Vitamin C', 'Vitamin D', 'Zinc', 'Selenium', 'Vitamin A'] },
+  { name: 'Blood & Oxygen', description: 'Iron, B12, Folate, Copper', nutrients: ['Iron', 'B12 (Cobalamin)', 'Folate', 'Copper'] },
+  { name: 'Muscle & Recovery', description: 'Protein, Magnesium, Potassium, Calcium', nutrients: ['Protein', 'Magnesium', 'Potassium', 'Calcium'] },
+];
+
+function assessFunctionalGroups(allNutrients: NutrientData[]): NutrientGroupAssessment[] {
+  const nutrientMap = new Map(allNutrients.map(n => [n.name, n]));
+  return FUNCTIONAL_GROUPS.map(group => {
+    const pcts: number[] = [];
+    for (const name of group.nutrients) {
+      const n = nutrientMap.get(name);
+      if (n && n.target > 0) pcts.push(Math.min((n.value / n.target) * 100, 100));
+    }
+    const avg = pcts.length > 0 ? pcts.reduce((s, p) => s + p, 0) / pcts.length : 0;
+    const status: NutrientGroupAssessment['status'] =
+      avg >= 90 ? 'excellent' : avg >= 70 ? 'good' : avg >= 50 ? 'fair' : 'poor';
+    const low = group.nutrients.filter(name => {
+      const n = nutrientMap.get(name);
+      return n && n.target > 0 && (n.value / n.target) * 100 < 70;
+    });
+    const message = low.length === 0
+      ? 'All nutrients in this group are well covered.'
+      : `Low in: ${low.join(', ')}. Consider targeted foods or supplementation.`;
+    return { name: group.name, description: group.description, nutrients: group.nutrients, avgAdequacy: Math.round(avg), status, message };
+  });
+}
+
+// Synergy-aware recommendation data
+const NUTRIENT_SYNERGIES: Record<string, { boosts: string[]; tip: string }> = {
+  'Iron': { boosts: ['Vitamin C'], tip: 'Pair iron-rich foods with vitamin C (e.g., spinach + bell pepper) for 2-3x better absorption.' },
+  'Calcium': { boosts: ['Vitamin D'], tip: 'Vitamin D enhances calcium absorption. Get 15 min sunlight or supplement.' },
+  'Vitamin D': { boosts: ['Calcium', 'Vitamin K'], tip: 'Vitamin D works with K2 and calcium for bone mineralization.' },
+  'Zinc': { boosts: ['Vitamin C'], tip: 'Vitamin C aids zinc absorption. Citrus + shellfish/beans is synergistic.' },
+  'Omega-3': { boosts: ['Vitamin E'], tip: 'Vitamin E protects omega-3 fats from oxidation. Include nuts/seeds.' },
+};
+
+// ============ SCORING ============
+
+// Nutrients that are harmful when excessive (penalize excesses)
+const HARMFUL_EXCESS_NUTRIENTS = new Set(['Sodium', 'Saturated', 'Cholesterol', 'Added Sugars']);
+
+// Critical nutrients weighted more heavily in adequacy scoring
+const CRITICAL_NUTRIENT_WEIGHTS: Record<string, number> = {
+  'Energy': 1.5, 'Protein': 1.5, 'Fiber': 1.2,
+  'Iron': 1.3, 'Calcium': 1.3, 'Vitamin D': 1.3, 'Vitamin B12': 1.2,
+  'Magnesium': 1.1, 'Potassium': 1.1, 'Omega-3': 1.2, 'Zinc': 1.1,
+};
+
+function calculateOverallScore(
+  deficiencies: NutrientIssue[],
+  excesses: NutrientIssue[],
+  allNutrients: NutrientData[],
+  ratios: RatioAnalysis[],
+): number {
+  // 1. Nutrient Adequacy Score (0-100): weighted average of how well nutrients are met
+  //    Nutrients at/above target → 100. Below target → proportional. Cap at 100 per nutrient.
+  let weightedSum = 0;
+  let weightTotal = 0;
+  const categoryHits: Record<string, number[]> = {};
+
+  for (const n of allNutrients) {
+    const pct = n.target > 0 ? Math.min((n.value / n.target) * 100, 100) : 100;
+    const w = CRITICAL_NUTRIENT_WEIGHTS[n.name] || 1;
+    weightedSum += pct * w;
+    weightTotal += 100 * w;
+    // Track per-category for balance scoring
+    const cat = NUTRIENT_TARGETS[n.name]?.category || 'other';
+    if (!categoryHits[cat]) categoryHits[cat] = [];
+    categoryHits[cat].push(Math.min(pct, 100));
+  }
+  const nutrientAdequacy = weightTotal > 0 ? (weightedSum / weightTotal) * 100 : 50;
+
+  // 2. Excess Control Score (0-100): only penalize genuinely harmful excesses
+  let excessPenalty = 0;
+  let harmfulCount = 0;
+  for (const e of excesses) {
+    if (HARMFUL_EXCESS_NUTRIENTS.has(e.nutrient)) {
+      // Penalty scales with how far over the max optimal limit
+      const overPct = Math.max(0, e.percentage - 100);
+      excessPenalty += Math.min(overPct * 0.3, 40); // cap per-nutrient penalty at 40
+      harmfulCount++;
+    }
+    // Non-harmful excesses (vitamins/minerals above target but below UL) are not penalized
+  }
+  const excessControl = Math.max(0, 100 - excessPenalty);
+
+  // 3. Ratio Quality Score (0-100): partial credit for suboptimal (not just binary)
+  let ratioPoints = 0;
+  for (const r of ratios) {
+    if (r.status === 'optimal') ratioPoints += 100;
+    else if (r.status === 'suboptimal') ratioPoints += 55;
+    else ratioPoints += 15; // poor still gets some credit
+  }
+  const ratioQuality = ratios.length > 0 ? ratioPoints / ratios.length : 70; // default decent if no ratios
+
+  // 4. Balance Score (0-100): reward coverage across nutrient categories
+  let balancePoints = 0;
+  let balanceTotal = 0;
+  for (const [, pcts] of Object.entries(categoryHits)) {
+    if (pcts.length === 0) continue;
+    const avgPct = pcts.reduce((s, p) => s + p, 0) / pcts.length;
+    balancePoints += Math.min(avgPct, 100);
+    balanceTotal += 100;
+  }
+  const balanceScore = balanceTotal > 0 ? (balancePoints / balanceTotal) * 100 : 50;
+
+  // Final weighted score with floor of 20 for any real diet
+  const raw = (nutrientAdequacy * 0.45) + (excessControl * 0.25) + (ratioQuality * 0.15) + (balanceScore * 0.15);
+  return Math.round(Math.max(20, Math.min(100, raw)));
+}
+
 // ============ PARSING FUNCTIONS ============
 
 function parseCSVLine(line: string): string[] {
@@ -617,11 +744,41 @@ function generateRecommendations(
   topFoods: { name: string; count: number; totalCalories: number }[]
 ): FoodRecommendation[] {
   const recommendations: FoodRecommendation[] = [];
+  const topFoodNames = new Set(topFoods.map(f => f.name.toLowerCase()));
 
-  // Add foods for deficiencies
-  for (const def of deficiencies.slice(0, 6)) {
+  // Helper: check if client already eats a food
+  const alreadyEats = (keyword: string) => {
+    const kw = keyword.toLowerCase();
+    for (const name of topFoodNames) {
+      if (name.includes(kw) || kw.includes(name)) return true;
+    }
+    return false;
+  };
+
+  // Smart food suggestions for deficiencies — consider existing diet
+  for (const def of deficiencies.slice(0, 8)) {
     const sources = FOOD_NUTRIENT_SOURCES[def.nutrient];
-    if (sources) {
+    if (!sources) continue;
+
+    // Find a food they don't already eat frequently
+    const newFood = sources.find(s => !alreadyEats(s.split(' ')[0]));
+    const existingFood = sources.find(s => alreadyEats(s.split(' ')[0]));
+
+    if (existingFood && newFood) {
+      recommendations.push({
+        type: 'increase',
+        food: existingFood,
+        reason: `You already eat ${existingFood.toLowerCase()} — increase portions or frequency. ${def.nutrient} is at ${def.percentage}% of target.`,
+        nutrients: [def.nutrient],
+      });
+    } else if (newFood) {
+      recommendations.push({
+        type: 'add',
+        food: newFood,
+        reason: `${def.nutrient} is at ${def.percentage}% of target. ${newFood} is an excellent source not currently in your diet.`,
+        nutrients: [def.nutrient],
+      });
+    } else {
       recommendations.push({
         type: 'add',
         food: sources.slice(0, 2).join(' or '),
@@ -629,9 +786,20 @@ function generateRecommendations(
         nutrients: [def.nutrient],
       });
     }
+
+    // Add synergy tips where applicable
+    const synergy = NUTRIENT_SYNERGIES[def.nutrient];
+    if (synergy) {
+      recommendations.push({
+        type: 'add',
+        food: synergy.tip,
+        reason: `Synergy: ${def.nutrient} absorption is enhanced by ${synergy.boosts.join(', ')}.`,
+        nutrients: [def.nutrient, ...synergy.boosts],
+      });
+    }
   }
 
-  // Reduce high sodium foods
+  // Harmful excess reductions
   const sodiumExcess = excesses.find(e => e.nutrient === 'Sodium');
   if (sodiumExcess) {
     recommendations.push({
@@ -642,31 +810,39 @@ function generateRecommendations(
     });
   }
 
-  // Fat recommendations
-  const fatExcess = excesses.find(e => e.nutrient === 'Fat');
+  // Saturated fat swaps
   const saturatedExcess = excesses.find(e => e.nutrient === 'Saturated');
-  if (fatExcess || saturatedExcess) {
-    recommendations.push({
-      type: 'swap',
-      food: 'Higher-fat meats (80% lean beef, sausages)',
-      swapFor: '93%+ lean ground turkey/beef, chicken breast',
-      reason: 'Leaner protein sources reduce total and saturated fat.',
-      nutrients: ['Fat', 'Saturated'],
-    });
+  if (saturatedExcess) {
+    if (alreadyEats('beef') || alreadyEats('sausage') || alreadyEats('bacon')) {
+      recommendations.push({
+        type: 'swap',
+        food: 'Higher-fat meats (beef, sausage, bacon)',
+        swapFor: '93%+ lean ground turkey/beef, chicken breast, or fish',
+        reason: `Saturated fat is at ${saturatedExcess.percentage}% of target. Leaner protein swaps make a big impact.`,
+        nutrients: ['Saturated'],
+      });
+    } else {
+      recommendations.push({
+        type: 'reduce',
+        food: 'Full-fat dairy, fried foods, baked goods',
+        reason: `Saturated fat at ${saturatedExcess.percentage}%. Choose lower-fat dairy or reduce frying.`,
+        nutrients: ['Saturated'],
+      });
+    }
   }
 
-  // Fiber recommendations
+  // Fiber
   const fiberDef = deficiencies.find(d => d.nutrient === 'Fiber');
   if (fiberDef) {
     recommendations.push({
       type: 'add',
       food: 'Beans, lentils, chia seeds, or berries',
-      reason: `Fiber at ${fiberDef.percentage}% of target. Add 1 serving of legumes or berries daily.`,
+      reason: `Fiber at ${fiberDef.percentage}% of target. Add 1 serving of legumes or berries daily for 5-8g extra fiber.`,
       nutrients: ['Fiber'],
     });
   }
 
-  // Vitamin D from supplements note
+  // Vitamin D supplements note
   const vitDExcess = excesses.find(e => e.nutrient === 'Vitamin D' && e.percentage > 500);
   if (vitDExcess) {
     recommendations.push({
@@ -674,6 +850,18 @@ function generateRecommendations(
       food: 'Vitamin D supplements',
       reason: `Very high Vitamin D (${vitDExcess.percentage}%). Consider reducing supplement dose.`,
       nutrients: ['Vitamin D'],
+    });
+  }
+
+  // Cholesterol
+  const cholesterolExcess = excesses.find(e => e.nutrient === 'Cholesterol');
+  if (cholesterolExcess && cholesterolExcess.percentage > 130) {
+    recommendations.push({
+      type: 'swap',
+      food: 'Whole eggs (3+ per day)',
+      swapFor: 'Egg whites + 1 whole egg, or limit to 2 whole eggs/day',
+      reason: `Cholesterol at ${cholesterolExcess.percentage}% of limit. Reducing yolks is the easiest win.`,
+      nutrients: ['Cholesterol'],
     });
   }
 
@@ -732,6 +920,9 @@ export default function NutritionAnalysisPage() {
   const [sampleDayPlan, setSampleDayPlan] = useState<any>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [correctivePlan, setCorrectivePlan] = useState<string>('');
+  const [isGeneratingCorrective, setIsGeneratingCorrective] = useState(false);
+  const [nutrientGroups, setNutrientGroups] = useState<NutrientGroupAssessment[]>([]);
   
   // Cronometer integration
   const [cronometerStatus, setCronometerStatus] = useState<{
@@ -768,6 +959,13 @@ export default function NutritionAnalysisPage() {
   // Get active Fitomics client for auto-linking
   const { getActiveClient } = useFitomicsStore();
   const activeClient = getActiveClient();
+
+  // Compute functional nutrient groups when analysis is available
+  useEffect(() => {
+    if (analysisResult?.dailyAverages) {
+      setNutrientGroups(assessFunctionalGroups(analysisResult.dailyAverages));
+    }
+  }, [analysisResult]);
 
   // Check Cronometer status on mount
   useEffect(() => {
@@ -925,11 +1123,8 @@ export default function NutritionAnalysisPage() {
       const ratios = analyzeRatios(averagesMap);
       const recommendations = generateRecommendations(deficiencies, excesses, result.data.topFoods);
       
-      // Calculate score
-      const defScore = Math.max(0, 100 - deficiencies.reduce((sum: number, d: NutrientIssue) => sum + (100 - d.percentage) * 0.4, 0));
-      const excessScore = Math.max(0, 100 - excesses.filter((e: NutrientIssue) => e.severity !== 'info').reduce((sum: number, e: NutrientIssue) => sum + (e.percentage - 100) * 0.2, 0));
-      const ratioScore = ratios.filter(r => r.status === 'optimal').length / Math.max(ratios.length, 1) * 100;
-      const overallScore = Math.round((defScore * 0.4 + excessScore * 0.3 + ratioScore * 0.3));
+      // Calculate score using weighted adequacy-based system
+      const overallScore = calculateOverallScore(deficiencies, excesses, allNutrients, ratios);
       
       console.log('[Cronometer Import] Setting analysis result with score:', overallScore);
       console.log('[Cronometer Import] Deficiencies:', deficiencies.length, 'Excesses:', excesses.length);
@@ -1103,11 +1298,8 @@ export default function NutritionAnalysisPage() {
       // Generate recommendations
       const recommendations = generateRecommendations(deficiencies, excesses, topFoods);
 
-      // Calculate overall score
-      const defScore = Math.max(0, 100 - deficiencies.reduce((sum, d) => sum + (100 - d.percentage) * 0.4, 0));
-      const excessScore = Math.max(0, 100 - excesses.filter(e => e.severity !== 'info').reduce((sum, e) => sum + (e.percentage - 100) * 0.2, 0));
-      const ratioScore = ratios.filter(r => r.status === 'optimal').length / Math.max(ratios.length, 1) * 100;
-      const overallScore = Math.round((defScore * 0.4 + excessScore * 0.3 + ratioScore * 0.3));
+      // Calculate overall score using weighted adequacy-based system
+      const overallScore = calculateOverallScore(deficiencies, excesses, allNutrients, ratios);
 
       setAnalysisResult({
         summary: {
@@ -1173,6 +1365,42 @@ export default function NutritionAnalysisPage() {
       setIsGeneratingAI(false);
     }
   }, [analysisResult, customTargets]);
+
+  // Generate corrective meal plan
+  const generateCorrectivePlan = useCallback(async () => {
+    if (!analysisResult) return;
+
+    setIsGeneratingCorrective(true);
+    try {
+      const response = await fetch('/api/generate-nutrition-recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysis: {
+            summary: analysisResult.summary,
+            deficiencies: analysisResult.deficiencies,
+            excesses: analysisResult.excesses,
+            ratios: analysisResult.ratios,
+            topFoods: analysisResult.topFoods,
+          },
+          targets: customTargets,
+          mode: 'corrective_meal_plan',
+          nutrientGroups: nutrientGroups.filter(g => g.status === 'poor' || g.status === 'fair'),
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to generate corrective plan');
+
+      const data = await response.json();
+      setCorrectivePlan(data.recommendations || data.correctivePlan || '');
+      toast.success('Corrective meal plan generated!');
+    } catch (error) {
+      console.error('Corrective plan error:', error);
+      toast.error('Failed to generate corrective meal plan');
+    } finally {
+      setIsGeneratingCorrective(false);
+    }
+  }, [analysisResult, customTargets, nutrientGroups]);
 
   // Download PDF report
   const downloadPDF = async () => {
@@ -1911,6 +2139,41 @@ export default function NutritionAnalysisPage() {
                   </Card>
                 )}
 
+                {/* Corrective Meal Plan */}
+                <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-transparent">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <UtensilsCrossed className="h-5 w-5 text-emerald-600" />
+                        Corrective Meal Plan
+                      </CardTitle>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={generateCorrectivePlan}
+                        disabled={isGeneratingCorrective}
+                      >
+                        {isGeneratingCorrective ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 mr-1" />
+                        )}
+                        Generate Plan
+                      </Button>
+                    </div>
+                    <CardDescription>
+                      AI-generated full day plan specifically designed to address your top deficiencies and excesses, with ingredient-level detail and explanations.
+                    </CardDescription>
+                  </CardHeader>
+                  {correctivePlan && (
+                    <CardContent>
+                      <div className="p-4 bg-white rounded-lg border text-sm whitespace-pre-wrap leading-relaxed">
+                        {correctivePlan}
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+
                 {/* Coach Comments */}
                 <Card>
                   <CardHeader className="pb-3">
@@ -1974,6 +2237,53 @@ export default function NutritionAnalysisPage() {
                         </div>
                       </CardContent>
                     </Card>
+
+                    {/* Functional Nutrient Groupings */}
+                    {nutrientGroups.length > 0 && (
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base">Functional Health Categories</CardTitle>
+                          <CardDescription>How well your diet supports key health functions</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {nutrientGroups.map((group) => (
+                              <div key={group.name} className={cn(
+                                "p-3 rounded-lg border",
+                                group.status === 'excellent' && "bg-emerald-50 border-emerald-200",
+                                group.status === 'good' && "bg-blue-50 border-blue-200",
+                                group.status === 'fair' && "bg-amber-50 border-amber-200",
+                                group.status === 'poor' && "bg-red-50 border-red-200",
+                              )}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-sm font-semibold">{group.name}</span>
+                                  <Badge variant="outline" className={cn(
+                                    "text-[10px] uppercase tracking-wider",
+                                    group.status === 'excellent' && "border-emerald-400 text-emerald-700",
+                                    group.status === 'good' && "border-blue-400 text-blue-700",
+                                    group.status === 'fair' && "border-amber-400 text-amber-700",
+                                    group.status === 'poor' && "border-red-400 text-red-700",
+                                  )}>{group.status}</Badge>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1.5">
+                                  <div
+                                    className={cn(
+                                      "h-1.5 rounded-full transition-all",
+                                      group.avgAdequacy >= 90 ? "bg-emerald-500" :
+                                      group.avgAdequacy >= 70 ? "bg-blue-500" :
+                                      group.avgAdequacy >= 50 ? "bg-amber-500" : "bg-red-500"
+                                    )}
+                                    style={{ width: `${Math.min(group.avgAdequacy, 100)}%` }}
+                                  />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">{group.description}</p>
+                                <p className="text-xs mt-1">{group.message}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
 
                     {/* Quick Issues List */}
                     <div className="grid grid-cols-2 gap-4">
@@ -2349,6 +2659,351 @@ export default function NutritionAnalysisPage() {
                     </Card>
                   </TabsContent>
                 </Tabs>
+
+                {/* ===== CHARTS & VISUALIZATIONS SECTION ===== */}
+                <Separator className="my-6" />
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-[#c19962]" />
+                  Charts & Visualizations
+                </h2>
+
+                {/* Nutrient Adequacy Chart — horizontal bars */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Nutrient Adequacy</CardTitle>
+                    <CardDescription>Percentage of daily target met for each nutrient</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const nutrients = [...analysisResult.dailyAverages]
+                        .filter(n => n.target > 0 && n.name !== 'Energy')
+                        .sort((a, b) => a.percentage - b.percentage);
+                      const barH = 18;
+                      const gap = 4;
+                      const labelW = 110;
+                      const chartW = 500;
+                      const totalH = nutrients.length * (barH + gap);
+                      return (
+                        <ScrollArea className="max-h-[500px]">
+                          <svg width="100%" viewBox={`0 0 ${labelW + chartW + 60} ${totalH + 10}`} className="font-mono text-[11px]">
+                            {nutrients.map((n, i) => {
+                              const y = i * (barH + gap);
+                              const pct = Math.min(n.percentage, 200);
+                              const barW = (pct / 200) * chartW;
+                              const color = n.percentage >= 80 ? '#22c55e' : n.percentage >= 50 ? '#f59e0b' : '#ef4444';
+                              return (
+                                <g key={n.name}>
+                                  <text x={labelW - 4} y={y + barH / 2 + 4} textAnchor="end" fill="currentColor" className="text-[10px]">{n.name}</text>
+                                  <rect x={labelW} y={y} width={chartW} height={barH} fill="#f1f5f9" rx={3} />
+                                  {/* 100% line */}
+                                  <line x1={labelW + chartW / 2} y1={y} x2={labelW + chartW / 2} y2={y + barH} stroke="#94a3b8" strokeWidth={1} strokeDasharray="2,2" />
+                                  <rect x={labelW} y={y} width={Math.max(barW, 2)} height={barH} fill={color} rx={3} opacity={0.85} />
+                                  <text x={labelW + Math.max(barW, 2) + 4} y={y + barH / 2 + 4} fill="currentColor" className="text-[10px]">{n.percentage}%</text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        </ScrollArea>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                {/* Macro Distribution Donut + Daily Calorie Trends */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Macro Donut */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Macro Distribution</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex justify-center">
+                      {(() => {
+                        const p = analysisResult.summary.totalProtein;
+                        const c = analysisResult.summary.totalCarbs;
+                        const f = analysisResult.summary.totalFat;
+                        const total = p * 4 + c * 4 + f * 9;
+                        if (total === 0) return <p className="text-sm text-muted-foreground">No macro data</p>;
+                        const slices = [
+                          { label: 'Protein', value: p * 4, color: '#ef4444', grams: p },
+                          { label: 'Carbs', value: c * 4, color: '#f59e0b', grams: c },
+                          { label: 'Fat', value: f * 9, color: '#3b82f6', grams: f },
+                        ];
+                        const cx = 100, cy = 100, r = 70, ir = 42;
+                        let cumAngle = -Math.PI / 2;
+                        const arcs = slices.map(s => {
+                          const angle = (s.value / total) * 2 * Math.PI;
+                          const startAngle = cumAngle;
+                          cumAngle += angle;
+                          const endAngle = cumAngle;
+                          const x1 = cx + r * Math.cos(startAngle);
+                          const y1 = cy + r * Math.sin(startAngle);
+                          const x2 = cx + r * Math.cos(endAngle);
+                          const y2 = cy + r * Math.sin(endAngle);
+                          const ix1 = cx + ir * Math.cos(endAngle);
+                          const iy1 = cy + ir * Math.sin(endAngle);
+                          const ix2 = cx + ir * Math.cos(startAngle);
+                          const iy2 = cy + ir * Math.sin(startAngle);
+                          const largeArc = angle > Math.PI ? 1 : 0;
+                          const d = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${ir} ${ir} 0 ${largeArc} 0 ${ix2} ${iy2} Z`;
+                          return { ...s, d, pct: Math.round((s.value / total) * 100) };
+                        });
+                        return (
+                          <div className="text-center">
+                            <svg width={200} height={200} viewBox="0 0 200 200">
+                              {arcs.map(a => (
+                                <path key={a.label} d={a.d} fill={a.color} opacity={0.85} />
+                              ))}
+                              <text x={cx} y={cy - 6} textAnchor="middle" className="text-lg font-bold" fill="currentColor">{total}</text>
+                              <text x={cx} y={cy + 12} textAnchor="middle" className="text-[10px]" fill="#64748b">kcal</text>
+                            </svg>
+                            <div className="flex justify-center gap-4 mt-2">
+                              {arcs.map(a => (
+                                <div key={a.label} className="flex items-center gap-1.5 text-xs">
+                                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: a.color }} />
+                                  <span>{a.label} {a.pct}% ({a.grams}g)</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+
+                  {/* Daily Calorie Trends */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Daily Calorie Trend</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const days = analysisResult.dailyBreakdown;
+                        if (days.length < 2) return <p className="text-sm text-muted-foreground">Need 2+ days for trends</p>;
+                        const cals = days.map(d => d.nutrients['Energy'] || 0);
+                        const maxCal = Math.max(...cals, 1);
+                        const minCal = Math.min(...cals);
+                        const w = 400, h = 180, pad = 30;
+                        const xStep = (w - pad * 2) / Math.max(cals.length - 1, 1);
+                        const yScale = (v: number) => pad + (h - pad * 2) * (1 - (v - minCal * 0.9) / (maxCal * 1.1 - minCal * 0.9));
+                        const points = cals.map((v, i) => `${pad + i * xStep},${yScale(v)}`).join(' ');
+                        const target = analysisResult.summary.totalCalories;
+                        return (
+                          <svg width="100%" viewBox={`0 0 ${w} ${h}`} className="font-mono text-[10px]">
+                            {/* Grid */}
+                            {[0, 0.25, 0.5, 0.75, 1].map(f => {
+                              const v = minCal * 0.9 + (maxCal * 1.1 - minCal * 0.9) * (1 - f);
+                              const y = pad + (h - pad * 2) * f;
+                              return (
+                                <g key={f}>
+                                  <line x1={pad} y1={y} x2={w - pad} y2={y} stroke="#e2e8f0" strokeWidth={0.5} />
+                                  <text x={pad - 4} y={y + 3} textAnchor="end" fill="#94a3b8">{Math.round(v)}</text>
+                                </g>
+                              );
+                            })}
+                            {/* Target line */}
+                            {target > 0 && (
+                              <>
+                                <line x1={pad} y1={yScale(target)} x2={w - pad} y2={yScale(target)} stroke="#c19962" strokeWidth={1} strokeDasharray="4,3" />
+                                <text x={w - pad + 2} y={yScale(target) + 3} fill="#c19962" className="text-[9px]">Target</text>
+                              </>
+                            )}
+                            {/* Line */}
+                            <polyline points={points} fill="none" stroke="#3b82f6" strokeWidth={2} />
+                            {/* Dots */}
+                            {cals.map((v, i) => (
+                              <circle key={i} cx={pad + i * xStep} cy={yScale(v)} r={3} fill="#3b82f6" />
+                            ))}
+                            {/* X labels */}
+                            {days.map((d, i) => (
+                              <text key={i} x={pad + i * xStep} y={h - 4} textAnchor="middle" fill="#94a3b8" className="text-[8px]">
+                                {d.date.split('-').slice(1).join('/')}
+                              </text>
+                            ))}
+                          </svg>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Protein Trend Sparkline */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Key Nutrient Daily Trends</CardTitle>
+                    <CardDescription>Protein, Carbs, Fat (g) across analyzed days</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const days = analysisResult.dailyBreakdown;
+                      if (days.length < 2) return <p className="text-sm text-muted-foreground">Need 2+ days for trends</p>;
+                      const series = [
+                        { name: 'Protein', key: 'Protein', color: '#ef4444' },
+                        { name: 'Carbs', key: 'Carbs', color: '#f59e0b' },
+                        { name: 'Fat', key: 'Fat', color: '#3b82f6' },
+                      ];
+                      const allVals = series.flatMap(s => days.map(d => d.nutrients[s.key] || 0));
+                      const maxV = Math.max(...allVals, 1);
+                      const w = 500, h = 160, pad = 35;
+                      const xStep = (w - pad * 2) / Math.max(days.length - 1, 1);
+                      const yScale = (v: number) => pad + (h - pad * 2) * (1 - v / (maxV * 1.1));
+                      return (
+                        <div>
+                          <svg width="100%" viewBox={`0 0 ${w} ${h}`} className="font-mono text-[10px]">
+                            {[0, 0.5, 1].map(f => {
+                              const v = maxV * 1.1 * (1 - f);
+                              const y = pad + (h - pad * 2) * f;
+                              return (
+                                <g key={f}>
+                                  <line x1={pad} y1={y} x2={w - pad} y2={y} stroke="#e2e8f0" strokeWidth={0.5} />
+                                  <text x={pad - 4} y={y + 3} textAnchor="end" fill="#94a3b8">{Math.round(v)}g</text>
+                                </g>
+                              );
+                            })}
+                            {series.map(s => {
+                              const pts = days.map((d, i) => `${pad + i * xStep},${yScale(d.nutrients[s.key] || 0)}`).join(' ');
+                              return <polyline key={s.name} points={pts} fill="none" stroke={s.color} strokeWidth={1.5} opacity={0.8} />;
+                            })}
+                            {days.map((d, i) => (
+                              <text key={i} x={pad + i * xStep} y={h - 4} textAnchor="middle" fill="#94a3b8" className="text-[8px]">
+                                {d.date.split('-').slice(1).join('/')}
+                              </text>
+                            ))}
+                          </svg>
+                          <div className="flex justify-center gap-4 mt-1">
+                            {series.map(s => (
+                              <div key={s.name} className="flex items-center gap-1.5 text-xs">
+                                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                                <span>{s.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                {/* Food Log Viewer */}
+                {analysisResult.dailyBreakdown.length > 0 && analysisResult.dailyBreakdown.some(d => (d.foods && d.foods.length > 0) || (d as any).mealSummary?.length > 0) && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Apple className="h-5 w-5 text-green-600" />
+                        Food Log
+                      </CardTitle>
+                      <CardDescription>Daily food entries grouped by meal</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ScrollArea className="max-h-[500px]">
+                        <Accordion type="single" collapsible className="w-full">
+                          {analysisResult.dailyBreakdown.map((day, dayIdx) => {
+                            const mealSummary = (day as any).mealSummary as { name: string; calories: number; protein: number; carbs: number; fat: number; foodCount: number }[] | undefined;
+                            const hasFoods = day.foods && day.foods.length > 0;
+                            const hasMealSummary = mealSummary && mealSummary.length > 0;
+                            if (!hasFoods && !hasMealSummary) return null;
+
+                            // Check if per-food macros are available (CSV import) or zero (Cronometer API)
+                            const hasPerFoodMacros = hasFoods && day.foods.some(f => f.calories > 0);
+
+                            // Group foods by meal
+                            const mealGroups: Record<string, typeof day.foods> = {};
+                            if (hasFoods) {
+                              for (const food of day.foods) {
+                                const meal = food.meal || 'Other';
+                                if (!mealGroups[meal]) mealGroups[meal] = [];
+                                mealGroups[meal].push(food);
+                              }
+                            }
+
+                            // Day-level calories: prefer nutrients data, fall back to food sums
+                            const dayCal = day.nutrients?.['Energy'] || day.nutrients?.['Calories']
+                              || (hasPerFoodMacros ? day.foods.reduce((s, f) => s + f.calories, 0) : 0)
+                              || (hasMealSummary ? mealSummary!.reduce((s, m) => s + m.calories, 0) : 0);
+
+                            return (
+                              <AccordionItem key={dayIdx} value={`log-${dayIdx}`}>
+                                <AccordionTrigger className="hover:no-underline py-2">
+                                  <div className="flex items-center gap-3 text-left">
+                                    <Badge variant="outline" className="font-mono text-xs">{day.date}</Badge>
+                                    <span className="text-sm">
+                                      {hasFoods ? `${day.foods.length} items` : hasMealSummary ? `${mealSummary!.length} meals` : ''}
+                                    </span>
+                                    {dayCal > 0 && <span className="text-xs text-muted-foreground">{Math.round(dayCal)} kcal</span>}
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="space-y-3 pt-1">
+                                    {/* If we have meal summaries (Cronometer API), show meal-level macros */}
+                                    {hasMealSummary && mealSummary!.map((ms, mi) => {
+                                      const mealFoods = mealGroups[ms.name] || [];
+                                      return (
+                                        <div key={mi}>
+                                          <div className="flex items-center justify-between mb-1">
+                                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{ms.name}</p>
+                                            <div className="flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
+                                              <span className="font-medium text-foreground">{ms.calories} cal</span>
+                                              <span>{ms.protein}P</span>
+                                              <span>{ms.carbs}C</span>
+                                              <span>{ms.fat}F</span>
+                                            </div>
+                                          </div>
+                                          {mealFoods.length > 0 && (
+                                            <div className="space-y-0.5 pl-2 border-l-2 border-muted ml-1">
+                                              {mealFoods.map((f, fi) => (
+                                                <div key={fi} className="flex items-center justify-between text-xs py-0.5 px-2 rounded hover:bg-muted/50">
+                                                  <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="truncate">{f.name}</span>
+                                                    {f.amount && <span className="text-muted-foreground shrink-0">({f.amount})</span>}
+                                                  </div>
+                                                  {hasPerFoodMacros && f.calories > 0 && (
+                                                    <div className="flex items-center gap-3 font-mono text-muted-foreground shrink-0 ml-2">
+                                                      <span>{Math.round(f.calories)} cal</span>
+                                                      <span>{Math.round(f.protein)}P</span>
+                                                      <span>{Math.round(f.carbs)}C</span>
+                                                      <span>{Math.round(f.fat)}F</span>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                    {/* Fallback: if no meal summary (CSV import), show grouped foods with per-food macros */}
+                                    {!hasMealSummary && Object.entries(mealGroups).map(([meal, foods]) => (
+                                      <div key={meal}>
+                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">{meal}</p>
+                                        <div className="space-y-0.5">
+                                          {foods.map((f, fi) => (
+                                            <div key={fi} className="flex items-center justify-between text-xs py-0.5 px-2 rounded hover:bg-muted/50">
+                                              <div className="flex items-center gap-2 min-w-0">
+                                                <span className="truncate">{f.name}</span>
+                                                {f.amount && <span className="text-muted-foreground shrink-0">({f.amount})</span>}
+                                              </div>
+                                              {f.calories > 0 && (
+                                                <div className="flex items-center gap-3 font-mono text-muted-foreground shrink-0 ml-2">
+                                                  <span>{Math.round(f.calories)} cal</span>
+                                                  <span>{Math.round(f.protein)}P</span>
+                                                  <span>{Math.round(f.carbs)}C</span>
+                                                  <span>{Math.round(f.fat)}F</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            );
+                          })}
+                        </Accordion>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                )}
               </>
             ) : (
               <Card className="border-dashed bg-gradient-to-br from-muted/30 to-background">
