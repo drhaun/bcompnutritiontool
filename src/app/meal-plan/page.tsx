@@ -79,6 +79,7 @@ import {
   Scale,
   ArrowDownToLine,
   ArrowUpFromLine,
+  Edit2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import type { DayOfWeek, DayNutritionTargets, MealSlot, Meal, Macros, DietPreferences, SupplementEntry, MealSupplement, CoachLink } from '@/types';
@@ -99,32 +100,24 @@ const COACH_LINKS_STORAGE_KEY = 'fitomics_coach_links';
 // ============ UTILITY FUNCTIONS ============
 
 // Generate meal slot labels - chronological order
+const MEAL_NAMES = ['Breakfast', 'Lunch', 'Dinner', 'Meal 4', 'Meal 5', 'Meal 6'];
+
 const getMealSlotLabels = (mealsCount: number, snacksCount: number) => {
   const labels: { type: 'meal' | 'snack'; label: string }[] = [];
-  let mealNum = 1;
-  let snackNum = 1;
-  let snacksPlaced = 0;
-  
-  for (let i = 0; i < mealsCount; i++) {
-    labels.push({ type: 'meal', label: `Meal ${mealNum}` });
-    mealNum++;
-    
-    const snacksBetweenMeals = Math.floor(snacksCount / Math.max(mealsCount - 1, 1));
-    const snacksToPlace = i < mealsCount - 1 
-      ? Math.min(snacksBetweenMeals + (snacksPlaced < snacksCount % Math.max(mealsCount - 1, 1) ? 1 : 0), snacksCount - snacksPlaced)
-      : 0;
-    
-    for (let j = 0; j < snacksToPlace && snacksPlaced < snacksCount; j++) {
-      labels.push({ type: 'snack', label: `Snack ${snackNum}` });
-      snackNum++;
-      snacksPlaced++;
+  let mealIdx = 0;
+  let snackIdx = 0;
+  const totalSlots = mealsCount + snacksCount;
+
+  // Interleave meals and snacks: meal, snack, meal, snack, meal, [remaining snacks]
+  // This mirrors the planning step's computeMealSlotTargets logic exactly
+  for (let i = 0; i < totalSlots; i++) {
+    if (mealIdx < mealsCount && (snackIdx >= snacksCount || i % 2 === 0 || mealIdx <= snackIdx)) {
+      labels.push({ type: 'meal', label: MEAL_NAMES[mealIdx] || `Meal ${mealIdx + 1}` });
+      mealIdx++;
+    } else if (snackIdx < snacksCount) {
+      labels.push({ type: 'snack', label: `Snack ${snackIdx + 1}` });
+      snackIdx++;
     }
-  }
-  
-  while (snacksPlaced < snacksCount) {
-    labels.push({ type: 'snack', label: `Snack ${snackNum}` });
-    snackNum++;
-    snacksPlaced++;
   }
   
   return labels;
@@ -242,6 +235,7 @@ export default function MealPlanPage() {
     activePhaseId,
     getActivePhase,
     updatePhase,
+    setNutritionTargets,
     // Client management
     getActiveClient,
   } = useFitomicsStore();
@@ -268,6 +262,9 @@ export default function MealPlanPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingSingleDay, setIsGeneratingSingleDay] = useState(false);
+  const [editingDayTargets, setEditingDayTargets] = useState(false);
+  const [localDayTargets, setLocalDayTargets] = useState<{ calories: number; protein: number; carbs: number; fat: number } | null>(null);
+  const [slotTargetOverrides, setSlotTargetOverrides] = useState<Record<string, Macros>>({});
   const [showPreview, setShowPreview] = useState(false);
   const [showGroceryList, setShowGroceryList] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -633,15 +630,40 @@ export default function MealPlanPage() {
   
   const mealsCount = daySchedule?.mealCount || 3;
   const snacksCount = daySchedule?.snackCount || 2;
-  const slotLabels = useMemo(() => getMealSlotLabels(mealsCount, snacksCount), [mealsCount, snacksCount]);
+  // Use saved mealSlotTargets labels when available; fall back to generic generation
+  const slotLabels = useMemo(() => {
+    const savedSlotTargets = (dayTargets as any)?.mealSlotTargets as
+      | { label: string; type: 'meal' | 'snack' }[]
+      | undefined;
+    if (savedSlotTargets && savedSlotTargets.length > 0) {
+      return savedSlotTargets.map((st) => ({
+        type: st.type || 'meal',
+        label: st.label || 'Meal',
+      }));
+    }
+    return getMealSlotLabels(mealsCount, snacksCount);
+  }, [dayTargets, mealsCount, snacksCount]);
+
   const timeSlots = useMemo(() => 
     getTimeSlots(daySchedule?.wakeTime || '7:00 AM', daySchedule?.sleepTime || '10:00 PM', slotLabels.length),
     [daySchedule?.wakeTime, daySchedule?.sleepTime, slotLabels.length]
   );
-  const slotTargets = useMemo(() => 
-    dayTargets ? calculateSlotTargets(dayTargets, slotLabels) : [],
-    [dayTargets, slotLabels]
-  );
+  const slotTargets = useMemo(() => {
+    if (!dayTargets) return [];
+    // Use saved per-meal slot targets from the phase if available
+    const savedSlotTargets = (dayTargets as any)?.mealSlotTargets as
+      | { calories: number; protein: number; carbs: number; fat: number }[]
+      | undefined;
+    if (savedSlotTargets && savedSlotTargets.length === slotLabels.length) {
+      return savedSlotTargets.map((st) => ({
+        calories: st.calories || 0,
+        protein: st.protein || 0,
+        carbs: st.carbs || 0,
+        fat: st.fat || 0,
+      }));
+    }
+    return calculateSlotTargets(dayTargets, slotLabels);
+  }, [dayTargets, slotLabels]);
 
   // Build meal slots
   const mealSlots: MealSlot[] = useMemo(() => {
@@ -676,14 +698,14 @@ export default function MealPlanPage() {
         slotIndex: idx,
         type: slot.type,
         label: slot.label,
-        targetMacros: slotTargets[idx] || { calories: 0, protein: 0, carbs: 0, fat: 0 },
+        targetMacros: slotTargetOverrides[`${currentDay}-${idx}`] || slotTargets[idx] || { calories: 0, protein: 0, carbs: 0, fat: 0 },
         meal: existingMeal,
         isLocked: existingMeal?.isLocked || false,
         timeSlot: timeSlots[idx],
         workoutRelation,
       };
     });
-  }, [currentDay, slotLabels, timeSlots, slotTargets, dayPlan, daySchedule]);
+  }, [currentDay, slotLabels, timeSlots, slotTargets, dayPlan, daySchedule, slotTargetOverrides]);
 
   // Progress calculations
   const dayProgress = useMemo(() => {
@@ -714,6 +736,91 @@ export default function MealPlanPage() {
     
     return { filledSlots, totalSlots, percent: totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0 };
   }, [mealPlan, weeklySchedule]);
+
+  // Compute remaining macro budget for current day
+  const macroBudget = useMemo(() => {
+    if (!dayTargets) return null;
+    const targetCal = dayTargets.targetCalories || 0;
+    const targetP = dayTargets.protein || 0;
+    const targetC = dayTargets.carbs || 0;
+    const targetF = dayTargets.fat || 0;
+    const usedCal = mealSlots.reduce((sum, s) => sum + (s.meal?.totalMacros?.calories || 0), 0);
+    const usedP = mealSlots.reduce((sum, s) => sum + (s.meal?.totalMacros?.protein || 0), 0);
+    const usedC = mealSlots.reduce((sum, s) => sum + (s.meal?.totalMacros?.carbs || 0), 0);
+    const usedF = mealSlots.reduce((sum, s) => sum + (s.meal?.totalMacros?.fat || 0), 0);
+    return {
+      calories: { target: Math.round(targetCal), used: Math.round(usedCal), remaining: Math.round(targetCal - usedCal) },
+      protein: { target: Math.round(targetP), used: Math.round(usedP), remaining: Math.round(targetP - usedP) },
+      carbs: { target: Math.round(targetC), used: Math.round(usedC), remaining: Math.round(targetC - usedC) },
+      fat: { target: Math.round(targetF), used: Math.round(usedF), remaining: Math.round(targetF - usedF) },
+    };
+  }, [dayTargets, mealSlots]);
+
+  // Save updated day targets to the store/phase
+  const handleSaveDayTargets = useCallback((updates: { calories?: number; protein?: number; carbs?: number; fat?: number }) => {
+    if (!dayTargets) return;
+    const updatedTargets = nutritionTargets.map(t => {
+      if (t.day !== currentDay) return t;
+      return {
+        ...t,
+        targetCalories: updates.calories ?? t.targetCalories,
+        calories: updates.calories ?? (t as unknown as Record<string, unknown>).calories as number ?? t.targetCalories,
+        protein: updates.protein ?? t.protein,
+        carbs: updates.carbs ?? t.carbs,
+        fat: updates.fat ?? t.fat,
+      };
+    });
+    
+    if (activePhaseId) {
+      updatePhase(activePhaseId, { nutritionTargets: updatedTargets });
+    }
+    setNutritionTargets(updatedTargets);
+    setEditingDayTargets(false);
+    setLocalDayTargets(null);
+  }, [dayTargets, nutritionTargets, currentDay, activePhaseId, updatePhase, setNutritionTargets]);
+
+  // Handle updating per-meal slot targets
+  const handleUpdateSlotTargets = useCallback((slotIndex: number, targets: Macros) => {
+    const key = `${currentDay}-${slotIndex}`;
+    setSlotTargetOverrides(prev => ({ ...prev, [key]: targets }));
+  }, [currentDay]);
+
+  // Compute effective slot targets (with overrides applied)
+  const effectiveSlotTargets = useMemo((): Macros[] => {
+    return slotTargets.map((target: Macros, idx: number) => {
+      const key = `${currentDay}-${idx}`;
+      return slotTargetOverrides[key] || target;
+    });
+  }, [slotTargets, slotTargetOverrides, currentDay]);
+
+  // Compute rolling budget for each slot
+  const rollingBudgets = useMemo(() => {
+    if (!dayTargets) return [];
+    let remainingCal = dayTargets.targetCalories || 0;
+    let remainingP = dayTargets.protein || 0;
+    let remainingC = dayTargets.carbs || 0;
+    let remainingF = dayTargets.fat || 0;
+
+    return mealSlots.map((slot, idx) => {
+      // Subtract either the actual meal macros (if planned) or the slot target
+      const mealCal = slot.meal?.totalMacros?.calories || effectiveSlotTargets[idx]?.calories || 0;
+      const mealP = slot.meal?.totalMacros?.protein || effectiveSlotTargets[idx]?.protein || 0;
+      const mealC = slot.meal?.totalMacros?.carbs || effectiveSlotTargets[idx]?.carbs || 0;
+      const mealF = slot.meal?.totalMacros?.fat || effectiveSlotTargets[idx]?.fat || 0;
+
+      remainingCal -= mealCal;
+      remainingP -= mealP;
+      remainingC -= mealC;
+      remainingF -= mealF;
+
+      return {
+        calories: Math.round(remainingCal),
+        protein: Math.round(remainingP),
+        carbs: Math.round(remainingC),
+        fat: Math.round(remainingF),
+      };
+    });
+  }, [dayTargets, mealSlots, effectiveSlotTargets]);
 
   // Get all meal names for variety
   const allMealNames = useMemo(() => {
@@ -1201,7 +1308,13 @@ export default function MealPlanPage() {
     try {
       const mealsCount = schedule?.mealCount || 3;
       const snacksCount = schedule?.snackCount || 2;
-      const labels = getMealSlotLabels(mealsCount, snacksCount);
+      // Prefer saved slot labels from planning step; fall back to generated
+      const savedTargets = (dayTargetsForDay as any)?.mealSlotTargets as
+        | { label: string; type: 'meal' | 'snack' }[]
+        | undefined;
+      const labels = (savedTargets && savedTargets.length > 0)
+        ? savedTargets.map(st => ({ type: st.type || ('meal' as const), label: st.label || 'Meal' }))
+        : getMealSlotLabels(mealsCount, snacksCount);
       const times = getTimeSlots(
         schedule?.wakeTime || '7:00 AM',
         schedule?.sleepTime || '10:00 PM',
@@ -2076,10 +2189,10 @@ export default function MealPlanPage() {
 
                 {currentDayType && (
                   <>
-                    {/* Day Type Context */}
+                    {/* Day Type Context - Editable Targets */}
                     <Card className="bg-gradient-to-r from-[#00263d] to-[#003b59] text-white">
                       <CardContent className="py-4">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-3">
                           <div>
                             <h2 className="text-lg font-bold flex items-center gap-2">
                               {currentDayType.isWorkoutDay ? (
@@ -2093,17 +2206,150 @@ export default function MealPlanPage() {
                               Applies to: <span className="font-medium">{currentDayType.days.join(', ')}</span>
                             </p>
                           </div>
-                          <div className="text-right">
-                            <div className="flex items-center gap-2 justify-end">
-                              <Target className="h-5 w-5 text-[#c19962]" />
-                              <span className="text-2xl font-bold">{Math.round(dayTargets?.targetCalories || 0)}</span>
-                              <span className="text-sm opacity-70">kcal</span>
+                          {!editingDayTargets ? (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-[#c19962] hover:text-white hover:bg-white/10 h-7 text-xs"
+                              onClick={() => {
+                                setEditingDayTargets(true);
+                                setLocalDayTargets({
+                                  calories: Math.round(dayTargets?.targetCalories || 0),
+                                  protein: Math.round(dayTargets?.protein || 0),
+                                  carbs: Math.round(dayTargets?.carbs || 0),
+                                  fat: Math.round(dayTargets?.fat || 0),
+                                });
+                              }}
+                            >
+                              <Edit2 className="h-3 w-3 mr-1" />
+                              Edit Targets
+                            </Button>
+                          ) : (
+                            <div className="flex gap-1">
+                              <Button 
+                                size="sm" 
+                                className="bg-[#c19962] text-[#00263d] hover:bg-[#e4ac61] h-7 text-xs"
+                                onClick={() => localDayTargets && handleSaveDayTargets(localDayTargets)}
+                              >
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Save
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="text-white/70 hover:text-white hover:bg-white/10 h-7 text-xs"
+                                onClick={() => { setEditingDayTargets(false); setLocalDayTargets(null); }}
+                              >
+                                Cancel
+                              </Button>
                             </div>
-                            <div className="text-sm opacity-70">
-                              {Math.round(dayTargets?.protein || 0)}g P • {Math.round(dayTargets?.carbs || 0)}g C • {Math.round(dayTargets?.fat || 0)}g F
+                          )}
+                        </div>
+                        
+                        {/* Editable Target Fields with intelligent guidance */}
+                        {(() => {
+                          // Original designed targets (from planning step) for delta comparison
+                          const orig = {
+                            calories: Math.round(dayTargets?.targetCalories || 0),
+                            protein: Math.round(dayTargets?.protein || 0),
+                            carbs: Math.round(dayTargets?.carbs || 0),
+                            fat: Math.round(dayTargets?.fat || 0),
+                          };
+                          // When editing, compute what calories SHOULD be from current macros
+                          const macroDerivedCal = localDayTargets
+                            ? (localDayTargets.protein * 4) + (localDayTargets.carbs * 4) + (localDayTargets.fat * 9)
+                            : 0;
+                          const calMismatch = localDayTargets
+                            ? Math.abs(localDayTargets.calories - macroDerivedCal) > 5
+                            : false;
+
+                          // Smart onChange: when a macro changes, auto-recalculate calories
+                          const handleMacroEdit = (key: 'calories' | 'protein' | 'carbs' | 'fat', raw: string) => {
+                            const value = Number(raw) || 0;
+                            setLocalDayTargets(prev => {
+                              if (!prev) return null;
+                              const updated = { ...prev, [key]: value };
+                              // If a macro changed (not calories directly), auto-recalculate calories
+                              if (key !== 'calories') {
+                                updated.calories = (updated.protein * 4) + (updated.carbs * 4) + (updated.fat * 9);
+                              }
+                              return updated;
+                            });
+                          };
+
+                          return (
+                            <div className="grid grid-cols-4 gap-3">
+                              {[
+                                { key: 'calories' as const, label: 'Calories', unit: 'kcal', color: 'text-[#c19962]', bgColor: 'bg-[#c19962]/20' },
+                                { key: 'protein' as const, label: 'Protein', unit: 'g', color: 'text-blue-300', bgColor: 'bg-blue-500/20' },
+                                { key: 'carbs' as const, label: 'Carbs', unit: 'g', color: 'text-amber-300', bgColor: 'bg-amber-500/20' },
+                                { key: 'fat' as const, label: 'Fat', unit: 'g', color: 'text-purple-300', bgColor: 'bg-purple-500/20' },
+                              ].map(({ key, label, unit, color, bgColor }) => {
+                                const delta = localDayTargets ? localDayTargets[key] - orig[key] : 0;
+                                return (
+                                  <div key={key} className={`rounded-lg p-2.5 ${bgColor}`}>
+                                    <p className={`text-[10px] font-medium ${color} uppercase tracking-wider mb-1`}>{label}</p>
+                                    {editingDayTargets && localDayTargets ? (
+                                      <>
+                                        <input
+                                          type="number"
+                                          className={cn(
+                                            "w-full bg-white/10 border rounded px-2 py-1 text-lg font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#c19962] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                            key === 'calories' && calMismatch ? 'border-amber-400/60' : 'border-white/20'
+                                          )}
+                                          value={localDayTargets[key]}
+                                          onChange={(e) => handleMacroEdit(key, e.target.value)}
+                                        />
+                                        {/* Delta from designed target */}
+                                        {delta !== 0 && (
+                                          <p className={cn(
+                                            "text-[10px] mt-1 font-medium",
+                                            delta > 0 ? 'text-green-300' : 'text-red-300'
+                                          )}>
+                                            {delta > 0 ? '+' : ''}{delta}{key === 'calories' ? '' : 'g'} vs plan
+                                          </p>
+                                        )}
+                                        {key === 'calories' && calMismatch && (
+                                          <p className="text-[9px] mt-0.5 text-amber-300/80">
+                                            Macros = {macroDerivedCal} cal
+                                          </p>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <p className="text-xl font-bold">
+                                        {orig[key]}
+                                        <span className="text-xs font-normal opacity-60 ml-1">{unit}</span>
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Rolling Macro Budget */}
+                        {macroBudget && dayProgress.filled > 0 && (
+                          <div className="mt-3 pt-3 border-t border-white/10">
+                            <p className="text-[10px] text-white/50 uppercase tracking-wider mb-1.5">Remaining Budget</p>
+                            <div className="grid grid-cols-4 gap-3 text-center">
+                              {[
+                                { label: 'Cal', val: macroBudget.calories, color: macroBudget.calories.remaining < 0 ? 'text-red-300' : 'text-[#c19962]' },
+                                { label: 'Protein', val: macroBudget.protein, color: macroBudget.protein.remaining < 0 ? 'text-red-300' : 'text-blue-300' },
+                                { label: 'Carbs', val: macroBudget.carbs, color: macroBudget.carbs.remaining < 0 ? 'text-red-300' : 'text-amber-300' },
+                                { label: 'Fat', val: macroBudget.fat, color: macroBudget.fat.remaining < 0 ? 'text-red-300' : 'text-purple-300' },
+                              ].map(({ label, val, color }) => (
+                                <div key={label}>
+                                  <p className={`text-sm font-bold ${color}`}>
+                                    {val.remaining > 0 ? val.remaining : val.remaining}
+                                    {label !== 'Cal' && 'g'}
+                                  </p>
+                                  <p className="text-[9px] text-white/40">{val.used} / {val.target} used</p>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        </div>
+                        )}
                       </CardContent>
                     </Card>
 
@@ -2224,8 +2470,19 @@ export default function MealPlanPage() {
                         </Button>
                       )}
                       
-                      <div className="ml-auto text-sm text-muted-foreground">
-                        {dayProgress.filled}/{dayProgress.total} meals • {dayProgress.calories}/{dayProgress.targetCalories} cal
+                      <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
+                        <span>{dayProgress.filled}/{dayProgress.total} meals</span>
+                        <span className="font-mono">{dayProgress.calories}/{dayProgress.targetCalories} cal</span>
+                        {macroBudget && dayProgress.filled > 0 && (
+                          <span className="text-xs">
+                            <span className={macroBudget.protein.remaining < 0 ? 'text-red-500' : 'text-blue-600'}>{macroBudget.protein.remaining}g P</span>
+                            {' • '}
+                            <span className={macroBudget.carbs.remaining < 0 ? 'text-red-500' : 'text-amber-600'}>{macroBudget.carbs.remaining}g C</span>
+                            {' • '}
+                            <span className={macroBudget.fat.remaining < 0 ? 'text-red-500' : 'text-purple-600'}>{macroBudget.fat.remaining}g F</span>
+                            <span className="text-muted-foreground ml-1">left</span>
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -2265,6 +2522,8 @@ export default function MealPlanPage() {
                             onGenerateImproved={cronometerMode ? handleGenerateImproved : undefined}
                             isGeneratingTips={generatingTips[slot.slotIndex] || false}
                             isGeneratingImproved={generatingImproved[slot.slotIndex] || false}
+                            onUpdateSlotTargets={handleUpdateSlotTargets}
+                            rollingBudgetAfter={rollingBudgets[idx]}
                           />
                         ))}
                       </div>
@@ -2311,10 +2570,10 @@ export default function MealPlanPage() {
                 
                 {DAYS.map(day => (
                   <TabsContent key={day} value={day} className="space-y-3">
-                    {/* Day Header */}
+                    {/* Day Header - Editable Targets */}
                     <Card className="bg-gradient-to-r from-[#00263d] to-[#003b59] text-white">
                       <CardContent className="py-3">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-3">
                             <h2 className="text-lg font-bold">{day}</h2>
                             {dayTargets?.isWorkoutDay && (
@@ -2324,11 +2583,116 @@ export default function MealPlanPage() {
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl font-bold">{Math.round(dayTargets?.targetCalories || 0)}</span>
-                            <span className="text-sm opacity-70">kcal</span>
-                          </div>
+                          {!editingDayTargets ? (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-[#c19962] hover:text-white hover:bg-white/10 h-7 text-xs"
+                              onClick={() => {
+                                setEditingDayTargets(true);
+                                setLocalDayTargets({
+                                  calories: Math.round(dayTargets?.targetCalories || 0),
+                                  protein: Math.round(dayTargets?.protein || 0),
+                                  carbs: Math.round(dayTargets?.carbs || 0),
+                                  fat: Math.round(dayTargets?.fat || 0),
+                                });
+                              }}
+                            >
+                              <Edit2 className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                          ) : (
+                            <div className="flex gap-1">
+                              <Button 
+                                size="sm" 
+                                className="bg-[#c19962] text-[#00263d] hover:bg-[#e4ac61] h-7 text-xs"
+                                onClick={() => localDayTargets && handleSaveDayTargets(localDayTargets)}
+                              >
+                                Save
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="text-white/70 hover:text-white hover:bg-white/10 h-7 text-xs"
+                                onClick={() => { setEditingDayTargets(false); setLocalDayTargets(null); }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
                         </div>
+                        {(() => {
+                          const origW = {
+                            calories: Math.round(dayTargets?.targetCalories || 0),
+                            protein: Math.round(dayTargets?.protein || 0),
+                            carbs: Math.round(dayTargets?.carbs || 0),
+                            fat: Math.round(dayTargets?.fat || 0),
+                          };
+                          const macroDerivedCalW = localDayTargets
+                            ? (localDayTargets.protein * 4) + (localDayTargets.carbs * 4) + (localDayTargets.fat * 9)
+                            : 0;
+                          const handleMacroEditW = (key: 'calories' | 'protein' | 'carbs' | 'fat', raw: string) => {
+                            const value = Number(raw) || 0;
+                            setLocalDayTargets(prev => {
+                              if (!prev) return null;
+                              const updated = { ...prev, [key]: value };
+                              if (key !== 'calories') {
+                                updated.calories = (updated.protein * 4) + (updated.carbs * 4) + (updated.fat * 9);
+                              }
+                              return updated;
+                            });
+                          };
+                          return (
+                            <div className="grid grid-cols-4 gap-2">
+                              {[
+                                { key: 'calories' as const, label: 'Cal', color: 'text-[#c19962]', bgColor: 'bg-[#c19962]/20' },
+                                { key: 'protein' as const, label: 'P', color: 'text-blue-300', bgColor: 'bg-blue-500/20' },
+                                { key: 'carbs' as const, label: 'C', color: 'text-amber-300', bgColor: 'bg-amber-500/20' },
+                                { key: 'fat' as const, label: 'F', color: 'text-purple-300', bgColor: 'bg-purple-500/20' },
+                              ].map(({ key, label, color, bgColor }) => {
+                                const deltaW = localDayTargets ? localDayTargets[key] - origW[key] : 0;
+                                return (
+                                  <div key={key} className={`rounded-md p-1.5 ${bgColor} text-center`}>
+                                    <p className={`text-[9px] ${color} uppercase`}>{label}</p>
+                                    {editingDayTargets && localDayTargets ? (
+                                      <>
+                                        <input
+                                          type="number"
+                                          className={cn(
+                                            "w-full bg-white/10 border rounded px-1 py-0.5 text-sm font-bold text-white text-center focus:outline-none focus:ring-1 focus:ring-[#c19962] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                            key === 'calories' && Math.abs(localDayTargets.calories - macroDerivedCalW) > 5 ? 'border-amber-400/60' : 'border-white/20'
+                                          )}
+                                          value={localDayTargets[key]}
+                                          onChange={(e) => handleMacroEditW(key, e.target.value)}
+                                        />
+                                        {deltaW !== 0 && (
+                                          <p className={cn("text-[9px] mt-0.5 font-medium", deltaW > 0 ? 'text-green-300' : 'text-red-300')}>
+                                            {deltaW > 0 ? '+' : ''}{deltaW}
+                                          </p>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <p className="text-lg font-bold">
+                                        {origW[key]}
+                                        {key !== 'calories' && <span className="text-[9px] font-normal opacity-50">g</span>}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                        {/* Remaining budget in weekly view */}
+                        {macroBudget && dayProgress.filled > 0 && (
+                          <div className="mt-2 pt-2 border-t border-white/10 flex items-center gap-3 text-[10px] text-white/50">
+                            <span>Remaining:</span>
+                            <span className={macroBudget.calories.remaining < 0 ? 'text-red-300' : ''}>{macroBudget.calories.remaining} cal</span>
+                            <span className={macroBudget.protein.remaining < 0 ? 'text-red-300' : 'text-blue-300'}>{macroBudget.protein.remaining}g P</span>
+                            <span className={macroBudget.carbs.remaining < 0 ? 'text-red-300' : 'text-amber-300'}>{macroBudget.carbs.remaining}g C</span>
+                            <span className={macroBudget.fat.remaining < 0 ? 'text-red-300' : 'text-purple-300'}>{macroBudget.fat.remaining}g F</span>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
 
@@ -2368,6 +2732,8 @@ export default function MealPlanPage() {
                             onGenerateImproved={cronometerMode ? handleGenerateImproved : undefined}
                             isGeneratingTips={generatingTips[slot.slotIndex] || false}
                             isGeneratingImproved={generatingImproved[slot.slotIndex] || false}
+                            onUpdateSlotTargets={handleUpdateSlotTargets}
+                            rollingBudgetAfter={rollingBudgets[idx]}
                           />
                         ))}
                       </div>

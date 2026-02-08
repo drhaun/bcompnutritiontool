@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -95,6 +95,7 @@ import type {
   WorkoutType,
   WorkoutTimeSlot,
   MacroBasis,
+  MacroSettings,
   MicronutrientTargets,
   MicronutrientTarget
 } from '@/types';
@@ -141,6 +142,145 @@ const WORKOUT_TIME_SLOTS: { value: WorkoutTimeSlot; label: string }[] = [
 const WORKOUT_INTENSITIES: ('Low' | 'Medium' | 'High')[] = ['Low', 'Medium', 'High'];
 const PREP_METHODS = ['Fresh cooking', 'Meal prep', 'Quick prep', 'Ready-to-eat', 'Dining out', 'Delivery'];
 const MEAL_LOCATIONS = ['Home', 'Office', 'Gym', 'Restaurant', 'On-the-go', 'Travel'];
+
+// Map workout time slots to approximate hour of day (24h)
+const TIME_SLOT_HOURS: Record<string, number> = {
+  early_morning: 6,
+  morning: 8.5,
+  midday: 12,
+  afternoon: 15.5,
+  evening: 18.5,
+  night: 21,
+};
+
+/**
+ * Compute per-meal macro targets with nutrient timing around workouts.
+ * - Pre-workout: extra carbs for fuel
+ * - Post-workout: extra protein for recovery + carbs for glycogen
+ * - Other meals: even distribution
+ */
+function computeMealSlotTargets(
+  config: DayConfig,
+): MealSlotTarget[] {
+  const { mealCount, snackCount, calories, protein, carbs, fat, isWorkoutDay, workouts, preWorkoutMeal, postWorkoutMeal } = config;
+  const totalMeals = mealCount || 3;
+  const totalSnacks = snackCount || 2;
+  const totalCal = calories || 0;
+  const totalP = protein || 0;
+  const totalC = carbs || 0;
+  const totalF = fat || 0;
+
+  // Build slot list with approximate hours
+  const mealLabels = ['Breakfast', 'Lunch', 'Dinner', 'Meal 4', 'Meal 5', 'Meal 6'];
+  const slots: { label: string; type: 'meal' | 'snack'; hour: number }[] = [];
+
+  // Spread meals evenly between wake (~7) and sleep (~22)
+  const wakeHour = 7;
+  const sleepHour = 22;
+  const totalSlots = totalMeals + totalSnacks;
+  const interval = totalSlots > 1 ? (sleepHour - wakeHour) / (totalSlots) : 4;
+
+  let mealIdx = 0;
+  let snackIdx = 0;
+  // Interleave: meal, snack, meal, snack, meal, [remaining snacks]
+  for (let i = 0; i < totalSlots; i++) {
+    const hour = wakeHour + interval * (i + 0.5);
+    if (mealIdx < totalMeals && (snackIdx >= totalSnacks || i % 2 === 0 || mealIdx <= snackIdx)) {
+      slots.push({ label: mealLabels[mealIdx] || `Meal ${mealIdx + 1}`, type: 'meal', hour });
+      mealIdx++;
+    } else if (snackIdx < totalSnacks) {
+      slots.push({ label: `Snack ${snackIdx + 1}`, type: 'snack', hour });
+      snackIdx++;
+    }
+  }
+
+  // Determine workout hour and which slots are pre/post
+  const workoutTimeSlot = workouts?.[0]?.timeSlot || 'evening';
+  const workoutHour = TIME_SLOT_HOURS[workoutTimeSlot] || 18.5;
+
+  let preIdx = -1;
+  let postIdx = -1;
+  if (isWorkoutDay && workouts?.length > 0) {
+    // Pre-workout: last slot before workout hour
+    for (let i = 0; i < slots.length; i++) {
+      if (slots[i].hour < workoutHour) preIdx = i;
+    }
+    // Post-workout: first slot after workout hour
+    for (let i = 0; i < slots.length; i++) {
+      if (slots[i].hour >= workoutHour && postIdx === -1) postIdx = i;
+    }
+  }
+
+  // Base distribution: meals get equal large share, snacks get ~10% each
+  const snackBasePct = 0.08;
+  const snackTotalPct = totalSnacks * snackBasePct;
+  const mealBasePct = totalMeals > 0 ? (1 - snackTotalPct) / totalMeals : 0;
+
+  // Build weight arrays for each macro (1.0 = normal share)
+  const calW = slots.map((s, i) => s.type === 'snack' ? snackBasePct : mealBasePct);
+  const protW = [...calW];
+  const carbW = [...calW];
+  const fatW = [...calW];
+
+  // Apply nutrient timing adjustments for workout days
+  if (isWorkoutDay && (preIdx >= 0 || postIdx >= 0)) {
+    // Post-workout gets more protein (+40%) and carbs (+35%)
+    if (postIdx >= 0 && postWorkoutMeal) {
+      protW[postIdx] *= 1.40;
+      carbW[postIdx] *= 1.35;
+      fatW[postIdx] *= 0.85; // slightly less fat for faster absorption
+    }
+    // Pre-workout gets more carbs (+25%) for fuel
+    if (preIdx >= 0 && preWorkoutMeal && preIdx !== postIdx) {
+      carbW[preIdx] *= 1.25;
+      protW[preIdx] *= 1.05;
+      fatW[preIdx] *= 0.90; // slightly less fat pre-workout
+    }
+  }
+
+  // Normalize each macro's weights to sum to 1
+  const normalize = (w: number[]) => {
+    const sum = w.reduce((a, b) => a + b, 0);
+    return sum > 0 ? w.map(v => v / sum) : w.map(() => 1 / w.length);
+  };
+
+  const calPcts = normalize(calW);
+  const protPcts = normalize(protW);
+  const carbPcts = normalize(carbW);
+  const fatPcts = normalize(fatW);
+
+  return slots.map((slot, i) => {
+    const relation = i === preIdx ? 'pre-workout' as const :
+                     i === postIdx ? 'post-workout' as const :
+                     'none' as const;
+
+    let rationale: string;
+    if (relation === 'post-workout') {
+      rationale = 'Recovery: extra protein for MPS + carbs for glycogen';
+    } else if (relation === 'pre-workout') {
+      rationale = 'Pre-training: extra carbs for fuel, moderate fat';
+    } else if (slot.type === 'snack') {
+      rationale = 'Bridges meals, sustains blood sugar & satiety';
+    } else if (i === 0) {
+      rationale = 'Supports morning energy & protein synthesis';
+    } else if (i === slots.length - 1 && slot.type === 'meal') {
+      rationale = 'Final meal: supports overnight recovery';
+    } else {
+      rationale = `Balanced distribution (~${Math.round(calPcts[i] * 100)}% of daily)`;
+    }
+
+    return {
+      label: slot.label,
+      type: slot.type,
+      calories: Math.round(totalCal * calPcts[i]),
+      protein: Math.round(totalP * protPcts[i]),
+      carbs: Math.round(totalC * carbPcts[i]),
+      fat: Math.round(totalF * fatPcts[i]),
+      rationale,
+      workoutRelation: relation,
+    };
+  });
+}
 
 // Evidence-based coefficient ranges
 const PROTEIN_RANGE = { min: 1.2, max: 3.5 }; // g/kg
@@ -259,6 +399,17 @@ const MICRONUTRIENT_CATEGORIES = {
 };
 
 // Extended day configuration for meal planning
+interface MealSlotTarget {
+  label: string;
+  type: 'meal' | 'snack';
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  rationale: string;
+  workoutRelation?: 'pre-workout' | 'post-workout' | 'none';
+}
+
 interface DayConfig {
   day: DayOfWeek;
   // Schedule
@@ -279,6 +430,8 @@ interface DayConfig {
   protein: number;
   carbs: number;
   fat: number;
+  // Per-meal slot targets (user overrides)
+  mealSlotTargets?: MealSlotTarget[];
   // Derived
   isWorkoutDay: boolean;
   totalTDEE: number;
@@ -290,7 +443,7 @@ interface PhaseTargetsEditorProps {
   phase: Phase;
   userProfile: Partial<UserProfile>;
   weeklySchedule: Partial<WeeklySchedule>;
-  onSaveTargets: (targets: DayNutritionTargets[]) => void;
+  onSaveTargets: (targets: DayNutritionTargets[], macroSettings?: MacroSettings) => void;
   onNavigateToMealPlan: () => void;
   onEditPhase: () => void;
 }
@@ -355,21 +508,24 @@ export function PhaseTargetsEditor({
     if (phase.nutritionTargets && phase.nutritionTargets.length > 0) {
       phase.nutritionTargets.forEach(target => {
         const day = target.day as DayOfWeek;
-        const savedTarget = target as any; // For accessing extended fields
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const savedTarget = target as any; // For accessing extended fields (meals, snacks, etc.)
         
         // Restore all saved values as explicit overrides
         initialConfigs[day] = {
-          calories: target.calories || target.targetCalories,
+          calories: savedTarget.calories || target.targetCalories,
           protein: target.protein,
           carbs: target.carbs,
           fat: target.fat,
-          mealCount: target.meals,
-          snackCount: target.snacks,
+          mealCount: savedTarget.meals,
+          snackCount: savedTarget.snacks,
           wakeTime: savedTarget.wakeTime,
           sleepTime: savedTarget.sleepTime,
           preWorkoutMeal: savedTarget.preWorkoutMeal,
           postWorkoutMeal: savedTarget.postWorkoutMeal,
           mealContexts: savedTarget.mealContexts,
+          // Restore per-meal slot targets if saved
+          mealSlotTargets: savedTarget.mealSlotTargets,
           // Restore workouts - either from saved workouts array or create one if it was a workout day
           workouts: savedTarget.workouts?.length > 0 
             ? savedTarget.workouts 
@@ -425,6 +581,35 @@ export function PhaseTargetsEditor({
   // Effective coefficients from sliders
   const effectiveProteinPerKg = proteinSlider;
   const effectiveFatPerKg = fatSlider;
+  
+  // Track previous slider/basis values so we can clear per-day macro overrides
+  // when the global coefficient sliders change (allows slider to take effect globally)
+  const prevSlidersRef = useRef({ protein: proteinSlider, fat: fatSlider, basis: macroBasis });
+  useEffect(() => {
+    const prev = prevSlidersRef.current;
+    const slidersChanged = 
+      Math.abs(prev.protein - proteinSlider) > 0.001 || 
+      Math.abs(prev.fat - fatSlider) > 0.001 ||
+      prev.basis !== macroBasis;
+    
+    if (slidersChanged) {
+      // Clear per-day protein/fat/carbs overrides so the new slider values take effect.
+      // Keep other overrides (calories, mealCount, workouts, etc.) intact.
+      setDayConfigs(prevConfigs => {
+        const cleared: Record<DayOfWeek, Partial<DayConfig>> = {} as Record<DayOfWeek, Partial<DayConfig>>;
+        DAYS.forEach(day => {
+          const existing = prevConfigs[day] || {};
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { protein, fat, carbs, ...rest } = existing as Record<string, unknown>;
+          cleared[day] = rest as Partial<DayConfig>;
+        });
+        return cleared;
+      });
+      // Mark targets as needing re-confirmation since macros changed
+      setTargetsConfirmed(false);
+      prevSlidersRef.current = { protein: proteinSlider, fat: fatSlider, basis: macroBasis };
+    }
+  }, [proteinSlider, fatSlider, macroBasis]);
   
   // Actual grams based on basis
   const proteinGrams = Math.round(effectiveProteinPerKg * basisWeight);
@@ -525,15 +710,31 @@ export function PhaseTargetsEditor({
         }
       });
 
-      const totalTDEE = baseMetrics.rmr + baseMetrics.neat + baseMetrics.tef + workoutCalories;
+      const restTDEE = baseMetrics.rmr + baseMetrics.neat + baseMetrics.tef;
+      const totalTDEE = restTDEE + workoutCalories;
       const targetCalories = calculateTargetCalories(totalTDEE, goalType === 'recomp' ? 'maintain' : goalType, weeklyChangeKg);
       const energyAvailability = leanMassKg > 0 
         ? (targetCalories - workoutCalories) / leanMassKg 
         : 0;
 
-      // Calculate macros from slider values and basis
-      const dayProteinG = Math.round(effectiveProteinPerKg * basisWeight);
-      const dayFatG = Math.round(effectiveFatPerKg * basisWeight);
+      // Base macros from slider coefficients (rest-day baseline)
+      const baseProteinG = Math.round(effectiveProteinPerKg * basisWeight);
+      const baseFatG = Math.round(effectiveFatPerKg * basisWeight);
+
+      // On workout days, distribute extra energy with sport nutrition split:
+      // 25% protein, 65% carbs, 10% fat
+      let workoutProteinBonus = 0;
+      let workoutFatBonus = 0;
+      if (isWorkoutDay && workoutCalories > 0) {
+        const restCalories = calculateTargetCalories(restTDEE, goalType === 'recomp' ? 'maintain' : goalType, weeklyChangeKg);
+        const extraCalories = Math.max(0, targetCalories - restCalories);
+        workoutProteinBonus = Math.round((extraCalories * 0.25) / 4);
+        workoutFatBonus = Math.round((extraCalories * 0.10) / 9);
+        // Carbs absorb the remainder (~65%) via the fill calculation below
+      }
+
+      const dayProteinG = baseProteinG + workoutProteinBonus;
+      const dayFatG = baseFatG + workoutFatBonus;
       const dayCalories = overrides.calories ?? targetCalories;
       const proteinCal = dayProteinG * 4;
       const fatCal = dayFatG * 9;
@@ -569,7 +770,7 @@ export function PhaseTargetsEditor({
     });
 
     return configs as Record<DayOfWeek, DayConfig>;
-  }, [baseMetrics, weeklySchedule, dayConfigs, phase.rateOfChange, goalType, weightKg, leanMassKg, proteinLevel, fatLevel, customProteinPerKg, customFatPerKg]);
+  }, [baseMetrics, weeklySchedule, dayConfigs, phase.rateOfChange, goalType, weightKg, leanMassKg, proteinSlider, fatSlider, basisWeight, macroBasis]);
 
   // Calculate weekly averages
   const weeklyAverages = useMemo(() => {
@@ -599,11 +800,23 @@ export function PhaseTargetsEditor({
   }, [fullDayConfigs]);
 
   // Update a day's configuration
+  // When workouts change, clear macro overrides so the recalculated values
+  // (including workout energy with proper P/C/F split) flow through
   const updateDayConfig = (day: DayOfWeek, updates: Partial<DayConfig>) => {
-    setDayConfigs(prev => ({
-      ...prev,
-      [day]: { ...prev[day], ...updates }
-    }));
+    setDayConfigs(prev => {
+      const existing = prev[day] || {};
+      const merged = { ...existing, ...updates };
+
+      // If workouts were changed, clear stale macro overrides
+      if ('workouts' in updates) {
+        delete (merged as Record<string, unknown>).calories;
+        delete (merged as Record<string, unknown>).protein;
+        delete (merged as Record<string, unknown>).carbs;
+        delete (merged as Record<string, unknown>).fat;
+      }
+
+      return { ...prev, [day]: merged };
+    });
   };
 
   // Reset a day to profile defaults
@@ -679,6 +892,8 @@ export function PhaseTargetsEditor({
         // Save workout details for restoration
         workouts: config?.workouts || [],
         mealContexts: config?.mealContexts || [],
+        // Save per-meal slot targets (user-customized or computed)
+        mealSlotTargets: dayConfigs[day]?.mealSlotTargets || (config ? computeMealSlotTargets(config) : []),
       } as DayNutritionTargets & { 
         wakeTime?: string; 
         sleepTime?: string;
@@ -688,10 +903,18 @@ export function PhaseTargetsEditor({
         energyAvailability?: number;
         workouts?: WorkoutConfig[];
         mealContexts?: MealContext[];
+        mealSlotTargets?: MealSlotTarget[];
       };
     });
     
-    onSaveTargets(targets);
+    // Also save macro coefficient settings so they persist across sessions
+    const macroSettings: MacroSettings = {
+      basis: macroBasis,
+      proteinPerKg: proteinSlider,
+      fatPerKg: fatSlider,
+    };
+    
+    onSaveTargets(targets, macroSettings);
     setTargetsConfirmed(true);
     toast.success('Nutrition targets and meal settings saved for this phase');
   };
@@ -714,7 +937,7 @@ export function PhaseTargetsEditor({
         return {
           day,
           isWorkout: savedTarget?.isWorkoutDay ?? config?.isWorkoutDay ?? false,
-          calories: savedTarget?.calories ?? savedTarget?.targetCalories ?? config?.calories ?? 0,
+          calories: (savedTarget as any)?.calories ?? savedTarget?.targetCalories ?? config?.calories ?? 0,
           protein: savedTarget?.protein ?? config?.protein ?? 0,
           carbs: savedTarget?.carbs ?? config?.carbs ?? 0,
           fat: savedTarget?.fat ?? config?.fat ?? 0,
@@ -1902,11 +2125,81 @@ export function PhaseTargetsEditor({
                               </Select>
                             </div>
                           </div>
+                          
+                          {/* Average Zone Selector - for precise calorie estimation */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs font-medium text-green-700">Avg Zone (1-5)</Label>
+                              <span className="text-[10px] text-green-600">
+                                {userProfile.metabolicAssessment?.hasZoneData ? 'From metabolic test' : 'Estimated from body weight'}
+                              </span>
+                            </div>
+                            <div className="flex gap-1.5">
+                              {([1, 2, 3, 4, 5] as const).map(zone => {
+                                const zoneData = userProfile.metabolicAssessment?.hasZoneData && userProfile.metabolicAssessment?.zoneCaloriesPerMin
+                                  ? userProfile.metabolicAssessment.zoneCaloriesPerMin
+                                  : getDefaultZoneCalories(weightKg);
+                                const calPerMin = zoneData[`zone${zone}` as keyof typeof zoneData];
+                                const currentZone = selectedDayConfig.workouts[0]?.averageZone;
+                                const isSelected = currentZone === zone;
+                                // Also show what zone the intensity would map to (as a visual hint)
+                                const mappedZone = getTypicalZoneForWorkout(
+                                  selectedDayConfig.workouts[0]?.type || 'Resistance Training',
+                                  selectedDayConfig.workouts[0]?.intensity || 'Medium'
+                                );
+                                const isMapped = !currentZone && mappedZone === zone;
+                                
+                                return (
+                                  <button
+                                    key={zone}
+                                    type="button"
+                                    className={cn(
+                                      "flex-1 rounded-md border py-1.5 px-1 text-center transition-all",
+                                      isSelected
+                                        ? "bg-green-600 border-green-700 text-white shadow-sm"
+                                        : isMapped
+                                        ? "bg-green-100 border-green-300 text-green-800"
+                                        : "bg-white border-green-200 text-green-700 hover:bg-green-50"
+                                    )}
+                                    onClick={() => {
+                                      const updatedWorkouts = [...selectedDayConfig.workouts];
+                                      // Toggle off if already selected (fall back to intensity-based)
+                                      const newZone = isSelected ? undefined : zone;
+                                      updatedWorkouts[0] = { ...updatedWorkouts[0], averageZone: newZone };
+                                      updateDayConfig(selectedDay, { workouts: updatedWorkouts });
+                                    }}
+                                  >
+                                    <div className="text-xs font-bold">Z{zone}</div>
+                                    <div className={cn("text-[9px]", isSelected ? "text-green-100" : "text-green-500")}>
+                                      {calPerMin.toFixed(1)}/min
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <p className="text-[9px] text-muted-foreground">
+                              {selectedDayConfig.workouts[0]?.averageZone 
+                                ? `Zone ${selectedDayConfig.workouts[0].averageZone} selected — using ${
+                                    (userProfile.metabolicAssessment?.hasZoneData 
+                                      ? userProfile.metabolicAssessment?.zoneCaloriesPerMin 
+                                      : getDefaultZoneCalories(weightKg)
+                                    )?.[`zone${selectedDayConfig.workouts[0].averageZone}` as 'zone1' | 'zone2' | 'zone3' | 'zone4' | 'zone5']?.toFixed(1)
+                                  } cal/min × ${selectedDayConfig.workouts[0]?.duration || 60} min`
+                                : `Using intensity → Zone ${getTypicalZoneForWorkout(
+                                    selectedDayConfig.workouts[0]?.type || 'Resistance Training',
+                                    selectedDayConfig.workouts[0]?.intensity || 'Medium'
+                                  )} estimate. Select a zone for more precision.`
+                              }
+                            </p>
+                          </div>
+
                           <div className="pt-3 border-t border-green-200 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <Flame className="h-4 w-4 text-green-600" />
                               <span className="text-xs text-green-700">
-                                {userProfile.metabolicAssessment?.hasZoneData ? 'Zone-based' : 'Estimated'} Burn:
+                                {selectedDayConfig.workouts[0]?.averageZone 
+                                  ? `Zone ${selectedDayConfig.workouts[0].averageZone}` 
+                                  : userProfile.metabolicAssessment?.hasZoneData ? 'Zone-based' : 'Estimated'} EEE:
                               </span>
                             </div>
                             <span className="text-lg font-bold text-green-700">
@@ -1981,6 +2274,129 @@ export function PhaseTargetsEditor({
                         </Select>
                       </div>
                     </div>
+
+                    {/* Per-Meal Macro Targets - Workout-Aware & Editable */}
+                    {selectedDayConfig && (() => {
+                      const computed = computeMealSlotTargets(selectedDayConfig);
+                      const overrides = dayConfigs[selectedDay]?.mealSlotTargets;
+                      // Use overrides if they match the current slot count, otherwise recompute
+                      const slots = overrides && overrides.length === computed.length ? overrides : computed;
+                      const totalCal = slots.reduce((s, sl) => s + sl.calories, 0);
+                      const totalP = slots.reduce((s, sl) => s + sl.protein, 0);
+                      const totalC = slots.reduce((s, sl) => s + sl.carbs, 0);
+                      const totalF = slots.reduce((s, sl) => s + sl.fat, 0);
+
+                      const updateSlot = (idx: number, field: 'calories' | 'protein' | 'carbs' | 'fat', value: number) => {
+                        const updated = slots.map((sl, i) => i === idx ? { ...sl, [field]: value } : sl);
+                        updateDayConfig(selectedDay, { mealSlotTargets: updated });
+                      };
+
+                      const resetToComputed = () => {
+                        updateDayConfig(selectedDay, { mealSlotTargets: computed });
+                      };
+
+                      return (
+                        <div className="p-3 rounded-lg bg-blue-50/50 border border-blue-200 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Target className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium text-blue-700">Per-Meal Targets</span>
+                              {selectedDayConfig.isWorkoutDay && (
+                                <Badge variant="outline" className="text-[9px] h-4 border-green-300 text-green-700 bg-green-50">
+                                  <Dumbbell className="h-2.5 w-2.5 mr-0.5" />
+                                  Nutrient timing active
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {overrides && (
+                                <Button variant="ghost" size="sm" className="h-5 text-[9px] text-blue-500" onClick={resetToComputed}>
+                                  <RefreshCw className="h-2.5 w-2.5 mr-0.5" /> Reset
+                                </Button>
+                              )}
+                              <span className="text-[10px] text-blue-500">
+                                {selectedDayConfig.mealCount} meals + {selectedDayConfig.snackCount} snacks
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            {/* Header */}
+                            <div className="grid grid-cols-[1fr_58px_48px_48px_48px] gap-1 text-[10px] text-muted-foreground font-medium px-1">
+                              <span>Slot</span>
+                              <span className="text-center">Cal</span>
+                              <span className="text-center text-blue-600">P (g)</span>
+                              <span className="text-center text-amber-600">C (g)</span>
+                              <span className="text-center text-purple-600">F (g)</span>
+                            </div>
+                            {slots.map((slot, idx) => (
+                              <div key={idx} className={cn(
+                                "grid grid-cols-[1fr_58px_48px_48px_48px] gap-1 items-center px-1 py-1.5 rounded-md text-xs",
+                                slot.workoutRelation === 'post-workout' ? 'bg-green-50 border border-green-200' :
+                                slot.workoutRelation === 'pre-workout' ? 'bg-amber-50 border border-amber-200' :
+                                slot.type === 'meal' ? 'bg-white border border-blue-100' : 'bg-gray-50 border border-gray-100'
+                              )}>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    {slot.type === 'meal' ? (
+                                      <Utensils className="h-3 w-3 text-blue-500 shrink-0" />
+                                    ) : (
+                                      <Coffee className="h-3 w-3 text-gray-400 shrink-0" />
+                                    )}
+                                    <span className="font-medium truncate">{slot.label}</span>
+                                    {slot.workoutRelation === 'post-workout' && (
+                                      <Badge className="h-3.5 text-[8px] bg-green-600 px-1">Post</Badge>
+                                    )}
+                                    {slot.workoutRelation === 'pre-workout' && (
+                                      <Badge className="h-3.5 text-[8px] bg-amber-600 px-1">Pre</Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-[9px] text-muted-foreground mt-0.5 italic truncate">{slot.rationale}</p>
+                                </div>
+                                <Input
+                                  type="number"
+                                  className="h-6 text-[11px] font-mono text-center px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  value={slot.calories}
+                                  onChange={(e) => updateSlot(idx, 'calories', Number(e.target.value) || 0)}
+                                />
+                                <Input
+                                  type="number"
+                                  className="h-6 text-[11px] font-mono text-center px-1 border-blue-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  value={slot.protein}
+                                  onChange={(e) => updateSlot(idx, 'protein', Number(e.target.value) || 0)}
+                                />
+                                <Input
+                                  type="number"
+                                  className="h-6 text-[11px] font-mono text-center px-1 border-amber-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  value={slot.carbs}
+                                  onChange={(e) => updateSlot(idx, 'carbs', Number(e.target.value) || 0)}
+                                />
+                                <Input
+                                  type="number"
+                                  className="h-6 text-[11px] font-mono text-center px-1 border-purple-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  value={slot.fat}
+                                  onChange={(e) => updateSlot(idx, 'fat', Number(e.target.value) || 0)}
+                                />
+                              </div>
+                            ))}
+                            {/* Totals */}
+                            <div className="grid grid-cols-[1fr_58px_48px_48px_48px] gap-1 px-1 pt-1.5 border-t text-xs font-semibold">
+                              <span>Total</span>
+                              <span className={cn("text-center font-mono", Math.abs(totalCal - (selectedDayConfig.calories || 0)) > 5 && 'text-red-500')}>{totalCal}</span>
+                              <span className={cn("text-center font-mono text-blue-600", Math.abs(totalP - (selectedDayConfig.protein || 0)) > 2 && 'text-red-500')}>{totalP}g</span>
+                              <span className={cn("text-center font-mono text-amber-600", Math.abs(totalC - (selectedDayConfig.carbs || 0)) > 2 && 'text-red-500')}>{totalC}g</span>
+                              <span className={cn("text-center font-mono text-purple-600", Math.abs(totalF - (selectedDayConfig.fat || 0)) > 2 && 'text-red-500')}>{totalF}g</span>
+                            </div>
+                            {/* Warning if totals don't match day targets */}
+                            {Math.abs(totalCal - (selectedDayConfig.calories || 0)) > 10 && (
+                              <p className="text-[9px] text-red-500 px-1">
+                                Per-meal total ({totalCal} cal) differs from day target ({selectedDayConfig.calories} cal). Adjust slots or reset.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Meal Contexts - Editable */}
                     <div className="p-3 rounded-lg bg-[#c19962]/5 border border-[#c19962]/20 space-y-3">

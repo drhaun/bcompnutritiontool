@@ -129,6 +129,10 @@ interface MealSlotCardProps {
   onGenerateImproved?: (slotIndex: number) => Promise<void>;
   isGeneratingTips?: boolean;
   isGeneratingImproved?: boolean;
+  // Per-meal editable targets
+  onUpdateSlotTargets?: (slotIndex: number, targets: Macros) => void;
+  // Rolling budget: remaining macros AFTER this slot
+  rollingBudgetAfter?: Macros;
 }
 
 export function MealSlotCard({
@@ -152,12 +156,31 @@ export function MealSlotCard({
   onGenerateImproved,
   isGeneratingTips,
   isGeneratingImproved,
+  onUpdateSlotTargets,
+  rollingBudgetAfter,
 }: MealSlotCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [showPattern, setShowPattern] = useState(true);
   const [noteValue, setNoteValue] = useState(slot.meal?.staffNote || '');
+  const [editingTargets, setEditingTargets] = useState(false);
+  const [localTargets, setLocalTargets] = useState<Macros>({ ...slot.targetMacros });
+
+  // Smart macro edit: when P/C/F change, auto-recalculate calories
+  const handleSlotMacroEdit = (key: keyof Macros, raw: string) => {
+    const value = Number(raw) || 0;
+    setLocalTargets(prev => {
+      const updated = { ...prev, [key]: value };
+      if (key !== 'calories') {
+        updated.calories = (updated.protein * 4) + (updated.carbs * 4) + (updated.fat * 9);
+      }
+      return updated;
+    });
+  };
+
+  // Original targets (from the planned/computed values) for delta comparison
+  const origTargets = slot.targetMacros;
   const [showSuppInput, setShowSuppInput] = useState(false);
   const [newSuppName, setNewSuppName] = useState('');
   const [newSuppDosage, setNewSuppDosage] = useState('');
@@ -362,10 +385,88 @@ export function MealSlotCard({
           </div>
         </CardHeader>
         <CardContent>
-          {/* Target macros */}
+          {/* Target macros - editable with intelligent guidance */}
           <div className="text-xs text-muted-foreground mb-4">
-            <span className="font-medium">Target:</span>{' '}
-            {slot.targetMacros.calories} cal | {slot.targetMacros.protein}g P | {slot.targetMacros.carbs}g C | {slot.targetMacros.fat}g F
+            {editingTargets && onUpdateSlotTargets ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { key: 'calories' as const, label: 'Cal', color: 'border-gray-300', deltaColor: '' },
+                    { key: 'protein' as const, label: 'P (g)', color: 'border-blue-300', deltaColor: 'text-blue-600' },
+                    { key: 'carbs' as const, label: 'C (g)', color: 'border-amber-300', deltaColor: 'text-amber-600' },
+                    { key: 'fat' as const, label: 'F (g)', color: 'border-purple-300', deltaColor: 'text-purple-600' },
+                  ].map(({ key, label, color }) => {
+                    const delta = localTargets[key] - origTargets[key];
+                    const macroDerivedCal = (localTargets.protein * 4) + (localTargets.carbs * 4) + (localTargets.fat * 9);
+                    const calMismatch = key === 'calories' && Math.abs(localTargets.calories - macroDerivedCal) > 3;
+                    return (
+                      <div key={key} className="space-y-0.5">
+                        <label className="text-[10px] font-medium">{label}</label>
+                        <Input
+                          type="number"
+                          className={cn(`h-7 text-xs font-mono`, color, calMismatch && 'border-amber-400')}
+                          value={localTargets[key]}
+                          onChange={(e) => handleSlotMacroEdit(key, e.target.value)}
+                        />
+                        {delta !== 0 && (
+                          <p className={cn("text-[9px] font-medium", delta > 0 ? 'text-green-600' : 'text-red-500')}>
+                            {delta > 0 ? '+' : ''}{Math.round(delta)}{key !== 'calories' ? 'g' : ''}
+                          </p>
+                        )}
+                        {calMismatch && (
+                          <p className="text-[8px] text-amber-500">={macroDerivedCal}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-1.5">
+                  <Button 
+                    size="sm" 
+                    className="h-6 text-[10px]"
+                    onClick={() => { onUpdateSlotTargets(slot.slotIndex, localTargets); setEditingTargets(false); }}
+                  >
+                    Save
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 text-[10px]"
+                    onClick={() => { setLocalTargets({ ...slot.targetMacros }); setEditingTargets(false); }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-medium">Target:</span>{' '}
+                  {slot.targetMacros.calories} cal | {slot.targetMacros.protein}g P | {slot.targetMacros.carbs}g C | {slot.targetMacros.fat}g F
+                </div>
+                {onUpdateSlotTargets && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-5 px-1 text-[10px] text-muted-foreground hover:text-foreground"
+                    onClick={() => { setLocalTargets({ ...slot.targetMacros }); setEditingTargets(true); }}
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            )}
+            {/* Rolling budget after this slot */}
+            {rollingBudgetAfter && !editingTargets && (
+              <div className="mt-1 pt-1 border-t border-dashed text-[10px] flex items-center gap-2">
+                <span className="text-muted-foreground">After this:</span>
+                <span className={rollingBudgetAfter.calories < 0 ? 'text-red-500 font-medium' : ''}>{rollingBudgetAfter.calories} cal</span>
+                <span className={rollingBudgetAfter.protein < 0 ? 'text-red-500 font-medium' : 'text-blue-500'}>{rollingBudgetAfter.protein}g P</span>
+                <span className={rollingBudgetAfter.carbs < 0 ? 'text-red-500 font-medium' : 'text-amber-500'}>{rollingBudgetAfter.carbs}g C</span>
+                <span className={rollingBudgetAfter.fat < 0 ? 'text-red-500 font-medium' : 'text-purple-500'}>{rollingBudgetAfter.fat}g F</span>
+                <span className="text-muted-foreground">remaining</span>
+              </div>
+            )}
           </div>
           
           {slot.workoutRelation !== 'none' && (
@@ -807,12 +908,79 @@ export function MealSlotCard({
             </div>
             
             {/* Target Reference Row */}
-            <div className="grid grid-cols-4 gap-1 text-center text-[9px] text-muted-foreground px-2 pb-1 bg-muted/30 rounded-b-lg -mt-1">
-              <span>/ {slot.targetMacros.calories}</span>
+            <div className="grid grid-cols-4 gap-1 text-center text-[9px] text-muted-foreground px-2 pb-1 bg-muted/30 -mt-1">
+              <span className="flex items-center justify-center gap-0.5">
+                / {slot.targetMacros.calories}
+                {onUpdateSlotTargets && (
+                  <button 
+                    onClick={() => { setLocalTargets({ ...slot.targetMacros }); setEditingTargets(true); }}
+                    className="hover:text-foreground transition-colors"
+                  >
+                    <Edit className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </span>
               <span>/ {slot.targetMacros.protein}g</span>
               <span>/ {slot.targetMacros.carbs}g</span>
               <span>/ {slot.targetMacros.fat}g</span>
             </div>
+
+            {/* Edit target inline form - with intelligent guidance */}
+            {editingTargets && onUpdateSlotTargets && (
+              <div className="px-2 py-2 bg-blue-50 border border-blue-200 rounded-md mt-1 space-y-1.5">
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { key: 'calories' as const, label: 'Cal' },
+                    { key: 'protein' as const, label: 'P' },
+                    { key: 'carbs' as const, label: 'C' },
+                    { key: 'fat' as const, label: 'F' },
+                  ].map(({ key, label }) => {
+                    const delta = localTargets[key] - origTargets[key];
+                    const macroDerivedCal = (localTargets.protein * 4) + (localTargets.carbs * 4) + (localTargets.fat * 9);
+                    const calMismatch = key === 'calories' && Math.abs(localTargets.calories - macroDerivedCal) > 3;
+                    return (
+                      <div key={key} className="space-y-0.5">
+                        <label className="text-[9px] font-medium text-blue-600">{label}</label>
+                        <Input
+                          type="number"
+                          className={cn("h-6 text-xs font-mono px-1", calMismatch && 'border-amber-400')}
+                          value={localTargets[key]}
+                          onChange={(e) => handleSlotMacroEdit(key, e.target.value)}
+                        />
+                        {delta !== 0 && (
+                          <p className={cn("text-[8px] font-medium", delta > 0 ? 'text-green-600' : 'text-red-500')}>
+                            {delta > 0 ? '+' : ''}{Math.round(delta)}
+                          </p>
+                        )}
+                        {calMismatch && (
+                          <p className="text-[7px] text-amber-500">={macroDerivedCal}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-1">
+                  <Button size="sm" className="h-5 text-[9px] px-2" onClick={() => { onUpdateSlotTargets(slot.slotIndex, localTargets); setEditingTargets(false); }}>
+                    Save
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-5 text-[9px] px-2" onClick={() => { setLocalTargets({ ...slot.targetMacros }); setEditingTargets(false); }}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Rolling budget after this meal */}
+            {rollingBudgetAfter && !editingTargets && (
+              <div className="px-2 py-1 text-[9px] flex items-center gap-2 bg-muted/20 rounded-b-lg">
+                <span className="text-muted-foreground">After:</span>
+                <span className={cn('font-medium', rollingBudgetAfter.calories < 0 ? 'text-red-500' : 'text-muted-foreground')}>{rollingBudgetAfter.calories} cal</span>
+                <span className={cn('font-medium', rollingBudgetAfter.protein < 0 ? 'text-red-500' : 'text-blue-500')}>{rollingBudgetAfter.protein}g P</span>
+                <span className={cn('font-medium', rollingBudgetAfter.carbs < 0 ? 'text-red-500' : 'text-amber-500')}>{rollingBudgetAfter.carbs}g C</span>
+                <span className={cn('font-medium', rollingBudgetAfter.fat < 0 ? 'text-red-500' : 'text-purple-500')}>{rollingBudgetAfter.fat}g F</span>
+                <span className="text-muted-foreground">left</span>
+              </div>
+            )}
           </div>
         </TooltipProvider>
         

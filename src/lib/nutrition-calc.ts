@@ -287,28 +287,32 @@ export function calculateBMR(
  * These are MORE CONSERVATIVE than traditional Harris-Benedict multipliers.
  * Research shows traditional multipliers tend to overestimate NEAT.
  * 
- * Conservative NEAT multipliers based on:
- * - Pontzer et al (2016): Constrained total energy expenditure model
+ * Conservative NEAT multipliers grounded in:
+ * - Pontzer et al (2016): Constrained total energy expenditure model — supports
+ *   lower NEAT in modern populations than traditional activity-factor models assume.
  * - Westerterp (2013): "Physical activity and physical activity induced energy expenditure"
- * - Step-based energy estimates (~30-50 kcal per 1000 steps)
+ *   — free-living NEAT typically 15-30% of RMR, lower end for most clients.
+ * - Levine (2004): NEAT ranges ~100-700 kcal/day; desk workers at the low end.
+ * - Step-based estimates: ~30-40 kcal per 1000 steps (Hamasaki 2023).
  * 
- * These are MORE CONSERVATIVE than traditional Harris-Benedict multipliers
- * because we calculate exercise separately (EEE) and want to avoid double-counting.
+ * IMPORTANT: These are intentionally conservative because we calculate exercise
+ * energy expenditure (EEE) separately via zone-based or MET-based methods.
+ * Over-estimating NEAT is the most common source of inflated TDEE.
  * 
- * NEAT estimates (for ~2000 kcal RMR):
- * - Sedentary: ~150 kcal (desk job, <5k steps)
- * - Light: ~300 kcal (some walking, 5-10k steps)  
- * - Active: ~500 kcal (on feet frequently, 10-15k steps)
- * - Labor: ~700 kcal (physical job, >15k steps)
+ * NEAT estimates (for ~1700 kcal RMR baseline):
+ * - Sedentary: ~85 kcal  (desk job, minimal movement, <5k steps)
+ * - Light:     ~170 kcal (some walking, errands, 5-10k steps)
+ * - Active:    ~340 kcal (on feet frequently, 10-15k steps)
+ * - Labor:     ~475 kcal (physical job / very high step count, >15k steps)
  */
 export function getActivityMultiplier(activityLevel: ActivityLevel): number {
   const multipliers: Record<ActivityLevel, number> = {
-    'Sedentary (0-5k steps/day)': 1.08,      // NEAT ≈ 8% of RMR
-    'Light Active (5-10k steps/day)': 1.15,   // NEAT ≈ 15% of RMR
-    'Active (10-15k steps/day)': 1.25,        // NEAT ≈ 25% of RMR
-    'Labor Intensive (>15k steps/day)': 1.35, // NEAT ≈ 35% of RMR
+    'Sedentary (0-5k steps/day)': 1.05,      // NEAT ≈ 5% of RMR (~85 kcal @ 1700 RMR)
+    'Light Active (5-10k steps/day)': 1.10,   // NEAT ≈ 10% of RMR (~170 kcal @ 1700 RMR)
+    'Active (10-15k steps/day)': 1.20,        // NEAT ≈ 20% of RMR (~340 kcal @ 1700 RMR)
+    'Labor Intensive (>15k steps/day)': 1.28, // NEAT ≈ 28% of RMR (~475 kcal @ 1700 RMR)
   };
-  return multipliers[activityLevel] ?? 1.08;
+  return multipliers[activityLevel] ?? 1.05;
 }
 
 /**

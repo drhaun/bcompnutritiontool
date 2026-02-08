@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { ProgressSteps } from '@/components/layout/progress-steps';
 // ProgressSummary now integrated into collapsible stats bar
-import { useFitomicsStore } from '@/lib/store';
+import { useFitomicsStore, flushPendingSaves } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { 
@@ -70,7 +70,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
   ResponsiveContainer, Legend
 } from 'recharts';
-import type { Phase, GoalType, PerformancePriority, MusclePreservation, FatGainTolerance, LifestyleCommitment, TrackingCommitment, TimelineEvent, TimelineEventType, DayNutritionTargets, PhaseCheckIn } from '@/types';
+import type { Phase, GoalType, PerformancePriority, MusclePreservation, FatGainTolerance, LifestyleCommitment, TrackingCommitment, TimelineEvent, TimelineEventType, DayNutritionTargets, PhaseCheckIn, MacroSettings } from '@/types';
 import { PhaseCalendar } from '@/components/planning/phase-calendar';
 import { PhaseTargetsEditor } from '@/components/planning/phase-targets-editor';
 
@@ -131,7 +131,9 @@ export default function PlanningPage() {
     timelineEvents,
     addTimelineEvent,
     deleteTimelineEvent,
-    getActivePhase
+    getActivePhase,
+    setNutritionTargets,
+    saveActiveClientState,
   } = useFitomicsStore();
   
   // Handle hydration
@@ -741,16 +743,27 @@ export default function PlanningPage() {
   
   // Handle proceed to meal plan
   const handleProceedToMealPlan = (phaseId: string) => {
+    // Flush any pending debounced saves to ensure all state
+    // (including updated nutrition targets) is persisted to the client record
+    flushPendingSaves(useFitomicsStore.getState());
     setActivePhase(phaseId);
     router.push('/meal-plan');
   };
   
   // Handle saving nutrition targets to phase
-  const handleSavePhaseTargets = (phaseId: string, targets: DayNutritionTargets[]) => {
+  const handleSavePhaseTargets = (phaseId: string, targets: DayNutritionTargets[], macroSettings?: MacroSettings) => {
     updatePhase(phaseId, { 
       nutritionTargets: targets,
+      ...(macroSettings ? { macroSettings } : {}),
       updatedAt: new Date().toISOString()
     });
+    
+    // Also explicitly set top-level nutrition targets if this is the active phase,
+    // ensuring they are immediately available for the meal plan step
+    if (phaseId === activePhaseId) {
+      setNutritionTargets(targets);
+    }
+    
     toast.success('Nutrition targets saved to phase');
   };
   
@@ -3835,7 +3848,7 @@ export default function PlanningPage() {
                 phase={activePhase}
                 userProfile={userProfile}
                 weeklySchedule={weeklySchedule}
-                onSaveTargets={(targets) => handleSavePhaseTargets(activePhase.id, targets)}
+                onSaveTargets={(targets, macroSettings) => handleSavePhaseTargets(activePhase.id, targets, macroSettings)}
                 onNavigateToMealPlan={() => handleProceedToMealPlan(activePhase.id)}
                 onEditPhase={() => handleOpenEditDialog(activePhase)}
               />
@@ -3985,7 +3998,7 @@ export default function PlanningPage() {
           
           {/* Phase Targets Modal - Full Screen on Desktop */}
           <Dialog open={showTargetsModal} onOpenChange={setShowTargetsModal}>
-            <DialogContent className="w-[98vw] max-w-[1800px] h-[95vh] flex flex-col p-0 gap-0 overflow-hidden">
+            <DialogContent className="w-[99vw] max-w-[1900px] sm:max-w-[1900px] h-[96vh] flex flex-col p-0 gap-0 overflow-hidden" showCloseButton={false}>
               <DialogHeader className="px-8 py-5 border-b bg-background/95 backdrop-blur sticky top-0 z-10 shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -4014,15 +4027,15 @@ export default function PlanningPage() {
                   </Button>
                 </div>
               </DialogHeader>
-              <div className="flex-1 overflow-y-auto overflow-x-hidden p-8 min-h-0">
+              <div className="flex-1 overflow-y-auto overflow-x-auto p-6 min-h-0">
                 {selectedPhaseForTargets && isHydrated && (
                   <div className="max-w-[1600px] mx-auto">
                     <PhaseTargetsEditor
                       phase={selectedPhaseForTargets}
                       userProfile={userProfile}
                       weeklySchedule={weeklySchedule}
-                      onSaveTargets={(targets) => {
-                        handleSavePhaseTargets(selectedPhaseForTargets.id, targets);
+                      onSaveTargets={(targets, macroSettings) => {
+                        handleSavePhaseTargets(selectedPhaseForTargets.id, targets, macroSettings);
                       }}
                       onNavigateToMealPlan={() => {
                         setShowTargetsModal(false);

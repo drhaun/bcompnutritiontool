@@ -600,13 +600,29 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
       },
       
       updatePhase: (phaseId, updates) => {
-        set((state) => ({
-          phases: state.phases.map(p => 
+        const isActivePhase = get().activePhaseId === phaseId;
+        
+        set((state) => {
+          const updatedPhases = state.phases.map(p => 
             p.id === phaseId
               ? { ...p, ...updates, updatedAt: new Date().toISOString() }
               : p
-          ),
-        }));
+          );
+          
+          // If updating the active phase, also sync top-level state
+          // so that all code paths (including fallbacks) see current data
+          const syncUpdates: Record<string, unknown> = {};
+          if (isActivePhase) {
+            if (updates.nutritionTargets !== undefined) {
+              syncUpdates.nutritionTargets = updates.nutritionTargets;
+            }
+            if (updates.mealPlan !== undefined) {
+              syncUpdates.mealPlan = updates.mealPlan;
+            }
+          }
+          
+          return { phases: updatedPhases, ...syncUpdates };
+        });
         
         // Auto-save to client
         debouncedSave(() => get().saveActiveClientState());
