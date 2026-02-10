@@ -51,10 +51,12 @@ import {
   Salad,
   Flame,
   AlertTriangle,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Heart
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useFitomicsStore } from '@/lib/store';
 import type { MealSlot, Meal, Macros, DietPreferences } from '@/types';
 
 // Filter & Sort types
@@ -128,6 +130,7 @@ export function RecipeRecommendations({
   excludeRecipes = [],
   onSelectRecipe,
 }: RecipeRecommendationsProps) {
+  const { addFavoriteRecipe, removeFavoriteRecipe, favoriteRecipes, isFavoriteRecipe } = useFitomicsStore();
   const [isLoading, setIsLoading] = useState(false);
   const [recipes, setRecipes] = useState<ScaledRecipe[]>([]);
   const [allRecipes, setAllRecipes] = useState<ScaledRecipe[]>([]); // Full library
@@ -683,13 +686,48 @@ export function RecipeRecommendations({
                             </div>
                           </div>
                           
-                          {/* Match Score */}
-                          <div className={`text-lg font-bold flex-shrink-0 ${
-                            recipe.matchScore >= 80 ? 'text-green-600' :
-                            recipe.matchScore >= 60 ? 'text-yellow-600' :
-                            'text-muted-foreground'
-                          }`}>
-                            {recipe.matchScore}
+                          {/* Match Score & Favorite */}
+                          <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                            <div className={`text-lg font-bold ${
+                              recipe.matchScore >= 80 ? 'text-green-600' :
+                              recipe.matchScore >= 60 ? 'text-yellow-600' :
+                              'text-muted-foreground'
+                            }`}>
+                              {recipe.matchScore}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const isFav = isFavoriteRecipe(recipe.slug);
+                                if (isFav) {
+                                  const fav = favoriteRecipes.find(f => f.slug === recipe.slug);
+                                  if (fav) removeFavoriteRecipe(fav.id);
+                                  toast.success('Removed from favorites');
+                                } else {
+                                  addFavoriteRecipe({
+                                    slug: recipe.slug,
+                                    name: recipe.name,
+                                    category: recipe.category,
+                                    calories: recipe.original.calories,
+                                    protein: recipe.original.protein,
+                                    carbs: recipe.original.carbs,
+                                    fat: recipe.original.fat,
+                                    image_url: recipe.image_url,
+                                    tags: recipe.tags,
+                                    source: 'recipe',
+                                  });
+                                  toast.success('Added to favorites');
+                                }
+                              }}
+                              className="p-0.5 rounded hover:bg-muted/60 transition-colors"
+                            >
+                              <Heart className={`h-3.5 w-3.5 transition-colors ${
+                                isFavoriteRecipe(recipe.slug) 
+                                  ? 'fill-red-500 text-red-500' 
+                                  : 'text-muted-foreground hover:text-red-400'
+                              }`} />
+                            </button>
                           </div>
                         </div>
                       </CardContent>
@@ -714,12 +752,49 @@ export function RecipeRecommendations({
                         className="w-full h-32 object-cover rounded-lg mb-3"
                       />
                     )}
-                    <h3 className="text-lg font-bold">{selectedRecipe.name}</h3>
-                    {selectedRecipe.cronometer_name && (
-                      <p className="text-xs text-muted-foreground">
-                        Cronometer: {selectedRecipe.cronometer_name}
-                      </p>
-                    )}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-lg font-bold">{selectedRecipe.name}</h3>
+                        {selectedRecipe.cronometer_name && (
+                          <p className="text-xs text-muted-foreground">
+                            Cronometer: {selectedRecipe.cronometer_name}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 flex-shrink-0"
+                        onClick={() => {
+                          const isFav = isFavoriteRecipe(selectedRecipe.slug);
+                          if (isFav) {
+                            const fav = favoriteRecipes.find(f => f.slug === selectedRecipe.slug);
+                            if (fav) removeFavoriteRecipe(fav.id);
+                            toast.success('Removed from favorites');
+                          } else {
+                            addFavoriteRecipe({
+                              slug: selectedRecipe.slug,
+                              name: selectedRecipe.name,
+                              category: selectedRecipe.category,
+                              calories: selectedRecipe.original.calories,
+                              protein: selectedRecipe.original.protein,
+                              carbs: selectedRecipe.original.carbs,
+                              fat: selectedRecipe.original.fat,
+                              image_url: selectedRecipe.image_url,
+                              tags: selectedRecipe.tags,
+                              source: 'recipe',
+                            });
+                            toast.success('Added to favorites');
+                          }
+                        }}
+                      >
+                        <Heart className={`h-5 w-5 transition-colors ${
+                          isFavoriteRecipe(selectedRecipe.slug)
+                            ? 'fill-red-500 text-red-500'
+                            : 'text-muted-foreground hover:text-red-400'
+                        }`} />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Serving Adjuster */}

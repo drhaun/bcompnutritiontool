@@ -33,9 +33,12 @@ import {
   Minus,
   Pill,
   X,
+  Heart,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { useFitomicsStore } from '@/lib/store';
+import { toast } from 'sonner';
 import type { MealSlot, Meal, Macros, DietPreferences, MealSupplement } from '@/types';
 
 // Quick adjustment suggestions with macro impact
@@ -159,6 +162,7 @@ export function MealSlotCard({
   onUpdateSlotTargets,
   rollingBudgetAfter,
 }: MealSlotCardProps) {
+  const { addFavoriteRecipe, removeFavoriteRecipe, favoriteRecipes } = useFitomicsStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [showRecommendations, setShowRecommendations] = useState(false);
@@ -1248,6 +1252,44 @@ export function MealSlotCard({
             <Pill className="h-3 w-3 mr-1" />
             Add Supplement
           </Button>
+          {filledMeal && (
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "text-xs h-7",
+                favoriteRecipes.some(f => f.name === filledMeal.name)
+                  ? "border-red-300 text-red-600 hover:bg-red-50"
+                  : "border-pink-300 text-pink-700 hover:bg-pink-50"
+              )}
+              onClick={() => {
+                const existing = favoriteRecipes.find(f => f.name === filledMeal.name);
+                if (existing) {
+                  removeFavoriteRecipe(existing.id);
+                  toast.success('Removed from favorites');
+                } else {
+                  addFavoriteRecipe({
+                    slug: filledMeal.name.toLowerCase().replace(/\s+/g, '-'),
+                    name: filledMeal.name,
+                    category: filledMeal.type || 'meal',
+                    calories: filledMeal.totalMacros?.calories || 0,
+                    protein: filledMeal.totalMacros?.protein || 0,
+                    carbs: filledMeal.totalMacros?.carbs || 0,
+                    fat: filledMeal.totalMacros?.fat || 0,
+                    source: filledMeal.source || 'manual',
+                    mealData: filledMeal,
+                  });
+                  toast.success('Saved to favorites');
+                }
+              }}
+            >
+              <Heart className={cn(
+                "h-3 w-3 mr-1",
+                favoriteRecipes.some(f => f.name === filledMeal.name) && "fill-red-500"
+              )} />
+              {favoriteRecipes.some(f => f.name === filledMeal.name) ? 'Favorited' : 'Favorite'}
+            </Button>
+          )}
           <Button 
             variant="outline" 
             size="sm" 

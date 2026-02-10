@@ -199,6 +199,12 @@ export interface ClientProfile {
   // Timeline events (labs, competitions, travel, etc.)
   timelineEvents?: TimelineEvent[];
   
+  // Favorite recipes saved by coach/client
+  favoriteRecipes?: FavoriteRecipe[];
+  
+  // Coach-shared resources (files, links, guides)
+  resources?: ClientResource[];
+  
   // Legacy fields (for backward compatibility, will migrate to phases)
   nutritionTargets: DayNutritionTargets[];
   mealPlan: WeeklyMealPlan | null;
@@ -732,6 +738,42 @@ export interface CoachLink {
   color?: string; // tailwind text color class
   bg?: string;    // tailwind bg color class
   isDefault?: boolean; // true for built-in links
+}
+
+// ============ FAVORITE RECIPES ============
+export interface FavoriteRecipe {
+  id: string;             // Unique favorite ID
+  slug: string;           // Recipe slug from ni_recipes table
+  name: string;
+  category: string;
+  calories: number;       // Per serving
+  protein: number;
+  carbs: number;
+  fat: number;
+  image_url?: string | null;
+  tags?: string[];
+  savedAt: string;        // ISO timestamp
+  notes?: string;         // Coach/client notes
+  source: 'recipe' | 'ai' | 'manual'; // Where this recipe came from
+  // For AI/manual meals, store the full meal data
+  mealData?: Meal;
+}
+
+// ============ CLIENT RESOURCES ============
+export type ClientResourceType = 'file' | 'link';
+
+export interface ClientResource {
+  id: string;
+  title: string;
+  description?: string;
+  type: ClientResourceType;
+  url: string;            // File URL (Supabase Storage) or external link
+  fileName?: string;      // Original file name (for files)
+  fileSize?: number;      // File size in bytes
+  mimeType?: string;      // MIME type for files
+  category?: string;      // e.g. 'guide', 'protocol', 'reference', 'handout'
+  createdAt: string;      // ISO timestamp
+  createdBy?: string;     // Coach who added it
 }
 
 // API Response Types

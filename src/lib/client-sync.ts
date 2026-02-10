@@ -30,6 +30,9 @@ export function dbClientToStoreClient(dbClient: any): ClientProfile {
     phases: dbClient.phases || [],
     activePhaseId: dbClient.active_phase_id || undefined,
     timelineEvents: dbClient.timeline_events || [],
+    // Favorites and resources
+    favoriteRecipes: dbClient.favorite_recipes || [],
+    resources: dbClient.resources || [],
   };
 }
 
@@ -58,6 +61,9 @@ export function storeClientToApiFormat(client: ClientProfile) {
     phases: client.phases || [],
     activePhaseId: client.activePhaseId,
     timelineEvents: client.timelineEvents || [],
+    // Favorites and resources
+    favoriteRecipes: client.favoriteRecipes || [],
+    resources: client.resources || [],
   };
 }
 

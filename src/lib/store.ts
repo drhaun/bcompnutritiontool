@@ -14,7 +14,9 @@ import type {
   StaffMember,
   Phase,
   GoalType,
-  TimelineEvent
+  TimelineEvent,
+  FavoriteRecipe,
+  ClientResource,
 } from '@/types';
 import { 
   calculateTDEE, 
@@ -141,6 +143,19 @@ interface NutritionPlanningOSState {
   updateTimelineEvent: (eventId: string, updates: Partial<TimelineEvent>) => void;
   deleteTimelineEvent: (eventId: string) => void;
   
+  // ============ FAVORITE RECIPES ============
+  favoriteRecipes: FavoriteRecipe[];
+  addFavoriteRecipe: (recipe: Omit<FavoriteRecipe, 'id' | 'savedAt'>) => string;
+  removeFavoriteRecipe: (favoriteId: string) => void;
+  updateFavoriteRecipe: (favoriteId: string, updates: Partial<FavoriteRecipe>) => void;
+  isFavoriteRecipe: (slug: string) => boolean;
+  
+  // ============ CLIENT RESOURCES ============
+  clientResources: ClientResource[];
+  addClientResource: (resource: Omit<ClientResource, 'id' | 'createdAt'>) => string;
+  removeClientResource: (resourceId: string) => void;
+  updateClientResource: (resourceId: string, updates: Partial<ClientResource>) => void;
+  
   // ============ SESSION NOTES ACTIONS ============
   setNotePanelOpen: (isOpen: boolean) => void;
   setActiveNoteContent: (content: string) => void;
@@ -215,6 +230,8 @@ const emptyClientData = {
   phases: [] as Phase[],
   activePhaseId: null as string | null,
   timelineEvents: [] as TimelineEvent[],
+  favoriteRecipes: [] as FavoriteRecipe[],
+  clientResources: [] as ClientResource[],
 };
 
 const initialState = {
@@ -276,6 +293,8 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           mealPlan: null,
           currentStep: 1,
           planHistory: [],
+          favoriteRecipes: [],
+          resources: [],
         };
         
         console.log('[Store] Creating new client:', name, 'with ID:', id);
@@ -396,6 +415,8 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
             phases,
             activePhaseId,
             timelineEvents: client.timelineEvents || [],
+            favoriteRecipes: client.favoriteRecipes || [],
+            clientResources: client.resources || [],
             nutritionTargets: client.nutritionTargets,
             mealPlan: client.mealPlan,
             error: null,
@@ -556,6 +577,8 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           phases: state.phases,
           activePhaseId: state.activePhaseId || undefined,
           timelineEvents: state.timelineEvents,
+          favoriteRecipes: state.favoriteRecipes,
+          resources: state.clientResources,
           nutritionTargets: state.nutritionTargets,
           mealPlan: state.mealPlan,
           // Keep top-level name in sync with userProfile.name
@@ -781,6 +804,80 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         }));
         
         // Auto-save to client
+        debouncedSave(() => get().saveActiveClientState());
+      },
+      
+      // ============ FAVORITE RECIPES ACTIONS ============
+      favoriteRecipes: [],
+      
+      addFavoriteRecipe: (recipeData) => {
+        const id = `fav_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const favorite: FavoriteRecipe = {
+          id,
+          savedAt: new Date().toISOString(),
+          ...recipeData,
+        };
+        
+        set((state) => ({
+          favoriteRecipes: [favorite, ...state.favoriteRecipes],
+        }));
+        
+        debouncedSave(() => get().saveActiveClientState());
+        return id;
+      },
+      
+      removeFavoriteRecipe: (favoriteId) => {
+        set((state) => ({
+          favoriteRecipes: state.favoriteRecipes.filter(f => f.id !== favoriteId),
+        }));
+        debouncedSave(() => get().saveActiveClientState());
+      },
+      
+      updateFavoriteRecipe: (favoriteId, updates) => {
+        set((state) => ({
+          favoriteRecipes: state.favoriteRecipes.map(f =>
+            f.id === favoriteId ? { ...f, ...updates } : f
+          ),
+        }));
+        debouncedSave(() => get().saveActiveClientState());
+      },
+      
+      isFavoriteRecipe: (slug) => {
+        return get().favoriteRecipes.some(f => f.slug === slug);
+      },
+      
+      // ============ CLIENT RESOURCES ACTIONS ============
+      clientResources: [],
+      
+      addClientResource: (resourceData) => {
+        const id = `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const resource: ClientResource = {
+          id,
+          createdAt: new Date().toISOString(),
+          ...resourceData,
+        };
+        
+        set((state) => ({
+          clientResources: [resource, ...state.clientResources],
+        }));
+        
+        debouncedSave(() => get().saveActiveClientState());
+        return id;
+      },
+      
+      removeClientResource: (resourceId) => {
+        set((state) => ({
+          clientResources: state.clientResources.filter(r => r.id !== resourceId),
+        }));
+        debouncedSave(() => get().saveActiveClientState());
+      },
+      
+      updateClientResource: (resourceId, updates) => {
+        set((state) => ({
+          clientResources: state.clientResources.map(r =>
+            r.id === resourceId ? { ...r, ...updates } : r
+          ),
+        }));
         debouncedSave(() => get().saveActiveClientState());
       },
       
@@ -1469,6 +1566,8 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         phases: state.phases,
         activePhaseId: state.activePhaseId,
         timelineEvents: state.timelineEvents,
+        favoriteRecipes: state.favoriteRecipes,
+        clientResources: state.clientResources,
         nutritionTargets: state.nutritionTargets,
         mealPlan: state.mealPlan,
         currentStep: state.currentStep,

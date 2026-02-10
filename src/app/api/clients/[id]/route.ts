@@ -124,6 +124,9 @@ export async function PATCH(
     if (body.phases !== undefined) updateData.phases = body.phases;
     if (body.activePhaseId !== undefined) updateData.active_phase_id = body.activePhaseId;
     if (body.timelineEvents !== undefined) updateData.timeline_events = body.timelineEvents;
+    // Favorites and resources
+    if (body.favoriteRecipes !== undefined) updateData.favorite_recipes = body.favoriteRecipes;
+    if (body.resources !== undefined) updateData.resources = body.resources;
     
     // Build query - admins/coaches with visibility can update any client
     let query = supabase

@@ -82,7 +82,7 @@ import {
   Edit2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import type { DayOfWeek, DayNutritionTargets, MealSlot, Meal, Macros, DietPreferences, SupplementEntry, MealSupplement, CoachLink } from '@/types';
+import type { DayOfWeek, DayNutritionTargets, MealSlot, Meal, Macros, DietPreferences, SupplementEntry, MealSupplement, CoachLink, FavoriteRecipe, ClientResource } from '@/types';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -238,6 +238,14 @@ export default function MealPlanPage() {
     setNutritionTargets,
     // Client management
     getActiveClient,
+    activeClientId,
+    // Favorites & Resources
+    favoriteRecipes,
+    addFavoriteRecipe,
+    removeFavoriteRecipe,
+    clientResources,
+    addClientResource,
+    removeClientResource,
   } = useFitomicsStore();
   
   // Get active phase data (if any)
@@ -377,6 +385,72 @@ export default function MealPlanPage() {
   const [addingLink, setAddingLink] = useState(false);
   const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
   const [linkForm, setLinkForm] = useState({ label: '', url: '' });
+
+  // ============ FAVORITES & RESOURCES STATE ============
+  const [favoritesExpanded, setFavoritesExpanded] = useState(true);
+  const [resourcesExpanded, setResourcesExpanded] = useState(true);
+  const [addingResourceType, setAddingResourceType] = useState<'link' | 'file' | null>(null);
+  const [resourceForm, setResourceForm] = useState({ title: '', url: '', description: '' });
+  const [isUploadingResource, setIsUploadingResource] = useState(false);
+  const resourceFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAddResourceLink = useCallback(() => {
+    if (!resourceForm.title.trim() || !resourceForm.url.trim()) {
+      toast.error('Please enter a title and URL');
+      return;
+    }
+    addClientResource({
+      title: resourceForm.title.trim(),
+      url: resourceForm.url.trim(),
+      description: resourceForm.description.trim() || undefined,
+      type: 'link',
+    });
+    setAddingResourceType(null);
+    setResourceForm({ title: '', url: '', description: '' });
+    toast.success('Link added');
+  }, [resourceForm, addClientResource]);
+
+  const handleResourceFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeClientId) return;
+
+    setIsUploadingResource(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('clientId', activeClientId);
+
+      const response = await fetch('/api/resources/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Upload failed');
+      }
+
+      const data = await response.json();
+      
+      addClientResource({
+        title: file.name.replace(/\.[^/.]+$/, ''), // Remove extension for display name
+        url: data.url,
+        type: 'file',
+        fileName: data.fileName,
+        fileSize: data.fileSize,
+        mimeType: data.mimeType,
+      });
+      
+      toast.success('File uploaded');
+    } catch (error: any) {
+      console.error('Resource upload error:', error);
+      toast.error(error.message || 'Failed to upload file');
+    } finally {
+      setIsUploadingResource(false);
+      // Reset input
+      if (resourceFileInputRef.current) resourceFileInputRef.current.value = '';
+    }
+  }, [activeClientId, addClientResource]);
 
   // Load coach links from localStorage on mount
   useEffect(() => {
@@ -2171,6 +2245,242 @@ export default function MealPlanPage() {
                       <p className="text-[10px] text-muted-foreground text-center pt-1 truncate">
                         {cronometerClientName || `Client #${cronometerClientId}`}
                       </p>
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {/* ============ FAVORITE RECIPES SECTION ============ */}
+              {activeClientId && (
+                <Card className="border-pink-300/50 overflow-hidden mt-2">
+                  <button
+                    type="button"
+                    onClick={() => { if (!linksExpanded) setLinksExpanded(true); setFavoritesExpanded(!favoritesExpanded); }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-2 hover:bg-pink-50/50 transition-colors border-b bg-pink-50/30"
+                  >
+                    {linksExpanded ? (
+                      <>
+                        <Heart className="h-4 w-4 text-pink-500 shrink-0" />
+                        <span className="text-xs font-semibold text-[#00263d] truncate">
+                          Favorites {favoriteRecipes.length > 0 && `(${favoriteRecipes.length})`}
+                        </span>
+                      </>
+                    ) : (
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="relative">
+                              <Heart className="h-4 w-4 text-pink-500" />
+                              {favoriteRecipes.length > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-[8px] rounded-full w-3 h-3 flex items-center justify-center">
+                                  {favoriteRecipes.length}
+                                </span>
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="text-xs">
+                            Favorite Recipes ({favoriteRecipes.length})
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </button>
+
+                  {linksExpanded && favoritesExpanded && (
+                    <div className="p-2 space-y-1.5 max-h-[300px] overflow-y-auto">
+                      {favoriteRecipes.length === 0 ? (
+                        <p className="text-[11px] text-muted-foreground text-center py-3">
+                          No favorites yet. Click the heart icon on any recipe or meal to save it here.
+                        </p>
+                      ) : (
+                        favoriteRecipes.map(fav => (
+                          <div
+                            key={fav.id}
+                            className="group flex items-start gap-2 p-1.5 rounded-lg hover:bg-pink-50/60 transition-colors"
+                          >
+                            {fav.image_url ? (
+                              <img src={fav.image_url} alt={fav.name} className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                            ) : (
+                              <div className="w-8 h-8 rounded bg-pink-100 flex items-center justify-center flex-shrink-0">
+                                <ChefHat className="h-3.5 w-3.5 text-pink-400" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-medium truncate">{fav.name}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {fav.calories}cal · {fav.protein}P · {fav.carbs}C · {fav.fat}F
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                removeFavoriteRecipe(fav.id);
+                                toast.success('Removed from favorites');
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-pink-100 transition-all"
+                            >
+                              <X className="h-3 w-3 text-muted-foreground" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {/* ============ CLIENT RESOURCES SECTION ============ */}
+              {activeClientId && (
+                <Card className="border-blue-300/50 overflow-hidden mt-2">
+                  <button
+                    type="button"
+                    onClick={() => { if (!linksExpanded) setLinksExpanded(true); setResourcesExpanded(!resourcesExpanded); }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-2 hover:bg-blue-50/50 transition-colors border-b bg-blue-50/30"
+                  >
+                    {linksExpanded ? (
+                      <>
+                        <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                        <span className="text-xs font-semibold text-[#00263d] truncate">
+                          Resources {clientResources.length > 0 && `(${clientResources.length})`}
+                        </span>
+                      </>
+                    ) : (
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="relative">
+                              <FileText className="h-4 w-4 text-blue-500" />
+                              {clientResources.length > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[8px] rounded-full w-3 h-3 flex items-center justify-center">
+                                  {clientResources.length}
+                                </span>
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="text-xs">
+                            Client Resources ({clientResources.length})
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </button>
+
+                  {linksExpanded && resourcesExpanded && (
+                    <div className="p-2 space-y-1.5">
+                      {/* Add Resource Buttons */}
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-[10px] h-6 flex-1 border-dashed"
+                          onClick={() => setAddingResourceType('link')}
+                        >
+                          <Globe className="h-3 w-3 mr-0.5" /> Add Link
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-[10px] h-6 flex-1 border-dashed"
+                          onClick={() => resourceFileInputRef.current?.click()}
+                        >
+                          <ArrowUpFromLine className="h-3 w-3 mr-0.5" /> Upload File
+                        </Button>
+                        <input
+                          ref={resourceFileInputRef}
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp"
+                          onChange={handleResourceFileUpload}
+                        />
+                      </div>
+
+                      {/* Add Link Form */}
+                      {addingResourceType === 'link' && (
+                        <div className="space-y-1.5 p-2 rounded-lg bg-blue-50/40 border border-blue-200/50">
+                          <Input
+                            placeholder="Title (e.g., Meal Prep Guide)"
+                            value={resourceForm.title}
+                            onChange={(e) => setResourceForm(prev => ({ ...prev, title: e.target.value }))}
+                            className="h-7 text-xs"
+                          />
+                          <Input
+                            placeholder="URL (https://...)"
+                            value={resourceForm.url}
+                            onChange={(e) => setResourceForm(prev => ({ ...prev, url: e.target.value }))}
+                            className="h-7 text-xs"
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleAddResourceLink(); }}
+                          />
+                          <div className="flex gap-1">
+                            <Button size="sm" className="h-6 text-[10px] flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={handleAddResourceLink}>
+                              <Plus className="h-3 w-3 mr-0.5" /> Add
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2" onClick={() => { setAddingResourceType(null); setResourceForm({ title: '', url: '', description: '' }); }}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Uploading indicator */}
+                      {isUploadingResource && (
+                        <div className="flex items-center justify-center gap-1.5 py-2 text-xs text-blue-600">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Uploading...
+                        </div>
+                      )}
+
+                      {/* Resource List */}
+                      <div className="max-h-[250px] overflow-y-auto space-y-1">
+                        {clientResources.length === 0 && !addingResourceType ? (
+                          <p className="text-[11px] text-muted-foreground text-center py-3">
+                            No resources yet. Share guides, files, and links with this client.
+                          </p>
+                        ) : (
+                          clientResources.map(res => (
+                            <div
+                              key={res.id}
+                              className="group flex items-start gap-2 p-1.5 rounded-lg hover:bg-blue-50/60 transition-colors"
+                            >
+                              <div className="w-7 h-7 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                {res.type === 'link' ? (
+                                  <Globe className="h-3.5 w-3.5 text-blue-500" />
+                                ) : (
+                                  <FileDown className="h-3.5 w-3.5 text-blue-500" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <a
+                                  href={res.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] font-medium text-blue-700 hover:underline truncate block"
+                                >
+                                  {res.title}
+                                </a>
+                                {res.description && (
+                                  <p className="text-[10px] text-muted-foreground truncate">{res.description}</p>
+                                )}
+                                <p className="text-[9px] text-muted-foreground">
+                                  {res.type === 'file' && res.fileSize
+                                    ? `${(res.fileSize / 1024).toFixed(0)}KB · `
+                                    : ''}
+                                  {new Date(res.createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  removeClientResource(res.id);
+                                  toast.success('Resource removed');
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-blue-100 transition-all"
+                              >
+                                <X className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   )}
                 </Card>

@@ -152,6 +152,9 @@ export async function POST(request: NextRequest) {
       phases: body.phases || [],
       active_phase_id: body.activePhaseId || null,
       timeline_events: body.timelineEvents || [],
+      // Favorites and resources
+      favorite_recipes: body.favoriteRecipes || [],
+      resources: body.resources || [],
     };
     
     // Only include ID if it's a valid UUID
@@ -335,6 +338,9 @@ export async function PUT(request: NextRequest) {
         phases: client.phases || [],
         active_phase_id: client.activePhaseId || null,
         timeline_events: client.timelineEvents || [],
+        // Favorites and resources
+        favorite_recipes: client.favoriteRecipes || [],
+        resources: client.resources || [],
       };
       
       const localDate = new Date(client.updatedAt);
