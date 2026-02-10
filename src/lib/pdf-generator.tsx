@@ -378,6 +378,63 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   
+  // Resources page
+  resourceItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+    padding: 10,
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.lightBlue,
+  },
+  resourceIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.darkBlue,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  resourceIconText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+  resourceInfo: {
+    flex: 1,
+  },
+  resourceTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: COLORS.darkBlue,
+    marginBottom: 2,
+  },
+  resourceDescription: {
+    fontSize: 9,
+    color: COLORS.gray,
+    marginBottom: 3,
+    lineHeight: 1.4,
+  },
+  resourceUrl: {
+    fontSize: 8,
+    color: COLORS.lightBlue,
+    textDecoration: 'underline',
+  },
+  resourceTypeBadge: {
+    fontSize: 7,
+    fontWeight: 'bold',
+    color: COLORS.white,
+    backgroundColor: COLORS.darkGold,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 3,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+
   // Grocery list
   grocerySection: {
     marginBottom: 12,
@@ -695,7 +752,18 @@ interface PDFOptions {
   includeNutritionTargets?: boolean;
   includeDietPreferences?: boolean;
   includeMealContext?: boolean;
+  includeResources?: boolean;
   selectedDays?: string[];
+}
+
+// Resource item for PDF
+interface PDFResource {
+  title: string;
+  description?: string;
+  type: 'link' | 'file';
+  url: string;
+  fileName?: string;
+  mimeType?: string;
 }
 
 // Main PDF Document Component
@@ -707,6 +775,7 @@ interface MealPlanPDFProps {
   nutritionTargets: DayNutritionTargets[];
   mealPlan: WeeklyMealPlan;
   groceryList: Record<string, { name: string; totalAmount: string }[]>;
+  resources?: PDFResource[];
   logoUrl?: string; // Optional high-resolution logo URL
   options?: PDFOptions;
 }
@@ -719,6 +788,7 @@ export const MealPlanPDF = ({
   nutritionTargets,
   mealPlan,
   groceryList,
+  resources = [],
   logoUrl,
   options = {},
 }: MealPlanPDFProps) => {
@@ -729,6 +799,7 @@ export const MealPlanPDF = ({
   const showNutritionTargets = options.includeNutritionTargets !== false;
   const showRecipes = options.includeRecipes !== false;
   const showGrocery = options.includeGroceryList !== false;
+  const showResources = options.includeResources !== false && resources.length > 0;
   const showDietPrefs = options.includeDietPreferences !== false;
   const showMealContext = options.includeMealContext !== false;
   const daysToShow = options.selectedDays || DAYS_ORDER;
@@ -1333,6 +1404,51 @@ export const MealPlanPDF = ({
               );
             })}
           </View>
+        </View>
+        
+        <Footer />
+      </Page>}
+
+      {/* ====== RESOURCES PAGE ====== */}
+      {showResources && <Page size="A4" style={styles.page}>
+        <Header title="Resources" logoUrl={logoUrl} />
+        <Text style={styles.sectionTitle}>CLIENT RESOURCES</Text>
+        
+        <Text style={styles.bodyText}>
+          The following resources have been curated by your coach for reference. 
+          Links can be accessed by typing the URLs into your browser.
+        </Text>
+
+        <View style={{ marginTop: 12 }}>
+          {resources.map((resource, idx) => {
+            const isImage = resource.mimeType?.startsWith('image/');
+            const isLink = resource.type === 'link';
+            const iconLetter = isLink ? 'L' : isImage ? 'I' : 'F';
+            const typeLabel = isLink ? 'LINK' : isImage ? 'IMAGE' : 'FILE';
+
+            return (
+              <View key={idx} style={styles.resourceItem} wrap={false}>
+                <View style={styles.resourceIcon}>
+                  <Text style={styles.resourceIconText}>{iconLetter}</Text>
+                </View>
+                <View style={styles.resourceInfo}>
+                  <Text style={styles.resourceTitle}>{resource.title}</Text>
+                  {resource.description ? (
+                    <Text style={styles.resourceDescription}>{resource.description}</Text>
+                  ) : null}
+                  <Text style={styles.resourceUrl}>{resource.url}</Text>
+                  <Text style={styles.resourceTypeBadge}>{typeLabel}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={{ marginTop: 15, padding: 10, backgroundColor: '#f0f9ff', borderRadius: 6, borderLeftWidth: 3, borderLeftColor: COLORS.lightBlue }}>
+          <Text style={{ fontSize: 8, color: COLORS.gray, lineHeight: 1.4 }}>
+            These resources are provided for informational purposes. If you have questions about 
+            any of these materials, please reach out to your coach directly.
+          </Text>
         </View>
         
         <Footer />

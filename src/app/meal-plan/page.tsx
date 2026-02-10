@@ -285,6 +285,7 @@ export default function MealPlanPage() {
     includeNutritionTargets: true,
     includeDietPreferences: true,
     includeMealContext: true,
+    includeResources: true,
     exportType: 'full' as 'full' | 'single' | 'custom',
     selectedDay: 'Monday' as DayOfWeek,
     selectedDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as DayOfWeek[],
@@ -387,12 +388,18 @@ export default function MealPlanPage() {
   const [linkForm, setLinkForm] = useState({ label: '', url: '' });
 
   // ============ FAVORITES & RESOURCES STATE ============
+  const [favoritePickerSlot, setFavoritePickerSlot] = useState<number | null>(null); // Which slot wants a favorite
+  const [slotPickerFavorite, setSlotPickerFavorite] = useState<FavoriteRecipe | null>(null); // Which favorite to place
   const [favoritesExpanded, setFavoritesExpanded] = useState(true);
   const [resourcesExpanded, setResourcesExpanded] = useState(true);
   const [addingResourceType, setAddingResourceType] = useState<'link' | 'file' | null>(null);
   const [resourceForm, setResourceForm] = useState({ title: '', url: '', description: '' });
   const [isUploadingResource, setIsUploadingResource] = useState(false);
   const resourceFileInputRef = useRef<HTMLInputElement>(null);
+  // Main content area resource form (separate from sidebar)
+  const [mainResourceAddType, setMainResourceAddType] = useState<'link' | null>(null);
+  const [mainResourceForm, setMainResourceForm] = useState({ title: '', url: '', description: '' });
+  const mainResourceFileRef = useRef<HTMLInputElement>(null);
 
   const handleAddResourceLink = useCallback(() => {
     if (!resourceForm.title.trim() || !resourceForm.url.trim()) {
@@ -449,6 +456,65 @@ export default function MealPlanPage() {
       setIsUploadingResource(false);
       // Reset input
       if (resourceFileInputRef.current) resourceFileInputRef.current.value = '';
+    }
+  }, [activeClientId, addClientResource]);
+
+  // Main content area: add resource link
+  const handleMainAddResourceLink = useCallback(() => {
+    if (!mainResourceForm.title.trim() || !mainResourceForm.url.trim()) {
+      toast.error('Please enter a title and URL');
+      return;
+    }
+    addClientResource({
+      title: mainResourceForm.title.trim(),
+      url: mainResourceForm.url.trim(),
+      description: mainResourceForm.description.trim() || undefined,
+      type: 'link',
+    });
+    setMainResourceAddType(null);
+    setMainResourceForm({ title: '', url: '', description: '' });
+    toast.success('Resource link added');
+  }, [mainResourceForm, addClientResource]);
+
+  // Main content area: upload resource file
+  const handleMainResourceFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeClientId) return;
+
+    setIsUploadingResource(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('clientId', activeClientId);
+
+      const response = await fetch('/api/resources/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Upload failed');
+      }
+
+      const data = await response.json();
+      
+      addClientResource({
+        title: file.name.replace(/\.[^/.]+$/, ''),
+        url: data.url,
+        type: 'file',
+        fileName: data.fileName,
+        fileSize: data.fileSize,
+        mimeType: data.mimeType,
+      });
+      
+      toast.success('File uploaded');
+    } catch (error: any) {
+      console.error('Resource upload error:', error);
+      toast.error(error.message || 'Failed to upload file');
+    } finally {
+      setIsUploadingResource(false);
+      if (mainResourceFileRef.current) mainResourceFileRef.current.value = '';
     }
   }, [activeClientId, addClientResource]);
 
@@ -1322,6 +1388,59 @@ export default function MealPlanPage() {
     }
   };
 
+  // ============ USE FAVORITE IN SLOT ============
+  const handleUseFavoriteInSlot = useCallback((fav: FavoriteRecipe, slotIndex: number) => {
+    const slot = mealSlots[slotIndex];
+    if (!slot) return;
+
+    let meal: Meal;
+
+    if (fav.mealData) {
+      // Full meal data available (favorited from a filled slot)
+      meal = {
+        ...fav.mealData,
+        time: slot.timeSlot || fav.mealData.time,
+        context: slot.label,
+        type: slot.type,
+        targetMacros: slot.targetMacros,
+        workoutRelation: slot.workoutRelation || 'none',
+        isLocked: false,
+        lastModified: new Date().toISOString(),
+        staffNote: fav.mealData.staffNote
+          ? `${fav.mealData.staffNote}\n\n📌 Added from favorites`
+          : '📌 Added from favorites',
+      };
+    } else {
+      // Recipe-only favorite (from browse) — create meal from metadata
+      meal = {
+        name: fav.name,
+        time: slot.timeSlot || '',
+        context: slot.label,
+        prepTime: '15-30min',
+        type: slot.type,
+        ingredients: [],
+        instructions: [],
+        totalMacros: {
+          calories: fav.calories,
+          protein: fav.protein,
+          carbs: fav.carbs,
+          fat: fav.fat,
+        },
+        targetMacros: slot.targetMacros,
+        workoutRelation: slot.workoutRelation || 'none',
+        staffNote: `📌 Added from favorites (${fav.source === 'recipe' ? 'browsed recipe' : fav.source}). Use "Browse Recipes" and search for "${fav.name}" to load full ingredients & instructions.`,
+        source: fav.source === 'recipe' ? 'recipe' : 'manual',
+        isLocked: false,
+        lastModified: new Date().toISOString(),
+      };
+    }
+
+    updateMeal(currentDay, slotIndex, meal);
+    setFavoritePickerSlot(null);
+    setSlotPickerFavorite(null);
+    toast.success(`"${fav.name}" added to ${slot.label}`);
+  }, [mealSlots, currentDay, updateMeal]);
+
   const handleGenerateDayType = async () => {
     if (!currentDayType) return;
     
@@ -1578,6 +1697,14 @@ export default function MealPlanPage() {
           nutritionTargets: nutritionTargets.filter(t => daysToInclude.includes(t.day)),
           mealPlan: exportMealPlan,
           logoUrl: FITOMICS_LOGO_URL,
+          resources: exportOptions.includeResources ? clientResources.map(r => ({
+            title: r.title,
+            description: r.description,
+            type: r.type,
+            url: r.url,
+            fileName: r.fileName,
+            mimeType: r.mimeType,
+          })) : [],
           options: {
             includeGroceryList: exportOptions.includeGroceryList,
             includeRecipes: exportOptions.includeRecipes,
@@ -1587,6 +1714,7 @@ export default function MealPlanPage() {
             includeNutritionTargets: exportOptions.includeNutritionTargets,
             includeDietPreferences: exportOptions.includeDietPreferences,
             includeMealContext: exportOptions.includeMealContext,
+            includeResources: exportOptions.includeResources,
             selectedDays: daysToInclude,
           },
         }),
@@ -1625,6 +1753,171 @@ export default function MealPlanPage() {
     navigator.clipboard.writeText(text);
     toast.success(`${label} link copied`);
   };
+
+  // ============ RESOURCES CARD (Main Content Area) ============
+  const renderResourcesCard = () => (
+    <Card className="border-blue-200/50 bg-gradient-to-br from-blue-50/30 to-transparent">
+      <CardHeader className="py-3 px-4">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <FileText className="h-4 w-4 text-blue-500" />
+            Resources
+            {clientResources.length > 0 && (
+              <Badge variant="secondary" className="h-5 text-[10px] bg-blue-100 text-blue-700">
+                {clientResources.length}
+              </Badge>
+            )}
+          </CardTitle>
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[10px] h-6 border-dashed border-blue-200"
+              onClick={() => setMainResourceAddType(mainResourceAddType === 'link' ? null : 'link')}
+            >
+              <Globe className="h-3 w-3 mr-0.5" /> Add Link
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[10px] h-6 border-dashed border-blue-200"
+              onClick={() => mainResourceFileRef.current?.click()}
+            >
+              <ArrowUpFromLine className="h-3 w-3 mr-0.5" /> Upload File
+            </Button>
+            <input
+              ref={mainResourceFileRef}
+              type="file"
+              className="hidden"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp"
+              onChange={handleMainResourceFileUpload}
+            />
+          </div>
+        </div>
+        <CardDescription className="text-[11px] mt-1">
+          Add links, guides, or files to share with your client. These can be included as a dedicated page in the PDF export.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 pt-0">
+        {/* Add Link Form */}
+        {mainResourceAddType === 'link' && (
+          <div className="space-y-1.5 p-3 rounded-lg bg-blue-50/60 border border-blue-200/50 mb-3">
+            <Input
+              placeholder="Title (e.g., Meal Prep Guide)"
+              value={mainResourceForm.title}
+              onChange={(e) => setMainResourceForm(prev => ({ ...prev, title: e.target.value }))}
+              className="h-8 text-xs"
+            />
+            <Input
+              placeholder="URL (https://...)"
+              value={mainResourceForm.url}
+              onChange={(e) => setMainResourceForm(prev => ({ ...prev, url: e.target.value }))}
+              className="h-8 text-xs"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleMainAddResourceLink(); }}
+            />
+            <Input
+              placeholder="Description (optional)"
+              value={mainResourceForm.description}
+              onChange={(e) => setMainResourceForm(prev => ({ ...prev, description: e.target.value }))}
+              className="h-8 text-xs"
+            />
+            <div className="flex gap-1.5">
+              <Button size="sm" className="h-7 text-xs flex-1 bg-blue-600 hover:bg-blue-700 text-white" onClick={handleMainAddResourceLink}>
+                <Plus className="h-3 w-3 mr-1" /> Add Link
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs px-3" onClick={() => { setMainResourceAddType(null); setMainResourceForm({ title: '', url: '', description: '' }); }}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Uploading indicator */}
+        {isUploadingResource && (
+          <div className="flex items-center justify-center gap-1.5 py-3 text-xs text-blue-600 mb-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Uploading file...
+          </div>
+        )}
+
+        {/* Resource List */}
+        {clientResources.length === 0 && !mainResourceAddType ? (
+          <div className="text-center py-6 text-muted-foreground">
+            <FileText className="h-8 w-8 mx-auto mb-2 opacity-20" />
+            <p className="text-xs">No resources yet</p>
+            <p className="text-[10px] mt-0.5">Add links or upload files to share with your client</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {clientResources.map(res => (
+              <div
+                key={res.id}
+                className="group flex items-start gap-3 p-2.5 rounded-lg border border-transparent hover:border-blue-200/50 hover:bg-blue-50/40 transition-all"
+              >
+                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  {res.type === 'link' ? (
+                    <Globe className="h-4 w-4 text-blue-500" />
+                  ) : res.mimeType?.startsWith('image/') ? (
+                    <FileText className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <FileDown className="h-4 w-4 text-blue-500" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <a
+                    href={res.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-blue-700 hover:underline truncate block"
+                  >
+                    {res.title}
+                  </a>
+                  {res.description && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{res.description}</p>
+                  )}
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="outline" className="h-4 text-[9px] px-1.5 border-blue-200 text-blue-600">
+                      {res.type === 'link' ? 'Link' : 'File'}
+                    </Badge>
+                    {res.type === 'file' && res.fileSize && (
+                      <span className="text-[9px] text-muted-foreground">
+                        {res.fileSize > 1024 * 1024
+                          ? `${(res.fileSize / (1024 * 1024)).toFixed(1)}MB`
+                          : `${(res.fileSize / 1024).toFixed(0)}KB`}
+                      </span>
+                    )}
+                    <span className="text-[9px] text-muted-foreground">
+                      {new Date(res.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    removeClientResource(res.id);
+                    toast.success('Resource removed');
+                  }}
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50 transition-all"
+                >
+                  <X className="h-3.5 w-3.5 text-muted-foreground hover:text-red-500" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* PDF inclusion note */}
+        {clientResources.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-blue-100">
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              These resources will appear as a dedicated page in the PDF export when enabled.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   const renderSupplementsCard = (day: DayOfWeek) => {
     // Get supplements relevant to this day's context
@@ -2296,7 +2589,9 @@ export default function MealPlanPage() {
                         favoriteRecipes.map(fav => (
                           <div
                             key={fav.id}
-                            className="group flex items-start gap-2 p-1.5 rounded-lg hover:bg-pink-50/60 transition-colors"
+                            className="group flex items-start gap-2 p-1.5 rounded-lg hover:bg-pink-50/60 transition-colors cursor-pointer"
+                            onClick={() => setSlotPickerFavorite(fav)}
+                            title="Click to add to meal plan"
                           >
                             {fav.image_url ? (
                               <img src={fav.image_url} alt={fav.name} className="w-8 h-8 rounded object-cover flex-shrink-0" />
@@ -2311,16 +2606,28 @@ export default function MealPlanPage() {
                                 {fav.calories}cal · {fav.protein}P · {fav.carbs}C · {fav.fat}F
                               </p>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                removeFavoriteRecipe(fav.id);
-                                toast.success('Removed from favorites');
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-pink-100 transition-all"
-                            >
-                              <X className="h-3 w-3 text-muted-foreground" />
-                            </button>
+                            <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setSlotPickerFavorite(fav); }}
+                                className="p-0.5 rounded hover:bg-green-100 transition-all"
+                                title="Add to meal slot"
+                              >
+                                <Plus className="h-3 w-3 text-green-600" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeFavoriteRecipe(fav.id);
+                                  toast.success('Removed from favorites');
+                                }}
+                                className="p-0.5 rounded hover:bg-pink-100 transition-all"
+                                title="Remove from favorites"
+                              >
+                                <X className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </div>
                           </div>
                         ))
                       )}
@@ -2850,6 +3157,8 @@ export default function MealPlanPage() {
                             onEditMeal={(i) => setEditingSlot(i)}
                             onSwapMeal={(i) => setSwappingSlot(i)}
                             onBrowseRecipes={(i) => setBrowsingRecipesSlot(i)}
+                            onUseFavorite={(i) => setFavoritePickerSlot(i)}
+                            hasFavorites={favoriteRecipes.length > 0}
                             onUpdateSupplements={(i, supps) => handleUpdateMealSupplements(currentDay, i, supps)}
                             onDeleteMeal={(i) => {
                               deleteMeal(currentDay, i);
@@ -2875,6 +3184,9 @@ export default function MealPlanPage() {
 
                     {/* Supplements & Quick Links */}
                     {renderSupplementsCard(currentDay)}
+
+                    {/* Client Resources */}
+                    {renderResourcesCard()}
                   </>
                 )}
               </div>
@@ -3060,6 +3372,8 @@ export default function MealPlanPage() {
                             onEditMeal={(i) => setEditingSlot(i)}
                             onSwapMeal={(i) => setSwappingSlot(i)}
                             onBrowseRecipes={(i) => setBrowsingRecipesSlot(i)}
+                            onUseFavorite={(i) => setFavoritePickerSlot(i)}
+                            hasFavorites={favoriteRecipes.length > 0}
                             onUpdateSupplements={(i, supps) => handleUpdateMealSupplements(selectedDay, i, supps)}
                             onDeleteMeal={(i) => {
                               deleteMeal(selectedDay, i);
@@ -3085,6 +3399,9 @@ export default function MealPlanPage() {
 
                     {/* Supplements & Quick Links */}
                     {renderSupplementsCard(selectedDay)}
+
+                    {/* Client Resources */}
+                    {renderResourcesCard()}
                   </TabsContent>
                 ))}
               </Tabs>
@@ -3329,6 +3646,143 @@ export default function MealPlanPage() {
         />
       )}
 
+      {/* ============ FAVORITES PICKER DIALOG ============ */}
+      {/* Opens when user clicks "From Favorites" on an empty meal slot */}
+      <Dialog open={favoritePickerSlot !== null} onOpenChange={(open) => { if (!open) setFavoritePickerSlot(null); }}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Heart className="h-5 w-5 text-pink-500" />
+              Choose a Favorite Recipe
+            </DialogTitle>
+            <DialogDescription>
+              {favoritePickerSlot !== null && mealSlots[favoritePickerSlot] && (
+                <>Select a favorite to fill <span className="font-medium">{mealSlots[favoritePickerSlot].label}</span></>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-2 mt-2">
+            {favoriteRecipes.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Heart className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                <p className="text-sm">No favorites saved yet</p>
+                <p className="text-xs mt-1">Heart a recipe or meal to save it here</p>
+              </div>
+            ) : (
+              favoriteRecipes.map(fav => (
+                <button
+                  key={fav.id}
+                  type="button"
+                  className="w-full flex items-start gap-3 p-3 rounded-lg border hover:border-pink-300 hover:bg-pink-50/40 transition-all text-left group"
+                  onClick={() => {
+                    if (favoritePickerSlot !== null) {
+                      handleUseFavoriteInSlot(fav, favoritePickerSlot);
+                    }
+                  }}
+                >
+                  {fav.image_url ? (
+                    <img src={fav.image_url} alt={fav.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-pink-100 flex items-center justify-center flex-shrink-0">
+                      <ChefHat className="h-5 w-5 text-pink-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate group-hover:text-pink-700">{fav.name}</p>
+                    <div className="flex gap-3 mt-1">
+                      <span className="text-xs text-muted-foreground">{fav.calories} cal</span>
+                      <span className="text-xs text-blue-600">{fav.protein}P</span>
+                      <span className="text-xs text-amber-600">{fav.carbs}C</span>
+                      <span className="text-xs text-orange-600">{fav.fat}F</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Badge variant="outline" className="h-4 text-[9px] px-1.5">
+                        {fav.source === 'recipe' ? 'Recipe' : fav.source === 'ai' ? 'AI Generated' : 'Manual'}
+                      </Badge>
+                      {fav.mealData && (
+                        <Badge variant="outline" className="h-4 text-[9px] px-1.5 border-green-300 text-green-700">
+                          Full recipe
+                        </Badge>
+                      )}
+                      {!fav.mealData && (
+                        <Badge variant="outline" className="h-4 text-[9px] px-1.5 border-amber-300 text-amber-700">
+                          Macros only
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-pink-500 mt-1 shrink-0" />
+                </button>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============ SLOT PICKER DIALOG ============ */}
+      {/* Opens when user clicks a favorite in the sidebar to place it */}
+      <Dialog open={slotPickerFavorite !== null} onOpenChange={(open) => { if (!open) setSlotPickerFavorite(null); }}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Utensils className="h-5 w-5 text-[#c19962]" />
+              Choose a Meal Slot
+            </DialogTitle>
+            <DialogDescription>
+              {slotPickerFavorite && (
+                <>Place <span className="font-medium">&ldquo;{slotPickerFavorite.name}&rdquo;</span> into a meal slot</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-2 mt-2">
+            {mealSlots.map((slot, idx) => {
+              const isEmpty = !slot.meal || !slot.meal.name;
+              return (
+                <button
+                  key={slot.id}
+                  type="button"
+                  className={cn(
+                    "w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left group",
+                    isEmpty
+                      ? "hover:border-[#c19962] hover:bg-[#c19962]/5"
+                      : "hover:border-amber-300 hover:bg-amber-50/40"
+                  )}
+                  onClick={() => {
+                    if (slotPickerFavorite) {
+                      handleUseFavoriteInSlot(slotPickerFavorite, idx);
+                    }
+                  }}
+                >
+                  <div className={cn(
+                    "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                    isEmpty ? "bg-gray-100" : "bg-[#c19962]/10"
+                  )}>
+                    {isEmpty ? (
+                      <Plus className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <Utensils className="h-5 w-5 text-[#c19962]" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{slot.label}</p>
+                    {isEmpty ? (
+                      <p className="text-xs text-muted-foreground">Empty — click to fill</p>
+                    ) : (
+                      <p className="text-xs text-amber-600">
+                        {slot.meal?.name} — will be replaced
+                      </p>
+                    )}
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-[#c19962] shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Export Dialog */}
       <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
         <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
@@ -3355,8 +3809,8 @@ export default function MealPlanPage() {
                     exportType: newType,
                     ...(newType === 'single' && viewMode === 'day-types' && currentDayType ? { selectedDay: currentDayType.days[0] } : {}),
                     ...(newType === 'custom' && viewMode === 'day-types' && currentDayType ? { selectedDays: currentDayType.days } : {}),
-                    ...(newType === 'single' ? { includeCoverPage: false, includeSchedule: false, includeGroceryList: false } : {}),
-                    ...(newType === 'full' ? { includeCoverPage: true, includeClientProfile: true, includeSchedule: true, includeNutritionTargets: true, includeDietPreferences: true, includeMealContext: true, includeGroceryList: true, selectedDays: DAYS } : {}),
+                    ...(newType === 'single' ? { includeCoverPage: false, includeSchedule: false, includeGroceryList: false, includeResources: false } : {}),
+                    ...(newType === 'full' ? { includeCoverPage: true, includeClientProfile: true, includeSchedule: true, includeNutritionTargets: true, includeDietPreferences: true, includeMealContext: true, includeGroceryList: true, includeResources: true, selectedDays: DAYS } : {}),
                   }));
                 }}
                 className="grid grid-cols-3 gap-2"
@@ -3446,6 +3900,7 @@ export default function MealPlanPage() {
                   { key: 'includeRecipes' as const, label: 'Recipes', icon: Book },
                   { key: 'includeMealContext' as const, label: 'Meal Context', icon: Info },
                   { key: 'includeGroceryList' as const, label: 'Grocery List', icon: ListChecks },
+                  { key: 'includeResources' as const, label: `Resources${clientResources.length > 0 ? ` (${clientResources.length})` : ''}`, icon: FileText },
                 ].map(({ key, label, icon: Icon }) => (
                   <div key={key}
                     className={`flex items-center gap-2 p-2 border rounded-lg cursor-pointer transition-all ${exportOptions[key] ? 'border-[#c19962]/50 bg-[#c19962]/5' : 'opacity-50'}`}
@@ -3480,6 +3935,7 @@ export default function MealPlanPage() {
                     if (exportOptions.includeNutritionTargets) p++;
                     p += daysWithData.length;
                     if (exportOptions.includeGroceryList) p++;
+                    if (exportOptions.includeResources && clientResources.length > 0) p++;
                     return `${p} page${p !== 1 ? 's' : ''}`;
                   })()}
                 </span>
@@ -3490,7 +3946,7 @@ export default function MealPlanPage() {
                     const previewDays = exportOptions.exportType === 'full' ? DAYS : exportOptions.exportType === 'single' ? [exportOptions.selectedDay] : exportOptions.selectedDays;
                     const avgCal = nutritionTargets.length > 0 ? Math.round(nutritionTargets.reduce((s, t) => s + t.targetCalories, 0) / nutritionTargets.length) : 0;
                     
-                    const hasAnyPages = exportOptions.includeCoverPage || exportOptions.includeClientProfile || exportOptions.includeSchedule || exportOptions.includeNutritionTargets || exportOptions.includeGroceryList || previewDays.some(d => (mealPlan?.[d]?.meals?.filter(m => m !== null).length || 0) > 0);
+                    const hasAnyPages = exportOptions.includeCoverPage || exportOptions.includeClientProfile || exportOptions.includeSchedule || exportOptions.includeNutritionTargets || exportOptions.includeGroceryList || (exportOptions.includeResources && clientResources.length > 0) || previewDays.some(d => (mealPlan?.[d]?.meals?.filter(m => m !== null).length || 0) > 0);
 
                     if (!hasAnyPages) {
                       return (
@@ -3615,6 +4071,23 @@ export default function MealPlanPage() {
                                 </div>
                               ))}
                             </div>
+                          </Pg>
+                        )}
+
+                        {exportOptions.includeResources && clientResources.length > 0 && (
+                          <Pg label="Resources">
+                            <p className="text-[3.5px] font-bold text-[#00263d] mb-0.5">RESOURCES</p>
+                            <div className="space-y-[2px]">
+                              {clientResources.slice(0, 4).map((_, i) => (
+                                <div key={i} className="flex items-center gap-[2px]">
+                                  <div className="w-[4px] h-[4px] rounded-full bg-[#82c2d7] shrink-0" />
+                                  <div className="h-[2px] bg-gray-100 rounded flex-1" style={{ width: `${40 + (i * 15) % 40}%` }} />
+                                </div>
+                              ))}
+                            </div>
+                            {clientResources.length > 4 && (
+                              <p className="text-[2.5px] text-gray-300 mt-0.5">+{clientResources.length - 4} more</p>
+                            )}
                           </Pg>
                         )}
                       </>

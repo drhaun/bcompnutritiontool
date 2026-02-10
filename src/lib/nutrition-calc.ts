@@ -728,16 +728,16 @@ export function getFMICategory(fmi: number, gender: 'Male' | 'Female'): string {
     if (fmi < 3) return 'Extremely Lean';
     if (fmi < 4) return 'Lean';
     if (fmi < 6) return 'Considered Healthy';
-    if (fmi < 7) return 'Slightly Overfat';
-    if (fmi < 9) return 'Overfat';
-    return 'Significantly Overfat';
+    if (fmi < 7) return 'Slightly Elevated';
+    if (fmi < 9) return 'Elevated';
+    return 'High';
   } else {
     if (fmi < 5) return 'Extremely Lean';
     if (fmi < 6) return 'Lean';
     if (fmi < 9) return 'Considered Healthy';
-    if (fmi < 10) return 'Slightly Overfat';
-    if (fmi < 13) return 'Overfat';
-    return 'Significantly Overfat';
+    if (fmi < 10) return 'Slightly Elevated';
+    if (fmi < 13) return 'Elevated';
+    return 'High';
   }
 }
 
@@ -768,8 +768,8 @@ export function getFMITargetRange(category: string, gender: 'Male' | 'Female'): 
     'Extremely Lean': { Male: { min: 2, max: 3 }, Female: { min: 4, max: 5 } },
     'Lean': { Male: { min: 3, max: 4 }, Female: { min: 5, max: 6 } },
     'Considered Healthy': { Male: { min: 4, max: 6 }, Female: { min: 6, max: 9 } },
-    'Slightly Overfat': { Male: { min: 6, max: 7 }, Female: { min: 9, max: 10 } },
-    'Overfat': { Male: { min: 7, max: 9 }, Female: { min: 10, max: 13 } },
+    'Slightly Elevated': { Male: { min: 6, max: 7 }, Female: { min: 9, max: 10 } },
+    'Elevated': { Male: { min: 7, max: 9 }, Female: { min: 10, max: 13 } },
   };
   return ranges[category]?.[gender] || { min: 4, max: 6 };
 }
@@ -833,11 +833,11 @@ export function getRecommendedGoal(
   fmiCategory: string,
   ffmiCategory: string
 ): { recommendation: 'lose_fat' | 'gain_muscle' | 'maintain'; reason: string } {
-  // Prioritize fat loss if overfat
-  if (['Overfat', 'Significantly Overfat', 'Slightly Overfat'].includes(fmiCategory)) {
+  // Prioritize fat loss if FMI is elevated
+  if (['Elevated', 'High', 'Slightly Elevated'].includes(fmiCategory)) {
     return {
       recommendation: 'lose_fat',
-      reason: `Your FMI indicates ${fmiCategory.toLowerCase()}. Reducing body fat will improve health markers and body composition.`,
+      reason: `Your FMI is considered ${fmiCategory.toLowerCase()}. Optimizing body fat levels will support better health markers and body composition.`,
     };
   }
 
@@ -877,10 +877,10 @@ export function getRecommendedRate(
 
   if (goalType === 'lose_fat') {
     // More aggressive for higher body fat, conservative for lean
-    if (['Significantly Overfat', 'Overfat'].includes(fmiCategory)) {
+    if (['High', 'Elevated'].includes(fmiCategory)) {
       return { weeklyPct: 1.0, weeklyKgPerKg: 0.01, description: '1% of body weight/week (aggressive)' };
     }
-    if (fmiCategory === 'Slightly Overfat') {
+    if (fmiCategory === 'Slightly Elevated') {
       return { weeklyPct: 0.75, weeklyKgPerKg: 0.0075, description: '0.75% of body weight/week (moderate)' };
     }
     // Already lean - be conservative

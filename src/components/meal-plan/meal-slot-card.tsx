@@ -117,6 +117,8 @@ interface MealSlotCardProps {
   onUpdateNote: (slotIndex: number, note: string) => void;
   onGenerateNote: (slotIndex: number) => Promise<void>;
   onBrowseRecipes?: (slotIndex: number) => void;
+  onUseFavorite?: (slotIndex: number) => void;
+  hasFavorites?: boolean;
   onUpdateSupplements?: (slotIndex: number, supplements: MealSupplement[]) => void;
   isGenerating: boolean;
   isGeneratingNote: boolean;
@@ -149,6 +151,8 @@ export function MealSlotCard({
   onUpdateNote,
   onGenerateNote,
   onBrowseRecipes,
+  onUseFavorite,
+  hasFavorites,
   onUpdateSupplements,
   isGenerating,
   isGeneratingNote,
@@ -609,6 +613,17 @@ export function MealSlotCard({
                   Manual
                 </Button>
               </div>
+              {onUseFavorite && hasFavorites && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full border-pink-300 text-pink-700 hover:bg-pink-50"
+                  onClick={() => onUseFavorite(slot.slotIndex)}
+                >
+                  <Heart className="h-4 w-4 mr-1" />
+                  From Favorites
+                </Button>
+              )}
               <Button 
                 variant="outline" 
                 size="sm" 

@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       weeklySchedule,
       nutritionTargets,
       mealPlan,
+      resources, // Client resources (links, files)
       logoUrl, // Optional high-resolution logo URL
       options, // PDF section options
     } = body;
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
         nutritionTargets,
         mealPlan,
         groceryList,
+        resources: resources || [],
         logoUrl, // Pass logo URL if provided
         options: options || {},
       }) as any

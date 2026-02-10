@@ -122,17 +122,17 @@ const FMI_CATEGORIES = {
     { max: 3, label: 'Extremely Lean', color: 'bg-blue-100 text-blue-800' },
     { max: 4, label: 'Lean', color: 'bg-green-100 text-green-800' },
     { max: 6, label: 'Considered Healthy', color: 'bg-emerald-100 text-emerald-800' },
-    { max: 7, label: 'Slightly Overfat', color: 'bg-yellow-100 text-yellow-800' },
-    { max: 9, label: 'Overfat', color: 'bg-orange-100 text-orange-800' },
-    { max: Infinity, label: 'Significantly Overfat', color: 'bg-red-100 text-red-800' },
+    { max: 7, label: 'Slightly Elevated', color: 'bg-yellow-100 text-yellow-800' },
+    { max: 9, label: 'Elevated', color: 'bg-orange-100 text-orange-800' },
+    { max: Infinity, label: 'High', color: 'bg-red-100 text-red-800' },
   ],
   Female: [
     { max: 5, label: 'Extremely Lean', color: 'bg-blue-100 text-blue-800' },
     { max: 6, label: 'Lean', color: 'bg-green-100 text-green-800' },
     { max: 9, label: 'Considered Healthy', color: 'bg-emerald-100 text-emerald-800' },
-    { max: 10, label: 'Slightly Overfat', color: 'bg-yellow-100 text-yellow-800' },
-    { max: 13, label: 'Overfat', color: 'bg-orange-100 text-orange-800' },
-    { max: Infinity, label: 'Significantly Overfat', color: 'bg-red-100 text-red-800' },
+    { max: 10, label: 'Slightly Elevated', color: 'bg-yellow-100 text-yellow-800' },
+    { max: 13, label: 'Elevated', color: 'bg-orange-100 text-orange-800' },
+    { max: Infinity, label: 'High', color: 'bg-red-100 text-red-800' },
   ],
 };
 
@@ -1212,8 +1212,8 @@ export default function SetupPage() {
     const fmiCat = bodyComp.fmiCategory;
     const ffmiCat = bodyComp.ffmiCategory;
     
-    if (['Overfat', 'Significantly Overfat', 'Slightly Overfat'].includes(fmiCat)) {
-      return { goal: 'lose_fat' as const, reason: `FMI indicates ${fmiCat.toLowerCase()}. Fat loss recommended.` };
+    if (['Elevated', 'High', 'Slightly Elevated'].includes(fmiCat)) {
+      return { goal: 'lose_fat' as const, reason: `FMI is considered ${fmiCat.toLowerCase()}. Optimizing body composition recommended.` };
     }
     if (['Undermuscled', 'Moderately Undermuscled'].includes(ffmiCat)) {
       return { goal: 'gain_muscle' as const, reason: `FFMI indicates ${ffmiCat.toLowerCase()}. Building muscle recommended.` };
