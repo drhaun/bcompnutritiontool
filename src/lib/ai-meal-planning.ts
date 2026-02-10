@@ -477,6 +477,81 @@ function cleanIngredientName(name: string): string {
 }
 
 /**
+ * Normalize unit string to a canonical form for merging.
+ * "oz", "ounce", "ounces" -> "oz"
+ */
+function normalizeUnitForMerge(unit: string): string {
+  const u = unit.toLowerCase().trim();
+  if (['oz', 'ounce', 'ounces'].includes(u)) return 'oz';
+  if (['lb', 'lbs', 'pound', 'pounds'].includes(u)) return 'lb';
+  if (['g', 'gram', 'grams'].includes(u)) return 'g';
+  if (['kg', 'kilogram', 'kilograms'].includes(u)) return 'kg';
+  if (['cup', 'cups'].includes(u)) return 'cup';
+  if (['tbsp', 'tablespoon', 'tablespoons'].includes(u)) return 'tbsp';
+  if (['tsp', 'teaspoon', 'teaspoons'].includes(u)) return 'tsp';
+  if (['ml', 'milliliter', 'milliliters'].includes(u)) return 'ml';
+  if (['l', 'liter', 'liters'].includes(u)) return 'l';
+  if (['slice', 'slices'].includes(u)) return 'slice';
+  if (['scoop', 'scoops'].includes(u)) return 'scoop';
+  if (['serving', 'servings'].includes(u)) return 'serving';
+  if (['piece', 'pieces'].includes(u)) return 'piece';
+  return u;
+}
+
+/**
+ * Convert to a common base unit for addition.
+ * Weight -> oz, Volume -> tbsp, Count -> as-is
+ */
+function convertToBaseUnit(value: number, unit: string): { value: number; unit: string } {
+  const n = normalizeUnitForMerge(unit);
+  // Weight -> oz
+  if (n === 'lb') return { value: value * 16, unit: 'oz' };
+  if (n === 'g') return { value: value / 28.35, unit: 'oz' };
+  if (n === 'kg') return { value: value * 35.274, unit: 'oz' };
+  if (n === 'oz') return { value, unit: 'oz' };
+  // Volume -> tbsp
+  if (n === 'cup') return { value: value * 16, unit: 'tbsp' };
+  if (n === 'tsp') return { value: value / 3, unit: 'tbsp' };
+  if (n === 'tbsp') return { value, unit: 'tbsp' };
+  if (n === 'ml') return { value: value / 15, unit: 'tbsp' };
+  if (n === 'l') return { value: value * 66.67, unit: 'tbsp' };
+  // Count units stay as-is
+  return { value, unit: n };
+}
+
+/**
+ * Normalize ingredient name to a canonical key for grocery list grouping.
+ * "Chicken, Breast, Boneless, Skinless, Raw" and "chicken" should merge.
+ * "Avocado, Hass, Peeled, Raw" and "avocado" should merge.
+ */
+function normalizeIngredientKey(name: string): string {
+  let key = name.toLowerCase().trim();
+  
+  // Remove common qualifiers that don't affect the grocery item
+  key = key.replace(/,?\s*(raw|cooked|fresh|organic|boneless|skinless|peeled|frozen|canned|dried|ground|farm raised|atlantic|hass|green|cos|romaine|extra virgin)\b/gi, '');
+  // Remove parenthetical notes
+  key = key.replace(/\(.*?\)/g, '');
+  // Remove "can sub..." / "can opt..." notes
+  key = key.replace(/\bcan\s+(sub|opt)\b.*$/i, '');
+  // Collapse whitespace and trim commas
+  key = key.replace(/[,]+/g, ' ').replace(/\s+/g, ' ').trim();
+  // Remove trailing commas or dashes
+  key = key.replace(/[,\-\s]+$/, '');
+  
+  return key;
+}
+
+/**
+ * Pick the best display name between two ingredient names
+ * (prefer the longer, more descriptive one)
+ */
+function pickBestDisplayName(existing: string, incoming: string): string {
+  // Prefer the more specific/descriptive name
+  if (incoming.length > existing.length) return incoming;
+  return existing;
+}
+
+/**
  * Consolidate grocery list from weekly meal plan
  */
 export function consolidateGroceryList(mealPlan: WeeklyMealPlan): Record<string, { name: string; totalAmount: string; category: string; meals: string[] }[]> {
@@ -504,40 +579,72 @@ export function consolidateGroceryList(mealPlan: WeeklyMealPlan): Record<string,
         const cleanedName = cleanIngredientName(ingredient.item);
         if (!cleanedName) continue; // Skip if name is empty after cleaning
         
-        const key = cleanedName.toLowerCase();
+        // Normalize to canonical key for better merging
+        const key = normalizeIngredientKey(cleanedName);
+        if (!key) continue;
+        
         const existing = groceryMap.get(key);
         
         // Parse amount - handle various formats
         const amountStr = ingredient.amount || '1 serving';
-        const amountMatch = amountStr.match(/^([\d.\/]+)\s*(.*)$/);
+        
+        // Skip "to taste" / "as needed" items from grocery list consolidation amounts
+        const isNonScalable = /\b(to taste|as needed|optional|pinch|dash|garnish)\b/i.test(amountStr);
+        
         let value = 1;
         let unit = 'serving';
         
-        if (amountMatch) {
-          // Handle fractions like 1/2
-          if (amountMatch[1].includes('/')) {
-            const [num, denom] = amountMatch[1].split('/');
-            value = parseFloat(num) / parseFloat(denom);
-          } else {
-            value = parseFloat(amountMatch[1]) || 1;
+        if (!isNonScalable) {
+          const amountMatch = amountStr.match(/^([\d.\/]+)\s*(.*)$/);
+          if (amountMatch) {
+            // Handle fractions like 1/2
+            if (amountMatch[1].includes('/')) {
+              const [num, denom] = amountMatch[1].split('/');
+              value = parseFloat(num) / parseFloat(denom);
+            } else {
+              value = parseFloat(amountMatch[1]) || 1;
+            }
+            unit = amountMatch[2]?.trim() || 'serving';
           }
-          unit = amountMatch[2]?.trim() || 'serving';
+        } else {
+          // Non-scalable items just get a "to taste" entry
+          value = 0;
+          unit = 'to taste';
         }
         
         if (existing) {
-          // Try to combine with same unit
-          const sameUnit = existing.amounts.find(a => a.unit === unit);
-          if (sameUnit) {
-            sameUnit.value += value;
+          // Update display name to the best one
+          existing.originalName = pickBestDisplayName(existing.originalName, cleanedName);
+          
+          if (unit === 'to taste') {
+            // Don't add numeric amounts for "to taste" items
+            if (!existing.amounts.some(a => a.unit === 'to taste')) {
+              existing.amounts.push({ value: 0, unit: 'to taste' });
+            }
           } else {
-            existing.amounts.push({ value, unit });
+            // Try to combine with same unit family
+            const normalizedUnit = normalizeUnitForMerge(unit);
+            const sameUnit = existing.amounts.find(a => normalizeUnitForMerge(a.unit) === normalizedUnit);
+            if (sameUnit) {
+              // Convert both to the same base unit before adding
+              const base1 = convertToBaseUnit(sameUnit.value, sameUnit.unit);
+              const base2 = convertToBaseUnit(value, unit);
+              if (base1.unit === base2.unit) {
+                sameUnit.value = base1.value + base2.value;
+                sameUnit.unit = base1.unit;
+              } else {
+                existing.amounts.push({ value, unit });
+              }
+            } else {
+              existing.amounts.push({ value, unit });
+            }
           }
           if (!existing.meals.includes(`${day} - ${meal.name}`)) {
             existing.meals.push(`${day} - ${meal.name}`);
           }
         } else {
           groceryMap.set(key, {
-            amounts: [{ value, unit }],
+            amounts: unit === 'to taste' ? [{ value: 0, unit: 'to taste' }] : [{ value, unit }],
             category: ingredient.category || 'other',
             meals: [`${day} - ${meal.name}`],
             originalName: cleanedName, // Store the cleaned, formatted name
@@ -590,41 +697,67 @@ export function consolidateGroceryList(mealPlan: WeeklyMealPlan): Record<string,
   };
 
   for (const [, data] of groceryMap) {
-    // Round amounts to practical values
+    // Round amounts to practical, grocery-store-friendly values
     const amountParts = data.amounts
       .map(a => {
-        // Round to practical amounts based on unit
-        let roundedValue = a.value;
-        const unitLower = a.unit.toLowerCase();
+        // Handle "to taste" items
+        if (a.unit === 'to taste') return 'to taste';
         
-        if (unitLower.includes('oz') || unitLower.includes('lb') || unitLower === 'g' || unitLower === 'kg') {
-          // Round to nearest 0.5 for weights
-          roundedValue = Math.round(a.value * 2) / 2;
-        } else if (unitLower.includes('cup') || unitLower.includes('tbsp') || unitLower.includes('tsp')) {
-          // Round to nearest 0.25 for volume measurements
-          roundedValue = Math.round(a.value * 4) / 4;
-        } else if (unitLower.includes('slice') || unitLower.includes('serving') || unitLower.includes('piece')) {
-          // Round up to whole numbers for countable items
-          roundedValue = Math.ceil(a.value);
-        } else if (unitLower.includes('dash') || unitLower.includes('pinch')) {
-          // Round up dashes and pinches
-          roundedValue = Math.ceil(a.value);
+        const unitNorm = normalizeUnitForMerge(a.unit);
+        let roundedValue = a.value;
+        let displayUnit = normalizeUnit(a.unit);
+        
+        // Convert base units back to practical purchase units
+        if (unitNorm === 'oz') {
+          if (roundedValue >= 16) {
+            // Convert to lbs for large amounts
+            roundedValue = Math.ceil(roundedValue / 16 * 2) / 2; // Round up to nearest 0.5 lb
+            displayUnit = 'lb';
+          } else {
+            roundedValue = Math.ceil(roundedValue); // Round up to whole oz
+          }
+        } else if (unitNorm === 'tbsp') {
+          if (roundedValue >= 16) {
+            // Convert to cups
+            roundedValue = Math.ceil(roundedValue / 16 * 4) / 4; // Round to nearest 1/4 cup
+            displayUnit = roundedValue === 1 ? 'cup' : 'cups';
+          } else if (roundedValue < 1) {
+            // Convert to tsp
+            roundedValue = Math.ceil(roundedValue * 3);
+            displayUnit = 'tsp';
+          } else {
+            roundedValue = Math.ceil(roundedValue * 2) / 2; // Round to nearest 0.5 tbsp
+          }
+        } else if (['slice', 'scoop', 'serving', 'piece'].includes(unitNorm)) {
+          roundedValue = Math.ceil(roundedValue);
         } else {
           // Default: round to 1 decimal
           roundedValue = Math.round(a.value * 10) / 10;
         }
         
-        // Skip if rounds to 0
-        if (roundedValue === 0) {
-          return null;
+        // Skip if rounds to 0 (but not "to taste")
+        if (roundedValue === 0) return null;
+        
+        // Format fractions for readability
+        if (roundedValue < 1) {
+          if (roundedValue >= 0.7) return `1 ${displayUnit}`;
+          if (roundedValue >= 0.4) return `1/2 ${displayUnit}`;
+          if (roundedValue >= 0.2) return `1/4 ${displayUnit}`;
+          return `${roundedValue} ${displayUnit}`;
         }
         
-        // Format the value - no decimals for whole numbers
+        const whole = Math.floor(roundedValue);
+        const frac = roundedValue - whole;
+        if (frac >= 0.7) return `${whole + 1} ${displayUnit}`;
+        if (frac >= 0.4) return `${whole} 1/2 ${displayUnit}`;
+        if (frac >= 0.2) return `${whole} 1/4 ${displayUnit}`;
+        
+        // No decimals for whole numbers
         const formattedValue = roundedValue % 1 === 0 
           ? roundedValue.toString() 
-          : roundedValue.toFixed(roundedValue % 0.25 === 0 ? 2 : 1).replace(/\.?0+$/, '');
+          : roundedValue.toFixed(1).replace(/\.0$/, '');
         
-        return `${formattedValue} ${normalizeUnit(a.unit)}`;
+        return `${formattedValue} ${displayUnit}`;
       })
       .filter(Boolean);
     

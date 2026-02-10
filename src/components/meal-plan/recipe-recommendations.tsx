@@ -262,19 +262,64 @@ export function RecipeRecommendations({
     fiber: Math.round(selectedRecipe.original.fiber * customServings),
   } : null;
 
+  // Clean ingredient notes that conflict with client's dietary preferences
+  const cleanIngredientForDiet = useCallback((item: string, amount: string): { item: string; amount: string } => {
+    const allAvoid = [
+      ...(dietPreferences?.foodsToAvoid || []),
+      ...(dietPreferences?.allergies || []),
+      ...(dietPreferences?.customAllergies || []),
+    ].map(f => f.toLowerCase());
+    
+    if (allAvoid.length === 0) return { item, amount };
+    
+    let cleanedItem = item;
+    let cleanedAmount = amount;
+    
+    // Remove parenthetical notes that suggest avoided foods
+    // e.g., "(can sub cow's milk or other plant-based milk)" when avoiding dairy
+    for (const avoid of allAvoid) {
+      // Check for parenthetical suggestions containing avoided foods
+      const parenRegex = /\(([^)]*)\)/gi;
+      let match;
+      while ((match = parenRegex.exec(cleanedItem)) !== null) {
+        const noteText = match[1].toLowerCase();
+        if (noteText.includes(avoid) || 
+            (avoid === 'dairy' && /\b(milk|cream|butter|cheese|yogurt|whey)\b/.test(noteText)) ||
+            (avoid === 'gluten' && /\b(wheat|bread|flour|pasta)\b/.test(noteText))) {
+          // Remove the conflicting parenthetical
+          cleanedItem = cleanedItem.replace(match[0], '').replace(/\s+/g, ' ').trim();
+        }
+      }
+      // Also clean the amount field if it has notes
+      while ((match = parenRegex.exec(cleanedAmount)) !== null) {
+        const noteText = match[1].toLowerCase();
+        if (noteText.includes(avoid) ||
+            (avoid === 'dairy' && /\b(milk|cream|butter|cheese|yogurt|whey)\b/.test(noteText))) {
+          cleanedAmount = cleanedAmount.replace(match[0], '').replace(/\s+/g, ' ').trim();
+        }
+      }
+    }
+    
+    return { item: cleanedItem, amount: cleanedAmount };
+  }, [dietPreferences]);
+  
   const handleSelectRecipe = () => {
     if (!selectedRecipe || !customScaledMacros) return;
 
-    // Scale ingredient amounts based on servings
-    const scaledIngredients = selectedRecipe.ingredients.map(ing => ({
-      item: ing.item,
-      amount: scaleAmount(ing.amount, customServings),
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      category: categorizeIngredient(ing.item),
-    }));
+    // Scale ingredient amounts and clean for dietary preferences
+    const scaledIngredients = selectedRecipe.ingredients.map(ing => {
+      const scaled = scaleAmount(ing.amount, customServings);
+      const cleaned = cleanIngredientForDiet(ing.item, scaled);
+      return {
+        item: cleaned.item,
+        amount: cleaned.amount,
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        category: categorizeIngredient(ing.item),
+      };
+    });
 
     // Get adjustment tips for the PDF
     const adjustmentTips = getAdjustmentTips(selectedRecipe, customServings);
@@ -285,7 +330,50 @@ export function RecipeRecommendations({
       ? '⚠️ SUBSTITUTIONS NEEDED:\n' + selectedRecipe.substitutionSuggestions.join('\n')
       : '';
     
-    const implementationNotes = [tipsNotes, subNotes].filter(Boolean).join('\n\n');
+    // Check instructions for foods-to-avoid and add warnings
+    const allAvoid = [
+      ...(dietPreferences?.foodsToAvoid || []),
+      ...(dietPreferences?.allergies || []),
+      ...(dietPreferences?.customAllergies || []),
+    ].map(f => f.toLowerCase());
+    
+    const avoidSwaps: Record<string, string> = {
+      'dairy': 'Use dairy-free alternatives',
+      'milk': 'Use almond milk, oat milk, or coconut milk',
+      'cream': 'Use coconut cream or cashew cream',
+      'butter': 'Use olive oil or vegan butter',
+      'cheese': 'Use nutritional yeast or dairy-free cheese',
+      'pepper': 'Omit black pepper or use white pepper/paprika',
+      'tomato': 'Use roasted red peppers or beets for color/acidity',
+      'tomatoes': 'Use roasted red peppers or beets for color/acidity',
+      'peanut': 'Use sunflower seed butter or almond butter',
+      'peanuts': 'Use sunflower seeds or almonds',
+      'banana': 'Use mashed avocado or applesauce',
+      'bananas': 'Use mashed avocado or applesauce',
+      'eggplant': 'Use zucchini or portobello mushrooms',
+      'eggplants': 'Use zucchini or portobello mushrooms',
+      'soy': 'Use coconut aminos instead of soy sauce',
+      'gluten': 'Use gluten-free alternatives',
+      'egg': 'Use flax egg (1 tbsp ground flax + 3 tbsp water)',
+      'eggs': 'Use flax eggs or chia eggs',
+    };
+    
+    const instructionWarnings: string[] = [];
+    const instructionText = selectedRecipe.directions.join(' ').toLowerCase();
+    
+    for (const avoid of allAvoid) {
+      // Check if the avoided food appears in instructions (not just ingredients)
+      if (instructionText.includes(avoid)) {
+        const swap = avoidSwaps[avoid] || `Omit or replace ${avoid}`;
+        instructionWarnings.push(`⚠️ Instructions mention "${avoid}" — ${swap}`);
+      }
+    }
+    
+    const warningNotes = instructionWarnings.length > 0
+      ? '⚠️ DIETARY NOTES:\n' + instructionWarnings.join('\n')
+      : '';
+    
+    const implementationNotes = [tipsNotes, subNotes, warningNotes].filter(Boolean).join('\n\n');
 
     // Convert recipe to Meal format
     const meal: Meal = {
@@ -1021,11 +1109,20 @@ function getTimeOfDay(timeSlot: string): 'morning' | 'afternoon' | 'evening' {
   return 'evening';
 }
 
+// Patterns that indicate a "to taste" or non-scalable ingredient
+const NON_SCALABLE_PATTERNS = /\b(to taste|as needed|optional|pinch|dash|garnish|for serving|for topping)\b/i;
+
 // Helper to scale ingredient amounts with grocery-friendly formatting
 function scaleAmount(amount: string, multiplier: number): string {
   if (multiplier === 1) return amount;
   
-  // Try to parse and scale numeric amounts
+  // Don't scale "to taste", "as needed", "pinch", etc.
+  if (NON_SCALABLE_PATTERNS.test(amount)) {
+    return amount;
+  }
+  
+  // Handle compound fractions like "1/2 cup" where the fraction is at the start
+  // First try: numeric amount followed by unit
   const numMatch = amount.match(/^([\d\/\.]+)\s*(.*)$/);
   if (numMatch) {
     let num: number;
@@ -1052,6 +1149,13 @@ function scaleAmount(amount: string, multiplier: number): string {
       return `${lbs} lb`;
     }
     
+    // Round count-like units (slices, scoops, tortillas, eggs) to whole numbers
+    const countUnits = ['slice', 'slices', 'scoop', 'scoops', 'tortilla', 'tortillas', 
+                        'egg', 'eggs', 'piece', 'pieces', 'clove', 'cloves', 'stalk', 'stalks'];
+    if (countUnits.some(u => lowerUnit.includes(u)) || (!unit && num > 0.5)) {
+      return `${Math.round(num)} ${unit}`.trim();
+    }
+    
     // Friendly fractions for values < 1
     if (num < 1 && num > 0) {
       if (num >= 0.875) return `1 ${unit}`.trim();
@@ -1074,7 +1178,8 @@ function scaleAmount(amount: string, multiplier: number): string {
     return `${Math.round(num * 10) / 10} ${unit}`.trim();
   }
   
-  return `${multiplier}x ${amount}`;
+  // Can't parse — just return the original amount (never use "Nx" prefix)
+  return amount;
 }
 
 export default RecipeRecommendations;

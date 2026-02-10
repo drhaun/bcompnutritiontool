@@ -388,6 +388,9 @@ function formatGroceryFriendlyAmount(value: number, unit: string): string {
   return `${Math.round(value * 10) / 10} ${unit}`.trim();
 }
 
+// Patterns that indicate a "to taste" or non-scalable ingredient
+const NON_SCALABLE_AMOUNT = /\b(to taste|as needed|optional|pinch|dash|garnish|for serving|for topping)\b/i;
+
 // Scale ingredient amounts to per-serving with validation
 function scaleIngredientsToPerServing(
   ingredients: { item: string; amount: string }[],
@@ -397,6 +400,11 @@ function scaleIngredientsToPerServing(
   
   return ingredients.map(ing => {
     const amount = ing.amount || '';
+    
+    // Don't scale "to taste", "as needed", "pinch", etc.
+    if (NON_SCALABLE_AMOUNT.test(amount)) {
+      return ing;
+    }
     
     // Try to parse the amount and scale it down
     const numMatch = amount.match(/^([\d.\/]+)\s*(.*)$/);
@@ -413,6 +421,15 @@ function scaleIngredientsToPerServing(
       // Scale down to per-serving
       let scaledValue = value / recipeServings;
       let unit = numMatch[2]?.trim() || '';
+      
+      // Round count-like units to whole numbers
+      const lowerUnit = unit.toLowerCase();
+      const countUnits = ['slice', 'slices', 'scoop', 'scoops', 'tortilla', 'tortillas',
+                          'egg', 'eggs', 'piece', 'pieces', 'clove', 'cloves', 'stalk', 'stalks'];
+      if (countUnits.some(u => lowerUnit.includes(u))) {
+        scaledValue = Math.round(scaledValue);
+        if (scaledValue < 1) scaledValue = 1;
+      }
       
       // Validate the scaled amount isn't unreasonable
       const validated = validateIngredientAmount(ing.item, scaledValue, unit);
