@@ -863,8 +863,8 @@ export default function CronometerDashboardPage() {
                           const fiberStatus = getNutrientStatus(day.fiber, targets.fiber);
                           const sodiumStatus = getNutrientStatus(day.sodium, targets.sodium, true);
                           
-                          // Count issues - only significant deviations
-                          const issues = [calStatus, proteinStatus, carbsStatus, fatStatus, fiberStatus, sodiumStatus]
+                          // Count opportunities for improvement - only significant deviations
+                          const opportunities = [calStatus, proteinStatus, carbsStatus, fatStatus, fiberStatus, sodiumStatus]
                             .filter(s => s.status !== 'optimal').length;
                           
                           return (
@@ -878,9 +878,9 @@ export default function CronometerDashboardPage() {
                                         Complete
                                       </Badge>
                                     )}
-                                    {issues > 0 && (
-                                      <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-400">
-                                        {issues} issue{issues !== 1 ? 's' : ''}
+                                    {opportunities > 0 && (
+                                      <Badge variant="outline" className="text-xs text-[#c19962] border-[#c19962]/40">
+                                        {opportunities} {opportunities === 1 ? 'opportunity' : 'opportunities'}
                                       </Badge>
                                     )}
                                   </div>
@@ -962,57 +962,67 @@ export default function CronometerDashboardPage() {
                                     </div>
                                   )}
                                   
-                                  {/* Issues Summary */}
-                                  {issues > 0 && (
+                                  {/* Opportunities for Improvement */}
+                                  {opportunities > 0 && (
                                     <div className="mt-3 pt-3 border-t">
-                                      <h5 className="text-xs font-semibold mb-1 text-yellow-600 flex items-center gap-1">
-                                        <AlertTriangle className="h-3 w-3" />
-                                        Issues Identified
+                                      <h5 className="text-xs font-semibold mb-1.5 text-[#c19962] flex items-center gap-1">
+                                        <Target className="h-3 w-3" />
+                                        Opportunities for Improvement
                                       </h5>
-                                      <div className="flex flex-wrap gap-1">
-                                        {/* Protein issues */}
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {/* Protein */}
                                         {proteinStatus.status === 'low' && (
-                                          <Badge variant="outline" className="text-xs text-red-600 border-red-300">
-                                            Low Protein ({round(proteinStatus.diff, 1)}g from target)
+                                          <Badge variant="outline" className="text-xs text-slate-600 border-slate-300 bg-slate-50">
+                                            Protein {round(Math.abs(proteinStatus.diff), 1)}g below target ({proteinStatus.percent}%)
                                           </Badge>
                                         )}
                                         {proteinStatus.status === 'high' && proteinStatus.percent > 150 && (
-                                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
-                                            High Protein (+{round(proteinStatus.diff, 1)}g over)
+                                          <Badge variant="outline" className="text-xs text-slate-600 border-slate-300 bg-slate-50">
+                                            Protein +{round(proteinStatus.diff, 1)}g above target ({proteinStatus.percent}%)
                                           </Badge>
                                         )}
-                                        {/* Fiber issues */}
+                                        {/* Fiber */}
                                         {fiberStatus.status === 'low' && (
-                                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
-                                            Low Fiber ({round(fiberStatus.diff, 1)}g from target)
+                                          <Badge variant="outline" className="text-xs text-slate-600 border-slate-300 bg-slate-50">
+                                            Fiber {round(Math.abs(fiberStatus.diff), 1)}g below target ({fiberStatus.percent}%)
                                           </Badge>
                                         )}
-                                        {/* Sodium issues */}
+                                        {/* Sodium */}
                                         {sodiumStatus.status === 'high' && (
-                                          <Badge variant="outline" className="text-xs text-red-600 border-red-300">
-                                            High Sodium (+{round(sodiumStatus.diff, 0)}mg over limit)
+                                          <Badge variant="outline" className="text-xs text-slate-600 border-slate-300 bg-slate-50">
+                                            Sodium +{round(sodiumStatus.diff, 0)}mg above limit ({sodiumStatus.percent}%)
                                           </Badge>
                                         )}
-                                        {/* Calorie issues */}
+                                        {/* Calories */}
                                         {calStatus.status === 'low' && (
-                                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
-                                            Under Calories ({calStatus.percent}% of target)
+                                          <Badge variant="outline" className="text-xs text-slate-600 border-slate-300 bg-slate-50">
+                                            Calories {round(Math.abs(calStatus.diff), 0)} kcal below target ({calStatus.percent}%)
                                           </Badge>
                                         )}
                                         {calStatus.status === 'high' && (
-                                          <Badge variant="outline" className="text-xs text-red-600 border-red-300">
-                                            Over Calories (+{round(calStatus.diff, 0)} kcal)
+                                          <Badge variant="outline" className="text-xs text-slate-600 border-slate-300 bg-slate-50">
+                                            Calories +{round(calStatus.diff, 0)} kcal above target ({calStatus.percent}%)
                                           </Badge>
                                         )}
-                                        {/* Carbs/Fat issues - only flag significant deviations */}
+                                        {/* Carbs/Fat - only flag significant deviations */}
                                         {carbsStatus.status === 'high' && carbsStatus.percent > 150 && (
-                                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
-                                            High Carbs ({carbsStatus.percent}%)
+                                          <Badge variant="outline" className="text-xs text-slate-600 border-slate-300 bg-slate-50">
+                                            Carbs above target ({carbsStatus.percent}%)
+                                          </Badge>
+                                        )}
+                                        {carbsStatus.status === 'low' && (
+                                          <Badge variant="outline" className="text-xs text-slate-600 border-slate-300 bg-slate-50">
+                                            Carbs below target ({carbsStatus.percent}%)
                                           </Badge>
                                         )}
                                         {fatStatus.status === 'high' && fatStatus.percent > 150 && (
-                                          <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
-                                            High Fat ({fatStatus.percent}%)
+                                          <Badge variant="outline" className="text-xs text-slate-600 border-slate-300 bg-slate-50">
+                                            Fat above target ({fatStatus.percent}%)
+                                          </Badge>
+                                        )}
+                                        {fatStatus.status === 'low' && (
+                                          <Badge variant="outline" className="text-xs text-slate-600 border-slate-300 bg-slate-50">
+                                            Fat below target ({fatStatus.percent}%)
                                           </Badge>
                                         )}
                                       </div>
