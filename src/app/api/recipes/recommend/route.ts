@@ -92,7 +92,7 @@ interface ScaledRecipe {
 }
 
 // ============ SUBSTITUTION MAP ============
-// Common ingredient substitutions for dietary restrictions
+// Common ingredient substitutions for dietary restrictions AND allergies
 const SUBSTITUTION_MAP: Record<string, { pattern: RegExp; alternatives: string[]; restriction: string }[]> = {
   'gluten-free': [
     { pattern: /\b(wheat|bread|pasta|flour)\b/i, alternatives: ['gluten-free alternative', 'almond flour', 'rice flour', 'gluten-free pasta'], restriction: 'gluten-free' },
@@ -100,6 +100,21 @@ const SUBSTITUTION_MAP: Record<string, { pattern: RegExp; alternatives: string[]
     { pattern: /\b(tortilla)\b/i, alternatives: ['corn tortilla', 'lettuce wrap'], restriction: 'gluten-free' },
     { pattern: /\b(oats|oatmeal)\b/i, alternatives: ['certified gluten-free oats'], restriction: 'gluten-free' },
     { pattern: /\b(breadcrumbs)\b/i, alternatives: ['almond flour', 'crushed pork rinds', 'gluten-free breadcrumbs'], restriction: 'gluten-free' },
+    { pattern: /\b(couscous)\b/i, alternatives: ['quinoa', 'cauliflower rice'], restriction: 'gluten-free' },
+    { pattern: /\b(barley)\b/i, alternatives: ['brown rice', 'buckwheat'], restriction: 'gluten-free' },
+    { pattern: /\b(croutons)\b/i, alternatives: ['gluten-free croutons', 'toasted nuts'], restriction: 'gluten-free' },
+    { pattern: /\b(panko)\b/i, alternatives: ['gluten-free panko', 'crushed rice cereal'], restriction: 'gluten-free' },
+  ],
+  'gluten': [
+    // Same as gluten-free — used when allergy is listed as "gluten"
+    { pattern: /\b(wheat|bread|pasta|flour)\b/i, alternatives: ['gluten-free alternative', 'almond flour', 'rice flour', 'gluten-free pasta'], restriction: 'gluten' },
+    { pattern: /\b(soy sauce)\b/i, alternatives: ['tamari', 'coconut aminos'], restriction: 'gluten' },
+    { pattern: /\b(tortilla)\b/i, alternatives: ['corn tortilla', 'lettuce wrap'], restriction: 'gluten' },
+    { pattern: /\b(oats|oatmeal)\b/i, alternatives: ['certified gluten-free oats'], restriction: 'gluten' },
+    { pattern: /\b(breadcrumbs|panko)\b/i, alternatives: ['gluten-free breadcrumbs', 'almond flour'], restriction: 'gluten' },
+    { pattern: /\b(couscous)\b/i, alternatives: ['quinoa', 'cauliflower rice'], restriction: 'gluten' },
+    { pattern: /\b(barley)\b/i, alternatives: ['brown rice', 'buckwheat'], restriction: 'gluten' },
+    { pattern: /\b(croutons)\b/i, alternatives: ['gluten-free croutons', 'toasted nuts'], restriction: 'gluten' },
   ],
   'dairy-free': [
     { pattern: /\b(milk|cream)\b/i, alternatives: ['almond milk', 'coconut milk', 'oat milk'], restriction: 'dairy-free' },
@@ -107,6 +122,26 @@ const SUBSTITUTION_MAP: Record<string, { pattern: RegExp; alternatives: string[]
     { pattern: /\b(butter)\b/i, alternatives: ['olive oil', 'coconut oil', 'vegan butter'], restriction: 'dairy-free' },
     { pattern: /\b(yogurt|greek yogurt)\b/i, alternatives: ['coconut yogurt', 'dairy-free yogurt'], restriction: 'dairy-free' },
     { pattern: /\b(sour cream)\b/i, alternatives: ['cashew cream', 'dairy-free sour cream'], restriction: 'dairy-free' },
+    { pattern: /\b(whey)\b/i, alternatives: ['plant-based protein powder', 'pea protein'], restriction: 'dairy-free' },
+  ],
+  'dairy': [
+    // Same as dairy-free — used when allergy is listed as "dairy"
+    { pattern: /\b(milk|cream)\b/i, alternatives: ['almond milk', 'coconut milk', 'oat milk'], restriction: 'dairy' },
+    { pattern: /\b(cheese|parmesan)\b/i, alternatives: ['nutritional yeast', 'dairy-free cheese'], restriction: 'dairy' },
+    { pattern: /\b(butter)\b/i, alternatives: ['olive oil', 'coconut oil', 'vegan butter'], restriction: 'dairy' },
+    { pattern: /\b(yogurt|greek yogurt)\b/i, alternatives: ['coconut yogurt', 'dairy-free yogurt'], restriction: 'dairy' },
+    { pattern: /\b(sour cream)\b/i, alternatives: ['cashew cream', 'dairy-free sour cream'], restriction: 'dairy' },
+    { pattern: /\b(whey)\b/i, alternatives: ['plant-based protein powder', 'pea protein'], restriction: 'dairy' },
+  ],
+  'soy': [
+    { pattern: /\b(soy sauce)\b/i, alternatives: ['coconut aminos', 'tamari (if gluten is ok)'], restriction: 'soy' },
+    { pattern: /\b(tofu)\b/i, alternatives: ['chicken breast', 'tempeh (fermented, may be tolerated)', 'chickpeas'], restriction: 'soy' },
+    { pattern: /\b(edamame)\b/i, alternatives: ['green peas', 'lima beans'], restriction: 'soy' },
+    { pattern: /\b(soy milk)\b/i, alternatives: ['almond milk', 'oat milk', 'coconut milk'], restriction: 'soy' },
+    { pattern: /\b(soy protein)\b/i, alternatives: ['pea protein', 'whey protein'], restriction: 'soy' },
+  ],
+  'egg': [
+    { pattern: /\b(egg|eggs)\b/i, alternatives: ['flax egg (1 tbsp ground flax + 3 tbsp water)', 'chia egg', 'mashed banana'], restriction: 'egg' },
   ],
   'low-carb': [
     { pattern: /\b(rice)\b/i, alternatives: ['cauliflower rice', 'riced broccoli'], restriction: 'low-carb' },
@@ -121,6 +156,33 @@ const SUBSTITUTION_MAP: Record<string, { pattern: RegExp; alternatives: string[]
     { pattern: /\b(sugar)\b/i, alternatives: ['erythritol', 'stevia', 'monk fruit'], restriction: 'keto' },
     { pattern: /\b(honey|maple syrup)\b/i, alternatives: ['sugar-free syrup', 'stevia'], restriction: 'keto' },
   ],
+};
+
+// ============ ALLERGEN CLASSIFICATION ============
+// "Hard" allergens cannot be reasonably substituted out — recipe must be excluded
+// "Soft" allergens CAN be substituted — recipe can be adapted with instructions
+const HARD_ALLERGENS = new Set([
+  'peanut', 'peanuts',
+  'tree nut', 'tree nuts', 'treenut', 'treenuts',
+  'almond', 'almonds', 'walnut', 'walnuts', 'cashew', 'cashews',
+  'pecan', 'pecans', 'pistachio', 'pistachios', 'macadamia',
+  'hazelnut', 'hazelnuts', 'brazil nut', 'brazil nuts',
+  'shellfish', 'shrimp', 'crab', 'lobster', 'crawfish', 'crayfish',
+  'fish', 'salmon', 'tuna', 'cod', 'tilapia', 'anchovy', 'anchovies',
+  'sesame', 'sesame seeds',
+]);
+
+// Soft allergens have entries in SUBSTITUTION_MAP and can be adapted
+const SOFT_ALLERGEN_MAP: Record<string, string> = {
+  'gluten': 'gluten',
+  'wheat': 'gluten',
+  'dairy': 'dairy',
+  'milk': 'dairy',
+  'lactose': 'dairy',
+  'soy': 'soy',
+  'soybean': 'soy',
+  'egg': 'egg',
+  'eggs': 'egg',
 };
 
 // Check if a recipe can be adapted for dietary restrictions
@@ -213,7 +275,120 @@ function getRecipeServings(
   return Math.max(1, Math.min(8, estimatedServings));
 }
 
-// Scale ingredient amounts to per-serving
+// ============ REASONABLE PORTION RANGES ============
+// Expected ranges for common ingredient types (per serving)
+const REASONABLE_PORTIONS: { pattern: RegExp; maxPerServing: { value: number; unit: string }; typicalUnit: string }[] = [
+  // Proteins — 3-8oz (85-227g) per serving
+  { pattern: /chicken|turkey|beef|pork|fish|salmon|tuna|shrimp|steak|ground meat|bison/i, maxPerServing: { value: 8, unit: 'oz' }, typicalUnit: 'oz' },
+  // Grains/carbs — up to 1 cup cooked per serving
+  { pattern: /rice|quinoa|pasta|oats|couscous|farro/i, maxPerServing: { value: 1, unit: 'cup' }, typicalUnit: 'cup' },
+  // Oils/fats — 1-2 tbsp per serving
+  { pattern: /oil|butter|ghee/i, maxPerServing: { value: 2, unit: 'tbsp' }, typicalUnit: 'tbsp' },
+  // Cheese — up to 2 oz per serving
+  { pattern: /cheese|parmesan/i, maxPerServing: { value: 2, unit: 'oz' }, typicalUnit: 'oz' },
+  // Nuts/seeds — up to 1/4 cup per serving
+  { pattern: /almond|walnut|pecan|cashew|peanut|seed|nut/i, maxPerServing: { value: 0.25, unit: 'cup' }, typicalUnit: 'cup' },
+];
+
+// Common unit conversions for sanity-checking
+const UNIT_TO_OZ: Record<string, number> = {
+  'lb': 16, 'lbs': 16, 'pound': 16, 'pounds': 16,
+  'oz': 1, 'ounce': 1, 'ounces': 1,
+  'g': 0.03527, 'gram': 0.03527, 'grams': 0.03527,
+  'kg': 35.274, 'kilogram': 35.274,
+};
+
+// Validate and cap ingredient amounts that are unreasonable for a single serving
+function validateIngredientAmount(
+  item: string,
+  value: number,
+  unit: string
+): { value: number; unit: string; capped: boolean } {
+  const lowerItem = item.toLowerCase();
+  const lowerUnit = unit.toLowerCase().trim();
+  
+  for (const rule of REASONABLE_PORTIONS) {
+    if (!rule.pattern.test(lowerItem)) continue;
+    
+    // Convert to comparable units
+    const maxVal = rule.maxPerServing.value;
+    const maxUnit = rule.maxPerServing.unit;
+    
+    // If same unit family, compare directly
+    if (lowerUnit === maxUnit || lowerUnit === maxUnit + 's') {
+      if (value > maxVal * 1.5) {
+        return { value: maxVal, unit, capped: true };
+      }
+    }
+    
+    // Cross-unit check for weight (convert to oz for comparison)
+    if (UNIT_TO_OZ[lowerUnit] && maxUnit === 'oz') {
+      const valueInOz = value * (UNIT_TO_OZ[lowerUnit] || 1);
+      if (valueInOz > maxVal * 1.5) {
+        // Return in a sensible unit
+        if (maxVal >= 8) {
+          return { value: Math.round(maxVal * 10) / 10, unit: 'oz', capped: true };
+        }
+        return { value: maxVal, unit: 'oz', capped: true };
+      }
+    }
+    
+    break; // Only match the first rule
+  }
+  
+  return { value, unit, capped: false };
+}
+
+// Format a numeric amount into a grocery-friendly display string
+function formatGroceryFriendlyAmount(value: number, unit: string): string {
+  const lowerUnit = unit.toLowerCase().trim();
+  
+  // Convert awkward fractional lbs to oz for small amounts
+  if ((lowerUnit === 'lb' || lowerUnit === 'lbs') && value < 0.5) {
+    const oz = Math.round(value * 16);
+    return `${oz} oz`;
+  }
+  
+  // Convert large oz to lbs
+  if ((lowerUnit === 'oz' || lowerUnit === 'ounce' || lowerUnit === 'ounces') && value >= 16) {
+    const lbs = Math.round((value / 16) * 10) / 10;
+    return `${lbs} lb`;
+  }
+  
+  // Convert tiny cup amounts to tbsp
+  if ((lowerUnit === 'cup' || lowerUnit === 'cups') && value < 0.2) {
+    const tbsp = Math.round(value * 16);
+    if (tbsp > 0) return `${tbsp} tbsp`;
+  }
+  
+  // Friendly fractions for values < 1
+  if (value < 1 && value > 0) {
+    if (value >= 0.875) return `1 ${unit}`.trim();
+    if (value >= 0.7) return `3/4 ${unit}`.trim();
+    if (value >= 0.58) return `2/3 ${unit}`.trim();
+    if (value >= 0.4) return `1/2 ${unit}`.trim();
+    if (value >= 0.29) return `1/3 ${unit}`.trim();
+    if (value >= 0.2) return `1/4 ${unit}`.trim();
+    if (value >= 0.1) return `1/8 ${unit}`.trim();
+    return `${Math.round(value * 100) / 100} ${unit}`.trim();
+  }
+  
+  // For whole-ish numbers, round cleanly
+  if (Math.abs(value - Math.round(value)) < 0.1) {
+    return `${Math.round(value)} ${unit}`.trim();
+  }
+  
+  // For numbers with halves/quarters
+  const whole = Math.floor(value);
+  const frac = value - whole;
+  if (frac >= 0.7) return `${whole + 1} ${unit}`.trim();
+  if (frac >= 0.4) return `${whole} 1/2 ${unit}`.trim();
+  if (frac >= 0.2) return `${whole} 1/4 ${unit}`.trim();
+  
+  return `${Math.round(value * 10) / 10} ${unit}`.trim();
+}
+
+// Scale ingredient amounts to per-serving with validation
 function scaleIngredientsToPerServing(
   ingredients: { item: string; amount: string }[],
   recipeServings: number
@@ -236,21 +411,16 @@ function scaleIngredientsToPerServing(
       }
       
       // Scale down to per-serving
-      const scaledValue = value / recipeServings;
-      const unit = numMatch[2]?.trim() || '';
+      let scaledValue = value / recipeServings;
+      let unit = numMatch[2]?.trim() || '';
       
-      // Format nicely
-      if (scaledValue >= 1) {
-        return { item: ing.item, amount: `${Math.round(scaledValue * 10) / 10} ${unit}`.trim() };
-      } else if (scaledValue >= 0.25) {
-        // Convert to fractions for readability
-        if (scaledValue >= 0.75) return { item: ing.item, amount: `3/4 ${unit}`.trim() };
-        if (scaledValue >= 0.5) return { item: ing.item, amount: `1/2 ${unit}`.trim() };
-        if (scaledValue >= 0.33) return { item: ing.item, amount: `1/3 ${unit}`.trim() };
-        return { item: ing.item, amount: `1/4 ${unit}`.trim() };
-      } else {
-        return { item: ing.item, amount: `${Math.round(scaledValue * 100) / 100} ${unit}`.trim() };
-      }
+      // Validate the scaled amount isn't unreasonable
+      const validated = validateIngredientAmount(ing.item, scaledValue, unit);
+      scaledValue = validated.value;
+      if (validated.unit !== unit && validated.capped) unit = validated.unit;
+      
+      // Format as grocery-friendly amount
+      return { item: ing.item, amount: formatGroceryFriendlyAmount(scaledValue, unit) };
     }
     
     return ing;
@@ -493,14 +663,55 @@ export async function POST(request: NextRequest) {
       const recipeName = recipe.name.toLowerCase();
       const allText = ingredientText + ' ' + recipeName;
       
-      // ========== STRICT ALLERGY CHECK ==========
-      // Allergies are CRITICAL - must filter these out completely (unless skipAllFilters)
+      // Track compliance status and substitution suggestions
+      let complianceStatus: 'strict' | 'adaptable' | 'excluded' = 'strict';
+      let substitutionSuggestions: string[] = [];
+      
+      // ========== SMART ALLERGY CHECK ==========
+      // Split allergens into hard (must exclude) and soft (can substitute)
       if (!skipAllFilters && allAllergies.length > 0) {
-        const allergenFound = allAllergies.find(allergen => allText.includes(allergen));
-        if (allergenFound) {
-          console.log(`[Recipes] Excluding "${recipe.name}" - contains allergen: ${allergenFound}`);
-          continue; // Skip this recipe entirely
+        let shouldExclude = false;
+        
+        for (const allergen of allAllergies) {
+          if (!allText.includes(allergen)) continue; // Allergen not in recipe, no issue
+          
+          // Check if this is a hard allergen (no safe substitution)
+          const isHardAllergen = HARD_ALLERGENS.has(allergen);
+          
+          // Check if this is a soft allergen with substitutions available
+          const softKey = SOFT_ALLERGEN_MAP[allergen];
+          
+          if (isHardAllergen) {
+            console.log(`[Recipes] Excluding "${recipe.name}" - contains hard allergen: ${allergen}`);
+            shouldExclude = true;
+            break;
+          } else if (softKey) {
+            // Soft allergen — check if recipe is already compliant via DB flags
+            const alreadyCompliant =
+              (softKey === 'gluten' && recipe.is_gluten_free) ||
+              (softKey === 'dairy' && recipe.is_dairy_free);
+            
+            if (!alreadyCompliant) {
+              // Try to find substitutions
+              const { canAdapt, suggestions } = checkSubstitutions(ingredientText, [softKey]);
+              if (canAdapt) {
+                complianceStatus = 'adaptable';
+                substitutionSuggestions.push(...suggestions);
+              } else {
+                // We know the allergen is present but no specific sub found — still adaptable with generic note
+                complianceStatus = 'adaptable';
+                substitutionSuggestions.push(`Use ${allergen}-free alternatives for ingredients containing ${allergen}`);
+              }
+            }
+          } else {
+            // Unknown allergen (custom entry) — hard exclude to be safe
+            console.log(`[Recipes] Excluding "${recipe.name}" - contains allergen: ${allergen}`);
+            shouldExclude = true;
+            break;
+          }
         }
+        
+        if (shouldExclude) continue;
       }
       
       // ========== FOODS TO AVOID CHECK ==========
@@ -521,10 +732,7 @@ export async function POST(request: NextRequest) {
         if (pattern.includes('vegetarian') && !recipe.is_vegetarian) continue;
       }
       
-      // Track compliance status and substitution suggestions
-      let complianceStatus: 'strict' | 'adaptable' | 'excluded' = 'strict';
-      let substitutionSuggestions: string[] = [];
-      
+      // ========== DIETARY RESTRICTIONS CHECK ==========
       if (!skipAllFilters && dietPreferences?.dietaryRestrictions) {
         const restrictions = dietPreferences.dietaryRestrictions.map(r => r.toLowerCase());
         

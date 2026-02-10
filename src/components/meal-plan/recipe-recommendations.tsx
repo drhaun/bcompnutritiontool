@@ -49,7 +49,9 @@ import {
   Lightbulb,
   Target,
   Salad,
-  Flame
+  Flame,
+  AlertTriangle,
+  ArrowRightLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -104,6 +106,9 @@ interface ScaledRecipe {
   is_low_carb: boolean;
   is_meal_prep_friendly: boolean;
   is_quick_prep: boolean;
+  // Substitution/compliance info
+  complianceStatus?: 'strict' | 'adaptable' | 'excluded';
+  substitutionSuggestions?: string[];
 }
 
 interface RecipeRecommendationsProps {
@@ -270,7 +275,14 @@ export function RecipeRecommendations({
 
     // Get adjustment tips for the PDF
     const adjustmentTips = getAdjustmentTips(selectedRecipe, customServings);
-    const implementationNotes = adjustmentTips.filter(t => !t.startsWith('✓')).join('\n');
+    const tipsNotes = adjustmentTips.filter(t => !t.startsWith('✓')).join('\n');
+    
+    // Include substitution suggestions if this recipe is adaptable
+    const subNotes = selectedRecipe.substitutionSuggestions?.length
+      ? '⚠️ SUBSTITUTIONS NEEDED:\n' + selectedRecipe.substitutionSuggestions.join('\n')
+      : '';
+    
+    const implementationNotes = [tipsNotes, subNotes].filter(Boolean).join('\n\n');
 
     // Convert recipe to Meal format
     const meal: Meal = {
@@ -636,8 +648,14 @@ export function RecipeRecommendations({
                               <span>{recipe.scaled.fat}g F</span>
                             </div>
                             
-                            {/* Match Reasons */}
+                            {/* Match Reasons & Compliance */}
                             <div className="flex flex-wrap gap-1 mt-1.5">
+                              {recipe.complianceStatus === 'adaptable' && (
+                                <Badge variant="outline" className="text-[10px] h-4 border-amber-400 text-amber-700 bg-amber-50">
+                                  <ArrowRightLeft className="h-2.5 w-2.5 mr-0.5" />
+                                  Adaptable
+                                </Badge>
+                              )}
                               {recipe.is_high_protein && (
                                 <Badge variant="secondary" className="text-[10px] h-4">High Protein</Badge>
                               )}
@@ -790,6 +808,30 @@ export function RecipeRecommendations({
                     </ul>
                   </div>
 
+                  {/* Substitution Suggestions */}
+                  {selectedRecipe.complianceStatus === 'adaptable' && selectedRecipe.substitutionSuggestions && selectedRecipe.substitutionSuggestions.length > 0 && (
+                    <>
+                      <Separator />
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <h4 className="font-medium text-sm text-amber-800 mb-1.5 flex items-center gap-1.5">
+                          <ArrowRightLeft className="h-3.5 w-3.5" />
+                          Substitution Suggestions
+                        </h4>
+                        <p className="text-[11px] text-amber-600 mb-2">
+                          This recipe can be adapted for dietary needs with these swaps:
+                        </p>
+                        <ul className="text-xs text-amber-700 space-y-1">
+                          {selectedRecipe.substitutionSuggestions.map((suggestion, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5">
+                              <ArrowRightLeft className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                              <span>{suggestion}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </>
+                  )}
+
                   <Separator />
 
                   {/* Directions */}
@@ -904,21 +946,57 @@ function getTimeOfDay(timeSlot: string): 'morning' | 'afternoon' | 'evening' {
   return 'evening';
 }
 
-// Helper to scale ingredient amounts
+// Helper to scale ingredient amounts with grocery-friendly formatting
 function scaleAmount(amount: string, multiplier: number): string {
   if (multiplier === 1) return amount;
   
   // Try to parse and scale numeric amounts
   const numMatch = amount.match(/^([\d\/\.]+)\s*(.*)$/);
   if (numMatch) {
-    let num = parseFloat(eval(numMatch[1].replace('/', ' / '))); // Handle fractions
-    num *= multiplier;
-    
-    // Format nicely
-    if (num === Math.floor(num)) {
-      return `${num} ${numMatch[2]}`;
+    let num: number;
+    // Handle fractions like "1/2", "1/3"
+    if (numMatch[1].includes('/')) {
+      const parts = numMatch[1].split('/');
+      num = parseFloat(parts[0]) / parseFloat(parts[1]);
+    } else {
+      num = parseFloat(numMatch[1]) || 1;
     }
-    return `${num.toFixed(1)} ${numMatch[2]}`;
+    num *= multiplier;
+    const unit = numMatch[2]?.trim() || '';
+    const lowerUnit = unit.toLowerCase();
+    
+    // Convert awkward fractional lbs to oz
+    if ((lowerUnit === 'lb' || lowerUnit === 'lbs') && num < 0.5) {
+      const oz = Math.round(num * 16);
+      return `${oz} oz`;
+    }
+    
+    // Convert large oz to lbs
+    if ((lowerUnit === 'oz' || lowerUnit === 'ounces') && num >= 16) {
+      const lbs = Math.round((num / 16) * 10) / 10;
+      return `${lbs} lb`;
+    }
+    
+    // Friendly fractions for values < 1
+    if (num < 1 && num > 0) {
+      if (num >= 0.875) return `1 ${unit}`.trim();
+      if (num >= 0.7) return `3/4 ${unit}`.trim();
+      if (num >= 0.58) return `2/3 ${unit}`.trim();
+      if (num >= 0.4) return `1/2 ${unit}`.trim();
+      if (num >= 0.29) return `1/3 ${unit}`.trim();
+      if (num >= 0.2) return `1/4 ${unit}`.trim();
+      return `${Math.round(num * 100) / 100} ${unit}`.trim();
+    }
+    
+    // For numbers with clean halves/quarters
+    const whole = Math.floor(num);
+    const frac = num - whole;
+    if (frac >= 0.7) return `${whole + 1} ${unit}`.trim();
+    if (frac >= 0.4) return `${whole} 1/2 ${unit}`.trim();
+    if (frac >= 0.2) return `${whole} 1/4 ${unit}`.trim();
+    if (Math.abs(num - Math.round(num)) < 0.1) return `${Math.round(num)} ${unit}`.trim();
+    
+    return `${Math.round(num * 10) / 10} ${unit}`.trim();
   }
   
   return `${multiplier}x ${amount}`;

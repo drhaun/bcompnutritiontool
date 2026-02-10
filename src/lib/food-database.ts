@@ -504,7 +504,7 @@ export function scaleFood(food: FoodItem, grams: number): ScaledFood {
 }
 
 /**
- * Format gram amount to human-readable
+ * Format gram amount to human-readable, grocery-friendly amounts
  */
 function formatAmount(grams: number, householdServing?: string): string {
   // If we have household serving info, try to convert
@@ -518,6 +518,20 @@ function formatAmount(grams: number, householdServing?: string): string {
         return `${formatFraction(servings)} ${unit}`;
       }
     }
+  }
+  
+  // Convert large gram amounts to more practical units
+  const oz = grams / 28.35;
+  if (oz >= 16) {
+    // 1 lb or more — show in lbs
+    const lbs = oz / 16;
+    if (Math.abs(lbs - Math.round(lbs)) < 0.1) return `${Math.round(lbs)} lb`;
+    if (Math.abs(lbs - Math.round(lbs * 2) / 2) < 0.1) return `${formatFraction(Math.round(lbs * 2) / 2)} lb`;
+    return `${Math.round(lbs * 10) / 10} lb`;
+  }
+  if (oz >= 2) {
+    // Show as oz for protein-range amounts (more intuitive than grams)
+    return `${Math.round(oz)} oz`;
   }
   
   return `${Math.round(grams)}g`;

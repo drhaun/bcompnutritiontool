@@ -963,19 +963,53 @@ export default function MealPlanPage() {
       });
     }
     
-    // Format quantities nicely
-    const formatQuantity = (qty: number, unit: string): { qty: number; unit: string } => {
-      // Convert large gram amounts to kg
-      if (unit === 'g' && qty >= 1000) {
-        return { qty: Math.round(qty / 100) / 10, unit: 'kg' };
+    // Format quantities for grocery-store-friendly purchase amounts
+    const formatQuantity = (qty: number, unit: string): { qty: number; unit: string; displayStr?: string } => {
+      // Convert grams to purchasable amounts
+      if (unit === 'g') {
+        if (qty >= 1000) {
+          // Round to nearest 0.5 kg for easy purchasing
+          const kg = Math.ceil(qty / 500) * 0.5;
+          return { qty: kg, unit: 'kg' };
+        }
+        // Convert to oz for amounts under 1kg (more grocery-friendly in US)
+        const oz = qty / 28.35;
+        if (oz >= 16) {
+          const lbs = Math.ceil(oz / 16 * 2) / 2; // Round up to nearest 0.5 lb
+          return { qty: lbs, unit: 'lb' };
+        }
+        if (oz >= 1) {
+          return { qty: Math.ceil(oz), unit: 'oz' };
+        }
+        return { qty: Math.round(qty), unit: 'g' };
       }
-      // Convert large ml amounts to L
-      if (unit === 'ml' && qty >= 1000) {
-        return { qty: Math.round(qty / 100) / 10, unit: 'L' };
+      
+      // Convert ml to purchasable amounts
+      if (unit === 'ml') {
+        if (qty >= 1000) {
+          return { qty: Math.ceil(qty / 1000 * 2) / 2, unit: 'L' };
+        }
+        // Convert to cups for moderate amounts
+        const cups = qty / 240;
+        if (cups >= 0.5) {
+          if (cups >= 3.5) return { qty: Math.ceil(cups / 4) * 4, unit: 'cups' };
+          return { qty: Math.ceil(cups * 2) / 2, unit: cups >= 1.5 ? 'cups' : 'cup' };
+        }
+        // Small amounts stay as tbsp
+        const tbsp = qty / 15;
+        if (tbsp >= 1) return { qty: Math.ceil(tbsp), unit: 'tbsp' };
+        return { qty: Math.ceil(qty / 5), unit: 'tsp' };
       }
+      
+      // Count units — round up to whole numbers for purchasing
+      if (['serving', 'piece', 'slice', 'scoop'].includes(unit)) {
+        return { qty: Math.ceil(qty), unit };
+      }
+      
       // Round appropriately
       if (qty >= 100) return { qty: Math.round(qty), unit };
       if (qty >= 10) return { qty: Math.round(qty * 10) / 10, unit };
+      if (qty >= 1) return { qty: Math.round(qty * 4) / 4, unit }; // Round to nearest 1/4
       return { qty: Math.round(qty * 100) / 100, unit };
     };
     
