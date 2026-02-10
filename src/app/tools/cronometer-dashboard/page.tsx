@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format, subDays, differenceInDays } from 'date-fns';
 import { useFitomicsStore } from '@/lib/store';
+import { EnergyAvailabilityCard } from '@/components/energy-availability-card';
 import {
   ArrowLeft,
   Calendar,
@@ -259,6 +260,49 @@ export default function CronometerDashboardPage() {
   });
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   
+  // Resolve linked Fitomics client for body comp data (weight, body fat %)
+  const linkedFitomicsClient = useMemo(() => {
+    if (selectedClient === 'self') return null;
+    const cronometerClientId = parseInt(selectedClient, 10);
+    if (isNaN(cronometerClientId)) return null;
+    return clients.find(c => c.cronometerClientId === cronometerClientId) || null;
+  }, [selectedClient, clients]);
+
+  // Extract weight and body fat from biometrics (most recent) or client profile
+  const clientBodyComp = useMemo(() => {
+    let weightLbs: number | null = linkedFitomicsClient?.userProfile?.weightLbs || null;
+    let bodyFatPercent: number | null = linkedFitomicsClient?.userProfile?.bodyFatPercentage || null;
+
+    // If biometrics are available, prefer the most recent values
+    if (dashboardData?.biometrics && dashboardData.biometrics.length > 0) {
+      // Sort by date descending to get most recent
+      const sorted = [...dashboardData.biometrics].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+
+      const latestWeight = sorted.find(b =>
+        b.type.toLowerCase().includes('weight') && !b.type.toLowerCase().includes('fat')
+      );
+      if (latestWeight) {
+        // Cronometer biometric weight might be in lbs or kg
+        if (latestWeight.unit === 'kg') {
+          weightLbs = latestWeight.value * 2.20462;
+        } else {
+          weightLbs = latestWeight.value;
+        }
+      }
+
+      const latestBF = sorted.find(b =>
+        b.type.toLowerCase().includes('body fat') || b.type.toLowerCase().includes('bodyfat')
+      );
+      if (latestBF) {
+        bodyFatPercent = latestBF.value;
+      }
+    }
+
+    return { weightLbs, bodyFatPercent };
+  }, [dashboardData?.biometrics, linkedFitomicsClient]);
+
   // Check Cronometer connection on mount
   useEffect(() => {
     const checkConnection = async () => {
@@ -536,7 +580,7 @@ export default function CronometerDashboardPage() {
           <>
             {/* Summary Cards - Only show when data loaded */}
             {dashboardData && dashboardData.daysAnalyzed > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
               <Card className="bg-gradient-to-br from-orange-50 to-white">
                 <CardContent className="pt-4">
                   <div className="flex items-center gap-2 text-orange-600 mb-1">
@@ -593,6 +637,17 @@ export default function CronometerDashboardPage() {
                   </p>
                 </CardContent>
               </Card>
+
+              {/* Energy Availability Card */}
+              <EnergyAvailabilityCard
+                variant="compact"
+                data={{
+                  calorieIntake: dashboardData.averages.calories,
+                  weightLbs: clientBodyComp.weightLbs,
+                  bodyFatPercent: clientBodyComp.bodyFatPercent,
+                  exerciseExpenditure: null,
+                }}
+              />
             </div>
             )}
             

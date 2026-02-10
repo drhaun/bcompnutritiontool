@@ -60,6 +60,7 @@ import {
 import { format, subDays } from 'date-fns';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useFitomicsStore } from '@/lib/store';
+import { EnergyAvailabilityCard } from '@/components/energy-availability-card';
 
 // ============ TYPES ============
 
@@ -2080,6 +2081,17 @@ export default function NutritionAnalysisPage() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Energy Availability Estimate */}
+                <EnergyAvailabilityCard
+                  variant="full"
+                  data={{
+                    calorieIntake: analysisResult.summary.totalCalories,
+                    weightLbs: activeClient?.userProfile?.weightLbs || null,
+                    bodyFatPercent: activeClient?.userProfile?.bodyFatPercentage || null,
+                    exerciseExpenditure: null,
+                  }}
+                />
 
                 {/* AI Recommendations & Sample Day */}
                 {(aiRecommendations || sampleDayPlan) && (
