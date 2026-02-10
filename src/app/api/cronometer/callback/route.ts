@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCodeForToken } from '@/lib/cronometer';
-import { saveCronometerTokenToDatabase } from '@/lib/cronometer-token';
+import { saveCronometerTokenToDatabase, persistTokenToEnvFile } from '@/lib/cronometer-token';
 
 /**
  * OAuth callback handler
@@ -66,6 +66,10 @@ export async function GET(request: NextRequest) {
     
     // Clear the state cookie
     response.cookies.delete('cronometer_oauth_state');
+
+    // In development, auto-save the fresh token to .env.local so it
+    // survives server restarts without manual cookie copying.
+    persistTokenToEnvFile(tokenData.access_token, tokenData.user_id);
     
     // Also persist the token to the database for cross-device access.
     // This runs async but we don't block the redirect on it.

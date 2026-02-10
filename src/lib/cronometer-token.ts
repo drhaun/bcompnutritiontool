@@ -20,6 +20,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
+import { readFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
 
 // ============================================================
 // TOKEN RESOLUTION
@@ -291,4 +293,55 @@ function createAdminClient() {
       persistSession: false,
     },
   });
+}
+
+// ============================================================
+// LOCAL DEV: Auto-persist tokens to .env.local
+// ============================================================
+
+/**
+ * In development mode, automatically update the CRONOMETER_ACCESS_TOKEN
+ * and CRONOMETER_USER_ID values in .env.local so they survive server
+ * restarts without manual copying from browser dev tools.
+ */
+export function persistTokenToEnvFile(accessToken: string, userId: string): void {
+  if (process.env.NODE_ENV !== 'development') return;
+
+  try {
+    const envPath = join(process.cwd(), '.env.local');
+    let envContent: string;
+
+    try {
+      envContent = readFileSync(envPath, 'utf-8');
+    } catch {
+      // .env.local doesn't exist — nothing to update
+      console.warn('[CronometerToken] .env.local not found — skipping token persistence');
+      return;
+    }
+
+    // Replace or append CRONOMETER_ACCESS_TOKEN
+    if (envContent.match(/^CRONOMETER_ACCESS_TOKEN=.*/m)) {
+      envContent = envContent.replace(
+        /^CRONOMETER_ACCESS_TOKEN=.*/m,
+        `CRONOMETER_ACCESS_TOKEN=${accessToken}`
+      );
+    } else {
+      envContent += `\nCRONOMETER_ACCESS_TOKEN=${accessToken}`;
+    }
+
+    // Replace or append CRONOMETER_USER_ID
+    if (envContent.match(/^CRONOMETER_USER_ID=.*/m)) {
+      envContent = envContent.replace(
+        /^CRONOMETER_USER_ID=.*/m,
+        `CRONOMETER_USER_ID=${userId}`
+      );
+    } else {
+      envContent += `\nCRONOMETER_USER_ID=${userId}`;
+    }
+
+    writeFileSync(envPath, envContent, 'utf-8');
+    console.log('[CronometerToken] ✅ Tokens auto-saved to .env.local — no more re-auth on restart!');
+  } catch (error) {
+    console.error('[CronometerToken] Failed to persist token to .env.local:', error);
+  }
 }

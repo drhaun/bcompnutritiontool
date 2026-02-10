@@ -165,14 +165,30 @@ export async function syncClientsToDb(localClients: ClientProfile[]): Promise<{
       }
     }
     
-    // EXTRA SAFETY: If we had local clients but got fewer back, merge them
+    // Use database as source of truth after a successful sync.
+    // The DB result already contains all clients (including ones we synced up).
+    // Only preserve local clients that were NEVER synced (i.e. insert failed).
     const dbClients = (data.clients || []).map(dbClientToStoreClient);
+    
     if (localClients.length > 0 && dbClients.length < localClients.length) {
-      console.warn('[ClientSync] Database returned fewer clients than local. Merging to prevent loss.');
+      console.warn('[ClientSync] Database returned fewer clients than local. Checking for un-synced clients.');
       const dbIds = new Set(dbClients.map(c => c.id));
-      const missingLocal = localClients.filter(c => !dbIds.has(c.id));
-      if (missingLocal.length > 0) {
-        console.log('[ClientSync] Preserving', missingLocal.length, 'local clients not in database');
+      
+      // Only preserve clients that we tried to insert but failed
+      // (indicated by errors). Don't resurrect intentionally deleted clients.
+      const failedInsertIds = new Set<string>();
+      if (data.errors && data.errors.length > 0) {
+        // If there were insert failures, those clients might be missing from DB
+        for (const client of localClients) {
+          if (!dbIds.has(client.id)) {
+            failedInsertIds.add(client.id);
+          }
+        }
+      }
+      
+      if (failedInsertIds.size > 0) {
+        const missingLocal = localClients.filter(c => failedInsertIds.has(c.id));
+        console.log('[ClientSync] Preserving', missingLocal.length, 'un-synced local clients');
         return {
           success: true,
           clients: [...dbClients, ...missingLocal],
@@ -255,10 +271,13 @@ export async function updateClientInDb(
       if (response.status === 404) {
         console.log('[ClientSync] Client not found in DB, creating new record for:', clientId);
         
+        // Resolve name: prefer top-level name, then userProfile.name, then fallback
+        const resolvedName = updates.name || updates.userProfile?.name || 'Unnamed Client';
+        
         // Build a full client object for creation
         const newClient: ClientProfile = {
           id: clientId,
-          name: updates.userProfile?.name || 'Unnamed Client',
+          name: resolvedName,
           email: updates.email,
           notes: updates.notes,
           createdAt: new Date().toISOString(),
@@ -298,12 +317,30 @@ export async function updateClientInDb(
  */
 export async function deleteClientFromDb(clientId: string): Promise<boolean> {
   try {
+    console.log('[ClientSync] Deleting client from database:', clientId);
+    
     const response = await fetch(`/api/clients/${clientId}`, {
       method: 'DELETE',
       credentials: 'include', // Ensure auth cookies are sent
     });
     
-    return response.ok;
+    if (!response.ok) {
+      if (response.status === 401) {
+        console.log('[ClientSync] Not authenticated, delete skipped for:', clientId);
+        return false;
+      }
+      if (response.status === 404) {
+        // Client doesn't exist in DB - that's fine, treat as success
+        console.log('[ClientSync] Client not found in database (already deleted?):', clientId);
+        return true;
+      }
+      const errorData = await response.json().catch(() => ({}));
+      console.error('[ClientSync] Delete failed:', response.status, errorData);
+      return false;
+    }
+    
+    console.log('[ClientSync] Client deleted from database:', clientId);
+    return true;
   } catch (error) {
     console.error('[ClientSync] Error deleting client:', error);
     return false;

@@ -195,6 +195,9 @@ interface NutritionPlanningOSState {
   loadClientsFromDatabase: () => Promise<void>;
   syncToDatabase: () => Promise<void>;
   setAuthenticated: (isAuthenticated: boolean) => void;
+  
+  // Track deleted client IDs to prevent sync from resurrecting them
+  _deletedClientIds: string[];
 }
 
 const DAYS_OF_WEEK: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -239,6 +242,9 @@ const initialState = {
   lastSyncedAt: null as string | null,
   syncError: null as string | null,
   isAuthenticated: false,
+  
+  // Track deleted client IDs so sync doesn't resurrect them
+  _deletedClientIds: [] as string[],
 };
 
 export const useFitomicsStore = create<NutritionPlanningOSState>()(
@@ -445,30 +451,62 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
       
       deleteClient: (clientId) => {
         const state = get();
+        
+        // Track this ID so sync never resurrects it
+        const updatedDeletedIds = [...(state._deletedClientIds || []), clientId];
+        
         set({
           clients: state.clients.filter(c => c.id !== clientId),
+          _deletedClientIds: updatedDeletedIds,
           ...(state.activeClientId === clientId ? {
             activeClientId: null,
             ...emptyClientData,
           } : {}),
         });
         
+        console.log('[Store] Deleted client:', clientId, '| Tracking deleted IDs:', updatedDeletedIds.length);
+        
         // Sync to database if authenticated
         if (state.isAuthenticated) {
-          deleteClientFromDb(clientId).catch(err => {
+          deleteClientFromDb(clientId).then(success => {
+            if (success) {
+              console.log('[Store] Client deleted from database:', clientId);
+            } else {
+              console.error('[Store] Failed to delete client from database:', clientId);
+            }
+          }).catch(err => {
             console.error('[Store] Failed to sync client deletion:', err);
           });
         }
       },
       
       archiveClient: (clientId) => {
-        get().updateClient(clientId, { status: 'archived' });
-        
-        const state = get();
-        if (state.activeClientId === clientId) {
-          set({
+        // Update local state immediately
+        set((state) => ({
+          clients: state.clients.map(c =>
+            c.id === clientId
+              ? { ...c, status: 'archived' as const, updatedAt: new Date().toISOString() }
+              : c
+          ),
+          ...(state.activeClientId === clientId ? {
             activeClientId: null,
             ...emptyClientData,
+          } : {}),
+        }));
+        
+        console.log('[Store] Archived client:', clientId);
+        
+        // Sync to database if authenticated - explicitly send status
+        const state = get();
+        if (state.isAuthenticated) {
+          updateClientInDb(clientId, { status: 'archived' }).then(result => {
+            if (result) {
+              console.log('[Store] Client archived in database:', clientId);
+            } else {
+              console.error('[Store] Failed to archive client in database:', clientId);
+            }
+          }).catch(err => {
+            console.error('[Store] Failed to sync client archive:', err);
           });
         }
       },
@@ -505,6 +543,10 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           return;
         }
         
+        // Sync top-level client name from userProfile.name so display
+        // components (header, client list) always show the current name.
+        const resolvedName = state.userProfile?.name?.trim() || undefined;
+        
         const updates = {
           currentStep: state.currentStep,
           userProfile: state.userProfile,
@@ -516,10 +558,12 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           timelineEvents: state.timelineEvents,
           nutritionTargets: state.nutritionTargets,
           mealPlan: state.mealPlan,
+          // Keep top-level name in sync with userProfile.name
+          ...(resolvedName ? { name: resolvedName } : {}),
         };
         
         console.log('[Store] Saving active client state for ID:', state.activeClientId);
-        console.log('[Store] Saving profile:', updates.userProfile?.name, '| Step:', updates.currentStep);
+        console.log('[Store] Saving profile:', updates.userProfile?.name, '| Name:', resolvedName, '| Step:', updates.currentStep);
         
         set((state) => {
           const updatedClients = state.clients.map(c => 
@@ -1294,10 +1338,14 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         
         set({ isSyncing: true, syncError: null });
         
+        // Collect IDs that were explicitly deleted in this session
+        const deletedIds = new Set(state._deletedClientIds || []);
+        
         try {
           // CRITICAL: Preserve local clients - NEVER lose them
           const localClients = state.clients;
           console.log('[Store] Local clients before sync:', localClients.length, localClients.map(c => c.name));
+          console.log('[Store] Deleted client IDs to exclude:', deletedIds.size);
           
           if (localClients.length > 0) {
             console.log('[Store] Syncing local clients to database...');
@@ -1305,17 +1353,27 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
             
             if (syncResult.success) {
               // IMPORTANT: Merge rather than replace - keep any local clients not in DB
-              const mergedClients = syncResult.clients;
+              let mergedClients = syncResult.clients;
               
-              // Double-check we haven't lost any clients
-              if (mergedClients.length < localClients.length) {
+              // Filter out any clients that were explicitly deleted
+              if (deletedIds.size > 0) {
+                const beforeCount = mergedClients.length;
+                mergedClients = mergedClients.filter(c => !deletedIds.has(c.id));
+                if (mergedClients.length < beforeCount) {
+                  console.log('[Store] Filtered out', beforeCount - mergedClients.length, 'deleted clients from sync result');
+                }
+              }
+              
+              // Double-check we haven't lost any clients (excluding intentionally deleted ones)
+              const activeLocalClients = localClients.filter(c => !deletedIds.has(c.id));
+              if (mergedClients.length < activeLocalClients.length) {
                 console.warn('[Store] WARNING: Sync returned fewer clients than local!');
-                console.log('[Store] Local IDs:', localClients.map(c => c.id));
+                console.log('[Store] Local IDs:', activeLocalClients.map(c => c.id));
                 console.log('[Store] Synced IDs:', mergedClients.map(c => c.id));
                 
-                // Preserve any local clients that weren't in the sync result
+                // Preserve any local clients that weren't in the sync result (and aren't deleted)
                 const syncedIds = new Set(mergedClients.map(c => c.id));
-                const missingClients = localClients.filter(c => !syncedIds.has(c.id));
+                const missingClients = activeLocalClients.filter(c => !syncedIds.has(c.id));
                 if (missingClients.length > 0) {
                   console.log('[Store] Restoring missing clients:', missingClients.map(c => c.name));
                   mergedClients.push(...missingClients);
@@ -1337,7 +1395,12 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           } else {
             // No local clients, try fetching from database
             console.log('[Store] No local clients, fetching from database...');
-            const dbClients = await fetchClientsFromDb();
+            let dbClients = await fetchClientsFromDb();
+            
+            // Filter out deleted clients
+            if (deletedIds.size > 0) {
+              dbClients = dbClients.filter(c => !deletedIds.has(c.id));
+            }
             
             if (dbClients.length > 0) {
               set({
@@ -1364,12 +1427,20 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         
         set({ isSyncing: true, syncError: null });
         
+        const deletedIds = new Set(state._deletedClientIds || []);
+        
         try {
           const result = await syncClientsToDb(state.clients);
           
           if (result.success) {
+            // Filter out deleted clients from sync result
+            let syncedClients = result.clients;
+            if (deletedIds.size > 0) {
+              syncedClients = syncedClients.filter(c => !deletedIds.has(c.id));
+            }
+            
             set({
-              clients: result.clients,
+              clients: syncedClients,
               lastSyncedAt: new Date().toISOString(),
             });
           } else {
@@ -1403,6 +1474,8 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         currentStep: state.currentStep,
         // Persist sync state
         lastSyncedAt: state.lastSyncedAt,
+        // Track deleted IDs across page reloads so sync doesn't resurrect them
+        _deletedClientIds: state._deletedClientIds,
       }),
       onRehydrateStorage: () => {
         console.log('[Store] Starting rehydration from localStorage...');
