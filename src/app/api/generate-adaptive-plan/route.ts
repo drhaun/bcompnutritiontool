@@ -54,9 +54,9 @@ export async function POST(request: NextRequest) {
 
     const openai = new OpenAI({ apiKey });
 
-    // Format current eating pattern
+    // Format current eating pattern (include up to 18 foods for richer context)
     const foodsList = currentPattern.commonFoods
-      .slice(0, 8)
+      .slice(0, 18)
       .map(f => `- ${f.name} (${f.serving}) — eaten ${f.frequency} of ${currentPattern.daysSampled} days`)
       .join('\n');
 

@@ -384,6 +384,21 @@ export default function MealPlanPage() {
   const [coachLinks, setCoachLinks] = useState<CoachLink[]>(DEFAULT_COACH_LINKS);
   const [linksExpanded, setLinksExpanded] = useState(false);
   const [addingLink, setAddingLink] = useState(false);
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [linkModalURL, setLinkModalURL] = useState<string | null>(null);
+  const [linkModalLabel, setLinkModalLabel] = useState('');
+
+  const openLinkModal = useCallback((link: CoachLink) => {
+    setLinkModalURL(link.url);
+    setLinkModalLabel(link.label);
+    setLinkModalOpen(true);
+  }, []);
+
+  const closeLinkModal = useCallback(() => {
+    setLinkModalOpen(false);
+    setLinkModalURL(null);
+    setLinkModalLabel('');
+  }, []);
   const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
   const [linkForm, setLinkForm] = useState({ label: '', url: '' });
 
@@ -603,7 +618,7 @@ export default function MealPlanPage() {
       try {
         const end = new Date();
         const start = new Date();
-        start.setDate(end.getDate() - 14);
+        start.setDate(end.getDate() - 28); // 28 days for richer context (was 14)
         const startStr = start.toISOString().split('T')[0];
         const endStr = end.toISOString().split('T')[0];
         const res = await fetch(`/api/cronometer/dashboard?start=${startStr}&end=${endStr}&client_id=${cronometerClientId}`);
@@ -624,7 +639,19 @@ export default function MealPlanPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cronometerMode, cronometerClientId]);
 
-  // Aggregate food log into meal patterns
+  // Normalize Cronometer meal names to standard groups so we merge more data
+  // e.g. "Snack 1", "Snack 2", "Morning Snack" -> "Snacks"; "Meal 1" -> "Breakfast"
+  const normalizeMealGroup = (name: string): string => {
+    const n = (name || '').toLowerCase();
+    if (n.includes('breakfast') || n === 'meal 1' || n.includes('morning meal')) return 'Breakfast';
+    if (n.includes('lunch') || n === 'meal 2' || n.includes('midday')) return 'Lunch';
+    if (n.includes('dinner') || n.includes('supper') || n === 'meal 3' || n.includes('evening') || n === 'meal 4' || n === 'meal 5') return 'Dinner';
+    if (n.includes('snack') || n === 'meal 6') return 'Snacks';
+    if (['breakfast', 'lunch', 'dinner', 'snacks'].includes(n)) return name;
+    return name; // unknown custom meal - keep as-is
+  };
+
+  // Aggregate food log into meal patterns (merge similar groups, include more foods)
   const mealPatterns = useMemo((): Record<string, MealPattern> => {
     if (!cronometerFoodLog || cronometerFoodLog.length === 0) return {};
 
@@ -637,7 +664,7 @@ export default function MealPlanPage() {
     for (const day of cronometerFoodLog) {
       if (!day.meals) continue;
       for (const meal of day.meals) {
-        const group = meal.name; // "Breakfast", "Lunch", "Dinner", "Snacks"
+        const group = normalizeMealGroup(meal.name);
         if (!groups[group]) {
           groups[group] = { macros: [], foods: {}, daysWithData: 0 };
         }
@@ -671,7 +698,7 @@ export default function MealPlanPage() {
       const commonFoods = Object.entries(data.foods)
         .map(([name, info]) => ({ name, serving: info.serving, frequency: info.count }))
         .sort((a, b) => b.frequency - a.frequency)
-        .slice(0, 8);
+        .slice(0, 18); // Increased from 8 to 18 for richer context
 
       patterns[groupName] = {
         mealGroup: groupName,
@@ -684,18 +711,16 @@ export default function MealPlanPage() {
     return patterns;
   }, [cronometerFoodLog]);
 
-  // Map Cronometer meal groups to slot labels
+  // Map Cronometer meal groups to slot labels (supports all meal/snack variants)
   const getPatternForSlot = useCallback((slotLabel: string, slotType: 'meal' | 'snack'): MealPattern | undefined => {
     if (!cronometerMode || Object.keys(mealPatterns).length === 0) return undefined;
 
-    // Direct mapping by slot label
     const label = slotLabel.toLowerCase();
-    if (label.includes('meal 1') || label.includes('breakfast')) return mealPatterns['Breakfast'];
-    if (label.includes('meal 2') || label.includes('lunch')) return mealPatterns['Lunch'];
-    if (label.includes('meal 3') || label.includes('dinner')) return mealPatterns['Dinner'];
-    if (slotType === 'snack') return mealPatterns['Snacks'];
-    // Fallback: if there are more meals, map sequentially
-    if (label.includes('meal 4')) return mealPatterns['Dinner']; // late meal ~ dinner pattern
+    if (slotType === 'snack') return mealPatterns['Snacks'] ?? mealPatterns['Snack'];
+    if (label.includes('breakfast') || label.includes('meal 1')) return mealPatterns['Breakfast'];
+    if (label.includes('lunch') || label.includes('meal 2')) return mealPatterns['Lunch'];
+    if (label.includes('dinner') || label.includes('meal 3')) return mealPatterns['Dinner'];
+    if (label.includes('meal 4') || label.includes('meal 5') || label.includes('meal 6')) return mealPatterns['Dinner'] ?? mealPatterns['Lunch'];
     return undefined;
   }, [cronometerMode, mealPatterns]);
 
@@ -2143,7 +2168,7 @@ export default function MealPlanPage() {
                   <TooltipContent side="bottom" className="max-w-xs text-xs leading-relaxed">
                     <p className="font-semibold mb-1">Cronometer Adaptive Mode</p>
                     <p className="mb-1">
-                      Pulls the last <strong>14 days</strong> of food log data from Cronometer
+                      Pulls the last <strong>28 days</strong> of food log data from Cronometer
                       for <strong>{cronometerClientName || `Client #${cronometerClientId}`}</strong> and
                       aggregates their eating patterns by meal.
                     </p>
@@ -2293,14 +2318,13 @@ export default function MealPlanPage() {
                       <TooltipProvider key={link.id} delayDuration={100}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <a
-                              href={link.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => openLinkModal(link)}
                               className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold transition-colors hover:ring-2 hover:ring-[#c19962]/40 ${link.bg || 'bg-slate-50'} ${link.color || 'text-slate-700'}`}
                             >
                               {link.label.substring(0, 2).toUpperCase()}
-                            </a>
+                            </button>
                           </TooltipTrigger>
                           <TooltipContent side="right" className="text-xs">
                             <p className="font-medium">{link.label}</p>
@@ -2358,15 +2382,14 @@ export default function MealPlanPage() {
                           </div>
                         ) : (
                           <div className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors hover:bg-muted/40 ${link.bg || 'bg-slate-50/50'}`}>
-                            <a
-                              href={link.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`flex-1 min-w-0 flex items-center gap-1.5 ${link.color || 'text-slate-700'}`}
+                            <button
+                              type="button"
+                              onClick={() => openLinkModal(link)}
+                              className={`flex-1 min-w-0 flex items-center gap-1.5 text-left ${link.color || 'text-slate-700'}`}
                             >
                               <Globe className="h-3 w-3 shrink-0 opacity-60" />
                               <span className="text-xs font-medium truncate">{link.label}</span>
-                            </a>
+                            </button>
                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                               <button
                                 type="button"
@@ -3645,6 +3668,44 @@ export default function MealPlanPage() {
           }}
         />
       )}
+
+      {/* ============ LINK BROWSER MODAL ============ */}
+      <Dialog open={linkModalOpen} onOpenChange={(open) => { if (!open) closeLinkModal(); }}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-[#c19962]" />
+              {linkModalLabel}
+            </DialogTitle>
+            <DialogDescription>
+              Browsing in-page. Use &quot;Open in new tab&quot; if the site doesn&apos;t load properly.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 flex flex-col p-4 pt-4">
+            {linkModalURL && (
+              <iframe
+                src={linkModalURL}
+                title={linkModalLabel}
+                className="w-full flex-1 min-h-[400px] rounded-lg border bg-white"
+                sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+              />
+            )}
+          </div>
+          <DialogFooter className="px-6 py-4 border-t shrink-0">
+            <Button variant="outline" onClick={closeLinkModal}>Close</Button>
+            <Button
+              onClick={() => {
+                if (linkModalURL) {
+                  window.open(linkModalURL, '_blank', 'noopener,noreferrer');
+                }
+              }}
+            >
+              <Globe className="h-4 w-4 mr-2" />
+              Open in new tab
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ============ FAVORITES PICKER DIALOG ============ */}
       {/* Opens when user clicks "From Favorites" on an empty meal slot */}

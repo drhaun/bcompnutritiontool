@@ -500,8 +500,8 @@ export function MealSlotCard({
               </button>
               {showPattern && (
                 <div className="mt-2 space-y-1.5">
-                  <div className="text-[10px] text-amber-700 space-y-0.5">
-                    {currentPattern.commonFoods.slice(0, 5).map((f, i) => (
+                  <div className="text-[10px] text-amber-700 space-y-0.5 max-h-32 overflow-y-auto">
+                    {currentPattern.commonFoods.slice(0, 12).map((f, i) => (
                       <div key={i} className="flex justify-between">
                         <span className="truncate mr-2">{f.name}</span>
                         <span className="shrink-0 text-amber-500">{f.frequency}/{currentPattern.daysSampled}d</span>
@@ -820,7 +820,7 @@ export function MealSlotCard({
             </button>
             {showPattern && (
               <div className="mt-1 text-[10px] text-amber-600 space-y-0.5">
-                {currentPattern.commonFoods.slice(0, 4).map((f, i) => (
+                {currentPattern.commonFoods.slice(0, 8).map((f, i) => (
                   <div key={i} className="truncate">{f.name} ({f.serving})</div>
                 ))}
               </div>
