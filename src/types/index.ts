@@ -585,6 +585,7 @@ export interface NutritionTargets {
 export interface DayNutritionTargets extends NutritionTargets {
   day: DayOfWeek;
   isWorkoutDay: boolean;
+  dayLabel?: string; // Custom label: "Refeed Day", "Deload Day", etc.
 }
 
 // Macros

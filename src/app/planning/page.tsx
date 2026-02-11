@@ -72,7 +72,7 @@ import {
   ResponsiveContainer, Legend
 } from 'recharts';
 import type { Phase, GoalType, PerformancePriority, MusclePreservation, FatGainTolerance, LifestyleCommitment, TrackingCommitment, TimelineEvent, TimelineEventType, DayNutritionTargets, PhaseCheckIn, MacroSettings } from '@/types';
-import { PhaseCalendar } from '@/components/planning/phase-calendar';
+import { PhaseCalendar, type PhaseCategory } from '@/components/planning/phase-calendar';
 import { PhaseTargetsEditor } from '@/components/planning/phase-targets-editor';
 
 // ============ CONSTANTS ============
@@ -103,6 +103,14 @@ const GOAL_ICONS: Record<GoalType, React.ReactNode> = {
   health: <Heart className="h-4 w-4" />,
   other: <Target className="h-4 w-4" />,
 };
+
+// Phase categories for grouped display
+const PHASE_CATEGORY_ROWS: { id: PhaseCategory; label: string; goals: GoalType[]; icon: React.ReactNode; description: string }[] = [
+  { id: 'body_comp', label: 'Body Composition', goals: ['fat_loss', 'muscle_gain', 'recomposition'], icon: <Scale className="h-4 w-4" />, description: 'Fat loss, muscle gain, and recomposition phases' },
+  { id: 'performance', label: 'Performance', goals: ['performance'], icon: <Zap className="h-4 w-4" />, description: 'Athletic and performance-focused training blocks' },
+  { id: 'health', label: 'Health Focus', goals: ['health'], icon: <Heart className="h-4 w-4" />, description: 'Health markers, labs, and wellness goals' },
+  { id: 'other', label: 'Other', goals: ['other'], icon: <Target className="h-4 w-4" />, description: 'Custom goals and miscellaneous phases' },
+];
 
 const EVENT_TYPES = [
   { value: 'lab_test', label: 'Lab Test / Assessment', icon: '🔬' },
@@ -151,6 +159,7 @@ export default function PlanningPage() {
   // UI State - Default to calendar view to help visualize phase planning
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'calendar'>('calendar');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [createPhaseCategory, setCreatePhaseCategory] = useState<PhaseCategory | null>(null);
   const [editingPhase, setEditingPhase] = useState<Phase | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showPlanningStats, setShowPlanningStats] = useState(false);
@@ -225,6 +234,9 @@ export default function PlanningPage() {
   const [newMetricStart, setNewMetricStart] = useState('');
   const [newMetricTarget, setNewMetricTarget] = useState('');
   const [newMetricUnit, setNewMetricUnit] = useState('');
+  
+  // Include nutrition targets toggle for non-body-comp phases
+  const [includeNutritionTargets, setIncludeNutritionTargets] = useState(false);
   
   // Phase context preferences
   const [performancePriority, setPerformancePriority] = useState<PerformancePriority>('body_comp_priority');
@@ -543,6 +555,9 @@ export default function PlanningPage() {
     }
   }, [calculatedTimeline.endDate, manualDurationWeeks]);
   
+  // Helper: is the current wizard goal a body composition goal?
+  const isBodyCompGoal = newPhaseGoal === 'fat_loss' || newPhaseGoal === 'muscle_gain' || newPhaseGoal === 'recomposition';
+  
   // Generate suggested phase name — smarter when building on a predecessor
   const suggestedPhaseName = useMemo(() => {
     if (newPhaseGoal === 'other' && customGoalName) {
@@ -768,7 +783,31 @@ export default function PlanningPage() {
       setManualDurationWeeks(null);
       setRecompBias('maintenance');
       setPredecessorPhase(null);
+      setCreatePhaseCategory(null);
+      setIncludeNutritionTargets(false);
     }
+  };
+  
+  // Open create dialog pre-set to a specific category row
+  const handleCreatePhaseForCategory = (category: PhaseCategory) => {
+    setCreatePhaseCategory(category);
+    
+    // Map category to default goal type
+    const categoryGoalMap: Record<PhaseCategory, GoalType> = {
+      body_comp: 'fat_loss',
+      performance: 'performance',
+      health: 'health',
+      other: 'other',
+    };
+    setNewPhaseGoal(categoryGoalMap[category]);
+    
+    // For non-body-comp, default nutrition targets off
+    const isBodyComp = category === 'body_comp';
+    setIncludeNutritionTargets(isBodyComp);
+    
+    // Skip step 1 (goal selection) since category is already chosen
+    setWizardStep(2);
+    setShowCreateDialog(true);
   };
   
   // Sort phases by start date
@@ -805,6 +844,9 @@ export default function PlanningPage() {
     
     const phaseName = newPhaseName.trim() || suggestedPhaseName;
     
+    // For non-body-comp goals without nutrition targets, zero out body comp fields
+    const hasBodyComp = isBodyCompGoal || includeNutritionTargets;
+    
     const phaseId = createPhase({
       name: phaseName,
       goalType: newPhaseGoal,
@@ -812,19 +854,19 @@ export default function PlanningPage() {
       startDate: newPhaseStart,
       endDate: newPhaseEnd,
       status: 'planned',
-      targetWeightLbs,
-      targetBodyFat,
-      targetFatMassLbs,
-      targetFFMLbs,
-      rateOfChange,
+      targetWeightLbs: hasBodyComp ? targetWeightLbs : 0,
+      targetBodyFat: hasBodyComp ? targetBodyFat : 0,
+      targetFatMassLbs: hasBodyComp ? targetFatMassLbs : 0,
+      targetFFMLbs: hasBodyComp ? targetFFMLbs : 0,
+      rateOfChange: hasBodyComp ? rateOfChange : 0,
       performancePriority,
       musclePreservation,
       fatGainTolerance,
       lifestyleCommitment,
       trackingCommitment,
       // Store starting body comp for reference
-      startingWeightLbs: editCurrentWeight,
-      startingBodyFat: editCurrentBodyFat,
+      startingWeightLbs: hasBodyComp ? editCurrentWeight : 0,
+      startingBodyFat: hasBodyComp ? editCurrentBodyFat : 0,
       // Store custom metrics
       customMetrics: customMetrics.length > 0 ? customMetrics : undefined,
     });
@@ -1324,21 +1366,26 @@ export default function PlanningPage() {
                 <Dialog open={showCreateDialog} onOpenChange={handleDialogClose}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Create New Phase</DialogTitle>
+                    <DialogTitle>
+                      {createPhaseCategory 
+                        ? `New ${PHASE_CATEGORY_ROWS.find(c => c.id === createPhaseCategory)?.label || ''} Phase`
+                        : 'Create New Phase'
+                      }
+                    </DialogTitle>
                     <DialogDescription>
                       Step {wizardStep} of 4: {
                         wizardStep === 1 ? 'Select your goal' :
                         wizardStep === 2 ? (
-                          newPhaseGoal === 'performance' ? 'Set performance targets & body composition' :
-                          newPhaseGoal === 'health' ? 'Set health targets & body composition' :
-                          newPhaseGoal === 'other' ? 'Set custom targets & body composition' :
-                          'Set body composition targets'
+                          newPhaseGoal === 'performance' ? 'Performance targets' :
+                          newPhaseGoal === 'health' ? 'Health targets' :
+                          newPhaseGoal === 'other' ? 'Custom targets' :
+                          'Body composition targets'
                         ) :
                         wizardStep === 3 ? (
-                          newPhaseGoal === 'performance' ? 'Configure training block' :
-                          newPhaseGoal === 'health' ? 'Configure health intervention timeline' :
-                          newPhaseGoal === 'other' ? 'Configure phase timeline' :
-                          'Configure timeline & rate of change'
+                          newPhaseGoal === 'performance' ? 'Training block timeline' :
+                          newPhaseGoal === 'health' ? 'Health intervention timeline' :
+                          newPhaseGoal === 'other' ? 'Phase timeline' :
+                          'Timeline & rate of change'
                         ) :
                         'Review and name your phase'
                       }
@@ -1579,9 +1626,106 @@ export default function PlanningPage() {
                     </div>
                   )}
                   
-                  {/* Step 2: Body Composition Targets */}
+                  {/* Step 2: Goal-specific Targets */}
                   {wizardStep === 2 && (
                     <div className="space-y-6 py-4">
+                      
+                      {/* NON-BODY-COMP: Show goal-specific content FIRST */}
+                      {!isBodyCompGoal && (
+                        <>
+                          {/* Custom goal name for health or other (when entering from category row) */}
+                          {(newPhaseGoal === 'health' || newPhaseGoal === 'other') && createPhaseCategory && (
+                            <div className="space-y-2">
+                              <Label className="text-sm font-semibold">
+                                {newPhaseGoal === 'health' ? 'Health Focus Area' : 'Custom Goal Name'}
+                              </Label>
+                              <Input
+                                placeholder={newPhaseGoal === 'health' ? 'e.g., Blood sugar management, Gut health' : 'e.g., Competition prep, Travel phase'}
+                                value={customGoalName}
+                                onChange={(e) => setCustomGoalName(e.target.value)}
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Nutrition Targets Toggle */}
+                          <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                            <div className="flex items-center gap-2">
+                              <Target className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <Label className="text-sm font-medium">Include Nutrition Targets</Label>
+                                <p className="text-xs text-muted-foreground">
+                                  Set body composition goals and enable meal planning for this phase
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={includeNutritionTargets}
+                              onClick={() => setIncludeNutritionTargets(!includeNutritionTargets)}
+                              className={cn(
+                                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                                includeNutritionTargets ? "bg-[#c19962]" : "bg-muted"
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition-transform",
+                                  includeNutritionTargets ? "translate-x-5" : "translate-x-0"
+                                )}
+                              />
+                            </button>
+                          </div>
+                          
+                          <Separator />
+                        </>
+                      )}
+                      
+                      {/* BODY COMP SECTIONS: Show always for body comp goals, or when toggle is on for others */}
+                      {(isBodyCompGoal || includeNutritionTargets) && (
+                        <>
+                      {/* Compact body comp sub-selector when entering from category row */}
+                      {createPhaseCategory === 'body_comp' && (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Goal Type</Label>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setNewPhaseGoal('fat_loss')}
+                              className={cn(
+                                "flex-1 flex items-center gap-2 p-2.5 border rounded-lg text-xs font-medium transition-all",
+                                newPhaseGoal === 'fat_loss' && "border-orange-400 bg-orange-50 text-orange-700"
+                              )}
+                            >
+                              <TrendingDown className="h-3.5 w-3.5" />
+                              Fat Loss
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setNewPhaseGoal('muscle_gain')}
+                              className={cn(
+                                "flex-1 flex items-center gap-2 p-2.5 border rounded-lg text-xs font-medium transition-all",
+                                newPhaseGoal === 'muscle_gain' && "border-blue-400 bg-blue-50 text-blue-700"
+                              )}
+                            >
+                              <TrendingUp className="h-3.5 w-3.5" />
+                              Muscle Gain
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setNewPhaseGoal('recomposition')}
+                              className={cn(
+                                "flex-1 flex items-center gap-2 p-2.5 border rounded-lg text-xs font-medium transition-all",
+                                newPhaseGoal === 'recomposition' && "border-purple-400 bg-purple-50 text-purple-700"
+                              )}
+                            >
+                              <Scale className="h-3.5 w-3.5" />
+                              Recomp
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
                       {/* Current Stats - Editable */}
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
@@ -1880,8 +2024,10 @@ export default function PlanningPage() {
                           )}
                         </div>
                       </TooltipProvider>
+                        </>
+                      )}
                       
-                      {/* PERFORMANCE METRICS - Shows FIRST for Performance Goals */}
+                      {/* PERFORMANCE METRICS - Shows for Performance Goals regardless of nutrition toggle */}
                       {newPhaseGoal === 'performance' && (
                         <>
                           <Separator />
@@ -2161,6 +2307,9 @@ export default function PlanningPage() {
                         </>
                       )}
                       
+                      {/* Target Body Composition - Only when body comp is enabled */}
+                      {(isBodyCompGoal || includeNutritionTargets) && (
+                        <>
                       <Separator />
                       
                       {/* Target Section - With optional label for performance goals */}
@@ -2355,6 +2504,8 @@ export default function PlanningPage() {
                           )}
                         </p>
                       </div>
+                        </>
+                      )}
                       
                       {/* Custom Metrics Section - For Health/Other Goals (shown after body comp) */}
                       {(newPhaseGoal === 'health' || newPhaseGoal === 'other') && (
@@ -3258,8 +3409,11 @@ export default function PlanningPage() {
                           <Separator />
                           
                           {/* BODY COMPOSITION GOALS: Show targets */}
-                          {(newPhaseGoal === 'fat_loss' || newPhaseGoal === 'muscle_gain' || newPhaseGoal === 'recomposition') && (
+                          {(isBodyCompGoal || includeNutritionTargets) && (
                             <>
+                              {!isBodyCompGoal && (
+                                <p className="text-xs font-medium text-[#c19962] uppercase tracking-wide">Nutrition Targets (included)</p>
+                              )}
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Target Weight</span>
                                 <span className="font-medium">{targetWeightLbs.toFixed(1)} lbs</span>
@@ -3268,13 +3422,17 @@ export default function PlanningPage() {
                                 <span className="text-muted-foreground">Target Body Fat</span>
                                 <span className="font-medium">{targetBodyFat.toFixed(1)}%</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Rate of Change</span>
-                                <span className="font-medium">{rateOfChange.toFixed(2)}% BW/week</span>
-                              </div>
-                              <div className="p-2 rounded bg-muted/50 text-xs text-muted-foreground">
-                                <strong>Projected change:</strong> {Math.abs(currentWeightLbs - targetWeightLbs).toFixed(1)} lbs over {calculatedTimeline.weeks} weeks
-                              </div>
+                              {isBodyCompGoal && (
+                                <>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Rate of Change</span>
+                                    <span className="font-medium">{rateOfChange.toFixed(2)}% BW/week</span>
+                                  </div>
+                                  <div className="p-2 rounded bg-muted/50 text-xs text-muted-foreground">
+                                    <strong>Projected change:</strong> {Math.abs(currentWeightLbs - targetWeightLbs).toFixed(1)} lbs over {calculatedTimeline.weeks} weeks
+                                  </div>
+                                </>
+                              )}
                             </>
                           )}
                           
@@ -3298,10 +3456,12 @@ export default function PlanningPage() {
                               ) : (
                                 <p className="text-xs text-muted-foreground italic">No specific metrics defined. Body composition will be tracked as secondary.</p>
                               )}
-                              <div className="flex justify-between text-xs pt-2">
-                                <span className="text-muted-foreground">Body comp (secondary)</span>
-                                <span className="text-muted-foreground">Maintain ~{editCurrentWeight} lbs</span>
-                              </div>
+                              {!includeNutritionTargets && (
+                                <div className="flex justify-between text-xs pt-2">
+                                  <span className="text-muted-foreground">Nutrition targets</span>
+                                  <span className="text-muted-foreground italic">Not included</span>
+                                </div>
+                              )}
                             </>
                           )}
                           
@@ -3495,10 +3655,17 @@ export default function PlanningPage() {
                   <DialogFooter className="flex justify-between sm:justify-between">
                     <Button 
                       variant="outline" 
-                      onClick={() => wizardStep === 1 ? handleDialogClose(false) : setWizardStep(wizardStep - 1)}
+                      onClick={() => {
+                        // If on step 1 or on step 2 having skipped step 1 (entered from category row), close dialog
+                        if (wizardStep === 1 || (wizardStep === 2 && createPhaseCategory)) {
+                          handleDialogClose(false);
+                        } else {
+                          setWizardStep(wizardStep - 1);
+                        }
+                      }}
                     >
                       <ArrowLeft className="h-4 w-4 mr-1" />
-                      {wizardStep === 1 ? 'Cancel' : 'Back'}
+                      {wizardStep === 1 || (wizardStep === 2 && createPhaseCategory) ? 'Cancel' : 'Back'}
                     </Button>
                     
                     {wizardStep < 4 ? (
@@ -3707,6 +3874,7 @@ export default function PlanningPage() {
                         toast.success(`Selected: ${phase.name}`);
                       }
                     }}
+                    onCreatePhase={handleCreatePhaseForCategory}
                     timelineEvents={timelineEvents}
                     onEventDelete={handleDeleteEvent}
                   />
@@ -3769,9 +3937,9 @@ export default function PlanningPage() {
             </div>
           )}
           
-          {/* Phases Section */}
+          {/* Phases Section - Grouped by Category */}
           {activeSection === 'phases' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">All Phases</h2>
                 <Button
@@ -3784,124 +3952,146 @@ export default function PlanningPage() {
                 </Button>
               </div>
               
-              {sortedPhases.length === 0 ? (
-                <Card className="border-0 shadow-sm">
-                  <CardContent className="py-12 text-center">
-                    <Target className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-                    <h3 className="font-semibold mb-2">No Phases Yet</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Create your first training phase to start planning.
-                    </p>
-                    <Button 
-                      onClick={() => setShowCreateDialog(true)}
-                      className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Phase
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-3">
-                  {sortedPhases.map((phase) => {
-                    const isActive = phase.id === activePhaseId;
-                    const colors = GOAL_COLORS[phase.goalType];
-                    const duration = getPhaseDuration(phase);
-                    
-                    return (
-                      <Card 
-                        key={phase.id}
-                        className={cn(
-                          "border-0 shadow-sm transition-all cursor-pointer hover:shadow-md",
-                          isActive && "ring-2 ring-[#c19962]",
-                          phase.status === 'completed' && "opacity-60"
+              {PHASE_CATEGORY_ROWS.map(catRow => {
+                const categoryPhases = sortedPhases.filter(p => catRow.goals.includes(p.goalType));
+                
+                return (
+                  <div key={catRow.id} className="space-y-2">
+                    {/* Category Header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">{catRow.icon}</span>
+                        <span className="text-sm font-semibold">{catRow.label}</span>
+                        {categoryPhases.length > 0 && (
+                          <Badge variant="outline" className="text-[10px]">{categoryPhases.length}</Badge>
                         )}
-                        onClick={() => {
-                          setActivePhase(phase.id);
-                          handleOpenTargetsModal(phase);
-                        }}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-muted-foreground hover:text-[#c19962]"
+                        onClick={() => handleCreatePhaseForCategory(catRow.id)}
                       >
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={cn("p-2 rounded-lg", colors.bg)}>
-                                {GOAL_ICONS[phase.goalType]}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold">{phase.name}</span>
-                                  {isActive && (
-                                    <Badge className="bg-[#c19962] text-[#00263d] text-[10px]">Active</Badge>
-                                  )}
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add
+                      </Button>
+                    </div>
+                    
+                    {categoryPhases.length === 0 ? (
+                      <button
+                        className="w-full py-4 rounded-lg border-2 border-dashed border-border/40 text-sm text-muted-foreground/50 hover:border-[#c19962]/40 hover:text-[#c19962]/60 transition-colors cursor-pointer"
+                        onClick={() => handleCreatePhaseForCategory(catRow.id)}
+                      >
+                        + Add {catRow.label} Phase
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        {categoryPhases.map((phase) => {
+                          const isActive = phase.id === activePhaseId;
+                          const colors = GOAL_COLORS[phase.goalType];
+                          const duration = getPhaseDuration(phase);
+                          
+                          return (
+                            <Card 
+                              key={phase.id}
+                              className={cn(
+                                "border-0 shadow-sm transition-all cursor-pointer hover:shadow-md",
+                                isActive && "ring-2 ring-[#c19962]",
+                                phase.status === 'completed' && "opacity-60"
+                              )}
+                              onClick={() => {
+                                setActivePhase(phase.id);
+                                handleOpenTargetsModal(phase);
+                              }}
+                            >
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className={cn("p-2 rounded-lg", colors.bg)}>
+                                      {GOAL_ICONS[phase.goalType]}
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold">{phase.name}</span>
+                                        {isActive && (
+                                          <Badge className="bg-[#c19962] text-[#00263d] text-[10px]">Active</Badge>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                                        <span>{formatDate(phase.startDate)} - {formatDate(phase.endDate)}</span>
+                                        <span>•</span>
+                                        <span>{duration} weeks</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4">
+                                    {(phase.targetWeightLbs > 0 || phase.targetBodyFat > 0) && (
+                                      <div className="text-right">
+                                        {phase.targetWeightLbs > 0 && <div className="text-sm font-semibold">{phase.targetWeightLbs} lbs</div>}
+                                        {phase.targetBodyFat > 0 && <div className="text-xs text-muted-foreground">{phase.targetBodyFat}% BF</div>}
+                                      </div>
+                                    )}
+                                    {phase.customMetrics && phase.customMetrics.length > 0 && !phase.targetWeightLbs && (
+                                      <div className="text-right">
+                                        <div className="text-xs text-muted-foreground">{phase.customMetrics.length} metric{phase.customMetrics.length !== 1 ? 's' : ''}</div>
+                                      </div>
+                                    )}
+                                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-[#c19962] hover:text-[#c19962] hover:bg-[#c19962]/10"
+                                            onClick={() => handleOpenCheckIn(phase.id)}
+                                          >
+                                            <Scale className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Record Check-In</TooltipContent>
+                                      </Tooltip>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => handleOpenEditDialog(phase)}
+                                          >
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Edit</TooltipContent>
+                                      </Tooltip>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => handleDuplicatePhase(phase.id, phase.name)}
+                                          >
+                                            <Copy className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Duplicate</TooltipContent>
+                                      </Tooltip>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-destructive hover:text-destructive"
+                                            onClick={() => handleDeletePhase(phase.id, phase.name)}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Delete</TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                                  <span>{formatDate(phase.startDate)} - {formatDate(phase.endDate)}</span>
-                                  <span>•</span>
-                                  <span>{duration} weeks</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <div className="text-right">
-                                <div className="text-sm font-semibold">{phase.targetWeightLbs} lbs</div>
-                                <div className="text-xs text-muted-foreground">{phase.targetBodyFat}% BF</div>
-                              </div>
-                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-[#c19962] hover:text-[#c19962] hover:bg-[#c19962]/10"
-                                      onClick={() => handleOpenCheckIn(phase.id)}
-                                    >
-                                      <Scale className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Record Check-In</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleOpenEditDialog(phase)}
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Edit</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleDuplicatePhase(phase.id, phase.name)}
-                                    >
-                                      <Copy className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Duplicate</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-destructive hover:text-destructive"
-                                      onClick={() => handleDeletePhase(phase.id, phase.name)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Delete</TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </div>
-                          </div>
                           
                           {/* Progress Tracking Chart - Show if check-ins exist */}
                           {(phase.checkIns && phase.checkIns.length > 0) && (
@@ -4040,8 +4230,11 @@ export default function PlanningPage() {
                       </Card>
                     );
                   })}
-                </div>
-              )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
           

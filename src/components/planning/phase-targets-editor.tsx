@@ -79,7 +79,8 @@ import {
   ChevronUp,
   Beaker,
   Download,
-  Loader2
+  Loader2,
+  Tag
 } from 'lucide-react';
 import type { 
   Phase, 
@@ -432,6 +433,8 @@ interface DayConfig {
   fat: number;
   // Per-meal slot targets (user overrides)
   mealSlotTargets?: MealSlotTarget[];
+  // Custom day label (e.g. "Refeed Day", "Deload Day")
+  dayLabel?: string;
   // Derived
   isWorkoutDay: boolean;
   totalTDEE: number;
@@ -465,6 +468,9 @@ export function PhaseTargetsEditor({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [targetsConfirmed, setTargetsConfirmed] = useState(phase.nutritionTargets?.length > 0);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [editingDayLabel, setEditingDayLabel] = useState(false);
+  const [dayLabelDraft, setDayLabelDraft] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   // Macro coefficient settings - slider-based
   const [proteinLevel, setProteinLevel] = useState<ProteinLevel>('moderate');
@@ -526,6 +532,8 @@ export function PhaseTargetsEditor({
           mealContexts: savedTarget.mealContexts,
           // Restore per-meal slot targets if saved
           mealSlotTargets: savedTarget.mealSlotTargets,
+          // Restore custom day label
+          dayLabel: savedTarget.dayLabel || target.dayLabel,
           // Restore workouts - either from saved workouts array or create one if it was a workout day
           workouts: savedTarget.workouts?.length > 0 
             ? savedTarget.workouts 
@@ -766,6 +774,7 @@ export function PhaseTargetsEditor({
         protein: overrides.protein ?? macros.protein,
         carbs: overrides.carbs ?? macros.carbs,
         fat: overrides.fat ?? macros.fat,
+        dayLabel: overrides.dayLabel,
       };
     });
 
@@ -817,6 +826,7 @@ export function PhaseTargetsEditor({
 
       return { ...prev, [day]: merged };
     });
+    setHasUnsavedChanges(true);
   };
 
   // Reset a day to profile defaults
@@ -894,6 +904,8 @@ export function PhaseTargetsEditor({
         mealContexts: config?.mealContexts || [],
         // Save per-meal slot targets (user-customized or computed)
         mealSlotTargets: dayConfigs[day]?.mealSlotTargets || (config ? computeMealSlotTargets(config) : []),
+        // Save custom day label
+        dayLabel: dayConfigs[day]?.dayLabel || undefined,
       } as DayNutritionTargets & { 
         wakeTime?: string; 
         sleepTime?: string;
@@ -916,6 +928,7 @@ export function PhaseTargetsEditor({
     
     onSaveTargets(targets, macroSettings);
     setTargetsConfirmed(true);
+    setHasUnsavedChanges(false);
     toast.success('Nutrition targets and meal settings saved for this phase');
   };
 
@@ -1093,6 +1106,35 @@ export function PhaseTargetsEditor({
                 Edit
               </Button>
             </div>
+          </div>
+          {/* Top Save / Generate buttons */}
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+            <Button
+              size="sm"
+              className={cn(
+                "h-9 font-medium",
+                hasUnsavedChanges
+                  ? "bg-amber-500 hover:bg-amber-600 text-white"
+                  : "bg-green-600 hover:bg-green-700 text-white"
+              )}
+              onClick={handleConfirmTargets}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+              {hasUnsavedChanges ? 'Save Targets' : (targetsConfirmed ? 'Targets Saved' : 'Save Targets')}
+            </Button>
+            <Button
+              size="sm"
+              className="h-9 bg-[#c19962] hover:bg-[#a8843e] text-white font-medium"
+              onClick={() => {
+                if (hasUnsavedChanges) {
+                  handleConfirmTargets();
+                }
+                onNavigateToMealPlan();
+              }}
+            >
+              <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+              Generate Meal Plan
+            </Button>
           </div>
         </CardHeader>
       </Card>
@@ -1815,6 +1857,11 @@ export function PhaseTargetsEditor({
                   <span className="text-[10px] opacity-70 mt-0.5">
                     {config?.calories?.toLocaleString() || 0}
                   </span>
+                  {dayConfigs[day]?.dayLabel && (
+                    <span className="text-[9px] opacity-60 mt-0.5 truncate max-w-[56px]" title={dayConfigs[day]?.dayLabel}>
+                      {dayConfigs[day]?.dayLabel}
+                    </span>
+                  )}
                 </Button>
               );
             })}
@@ -1844,11 +1891,78 @@ export function PhaseTargetsEditor({
                           </Badge>
                         )}
                       </CardTitle>
-                      <CardDescription>
-                        {selectedDayConfig.isWorkoutDay ? 
-                          `${selectedDayConfig.workouts[0]?.type || 'Workout'} • ${selectedDayConfig.workouts[0]?.duration || 60}min` : 
-                          'Rest Day'
-                        }
+                      <CardDescription className="flex items-center gap-1.5">
+                        {editingDayLabel ? (
+                          <span className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              className="text-xs border rounded px-1.5 py-0.5 w-32 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-[#c19962]"
+                              value={dayLabelDraft}
+                              autoFocus
+                              onChange={(e) => setDayLabelDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  updateDayConfig(selectedDay, { dayLabel: dayLabelDraft || undefined });
+                                  setEditingDayLabel(false);
+                                } else if (e.key === 'Escape') {
+                                  setEditingDayLabel(false);
+                                }
+                              }}
+                              onBlur={() => {
+                                updateDayConfig(selectedDay, { dayLabel: dayLabelDraft || undefined });
+                                setEditingDayLabel(false);
+                              }}
+                              placeholder={selectedDayConfig.isWorkoutDay ? 'Workout Day' : 'Rest Day'}
+                            />
+                            <button
+                              className="text-green-600 hover:text-green-700"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                updateDayConfig(selectedDay, { dayLabel: dayLabelDraft || undefined });
+                                setEditingDayLabel(false);
+                              }}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            className="flex items-center gap-1 hover:text-foreground transition-colors group"
+                            onClick={() => {
+                              setDayLabelDraft(dayConfigs[selectedDay]?.dayLabel || '');
+                              setEditingDayLabel(true);
+                            }}
+                          >
+                            <Tag className="h-3 w-3" />
+                            <span>
+                              {dayConfigs[selectedDay]?.dayLabel || 
+                                (selectedDayConfig.isWorkoutDay ? 
+                                  `${selectedDayConfig.workouts[0]?.type || 'Workout'} • ${selectedDayConfig.workouts[0]?.duration || 60}min` : 
+                                  'Rest Day'
+                                )
+                              }
+                            </span>
+                            <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-60 transition-opacity" />
+                          </button>
+                        )}
+                        {editingDayLabel && (
+                          <span className="flex flex-wrap gap-1 ml-1">
+                            {['Refeed Day', 'Deload Day', 'Active Recovery', 'High Carb Day', 'Low Carb Day'].map(preset => (
+                              <button
+                                key={preset}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-[#c19962]/20 hover:text-[#c19962] transition-colors"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setDayLabelDraft(preset);
+                                  updateDayConfig(selectedDay, { dayLabel: preset });
+                                  setEditingDayLabel(false);
+                                }}
+                              >
+                                {preset}
+                              </button>
+                            ))}
+                          </span>
+                        )}
                       </CardDescription>
                     </div>
                   </div>
@@ -2811,7 +2925,12 @@ export function PhaseTargetsEditor({
                 </Button>
                 <Button 
                   size="lg"
-                  onClick={onNavigateToMealPlan}
+                  onClick={() => {
+                    if (hasUnsavedChanges) {
+                      handleConfirmTargets();
+                    }
+                    onNavigateToMealPlan();
+                  }}
                   className="flex-1 h-12 text-base font-semibold bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d] shadow-lg shadow-[#c19962]/30"
                 >
                   <Sparkles className="h-5 w-5 mr-2" />

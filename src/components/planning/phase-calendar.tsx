@@ -15,7 +15,8 @@ import {
   Zap,
   Heart,
   Flag,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -79,7 +80,7 @@ const GOAL_LABELS: Record<GoalType, string> = {
 };
 
 // Phase categories for calendar organization
-type PhaseCategory = 'body_comp' | 'performance' | 'health' | 'other';
+export type PhaseCategory = 'body_comp' | 'performance' | 'health' | 'other';
 
 const PHASE_CATEGORIES: { id: PhaseCategory; label: string; goals: GoalType[]; color: string; icon: React.ReactNode }[] = [
   { 
@@ -133,6 +134,7 @@ interface PhaseCalendarProps {
   activePhaseId?: string | null;
   year?: number;
   onPhaseClick?: (phase: Phase) => void;
+  onCreatePhase?: (category: PhaseCategory) => void;
   timelineEvents?: TimelineEvent[];
   onEventClick?: (event: TimelineEvent) => void;
   onEventDelete?: (eventId: string) => void;
@@ -143,6 +145,7 @@ export function PhaseCalendar({
   activePhaseId,
   year: initialYear,
   onPhaseClick,
+  onCreatePhase,
   timelineEvents = [],
   onEventClick,
   onEventDelete,
@@ -304,17 +307,17 @@ export function PhaseCalendar({
       const categoryPhases = categorizedPhases[category.id];
       const trackCount = categoryTrackCounts[category.id];
       
-      // Only include categories that have phases
-      if (categoryPhases.length > 0) {
-        result.push({
-          category,
-          phases: categoryPhases,
-          trackCount,
-          startY: currentY,
-        });
-        
-        currentY += categoryLabelHeight + (trackCount * (trackHeight + trackGap)) + categoryPadding;
-      }
+      // Always include all categories - empty ones get 1 track for the "+ Add Phase" lane
+      const effectiveTrackCount = Math.max(trackCount, 1);
+      
+      result.push({
+        category,
+        phases: categoryPhases,
+        trackCount: effectiveTrackCount,
+        startY: currentY,
+      });
+      
+      currentY += categoryLabelHeight + (effectiveTrackCount * (trackHeight + trackGap)) + categoryPadding;
     }
     
     return {
@@ -611,21 +614,16 @@ export function PhaseCalendar({
           </div>
           
           {/* Category Rows */}
-          {phasesByCategory.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground text-sm">
-              No phases in this time range
-            </div>
-          ) : (
-            phasesByCategory.map(({ category, phases: categoryPhases, trackCount: catTrackCount, startY }) => {
+          {phasesByCategory.map(({ category, phases: categoryPhases, trackCount: catTrackCount }) => {
               const trackHeight = 44;
               const trackGap = 4;
               const categoryLabelHeight = 28;
+              const isEmpty = categoryPhases.length === 0;
               
               return (
                 <div 
                   key={category.id}
                   className="relative"
-                  style={{ marginTop: startY === 0 ? 0 : undefined }}
                 >
                   {/* Category Label Row */}
                   <div 
@@ -639,9 +637,20 @@ export function PhaseCalendar({
                     <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
                       {category.label}
                     </span>
-                    <span className="text-[10px] text-muted-foreground/60">
-                      ({categoryPhases.length} phase{categoryPhases.length !== 1 ? 's' : ''})
-                    </span>
+                    {categoryPhases.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground/60">
+                        ({categoryPhases.length} phase{categoryPhases.length !== 1 ? 's' : ''})
+                      </span>
+                    )}
+                    {onCreatePhase && (
+                      <button
+                        className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-[#c19962] transition-colors"
+                        onClick={() => onCreatePhase(category.id)}
+                      >
+                        <Plus className="h-3 w-3" />
+                        Add
+                      </button>
+                    )}
                   </div>
                   
                   {/* Phase Tracks within this category */}
@@ -649,6 +658,16 @@ export function PhaseCalendar({
                     className="relative px-2"
                     style={{ height: `${catTrackCount * (trackHeight + trackGap) + 8}px` }}
                   >
+                    {/* Empty state for this category */}
+                    {isEmpty && (
+                      <button
+                        className="absolute inset-x-2 top-1 bottom-1 rounded-lg border-2 border-dashed border-border/30 flex items-center justify-center gap-2 text-xs text-muted-foreground/40 hover:border-[#c19962]/40 hover:text-[#c19962]/60 transition-colors cursor-pointer"
+                        onClick={() => onCreatePhase?.(category.id)}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add {category.label} Phase
+                      </button>
+                    )}
                     {categoryPhases.map(({ phase, left, width, durationWeeks, clippedStart, clippedEnd, startFormatted, endFormatted, categoryTrack }) => {
                       const colors = GOAL_COLORS[phase.goalType];
                       const isHovered = hoveredPhase === phase.id;
@@ -710,8 +729,7 @@ export function PhaseCalendar({
                   </div>
                 </div>
               );
-            })
-          )}
+            })}
           
           {/* Event Markers */}
           {eventPositions.map((event) => (

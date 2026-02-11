@@ -81,6 +81,8 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Edit2,
+  Tag,
+  Check,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import type { DayOfWeek, DayNutritionTargets, MealSlot, Meal, Macros, DietPreferences, SupplementEntry, MealSupplement, CoachLink, FavoriteRecipe, ClientResource } from '@/types';
@@ -175,6 +177,7 @@ const calculateSlotTargets = (
 interface DayType {
   id: string;
   label: string;
+  dayLabel?: string; // Custom label from nutrition targets (e.g. "Refeed Day")
   description: string;
   icon: 'workout' | 'rest' | 'active';
   days: DayOfWeek[];
@@ -276,6 +279,8 @@ export default function MealPlanPage() {
   const [isGeneratingSingleDay, setIsGeneratingSingleDay] = useState(false);
   const [editingDayTargets, setEditingDayTargets] = useState(false);
   const [localDayTargets, setLocalDayTargets] = useState<{ calories: number; protein: number; carbs: number; fat: number } | null>(null);
+  const [editingDayTypeLabel, setEditingDayTypeLabel] = useState(false);
+  const [dayTypeLabelDraft, setDayTypeLabelDraft] = useState('');
   const [slotTargetOverrides, setSlotTargetOverrides] = useState<Record<string, Macros>>({});
   const [showPreview, setShowPreview] = useState(false);
   const [showGroceryList, setShowGroceryList] = useState(false);
@@ -744,8 +749,13 @@ export default function MealPlanPage() {
       const mealsCount = schedule?.mealCount || 3;
       const snacksCount = schedule?.snackCount || 2;
       
-      // Create a key based on workout status and meal structure
-      const typeKey = `${isWorkoutDay ? `workout-${workoutType || 'general'}` : 'rest'}-${mealsCount}m-${snacksCount}s`;
+      // Get custom day label from saved targets
+      const customDayLabel = targets?.dayLabel;
+      
+      // Create a key based on workout status, meal structure, and custom label
+      const typeKey = customDayLabel 
+        ? `custom-${customDayLabel}-${mealsCount}m-${snacksCount}s`
+        : `${isWorkoutDay ? `workout-${workoutType || 'general'}` : 'rest'}-${mealsCount}m-${snacksCount}s`;
       
       if (types.has(typeKey)) {
         const existing = types.get(typeKey)!;
@@ -756,9 +766,10 @@ export default function MealPlanPage() {
       } else {
         types.set(typeKey, {
           id: typeKey,
-          label: isWorkoutDay 
+          label: customDayLabel || (isWorkoutDay 
             ? `${workoutType || 'Workout'} Day` 
-            : 'Rest Day',
+            : 'Rest Day'),
+          dayLabel: customDayLabel,
           description: `${mealsCount} meals, ${snacksCount} snacks`,
           icon: isWorkoutDay ? 'workout' : 'rest',
           days: [day],
@@ -947,6 +958,21 @@ export default function MealPlanPage() {
     setEditingDayTargets(false);
     setLocalDayTargets(null);
   }, [dayTargets, nutritionTargets, currentDay, activePhaseId, updatePhase, setNutritionTargets]);
+
+  // Save a custom day label for all days in a given day type group
+  const handleSaveDayTypeLabel = useCallback((dayType: DayType, newLabel: string) => {
+    const updatedTargets = nutritionTargets.map(t => {
+      if (!dayType.days.includes(t.day as DayOfWeek)) return t;
+      return { ...t, dayLabel: newLabel || undefined };
+    });
+    
+    if (activePhaseId) {
+      updatePhase(activePhaseId, { nutritionTargets: updatedTargets });
+    }
+    setNutritionTargets(updatedTargets);
+    setEditingDayTypeLabel(false);
+    setDayTypeLabelDraft('');
+  }, [nutritionTargets, activePhaseId, updatePhase, setNutritionTargets]);
 
   // Handle updating per-meal slot targets
   const handleUpdateSlotTargets = useCallback((slotIndex: number, targets: Macros) => {
@@ -1984,11 +2010,25 @@ export default function MealPlanPage() {
                 <Badge variant="outline" className="text-[10px] ml-1">
                   {clientSupplements.length} active
                 </Badge>
-                {isWorkoutDay && (
-                  <Badge className="text-[10px] bg-green-100 text-green-700 border-green-300">
-                    <Dumbbell className="h-2.5 w-2.5 mr-0.5" /> Workout Day
-                  </Badge>
-                )}
+                {(() => {
+                  const dayTarget = nutritionTargets.find(t => t.day === day);
+                  const customLabel = dayTarget?.dayLabel;
+                  if (customLabel) {
+                    return (
+                      <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-300">
+                        <Tag className="h-2.5 w-2.5 mr-0.5" /> {customLabel}
+                      </Badge>
+                    );
+                  }
+                  if (isWorkoutDay) {
+                    return (
+                      <Badge className="text-[10px] bg-green-100 text-green-700 border-green-300">
+                        <Dumbbell className="h-2.5 w-2.5 mr-0.5" /> Workout Day
+                      </Badge>
+                    );
+                  }
+                  return null;
+                })()}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -2878,7 +2918,63 @@ export default function MealPlanPage() {
                               ) : (
                                 <Coffee className="h-5 w-5 text-[#c19962]" />
                               )}
-                              {currentDayType.label} Template
+                              {editingDayTypeLabel ? (
+                                <span className="flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    className="text-base font-bold border border-[#c19962]/50 rounded px-2 py-0.5 w-44 bg-white/10 text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-[#c19962]"
+                                    value={dayTypeLabelDraft}
+                                    autoFocus
+                                    onChange={(e) => setDayTypeLabelDraft(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && currentDayType) {
+                                        handleSaveDayTypeLabel(currentDayType, dayTypeLabelDraft);
+                                      } else if (e.key === 'Escape') {
+                                        setEditingDayTypeLabel(false);
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      if (currentDayType) handleSaveDayTypeLabel(currentDayType, dayTypeLabelDraft);
+                                    }}
+                                    placeholder={currentDayType.isWorkoutDay ? 'Workout Day' : 'Rest Day'}
+                                  />
+                                  <button
+                                    className="text-green-400 hover:text-green-300"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      if (currentDayType) handleSaveDayTypeLabel(currentDayType, dayTypeLabelDraft);
+                                    }}
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </button>
+                                  <span className="flex gap-1 ml-1">
+                                    {['Refeed Day', 'Deload Day', 'Active Recovery', 'High Carb Day', 'Low Carb Day'].map(preset => (
+                                      <button
+                                        key={preset}
+                                        className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-[#c19962]/30 hover:text-[#c19962] transition-colors whitespace-nowrap"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          setDayTypeLabelDraft(preset);
+                                          if (currentDayType) handleSaveDayTypeLabel(currentDayType, preset);
+                                        }}
+                                      >
+                                        {preset}
+                                      </button>
+                                    ))}
+                                  </span>
+                                </span>
+                              ) : (
+                                <button
+                                  className="flex items-center gap-1.5 hover:text-[#c19962] transition-colors group"
+                                  onClick={() => {
+                                    setDayTypeLabelDraft(currentDayType.dayLabel || currentDayType.label);
+                                    setEditingDayTypeLabel(true);
+                                  }}
+                                >
+                                  {currentDayType.label} Template
+                                  <Tag className="h-3.5 w-3.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                                </button>
+                              )}
                             </h2>
                             <p className="text-sm opacity-80 mt-1">
                               Applies to: <span className="font-medium">{currentDayType.days.join(', ')}</span>
@@ -3259,12 +3355,17 @@ export default function MealPlanPage() {
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-3">
                             <h2 className="text-lg font-bold">{day}</h2>
-                            {dayTargets?.isWorkoutDay && (
+                            {dayTargets?.dayLabel ? (
+                              <Badge className="bg-amber-500 text-white">
+                                <Tag className="h-3 w-3 mr-1" />
+                                {dayTargets.dayLabel}
+                              </Badge>
+                            ) : dayTargets?.isWorkoutDay ? (
                               <Badge className="bg-[#c19962] text-[#00263d]">
                                 <Dumbbell className="h-3 w-3 mr-1" />
                                 Workout
                               </Badge>
-                            )}
+                            ) : null}
                           </div>
                           {!editingDayTargets ? (
                             <Button 
