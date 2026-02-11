@@ -950,10 +950,11 @@ export default function CronometerDashboardPage() {
                                           // Use Cronometer targets if available, else defaults
                                           const t = dashboardData.targets?.[micro.key];
                                           const target = t?.min || t?.max || micro.defaultTarget;
-                                          const status = getNutrientStatus(micro.val, target);
+                                          const val = typeof micro.val === 'number' && !isNaN(micro.val) ? micro.val : 0;
+                                          const status = getNutrientStatus(val, target);
                                           return (
                                             <div key={idx} className="text-center p-1 rounded bg-background/50">
-                                              <p className={cn("font-medium", status.color)}>{round(micro.val, 1)}</p>
+                                              <p className={cn("font-medium", status.color)}>{round(val, 1)}</p>
                                               <p className="text-muted-foreground text-[10px]">{micro.name}</p>
                                             </div>
                                           );
