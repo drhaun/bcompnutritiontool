@@ -148,10 +148,32 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 // Backwards compatibility - isLocalOnly means Supabase is NOT configured
 export const isLocalOnly = !isSupabaseConfigured;
 
+// Custom fetch that catches network errors (e.g. "Failed to fetch") so Supabase
+// gets a controlled error response instead of an uncaught TypeError
+function createResilientFetch(): typeof fetch {
+  const nativeFetch = globalThis.fetch.bind(globalThis);
+  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    try {
+      return await nativeFetch(input, init);
+    } catch (err) {
+      if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        console.warn('[Supabase] Network error - check connection or try again later');
+        return new Response(
+          JSON.stringify({ error: 'Network request failed', message: 'Failed to fetch' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      throw err;
+    }
+  };
+}
+
 // Create browser client (uses cookies for session storage - works with SSR)
-// This ensures the session is available in API routes
+// Custom fetch prevents uncaught "Failed to fetch" TypeError on network errors
 export const supabase = isSupabaseConfigured && typeof window !== 'undefined'
-  ? createBrowserClient<Database>(supabaseUrl!, supabaseAnonKey!)
+  ? createBrowserClient<Database>(supabaseUrl!, supabaseAnonKey!, {
+      global: { fetch: createResilientFetch() },
+    })
   : isSupabaseConfigured
     ? createClient<Database>(supabaseUrl!, supabaseAnonKey!) // Server-side fallback
     : null;

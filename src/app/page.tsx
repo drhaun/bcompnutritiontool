@@ -56,6 +56,7 @@ export default function HomePage() {
   const router = useRouter();
   const { 
     clients, 
+    _deletedClientIds,
     activeClientId, 
     createClient, 
     selectClient, 
@@ -73,6 +74,18 @@ export default function HomePage() {
     syncToDatabase,
     loadClientsFromDatabase,
   } = useFitomicsStore();
+  
+  // Filter out any clients we've deleted (defense-in-depth: never show deleted clients)
+  const visibleClients = useMemo(() => {
+    const deletedIds = new Set<string>([
+      ...(_deletedClientIds || []),
+      ...(typeof window !== 'undefined' 
+        ? JSON.parse(localStorage.getItem('fitomics-deleted-client-ids') || '[]') 
+        : []),
+    ]);
+    if (deletedIds.size === 0) return clients;
+    return clients.filter(c => !deletedIds.has(c.id));
+  }, [clients, _deletedClientIds]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
@@ -150,16 +163,16 @@ export default function HomePage() {
 
   // Check if a Cronometer client is already linked to a Fitomics profile
   const getLinkedFitomicsClientName = useCallback((cronometerClientId: number): string | null => {
-    const linked = clients.find(c => c.cronometerClientId === cronometerClientId);
+    const linked = visibleClients.find(c => c.cronometerClientId === cronometerClientId);
     return linked ? linked.name : null;
-  }, [clients]);
+  }, [visibleClients]);
 
   const activeClient = getActiveClient();
   
-  // Filter and sort clients
+  // Filter and sort clients (use visibleClients to exclude any deleted)
   // Note: clients without a status are treated as 'active' for backward compatibility
   const activeClients = useMemo(() => {
-    const filtered = clients
+    const filtered = visibleClients
       .filter(c => !c.status || c.status === 'active') // Include clients with missing status
       .filter(c => {
         if (!searchQuery) return true;
@@ -172,11 +185,11 @@ export default function HomePage() {
       })
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     
-    console.log('[HomePage] Active clients after filtering:', filtered.length, 'from', clients.length, 'total');
+    console.log('[HomePage] Active clients after filtering:', filtered.length, 'from', visibleClients.length, 'total');
     return filtered;
-  }, [clients, searchQuery]);
+  }, [visibleClients, searchQuery]);
 
-  const archivedClients = clients.filter(c => c.status === 'archived');
+  const archivedClients = visibleClients.filter(c => c.status === 'archived');
   
   const recentClients = activeClients.slice(0, 5);
 
@@ -601,7 +614,7 @@ export default function HomePage() {
                   </div>
                   <div className="text-center p-3 bg-muted/50 rounded-lg">
                     <p className="text-2xl font-bold text-green-600">
-                      {clients.filter(c => c.mealPlan).length}
+                      {visibleClients.filter(c => c.mealPlan).length}
                     </p>
                     <p className="text-xs text-muted-foreground">Plans Generated</p>
                   </div>
@@ -631,7 +644,7 @@ export default function HomePage() {
                       <span className="text-green-700">Connected to Supabase</span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {clients.length} client{clients.length !== 1 ? 's' : ''} in local storage
+                      {visibleClients.length} client{visibleClients.length !== 1 ? 's' : ''} in local storage
                     </p>
                     {lastSyncedAt && (
                       <p className="text-xs text-muted-foreground">
@@ -646,7 +659,7 @@ export default function HomePage() {
                     
                     {/* Manual Sync Button */}
                     <Button
-                      variant={clients.length > 0 ? "default" : "outline"}
+                      variant={visibleClients.length > 0 ? "default" : "outline"}
                       size="sm"
                       className="w-full gap-2"
                       onClick={() => syncToDatabase()}
@@ -660,7 +673,7 @@ export default function HomePage() {
                       ) : (
                         <>
                           <RefreshCw className="h-4 w-4" />
-                          Sync {clients.length > 0 ? `${clients.length} Client${clients.length !== 1 ? 's' : ''} to Cloud` : 'with Cloud'}
+                          Sync {visibleClients.length > 0 ? `${visibleClients.length} Client${visibleClients.length !== 1 ? 's' : ''} to Cloud` : 'with Cloud'}
                         </>
                       )}
                     </Button>

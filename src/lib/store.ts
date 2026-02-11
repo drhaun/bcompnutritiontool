@@ -1612,9 +1612,21 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         return (state, error) => {
           if (error) {
             console.error('[Store] Rehydration error:', error);
-          } else if (state) {
+          } else if (state && typeof window !== 'undefined') {
             console.log('[Store] Rehydration complete');
-            console.log('[Store] Restored clients:', state.clients?.length || 0, state.clients?.map(c => c.name) || []);
+            // Prune any deleted clients from rehydrated state (defense-in-depth)
+            const deletedIds = new Set<string>([
+              ...(state._deletedClientIds || []),
+              ...JSON.parse(localStorage.getItem('fitomics-deleted-client-ids') || '[]'),
+            ]);
+            if (deletedIds.size > 0 && state.clients?.length) {
+              const filtered = state.clients.filter((c: ClientProfile) => !deletedIds.has(c.id));
+              if (filtered.length < state.clients.length) {
+                console.log('[Store] Pruning', state.clients.length - filtered.length, 'deleted clients from rehydrated state');
+                useFitomicsStore.setState({ clients: filtered });
+              }
+            }
+            console.log('[Store] Restored clients:', state.clients?.length || 0, state.clients?.map((c: ClientProfile) => c.name) || []);
             console.log('[Store] Active client ID:', state.activeClientId);
           }
         };

@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json();
-    const { email, password, name, role } = body;
+    const { email, password, name, role, canViewAllClients } = body;
     
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
@@ -151,6 +151,7 @@ export async function POST(request: NextRequest) {
           email,
           name: name || null,
           role: role || 'coach',
+          can_view_all_clients: canViewAllClients || false,
         });
       
       if (staffError) {

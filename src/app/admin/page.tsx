@@ -43,6 +43,7 @@ import {
   getAllStaff, 
   updateStaffMember,
   createStaffForUser,
+  createUserAndStaff,
 } from '@/lib/auth';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -77,10 +78,20 @@ export default function AdminPage() {
   });
   const [isSaving, setIsSaving] = useState(false);
   
-  // Create staff dialog state
+  // Create staff dialog state (for existing auth users)
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedAuthUser, setSelectedAuthUser] = useState<AuthUser | null>(null);
   const [createForm, setCreateForm] = useState({
+    name: '',
+    role: 'coach' as 'admin' | 'coach' | 'nutritionist',
+    canViewAllClients: false,
+  });
+
+  // Create new user + staff dialog state
+  const [showCreateUserDialog, setShowCreateUserDialog] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState({
+    email: '',
+    password: '',
     name: '',
     role: 'coach' as 'admin' | 'coach' | 'nutritionist',
     canViewAllClients: false,
@@ -182,6 +193,38 @@ export default function AdminPage() {
       setShowCreateDialog(false);
       setSelectedAuthUser(null);
       setCreateForm({ name: '', role: 'coach', canViewAllClients: false });
+      loadData();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    }
+    
+    setIsSaving(false);
+  };
+
+  const handleCreateNewUser = async () => {
+    if (!createUserForm.email?.trim() || !createUserForm.password) {
+      setError('Email and password are required');
+      return;
+    }
+    
+    setIsSaving(true);
+    setError(null);
+    
+    const result = await createUserAndStaff(
+      createUserForm.email.trim(),
+      createUserForm.password,
+      {
+        name: createUserForm.name.trim() || undefined,
+        role: createUserForm.role,
+        canViewAllClients: createUserForm.canViewAllClients,
+      }
+    );
+    
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setSuccessMessage('User created successfully. They can now log in.');
+      setShowCreateUserDialog(false);
+      setCreateUserForm({ email: '', password: '', name: '', role: 'coach', canViewAllClients: false });
       loadData();
       setTimeout(() => setSuccessMessage(null), 3000);
     }
@@ -318,17 +361,96 @@ export default function AdminPage() {
         {/* Staff Management */}
         <Card className="bg-white border-0 shadow-lg">
           <CardHeader className="pb-3 border-b border-slate-100">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <CardTitle className="flex items-center gap-2 text-[#00263d]">
                 <UserCog className="h-5 w-5 text-[#c19962]" />
                 Staff Members
               </CardTitle>
-              {usersWithoutStaff.length > 0 && (
-                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <div className="flex gap-2">
+                <Dialog open={showCreateUserDialog} onOpenChange={setShowCreateUserDialog}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-2 bg-[#c19962] hover:bg-[#a8844f]">
                       <UserPlus className="h-4 w-4" />
-                      Add Staff ({usersWithoutStaff.length} pending)
+                      Create New Staff
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New User + Staff</DialogTitle>
+                      <DialogDescription>
+                        Create a new account with email and password. They can log in immediately.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div>
+                        <Label>Email *</Label>
+                        <Input 
+                          type="email"
+                          value={createUserForm.email} 
+                          onChange={(e) => setCreateUserForm(f => ({ ...f, email: e.target.value }))}
+                          placeholder="user@example.com"
+                        />
+                      </div>
+                      <div>
+                        <Label>Password *</Label>
+                        <Input 
+                          type="password"
+                          value={createUserForm.password} 
+                          onChange={(e) => setCreateUserForm(f => ({ ...f, password: e.target.value }))}
+                          placeholder="Min 6 characters"
+                        />
+                      </div>
+                      <div>
+                        <Label>Name</Label>
+                        <Input 
+                          value={createUserForm.name} 
+                          onChange={(e) => setCreateUserForm(f => ({ ...f, name: e.target.value }))}
+                          placeholder="Display name"
+                        />
+                      </div>
+                      <div>
+                        <Label>Role</Label>
+                        <Select 
+                          value={createUserForm.role} 
+                          onValueChange={(v: 'admin' | 'coach' | 'nutritionist') => setCreateUserForm(f => ({ ...f, role: v }))}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="coach">Coach</SelectItem>
+                            <SelectItem value="nutritionist">Nutritionist</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Can View All Clients</Label>
+                          <p className="text-xs text-slate-500">Allow viewing clients from all coaches</p>
+                        </div>
+                        <Switch 
+                          checked={createUserForm.canViewAllClients}
+                          onCheckedChange={(v) => setCreateUserForm(f => ({ ...f, canViewAllClients: v }))}
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setShowCreateUserDialog(false)}>Cancel</Button>
+                      <Button 
+                        onClick={handleCreateNewUser} 
+                        disabled={!createUserForm.email?.trim() || !createUserForm.password || createUserForm.password.length < 6 || isSaving}
+                        className="bg-[#c19962] hover:bg-[#a8844f]"
+                      >
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create User'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                {usersWithoutStaff.length > 0 && (
+                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Add Staff for Existing User ({usersWithoutStaff.length})
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
@@ -415,7 +537,8 @@ export default function AdminPage() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-              )}
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">

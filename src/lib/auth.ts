@@ -406,6 +406,50 @@ export async function createStaffForUser(
 }
 
 /**
+ * Create a new auth user + staff record (admin only)
+ * Uses POST /api/admin/users to create both in one call
+ */
+export async function createUserAndStaff(
+  email: string,
+  password: string,
+  data: { name?: string; role?: 'admin' | 'coach' | 'nutritionist'; canViewAllClients?: boolean }
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: 'Supabase not configured' };
+  }
+
+  console.log('[Auth] Creating new user + staff:', email);
+
+  try {
+    const response = await fetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        email,
+        password,
+        name: data.name || null,
+        role: data.role || 'coach',
+        canViewAllClients: data.canViewAllClients || false,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('[Auth] Create user API error:', result.error);
+      return { error: result.error || 'Failed to create user' };
+    }
+
+    console.log('[Auth] User + staff created successfully');
+    return { error: null };
+  } catch (err) {
+    console.error('[Auth] Create user exception:', err);
+    return { error: 'Network error creating user' };
+  }
+}
+
+/**
  * Check if user is authenticated
  */
 export async function isAuthenticated(): Promise<boolean> {
