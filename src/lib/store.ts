@@ -473,8 +473,13 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
       deleteClient: (clientId) => {
         const state = get();
         
-        // Track this ID so sync never resurrects it
-        const updatedDeletedIds = [...(state._deletedClientIds || []), clientId];
+        // Track deleted IDs in both localStorage (survives logout) and state (for consistency)
+        const deletedIds: string[] = JSON.parse(localStorage.getItem('fitomics-deleted-client-ids') || '[]');
+        if (!deletedIds.includes(clientId)) {
+          deletedIds.push(clientId);
+          localStorage.setItem('fitomics-deleted-client-ids', JSON.stringify(deletedIds));
+        }
+        const updatedDeletedIds = [...new Set([...(state._deletedClientIds || []), clientId])];
         
         set({
           clients: state.clients.filter(c => c.id !== clientId),
@@ -492,8 +497,17 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           deleteClientFromDb(clientId).then(success => {
             if (success) {
               console.log('[Store] Client deleted from database:', clientId);
+              // Clean up from both tracking stores (DB confirmed deletion)
+              try {
+                const ids: string[] = JSON.parse(localStorage.getItem('fitomics-deleted-client-ids') || '[]');
+                const updated = ids.filter(id => id !== clientId);
+                localStorage.setItem('fitomics-deleted-client-ids', JSON.stringify(updated));
+              } catch { /* ignore cleanup errors */ }
+              set((s) => ({
+                _deletedClientIds: (s._deletedClientIds || []).filter(id => id !== clientId),
+              }));
             } else {
-              console.error('[Store] Failed to delete client from database:', clientId);
+              console.error('[Store] Failed to delete client from database, will retry on next sync:', clientId);
             }
           }).catch(err => {
             console.error('[Store] Failed to sync client deletion:', err);
@@ -1435,46 +1449,62 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         
         set({ isSyncing: true, syncError: null });
         
-        // Collect IDs that were explicitly deleted in this session
-        const deletedIds = new Set(state._deletedClientIds || []);
+        // Collect deleted IDs from both localStorage (survives logout) and state
+        const deletedIds = new Set<string>([
+          ...(state._deletedClientIds || []),
+          ...JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('fitomics-deleted-client-ids') || '[]') : '[]'),
+        ]);
+        
+        // Helper: filter out deleted clients from any list
+        const excludeDeleted = (clients: ClientProfile[]) =>
+          deletedIds.size > 0 ? clients.filter(c => !deletedIds.has(c.id)) : clients;
+        
+        // Helper: retry deleting clients that are still in DB but were locally deleted
+        const retryPendingDeletions = async (dbClients: ClientProfile[]) => {
+          const zombies = dbClients.filter(c => deletedIds.has(c.id));
+          const successfullyDeleted: string[] = [];
+          for (const z of zombies) {
+            console.log('[Store] Retrying deletion of zombie client:', z.id, z.name);
+            const ok = await deleteClientFromDb(z.id);
+            if (ok) {
+              console.log('[Store] Successfully deleted zombie client from DB:', z.id);
+              successfullyDeleted.push(z.id);
+            }
+          }
+          // Clean up successfully deleted IDs from tracking
+          if (successfullyDeleted.length > 0) {
+            try {
+              const remaining = [...deletedIds].filter(id => !successfullyDeleted.includes(id));
+              localStorage.setItem('fitomics-deleted-client-ids', JSON.stringify(remaining));
+              for (const id of successfullyDeleted) deletedIds.delete(id);
+            } catch { /* ignore cleanup errors */ }
+          }
+        };
         
         try {
-          // CRITICAL: Preserve local clients - NEVER lose them
-          const localClients = state.clients;
+          const localClients = excludeDeleted(state.clients);
           console.log('[Store] Local clients before sync:', localClients.length, localClients.map(c => c.name));
-          console.log('[Store] Deleted client IDs to exclude:', deletedIds.size);
+          if (deletedIds.size > 0) {
+            console.log('[Store] Deleted client IDs to exclude:', deletedIds.size);
+          }
           
           if (localClients.length > 0) {
             console.log('[Store] Syncing local clients to database...');
             const syncResult = await syncClientsToDb(localClients);
             
             if (syncResult.success) {
-              // IMPORTANT: Merge rather than replace - keep any local clients not in DB
-              let mergedClients = syncResult.clients;
+              // Filter out deleted clients from the sync result
+              let mergedClients = excludeDeleted(syncResult.clients);
               
-              // Filter out any clients that were explicitly deleted
-              if (deletedIds.size > 0) {
-                const beforeCount = mergedClients.length;
-                mergedClients = mergedClients.filter(c => !deletedIds.has(c.id));
-                if (mergedClients.length < beforeCount) {
-                  console.log('[Store] Filtered out', beforeCount - mergedClients.length, 'deleted clients from sync result');
-                }
-              }
+              // Retry deleting any zombie clients still in DB
+              await retryPendingDeletions(syncResult.clients);
               
-              // Double-check we haven't lost any clients (excluding intentionally deleted ones)
-              const activeLocalClients = localClients.filter(c => !deletedIds.has(c.id));
-              if (mergedClients.length < activeLocalClients.length) {
-                console.warn('[Store] WARNING: Sync returned fewer clients than local!');
-                console.log('[Store] Local IDs:', activeLocalClients.map(c => c.id));
-                console.log('[Store] Synced IDs:', mergedClients.map(c => c.id));
-                
-                // Preserve any local clients that weren't in the sync result (and aren't deleted)
-                const syncedIds = new Set(mergedClients.map(c => c.id));
-                const missingClients = activeLocalClients.filter(c => !syncedIds.has(c.id));
-                if (missingClients.length > 0) {
-                  console.log('[Store] Restoring missing clients:', missingClients.map(c => c.name));
-                  mergedClients.push(...missingClients);
-                }
+              // Preserve any local clients that weren't in the sync result (and aren't deleted)
+              const syncedIds = new Set(mergedClients.map(c => c.id));
+              const missingClients = localClients.filter(c => !syncedIds.has(c.id) && !deletedIds.has(c.id));
+              if (missingClients.length > 0) {
+                console.log('[Store] Restoring missing (non-deleted) clients:', missingClients.map(c => c.name));
+                mergedClients = [...mergedClients, ...missingClients];
               }
               
               set({
@@ -1484,27 +1514,26 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
               console.log('[Store] Sync complete, total clients:', mergedClients.length);
             } else if (syncResult.error === 'Not authenticated') {
               console.log('[Store] Not authenticated - KEEPING local clients');
-              // CRITICAL: Do NOT modify clients - they should remain as-is from localStorage
             } else {
               console.log('[Store] Sync failed:', syncResult.error, '- KEEPING local clients');
-              // Don't lose local clients on sync failure
             }
           } else {
             // No local clients, try fetching from database
             console.log('[Store] No local clients, fetching from database...');
-            let dbClients = await fetchClientsFromDb();
+            const dbClients = await fetchClientsFromDb();
+            
+            // Retry deleting any zombie clients (still in DB but locally deleted)
+            await retryPendingDeletions(dbClients);
             
             // Filter out deleted clients
-            if (deletedIds.size > 0) {
-              dbClients = dbClients.filter(c => !deletedIds.has(c.id));
-            }
+            const filteredClients = excludeDeleted(dbClients);
             
-            if (dbClients.length > 0) {
+            if (filteredClients.length > 0) {
               set({
-                clients: dbClients,
+                clients: filteredClients,
                 lastSyncedAt: new Date().toISOString(),
               });
-              console.log('[Store] Loaded', dbClients.length, 'clients from database');
+              console.log('[Store] Loaded', filteredClients.length, 'clients from database');
             } else {
               console.log('[Store] No clients in database (or not authenticated)');
             }
@@ -1512,7 +1541,6 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         } catch (error) {
           console.error('[Store] Sync error:', error);
           set({ syncError: error instanceof Error ? error.message : 'Sync failed' });
-          // CRITICAL: Don't clear clients on error
         } finally {
           set({ isSyncing: false });
         }
@@ -1524,20 +1552,23 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         
         set({ isSyncing: true, syncError: null });
         
-        const deletedIds = new Set(state._deletedClientIds || []);
+        // Collect deleted IDs from both localStorage and state
+        const deletedIds = new Set<string>([
+          ...(state._deletedClientIds || []),
+          ...JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('fitomics-deleted-client-ids') || '[]') : '[]'),
+        ]);
         
         try {
           const result = await syncClientsToDb(state.clients);
           
           if (result.success) {
             // Filter out deleted clients from sync result
-            let syncedClients = result.clients;
-            if (deletedIds.size > 0) {
-              syncedClients = syncedClients.filter(c => !deletedIds.has(c.id));
-            }
+            const safeClients = deletedIds.size > 0
+              ? result.clients.filter(c => !deletedIds.has(c.id))
+              : result.clients;
             
             set({
-              clients: syncedClients,
+              clients: safeClients,
               lastSyncedAt: new Date().toISOString(),
             });
           } else {

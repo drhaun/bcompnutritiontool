@@ -171,30 +171,21 @@ export async function syncClientsToDb(localClients: ClientProfile[]): Promise<{
       }
     }
     
-    // Use database as source of truth after a successful sync.
-    // The DB result already contains all clients (including ones we synced up).
-    // Only preserve local clients that were NEVER synced (i.e. insert failed).
-    const dbClients = (data.clients || []).map(dbClientToStoreClient);
+    // Read locally-tracked deleted IDs to avoid re-introducing them
+    const deletedIds: Set<string> = new Set(
+      JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('fitomics-deleted-client-ids') || '[]') : '[]')
+    );
     
+    const dbClients = (data.clients || []).map(dbClientToStoreClient)
+      .filter((c: ClientProfile) => !deletedIds.has(c.id)); // Exclude deleted clients
+    
+    // Only preserve local clients that are NOT in deleted set
     if (localClients.length > 0 && dbClients.length < localClients.length) {
-      console.warn('[ClientSync] Database returned fewer clients than local. Checking for un-synced clients.');
-      const dbIds = new Set(dbClients.map(c => c.id));
-      
-      // Only preserve clients that we tried to insert but failed
-      // (indicated by errors). Don't resurrect intentionally deleted clients.
-      const failedInsertIds = new Set<string>();
-      if (data.errors && data.errors.length > 0) {
-        // If there were insert failures, those clients might be missing from DB
-        for (const client of localClients) {
-          if (!dbIds.has(client.id)) {
-            failedInsertIds.add(client.id);
-          }
-        }
-      }
-      
-      if (failedInsertIds.size > 0) {
-        const missingLocal = localClients.filter(c => failedInsertIds.has(c.id));
-        console.log('[ClientSync] Preserving', missingLocal.length, 'un-synced local clients');
+      console.warn('[ClientSync] Database returned fewer clients than local. Checking for non-deleted missing clients.');
+      const dbIds = new Set(dbClients.map((c: ClientProfile) => c.id));
+      const missingLocal = localClients.filter(c => !dbIds.has(c.id) && !deletedIds.has(c.id));
+      if (missingLocal.length > 0) {
+        console.log('[ClientSync] Preserving', missingLocal.length, 'local clients not in database (non-deleted)');
         return {
           success: true,
           clients: [...dbClients, ...missingLocal],

@@ -112,14 +112,13 @@ export async function signOut(): Promise<{ error: string | null }> {
 
 /**
  * Clear invalid session (useful when refresh token errors occur)
- * This clears local storage and forces a clean state
+ * This clears local storage, cookies, and forces a clean state
  */
 export async function clearInvalidSession(): Promise<void> {
   console.log('[Auth] Clearing invalid session...');
   
-  // Clear Supabase auth from local storage
   if (typeof window !== 'undefined') {
-    // Clear all Supabase-related keys
+    // Clear all Supabase-related localStorage keys
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -130,6 +129,15 @@ export async function clearInvalidSession(): Promise<void> {
     keysToRemove.forEach(key => {
       console.log('[Auth] Removing localStorage key:', key);
       localStorage.removeItem(key);
+    });
+
+    // Clear all Supabase auth cookies (the browser client stores session in cookies)
+    document.cookie.split(';').forEach(cookie => {
+      const name = cookie.split('=')[0].trim();
+      if (name.includes('sb-') || name.includes('supabase')) {
+        console.log('[Auth] Removing cookie:', name);
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+      }
     });
   }
   
