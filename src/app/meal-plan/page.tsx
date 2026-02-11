@@ -26,6 +26,7 @@ import { ProgressSteps } from '@/components/layout/progress-steps';
 import { ProgressSummary } from '@/components/layout/progress-summary';
 import { MealSlotCard, ManualMealForm, MealSwapDialog, RecipeRecommendations } from '@/components/meal-plan';
 import { useFitomicsStore } from '@/lib/store';
+import { useSaveOnLeave } from '@/hooks/use-save-on-leave';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
@@ -247,6 +248,9 @@ export default function MealPlanPage() {
     addClientResource,
     removeClientResource,
   } = useFitomicsStore();
+  
+  // Ensure pending saves are flushed when navigating away or closing the page
+  useSaveOnLeave();
   
   // Get active phase data (if any)
   const activePhase = getActivePhase();

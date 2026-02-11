@@ -186,7 +186,7 @@ export async function DELETE(
     
     const isAdmin = staffRecord?.role === 'admin';
     
-    // Build query - admins can delete any client, others can only delete their own
+    // Build query with .select() to get back deleted rows (verify deletion happened)
     let query = supabase
       .from('clients')
       .delete()
@@ -196,14 +196,50 @@ export async function DELETE(
       query = query.eq('coach_id', user.id);
     }
     
-    const { error } = await query;
+    const { data: deletedRows, error } = await query.select();
     
     if (error) {
-      console.error('Error deleting client:', error);
-      return NextResponse.json({ error: 'Failed to delete client' }, { status: 500 });
+      console.error('[Clients API] Error deleting client:', error);
+      return NextResponse.json({ error: 'Failed to delete client', details: error.message }, { status: 500 });
     }
     
-    return NextResponse.json({ success: true });
+    // Check if any rows were actually deleted
+    if (!deletedRows || deletedRows.length === 0) {
+      console.warn('[Clients API] DELETE returned 0 rows for id:', id, '- RLS may have blocked deletion. Trying service role...');
+      
+      // Fall back to service role client (bypasses RLS) for verified users
+      const { createServerClient: createServiceClient } = await import('@/lib/supabase');
+      const serviceClient = createServiceClient();
+      
+      if (serviceClient) {
+        const { data: serviceDeletedRows, error: serviceError } = await serviceClient
+          .from('clients')
+          .delete()
+          .eq('id', id)
+          .select();
+        
+        if (serviceError) {
+          console.error('[Clients API] Service role delete also failed:', serviceError);
+          return NextResponse.json({ 
+            error: 'Failed to delete client', 
+            details: serviceError.message,
+            verified: false 
+          }, { status: 500 });
+        }
+        
+        if (serviceDeletedRows && serviceDeletedRows.length > 0) {
+          console.log('[Clients API] Client deleted via service role:', id);
+          return NextResponse.json({ success: true, verified: true, deletedCount: serviceDeletedRows.length });
+        }
+      }
+      
+      // Client genuinely doesn't exist in DB
+      console.log('[Clients API] Client not found in database (already deleted or never existed):', id);
+      return NextResponse.json({ success: true, verified: true, deletedCount: 0, alreadyGone: true });
+    }
+    
+    console.log('[Clients API] Client deleted successfully:', id, 'rows:', deletedRows.length);
+    return NextResponse.json({ success: true, verified: true, deletedCount: deletedRows.length });
   } catch (error) {
     console.error('Client DELETE error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

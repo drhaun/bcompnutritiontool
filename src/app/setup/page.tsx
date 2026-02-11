@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { ProgressSteps } from '@/components/layout/progress-steps';
 import { ProgressSummary } from '@/components/layout/progress-summary';
 import { useFitomicsStore } from '@/lib/store';
+import { useSaveOnLeave } from '@/hooks/use-save-on-leave';
 import { toast } from 'sonner';
 import { 
   ArrowRight,
@@ -508,6 +509,9 @@ export default function SetupPage() {
     saveActiveClientState
   } = useFitomicsStore();
   
+  // Ensure pending saves are flushed when navigating away or closing the page
+  useSaveOnLeave();
+  
   // Handle hydration mismatch - wait for client-side store to be ready
   const [isHydrated, setIsHydrated] = useState(false);
   const [isSavingProgress, setIsSavingProgress] = useState(false);
@@ -543,32 +547,6 @@ export default function SetupPage() {
   useEffect(() => {
     setIsHydrated(true);
   }, []);
-  
-  // Auto-save when leaving the page - CRITICAL for persistence
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      // Save immediately before the page unloads
-      if (activeClientId) {
-        console.log('[Setup] Auto-saving before page unload');
-        saveActiveClientState();
-      }
-    };
-    
-    // Save on browser refresh/close
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    // Cleanup: Save when component unmounts (navigation)
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      if (activeClientId) {
-        console.log('[Setup] Auto-saving on component unmount');
-        saveActiveClientState();
-      }
-    };
-  }, [activeClientId, saveActiveClientState]);
-  
-  // NOTE: Removed periodic auto-save - it was causing issues by saving store state
-  // while user was still editing local form state, effectively reverting their changes.
   
   const activeClient = isHydrated ? getActiveClient() : null;
   

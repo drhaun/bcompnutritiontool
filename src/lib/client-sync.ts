@@ -311,8 +311,10 @@ export async function updateClientInDb(
 
 /**
  * Delete a client from Supabase
+ * Returns 'verified' if confirmed deleted, 'unverified' if API returned OK but
+ * couldn't confirm deletion, or false if the request failed.
  */
-export async function deleteClientFromDb(clientId: string): Promise<boolean> {
+export async function deleteClientFromDb(clientId: string): Promise<'verified' | 'unverified' | false> {
   try {
     console.log('[ClientSync] Deleting client from database:', clientId);
     
@@ -327,17 +329,26 @@ export async function deleteClientFromDb(clientId: string): Promise<boolean> {
         return false;
       }
       if (response.status === 404) {
-        // Client doesn't exist in DB - that's fine, treat as success
+        // Client doesn't exist in DB - that's fine, treat as verified deletion
         console.log('[ClientSync] Client not found in database (already deleted?):', clientId);
-        return true;
+        return 'verified';
       }
       const errorData = await response.json().catch(() => ({}));
       console.error('[ClientSync] Delete failed:', response.status, errorData);
       return false;
     }
     
-    console.log('[ClientSync] Client deleted from database:', clientId);
-    return true;
+    const data = await response.json();
+    
+    // Check if the API verified the deletion actually happened
+    if (data.verified) {
+      console.log('[ClientSync] Client deletion VERIFIED in database:', clientId, 'rows:', data.deletedCount);
+      return 'verified';
+    }
+    
+    // API returned OK but didn't verify deletion (shouldn't happen with new API, but handle gracefully)
+    console.warn('[ClientSync] Client delete returned OK but unverified for:', clientId);
+    return 'unverified';
   } catch (error) {
     console.error('[ClientSync] Error deleting client:', error);
     return false;

@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ProgressSteps } from '@/components/layout/progress-steps';
 import { ProgressSummary } from '@/components/layout/progress-summary';
 import { useFitomicsStore } from '@/lib/store';
+import { useSaveOnLeave } from '@/hooks/use-save-on-leave';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { 
@@ -158,6 +159,9 @@ const defaultSchedule: DaySchedule = {
 export default function PreferencesPage() {
   const router = useRouter();
   const { dietPreferences, weeklySchedule, setDietPreferences, setWeeklySchedule, calculateNutritionTargets } = useFitomicsStore();
+  
+  // Ensure pending saves are flushed when navigating away or closing the page
+  useSaveOnLeave();
   
   // Handle hydration mismatch
   const [isHydrated, setIsHydrated] = useState(false);

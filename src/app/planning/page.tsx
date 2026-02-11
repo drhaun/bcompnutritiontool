@@ -26,6 +26,7 @@ import {
 import { ProgressSteps } from '@/components/layout/progress-steps';
 // ProgressSummary now integrated into collapsible stats bar
 import { useFitomicsStore, flushPendingSaves } from '@/lib/store';
+import { useSaveOnLeave } from '@/hooks/use-save-on-leave';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { 
@@ -136,6 +137,9 @@ export default function PlanningPage() {
     saveActiveClientState,
   } = useFitomicsStore();
   
+  // Ensure pending saves are flushed when navigating away or closing the page
+  useSaveOnLeave();
+  
   // Handle hydration
   const [isHydrated, setIsHydrated] = useState(false);
   useEffect(() => {
@@ -201,6 +205,9 @@ export default function PlanningPage() {
   const [editCurrentHeightFt, setEditCurrentHeightFt] = useState(5);
   const [editCurrentHeightIn, setEditCurrentHeightIn] = useState(10);
   const [saveCurrentToProfile, setSaveCurrentToProfile] = useState(false);
+  
+  // Previous phase context — when phases exist, the wizard can build on the latest one
+  const [predecessorPhase, setPredecessorPhase] = useState<Phase | null>(null);
   
   // Target input mode: 'bf' (body fat %), 'fm' (fat mass), 'ffm' (lean mass), 'weight', 'fmi', 'ffmi'
   const [targetMode, setTargetMode] = useState<'bf' | 'fm' | 'ffm' | 'weight' | 'fmi' | 'ffmi'>('bf');
@@ -327,16 +334,46 @@ export default function PlanningPage() {
   const currentFMI = heightMeters > 0 ? (currentFatMassLbs * 0.453592) / (heightMeters * heightMeters) : 0;
   
   // Initialize editable current stats when dialog opens
+  // If there are existing phases, detect the latest one and pre-populate with its projected end-state
   useEffect(() => {
     if (showCreateDialog) {
-      setEditCurrentWeight(profileWeightLbs);
-      setEditCurrentBodyFat(profileBodyFat);
+      // Find the latest phase by end date to use as predecessor
+      const latestPhase = phases.length > 0
+        ? [...phases].sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime())[0]
+        : null;
+      
+      if (latestPhase) {
+        const projected = getPhaseProjectedEndState(latestPhase);
+        setPredecessorPhase(latestPhase);
+        
+        // Pre-populate "current" stats from projected end-state of predecessor
+        setEditCurrentWeight(projected.weight);
+        setEditCurrentBodyFat(projected.bodyFat);
+        
+        // Start date = predecessor's end date
+        setNewPhaseStart(latestPhase.endDate);
+        
+        // Carry forward custom metrics as starting values for non-body-comp goals
+        if (projected.customMetrics?.length) {
+          setCustomMetrics(projected.customMetrics.map(m => ({
+            ...m,
+            id: `metric-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            startValue: m.targetValue, // Previous target becomes new start
+            targetValue: '', // Let user set new target
+          })));
+        }
+      } else {
+        setPredecessorPhase(null);
+        setEditCurrentWeight(profileWeightLbs);
+        setEditCurrentBodyFat(profileBodyFat);
+      }
+      
       setEditCurrentHeightFt(profileHeightFt);
       setEditCurrentHeightIn(profileHeightIn);
       setSaveCurrentToProfile(false);
-      setCustomMetrics([]);
     }
-  }, [showCreateDialog, profileWeightLbs, profileBodyFat, profileHeightFt, profileHeightIn]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCreateDialog]);
   
   // Initialize targets when goal changes or current stats change
   useEffect(() => {
@@ -506,7 +543,7 @@ export default function PlanningPage() {
     }
   }, [calculatedTimeline.endDate, manualDurationWeeks]);
   
-  // Generate suggested phase name
+  // Generate suggested phase name — smarter when building on a predecessor
   const suggestedPhaseName = useMemo(() => {
     if (newPhaseGoal === 'other' && customGoalName) {
       return customGoalName;
@@ -522,8 +559,16 @@ export default function PlanningPage() {
     const startDate = new Date(newPhaseStart);
     const quarter = Math.ceil((startDate.getMonth() + 1) / 3);
     const year = startDate.getFullYear();
+    
+    // If building on predecessor of same goal type, add a sequence hint
+    if (predecessorPhase && predecessorPhase.goalType === newPhaseGoal) {
+      // Count how many phases of this type already exist
+      const sameTypeCount = phases.filter(p => p.goalType === newPhaseGoal).length;
+      return `Q${quarter} ${year} ${goalNames[newPhaseGoal]} ${sameTypeCount + 1}`;
+    }
+    
     return `Q${quarter} ${year} ${goalNames[newPhaseGoal]}`;
-  }, [newPhaseGoal, newPhaseStart, customGoalName]);
+  }, [newPhaseGoal, newPhaseStart, customGoalName, predecessorPhase, phases]);
   
   // Add timeline event
   const handleAddEvent = () => {
@@ -631,6 +676,84 @@ export default function PlanningPage() {
     return startWeight + (change * weekNumber);
   };
   
+  /**
+   * Calculate the projected end-state of a phase.
+   * If check-ins exist, extrapolates from the latest one for accuracy.
+   * Otherwise, uses the phase's designed targets.
+   */
+  const getPhaseProjectedEndState = useCallback((phase: Phase) => {
+    const startWeight = phase.startingWeightLbs || profileWeightLbs;
+    const startBF = phase.startingBodyFat || profileBodyFat;
+    const durationWeeks = (() => {
+      const s = new Date(phase.startDate);
+      const e = new Date(phase.endDate);
+      return Math.round((e.getTime() - s.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    })();
+    
+    // If there are check-ins, use the latest one and extrapolate remaining weeks
+    if (phase.checkIns?.length) {
+      const sorted = [...phase.checkIns].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      const latest = sorted[0];
+      if (latest.weight && latest.bodyFat !== undefined) {
+        const remainingWeeks = Math.max(0, durationWeeks - latest.weekNumber);
+        if (remainingWeeks === 0) {
+          // Phase is done or at check-in point — use actual values
+          const fm = latest.weight * (latest.bodyFat / 100);
+          return {
+            weight: latest.weight,
+            bodyFat: latest.bodyFat,
+            fatMass: Math.round(fm * 10) / 10,
+            ffm: Math.round((latest.weight - fm) * 10) / 10,
+            source: 'check-in' as const,
+            checkInDate: latest.date,
+            customMetrics: phase.customMetrics,
+          };
+        }
+        // Extrapolate from check-in towards target
+        const weeklyWeightChange = (phase.targetWeightLbs - latest.weight) / remainingWeeks;
+        const projWeight = latest.weight + weeklyWeightChange * remainingWeeks;
+        // Extrapolate BF proportionally
+        const weeklyBFChange = (phase.targetBodyFat - latest.bodyFat) / remainingWeeks;
+        const projBF = latest.bodyFat + weeklyBFChange * remainingWeeks;
+        const projFM = projWeight * (projBF / 100);
+        return {
+          weight: Math.round(projWeight * 10) / 10,
+          bodyFat: Math.round(projBF * 10) / 10,
+          fatMass: Math.round(projFM * 10) / 10,
+          ffm: Math.round((projWeight - projFM) * 10) / 10,
+          source: 'extrapolated' as const,
+          checkInDate: latest.date,
+          customMetrics: phase.customMetrics,
+        };
+      }
+    }
+    
+    // For body comp goals, projected end = the designed targets
+    if (['fat_loss', 'muscle_gain', 'recomposition'].includes(phase.goalType)) {
+      return {
+        weight: phase.targetWeightLbs,
+        bodyFat: phase.targetBodyFat,
+        fatMass: phase.targetFatMassLbs,
+        ffm: phase.targetFFMLbs,
+        source: 'targets' as const,
+        customMetrics: phase.customMetrics,
+      };
+    }
+    
+    // For non-body-comp goals (performance, health, other), body comp stays ~same
+    const fm = startWeight * (startBF / 100);
+    return {
+      weight: startWeight,
+      bodyFat: startBF,
+      fatMass: Math.round(fm * 10) / 10,
+      ffm: Math.round((startWeight - fm) * 10) / 10,
+      source: 'maintained' as const,
+      customMetrics: phase.customMetrics,
+    };
+  }, [profileWeightLbs, profileBodyFat]);
+  
   // Reset wizard when dialog closes
   const handleDialogClose = (open: boolean) => {
     setShowCreateDialog(open);
@@ -644,6 +767,7 @@ export default function PlanningPage() {
       setSaveCurrentToProfile(false);
       setManualDurationWeeks(null);
       setRecompBias('maintenance');
+      setPredecessorPhase(null);
     }
   };
   
@@ -1233,6 +1357,92 @@ export default function PlanningPage() {
                     </div>
                   </DialogHeader>
                   
+                  {/* Predecessor Phase Context Banner */}
+                  {predecessorPhase && (
+                    <div className="mx-0 -mt-1 mb-2 p-3 rounded-lg border border-[#c19962]/30 bg-[#c19962]/5">
+                      <div className="flex items-start gap-2">
+                        <Flag className="h-4 w-4 text-[#c19962] mt-0.5 shrink-0" />
+                        <div className="text-sm space-y-1 flex-1">
+                          <p className="font-medium text-[#00263d]">
+                            Building on: <span className="text-[#c19962]">{predecessorPhase.name}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {GOAL_LABELS[predecessorPhase.goalType]} &middot; {formatDate(predecessorPhase.startDate)} &ndash; {formatDate(predecessorPhase.endDate)}
+                          </p>
+                          {(() => {
+                            const proj = getPhaseProjectedEndState(predecessorPhase);
+                            return (
+                              <div className="grid grid-cols-4 gap-2 mt-2 p-2 bg-background/80 rounded text-xs">
+                                <div>
+                                  <div className="text-muted-foreground">Proj. Weight</div>
+                                  <div className="font-semibold">{proj.weight} lbs</div>
+                                </div>
+                                <div>
+                                  <div className="text-muted-foreground">Proj. Body Fat</div>
+                                  <div className="font-semibold">{proj.bodyFat}%</div>
+                                </div>
+                                <div>
+                                  <div className="text-muted-foreground">Proj. Lean Mass</div>
+                                  <div className="font-semibold">{proj.ffm} lbs</div>
+                                </div>
+                                <div>
+                                  <div className="text-muted-foreground">Proj. Fat Mass</div>
+                                  <div className="font-semibold">{proj.fatMass} lbs</div>
+                                </div>
+                                {proj.source === 'check-in' && proj.checkInDate && (
+                                  <div className="col-span-4 text-muted-foreground pt-1 border-t">
+                                    Based on latest check-in ({formatDate(proj.checkInDate)})
+                                  </div>
+                                )}
+                                {proj.source === 'extrapolated' && proj.checkInDate && (
+                                  <div className="col-span-4 text-muted-foreground pt-1 border-t">
+                                    Extrapolated from check-in ({formatDate(proj.checkInDate)})
+                                  </div>
+                                )}
+                                {proj.source === 'targets' && (
+                                  <div className="col-span-4 text-muted-foreground pt-1 border-t">
+                                    Based on designed phase targets
+                                  </div>
+                                )}
+                                {proj.source === 'maintained' && (
+                                  <div className="col-span-4 text-muted-foreground pt-1 border-t">
+                                    Body comp maintained (non-body-comp phase)
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                          {predecessorPhase.customMetrics?.length ? (
+                            <div className="mt-2 p-2 bg-background/80 rounded text-xs">
+                              <div className="text-muted-foreground mb-1">Custom Metrics (end of phase)</div>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                {predecessorPhase.customMetrics.map(m => (
+                                  <div key={m.id} className="flex justify-between">
+                                    <span>{m.name}</span>
+                                    <span className="font-semibold">{m.targetValue} {m.unit}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPredecessorPhase(null);
+                              setEditCurrentWeight(profileWeightLbs);
+                              setEditCurrentBodyFat(profileBodyFat);
+                              setNewPhaseStart(new Date().toISOString().split('T')[0]);
+                              setCustomMetrics([]);
+                            }}
+                            className="text-xs text-muted-foreground hover:text-destructive underline mt-1"
+                          >
+                            Start fresh instead
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Step 1: Goal Selection */}
                   {wizardStep === 1 && (
                     <div className="space-y-4 py-4">
@@ -1377,7 +1587,10 @@ export default function PlanningPage() {
                         <div className="flex items-center justify-between">
                           <Label className="text-sm font-semibold flex items-center gap-2">
                             <Scale className="h-4 w-4" />
-                            Current Body Composition
+                            {predecessorPhase 
+                              ? `Starting Body Composition (projected from ${predecessorPhase.name})`
+                              : 'Current Body Composition'
+                            }
                           </Label>
                           <div className="flex items-center gap-2">
                             <Checkbox 
@@ -3018,6 +3231,29 @@ export default function PlanningPage() {
                             <span className="text-muted-foreground">Dates</span>
                             <span className="font-medium">{formatDate(newPhaseStart)} → {formatDate(newPhaseEnd)}</span>
                           </div>
+                          {predecessorPhase && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Follows</span>
+                              <span className="font-medium text-[#c19962]">{predecessorPhase.name}</span>
+                            </div>
+                          )}
+                          
+                          {/* Starting vs Target comparison when building on predecessor */}
+                          {predecessorPhase && (newPhaseGoal === 'fat_loss' || newPhaseGoal === 'muscle_gain' || newPhaseGoal === 'recomposition') && (
+                            <div className="p-2 rounded bg-[#c19962]/5 border border-[#c19962]/20 text-xs space-y-1">
+                              <div className="font-medium text-[#00263d]">Starting → Target</div>
+                              <div className="grid grid-cols-2 gap-x-4">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Weight</span>
+                                  <span>{editCurrentWeight} → <strong>{targetWeightLbs.toFixed(1)}</strong> lbs</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Body Fat</span>
+                                  <span>{editCurrentBodyFat}% → <strong>{targetBodyFat.toFixed(1)}%</strong></span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                           
                           <Separator />
                           

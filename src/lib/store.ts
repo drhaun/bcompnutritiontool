@@ -68,7 +68,20 @@ export const flushPendingSaves = async (store: ReturnType<typeof useFitomicsStor
     clearTimeout(saveTimeout);
     saveTimeout = null;
   }
-  await store.saveActiveClientState();
+  store.saveActiveClientState();
+};
+
+// Synchronous flush for use in useEffect cleanup / beforeunload handlers
+// Clears debounce timer and immediately persists active client state
+export const flushPendingSavesSync = () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+  }
+  const state = useFitomicsStore.getState();
+  if (state.activeClientId) {
+    state.saveActiveClientState();
+  }
 };
 
 // Session note type for the floating notes panel
@@ -494,10 +507,10 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         
         // Sync to database if authenticated
         if (state.isAuthenticated) {
-          deleteClientFromDb(clientId).then(success => {
-            if (success) {
-              console.log('[Store] Client deleted from database:', clientId);
-              // Clean up from both tracking stores (DB confirmed deletion)
+          deleteClientFromDb(clientId).then(result => {
+            if (result === 'verified') {
+              console.log('[Store] Client deletion VERIFIED in database:', clientId);
+              // Only clean up tracking after verified deletion from DB
               try {
                 const ids: string[] = JSON.parse(localStorage.getItem('fitomics-deleted-client-ids') || '[]');
                 const updated = ids.filter(id => id !== clientId);
@@ -506,6 +519,9 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
               set((s) => ({
                 _deletedClientIds: (s._deletedClientIds || []).filter(id => id !== clientId),
               }));
+            } else if (result === 'unverified') {
+              // API returned OK but couldn't confirm deletion - KEEP tracking to be safe
+              console.warn('[Store] Client delete unverified, keeping in tracking list:', clientId);
             } else {
               console.error('[Store] Failed to delete client from database, will retry on next sync:', clientId);
             }
@@ -1462,21 +1478,23 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         // Helper: retry deleting clients that are still in DB but were locally deleted
         const retryPendingDeletions = async (dbClients: ClientProfile[]) => {
           const zombies = dbClients.filter(c => deletedIds.has(c.id));
-          const successfullyDeleted: string[] = [];
+          const verifiedDeleted: string[] = [];
           for (const z of zombies) {
             console.log('[Store] Retrying deletion of zombie client:', z.id, z.name);
-            const ok = await deleteClientFromDb(z.id);
-            if (ok) {
-              console.log('[Store] Successfully deleted zombie client from DB:', z.id);
-              successfullyDeleted.push(z.id);
+            const result = await deleteClientFromDb(z.id);
+            if (result === 'verified') {
+              console.log('[Store] Successfully verified zombie client deleted from DB:', z.id);
+              verifiedDeleted.push(z.id);
+            } else {
+              console.warn('[Store] Zombie client delete result:', result, 'for:', z.id, '- keeping in tracking');
             }
           }
-          // Clean up successfully deleted IDs from tracking
-          if (successfullyDeleted.length > 0) {
+          // Only clean up tracking for VERIFIED deletions
+          if (verifiedDeleted.length > 0) {
             try {
-              const remaining = [...deletedIds].filter(id => !successfullyDeleted.includes(id));
+              const remaining = [...deletedIds].filter(id => !verifiedDeleted.includes(id));
               localStorage.setItem('fitomics-deleted-client-ids', JSON.stringify(remaining));
-              for (const id of successfullyDeleted) deletedIds.delete(id);
+              for (const id of verifiedDeleted) deletedIds.delete(id);
             } catch { /* ignore cleanup errors */ }
           }
         };

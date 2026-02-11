@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { ProgressSteps } from '@/components/layout/progress-steps';
 import { ProgressSummary } from '@/components/layout/progress-summary';
 import { useFitomicsStore } from '@/lib/store';
+import { useSaveOnLeave } from '@/hooks/use-save-on-leave';
 import { 
   calculateTDEE, 
   calculateTargetCalories, 
@@ -100,6 +101,9 @@ export default function TargetsPage() {
     setNutritionTargets,
     calculateNutritionTargets 
   } = useFitomicsStore();
+
+  // Ensure pending saves are flushed when navigating away or closing the page
+  useSaveOnLeave();
 
   // Handle hydration mismatch
   const [isHydrated, setIsHydrated] = useState(false);
