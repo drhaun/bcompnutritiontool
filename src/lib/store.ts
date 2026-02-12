@@ -506,22 +506,16 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         console.log('[Store] Deleted client:', clientId, '| Tracking deleted IDs:', updatedDeletedIds.length);
         
         // Sync to database if authenticated
+        // IMPORTANT: We intentionally do NOT clear tracking here even on verified deletion.
+        // Tracking is only cleared by retryPendingDeletions during loadClientsFromDatabase,
+        // which confirms the client is truly gone from the DB before removing the safety net.
         if (state.isAuthenticated) {
           deleteClientFromDb(clientId).then(result => {
             if (result === 'verified') {
-              console.log('[Store] Client deletion VERIFIED in database:', clientId);
-              // Only clean up tracking after verified deletion from DB
-              try {
-                const ids: string[] = JSON.parse(localStorage.getItem('fitomics-deleted-client-ids') || '[]');
-                const updated = ids.filter(id => id !== clientId);
-                localStorage.setItem('fitomics-deleted-client-ids', JSON.stringify(updated));
-              } catch { /* ignore cleanup errors */ }
-              set((s) => ({
-                _deletedClientIds: (s._deletedClientIds || []).filter(id => id !== clientId),
-              }));
+              console.log('[Store] Client deletion sent to database (verified response):', clientId);
+              console.log('[Store] Tracking will be cleaned up on next sync verification');
             } else if (result === 'unverified') {
-              // API returned OK but couldn't confirm deletion - KEEP tracking to be safe
-              console.warn('[Store] Client delete unverified, keeping in tracking list:', clientId);
+              console.warn('[Store] Client delete unverified, will retry on next sync:', clientId);
             } else {
               console.error('[Store] Failed to delete client from database, will retry on next sync:', clientId);
             }
@@ -591,6 +585,16 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         const state = get();
         if (!state.activeClientId) {
           console.log('[Store] saveActiveClientState: No active client ID, skipping');
+          return;
+        }
+        
+        // SAFETY: Don't save a client that's been deleted
+        const deletedIds = new Set([
+          ...(state._deletedClientIds || []),
+          ...JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('fitomics-deleted-client-ids') || '[]') : '[]'),
+        ]);
+        if (deletedIds.has(state.activeClientId)) {
+          console.log('[Store] saveActiveClientState: Client', state.activeClientId, 'is deleted, skipping save');
           return;
         }
         
@@ -1475,10 +1479,26 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         const excludeDeleted = (clients: ClientProfile[]) =>
           deletedIds.size > 0 ? clients.filter(c => !deletedIds.has(c.id)) : clients;
         
-        // Helper: retry deleting clients that are still in DB but were locally deleted
-        const retryPendingDeletions = async (dbClients: ClientProfile[]) => {
-          const zombies = dbClients.filter(c => deletedIds.has(c.id));
+        // Helper: retry deleting clients that are still in DB but were locally deleted,
+        // AND clean up tracking for clients that are confirmed gone from DB.
+        // IMPORTANT: allDbClients must be the UNFILTERED list from the API (including zombies).
+        const retryPendingDeletions = async (allDbClients: ClientProfile[]) => {
+          if (deletedIds.size === 0) return;
+          
+          const allDbIds = new Set(allDbClients.map(c => c.id));
+          const zombies = allDbClients.filter(c => deletedIds.has(c.id));
+          const confirmedGone = [...deletedIds].filter(id => !allDbIds.has(id));
           const verifiedDeleted: string[] = [];
+          
+          // Log what we found
+          if (zombies.length > 0) {
+            console.log('[Store] Found', zombies.length, 'zombie clients still in DB:', zombies.map(z => z.id));
+          }
+          if (confirmedGone.length > 0) {
+            console.log('[Store] Found', confirmedGone.length, 'tracked IDs confirmed gone from DB');
+          }
+          
+          // Retry deleting zombie clients that are still in the database
           for (const z of zombies) {
             console.log('[Store] Retrying deletion of zombie client:', z.id, z.name);
             const result = await deleteClientFromDb(z.id);
@@ -1489,12 +1509,21 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
               console.warn('[Store] Zombie client delete result:', result, 'for:', z.id, '- keeping in tracking');
             }
           }
-          // Only clean up tracking for VERIFIED deletions
-          if (verifiedDeleted.length > 0) {
+          
+          // Clean up tracking for:
+          // 1. Zombies that were successfully deleted
+          // 2. IDs that are confirmed gone from DB (already deleted previously)
+          const idsToClean = [...verifiedDeleted, ...confirmedGone];
+          if (idsToClean.length > 0) {
             try {
-              const remaining = [...deletedIds].filter(id => !verifiedDeleted.includes(id));
+              const remaining = [...deletedIds].filter(id => !idsToClean.includes(id));
               localStorage.setItem('fitomics-deleted-client-ids', JSON.stringify(remaining));
-              for (const id of verifiedDeleted) deletedIds.delete(id);
+              for (const id of idsToClean) deletedIds.delete(id);
+              // Also update state
+              set((s) => ({
+                _deletedClientIds: (s._deletedClientIds || []).filter(id => !idsToClean.includes(id)),
+              }));
+              console.log('[Store] Cleaned up', idsToClean.length, 'deletion tracking IDs,', remaining.length, 'still tracked');
             } catch { /* ignore cleanup errors */ }
           }
         };
@@ -1515,7 +1544,9 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
               let mergedClients = excludeDeleted(syncResult.clients);
               
               // Retry deleting any zombie clients still in DB
-              await retryPendingDeletions(syncResult.clients);
+              // CRITICAL: Use allDbClients (unfiltered) so we can actually see the zombies
+              const allFromDb = syncResult.allDbClients || syncResult.clients;
+              await retryPendingDeletions(allFromDb);
               
               // Preserve any local clients that weren't in the sync result (and aren't deleted)
               const syncedIds = new Set(mergedClients.map(c => c.id));
@@ -1541,6 +1572,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
             const dbClients = await fetchClientsFromDb();
             
             // Retry deleting any zombie clients (still in DB but locally deleted)
+            // fetchClientsFromDb returns unfiltered, so retryPendingDeletions can see zombies
             await retryPendingDeletions(dbClients);
             
             // Filter out deleted clients

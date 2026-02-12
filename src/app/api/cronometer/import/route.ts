@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDiarySummary, getDataSummary, getNutritionTargets, CronometerDiarySummary } from '@/lib/cronometer';
 import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronometer-token';
 
+// Chunk size for diary requests (days). Cronometer's diary_summary with food=true
+// returns full nutrient profiles, meal groups, and food lists per day. For ranges
+// greater than this many days we split into parallel windows to avoid timeouts.
+const CHUNK_SIZE_DAYS = 14;
+
 /**
  * Import Cronometer diary data for nutrition analysis
  * 
@@ -71,38 +76,24 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // STEP 2: Fetch diary data with food breakdown for the date range
-    let diaryData;
+    // STEP 2: Fetch diary data with food breakdown, using chunking for large ranges
+    // to avoid timeouts (same approach as the Cronometer Dashboard route)
+    let days: CronometerDiarySummary[];
     try {
       console.log('[Cronometer Import] Fetching detailed diary summary...');
-      diaryData = await getDiarySummary(
+      days = await fetchDiaryInChunks(
         { accessToken, clientId },
-        { start, end, food: true }
+        start,
+        end,
+        CHUNK_SIZE_DAYS
       );
-      console.log('[Cronometer Import] Diary data received:', JSON.stringify(diaryData).slice(0, 1000));
+      console.log(`[Cronometer Import] Received ${days.length} diary days`);
     } catch (diaryError) {
       console.error('Cronometer diary fetch error:', diaryError);
       return NextResponse.json(
         { error: `Failed to fetch diary data: ${diaryError instanceof Error ? diaryError.message : 'Unknown error'}` },
         { status: 500 }
       );
-    }
-    
-    // Check if we got any data
-    if (!diaryData) {
-      return NextResponse.json({
-        success: true,
-        daysImported: 0,
-        data: {
-          summary: { totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, totalFiber: 0, daysAnalyzed: 0 },
-          dailyAverages: [],
-          topFoods: [],
-          dailyBreakdown: [],
-          rawDays: [],
-        },
-        targets: {},
-        message: 'No diary data found for the selected date range',
-      });
     }
     
     // STEP 3: Fetch targets for comparison (non-critical, use empty if fails)
@@ -114,32 +105,7 @@ export async function GET(request: NextRequest) {
       console.warn('Could not fetch Cronometer targets:', targetError);
     }
     
-    // Convert diary data to array format
-    // Cronometer returns data as an object with date keys: {"2026-01-20": {...}, "2026-01-21": {...}}
-    // We need to convert this to an array with the date as a property
-    let days: CronometerDiarySummary[];
-    
-    if (Array.isArray(diaryData)) {
-      // Already an array (single day query returns this format)
-      days = diaryData;
-    } else if (typeof diaryData === 'object' && diaryData !== null) {
-      // Object with date keys - convert to array
-      days = Object.entries(diaryData).map(([dateKey, dayData]: [string, any]) => ({
-        day: dateKey,
-        completed: dayData.completed ?? false,
-        food_grams: dayData.food_grams ?? 0,
-        macros: dayData.macros || {},
-        nutrients: dayData.nutrients || {},
-        foods: dayData.foods || [],
-        metrics: dayData.metrics || [],
-      }));
-      console.log(`[Cronometer Import] Converted ${days.length} date-keyed entries to array`);
-    } else {
-      days = [];
-    }
-    
     // Filter to only days with logged data and non-zero calories
-    // (The diary API already only returns days with entries, but we double-check for kcal > 0)
     const filteredDays = days.filter(d => 
       d && 
       d.macros && 
@@ -185,6 +151,102 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// ─── Chunking helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Fetch diary data in chunks to avoid Cronometer API timeouts on large ranges.
+ * 
+ * With food=true, each day's response includes full nutrient profiles, meal groups,
+ * and food lists. For 30+ day ranges this can exceed serverless function timeouts.
+ * We split into smaller windows and fetch in parallel, then merge results.
+ */
+async function fetchDiaryInChunks(
+  options: { accessToken: string; clientId?: string },
+  startStr: string,
+  endStr: string,
+  chunkDays: number
+): Promise<CronometerDiarySummary[]> {
+  const startDate = new Date(startStr + 'T00:00:00');
+  const endDate = new Date(endStr + 'T00:00:00');
+  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  // If the range is small enough, make a single request
+  if (totalDays <= chunkDays) {
+    const data = await getDiarySummary(options, { start: startStr, end: endStr, food: true }).catch(() => null);
+    return parseDiaryResponse(data);
+  }
+
+  console.log(`[Cronometer Import] Chunking ${totalDays}-day range into ${chunkDays}-day windows`);
+
+  // Build chunk ranges
+  const chunks: Array<{ start: string; end: string }> = [];
+  let cursor = startDate;
+  while (cursor < endDate) {
+    const chunkEnd = new Date(cursor);
+    chunkEnd.setDate(chunkEnd.getDate() + chunkDays - 1);
+    const effectiveEnd = chunkEnd > endDate ? endDate : chunkEnd;
+
+    chunks.push({
+      start: fmtDate(cursor),
+      end: fmtDate(effectiveEnd),
+    });
+
+    cursor = new Date(effectiveEnd);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  console.log(`[Cronometer Import] Fetching ${chunks.length} diary chunks:`, chunks.map(c => `${c.start}..${c.end}`));
+
+  // Fetch all chunks in parallel
+  const chunkResults = await Promise.all(
+    chunks.map(chunk =>
+      getDiarySummary(options, { start: chunk.start, end: chunk.end, food: true })
+        .catch((err) => {
+          console.error(`[Cronometer Import] Chunk ${chunk.start}..${chunk.end} failed:`, err);
+          return null;
+        })
+    )
+  );
+
+  // Merge all chunk results into a single array
+  const allDays: CronometerDiarySummary[] = [];
+  for (const result of chunkResults) {
+    allDays.push(...parseDiaryResponse(result));
+  }
+
+  console.log(`[Cronometer Import] Merged ${allDays.length} days from ${chunks.length} chunks`);
+  return allDays;
+}
+
+/**
+ * Parse diary_summary response into a flat array.
+ * Cronometer returns either an array (single day) or an object keyed by date.
+ */
+function parseDiaryResponse(data: CronometerDiarySummary | CronometerDiarySummary[] | null): CronometerDiarySummary[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (typeof data === 'object') {
+    return Object.entries(data).map(([dateKey, dayData]: [string, any]) => ({
+      day: dateKey,
+      completed: dayData.completed ?? false,
+      food_grams: dayData.food_grams ?? 0,
+      macros: dayData.macros || {},
+      nutrients: dayData.nutrients || {},
+      foods: dayData.foods || [],
+      metrics: dayData.metrics || [],
+    }));
+  }
+  return [];
+}
+
+/** Format a Date as YYYY-MM-DD */
+function fmtDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 /**

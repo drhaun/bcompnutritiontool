@@ -109,6 +109,8 @@ export async function fetchClientsFromDb(): Promise<ClientProfile[]> {
 export async function syncClientsToDb(localClients: ClientProfile[]): Promise<{
   success: boolean;
   clients: ClientProfile[];
+  /** Raw unfiltered clients from DB — includes zombies for retry logic */
+  allDbClients?: ClientProfile[];
   error?: string;
 }> {
   try {
@@ -176,8 +178,16 @@ export async function syncClientsToDb(localClients: ClientProfile[]): Promise<{
       JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('fitomics-deleted-client-ids') || '[]') : '[]')
     );
     
-    const dbClients = (data.clients || []).map(dbClientToStoreClient)
-      .filter((c: ClientProfile) => !deletedIds.has(c.id)); // Exclude deleted clients
+    // Keep ALL clients from DB (unfiltered) for zombie detection / retry logic
+    const allDbClients = (data.clients || []).map(dbClientToStoreClient);
+    
+    // Filter out deleted clients for the returned list
+    const dbClients = allDbClients
+      .filter((c: ClientProfile) => !deletedIds.has(c.id));
+    
+    if (allDbClients.length !== dbClients.length) {
+      console.log('[ClientSync] Filtered out', allDbClients.length - dbClients.length, 'deleted clients from sync result');
+    }
     
     // Only preserve local clients that are NOT in deleted set
     if (localClients.length > 0 && dbClients.length < localClients.length) {
@@ -189,6 +199,7 @@ export async function syncClientsToDb(localClients: ClientProfile[]): Promise<{
         return {
           success: true,
           clients: [...dbClients, ...missingLocal],
+          allDbClients,
         };
       }
     }
@@ -196,6 +207,7 @@ export async function syncClientsToDb(localClients: ClientProfile[]): Promise<{
     return {
       success: true,
       clients: dbClients,
+      allDbClients,
     };
   } catch (error) {
     console.error('[ClientSync] Error syncing clients:', error);
@@ -265,7 +277,17 @@ export async function updateClientInDb(
       }
       
       // If client doesn't exist (404), try to create it instead
+      // BUT: first check if this client was intentionally deleted - don't resurrect it!
       if (response.status === 404) {
+        const deletedIds: Set<string> = new Set(
+          JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('fitomics-deleted-client-ids') || '[]') : '[]')
+        );
+        
+        if (deletedIds.has(clientId)) {
+          console.log('[ClientSync] Client was intentionally deleted, NOT re-creating:', clientId);
+          return null;
+        }
+        
         console.log('[ClientSync] Client not found in DB, creating new record for:', clientId);
         
         // Resolve name: prefer top-level name, then userProfile.name, then fallback

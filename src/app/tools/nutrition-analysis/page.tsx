@@ -1645,39 +1645,20 @@ export default function NutritionAnalysisPage() {
                           </Popover>
                         </div>
                         <div className="flex gap-1 flex-wrap">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7"
-                            onClick={() => setCronometerDateRange({
-                              from: subDays(new Date(), 7),
-                              to: new Date(),
-                            })}
-                          >
-                            7 days
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7"
-                            onClick={() => setCronometerDateRange({
-                              from: subDays(new Date(), 14),
-                              to: new Date(),
-                            })}
-                          >
-                            14 days
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7"
-                            onClick={() => setCronometerDateRange({
-                              from: subDays(new Date(), 30),
-                              to: new Date(),
-                            })}
-                          >
-                            30 days
-                          </Button>
+                          {[7, 14, 30, 60, 90].map((days) => (
+                            <Button
+                              key={days}
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-7"
+                              onClick={() => setCronometerDateRange({
+                                from: subDays(new Date(), days),
+                                to: new Date(),
+                              })}
+                            >
+                              {days} days
+                            </Button>
+                          ))}
                         </div>
                       </div>
                       
