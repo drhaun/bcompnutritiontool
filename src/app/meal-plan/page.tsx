@@ -936,18 +936,55 @@ export default function MealPlanPage() {
     };
   }, [dayTargets, mealSlots]);
 
-  // Save updated day targets to the store/phase
+  // Compute effective slot targets (with overrides applied) — defined early so
+  // callbacks below can reference it in their dependency arrays.
+  const effectiveSlotTargets = useMemo((): Macros[] => {
+    return slotTargets.map((target: Macros, idx: number) => {
+      const key = `${currentDay}-${idx}`;
+      return slotTargetOverrides[key] || target;
+    });
+  }, [slotTargets, slotTargetOverrides, currentDay]);
+
+  // Save updated day targets to the store/phase and redistribute per-slot targets
   const handleSaveDayTargets = useCallback((updates: { calories?: number; protein?: number; carbs?: number; fat?: number }) => {
     if (!dayTargets) return;
+
+    const newCal = updates.calories ?? dayTargets.targetCalories;
+    const newP = updates.protein ?? dayTargets.protein;
+    const newC = updates.carbs ?? dayTargets.carbs;
+    const newF = updates.fat ?? dayTargets.fat;
+
+    // Redistribute per-slot targets proportionally based on current slot ratios
+    const currentSlots = effectiveSlotTargets;
+    if (currentSlots.length > 0) {
+      const oldCal = dayTargets.targetCalories || 1;
+      const oldP = dayTargets.protein || 1;
+      const oldC = dayTargets.carbs || 1;
+      const oldF = dayTargets.fat || 1;
+
+      currentSlots.forEach((slot, idx) => {
+        const key = `${currentDay}-${idx}`;
+        setSlotTargetOverrides(prev => ({
+          ...prev,
+          [key]: {
+            calories: Math.round(slot.calories * (newCal / oldCal)),
+            protein: Math.round(slot.protein * (newP / oldP)),
+            carbs: Math.round(slot.carbs * (newC / oldC)),
+            fat: Math.round(slot.fat * (newF / oldF)),
+          },
+        }));
+      });
+    }
+
     const updatedTargets = nutritionTargets.map(t => {
       if (t.day !== currentDay) return t;
       return {
         ...t,
-        targetCalories: updates.calories ?? t.targetCalories,
-        calories: updates.calories ?? (t as unknown as Record<string, unknown>).calories as number ?? t.targetCalories,
-        protein: updates.protein ?? t.protein,
-        carbs: updates.carbs ?? t.carbs,
-        fat: updates.fat ?? t.fat,
+        targetCalories: newCal,
+        calories: newCal,
+        protein: newP,
+        carbs: newC,
+        fat: newF,
       };
     });
     
@@ -957,7 +994,7 @@ export default function MealPlanPage() {
     setNutritionTargets(updatedTargets);
     setEditingDayTargets(false);
     setLocalDayTargets(null);
-  }, [dayTargets, nutritionTargets, currentDay, activePhaseId, updatePhase, setNutritionTargets]);
+  }, [dayTargets, nutritionTargets, currentDay, activePhaseId, updatePhase, setNutritionTargets, effectiveSlotTargets]);
 
   // Save a custom day label for all days in a given day type group
   const handleSaveDayTypeLabel = useCallback((dayType: DayType, newLabel: string) => {
@@ -974,19 +1011,67 @@ export default function MealPlanPage() {
     setDayTypeLabelDraft('');
   }, [nutritionTargets, activePhaseId, updatePhase, setNutritionTargets]);
 
-  // Handle updating per-meal slot targets
+  // Handle updating per-meal slot targets and redistribute remaining budget
   const handleUpdateSlotTargets = useCallback((slotIndex: number, targets: Macros) => {
-    const key = `${currentDay}-${slotIndex}`;
-    setSlotTargetOverrides(prev => ({ ...prev, [key]: targets }));
-  }, [currentDay]);
+    if (!dayTargets) {
+      const key = `${currentDay}-${slotIndex}`;
+      setSlotTargetOverrides(prev => ({ ...prev, [key]: targets }));
+      return;
+    }
 
-  // Compute effective slot targets (with overrides applied)
-  const effectiveSlotTargets = useMemo((): Macros[] => {
-    return slotTargets.map((target: Macros, idx: number) => {
-      const key = `${currentDay}-${idx}`;
-      return slotTargetOverrides[key] || target;
+    // Lock the edited slot, redistribute the remaining day budget across other slots
+    const totalSlots = effectiveSlotTargets.length;
+    if (totalSlots <= 1) {
+      const key = `${currentDay}-${slotIndex}`;
+      setSlotTargetOverrides(prev => ({ ...prev, [key]: targets }));
+      return;
+    }
+
+    const dayCal = dayTargets.targetCalories || 0;
+    const dayP = dayTargets.protein || 0;
+    const dayC = dayTargets.carbs || 0;
+    const dayF = dayTargets.fat || 0;
+
+    // Sum of all OTHER slots' current targets (excluding the edited one)
+    let otherCal = 0, otherP = 0, otherC = 0, otherF = 0;
+    effectiveSlotTargets.forEach((st, idx) => {
+      if (idx !== slotIndex) {
+        otherCal += st.calories;
+        otherP += st.protein;
+        otherC += st.carbs;
+        otherF += st.fat;
+      }
     });
-  }, [slotTargets, slotTargetOverrides, currentDay]);
+
+    // Remaining budget after the edited slot
+    const remainCal = Math.max(0, dayCal - targets.calories);
+    const remainP = Math.max(0, dayP - targets.protein);
+    const remainC = Math.max(0, dayC - targets.carbs);
+    const remainF = Math.max(0, dayF - targets.fat);
+
+    setSlotTargetOverrides(prev => {
+      const next = { ...prev, [`${currentDay}-${slotIndex}`]: targets };
+
+      effectiveSlotTargets.forEach((st, idx) => {
+        if (idx === slotIndex) return;
+        const key = `${currentDay}-${idx}`;
+        // Distribute remaining budget proportionally based on each slot's share of the others
+        const calRatio = otherCal > 0 ? st.calories / otherCal : 1 / (totalSlots - 1);
+        const pRatio = otherP > 0 ? st.protein / otherP : 1 / (totalSlots - 1);
+        const cRatio = otherC > 0 ? st.carbs / otherC : 1 / (totalSlots - 1);
+        const fRatio = otherF > 0 ? st.fat / otherF : 1 / (totalSlots - 1);
+
+        next[key] = {
+          calories: Math.round(remainCal * calRatio),
+          protein: Math.round(remainP * pRatio),
+          carbs: Math.round(remainC * cRatio),
+          fat: Math.round(remainF * fRatio),
+        };
+      });
+
+      return next;
+    });
+  }, [currentDay, dayTargets, effectiveSlotTargets]);
 
   // Compute rolling budget for each slot
   const rollingBudgets = useMemo(() => {

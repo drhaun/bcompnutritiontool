@@ -466,11 +466,24 @@ export function PhaseTargetsEditor({
   const [copySourceDay, setCopySourceDay] = useState<DayOfWeek | null>(null);
   const [copyTargetDays, setCopyTargetDays] = useState<DayOfWeek[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [targetsConfirmed, setTargetsConfirmed] = useState(phase.nutritionTargets?.length > 0);
+  // Detect if any saved targets had inconsistent macros (stale data was recalculated)
+  const [hadStaleTargets] = useState(() => {
+    if (!phase.nutritionTargets || phase.nutritionTargets.length === 0) return false;
+    return phase.nutritionTargets.some(target => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const st = target as any;
+      const cal = st.calories || target.targetCalories || 0;
+      const p = target.protein || 0;
+      const c = target.carbs || 0;
+      const f = target.fat || 0;
+      return c <= 0 || Math.abs(p * 4 + c * 4 + f * 9 - cal) > 20;
+    });
+  });
+  const [targetsConfirmed, setTargetsConfirmed] = useState(phase.nutritionTargets?.length > 0 && !hadStaleTargets);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [editingDayLabel, setEditingDayLabel] = useState(false);
   const [dayLabelDraft, setDayLabelDraft] = useState('');
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(hadStaleTargets);
   
   // Macro coefficient settings - slider-based
   const [proteinLevel, setProteinLevel] = useState<ProteinLevel>('moderate');
@@ -1092,6 +1105,20 @@ export function PhaseTargetsEditor({
   return (
     <TooltipProvider delayDuration={100}>
     <div className="space-y-6 overflow-x-hidden">
+      {/* Stale targets banner */}
+      {hadStaleTargets && hasUnsavedChanges && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
+          <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Targets recalculated from your current settings</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Previously saved targets had inconsistent macros. The values below have been freshly calculated
+              from your protein/fat sliders. Review and click <strong>Save Targets</strong> to confirm.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Phase Header */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-4">
@@ -1108,7 +1135,7 @@ export function PhaseTargetsEditor({
                   </Badge>
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {new Date(phase.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(phase.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} • {phaseDuration} weeks
+                  Editing targets for this phase • {new Date(phase.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(phase.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} • {phaseDuration} weeks
                 </p>
               </div>
             </div>
