@@ -517,12 +517,23 @@ export function PhaseTargetsEditor({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const savedTarget = target as any; // For accessing extended fields (meals, snacks, etc.)
         
-        // Restore all saved values as explicit overrides
+        // Only restore macro overrides if they're internally consistent.
+        // Stale saves (e.g. P+F > Cal with C=0) are dropped so the slider-
+        // based calculation with the carb floor produces correct values.
+        const savedCal = savedTarget.calories || target.targetCalories || 0;
+        const savedP = target.protein || 0;
+        const savedC = target.carbs || 0;
+        const savedF = target.fat || 0;
+        const macroSum = savedP * 4 + savedC * 4 + savedF * 9;
+        const macrosConsistent = savedC > 0 && Math.abs(macroSum - savedCal) <= 20;
+
         initialConfigs[day] = {
-          calories: savedTarget.calories || target.targetCalories,
-          protein: target.protein,
-          carbs: target.carbs,
-          fat: target.fat,
+          ...(macrosConsistent ? {
+            calories: savedCal,
+            protein: savedP,
+            carbs: savedC,
+            fat: savedF,
+          } : {}),
           mealCount: savedTarget.meals,
           snackCount: savedTarget.snacks,
           wakeTime: savedTarget.wakeTime,
@@ -601,14 +612,14 @@ export function PhaseTargetsEditor({
       prev.basis !== macroBasis;
     
     if (slidersChanged) {
-      // Clear per-day protein/fat/carbs overrides so the new slider values take effect.
-      // Keep other overrides (calories, mealCount, workouts, etc.) intact.
+      // Clear all macro overrides (including calories) so the new slider values
+      // recalculate a fully consistent set. Keep structural overrides intact.
       setDayConfigs(prevConfigs => {
         const cleared: Record<DayOfWeek, Partial<DayConfig>> = {} as Record<DayOfWeek, Partial<DayConfig>>;
         DAYS.forEach(day => {
           const existing = prevConfigs[day] || {};
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { protein, fat, carbs, ...rest } = existing as Record<string, unknown>;
+          const { protein, fat, carbs, calories, ...rest } = existing as Record<string, unknown>;
           cleared[day] = rest as Partial<DayConfig>;
         });
         return cleared;
@@ -682,7 +693,11 @@ export function PhaseTargetsEditor({
       const wakeTime = overrides.wakeTime ?? profileSchedule.wakeTime ?? '7:00 AM';
       const sleepTime = overrides.sleepTime ?? profileSchedule.sleepTime ?? '10:00 PM';
       const enabledWorkouts = profileSchedule.workouts?.filter((w: WorkoutConfig) => w.enabled) ?? [];
-      const workouts = overrides.workouts ?? enabledWorkouts;
+      // Prefer override workouts, but fall back to profile when override is empty
+      // (stale phase data saved before workouts were configured)
+      const workouts = (overrides.workouts && overrides.workouts.length > 0)
+        ? overrides.workouts
+        : enabledWorkouts;
       const mealCount = overrides.mealCount ?? profileSchedule.mealCount ?? 3;
       const snackCount = overrides.snackCount ?? profileSchedule.snackCount ?? 2;
       const mealContexts = overrides.mealContexts ?? profileSchedule.mealContexts ?? [];
@@ -741,20 +756,36 @@ export function PhaseTargetsEditor({
         // Carbs absorb the remainder (~65%) via the fill calculation below
       }
 
-      const dayProteinG = baseProteinG + workoutProteinBonus;
-      const dayFatG = baseFatG + workoutFatBonus;
       const dayCalories = overrides.calories ?? targetCalories;
-      const proteinCal = dayProteinG * 4;
-      const fatCal = dayFatG * 9;
-      const carbCal = Math.max(0, dayCalories - proteinCal - fatCal);
-      const dayCarbG = Math.round(carbCal / 4);
-      
-      const macros: Macros = {
-        calories: dayCalories,
-        protein: dayProteinG,
-        carbs: dayCarbG,
-        fat: dayFatG,
-      };
+
+      // Check if overrides are internally consistent (user-edited macros that add up)
+      const hasAllOverrides = overrides.protein != null && overrides.fat != null
+        && overrides.carbs != null;
+      let overridesConsistent = false;
+      if (hasAllOverrides) {
+        const oSum = overrides.protein! * 4 + overrides.carbs! * 4 + overrides.fat! * 9;
+        overridesConsistent = Math.abs(oSum - dayCalories) <= 20;
+      }
+
+      let finalProtein: number;
+      let finalFat: number;
+      let finalCarbs: number;
+
+      if (overridesConsistent) {
+        finalProtein = overrides.protein!;
+        finalFat = overrides.fat!;
+        finalCarbs = overrides.carbs!;
+      } else {
+        // Protein and fat come directly from slider coefficients.
+        // Carbs fill the remainder. No forced rebalancing — the coach
+        // sees the real math and adjusts sliders to get the split they want.
+        finalProtein = baseProteinG + workoutProteinBonus;
+        finalFat = baseFatG + workoutFatBonus;
+        finalCarbs = Math.max(0, Math.round((dayCalories - finalProtein * 4 - finalFat * 9) / 4));
+      }
+
+      // Calories always derived from macros to stay consistent
+      const finalCalories = finalProtein * 4 + finalCarbs * 4 + finalFat * 9;
 
       configs[day] = {
         day,
@@ -770,10 +801,10 @@ export function PhaseTargetsEditor({
         totalTDEE,
         workoutCalories,
         energyAvailability,
-        calories: overrides.calories ?? macros.calories,
-        protein: overrides.protein ?? macros.protein,
-        carbs: overrides.carbs ?? macros.carbs,
-        fat: overrides.fat ?? macros.fat,
+        calories: finalCalories,
+        protein: finalProtein,
+        carbs: finalCarbs,
+        fat: finalFat,
         dayLabel: overrides.dayLabel,
       };
     });
@@ -1586,21 +1617,25 @@ export function PhaseTargetsEditor({
                 </div>
               </div>
 
-              {/* Carbohydrate Auto-Calculation */}
+              {/* Carbohydrate Auto-Calculation — use the rebalanced values from fullDayConfigs */}
               {(() => {
+                const carbGrams = weeklyAverages?.avgCarbs || 0;
+                const carbCal = carbGrams * 4;
                 const avgCalories = weeklyAverages?.avgCalories || 2000;
-                const proteinCal = proteinGrams * 4;
-                const fatCal = fatGrams * 9;
-                const carbCal = Math.max(0, avgCalories - proteinCal - fatCal);
-                const carbGrams = Math.round(carbCal / 4);
                 const carbPerKg = carbGrams / weightKg;
                 
                 let carbStatus: 'low' | 'adequate' | 'high' = 'adequate';
                 let carbMessage = '';
                 
-                if (carbGrams < 130) {
+                if (carbGrams === 0) {
                   carbStatus = 'low';
-                  carbMessage = 'Below minimum for brain function (130g). Consider adjusting protein/fat or calories.';
+                  carbMessage = 'Protein + fat exceed calorie target. Reduce protein/fat or increase calories.';
+                } else if (carbGrams < 100) {
+                  carbStatus = 'low';
+                  carbMessage = `Very low carbs — may impair performance and recovery. Consider reducing protein or fat.`;
+                } else if (carbGrams < 130) {
+                  carbStatus = 'low';
+                  carbMessage = 'Below 130g recommendation for brain function. Consider adjusting protein/fat or calories.';
                 } else if (carbPerKg < 3) {
                   carbStatus = 'low';
                   carbMessage = 'Low carb availability may impact high-intensity training performance.';
@@ -2042,7 +2077,11 @@ export function PhaseTargetsEditor({
                         onChange={(e) => {
                           const val = e.target.value;
                           if (val === '' || /^\d+$/.test(val)) {
-                            updateDayConfig(selectedDay, { calories: val === '' ? 0 : parseInt(val, 10) });
+                            const newCal = val === '' ? 0 : parseInt(val, 10);
+                            const p = selectedDayConfig.protein;
+                            const f = selectedDayConfig.fat;
+                            const newCarbs = Math.max(0, Math.round((newCal - p * 4 - f * 9) / 4));
+                            updateDayConfig(selectedDay, { calories: newCal, protein: p, carbs: newCarbs, fat: f });
                           }
                         }}
                       />
@@ -2057,7 +2096,10 @@ export function PhaseTargetsEditor({
                         onChange={(e) => {
                           const val = e.target.value;
                           if (val === '' || /^\d+$/.test(val)) {
-                            updateDayConfig(selectedDay, { protein: val === '' ? 0 : parseInt(val, 10) });
+                            const newP = val === '' ? 0 : parseInt(val, 10);
+                            const c = selectedDayConfig.carbs;
+                            const f = selectedDayConfig.fat;
+                            updateDayConfig(selectedDay, { protein: newP, carbs: c, fat: f, calories: newP * 4 + c * 4 + f * 9 });
                           }
                         }}
                       />
@@ -2073,7 +2115,10 @@ export function PhaseTargetsEditor({
                         onChange={(e) => {
                           const val = e.target.value;
                           if (val === '' || /^\d+$/.test(val)) {
-                            updateDayConfig(selectedDay, { carbs: val === '' ? 0 : parseInt(val, 10) });
+                            const newC = val === '' ? 0 : parseInt(val, 10);
+                            const p = selectedDayConfig.protein;
+                            const f = selectedDayConfig.fat;
+                            updateDayConfig(selectedDay, { protein: p, carbs: newC, fat: f, calories: p * 4 + newC * 4 + f * 9 });
                           }
                         }}
                       />
@@ -2089,7 +2134,10 @@ export function PhaseTargetsEditor({
                         onChange={(e) => {
                           const val = e.target.value;
                           if (val === '' || /^\d+$/.test(val)) {
-                            updateDayConfig(selectedDay, { fat: val === '' ? 0 : parseInt(val, 10) });
+                            const newF = val === '' ? 0 : parseInt(val, 10);
+                            const p = selectedDayConfig.protein;
+                            const c = selectedDayConfig.carbs;
+                            updateDayConfig(selectedDay, { protein: p, carbs: c, fat: newF, calories: p * 4 + c * 4 + newF * 9 });
                           }
                         }}
                       />
