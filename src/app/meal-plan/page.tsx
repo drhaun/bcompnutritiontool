@@ -3625,7 +3625,7 @@ export default function MealPlanPage() {
           {!(showPreview || showGroceryList) && (
             <div className="w-[320px] hidden xl:block">
               <div className="sticky top-20">
-                <ProgressSummary currentStep={5} />
+                <ProgressSummary currentStep={5} activePhase={activePhase} />
               </div>
             </div>
           )}

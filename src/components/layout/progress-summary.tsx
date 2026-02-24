@@ -20,12 +20,14 @@ import {
 } from 'lucide-react';
 import { calculateBodyComposition, lbsToKg, heightToCm } from '@/lib/nutrition-calc';
 import { cn } from '@/lib/utils';
+import type { Phase } from '@/types';
 
 interface ProgressSummaryProps {
   currentStep?: number;
   showCompact?: boolean;
   collapsible?: boolean;
   defaultExpanded?: boolean;
+  activePhase?: Phase | null;
 }
 
 const STEPS = [
@@ -34,7 +36,7 @@ const STEPS = [
   { id: 3, name: 'Meal Plan', icon: Target },
 ];
 
-export function ProgressSummary({ currentStep = 1, showCompact = false, collapsible = false, defaultExpanded = false }: ProgressSummaryProps) {
+export function ProgressSummary({ currentStep = 1, showCompact = false, collapsible = false, defaultExpanded = false, activePhase }: ProgressSummaryProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const { userProfile, bodyCompGoals, dietPreferences, weeklySchedule, nutritionTargets } = useFitomicsStore();
 
@@ -61,12 +63,22 @@ export function ProgressSummary({ currentStep = 1, showCompact = false, collapsi
       )
     : null;
 
-  // Format goal type
+  // When an active phase is provided, derive display values from it
+  const phaseTimelineWeeks = activePhase
+    ? Math.round((new Date(activePhase.endDate).getTime() - new Date(activePhase.startDate).getTime()) / (7 * 24 * 60 * 60 * 1000))
+    : null;
+
   const formatGoalType = (goalType?: string) => {
     switch (goalType) {
-      case 'lose_fat': return 'Fat Loss';
-      case 'gain_muscle': return 'Muscle Gain';
-      case 'maintain': return 'Maintenance';
+      case 'lose_fat':
+      case 'fat_loss': return 'Fat Loss';
+      case 'gain_muscle':
+      case 'muscle_gain': return 'Muscle Gain';
+      case 'maintain':
+      case 'recomposition': return goalType === 'recomposition' ? 'Recomposition' : 'Maintenance';
+      case 'performance': return 'Performance';
+      case 'health': return 'Health';
+      case 'other': return activePhase?.customGoalName || 'Custom';
       default: return 'Not set';
     }
   };
@@ -186,18 +198,20 @@ export function ProgressSummary({ currentStep = 1, showCompact = false, collapsi
                 </div>
               )}
               
-              {/* Goals */}
+              {/* Goals — phase-aware */}
               {hasGoals && (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <Target className="h-3.5 w-3.5 text-[#c19962]" />
-                    <span className="text-xs font-medium">Goals</span>
+                    <span className="text-xs font-medium">Goals{activePhase ? ` (${activePhase.name})` : ''}</span>
                     <CheckCircle2 className="h-3 w-3 text-green-500 ml-auto" />
                   </div>
                   <div className="text-xs text-muted-foreground space-y-0.5">
-                    <p className="font-medium text-foreground">{formatGoalType(bodyCompGoals.goalType)}</p>
-                    <p>{Math.round(bodyCompGoals.targetWeightLbs || 0)} lbs target</p>
-                    {bodyCompGoals.timelineWeeks && <p>{bodyCompGoals.timelineWeeks} weeks</p>}
+                    <p className="font-medium text-foreground">{formatGoalType(activePhase?.goalType || bodyCompGoals.goalType)}</p>
+                    <p>{Math.round((activePhase?.targetWeightLbs ?? bodyCompGoals.targetWeightLbs) || 0)} lbs target</p>
+                    {(phaseTimelineWeeks ?? bodyCompGoals.timelineWeeks) != null && (
+                      <p>{phaseTimelineWeeks ?? bodyCompGoals.timelineWeeks} weeks</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -353,61 +367,78 @@ export function ProgressSummary({ currentStep = 1, showCompact = false, collapsi
           </>
         )}
 
-        {/* Body Composition Goals Summary */}
-        {hasGoals && (
-          <>
-            <Separator />
-            <div className="space-y-2 overflow-hidden">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-[#c19962] shrink-0" />
-                <span className="font-medium text-sm">Body Composition Goals</span>
-                <CheckCircle2 className="h-3.5 w-3.5 text-green-500 ml-auto shrink-0" />
-              </div>
-              <div className="pl-6 space-y-1.5 text-sm overflow-hidden">
-                <p className="text-muted-foreground">
-                  Goal: <span className="font-medium text-foreground">{formatGoalType(bodyCompGoals.goalType)}</span>
-                </p>
-                <p className="text-muted-foreground">
-                  Target: {Math.round(bodyCompGoals.targetWeightLbs || 0)} lbs
-                  {bodyCompGoals.targetBodyFat && (
-                    <> • {Number(bodyCompGoals.targetBodyFat).toFixed(1)}% BF</>
-                  )}
-                </p>
-                {bodyCompGoals.timelineWeeks && (
-                  <p className="text-muted-foreground">
-                    Timeline: {bodyCompGoals.timelineWeeks} weeks
+        {/* Body Composition Goals Summary — phase-aware */}
+        {hasGoals && (() => {
+          const goalType = activePhase?.goalType || bodyCompGoals.goalType;
+          const targetWeight = activePhase?.targetWeightLbs ?? bodyCompGoals.targetWeightLbs;
+          const targetBf = activePhase?.targetBodyFat ?? bodyCompGoals.targetBodyFat;
+          const timelineWeeks = phaseTimelineWeeks ?? bodyCompGoals.timelineWeeks;
+          const perfPriority = activePhase?.performancePriority ?? bodyCompGoals.performancePriority;
+          const musclePres = activePhase?.musclePreservation ?? bodyCompGoals.musclePreservation;
+          const lifestyleCommit = activePhase?.lifestyleCommitment ?? bodyCompGoals.lifestyleCommitment;
+          const isLossFat = goalType === 'lose_fat' || goalType === 'fat_loss';
+
+          return (
+            <>
+              <Separator />
+              <div className="space-y-2 overflow-hidden">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-[#c19962] shrink-0" />
+                  <span className="font-medium text-sm">Body Composition Goals</span>
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500 ml-auto shrink-0" />
+                </div>
+                {activePhase && (
+                  <p className="pl-6 text-[10px] text-muted-foreground">
+                    Phase: {activePhase.name}
+                    {' '}({new Date(activePhase.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {' '}- {new Date(activePhase.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})
                   </p>
                 )}
-                {/* Preference badges */}
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {bodyCompGoals.performancePriority && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
-                      {bodyCompGoals.performancePriority === 'performance_priority' 
-                        ? 'Performance' 
-                        : 'Body Comp'}
-                    </Badge>
+                <div className="pl-6 space-y-1.5 text-sm overflow-hidden">
+                  <p className="text-muted-foreground">
+                    Goal: <span className="font-medium text-foreground">{formatGoalType(goalType)}</span>
+                  </p>
+                  <p className="text-muted-foreground">
+                    Target: {Math.round(targetWeight || 0)} lbs
+                    {targetBf != null && targetBf > 0 && (
+                      <> • {Number(targetBf).toFixed(1)}% BF</>
+                    )}
+                  </p>
+                  {timelineWeeks != null && timelineWeeks > 0 && (
+                    <p className="text-muted-foreground">
+                      Timeline: {timelineWeeks} weeks
+                    </p>
                   )}
-                  {bodyCompGoals.musclePreservation && bodyCompGoals.goalType === 'lose_fat' && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
-                      {bodyCompGoals.musclePreservation === 'preserve_all' 
-                        ? 'Preserve' 
-                        : 'Some Loss OK'}
-                    </Badge>
-                  )}
-                  {bodyCompGoals.lifestyleCommitment && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
-                      {bodyCompGoals.lifestyleCommitment === 'fully_committed' 
-                        ? 'Committed'
-                        : bodyCompGoals.lifestyleCommitment === 'moderately_committed'
-                          ? 'Moderate'
-                          : 'Limited'}
-                    </Badge>
-                  )}
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {perfPriority && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                        {perfPriority === 'performance_priority' 
+                          ? 'Performance' 
+                          : 'Body Comp'}
+                      </Badge>
+                    )}
+                    {musclePres && isLossFat && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                        {musclePres === 'preserve_all' 
+                          ? 'Preserve' 
+                          : 'Some Loss OK'}
+                      </Badge>
+                    )}
+                    {lifestyleCommit && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                        {lifestyleCommit === 'fully_committed' 
+                          ? 'Committed'
+                          : lifestyleCommit === 'moderately_committed'
+                            ? 'Moderate'
+                            : 'Limited'}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </>
-        )}
+            </>
+          );
+        })()}
 
         {/* Diet Preferences Summary */}
         {hasPreferences && (
