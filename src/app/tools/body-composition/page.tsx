@@ -343,12 +343,15 @@ export default function BodyCompositionPage() {
   
   const effectiveRmr = rmrSource === 'estimated' ? estimatedRmr : measuredRmr;
   
+  // Conservative NEAT estimates aligned with Pontzer (2016) constrained
+  // energy model and Westerterp (2013). Traditional multipliers (0.15–0.55)
+  // substantially overestimate NEAT for most modern populations.
   const neatEstimates = useMemo(() => ({
-    sedentary: Math.round(effectiveRmr * 0.15),
-    light: Math.round(effectiveRmr * 0.25),
-    moderate: Math.round(effectiveRmr * 0.35),
-    active: Math.round(effectiveRmr * 0.45),
-    very_active: Math.round(effectiveRmr * 0.55),
+    sedentary: Math.round(effectiveRmr * 0.05),     // <5k steps, desk job
+    light: Math.round(effectiveRmr * 0.10),          // 5-8k steps
+    moderate: Math.round(effectiveRmr * 0.15),       // 8-12k steps
+    active: Math.round(effectiveRmr * 0.20),         // 12-15k steps
+    very_active: Math.round(effectiveRmr * 0.28),    // >15k steps, physical job
   }), [effectiveRmr]);
   
   const tdee = useMemo(() => {
@@ -565,17 +568,39 @@ export default function BodyCompositionPage() {
     };
   }, [projectedMetrics, currentWeight, currentMetrics]);
   
-  // Nutrition targets
+  // Nutrition targets — uses FFM-aware logic consistent with the planning step.
+  // High-BF% clients (>25% male, >35% female) use fat-free mass as the
+  // reference weight so excess fat mass doesn't inflate protein/fat targets.
   const nutritionTargets = useMemo(() => {
     if (!summary) return null;
     const deficit = (summary.totalWeightChange / calculatedTimeline.weeks * 3500) / 7;
-    const cals = Math.round(tdee + deficit);
+    const cals = Math.max(1200, Math.round(tdee + deficit));
+
+    const bf = currentBodyFat;
+    const highBF = (gender === 'female' && bf > 35) || (gender !== 'female' && bf > 25);
+    const ffmKg = weightKg * (1 - bf / 100);
+    const refWeight = highBF ? ffmKg : weightKg;
+
     const proteinGPerKg = PROTEIN_EFFECT[proteinLevel].mult;
-    const protein = Math.round(weightKg * proteinGPerKg);
-    const fatG = Math.round((cals * 0.27) / 9);
-    const carbG = Math.round((cals - protein * 4 - fatG * 9) / 4);
-    return { calories: cals, protein, carbs: Math.max(50, carbG), fat: fatG, deficit: Math.round(deficit) };
-  }, [tdee, summary, calculatedTimeline.weeks, weightKg, proteinLevel]);
+    // Fat: ~0.9 g/kg BW or ~1.0 g/kg FFM (evidence-based moderate default)
+    const fatGPerKg = highBF ? 1.0 : 0.9;
+
+    let protein = Math.min(Math.round(refWeight * proteinGPerKg), 300);
+    let fatG = Math.min(Math.round(refWeight * fatGPerKg), 180);
+
+    // Protein + fat cannot exceed 75% of calories to preserve carb budget
+    const pfCal = protein * 4 + fatG * 9;
+    const maxPFCal = cals * 0.75;
+    if (pfCal > maxPFCal && pfCal > 0) {
+      const scale = maxPFCal / pfCal;
+      protein = Math.round(protein * scale);
+      fatG = Math.round(fatG * scale);
+    }
+
+    const carbG = Math.max(100, Math.round((cals - protein * 4 - fatG * 9) / 4));
+
+    return { calories: cals, protein, carbs: carbG, fat: fatG, deficit: Math.round(deficit) };
+  }, [tdee, summary, calculatedTimeline.weeks, weightKg, proteinLevel, currentBodyFat, gender]);
 
   // PDF Export handler
   const handleExportPDF = async () => {
@@ -1015,7 +1040,7 @@ export default function BodyCompositionPage() {
                 {/* Exercise */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">EEE (kcal/session)</Label>
+                    <Label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">EEE (net kcal/session)</Label>
                     <Input type="number" value={eee} onChange={(e) => setEee(Number(e.target.value))} className="h-8 text-xs font-mono bg-slate-50/80 border-slate-200 rounded-lg text-center" />
                   </div>
                   <div className="space-y-1">
