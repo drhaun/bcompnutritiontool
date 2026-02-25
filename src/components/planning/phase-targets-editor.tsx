@@ -163,7 +163,7 @@ const TIME_SLOT_HOURS: Record<string, number> = {
 function computeMealSlotTargets(
   config: DayConfig,
 ): MealSlotTarget[] {
-  const { mealCount, snackCount, calories, protein, carbs, fat, isWorkoutDay, workouts, preWorkoutMeal, postWorkoutMeal } = config;
+  const { mealCount, snackCount, calories, protein, carbs, fat, isWorkoutDay, workouts, preWorkoutMeal, postWorkoutMeal, wakeTime, sleepTime } = config;
   const totalMeals = mealCount || 3;
   const totalSnacks = snackCount || 2;
   const totalCal = calories || 0;
@@ -171,13 +171,20 @@ function computeMealSlotTargets(
   const totalC = carbs || 0;
   const totalF = fat || 0;
 
-  // Build slot list with approximate hours
   const mealLabels = ['Breakfast', 'Lunch', 'Dinner', 'Meal 4', 'Meal 5', 'Meal 6'];
   const slots: { label: string; type: 'meal' | 'snack'; hour: number }[] = [];
 
-  // Spread meals evenly between wake (~7) and sleep (~22)
-  const wakeHour = 7;
-  const sleepHour = 22;
+  const parseTimeStr = (t?: string, fallback: number = 7) => {
+    if (!t) return fallback;
+    const match = t.match(/(\d+):?(\d*)\s*(am|pm)?/i);
+    if (!match) return fallback;
+    let h = parseInt(match[1]);
+    if (match[3]?.toLowerCase() === 'pm' && h < 12) h += 12;
+    if (match[3]?.toLowerCase() === 'am' && h === 12) h = 0;
+    return h;
+  };
+  const wakeHour = parseTimeStr(wakeTime, 7);
+  const sleepHour = parseTimeStr(sleepTime, 22);
   const totalSlots = totalMeals + totalSnacks;
   const interval = totalSlots > 1 ? (sleepHour - wakeHour) / (totalSlots) : 4;
 
@@ -270,13 +277,18 @@ function computeMealSlotTargets(
       rationale = `Balanced distribution (~${Math.round(calPcts[i] * 100)}% of daily)`;
     }
 
+    const slotCal = Math.round(totalCal * calPcts[i]);
+    const slotP = Math.round(totalP * protPcts[i]);
+    const slotC = Math.round(totalC * carbPcts[i]);
+    const slotF = Math.round(totalF * fatPcts[i]);
+
     return {
       label: slot.label,
       type: slot.type,
-      calories: Math.round(totalCal * calPcts[i]),
-      protein: Math.round(totalP * protPcts[i]),
-      carbs: Math.round(totalC * carbPcts[i]),
-      fat: Math.round(totalF * fatPcts[i]),
+      calories: Math.max(slot.type === 'snack' ? 50 : 100, slotCal),
+      protein: Math.max(slot.type === 'snack' ? 3 : 10, slotP),
+      carbs: Math.max(0, slotC),
+      fat: Math.max(slot.type === 'snack' ? 2 : 5, slotF),
       rationale,
       workoutRelation: relation,
     };
@@ -461,6 +473,7 @@ export function PhaseTargetsEditor({
 }: PhaseTargetsEditorProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'daily'>('overview');
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Monday');
+  const [durationStr, setDurationStr] = useState('60');
   const [showDayEditor, setShowDayEditor] = useState(false);
   const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [copySourceDay, setCopySourceDay] = useState<DayOfWeek | null>(null);
@@ -852,7 +865,7 @@ export function PhaseTargetsEditor({
     });
 
     return configs as Record<DayOfWeek, DayConfig>;
-  }, [baseMetrics, weeklySchedule, dayConfigs, phase.rateOfChange, goalType, weightKg, leanMassKg, proteinSlider, fatSlider, basisWeight, macroBasis]);
+  }, [baseMetrics, weeklySchedule, dayConfigs, phase.rateOfChange, goalType, weightKg, leanMassKg, proteinSlider, fatSlider, basisWeight, macroBasis, userProfile.metabolicAssessment]);
 
   // Calculate weekly averages
   const weeklyAverages = useMemo(() => {
@@ -1112,6 +1125,12 @@ export function PhaseTargetsEditor({
   const colors = GOAL_COLORS[phase.goalType];
   const selectedDayConfig = fullDayConfigs[selectedDay];
   const hasOverrides = Object.keys(dayConfigs[selectedDay] || {}).length > 0;
+
+  // Keep duration string in sync with the actual workout config
+  const currentDuration = selectedDayConfig?.workouts?.[0]?.duration;
+  useEffect(() => {
+    setDurationStr(String(currentDuration ?? 60));
+  }, [selectedDay, currentDuration]);
 
   if (!baseMetrics) {
     return (
@@ -1399,22 +1418,30 @@ export function PhaseTargetsEditor({
             </Card>
           )}
 
-          {/* Evidence-Based Macro Coefficient Settings */}
-          <Card>
-            <CardHeader className="pb-2">
+          {/* Guided Macro Setup — 3 Steps */}
+          <Card className="border-[#c19962]/40">
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <Settings2 className="h-4 w-4" />
-                  Evidence-Based Macronutrient Settings
+                  <Settings2 className="h-4 w-4 text-[#c19962]" />
+                  Set Macronutrient Targets
                 </CardTitle>
                 <Button variant="ghost" size="sm" onClick={() => setShowAdvanced(!showAdvanced)}>
-                  {showAdvanced ? 'Hide Details' : 'Show Details'}
+                  {showAdvanced ? 'Hide Citations' : 'Show Citations'}
                   <ChevronRight className={cn("h-4 w-4 ml-1 transition-transform", showAdvanced && "rotate-90")} />
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Slide to select any value within evidence-based ranges. Based on ISSN, ACSM, and peer-reviewed research.
-              </p>
+              <div className="mt-2 p-3 rounded-lg bg-[#00263d]/5 border border-[#00263d]/10">
+                <p className="text-xs font-medium text-[#00263d] mb-1">How it works — 3 steps:</p>
+                <ol className="text-xs text-muted-foreground space-y-0.5 list-decimal list-inside">
+                  <li><strong>Set protein</strong> — the most important macro for body composition goals</li>
+                  <li><strong>Set fat</strong> — essential for hormones, satiety, and nutrient absorption</li>
+                  <li><strong>Carbs auto-fill</strong> — remaining calories become carbohydrates</li>
+                </ol>
+                <p className="text-[10px] text-muted-foreground mt-2 pt-2 border-t border-[#00263d]/10">
+                  These set the <strong>weekly average</strong> targets. Switch to the <strong>Daily Targets</strong> tab to customize each day individually.
+                </p>
+              </div>
             </CardHeader>
             <CardContent className="space-y-5">
               {/* Calculation Basis Toggle */}
@@ -1473,8 +1500,21 @@ export function PhaseTargetsEditor({
                 </div>
               </div>
 
-              {/* Protein Slider */}
+              {/* Step 1: Protein */}
               <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold shrink-0">1</span>
+                  <span className="text-sm font-semibold">Confirm or Adjust Protein Target</span>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-1 ml-7">
+                  {goalType === 'lose_fat'
+                    ? `Set to ${proteinSlider.toFixed(1)} g/kg ${basisLabel} to maximize muscle preservation during a calorie deficit (Helms et al., 2014).`
+                    : goalType === 'gain_muscle'
+                    ? `Set to ${proteinSlider.toFixed(1)} g/kg ${basisLabel} to support muscle protein synthesis during a surplus (Morton et al., 2018).`
+                    : `Set to ${proteinSlider.toFixed(1)} g/kg ${basisLabel} to maintain lean mass at maintenance calories.`
+                  }
+                  {macroBasis === 'fat_free_mass' && ' Using fat-free mass basis for more accurate dosing.'}
+                </p>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Label className="text-sm font-medium">Protein</Label>
@@ -1568,8 +1608,15 @@ export function PhaseTargetsEditor({
                 </div>
               </div>
 
-              {/* Fat Slider */}
+              {/* Step 2: Fat */}
               <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-purple-600 text-white text-[10px] font-bold shrink-0">2</span>
+                  <span className="text-sm font-semibold">Confirm or Adjust Fat Target</span>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-1 ml-7">
+                  Set to {fatSlider.toFixed(2)} g/kg {basisLabel} ({fatGrams}g/day). Minimum ~0.5 g/kg BW needed for hormone function and fat-soluble vitamin absorption.
+                </p>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Label className="text-sm font-medium">Fat</Label>
@@ -1673,7 +1720,14 @@ export function PhaseTargetsEditor({
                 </div>
               </div>
 
-              {/* Carbohydrate Auto-Calculation — use the rebalanced values from fullDayConfigs */}
+              {/* Step 3: Carbohydrate Auto-Fill */}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-600 text-white text-[10px] font-bold shrink-0">3</span>
+                <span className="text-sm font-semibold">Carbohydrates (auto-calculated from remaining calories)</span>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-1 ml-7 mb-2">
+                After protein and fat are set, remaining calories fill carbohydrates. To customize carbs for specific days (e.g., higher on workout days, lower on rest days), use the <strong>Daily Targets</strong> tab.
+              </p>
               {(() => {
                 const carbGrams = weeklyAverages?.avgCarbs || 0;
                 const carbCal = carbGrams * 4;
@@ -2120,8 +2174,11 @@ export function PhaseTargetsEditor({
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium flex items-center gap-2">
                     <Target className="h-4 w-4 text-[#c19962]" />
-                    Nutrition Targets
+                    Day Nutrition Targets
                   </h4>
+                  <p className="text-[10px] text-muted-foreground">
+                    Edit any field below. Changing calories adjusts carbs to fill the remainder. Changing a macro recalculates total calories. Per-meal targets below will need to be recalculated if you change these.
+                  </p>
                   <div className="grid grid-cols-4 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">Calories</Label>
@@ -2310,14 +2367,18 @@ export function PhaseTargetsEditor({
                                 type="text"
                                 inputMode="numeric"
                                 pattern="[0-9]*"
-                                value={selectedDayConfig.workouts[0]?.duration || 60}
+                                value={durationStr}
                                 onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (val === '' || /^\d+$/.test(val)) {
-                                    const updatedWorkouts = [...selectedDayConfig.workouts];
-                                    updatedWorkouts[0] = { ...updatedWorkouts[0], duration: val === '' ? 0 : parseInt(val, 10) };
-                                    updateDayConfig(selectedDay, { workouts: updatedWorkouts });
-                                  }
+                                  const val = e.target.value.replace(/[^0-9]/g, '');
+                                  setDurationStr(val);
+                                }}
+                                onBlur={() => {
+                                  const num = parseInt(durationStr);
+                                  const clamped = isNaN(num) || num < 5 ? 5 : num > 300 ? 300 : num;
+                                  setDurationStr(String(clamped));
+                                  const updatedWorkouts = [...selectedDayConfig.workouts];
+                                  updatedWorkouts[0] = { ...updatedWorkouts[0], duration: clamped };
+                                  updateDayConfig(selectedDay, { workouts: updatedWorkouts });
                                 }}
                                 className="h-9 text-sm bg-white border-green-200"
                               />
@@ -2344,13 +2405,19 @@ export function PhaseTargetsEditor({
                             </div>
                           </div>
                           
-                          {/* Average Zone Selector - for precise calorie estimation */}
+                          {/* Zone Selector — uses measured data from Profile if available */}
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <Label className="text-xs font-medium text-green-700">Avg Zone (1-5)</Label>
-                              <span className="text-[10px] text-green-600">
-                                {userProfile.metabolicAssessment?.hasZoneData ? 'From metabolic test' : 'Estimated from body weight'}
-                              </span>
+                              <Label className="text-xs font-medium text-green-700">
+                                Zone Override <span className="font-normal text-green-600">(or use intensity above)</span>
+                              </Label>
+                              <Badge variant="outline" className={cn("text-[9px] h-4",
+                                userProfile.metabolicAssessment?.hasZoneData
+                                  ? "border-green-400 text-green-700 bg-green-50"
+                                  : "border-amber-300 text-amber-700 bg-amber-50"
+                              )}>
+                                {userProfile.metabolicAssessment?.hasZoneData ? 'Measured cal/min from profile' : 'Estimated — add zone data in Profile'}
+                              </Badge>
                             </div>
                             <div className="flex gap-1.5">
                               {([1, 2, 3, 4, 5] as const).map(zone => {
@@ -2513,6 +2580,8 @@ export function PhaseTargetsEditor({
                         updateDayConfig(selectedDay, { mealSlotTargets: computed });
                       };
 
+                      const mismatch = Math.abs(totalCal - (selectedDayConfig.calories || 0)) > 10;
+
                       return (
                         <div className="p-3 rounded-lg bg-blue-50/50 border border-blue-200 space-y-3">
                           <div className="flex items-center justify-between">
@@ -2527,16 +2596,22 @@ export function PhaseTargetsEditor({
                               )}
                             </div>
                             <div className="flex items-center gap-1.5">
-                              {overrides && (
-                                <Button variant="ghost" size="sm" className="h-5 text-[9px] text-blue-500" onClick={resetToComputed}>
-                                  <RefreshCw className="h-2.5 w-2.5 mr-0.5" /> Reset
-                                </Button>
-                              )}
+                              <Button variant={mismatch ? 'default' : 'ghost'} size="sm" className={cn("h-6 text-[10px]", mismatch ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'text-blue-500')} onClick={resetToComputed}>
+                                <RefreshCw className="h-3 w-3 mr-1" /> Recalculate
+                              </Button>
                               <span className="text-[10px] text-blue-500">
                                 {selectedDayConfig.mealCount} meals + {selectedDayConfig.snackCount} snacks
                               </span>
                             </div>
                           </div>
+                          <p className="text-[9px] text-blue-600">
+                            {overrides
+                              ? 'Custom per-meal targets. Click "Recalculate" to redistribute from day totals.'
+                              : selectedDayConfig.isWorkoutDay
+                              ? 'Auto-distributed with nutrient timing: extra protein + carbs post-workout, extra carbs pre-workout.'
+                              : 'Auto-distributed evenly across meals; snacks get ~8% each.'
+                            }
+                          </p>
                           
                           <div className="space-y-1">
                             {/* Header */}
@@ -2606,10 +2681,15 @@ export function PhaseTargetsEditor({
                               <span className={cn("text-center font-mono text-purple-600", Math.abs(totalF - (selectedDayConfig.fat || 0)) > 2 && 'text-red-500')}>{totalF}g</span>
                             </div>
                             {/* Warning if totals don't match day targets */}
-                            {Math.abs(totalCal - (selectedDayConfig.calories || 0)) > 10 && (
-                              <p className="text-[9px] text-red-500 px-1">
-                                Per-meal total ({totalCal} cal) differs from day target ({selectedDayConfig.calories} cal). Adjust slots or reset.
-                              </p>
+                            {mismatch && (
+                              <div className="px-2 py-1.5 rounded bg-red-50 border border-red-200 flex items-center justify-between">
+                                <p className="text-[10px] text-red-600">
+                                  Per-meal total ({totalCal} cal) does not match day target ({selectedDayConfig.calories} cal).
+                                </p>
+                                <Button variant="destructive" size="sm" className="h-5 text-[9px] ml-2 shrink-0" onClick={resetToComputed}>
+                                  <RefreshCw className="h-2.5 w-2.5 mr-0.5" /> Fix: Recalculate
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </div>
