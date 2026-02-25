@@ -26,6 +26,7 @@ import {
   calculateMacrosAdvanced,
   calculateMacrosWithRationale,
   calculateBodyComposition,
+  estimateWorkoutCaloriesMET,
   lbsToKg,
   kgToLbs,
   heightToCm,
@@ -250,22 +251,14 @@ export default function TargetsPage() {
       const hasWorkout = daySchedule?.workouts && daySchedule.workouts.length > 0;
       const workout = hasWorkout ? daySchedule.workouts[0] : null;
       
-      // Estimate workout calories
+      // Estimate NET workout calories using evidence-based MET approach
       let workoutCalories = 0;
       if (workout) {
-        const baseCalories: Record<string, number> = {
-          'Resistance Training': 8,
-          'Cardio': 10,
-          'HIIT': 12,
-          'Yoga/Mobility': 4,
-          'Sports': 9,
-          'Mixed': 9,
-        };
-        const intensityMult: Record<string, number> = { 'Low': 0.7, 'Medium': 1.0, 'High': 1.3 };
-        workoutCalories = Math.round(
-          (baseCalories[workout.type] || 8) * 
-          workout.duration * 
-          (intensityMult[workout.intensity] || 1.0)
+        workoutCalories = estimateWorkoutCaloriesMET(
+          workout.type,
+          workout.intensity as 'Low' | 'Medium' | 'High',
+          workout.duration,
+          weightKg
         );
       }
 

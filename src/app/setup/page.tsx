@@ -559,7 +559,15 @@ export default function SetupPage() {
   const [heightFt, setHeightFt] = useState(5);
   const [heightIn, setHeightIn] = useState(10);
   const [weightLbs, setWeightLbs] = useState(180);
-  
+
+  // String display states for numeric inputs — allows free typing without
+  // the value snapping back to a parsed number on every keystroke.
+  const [ageStr, setAgeStr] = useState('30');
+  const [heightFtStr, setHeightFtStr] = useState('5');
+  const [heightInStr, setHeightInStr] = useState('10');
+  const [weightStr, setWeightStr] = useState('180');
+  const [bfStr, setBfStr] = useState('20');
+
   // ============ CRONOMETER INTEGRATION STATE ============
   const [cronometerConnected, setCronometerConnected] = useState(false);
   const [cronometerClients, setCronometerClients] = useState<Array<{
@@ -594,8 +602,13 @@ export default function SetupPage() {
       setGender(userProfile.gender || 'Male');
       setAge(userProfile.age || 30);
       setHeightFt(userProfile.heightFt || 5);
-      setHeightIn(userProfile.heightIn || 10);
+      setHeightIn(userProfile.heightIn ?? 10);
       setWeightLbs(userProfile.weightLbs || 180);
+      setAgeStr(String(userProfile.age || 30));
+      setHeightFtStr(String(userProfile.heightFt || 5));
+      setHeightInStr(String(userProfile.heightIn ?? 10));
+      setWeightStr(String(userProfile.weightLbs || 180));
+      setBfStr(String(userProfile.bodyFatPercentage || 20));
       setMeasuredBFPercent(userProfile.bodyFatPercentage || 20);
       setEstimatedBFPercent(userProfile.bodyFatPercentage || 20);
       setPerformancePriority(bodyCompGoals.performancePriority || 'body_comp_priority');
@@ -1136,6 +1149,7 @@ export default function SetupPage() {
       const calculatedAge = calculateAge(new Date(dob));
       if (calculatedAge > 0 && calculatedAge < 120) {
         setAge(calculatedAge);
+        setAgeStr(String(calculatedAge));
       }
     }
   }, [useDOB, dob]);
@@ -2173,22 +2187,16 @@ export default function SetupPage() {
                             type="text"
                             inputMode="numeric"
                             pattern="[0-9]*"
-                            value={age}
+                            value={ageStr}
                             onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === '') {
-                                setAge(0);
-                              } else {
-                                const num = parseInt(val);
-                                if (!isNaN(num) && num >= 0 && num <= 120) {
-                                  setAge(num);
-                                }
-                              }
+                              const val = e.target.value.replace(/[^0-9]/g, '');
+                              setAgeStr(val);
                             }}
-                            onBlur={(e) => {
-                              const num = parseInt(e.target.value);
-                              if (isNaN(num) || num < 18) setAge(18);
-                              else if (num > 100) setAge(100);
+                            onBlur={() => {
+                              const num = parseInt(ageStr);
+                              if (isNaN(num) || num < 18) { setAge(18); setAgeStr('18'); }
+                              else if (num > 100) { setAge(100); setAgeStr('100'); }
+                              else { setAge(num); setAgeStr(String(num)); }
                             }}
                             placeholder="Age"
                             className="h-11"
@@ -2205,22 +2213,16 @@ export default function SetupPage() {
                               type="text"
                               inputMode="numeric"
                               pattern="[0-9]*"
-                              value={heightFt}
+                              value={heightFtStr}
                               onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === '') {
-                                  setHeightFt(0);
-                                } else {
-                                  const num = parseInt(val);
-                                  if (!isNaN(num) && num >= 0 && num <= 8) {
-                                    setHeightFt(num);
-                                  }
-                                }
+                                const val = e.target.value.replace(/[^0-9]/g, '');
+                                setHeightFtStr(val);
                               }}
-                              onBlur={(e) => {
-                                const num = parseInt(e.target.value);
-                                if (isNaN(num) || num < 4) setHeightFt(4);
-                                else if (num > 7) setHeightFt(7);
+                              onBlur={() => {
+                                const num = parseInt(heightFtStr);
+                                if (isNaN(num) || num < 4) { setHeightFt(4); setHeightFtStr('4'); }
+                                else if (num > 7) { setHeightFt(7); setHeightFtStr('7'); }
+                                else { setHeightFt(num); setHeightFtStr(String(num)); }
                               }}
                               placeholder="Ft"
                               className="h-11"
@@ -2232,22 +2234,16 @@ export default function SetupPage() {
                               type="text"
                               inputMode="numeric"
                               pattern="[0-9]*"
-                              value={heightIn}
+                              value={heightInStr}
                               onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === '') {
-                                  setHeightIn(0);
-                                } else {
-                                  const num = parseInt(val);
-                                  if (!isNaN(num) && num >= 0 && num <= 11) {
-                                    setHeightIn(num);
-                                  }
-                                }
+                                const val = e.target.value.replace(/[^0-9]/g, '');
+                                setHeightInStr(val);
                               }}
-                              onBlur={(e) => {
-                                const num = parseInt(e.target.value);
-                                if (isNaN(num) || num < 0) setHeightIn(0);
-                                else if (num > 11) setHeightIn(11);
+                              onBlur={() => {
+                                const num = parseInt(heightInStr);
+                                if (isNaN(num) || heightInStr === '') { setHeightIn(0); setHeightInStr('0'); }
+                                else if (num > 11) { setHeightIn(11); setHeightInStr('11'); }
+                                else { setHeightIn(num); setHeightInStr(String(num)); }
                               }}
                               placeholder="In"
                               className="h-11"
@@ -2268,22 +2264,16 @@ export default function SetupPage() {
                               type="text"
                               inputMode="decimal"
                               pattern="[0-9]*\.?[0-9]*"
-                              value={weightLbs}
+                              value={weightStr}
                               onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === '' || val === '.') {
-                                  setWeightLbs(0);
-                                } else {
-                                  const num = parseFloat(val);
-                                  if (!isNaN(num) && num >= 0 && num <= 600) {
-                                    setWeightLbs(num);
-                                  }
-                                }
+                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                setWeightStr(val);
                               }}
-                              onBlur={(e) => {
-                                const num = parseFloat(e.target.value);
-                                if (isNaN(num) || num < 50) setWeightLbs(50);
-                                else if (num > 500) setWeightLbs(500);
+                              onBlur={() => {
+                                const num = parseFloat(weightStr);
+                                if (isNaN(num) || num < 50) { setWeightLbs(50); setWeightStr('50'); }
+                                else if (num > 500) { setWeightLbs(500); setWeightStr('500'); }
+                                else { setWeightLbs(num); setWeightStr(String(num)); }
                               }}
                               placeholder="Weight"
                               className="h-11"
@@ -2304,7 +2294,7 @@ export default function SetupPage() {
                             {Math.abs(cronometerWeightLbs.value - weightLbs) > 0.1 && (
                               <button
                                 type="button"
-                                onClick={() => setWeightLbs(cronometerWeightLbs.value)}
+                                onClick={() => { setWeightLbs(cronometerWeightLbs.value); setWeightStr(String(cronometerWeightLbs.value)); }}
                                 className="inline-flex items-center gap-1 text-xs text-[#c19962] hover:text-[#a88652] font-medium"
                                 title="Apply Cronometer weight"
                               >
@@ -2378,22 +2368,16 @@ export default function SetupPage() {
                             type="text"
                             inputMode="decimal"
                             pattern="[0-9]*\.?[0-9]*"
-                            value={measuredBFPercent}
+                            value={bfStr}
                             onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === '' || val === '.') {
-                                setMeasuredBFPercent(0);
-                              } else {
-                                const num = parseFloat(val);
-                                if (!isNaN(num) && num >= 0 && num <= 70) {
-                                  setMeasuredBFPercent(num);
-                                }
-                              }
+                              const val = e.target.value.replace(/[^0-9.]/g, '');
+                              setBfStr(val);
                             }}
-                            onBlur={(e) => {
-                              const num = parseFloat(e.target.value);
-                              if (isNaN(num) || num < 3) setMeasuredBFPercent(3);
-                              else if (num > 60) setMeasuredBFPercent(60);
+                            onBlur={() => {
+                              const num = parseFloat(bfStr);
+                              if (isNaN(num) || num < 3) { setMeasuredBFPercent(3); setBfStr('3'); }
+                              else if (num > 60) { setMeasuredBFPercent(60); setBfStr('60'); }
+                              else { setMeasuredBFPercent(num); setBfStr(String(num)); }
                             }}
                             className="w-24 h-11"
                           />

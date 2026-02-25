@@ -316,9 +316,22 @@ export function getActivityMultiplier(activityLevel: ActivityLevel): number {
 }
 
 /**
- * Estimate workout calories using MET values (validated approach)
- * MET = Metabolic Equivalent of Task (1 MET = ~1 kcal/kg/hr)
- * 
+ * Estimate NET workout calories using MET values.
+ *
+ * Key corrections vs. the naïve MET × kg × hr formula:
+ * 1. Uses NET METs (MET − 1) because resting expenditure is already counted
+ *    in TDEE via RMR + NEAT. Gross METs double-count the resting component.
+ *    (Swain et al., 2000; Byrne et al., 2005)
+ * 2. Caps effective body weight at 100 kg. Above that threshold, additional
+ *    mass is predominantly fat, which contributes minimally to exercise
+ *    energy expenditure. Compendium METs were derived largely from lean
+ *    populations, so linear scaling past ~100 kg inflates estimates.
+ *    (Ainsworth et al., 2011; Kozey et al., 2010)
+ * 3. Applies a 0.85 real-world correction factor. Lab-measured METs assume
+ *    continuous effort; actual sessions include transitions, setup, and
+ *    rest periods (especially resistance training).
+ *    (Compendia caveat: Ainsworth et al., 2000)
+ *
  * MET values from Compendium of Physical Activities (Ainsworth et al.)
  */
 export function estimateWorkoutCaloriesMET(
@@ -327,7 +340,6 @@ export function estimateWorkoutCaloriesMET(
   durationMinutes: number,
   bodyWeightKg: number
 ): number {
-  // MET values by workout type and intensity
   const metValues: Record<string, Record<'Low' | 'Medium' | 'High', number>> = {
     'Resistance Training': { Low: 3.5, Medium: 5.0, High: 6.0 },
     'Cardio': { Low: 4.0, Medium: 7.0, High: 10.0 },
@@ -337,11 +349,13 @@ export function estimateWorkoutCaloriesMET(
     'Mixed': { Low: 4.0, Medium: 6.0, High: 8.0 },
   };
 
-  const met = metValues[workoutType]?.[intensity] ?? 5.0;
+  const grossMet = metValues[workoutType]?.[intensity] ?? 5.0;
+  const netMet = Math.max(0.5, grossMet - 1);
+  const effectiveKg = Math.min(bodyWeightKg, 100);
   const durationHours = durationMinutes / 60;
-  
-  // Calories = MET × weight(kg) × duration(hours)
-  return Math.round(met * bodyWeightKg * durationHours);
+  const REAL_WORLD_FACTOR = 0.85;
+
+  return Math.round(netMet * effectiveKg * durationHours * REAL_WORLD_FACTOR);
 }
 
 /**
@@ -371,9 +385,21 @@ export function calculateZoneBasedCalories(
 }
 
 /**
- * Get default zone cal/min estimates based on body weight
- * Used as fallback when no measured data is available
- * Based on typical metabolic responses (conservative estimates)
+ * Get default zone cal/min estimates based on body weight.
+ * Used ONLY as a fallback when no measured metabolic data is available.
+ *
+ * These are NET estimates (resting contribution subtracted) because RMR
+ * is already counted separately in the TDEE calculation.
+ *
+ * Effective weight is capped at 100 kg — additional fat mass beyond that
+ * contributes minimally to exercise calorie burn.
+ *
+ * Reference points (for 70 kg lean individual):
+ * - Zone 1 (very light): ~2-3 NET cal/min
+ * - Zone 2 (light):      ~4-5 NET cal/min
+ * - Zone 3 (moderate):   ~6-7 NET cal/min
+ * - Zone 4 (hard):       ~8-10 NET cal/min
+ * - Zone 5 (max):        ~11-13 NET cal/min
  */
 export function getDefaultZoneCalories(bodyWeightKg: number): {
   zone1: number;
@@ -382,21 +408,22 @@ export function getDefaultZoneCalories(bodyWeightKg: number): {
   zone4: number;
   zone5: number;
 } {
-  // Approximate cal/min per kg of body weight for each zone
-  const calPerKgPerMin = {
-    zone1: 0.06,  // ~4-5 cal/min for 70kg
-    zone2: 0.10,  // ~7-8 cal/min for 70kg
-    zone3: 0.14,  // ~10 cal/min for 70kg
-    zone4: 0.18,  // ~12-13 cal/min for 70kg
-    zone5: 0.22,  // ~15-16 cal/min for 70kg
+  const effectiveKg = Math.min(bodyWeightKg, 100);
+
+  const netCalPerKgPerMin = {
+    zone1: 0.035,  // ~2.5 cal/min for 70kg
+    zone2: 0.065,  // ~4.5 cal/min for 70kg
+    zone3: 0.095,  // ~6.7 cal/min for 70kg
+    zone4: 0.13,   // ~9.1 cal/min for 70kg
+    zone5: 0.17,   // ~11.9 cal/min for 70kg
   };
-  
+
   return {
-    zone1: Math.round(calPerKgPerMin.zone1 * bodyWeightKg * 10) / 10,
-    zone2: Math.round(calPerKgPerMin.zone2 * bodyWeightKg * 10) / 10,
-    zone3: Math.round(calPerKgPerMin.zone3 * bodyWeightKg * 10) / 10,
-    zone4: Math.round(calPerKgPerMin.zone4 * bodyWeightKg * 10) / 10,
-    zone5: Math.round(calPerKgPerMin.zone5 * bodyWeightKg * 10) / 10,
+    zone1: Math.round(netCalPerKgPerMin.zone1 * effectiveKg * 10) / 10,
+    zone2: Math.round(netCalPerKgPerMin.zone2 * effectiveKg * 10) / 10,
+    zone3: Math.round(netCalPerKgPerMin.zone3 * effectiveKg * 10) / 10,
+    zone4: Math.round(netCalPerKgPerMin.zone4 * effectiveKg * 10) / 10,
+    zone5: Math.round(netCalPerKgPerMin.zone5 * effectiveKg * 10) / 10,
   };
 }
 
@@ -481,15 +508,16 @@ export function calculateMacros(
 }
 
 /**
- * Advanced macro calculation with customizable coefficients
- * 
- * @param targetCalories - Target daily calories
- * @param bodyWeightKg - Body weight in kilograms
- * @param goalType - Goal type (lose_fat, gain_muscle, maintain)
- * @param proteinLevel - Protein coefficient level
- * @param fatLevel - Fat coefficient level
- * @param customProteinPerKg - Optional custom protein g/kg (overrides level)
- * @param customFatPerKg - Optional custom fat g/kg (overrides level)
+ * Advanced macro calculation with customizable coefficients.
+ *
+ * For high-BF% clients (>25% male / >35% female) the reference weight
+ * automatically shifts to fat-free mass when no custom per-kg values are
+ * supplied. This prevents excessive protein/fat targets that leave zero
+ * room for carbohydrates.
+ *
+ * Absolute caps (protein 300g, fat 180g) and a 75%-of-calories ceiling
+ * for combined protein + fat ensure carbs always get at least ~25% of
+ * the caloric budget.
  */
 export function calculateMacrosAdvanced(
   targetCalories: number,
@@ -498,51 +526,42 @@ export function calculateMacrosAdvanced(
   proteinLevel: ProteinLevel = 'moderate',
   fatLevel: FatLevel = 'moderate',
   customProteinPerKg?: number,
-  customFatPerKg?: number
+  customFatPerKg?: number,
+  bodyFatPercentage?: number,
+  gender?: 'Male' | 'Female'
 ): Macros {
-  // Ensure minimum calories
   const calories = Math.max(1200, targetCalories);
-  
-  // Get coefficients (use custom if provided, otherwise use level-based)
+
   const proteinPerKg = customProteinPerKg ?? getProteinCoefficient(goalType, proteinLevel);
   const fatPerKg = customFatPerKg ?? getFatCoefficient(goalType, fatLevel);
-  
-  let proteinG = proteinPerKg * bodyWeightKg;
-  let fatG = fatPerKg * bodyWeightKg;
-  
-  // Calculate calories from protein and fat
-  const proteinCalories = proteinG * 4;
-  const fatCalories = fatG * 9;
-  
-  // Calculate remaining calories for carbs
-  let carbCalories = calories - proteinCalories - fatCalories;
-  
-  // Handle negative carb calories (reduce fat first, then protein if needed)
-  if (carbCalories <= 0) {
-    // First try reducing fat to minimum (0.5 g/kg)
-    const minFat = 0.5 * bodyWeightKg;
-    fatG = Math.max(minFat, fatG * 0.7); // Reduce fat by 30% but keep above minimum
-    
-    const newFatCalories = fatG * 9;
-    carbCalories = calories - proteinCalories - newFatCalories;
-    
-    // If still negative, reduce protein to minimum (1.6 g/kg)
-    if (carbCalories <= 0) {
-      const minProtein = 1.6 * bodyWeightKg;
-      proteinG = Math.max(minProtein, proteinG * 0.8);
-      const newProteinCalories = proteinG * 4;
-      carbCalories = calories - newProteinCalories - newFatCalories;
-    }
+
+  // For high-BF% individuals, use FFM as the reference weight so that
+  // excess fat mass doesn't inflate protein/fat targets.
+  const bf = bodyFatPercentage ?? 20;
+  const highBF = (gender === 'Female') ? bf > 35 : bf > 25;
+  const refWeight = (highBF && !customProteinPerKg && !customFatPerKg)
+    ? bodyWeightKg * (1 - bf / 100) // fat-free mass
+    : bodyWeightKg;
+
+  let proteinG = Math.min(proteinPerKg * refWeight, 300);
+  let fatG = Math.min(fatPerKg * refWeight, 180);
+
+  // Combined protein + fat must not exceed 75% of calories so carbs get room.
+  const pfCal = proteinG * 4 + fatG * 9;
+  const maxPFCal = calories * 0.75;
+  if (pfCal > maxPFCal && pfCal > 0) {
+    const scale = maxPFCal / pfCal;
+    proteinG = proteinG * scale;
+    fatG = fatG * scale;
   }
-  
-  // Calculate carbs with minimums
-  const carbG = carbCalories > 0 ? carbCalories / 4 : 50;
-  const minCarbs = Math.max(50, 130); // Minimum 130g for brain function
-  
+
+  const carbCalories = calories - proteinG * 4 - fatG * 9;
+  const carbG = Math.max(carbCalories > 0 ? carbCalories / 4 : 50, 100);
+
   return {
     calories: Math.round(calories),
     protein: Math.round(Math.max(proteinG, 50)),
-    carbs: Math.round(Math.max(carbG, minCarbs)),
+    carbs: Math.round(carbG),
     fat: Math.round(Math.max(fatG, 30)),
   };
 }

@@ -491,15 +491,32 @@ export function PhaseTargetsEditor({
   const [customProteinPerKg, setCustomProteinPerKg] = useState<number | null>(null);
   const [customFatPerKg, setCustomFatPerKg] = useState<number | null>(null);
   
-  // Macro basis: total body weight vs fat-free mass
-  const [macroBasis, setMacroBasis] = useState<MacroBasis>(phase.macroSettings?.basis || 'total_weight');
+  // Auto-switch to FFM basis for high body-fat clients when no prior
+  // macro settings are saved for this phase.
+  // Thresholds: >25% BF male, >35% BF female (Hector & Phillips, 2018).
+  // Above these levels, total-body-weight coefficients produce unreasonably
+  // high protein/fat targets because excess fat mass doesn't drive protein
+  // needs for muscle preservation or fat needs for hormone health.
+  const autoFFM = !phase.macroSettings?.basis && (
+    (userProfile.gender === 'Male' && (userProfile.bodyFatPercentage || 20) > 25) ||
+    (userProfile.gender === 'Female' && (userProfile.bodyFatPercentage || 25) > 35)
+  );
+  const [macroBasis, setMacroBasis] = useState<MacroBasis>(
+    phase.macroSettings?.basis || (autoFFM ? 'fat_free_mass' : 'total_weight')
+  );
   
-  // Slider values for continuous coefficient selection
+  // Default coefficients: FFM basis uses higher per-kg values because the
+  // denominator (lean mass) is smaller. Evidence-based ranges:
+  // - Protein per FFM: 2.2–3.1 g/kg (Helms et al., 2014; Hector & Phillips, 2018)
+  // - Fat per FFM: 0.8–1.2 g/kg (Iraki et al., 2019)
+  // - Protein per BW: 1.6–2.2 g/kg (Morton et al., 2018)
+  // - Fat per BW: 0.7–1.0 g/kg
+  const defaultBasis = phase.macroSettings?.basis || (autoFFM ? 'fat_free_mass' : 'total_weight');
   const [proteinSlider, setProteinSlider] = useState<number>(
-    phase.macroSettings?.proteinPerKg || (macroBasis === 'fat_free_mass' ? 2.4 : 2.0)
+    phase.macroSettings?.proteinPerKg || (defaultBasis === 'fat_free_mass' ? 2.4 : 2.0)
   );
   const [fatSlider, setFatSlider] = useState<number>(
-    phase.macroSettings?.fatPerKg || (macroBasis === 'fat_free_mass' ? 1.0 : 0.9)
+    phase.macroSettings?.fatPerKg || (defaultBasis === 'fat_free_mass' ? 1.0 : 0.9)
   );
   
   // Micronutrient targets
@@ -789,11 +806,23 @@ export function PhaseTargetsEditor({
         finalFat = overrides.fat!;
         finalCarbs = overrides.carbs!;
       } else {
-        // Protein and fat come directly from slider coefficients.
-        // Carbs fill the remainder. No forced rebalancing — the coach
-        // sees the real math and adjusts sliders to get the split they want.
-        finalProtein = baseProteinG + workoutProteinBonus;
-        finalFat = baseFatG + workoutFatBonus;
+        // Protein and fat come from slider coefficients, capped to prevent
+        // extreme values for very heavy or very lean individuals.
+        // Absolute caps: protein 300g (Helms 2014 ceiling even at contest
+        // prep), fat 180g (~40% of a 4000 cal diet).
+        // Calorie ceiling: protein + fat cannot exceed 75% of day calories,
+        // reserving at least 25% (~125g at 2000 cal) for carbohydrates.
+        finalProtein = Math.min(baseProteinG + workoutProteinBonus, 300);
+        finalFat = Math.min(baseFatG + workoutFatBonus, 180);
+
+        const pfCalories = finalProtein * 4 + finalFat * 9;
+        const maxPFCalories = dayCalories * 0.75;
+        if (pfCalories > maxPFCalories && pfCalories > 0) {
+          const scale = maxPFCalories / pfCalories;
+          finalProtein = Math.round(finalProtein * scale);
+          finalFat = Math.round(finalFat * scale);
+        }
+
         finalCarbs = Math.max(0, Math.round((dayCalories - finalProtein * 4 - finalFat * 9) / 4));
       }
 
