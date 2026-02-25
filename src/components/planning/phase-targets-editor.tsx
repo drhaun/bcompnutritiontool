@@ -757,9 +757,8 @@ export function PhaseTargetsEditor({
         : getDefaultZoneCalories(weightKg);
       
       workouts.forEach((workout: WorkoutConfig) => {
-        // Calculate calories for this workout
-        if (hasZoneData && workout.averageZone) {
-          // Use actual zone-based calories from metabolic testing
+        if (workout.averageZone) {
+          // User explicitly selected a zone — use it with available cal/min data
           workoutCalories += calculateZoneBasedCalories(
             workout.averageZone as 1 | 2 | 3 | 4 | 5,
             workout.duration,
