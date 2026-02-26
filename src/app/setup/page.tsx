@@ -587,6 +587,42 @@ export default function SetupPage() {
   const [isFetchingBiometrics, setIsFetchingBiometrics] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
+  // ============ INTAKE SUBMISSION STATE ============
+  const [intakeSubmission, setIntakeSubmission] = useState<{
+    submittedAt: string;
+    formData: {
+      userProfile?: Record<string, unknown>;
+      dietPreferences?: Record<string, unknown>;
+      weeklySchedule?: Record<string, unknown>;
+    };
+  } | null>(null);
+
+  // Fetch latest intake submission for this client
+  useEffect(() => {
+    if (!isHydrated || !activeClientId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/clients/${activeClientId}/intake-submission`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          if (data.submission) setIntakeSubmission(data.submission);
+        }
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, [isHydrated, activeClientId]);
+
+  // Helper: format source badge text
+  const dataSourceLabel = useCallback((source: Record<string, unknown> | undefined) => {
+    if (!source?._dataSource) return null;
+    const ds = source._dataSource as { source?: string; updatedAt?: string };
+    if (!ds.source) return null;
+    const label = ds.source === 'intake_form' ? 'Client submitted' : 'Coach updated';
+    const date = ds.updatedAt ? new Date(ds.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    return `${label}${date ? ` · ${date}` : ''}`;
+  }, []);
+
   // Track if we've initialized local state from store (only do this ONCE)
   const hasInitializedFromStore = useRef(false);
   
@@ -1678,6 +1714,7 @@ export default function SetupPage() {
     }
     
     // Save user profile with metabolic assessment and workout defaults
+    const coachSource = { source: 'coach' as const, updatedAt: new Date().toISOString() };
     setUserProfile({
       name: name.trim(),
       gender,
@@ -1722,6 +1759,7 @@ export default function SetupPage() {
           zipCode: a.zipCode,
           isDefault: a.isDefault,
         })),
+      _dataSource: coachSource,
     });
     
     // Save body comp goals (round all values for clean display)
@@ -1799,6 +1837,7 @@ export default function SetupPage() {
       micronutrientFocus: selectedMicronutrients,
       budgetPreference,
       cookingTimePreference: cookingTime,
+      _dataSource: coachSource,
     });
     
     // CRITICAL: Persist the changes to the client object before navigating
@@ -1813,6 +1852,7 @@ export default function SetupPage() {
   // Save progress without validation - allows saving incomplete profiles
   const handleSaveProgress = async () => {
     setIsSavingProgress(true);
+    const progressCoachSource = { source: 'coach' as const, updatedAt: new Date().toISOString() };
     
     try {
       // Save whatever data is available, even without a name
@@ -1860,6 +1900,7 @@ export default function SetupPage() {
             zipCode: a.zipCode,
             isDefault: a.isDefault,
           })),
+        _dataSource: progressCoachSource,
       });
       
       // Save body comp goals if any goal type is selected
@@ -1907,6 +1948,7 @@ export default function SetupPage() {
         micronutrientFocus: selectedMicronutrients,
         budgetPreference,
         cookingTimePreference: cookingTime,
+        _dataSource: progressCoachSource,
       });
       
       // Build and save weekly schedule with per-day workouts
@@ -2015,10 +2057,17 @@ export default function SetupPage() {
                 {/* Section 1: Basic Information */}
                 <Card className="border-0 shadow-sm">
                   <CardHeader className="pb-4">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <User className="h-5 w-5 text-[#c19962]" />
-                      Basic Information
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <User className="h-5 w-5 text-[#c19962]" />
+                        Basic Information
+                      </CardTitle>
+                      {dataSourceLabel(userProfile as Record<string, unknown>) && (
+                        <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
+                          {dataSourceLabel(userProfile as Record<string, unknown>)}
+                        </Badge>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     {/* Cronometer Link Banner */}
@@ -2385,11 +2434,18 @@ export default function SetupPage() {
                         <Scale className="h-5 w-5 text-[#c19962]" />
                         Body Composition
                       </CardTitle>
-                      {userProfile.bodyFatPercentage && (
-                        <Badge variant="outline" className="text-xs">
-                          Last: {userProfile.bodyFatPercentage}% BF
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {dataSourceLabel(userProfile as Record<string, unknown>) && (
+                          <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
+                            {dataSourceLabel(userProfile as Record<string, unknown>)}
+                          </Badge>
+                        )}
+                        {userProfile.bodyFatPercentage && (
+                          <Badge variant="outline" className="text-xs">
+                            Last: {userProfile.bodyFatPercentage}% BF
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -2578,6 +2634,46 @@ export default function SetupPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-6">
+                    {/* Intake submission banner for metabolic data */}
+                    {!!intakeSubmission?.formData?.userProfile?.metabolicAssessment && (
+                      <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm dark:bg-amber-950/20 dark:border-amber-800">
+                        <ArrowDownToLine className="h-4 w-4 mt-0.5 text-amber-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-amber-800 dark:text-amber-200">
+                            Client submitted metabolic data
+                            {intakeSubmission.submittedAt && (
+                              <span className="font-normal text-amber-600 dark:text-amber-400">
+                                {' · '}{new Date(intakeSubmission.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-amber-700 dark:text-amber-300 mt-0.5">
+                            {(() => {
+                              const ma = intakeSubmission.formData.userProfile!.metabolicAssessment as Record<string, unknown>;
+                              if (ma?.measuredRMR) return `Measured RMR: ${String(ma.measuredRMR)} kcal/day`;
+                              if (ma?.rmrSource === 'estimated') return 'RMR: Estimated (no measured value)';
+                              return 'RMR data submitted';
+                            })() as string}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/40 flex-shrink-0"
+                          onClick={() => {
+                            const ma = intakeSubmission.formData.userProfile!.metabolicAssessment as Record<string, unknown>;
+                            if (ma?.measuredRMR) {
+                              setUseMeasuredRMR(true);
+                              setMeasuredRMR(Number(ma.measuredRMR));
+                            }
+                            toast.success('Applied metabolic data from intake form');
+                          }}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    )}
+
                     {/* RMR Toggle */}
                     <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
                       <div className="flex items-center gap-3">

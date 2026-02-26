@@ -17,6 +17,7 @@ function dbToGroup(row: Record<string, unknown>) {
     slug: row.slug,
     description: row.description,
     formConfig: row.form_config || [],
+    defaultFormId: row.default_form_id || null,
     welcomeTitle: row.welcome_title,
     welcomeDescription: row.welcome_description,
     branding: row.branding || {},
@@ -100,6 +101,7 @@ export async function POST(request: NextRequest) {
       stripe_promo_code_id: body.stripePromoCodeId || null,
       payment_description: body.paymentDescription || null,
       is_active: body.isActive ?? true,
+      default_form_id: body.defaultFormId || null,
     }).select('*').single();
 
     if (error) {

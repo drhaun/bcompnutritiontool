@@ -24,6 +24,7 @@ interface IntakeFormProps {
   welcomeTitle?: string;
   successTitle?: string;
   successMessage?: string;
+  formId?: string;
 }
 
 interface FormState {
@@ -468,7 +469,7 @@ function SummarySection({ title, items }: { title: string; items: string[] }) {
 
 // ── Main Component ─────────────────────────────────────────────────────────
 
-export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCheckout, welcomeTitle, successTitle, successMessage }: IntakeFormProps) {
+export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCheckout, welcomeTitle, successTitle, successMessage, formId }: IntakeFormProps) {
   const blocks = useMemo(() => formConfig && formConfig.length > 0 ? formConfig : ALL_BLOCKS, [formConfig]);
 
   // Build the step list: configured blocks + review step
@@ -510,7 +511,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
       await fetch(`/api/intake/${token}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formToPayload(form), customAnswers, completed }),
+        body: JSON.stringify({ ...formToPayload(form), customAnswers, completed, formId }),
       });
     } catch { /* silent */ }
     setSaving(false);

@@ -17,6 +17,7 @@ function dbToGroup(row: Record<string, unknown>) {
     slug: row.slug,
     description: row.description,
     formConfig: row.form_config || [],
+    defaultFormId: row.default_form_id || null,
     welcomeTitle: row.welcome_title,
     welcomeDescription: row.welcome_description,
     branding: row.branding || {},
@@ -98,6 +99,7 @@ export async function PATCH(
     if (body.stripePromoCodeId !== undefined) updates.stripe_promo_code_id = body.stripePromoCodeId || null;
     if (body.paymentDescription !== undefined) updates.payment_description = body.paymentDescription;
     if (body.isActive !== undefined) updates.is_active = body.isActive;
+    if (body.defaultFormId !== undefined) updates.default_form_id = body.defaultFormId || null;
 
     const { data, error } = await supabase
       .from('client_groups').update(updates).eq('id', id).select('*').single();

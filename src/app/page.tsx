@@ -51,11 +51,15 @@ import {
   Unlink,
   Tag,
   RotateCcw,
-  FolderCog
+  FolderCog,
+  ClipboardList,
+  ChevronDown,
+  ChevronUp,
+  DollarSign
 } from 'lucide-react';
 import { useFitomicsStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import type { ClientProfile } from '@/types';
+import type { ClientProfile, IntakeForm } from '@/types';
 
 export default function HomePage() {
   const router = useRouter();
@@ -99,12 +103,48 @@ export default function HomePage() {
   const [newClientNotes, setNewClientNotes] = useState('');
   const [isHydrated, setIsHydrated] = useState(false);
 
+  // Client submissions dialog
+  interface ClientSubmission {
+    id: string;
+    clientId: string;
+    groupName: string | null;
+    formData: Record<string, unknown>;
+    status: string;
+    submittedAt: string;
+    reviewedAt: string | null;
+    stripePaymentId: string | null;
+  }
+  const [submissionsDialogClient, setSubmissionsDialogClient] = useState<{ id: string; name: string } | null>(null);
+  const [clientSubmissions, setClientSubmissions] = useState<ClientSubmission[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [expandedSubId, setExpandedSubId] = useState<string | null>(null);
+
+  const openClientSubmissions = useCallback(async (clientId: string, clientName: string) => {
+    setSubmissionsDialogClient({ id: clientId, name: clientName });
+    setClientSubmissions([]);
+    setExpandedSubId(null);
+    setSubmissionsLoading(true);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/submissions`);
+      if (res.ok) {
+        const data = await res.json();
+        setClientSubmissions(data.submissions || []);
+      }
+    } catch { /* silent */ }
+    setSubmissionsLoading(false);
+  }, []);
+
   // Groups & client-group tags
-  interface GroupInfo { id: string; name: string; slug: string; isActive: boolean }
+  interface GroupInfo { id: string; name: string; slug: string; isActive: boolean; defaultFormId?: string | null }
   interface ClientTag { client_id: string; group_id: string; is_active: boolean }
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [clientTags, setClientTags] = useState<ClientTag[]>([]);
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('all');
+
+  // Form picker for Send Intake Form
+  const [availableForms, setAvailableForms] = useState<IntakeForm[]>([]);
+  const [formPickerClient, setFormPickerClient] = useState<ClientProfile | null>(null);
+  const [selectedFormId, setSelectedFormId] = useState<string>('');
 
   // Cronometer integration for new client dialog
   const [cronometerConnected, setCronometerConnected] = useState(false);
@@ -184,10 +224,21 @@ export default function HomePage() {
     } catch { /* non-fatal */ }
   }, [visibleClients]);
 
+  const fetchAvailableForms = useCallback(async () => {
+    try {
+      const res = await fetch('/api/forms?active_only=true');
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableForms(data.forms || []);
+      }
+    } catch { /* non-fatal */ }
+  }, []);
+
   useEffect(() => {
     if (!isHydrated) return;
     fetchGroups();
-  }, [isHydrated, fetchGroups]);
+    fetchAvailableForms();
+  }, [isHydrated, fetchGroups, fetchAvailableForms]);
 
   useEffect(() => {
     if (!isHydrated || visibleClients.length === 0) return;
@@ -329,12 +380,12 @@ export default function HomePage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const generateIntakeLink = useCallback(async (client: ClientProfile) => {
+  const generateIntakeLink = useCallback(async (client: ClientProfile, formId?: string) => {
     try {
       const res = await fetch(`/api/clients/${client.id}/generate-intake-link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ formId: formId || undefined }),
       });
       const data = await res.json();
       if (data.url) {
@@ -347,6 +398,32 @@ export default function HomePage() {
       alert('Error generating intake link.');
     }
   }, []);
+
+  const handleSendIntakeForm = useCallback((client: ClientProfile) => {
+    if (availableForms.length === 0) {
+      generateIntakeLink(client);
+      return;
+    }
+    // If client has a group with a default form, use it directly
+    const clientGroups = getClientGroups(client.id);
+    const groupWithForm = clientGroups.find(g => {
+      const fullGroup = groups.find(gg => gg.id === g.id);
+      return fullGroup && fullGroup.defaultFormId;
+    });
+    if (groupWithForm) {
+      generateIntakeLink(client);
+      return;
+    }
+    // Show form picker
+    setFormPickerClient(client);
+    setSelectedFormId(availableForms[0]?.id || '');
+  }, [availableForms, getClientGroups, groups, generateIntakeLink]);
+
+  const handleFormPickerConfirm = useCallback(() => {
+    if (!formPickerClient) return;
+    generateIntakeLink(formPickerClient, selectedFormId || undefined);
+    setFormPickerClient(null);
+  }, [formPickerClient, selectedFormId, generateIntakeLink]);
 
   // Show loading state during hydration
   if (!isHydrated) {
@@ -557,9 +634,13 @@ export default function HomePage() {
                                         <FolderCog className="h-4 w-4 mr-2" />
                                         Manage Groups & Forms
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => generateIntakeLink(client)}>
+                                      <DropdownMenuItem onClick={() => handleSendIntakeForm(client)}>
                                         <Link2 className="h-4 w-4 mr-2" />
                                         Send Intake Form
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => openClientSubmissions(client.id, client.name)}>
+                                        <ClipboardList className="h-4 w-4 mr-2" />
+                                        View Submissions
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => {
                                         const newName = prompt('Enter new client name:', `${client.name} (Copy)`);
@@ -697,10 +778,18 @@ export default function HomePage() {
                     <Button 
                       variant="outline" 
                       className="w-full justify-start"
-                      onClick={() => generateIntakeLink(activeClient)}
+                      onClick={() => handleSendIntakeForm(activeClient)}
                     >
                       <Link2 className="h-4 w-4 mr-2 text-teal-500" />
                       Send Intake Form
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={() => openClientSubmissions(activeClient.id, activeClient.name)}
+                    >
+                      <ClipboardList className="h-4 w-4 mr-2 text-amber-500" />
+                      View Submissions
                     </Button>
                     {activeClient.mealPlan && (
                       <Button 
@@ -1032,6 +1121,188 @@ export default function HomePage() {
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Form Picker Dialog */}
+      <Dialog open={!!formPickerClient} onOpenChange={(open) => { if (!open) setFormPickerClient(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-[#c19962]" />
+              Send Intake Form
+            </DialogTitle>
+            <DialogDescription>
+              Choose which form to send to {formPickerClient?.name || 'this client'}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {availableForms.length > 0 ? (
+              <div className="space-y-2">
+                {availableForms.map(f => (
+                  <button key={f.id} onClick={() => setSelectedFormId(f.id)}
+                    className={cn('w-full text-left p-3 rounded-lg border transition-colors',
+                      selectedFormId === f.id ? 'border-[#c19962] bg-[#c19962]/5' : 'border-gray-200 hover:border-[#c19962]/50')}>
+                    <p className="text-sm font-medium">{f.name}</p>
+                    {f.description && <p className="text-xs text-muted-foreground mt-0.5">{f.description}</p>}
+                    <p className="text-xs text-muted-foreground mt-1 font-mono">/intake/{f.slug}</p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">No forms available. Create one in Groups &amp; Forms.</p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setFormPickerClient(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { if (formPickerClient) { generateIntakeLink(formPickerClient); setFormPickerClient(null); } }}>
+              Send without form
+            </Button>
+            <Button onClick={handleFormPickerConfirm} disabled={!selectedFormId}
+              className="bg-[#c19962] hover:bg-[#a8833e] text-[#00263d]">
+              Generate Link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Client Submissions Dialog */}
+      <Dialog open={!!submissionsDialogClient} onOpenChange={(open) => { if (!open) setSubmissionsDialogClient(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-[#c19962]" />
+              Form Submissions — {submissionsDialogClient?.name}
+            </DialogTitle>
+            <DialogDescription>
+              All intake form entries for this client, newest first.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            {submissionsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-[#c19962]" />
+              </div>
+            ) : clientSubmissions.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileText className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p className="font-medium">No submissions yet</p>
+                <p className="text-sm mt-1">This client hasn&apos;t completed any intake forms.</p>
+              </div>
+            ) : (
+              <div className="space-y-2 pb-4">
+                {clientSubmissions.map(sub => {
+                  const isExpanded = expandedSubId === sub.id;
+                  const isPaid = !!sub.stripePaymentId;
+                  const fd = sub.formData || {};
+                  const up = ((fd as Record<string, unknown>).userProfile || {}) as Record<string, unknown>;
+                  const dp = (fd as Record<string, unknown>).dietPreferences as Record<string, unknown> | undefined;
+                  const ca = (fd as Record<string, unknown>).customAnswers as Record<string, unknown> | undefined;
+                  const str = (v: unknown): string => String(v ?? '');
+                  const statusColors: Record<string, string> = {
+                    submitted: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                    reviewed: 'bg-green-100 text-green-800 border-green-200',
+                    archived: 'bg-gray-100 text-gray-600 border-gray-200',
+                  };
+
+                  return (
+                    <div key={sub.id} className="rounded-lg border overflow-hidden">
+                      <button
+                        onClick={() => setExpandedSubId(isExpanded ? null : sub.id)}
+                        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#00263d]/10 flex items-center justify-center">
+                            <FileText className="h-3.5 w-3.5 text-[#00263d]" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {sub.groupName || 'Direct Submission'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(sub.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              {' · '}{new Date(sub.submittedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {isPaid && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 border border-green-200 text-[10px] font-medium text-green-700">
+                              <DollarSign className="h-3 w-3" /> Paid
+                            </span>
+                          )}
+                          <Badge variant="outline" className={`text-[10px] capitalize ${statusColors[sub.status] || ''}`}>
+                            {sub.status}
+                          </Badge>
+                          {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="border-t p-4 space-y-3 bg-muted/30">
+                          {/* Profile snapshot */}
+                          <div className="space-y-1.5">
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Profile at Submission</h4>
+                            <div className="rounded-lg border bg-background p-3 space-y-1 text-xs">
+                              {up.name && <div className="flex justify-between"><span className="text-muted-foreground">Name</span><span>{str(up.name)}</span></div>}
+                              {up.heightFt && <div className="flex justify-between"><span className="text-muted-foreground">Height</span><span>{str(up.heightFt)}&apos;{str(up.heightIn || 0)}&quot;</span></div>}
+                              {(up.weightLbs || up.weight) && <div className="flex justify-between"><span className="text-muted-foreground">Weight</span><span>{str(up.weightLbs || up.weight)} lbs</span></div>}
+                              {up.bodyFatPercentage && <div className="flex justify-between"><span className="text-muted-foreground">Body Fat</span><span>{str(up.bodyFatPercentage)}%</span></div>}
+                              {up.goalType && <div className="flex justify-between"><span className="text-muted-foreground">Goal</span><span className="capitalize">{str(up.goalType).replace(/_/g, ' ')}</span></div>}
+                              {up.goalWeight && <div className="flex justify-between"><span className="text-muted-foreground">Goal Weight</span><span>{str(up.goalWeight)} lbs</span></div>}
+                              {up.goalBodyFatPercent && <div className="flex justify-between"><span className="text-muted-foreground">Goal BF%</span><span>{str(up.goalBodyFatPercent)}%</span></div>}
+                              {up.goalFatMass && <div className="flex justify-between"><span className="text-muted-foreground">Goal Fat Mass</span><span>{str(up.goalFatMass)} lbs</span></div>}
+                              {up.goalFFM && <div className="flex justify-between"><span className="text-muted-foreground">Goal FFM</span><span>{str(up.goalFFM)} lbs</span></div>}
+                              {up.rateOfChange && <div className="flex justify-between"><span className="text-muted-foreground">Rate</span><span>{str(up.rateOfChange)}%/wk</span></div>}
+                            </div>
+                          </div>
+
+                          {/* Diet preferences */}
+                          {dp && Object.keys(dp).filter(k => k !== '_dataSource').length > 0 && (
+                            <div className="space-y-1.5">
+                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Diet Preferences</h4>
+                              <div className="rounded-lg border bg-background p-3 text-xs space-y-0.5">
+                                {Object.entries(dp).filter(([k]) => k !== '_dataSource').slice(0, 10).map(([k, v]) => (
+                                  <div key={k} className="flex justify-between py-0.5">
+                                    <span className="text-muted-foreground capitalize">{k.replace(/([A-Z])/g, ' $1')}</span>
+                                    <span className="max-w-[55%] text-right truncate">{Array.isArray(v) ? (v as string[]).join(', ') : String(v ?? '')}</span>
+                                  </div>
+                                ))}
+                                {Object.keys(dp).filter(k => k !== '_dataSource').length > 10 && (
+                                  <p className="text-muted-foreground pt-1">+ {Object.keys(dp).filter(k => k !== '_dataSource').length - 10} more fields</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Custom answers */}
+                          {ca && Object.keys(ca).length > 0 && (
+                            <div className="space-y-1.5">
+                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Additional Responses</h4>
+                              <div className="rounded-lg border bg-background p-3 text-xs space-y-0.5">
+                                {Object.entries(ca).map(([k, v]) => (
+                                  <div key={k} className="flex justify-between py-0.5">
+                                    <span className="text-muted-foreground">{k}</span>
+                                    <span className="max-w-[55%] text-right">{Array.isArray(v) ? (v as string[]).join(', ') : String(v ?? '')}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Raw data */}
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">View raw data</summary>
+                            <pre className="mt-2 p-3 bg-muted rounded-lg overflow-auto max-h-48 text-[10px]">{JSON.stringify(fd, null, 2)}</pre>
+                          </details>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Plus, Pencil, Trash2, Loader2, Copy, ExternalLink, Check, DollarSign, Tag, RefreshCw, FileText, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, Loader2, Copy, ExternalLink, Check, DollarSign, Tag, RefreshCw, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { FormConfigBuilder } from '@/components/admin/form-config-builder';
-import type { ClientGroup, FormBlockConfig } from '@/types';
+import type { ClientGroup, FormBlockConfig, IntakeForm } from '@/types';
 
 interface StripeProduct {
   id: string;
@@ -38,6 +38,11 @@ const EMPTY_GROUP: Partial<ClientGroup> = {
   stripeEnabled: false, stripePriceId: '', stripePromoEnabled: false, stripePromoCode: '', stripePromoCodeId: '', paymentDescription: '', isActive: true,
 };
 
+const EMPTY_FORM: Partial<IntakeForm> = {
+  name: '', slug: '', description: '', formConfig: [], welcomeTitle: '', welcomeDescription: '',
+  stripeEnabled: false, stripePriceId: '', stripePromoEnabled: false, stripePromoCode: null, stripePromoCodeId: null, paymentDescription: '', isActive: true,
+};
+
 export default function AdminGroupsPage() {
   const [groups, setGroups] = useState<ClientGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +50,12 @@ export default function AdminGroupsPage() {
   const [saving, setSaving] = useState(false);
   const [copiedSlug, setCopiedSlug] = useState('');
 
-  // Stripe management state
+  // Standalone forms
+  const [forms, setForms] = useState<IntakeForm[]>([]);
+  const [editingForm, setEditingForm] = useState<Partial<IntakeForm> | null>(null);
+  const [savingForm, setSavingForm] = useState(false);
+
+  // Stripe (used by form editor)
   const [stripeProducts, setStripeProducts] = useState<StripeProduct[]>([]);
   const [stripePromoCodes, setStripePromoCodes] = useState<{ id: string; code: string; percentOff: number | null; amountOff: number | null; timesRedeemed: number; maxRedemptions: number | null }[]>([]);
   const [stripeLoading, setStripeLoading] = useState(false);
@@ -58,15 +68,15 @@ export default function AdminGroupsPage() {
   const [stripeCreating, setStripeCreating] = useState(false);
   const [stripeMessage, setStripeMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Submissions state
+  // Submissions
   const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [submissionsGroupFilter, setSubmissionsGroupFilter] = useState<string>('all');
   const [expandedSubmissionId, setExpandedSubmissionId] = useState<string | null>(null);
 
-  // Main view tabs
   const [mainTab, setMainTab] = useState<'groups' | 'forms' | 'submissions'>('groups');
-  const [editingFormGroupId, setEditingFormGroupId] = useState<string | null>(null);
+
+  /* ── Data fetching ── */
 
   const fetchGroups = useCallback(async () => {
     setLoading(true);
@@ -78,7 +88,17 @@ export default function AdminGroupsPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchGroups(); }, [fetchGroups]);
+  const fetchForms = useCallback(async () => {
+    try {
+      const res = await fetch('/api/forms');
+      const data = await res.json();
+      setForms(data.forms || []);
+    } catch { /* */ }
+  }, []);
+
+  useEffect(() => { fetchGroups(); fetchForms(); }, [fetchGroups, fetchForms]);
+
+  /* ── Group CRUD ── */
 
   const handleSave = useCallback(async () => {
     if (!editing?.name?.trim()) return;
@@ -88,7 +108,6 @@ export default function AdminGroupsPage() {
       const url = isNew ? '/api/groups' : `/api/groups/${editing.id}`;
       const method = isNew ? 'POST' : 'PATCH';
       const slug = editing.slug || editing.name!.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -110,11 +129,42 @@ export default function AdminGroupsPage() {
 
   const copyUrl = useCallback((slug: string) => {
     const origin = window.location.hostname === 'localhost' ? window.location.origin : 'https://nutrition.fitomics.com';
-    const url = `${origin}/${slug}`;
+    const url = `${origin}/intake/${slug}`;
     navigator.clipboard.writeText(url);
     setCopiedSlug(slug);
     setTimeout(() => setCopiedSlug(''), 2000);
   }, []);
+
+  /* ── Form CRUD ── */
+
+  const handleSaveForm = useCallback(async () => {
+    if (!editingForm?.name?.trim()) return;
+    setSavingForm(true);
+    try {
+      const isNew = !editingForm.id;
+      const url = isNew ? '/api/forms' : `/api/forms/${editingForm.id}`;
+      const method = isNew ? 'POST' : 'PATCH';
+      const slug = editingForm.slug || editingForm.name!.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...editingForm, slug }),
+      });
+      if (res.ok) {
+        setEditingForm(null);
+        fetchForms();
+      }
+    } catch { /* */ }
+    setSavingForm(false);
+  }, [editingForm, fetchForms]);
+
+  const handleDeleteForm = useCallback(async (id: string) => {
+    if (!confirm('Delete this form? Existing submissions will be preserved.')) return;
+    await fetch(`/api/forms/${id}`, { method: 'DELETE' });
+    fetchForms();
+  }, [fetchForms]);
+
+  /* ── Submissions ── */
 
   const fetchSubmissions = useCallback(async (groupId?: string) => {
     setSubmissionsLoading(true);
@@ -139,10 +189,10 @@ export default function AdminGroupsPage() {
   }, [submissionsGroupFilter, fetchSubmissions]);
 
   useEffect(() => {
-    if (mainTab === 'submissions') {
-      fetchSubmissions(submissionsGroupFilter);
-    }
-  }, [mainTab, submissionsGroupFilter, fetchSubmissions]);
+    fetchSubmissions(submissionsGroupFilter);
+  }, [submissionsGroupFilter, fetchSubmissions]);
+
+  /* ── Stripe ── */
 
   const fetchStripeData = useCallback(async () => {
     setStripeLoading(true);
@@ -158,10 +208,10 @@ export default function AdminGroupsPage() {
   }, []);
 
   useEffect(() => {
-    if (editing?.stripeEnabled && stripeProducts.length === 0 && !stripeLoading) {
+    if (editingForm?.stripeEnabled && stripeProducts.length === 0 && !stripeLoading) {
       fetchStripeData();
     }
-  }, [editing?.stripeEnabled, stripeProducts.length, stripeLoading, fetchStripeData]);
+  }, [editingForm?.stripeEnabled, stripeProducts.length, stripeLoading, fetchStripeData]);
 
   const handleCreateProduct = useCallback(async () => {
     if (!newProduct.name || !newProduct.price) return;
@@ -183,7 +233,7 @@ export default function AdminGroupsPage() {
       const data = await res.json();
       if (res.ok) {
         if (data.price?.id) {
-          setEditing(p => ({ ...p, stripePriceId: data.price.id }));
+          setEditingForm(p => ({ ...p, stripePriceId: data.price.id }));
         }
         setNewProduct({ name: '', description: '', price: '', recurring: false, interval: 'month' });
         setShowCreateProduct(false);
@@ -240,8 +290,8 @@ export default function AdminGroupsPage() {
       const pData = await pRes.json();
       if (pRes.ok) {
         const promoCodeId = pData.promoCode?.id;
-        setEditing(p => ({ ...p, stripePromoEnabled: true, stripePromoCode: newPromo.code, stripePromoCodeId: promoCodeId }));
-        setStripeMessage({ type: 'success', text: `Promo code "${newPromo.code}" created and assigned to this group.` });
+        setEditingForm(p => ({ ...p, stripePromoEnabled: true, stripePromoCode: newPromo.code, stripePromoCodeId: promoCodeId }));
+        setStripeMessage({ type: 'success', text: `Promo code "${newPromo.code}" created and assigned to this form.` });
         setNewPromo({ code: '', percentOff: '', amountOff: '', maxRedemptions: '' });
         setShowCreatePromo(false);
         fetchStripeData();
@@ -254,94 +304,95 @@ export default function AdminGroupsPage() {
     setStripeCreating(false);
   }, [newPromo, fetchStripeData]);
 
-  // Edit / create form
-  if (editing) {
-    const autoSlug = editing.slug || (editing.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  /* ════════════════════════════════════════════════
+     Form Editor View
+     ════════════════════════════════════════════════ */
+  if (editingForm) {
+    const autoSlug = editingForm.slug || (editingForm.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     return (
       <div className="min-h-screen bg-gray-50 p-4 md:p-8">
         <div className="max-w-2xl mx-auto space-y-6">
-          <button onClick={() => setEditing(null)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
-            <ArrowLeft className="h-4 w-4" /> Back to Groups
+          <button onClick={() => setEditingForm(null)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
+            <ArrowLeft className="h-4 w-4" /> Back to Forms
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">{editing.id ? 'Edit Group' : 'New Group'}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{editingForm.id ? 'Edit Form' : 'New Form'}</h1>
 
-          {/* Basic info */}
+          {/* General */}
           <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">General</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">Group Name *</label>
-                <input value={editing.name || ''} onChange={e => setEditing(p => ({ ...p, name: e.target.value }))}
-                  className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="e.g. FitCare DPC" />
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Form Name *</label>
+                <input value={editingForm.name || ''} onChange={e => setEditingForm(p => ({ ...p, name: e.target.value }))}
+                  className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="e.g. Standard Nutrition Form" />
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Slug (URL)</label>
                 <div className="flex items-center gap-1">
-                  <span className="text-xs text-gray-400">nutrition.fitomics.com/</span>
-                  <input value={editing.slug || autoSlug} onChange={e => setEditing(p => ({ ...p, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
-                    className="flex-1 h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="fitcare-dpc" />
+                  <span className="text-xs text-gray-400 whitespace-nowrap">/intake/</span>
+                  <input value={editingForm.slug || autoSlug} onChange={e => setEditingForm(p => ({ ...p, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
+                    className="flex-1 h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="standard-form" />
                 </div>
               </div>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Description</label>
-              <textarea value={editing.description || ''} onChange={e => setEditing(p => ({ ...p, description: e.target.value }))} rows={2}
+              <textarea value={editingForm.description || ''} onChange={e => setEditingForm(p => ({ ...p, description: e.target.value }))} rows={2}
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="Internal description..." />
             </div>
             <div className="flex items-center gap-3">
-              <button type="button" onClick={() => setEditing(p => ({ ...p, isActive: !p?.isActive }))}
-                className={cn('relative w-10 h-6 rounded-full transition-colors', editing.isActive ? 'bg-green-500' : 'bg-gray-300')}>
-                <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform', editing.isActive && 'translate-x-4')} />
+              <button type="button" onClick={() => setEditingForm(p => ({ ...p, isActive: !p?.isActive }))}
+                className={cn('relative w-10 h-6 rounded-full transition-colors', editingForm.isActive ? 'bg-green-500' : 'bg-gray-300')}>
+                <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform', editingForm.isActive && 'translate-x-4')} />
               </button>
               <span className="text-sm text-gray-600">Active</span>
             </div>
           </section>
 
-          {/* Welcome text */}
+          {/* Welcome screen */}
           <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Welcome Screen</h2>
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Title</label>
-              <input value={editing.welcomeTitle || ''} onChange={e => setEditing(p => ({ ...p, welcomeTitle: e.target.value }))}
+              <input value={editingForm.welcomeTitle || ''} onChange={e => setEditingForm(p => ({ ...p, welcomeTitle: e.target.value }))}
                 className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="Nutrition Intake Form" />
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Description</label>
-              <textarea value={editing.welcomeDescription || ''} onChange={e => setEditing(p => ({ ...p, welcomeDescription: e.target.value }))} rows={2}
+              <textarea value={editingForm.welcomeDescription || ''} onChange={e => setEditingForm(p => ({ ...p, welcomeDescription: e.target.value }))} rows={2}
                 className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="Welcome text shown to clients..." />
             </div>
           </section>
 
-          {/* Form config */}
+          {/* Form steps */}
           <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Form Steps</h2>
             <p className="text-xs text-gray-400">Choose which steps appear in this form and their order. A &quot;Review &amp; Submit&quot; step is always added at the end.</p>
             <FormConfigBuilder
-              value={(editing.formConfig || []) as FormBlockConfig[]}
-              onChange={fc => setEditing(p => ({ ...p, formConfig: fc }))}
+              value={(editingForm.formConfig || []) as FormBlockConfig[]}
+              onChange={fc => setEditingForm(p => ({ ...p, formConfig: fc }))}
             />
           </section>
 
-          {/* Stripe */}
+          {/* Stripe / Payment */}
           <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Payment (Stripe)</h2>
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => {
-                const enabling = !editing.stripeEnabled;
-                setEditing(p => ({ ...p, stripeEnabled: enabling }));
+                const enabling = !editingForm.stripeEnabled;
+                setEditingForm(p => ({ ...p, stripeEnabled: enabling }));
                 if (enabling && stripeProducts.length === 0) fetchStripeData();
               }}
-                className={cn('relative w-10 h-6 rounded-full transition-colors', editing.stripeEnabled ? 'bg-[#c19962]' : 'bg-gray-300')}>
-                <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform', editing.stripeEnabled && 'translate-x-4')} />
+                className={cn('relative w-10 h-6 rounded-full transition-colors', editingForm.stripeEnabled ? 'bg-[#c19962]' : 'bg-gray-300')}>
+                <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform', editingForm.stripeEnabled && 'translate-x-4')} />
               </button>
               <span className="text-sm text-gray-600">Require payment after form submission</span>
             </div>
-            {editing.stripeEnabled && (() => {
-              const selectedProduct = stripeProducts.find(p => p.defaultPriceId === editing.stripePriceId);
+            {editingForm.stripeEnabled && (() => {
+              const selectedProduct = stripeProducts.find(p => p.defaultPriceId === editingForm.stripePriceId);
               const filteredProducts = stripeProducts.filter(p =>
                 !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase())
               );
-
               return (
               <div className="space-y-5 pl-1">
                 {stripeMessage && (
@@ -352,7 +403,7 @@ export default function AdminGroupsPage() {
                   </div>
                 )}
 
-                {/* ── STEP 1: Product & Price ── */}
+                {/* Product & Price */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide flex items-center gap-2">
@@ -376,17 +427,13 @@ export default function AdminGroupsPage() {
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
                         {selectedProduct.defaultPriceAmount !== null && (
-                          <p className="text-sm font-bold text-gray-900">
-                            ${(selectedProduct.defaultPriceAmount / 100).toFixed(2)}
-                          </p>
+                          <p className="text-sm font-bold text-gray-900">${(selectedProduct.defaultPriceAmount / 100).toFixed(2)}</p>
                         )}
                       </div>
                     </div>
                   )}
 
-                  <input
-                    value={productSearch}
-                    onChange={e => setProductSearch(e.target.value)}
+                  <input value={productSearch} onChange={e => setProductSearch(e.target.value)}
                     className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#c19962]"
                     placeholder={selectedProduct ? 'Search to change product...' : 'Search products...'} />
 
@@ -396,14 +443,14 @@ export default function AdminGroupsPage() {
                     <div className="space-y-1.5 max-h-52 overflow-y-auto">
                       {filteredProducts.map(p => (
                         <button key={p.id} type="button"
-                          onClick={() => { if (p.defaultPriceId) { setEditing(prev => ({ ...prev, stripePriceId: p.defaultPriceId! })); setProductSearch(''); } }}
+                          onClick={() => { if (p.defaultPriceId) { setEditingForm(prev => ({ ...prev, stripePriceId: p.defaultPriceId! })); setProductSearch(''); } }}
                           className={cn('w-full text-left p-3 rounded-lg border transition-colors',
-                            editing.stripePriceId === p.defaultPriceId
+                            editingForm.stripePriceId === p.defaultPriceId
                               ? 'border-[#c19962] bg-[#c19962]/5'
                               : 'border-gray-200 hover:border-[#c19962] hover:bg-[#c19962]/5')}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              {editing.stripePriceId === p.defaultPriceId && <Check className="h-3.5 w-3.5 text-[#c19962] flex-shrink-0" />}
+                              {editingForm.stripePriceId === p.defaultPriceId && <Check className="h-3.5 w-3.5 text-[#c19962] flex-shrink-0" />}
                               <div>
                                 <p className="text-sm font-medium text-gray-900">{p.name}</p>
                                 {p.description && <p className="text-xs text-gray-400 mt-0.5">{p.description}</p>}
@@ -430,7 +477,7 @@ export default function AdminGroupsPage() {
                   {!selectedProduct && (
                     <div>
                       <label className="text-xs text-gray-500 mb-1 block">Or paste a Price ID directly</label>
-                      <input value={editing.stripePriceId || ''} onChange={e => setEditing(p => ({ ...p, stripePriceId: e.target.value }))}
+                      <input value={editingForm.stripePriceId || ''} onChange={e => setEditingForm(p => ({ ...p, stripePriceId: e.target.value }))}
                         className="w-full h-9 px-3 rounded-lg border border-gray-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="price_..." />
                     </div>
                   )}
@@ -489,13 +536,12 @@ export default function AdminGroupsPage() {
                   )}
                 </div>
 
-                {/* ── STEP 2: Promo Code ── */}
+                {/* Promo Code */}
                 {(() => {
-                  const selectedPromo = stripePromoCodes.find(p => p.id === editing.stripePromoCodeId);
+                  const selectedPromo = stripePromoCodes.find(p => p.id === editingForm.stripePromoCodeId);
                   const filteredPromos = stripePromoCodes.filter(p =>
                     !promoSearch || p.code.toLowerCase().includes(promoSearch.toLowerCase())
                   );
-
                   return (
                   <div className="border-t pt-4 space-y-3">
                     <div className="flex items-center justify-between">
@@ -510,16 +556,15 @@ export default function AdminGroupsPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <button type="button" onClick={() => setEditing(p => ({ ...p, stripePromoEnabled: !p?.stripePromoEnabled }))}
-                        className={cn('relative w-10 h-6 rounded-full transition-colors', editing.stripePromoEnabled ? 'bg-[#c19962]' : 'bg-gray-300')}>
-                        <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform', editing.stripePromoEnabled && 'translate-x-4')} />
+                      <button type="button" onClick={() => setEditingForm(p => ({ ...p, stripePromoEnabled: !p?.stripePromoEnabled }))}
+                        className={cn('relative w-10 h-6 rounded-full transition-colors', editingForm.stripePromoEnabled ? 'bg-[#c19962]' : 'bg-gray-300')}>
+                        <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform', editingForm.stripePromoEnabled && 'translate-x-4')} />
                       </button>
                       <span className="text-sm text-gray-600">Allow promotion codes at checkout</span>
                     </div>
 
-                    {editing.stripePromoEnabled && (
+                    {editingForm.stripePromoEnabled && (
                       <div className="space-y-3">
-                        {/* Currently assigned promo */}
                         {selectedPromo && (
                           <div className="flex items-center justify-between p-3 rounded-lg border-2 border-[#c19962] bg-[#c19962]/5">
                             <div className="flex items-center gap-2">
@@ -535,22 +580,19 @@ export default function AdminGroupsPage() {
                           </div>
                         )}
 
-                        {!selectedPromo && editing.stripePromoCode && (
+                        {!selectedPromo && editingForm.stripePromoCode && (
                           <div className="flex items-center justify-between p-3 rounded-lg border-2 border-[#c19962] bg-[#c19962]/5">
                             <div className="flex items-center gap-2">
                               <Tag className="h-4 w-4 text-[#c19962]" />
-                              <span className="text-sm font-mono font-bold">{editing.stripePromoCode}</span>
+                              <span className="text-sm font-mono font-bold">{editingForm.stripePromoCode}</span>
                               <span className="text-[11px] px-1.5 py-0.5 rounded bg-white border border-gray-200 text-gray-500">Assigned</span>
                             </div>
                           </div>
                         )}
 
-                        {/* Search existing promo codes */}
-                        <input
-                          value={promoSearch}
-                          onChange={e => setPromoSearch(e.target.value)}
+                        <input value={promoSearch} onChange={e => setPromoSearch(e.target.value)}
                           className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#c19962]"
-                          placeholder={editing.stripePromoCode ? 'Search to change promo code...' : 'Search existing promo codes...'} />
+                          placeholder={editingForm.stripePromoCode ? 'Search to change promo code...' : 'Search existing promo codes...'} />
 
                         {stripeLoading ? (
                           <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin text-gray-400" /></div>
@@ -558,14 +600,14 @@ export default function AdminGroupsPage() {
                           <div className="space-y-1.5 max-h-40 overflow-y-auto">
                             {filteredPromos.map(p => (
                               <button key={p.id} type="button"
-                                onClick={() => { setEditing(prev => ({ ...prev, stripePromoCode: p.code, stripePromoCodeId: p.id })); setPromoSearch(''); }}
+                                onClick={() => { setEditingForm(prev => ({ ...prev, stripePromoCode: p.code, stripePromoCodeId: p.id })); setPromoSearch(''); }}
                                 className={cn('w-full text-left p-2.5 rounded-lg border transition-colors',
-                                  editing.stripePromoCodeId === p.id
+                                  editingForm.stripePromoCodeId === p.id
                                     ? 'border-[#c19962] bg-[#c19962]/5'
                                     : 'border-gray-200 hover:border-[#c19962] hover:bg-[#c19962]/5')}>
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
-                                    {editing.stripePromoCodeId === p.id && <Check className="h-3.5 w-3.5 text-[#c19962] flex-shrink-0" />}
+                                    {editingForm.stripePromoCodeId === p.id && <Check className="h-3.5 w-3.5 text-[#c19962] flex-shrink-0" />}
                                     <Tag className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                                     <span className="text-sm font-mono font-semibold">{p.code}</span>
                                     <span className="text-[11px] px-1.5 py-0.5 rounded bg-white border border-gray-200 text-gray-500">
@@ -585,7 +627,6 @@ export default function AdminGroupsPage() {
                           <p className="text-xs text-gray-400 italic py-2 text-center">No promo codes in Stripe yet. Create one below.</p>
                         ) : null}
 
-                        {/* Create new promo code */}
                         <button type="button" onClick={() => setShowCreatePromo(v => !v)}
                           className="w-full text-left text-xs text-[#c19962] hover:text-[#a8833e] font-medium flex items-center gap-1 py-1">
                           <Plus className={cn('h-3.5 w-3.5 transition-transform', showCreatePromo && 'rotate-45')} />
@@ -650,7 +691,7 @@ export default function AdminGroupsPage() {
                   );
                 })()}
 
-                {/* ── STEP 3: Payment Description ── */}
+                {/* Checkout details */}
                 <div className="border-t pt-4 space-y-2">
                   <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-[#00263d] text-white text-[10px] font-bold flex items-center justify-center">3</span>
@@ -658,12 +699,98 @@ export default function AdminGroupsPage() {
                   </p>
                   <div>
                     <label className="text-sm font-medium text-gray-700 mb-1 block">Payment Description</label>
-                    <textarea value={editing.paymentDescription || ''} onChange={e => setEditing(p => ({ ...p, paymentDescription: e.target.value }))} rows={2}
+                    <textarea value={editingForm.paymentDescription || ''} onChange={e => setEditingForm(p => ({ ...p, paymentDescription: e.target.value }))} rows={2}
                       className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="Text shown before checkout..." />
                   </div>
                 </div>
               </div>
               );
+            })()}
+          </section>
+
+          {/* Actions */}
+          <div className="flex items-center gap-3 pb-8">
+            <button onClick={() => setEditingForm(null)} className="h-10 px-5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
+            <button onClick={handleSaveForm} disabled={savingForm || !editingForm.name?.trim()}
+              className="h-10 px-6 rounded-lg bg-[#c19962] hover:bg-[#a8833e] text-[#00263d] text-sm font-semibold disabled:opacity-50 flex items-center gap-2">
+              {savingForm && <Loader2 className="h-4 w-4 animate-spin" />}
+              {editingForm.id ? 'Save Changes' : 'Create Form'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ════════════════════════════════════════════════
+     Group Editor View (simplified — no Stripe/FormConfig)
+     ════════════════════════════════════════════════ */
+  if (editing) {
+    const autoSlug = editing.slug || (editing.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <button onClick={() => setEditing(null)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
+            <ArrowLeft className="h-4 w-4" /> Back to Groups
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900">{editing.id ? 'Edit Group' : 'New Group'}</h1>
+
+          {/* Basic info */}
+          <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">General</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Group Name *</label>
+                <input value={editing.name || ''} onChange={e => setEditing(p => ({ ...p, name: e.target.value }))}
+                  className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="e.g. FitCare DPC" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Slug (URL)</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-400">nutrition.fitomics.com/</span>
+                  <input value={editing.slug || autoSlug} onChange={e => setEditing(p => ({ ...p, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
+                    className="flex-1 h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="fitcare-dpc" />
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Description</label>
+              <textarea value={editing.description || ''} onChange={e => setEditing(p => ({ ...p, description: e.target.value }))} rows={2}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="Internal description..." />
+            </div>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setEditing(p => ({ ...p, isActive: !p?.isActive }))}
+                className={cn('relative w-10 h-6 rounded-full transition-colors', editing.isActive ? 'bg-green-500' : 'bg-gray-300')}>
+                <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform', editing.isActive && 'translate-x-4')} />
+              </button>
+              <span className="text-sm text-gray-600">Active</span>
+            </div>
+          </section>
+
+          {/* Default Form */}
+          <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Default Intake Form</h2>
+            <p className="text-xs text-gray-400">Select a form for this group. Clients in this group will be directed to this form. Forms can be created and configured on the Forms tab.</p>
+            <select
+              value={editing.defaultFormId || ''}
+              onChange={e => setEditing(p => ({ ...p, defaultFormId: e.target.value || null }))}
+              className="w-full h-10 px-3 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c19962]">
+              <option value="">— No form linked —</option>
+              {forms.map(f => (
+                <option key={f.id} value={f.id}>{f.name} ({f.slug})</option>
+              ))}
+            </select>
+            {editing.defaultFormId && (() => {
+              const linked = forms.find(f => f.id === editing.defaultFormId);
+              return linked ? (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>{linked.formConfig.length} step{linked.formConfig.length !== 1 ? 's' : ''}</span>
+                  {linked.stripeEnabled && <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">Stripe</span>}
+                  <button type="button" onClick={() => { setEditing(null); setEditingForm({ ...linked }); }}
+                    className="ml-auto text-[#c19962] hover:underline">Edit Form</button>
+                </div>
+              ) : null;
             })()}
           </section>
 
@@ -681,8 +808,9 @@ export default function AdminGroupsPage() {
     );
   }
 
-  const editingFormGroup = editingFormGroupId ? groups.find(g => g.id === editingFormGroupId) : null;
-
+  /* ════════════════════════════════════════════════
+     Main Tab View
+     ════════════════════════════════════════════════ */
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
@@ -694,18 +822,24 @@ export default function AdminGroupsPage() {
             <h1 className="text-2xl font-bold text-gray-900">Groups &amp; Forms</h1>
             <p className="text-sm text-gray-500 mt-1">Manage client groups, customize intake forms, and configure payments.</p>
           </div>
-          <button onClick={() => setEditing({ ...EMPTY_GROUP })}
-            className="h-10 px-4 rounded-lg bg-[#c19962] hover:bg-[#a8833e] text-[#00263d] text-sm font-semibold flex items-center gap-2">
-            <Plus className="h-4 w-4" /> New Group
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setEditingForm({ ...EMPTY_FORM })}
+              className="h-10 px-4 rounded-lg border-2 border-[#c19962] text-[#c19962] hover:bg-[#c19962]/10 text-sm font-semibold flex items-center gap-2">
+              <FileText className="h-4 w-4" /> New Form
+            </button>
+            <button onClick={() => setEditing({ ...EMPTY_GROUP })}
+              className="h-10 px-4 rounded-lg bg-[#c19962] hover:bg-[#a8833e] text-[#00263d] text-sm font-semibold flex items-center gap-2">
+              <Plus className="h-4 w-4" /> New Group
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
         <div className="flex items-center gap-1 bg-white rounded-lg border border-gray-200 p-1">
           {[
             { key: 'groups' as const, label: 'Groups', count: groups.length },
-            { key: 'forms' as const, label: 'Forms', count: groups.filter(g => g.formConfig.length > 0).length },
-            { key: 'submissions' as const, label: 'Submissions', count: null },
+            { key: 'forms' as const, label: 'Forms', count: forms.length },
+            { key: 'submissions' as const, label: 'Submissions', count: submissions.length > 0 ? submissions.length : null },
           ].map(t => (
             <button key={t.key} onClick={() => setMainTab(t.key)}
               className={cn('flex-1 px-4 py-2.5 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2',
@@ -723,34 +857,39 @@ export default function AdminGroupsPage() {
           groups.length === 0 ? (
             <div className="text-center py-16 text-gray-400">
               <p className="text-lg font-medium">No groups yet</p>
-              <p className="text-sm mt-1">Create a group to generate custom intake forms.</p>
+              <p className="text-sm mt-1">Create a group to organize clients and link intake forms.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {groups.map(g => (
+              {groups.map(g => {
+                const linkedForm = forms.find(f => f.id === g.defaultFormId);
+                return (
                 <div key={g.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-shadow">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="text-base font-semibold text-gray-900">{g.name}</h3>
                         {!g.isActive && <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 uppercase">Inactive</span>}
-                        {g.stripeEnabled && <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 uppercase">Stripe</span>}
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5">{g.description || 'No description'}</p>
                       <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                        <span className="font-mono bg-gray-50 px-2 py-0.5 rounded">nutrition.fitomics.com/{g.slug}</span>
-                        <span>{g.formConfig.length} step{g.formConfig.length !== 1 ? 's' : ''}</span>
+                        <span className="font-mono bg-gray-50 px-2 py-0.5 rounded">/{g.slug}</span>
+                        {linkedForm ? (
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#c19962]/10 text-[#c19962] font-medium">
+                            <FileText className="h-3 w-3" /> {linkedForm.name}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 italic">No form linked</span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <button onClick={() => copyUrl(g.slug)} title="Copy intake URL"
-                        className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-                        {copiedSlug === g.slug ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                      </button>
-                      <a href={`/intake/${g.slug}`} target="_blank" rel="noopener noreferrer" title="Preview form"
-                        className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
+                      {linkedForm && (
+                        <button onClick={() => copyUrl(linkedForm.slug)} title="Copy intake URL"
+                          className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                          {copiedSlug === linkedForm.slug ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                        </button>
+                      )}
                       <button onClick={() => setEditing({ ...g })} title="Edit group settings"
                         className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
                         <Pencil className="h-4 w-4" />
@@ -762,126 +901,75 @@ export default function AdminGroupsPage() {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )
         ) : mainTab === 'forms' ? (
           /* ── Forms Tab ── */
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">Each group has its own form. Click &ldquo;Edit Steps&rdquo; to configure which steps appear, customize labels, descriptions, and control field visibility.</p>
-            </div>
-            {groups.length === 0 ? (
+            <p className="text-sm text-gray-500">Standalone intake forms. Each form can be edited independently and linked to one or more groups.</p>
+            {forms.length === 0 ? (
               <div className="text-center py-16 text-gray-400">
+                <FileText className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                 <p className="text-lg font-medium">No forms yet</p>
-                <p className="text-sm mt-1">Create a group first — each group gets its own customizable form.</p>
+                <p className="text-sm mt-1">Create a form to start collecting client intake data.</p>
+                <button onClick={() => setEditingForm({ ...EMPTY_FORM })}
+                  className="mt-4 h-9 px-4 rounded-lg bg-[#c19962] hover:bg-[#a8833e] text-[#00263d] text-sm font-semibold inline-flex items-center gap-2">
+                  <Plus className="h-4 w-4" /> Create Form
+                </button>
               </div>
             ) : (
               <div className="space-y-3">
-                {groups.map(g => {
-                  const isExpanded = editingFormGroupId === g.id;
-                  const customizedSteps = g.formConfig.filter(fc =>
-                    fc.label || fc.description || fc.helpText || (fc.hiddenFields && fc.hiddenFields.length > 0)
-                  ).length;
-
+                {forms.map(f => {
+                  const linkedGroups = groups.filter(g => g.defaultFormId === f.id);
                   return (
-                    <div key={g.id} className={cn('bg-white rounded-xl border overflow-hidden transition-all',
-                      isExpanded ? 'border-[#c19962] shadow-md' : 'border-gray-200 hover:shadow-sm')}>
-                      {/* Form card header */}
+                    <div key={f.id} className={cn('bg-white rounded-xl border overflow-hidden transition-all',
+                      f.isActive ? 'border-gray-200 hover:shadow-sm' : 'border-gray-100 opacity-60')}>
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <h3 className="text-base font-semibold text-gray-900">{g.name}</h3>
+                              <h3 className="text-base font-semibold text-gray-900">{f.name}</h3>
                               <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium uppercase',
-                                g.formConfig.length > 0 ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400')}>
-                                {g.formConfig.length} step{g.formConfig.length !== 1 ? 's' : ''}
+                                f.formConfig.length > 0 ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400')}>
+                                {f.formConfig.length} step{f.formConfig.length !== 1 ? 's' : ''}
                               </span>
-                              {customizedSteps > 0 && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#c19962]/10 text-[#c19962] uppercase">
-                                  {customizedSteps} customized
+                              {f.stripeEnabled && <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 uppercase">Stripe</span>}
+                              {!f.isActive && <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 uppercase">Inactive</span>}
+                            </div>
+                            {f.description && <p className="text-xs text-gray-400 mt-0.5">{f.description}</p>}
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                              <span className="text-[11px] font-mono text-gray-400 bg-gray-50 px-2 py-0.5 rounded">
+                                /intake/{f.slug}
+                              </span>
+                              {linkedGroups.length > 0 && (
+                                <span className="text-[11px] text-gray-500">
+                                  Used by: {linkedGroups.map(g => g.name).join(', ')}
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                              {g.formConfig.length === 0 ? (
-                                <span className="text-xs text-gray-400 italic">No steps configured — click Edit Steps to add some</span>
-                              ) : (
-                                g.formConfig.map((fc, i) => (
-                                  <span key={i} className={cn('px-1.5 py-0.5 rounded text-[10px]',
-                                    (fc.label || fc.description || fc.helpText || (fc.hiddenFields && fc.hiddenFields.length > 0))
-                                      ? 'bg-[#c19962]/10 text-[#c19962] font-medium'
-                                      : 'bg-gray-100 text-gray-500')}>
-                                    {fc.label || fc.id.replace(/_/g, ' ')}
-                                  </span>
-                                ))
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 mt-2">
-                              <span className="text-[11px] font-mono text-gray-400 bg-gray-50 px-2 py-0.5 rounded">
-                                nutrition.fitomics.com/{g.slug}
-                              </span>
-                            </div>
                           </div>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <a href={`/intake/${g.slug}`} target="_blank" rel="noopener noreferrer" title="Preview form"
+                            <a href={`/intake/${f.slug}`} target="_blank" rel="noopener noreferrer" title="Preview form"
                               className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
                               <ExternalLink className="h-4 w-4" />
                             </a>
-                            <button onClick={() => copyUrl(g.slug)} title="Copy form URL"
+                            <button onClick={() => copyUrl(f.slug)} title="Copy form URL"
                               className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-                              {copiedSlug === g.slug ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                              {copiedSlug === f.slug ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                             </button>
-                            <button onClick={() => setEditingFormGroupId(isExpanded ? null : g.id)}
-                              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                                isExpanded
-                                  ? 'bg-[#c19962] text-[#00263d]'
-                                  : 'bg-[#00263d] text-white hover:bg-[#003a5c]')}>
-                              <Pencil className="h-3.5 w-3.5" />
-                              {isExpanded ? 'Close' : 'Edit Steps'}
+                            <button onClick={() => setEditingForm({ ...f })}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-[#00263d] text-white hover:bg-[#003a5c] transition-colors">
+                              <Pencil className="h-3.5 w-3.5" /> Edit
+                            </button>
+                            <button onClick={() => handleDeleteForm(f.id)} title="Delete form"
+                              className="p-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
                       </div>
-
-                      {/* Expanded form builder */}
-                      {isExpanded && editingFormGroup && (
-                        <div className="border-t border-gray-100 p-5 bg-gray-50/50 space-y-4">
-                          <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
-                            <p className="text-xs text-blue-700">
-                              <span className="font-semibold">Tip:</span> Click on any step to expand it and configure its title, description, help text, and which fields are visible. Use the arrows to reorder, or toggle Required/Optional.
-                            </p>
-                          </div>
-                          <FormConfigBuilder
-                            value={(editingFormGroup.formConfig || []) as FormBlockConfig[]}
-                            onChange={async (fc) => {
-                              try {
-                                const res = await fetch(`/api/groups/${g.id}`, {
-                                  method: 'PATCH',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ formConfig: fc }),
-                                });
-                                if (res.ok) {
-                                  fetchGroups();
-                                }
-                              } catch { /* */ }
-                            }}
-                          />
-                          <div className="flex items-center gap-3 pt-3 border-t border-gray-200">
-                            <button onClick={() => { setEditing({ ...g }); setMainTab('groups'); }}
-                              className="text-xs text-gray-500 hover:text-[#c19962] hover:underline flex items-center gap-1">
-                              <Pencil className="h-3 w-3" /> Full Group Settings
-                            </button>
-                            <button onClick={() => {
-                              const dup = { ...EMPTY_GROUP, name: `${g.name} (copy)`, formConfig: [...g.formConfig] };
-                              setEditing(dup);
-                            }}
-                              className="text-xs text-gray-500 hover:text-[#c19962] hover:underline flex items-center gap-1">
-                              <Copy className="h-3 w-3" /> Duplicate as New Group
-                            </button>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -891,7 +979,6 @@ export default function AdminGroupsPage() {
         ) : mainTab === 'submissions' ? (
           /* ── Submissions Tab ── */
           <div className="space-y-4">
-            {/* Group filter */}
             <div className="flex items-center gap-3">
               <select value={submissionsGroupFilter} onChange={e => setSubmissionsGroupFilter(e.target.value)}
                 className="h-10 px-3 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c19962]">
@@ -950,7 +1037,6 @@ export default function AdminGroupsPage() {
 
                       {isExpanded && (
                         <div className="border-t border-gray-100 p-4 space-y-4 bg-gray-50/30">
-                          {/* Actions row */}
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-400">Status:</span>
                             {(['submitted', 'reviewed', 'archived'] as const).map(st => (
@@ -1046,7 +1132,6 @@ export default function AdminGroupsPage() {
                             );
                           })()}
 
-                          {/* Raw JSON toggle */}
                           <details className="text-xs">
                             <summary className="cursor-pointer text-gray-400 hover:text-gray-600">View raw data</summary>
                             <pre className="mt-2 p-3 bg-gray-100 rounded-lg overflow-auto max-h-60 text-[10px] text-gray-600">{JSON.stringify(sub.form_data, null, 2)}</pre>

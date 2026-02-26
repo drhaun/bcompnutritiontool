@@ -179,6 +179,48 @@ export default function PlanningPage() {
     return getActivePhase();
   }, [isHydrated, getActivePhase, phases, activePhaseId]);
   
+  // ============ INTAKE SUBMISSION (for Apply pattern) ============
+  const [intakeGoals, setIntakeGoals] = useState<{
+    goalType?: string;
+    goalWeight?: number;
+    goalBodyFatPercent?: number;
+    goalFatMass?: number;
+    goalFFM?: number;
+    rateOfChange?: number;
+    goalRate?: string;
+    recompBias?: string;
+    submittedAt?: string;
+  } | null>(null);
+  const [intakeGoalsApplied, setIntakeGoalsApplied] = useState(false);
+
+  useEffect(() => {
+    if (!isHydrated || !activeClient?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/clients/${activeClient.id}/intake-submission`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          const up = data.submission?.formData?.userProfile;
+          if (up?.goalType) {
+            setIntakeGoals({
+              goalType: up.goalType,
+              goalWeight: up.goalWeight,
+              goalBodyFatPercent: up.goalBodyFatPercent,
+              goalFatMass: up.goalFatMass,
+              goalFFM: up.goalFFM,
+              rateOfChange: up.rateOfChange,
+              goalRate: up.goalRate,
+              recompBias: up.recompBias,
+              submittedAt: data.submission.submittedAt,
+            });
+          }
+        }
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, [isHydrated, activeClient?.id]);
+
   // Phase creation wizard state
   const [wizardStep, setWizardStep] = useState(1);
   const createDialogRef = useRef<HTMLDivElement>(null);
@@ -391,12 +433,6 @@ export default function PlanningPage() {
         setPredecessorPhase(null);
         setEditCurrentWeight(profileWeightLbs);
         setEditCurrentBodyFat(profileBodyFat);
-
-        // If client submitted intake goals, pre-set goal type
-        const intakeGoalType = userProfile.goalType as GoalType | undefined;
-        if (intakeGoalType && ['fat_loss', 'muscle_gain', 'recomposition'].includes(intakeGoalType)) {
-          setNewPhaseGoal(intakeGoalType);
-        }
       }
       
       setEditCurrentHeightFt(profileHeightFt);
@@ -415,28 +451,7 @@ export default function PlanningPage() {
       const fm = weight * (bf / 100);
       const ffm = weight - fm;
 
-      // Check for intake-submitted goal data in userProfile
-      const intakeGoalType = userProfile.goalType as GoalType | undefined;
-      const hasIntakeTargets = phases.length === 0 && intakeGoalType === newPhaseGoal &&
-        (userProfile.goalWeight || userProfile.goalFatMass || userProfile.goalFFM);
-
-      if (hasIntakeTargets) {
-        // Pre-populate from client's submitted intake goals
-        const gw = (userProfile.goalWeight as number) || weight;
-        const gbf = (userProfile.goalBodyFatPercent as number) || bf;
-        const gfm = (userProfile.goalFatMass as number) || gw * (gbf / 100);
-        const gffm = (userProfile.goalFFM as number) || gw - gfm;
-        const rate = (userProfile.rateOfChange as number) ||
-          (newPhaseGoal === 'fat_loss' ? 0.5 : newPhaseGoal === 'muscle_gain' ? 0.25 : 0.25);
-
-        setTargetWeightLbs(Math.round(gw * 10) / 10);
-        setTargetBodyFat(Math.round(gbf * 10) / 10);
-        setTargetFatMassLbs(Math.round(gfm * 10) / 10);
-        setTargetFFMLbs(Math.round(gffm * 10) / 10);
-        setRateOfChange(rate);
-        if (newPhaseGoal === 'fat_loss') setMusclePreservation('preserve_all');
-        if (newPhaseGoal === 'muscle_gain') setFatGainTolerance('minimize_fat_gain');
-      } else if (newPhaseGoal === 'fat_loss') {
+      if (newPhaseGoal === 'fat_loss') {
         const targetBF = Math.max(8, bf - 5);
         const targetFM = ffm * (targetBF / (100 - targetBF));
         setTargetBodyFat(targetBF);
@@ -469,7 +484,7 @@ export default function PlanningPage() {
         setRateOfChange(0);
       }
     }
-  }, [showCreateDialog, newPhaseGoal, editCurrentWeight, editCurrentBodyFat, userProfile, phases.length]);
+  }, [showCreateDialog, newPhaseGoal, editCurrentWeight, editCurrentBodyFat]);
   
   // Add custom metric
   const handleAddCustomMetric = () => {
@@ -1799,6 +1814,48 @@ export default function PlanningPage() {
                   {/* Step 2: BODY COMP — Goal-specific Targets (4-step wizard) */}
                   {wizardStep === 2 && isBodyCompGoal && (
                     <div className="space-y-6 py-4">
+                      {/* Intake goal suggestions banner */}
+                      {intakeGoals && !intakeGoalsApplied && (
+                        <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm dark:bg-amber-950/20 dark:border-amber-800">
+                          <ArrowDownToLine className="h-4 w-4 mt-0.5 text-amber-600 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-amber-800 dark:text-amber-200">
+                              Client submitted goals
+                              {intakeGoals.submittedAt && (
+                                <span className="font-normal text-amber-600 dark:text-amber-400">
+                                  {' · '}{new Date(intakeGoals.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-amber-700 dark:text-amber-300 mt-0.5">
+                              {GOAL_LABELS[(intakeGoals.goalType as GoalType) || 'fat_loss']}
+                              {intakeGoals.goalWeight ? ` · Goal: ${intakeGoals.goalWeight} lbs` : ''}
+                              {intakeGoals.goalBodyFatPercent ? ` · ${intakeGoals.goalBodyFatPercent}% BF` : ''}
+                              {intakeGoals.goalRate ? ` · Rate: ${intakeGoals.goalRate}` : ''}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/40 flex-shrink-0"
+                            onClick={() => {
+                              if (intakeGoals.goalType && ['fat_loss', 'muscle_gain', 'recomposition'].includes(intakeGoals.goalType)) {
+                                setNewPhaseGoal(intakeGoals.goalType as GoalType);
+                              }
+                              if (intakeGoals.goalWeight) setTargetWeightLbs(intakeGoals.goalWeight);
+                              if (intakeGoals.goalBodyFatPercent) setTargetBodyFat(intakeGoals.goalBodyFatPercent);
+                              if (intakeGoals.goalFatMass) setTargetFatMassLbs(intakeGoals.goalFatMass);
+                              if (intakeGoals.goalFFM) setTargetFFMLbs(intakeGoals.goalFFM);
+                              if (intakeGoals.rateOfChange) setRateOfChange(intakeGoals.rateOfChange);
+                              setIntakeGoalsApplied(true);
+                              toast.success('Applied intake goal targets');
+                            }}
+                          >
+                            Use these targets
+                          </Button>
+                        </div>
+                      )}
+
                       {/* BODY COMP SECTIONS */}
                       {isBodyCompGoal && (
                         <>

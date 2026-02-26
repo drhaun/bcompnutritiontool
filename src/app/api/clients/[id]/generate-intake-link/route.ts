@@ -109,7 +109,10 @@ export async function POST(
     const origin = request.headers.get('host')?.includes('localhost')
       ? request.headers.get('origin') || request.nextUrl.origin
       : PRODUCTION_DOMAIN;
-    const intakeUrl = `${origin}/intake/${token}`;
+    let intakeUrl = `${origin}/intake/${token}`;
+    if (body.formId) {
+      intakeUrl += `?form=${body.formId}`;
+    }
 
     return NextResponse.json({
       token,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { IntakeForm } from '@/components/intake/intake-form';
 import type { FormBlockConfig } from '@/types';
@@ -19,7 +19,7 @@ interface ClientData {
   intakeStatus: string;
 }
 
-interface GroupData {
+interface ResolvedForm {
   formConfig: FormBlockConfig[];
   stripeEnabled: boolean;
   stripePriceId?: string;
@@ -27,16 +27,19 @@ interface GroupData {
   welcomeTitle?: string;
   welcomeDescription?: string;
   slug: string;
+  formId?: string;
 }
 
 export default function IntakeTokenPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const raw = params.token as string;
   const isToken = UUID_RE.test(raw);
+  const formIdParam = searchParams.get('form');
 
   const [clientData, setClientData] = useState<ClientData | null>(null);
-  const [groupData, setGroupData] = useState<GroupData | null>(null);
+  const [groupData, setGroupData] = useState<ResolvedForm | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -47,9 +50,28 @@ export default function IntakeTokenPage() {
   const [signingUp, setSigningUp] = useState(false);
 
   useEffect(() => {
+    async function resolveFormFromGroup(groupSlug: string): Promise<ResolvedForm | null> {
+      const gRes = await fetch(`/api/groups?slug=${groupSlug}`);
+      const gData = await gRes.json();
+      const g = gData.groups?.[0];
+      if (!g) return null;
+
+      // If the group links to a standalone form, use that
+      if (g.defaultFormId) {
+        const fRes = await fetch(`/api/forms/${g.defaultFormId}`);
+        if (fRes.ok) {
+          const fData = await fRes.json();
+          const f = fData.form;
+          if (f) return { formConfig: f.formConfig, stripeEnabled: f.stripeEnabled, stripePriceId: f.stripePriceId, stripePromoEnabled: f.stripePromoEnabled, welcomeTitle: f.welcomeTitle, welcomeDescription: f.welcomeDescription, slug: f.slug, formId: f.id };
+        }
+      }
+
+      // Fallback to inline group form_config (backward compat)
+      return { formConfig: g.formConfig, stripeEnabled: g.stripeEnabled, stripePriceId: g.stripePriceId, stripePromoEnabled: g.stripePromoEnabled, welcomeTitle: g.welcomeTitle, welcomeDescription: g.welcomeDescription, slug: g.slug };
+    }
+
     async function init() {
       if (isToken) {
-        // Token mode — validate token and get client data
         try {
           const res = await fetch('/api/intake/validate', {
             method: 'POST',
@@ -60,25 +82,34 @@ export default function IntakeTokenPage() {
           if (!res.ok) { setError(data.error || 'Invalid link'); return; }
           setClientData(data);
 
-          // If client has a group, load its form config
-          if (data.groupSlug) {
-            const gRes = await fetch(`/api/groups?slug=${data.groupSlug}`);
-            const gData = await gRes.json();
-            if (gData.groups?.[0]) {
-              const g = gData.groups[0];
-              setGroupData({ formConfig: g.formConfig, stripeEnabled: g.stripeEnabled, stripePriceId: g.stripePriceId, stripePromoEnabled: g.stripePromoEnabled, welcomeTitle: g.welcomeTitle, welcomeDescription: g.welcomeDescription, slug: g.slug });
+          // If a specific form was requested via query param, use it
+          if (formIdParam) {
+            const fRes = await fetch(`/api/forms/${formIdParam}`);
+            if (fRes.ok) {
+              const fData = await fRes.json();
+              const f = fData.form;
+              if (f) { setGroupData({ formConfig: f.formConfig, stripeEnabled: f.stripeEnabled, stripePriceId: f.stripePriceId, stripePromoEnabled: f.stripePromoEnabled, welcomeTitle: f.welcomeTitle, welcomeDescription: f.welcomeDescription, slug: f.slug, formId: f.id }); }
             }
+          } else if (data.groupSlug) {
+            const form = await resolveFormFromGroup(data.groupSlug);
+            if (form) setGroupData(form);
           }
         } catch { setError('Network error. Please check your connection.'); }
       } else {
-        // Slug mode — look up the group
+        // Slug mode — try standalone form first, then group
         try {
-          const gRes = await fetch(`/api/groups?slug=${raw}&active_only=true`);
-          const gData = await gRes.json();
-          if (!gData.groups?.length) { setError('This form is not available.'); return; }
-          const g = gData.groups[0];
-          setGroupData({ formConfig: g.formConfig, stripeEnabled: g.stripeEnabled, stripePriceId: g.stripePriceId, stripePromoEnabled: g.stripePromoEnabled, welcomeTitle: g.welcomeTitle, welcomeDescription: g.welcomeDescription, slug: g.slug });
-          setSlugMode(true);
+          const fRes = await fetch(`/api/forms?slug=${raw}&active_only=true`);
+          const fData = await fRes.json();
+          if (fData.forms?.length) {
+            const f = fData.forms[0];
+            setGroupData({ formConfig: f.formConfig, stripeEnabled: f.stripeEnabled, stripePriceId: f.stripePriceId, stripePromoEnabled: f.stripePromoEnabled, welcomeTitle: f.welcomeTitle, welcomeDescription: f.welcomeDescription, slug: f.slug, formId: f.id });
+            setSlugMode(true);
+          } else {
+            const form = await resolveFormFromGroup(raw);
+            if (!form) { setError('This form is not available.'); return; }
+            setGroupData(form);
+            setSlugMode(true);
+          }
         } catch { setError('Network error. Please check your connection.'); }
       }
       setLoading(false);
@@ -205,6 +236,7 @@ export default function IntakeTokenPage() {
       stripeEnabled={groupData?.stripeEnabled}
       onCheckout={handleCheckout}
       welcomeTitle={groupData?.welcomeTitle}
+      formId={groupData?.formId}
       successTitle={groupData?.slug === 'team-standard' ? 'Congrats!' : undefined}
       successMessage={groupData?.slug === 'team-standard'
         ? 'Your entry has been submitted. Your personalized nutrition targets are under construction by the Fitomics Nutrition Team. Please allow up to 72 hours for careful review and calculation.'

@@ -266,6 +266,11 @@ export interface ClientAddress {
   isDefault?: boolean;
 }
 
+export interface DataSourceTag {
+  source: 'intake_form' | 'coach';
+  updatedAt: string;
+}
+
 export interface UserProfile {
   name: string;
   gender: 'Male' | 'Female';
@@ -316,6 +321,9 @@ export interface UserProfile {
 
   // Intake form extras
   weeklyActivity?: unknown[];
+
+  // Source tracking
+  _dataSource?: DataSourceTag;
 }
 
 // Supplement entry for client profile
@@ -454,6 +462,9 @@ export interface DietPreferences {
   workZipCode: string;
   favoriteRestaurants: string[];
   favoriteGroceryStores: string[];
+
+  // Source tracking
+  _dataSource?: DataSourceTag;
 }
 
 // Work type options
@@ -812,4 +823,76 @@ export interface PDFGenerationResponse {
   pdfUrl?: string;
   pdfBuffer?: ArrayBuffer;
   error?: string;
+}
+
+// ============ FORM CONFIGURATION ============
+
+export type FormBlockId =
+  | 'personal_info' | 'body_composition' | 'lifestyle' | 'training'
+  | 'meals' | 'supplements' | 'diet_preferences' | 'cuisine_foods'
+  | 'practical_flavor' | 'goals_notes'
+  | 'team_personal' | 'team_units' | 'team_body_comp' | 'team_goals'
+  | 'team_rmr' | 'team_activity'
+  | 'custom_questions';
+
+export type CustomFieldType = 'text' | 'textarea' | 'number' | 'select' | 'multiselect' | 'toggle' | 'date';
+
+export interface CustomField {
+  id: string;
+  label: string;
+  type: CustomFieldType;
+  required?: boolean;
+  placeholder?: string;
+  helpText?: string;
+  options?: string[]; // for select/multiselect
+}
+
+export interface FormBlockConfig {
+  id: FormBlockId;
+  required: boolean;
+  label?: string;
+  description?: string;
+  helpText?: string;
+  hiddenFields?: string[];
+  customFields?: CustomField[];
+}
+
+export interface ClientGroup {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  formConfig: FormBlockConfig[];
+  defaultFormId?: string | null;
+  welcomeTitle?: string;
+  welcomeDescription?: string;
+  branding?: Record<string, unknown>;
+  stripeEnabled: boolean;
+  stripePriceId?: string;
+  stripePromoEnabled: boolean;
+  stripePromoCode?: string | null;
+  stripePromoCodeId?: string | null;
+  paymentDescription?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IntakeForm {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  formConfig: FormBlockConfig[];
+  welcomeTitle?: string;
+  welcomeDescription?: string;
+  stripeEnabled: boolean;
+  stripePriceId?: string;
+  stripePromoEnabled: boolean;
+  stripePromoCode?: string | null;
+  stripePromoCodeId?: string | null;
+  paymentDescription?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
