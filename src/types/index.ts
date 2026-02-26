@@ -303,6 +303,19 @@ export interface UserProfile {
   
   // Addresses for location-based features (meal delivery, travel planning)
   addresses?: ClientAddress[];
+
+  // Intake form goal data (populated by client form submission)
+  goalType?: GoalType;
+  goalRate?: 'conservative' | 'moderate' | 'aggressive';
+  recompBias?: 'maintenance' | 'deficit' | 'surplus';
+  rateOfChange?: number;
+  goalWeight?: number;
+  goalBodyFatPercent?: number;
+  goalFatMass?: number;
+  goalFFM?: number;
+
+  // Intake form extras
+  weeklyActivity?: unknown[];
 }
 
 // Supplement entry for client profile
@@ -426,6 +439,16 @@ export interface DietPreferences {
   mealPrepCoordination: string;
   preferredProduceSeasons: string[];
   
+  // Fasting & Meal Timing (from intake form)
+  fastingProtocol?: string;
+  feedingWindowStart?: string;
+  feedingWindowEnd?: string;
+  energyDistribution?: string;
+  includePreWorkoutSnack?: boolean;
+  preWorkoutPreference?: string;
+  includePostWorkoutMeal?: boolean;
+  postWorkoutPreference?: string;
+
   // Location-Based (future)
   homeZipCode: string;
   workZipCode: string;

@@ -697,6 +697,11 @@ export default function SetupPage() {
       // Section notes
       if (userProfile.scheduleNotes) setScheduleNotes(userProfile.scheduleNotes);
       if (userProfile.workoutNotes) setWorkoutNotes(userProfile.workoutNotes);
+
+      // Goals & notes from intake form
+      if (userProfile.healthGoals) setHealthGoals(userProfile.healthGoals as string);
+      if (userProfile.performanceGoals) setPerformanceGoals(userProfile.performanceGoals as string);
+      if (userProfile.additionalNotes) setAdditionalNotes(userProfile.additionalNotes as string);
       
       // Supplements
       if (userProfile.supplements?.length) setSupplements(userProfile.supplements);
@@ -750,6 +755,30 @@ export default function SetupPage() {
       }
       if (dietPreferences.cookingTimePreference) {
         setCookingTime(dietPreferences.cookingTimePreference as typeof cookingTime);
+      }
+      if (dietPreferences.fastingProtocol) {
+        setFastingProtocol(dietPreferences.fastingProtocol as string);
+      }
+      if (dietPreferences.feedingWindowStart) {
+        setFeedingWindowStart(dietPreferences.feedingWindowStart as string);
+      }
+      if (dietPreferences.feedingWindowEnd) {
+        setFeedingWindowEnd(dietPreferences.feedingWindowEnd as string);
+      }
+      if (dietPreferences.energyDistribution) {
+        setEnergyDistribution(dietPreferences.energyDistribution as typeof energyDistribution);
+      }
+      if (dietPreferences.includePreWorkoutSnack !== undefined) {
+        setIncludePreWorkoutSnack(dietPreferences.includePreWorkoutSnack as boolean);
+      }
+      if (dietPreferences.preWorkoutPreference) {
+        setPreWorkoutPreference(dietPreferences.preWorkoutPreference as PeriWorkoutPreference);
+      }
+      if (dietPreferences.includePostWorkoutMeal !== undefined) {
+        setIncludePostWorkoutMeal(dietPreferences.includePostWorkoutMeal as boolean);
+      }
+      if (dietPreferences.postWorkoutPreference) {
+        setPostWorkoutPreference(dietPreferences.postWorkoutPreference as PeriWorkoutPreference);
       }
       
       // Restore weekly schedule / lifestyle data

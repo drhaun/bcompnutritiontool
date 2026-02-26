@@ -391,6 +391,12 @@ export default function PlanningPage() {
         setPredecessorPhase(null);
         setEditCurrentWeight(profileWeightLbs);
         setEditCurrentBodyFat(profileBodyFat);
+
+        // If client submitted intake goals, pre-set goal type
+        const intakeGoalType = userProfile.goalType as GoalType | undefined;
+        if (intakeGoalType && ['fat_loss', 'muscle_gain', 'recomposition'].includes(intakeGoalType)) {
+          setNewPhaseGoal(intakeGoalType);
+        }
       }
       
       setEditCurrentHeightFt(profileHeightFt);
@@ -401,42 +407,61 @@ export default function PlanningPage() {
   }, [showCreateDialog]);
   
   // Initialize targets when goal changes or current stats change
+  // If the client submitted intake goals, use those as the starting point
   useEffect(() => {
     if (showCreateDialog) {
       const weight = editCurrentWeight || 180;
       const bf = editCurrentBodyFat || 20;
       const fm = weight * (bf / 100);
       const ffm = weight - fm;
-      
-      // Set reasonable defaults based on goal
-      if (newPhaseGoal === 'fat_loss') {
-        const targetBF = Math.max(8, bf - 5); // Lose ~5% BF
+
+      // Check for intake-submitted goal data in userProfile
+      const intakeGoalType = userProfile.goalType as GoalType | undefined;
+      const hasIntakeTargets = phases.length === 0 && intakeGoalType === newPhaseGoal &&
+        (userProfile.goalWeight || userProfile.goalFatMass || userProfile.goalFFM);
+
+      if (hasIntakeTargets) {
+        // Pre-populate from client's submitted intake goals
+        const gw = (userProfile.goalWeight as number) || weight;
+        const gbf = (userProfile.goalBodyFatPercent as number) || bf;
+        const gfm = (userProfile.goalFatMass as number) || gw * (gbf / 100);
+        const gffm = (userProfile.goalFFM as number) || gw - gfm;
+        const rate = (userProfile.rateOfChange as number) ||
+          (newPhaseGoal === 'fat_loss' ? 0.5 : newPhaseGoal === 'muscle_gain' ? 0.25 : 0.25);
+
+        setTargetWeightLbs(Math.round(gw * 10) / 10);
+        setTargetBodyFat(Math.round(gbf * 10) / 10);
+        setTargetFatMassLbs(Math.round(gfm * 10) / 10);
+        setTargetFFMLbs(Math.round(gffm * 10) / 10);
+        setRateOfChange(rate);
+        if (newPhaseGoal === 'fat_loss') setMusclePreservation('preserve_all');
+        if (newPhaseGoal === 'muscle_gain') setFatGainTolerance('minimize_fat_gain');
+      } else if (newPhaseGoal === 'fat_loss') {
+        const targetBF = Math.max(8, bf - 5);
         const targetFM = ffm * (targetBF / (100 - targetBF));
         setTargetBodyFat(targetBF);
         setTargetFatMassLbs(Math.round(targetFM * 10) / 10);
-        setTargetFFMLbs(ffm); // Preserve muscle
+        setTargetFFMLbs(ffm);
         setTargetWeightLbs(Math.round((ffm + targetFM) * 10) / 10);
-        setRateOfChange(0.5); // 0.5% BW/week for fat loss
+        setRateOfChange(0.5);
         setMusclePreservation('preserve_all');
       } else if (newPhaseGoal === 'muscle_gain') {
-        const targetFFM = ffm + 5; // Gain ~5 lbs muscle
-        const targetFM = fm + 2; // Accept ~2 lbs fat
+        const targetFFM = ffm + 5;
+        const targetFM = fm + 2;
         setTargetFFMLbs(Math.round(targetFFM * 10) / 10);
         setTargetFatMassLbs(Math.round(targetFM * 10) / 10);
         setTargetWeightLbs(Math.round((targetFFM + targetFM) * 10) / 10);
         setTargetBodyFat(Math.round((targetFM / (targetFFM + targetFM)) * 1000) / 10);
-        setRateOfChange(0.25); // 0.25% BW/week for muscle gain
+        setRateOfChange(0.25);
         setFatGainTolerance('minimize_fat_gain');
       } else if (newPhaseGoal === 'recomposition') {
-        // Recomp: maintain weight, shift composition
         setTargetWeightLbs(weight);
-        setTargetBodyFat(Math.max(8, bf - 3)); // Modest BF reduction
+        setTargetBodyFat(Math.max(8, bf - 3));
         const targetFM = weight * ((bf - 3) / 100);
         setTargetFatMassLbs(Math.round(targetFM * 10) / 10);
         setTargetFFMLbs(Math.round((weight - targetFM) * 10) / 10);
-        setRateOfChange(0.25); // Slower, focusing on composition shift
+        setRateOfChange(0.25);
       } else {
-        // Performance, Health, Other
         setTargetWeightLbs(weight);
         setTargetBodyFat(bf);
         setTargetFatMassLbs(fm);
@@ -444,7 +469,7 @@ export default function PlanningPage() {
         setRateOfChange(0);
       }
     }
-  }, [showCreateDialog, newPhaseGoal, editCurrentWeight, editCurrentBodyFat]);
+  }, [showCreateDialog, newPhaseGoal, editCurrentWeight, editCurrentBodyFat, userProfile, phases.length]);
   
   // Add custom metric
   const handleAddCustomMetric = () => {
