@@ -6,7 +6,7 @@ import { Header } from '@/components/layout/header';
 import { FloatingNotes } from '@/components/layout/floating-notes';
 
 // Routes that don't require authentication or the app shell
-const publicRoutes = ['/login', '/auth'];
+const publicRoutes = ['/login', '/auth', '/intake'];
 
 interface AppShellProps {
   children: React.ReactNode;
