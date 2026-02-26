@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -178,6 +178,14 @@ export default function PlanningPage() {
   
   // Phase creation wizard state
   const [wizardStep, setWizardStep] = useState(1);
+  const createDialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      if (createDialogRef.current) {
+        createDialogRef.current.scrollTop = 0;
+      }
+    });
+  }, [wizardStep]);
   const [newPhaseGoal, setNewPhaseGoal] = useState<GoalType>('fat_loss');
   const [newPhaseName, setNewPhaseName] = useState('');
   const [customGoalName, setCustomGoalName] = useState('');
@@ -557,6 +565,7 @@ export default function PlanningPage() {
   
   // Helper: is the current wizard goal a body composition goal?
   const isBodyCompGoal = newPhaseGoal === 'fat_loss' || newPhaseGoal === 'muscle_gain' || newPhaseGoal === 'recomposition';
+  const totalWizardSteps = isBodyCompGoal ? 4 : 2;
   
   // Generate suggested phase name — smarter when building on a predecessor
   const suggestedPhaseName = useMemo(() => {
@@ -1364,7 +1373,7 @@ export default function PlanningPage() {
                 
                 {/* Create Phase Dialog */}
                 <Dialog open={showCreateDialog} onOpenChange={handleDialogClose}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogContent ref={createDialogRef} className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>
                       {createPhaseCategory 
@@ -1373,32 +1382,31 @@ export default function PlanningPage() {
                       }
                     </DialogTitle>
                     <DialogDescription>
-                      Step {wizardStep} of 4: {
+                      Step {wizardStep} of {totalWizardSteps}: {
                         wizardStep === 1 ? 'Select your goal' :
-                        wizardStep === 2 ? (
-                          newPhaseGoal === 'performance' ? 'Performance targets' :
-                          newPhaseGoal === 'health' ? 'Health targets' :
-                          newPhaseGoal === 'other' ? 'Custom targets' :
-                          'Body composition targets'
-                        ) :
-                        wizardStep === 3 ? (
-                          newPhaseGoal === 'performance' ? 'Training block timeline' :
-                          newPhaseGoal === 'health' ? 'Health intervention timeline' :
-                          newPhaseGoal === 'other' ? 'Phase timeline' :
-                          'Timeline & rate of change'
-                        ) :
-                        'Review and name your phase'
+                        isBodyCompGoal ? (
+                          wizardStep === 2 ? 'Body composition targets' :
+                          wizardStep === 3 ? 'Timeline & rate of change' :
+                          'Review and name your phase'
+                        ) : 'Configure your phase'
                       }
                     </DialogDescription>
-                    {/* Progress indicator */}
+                    {/* Progress indicator - clickable */}
                     <div className="flex gap-1 pt-2">
-                      {[1, 2, 3, 4].map((step) => (
-                        <div
+                      {Array.from({ length: totalWizardSteps }, (_, i) => i + 1).map((step) => (
+                        <button
+                          type="button"
                           key={step}
+                          onClick={() => {
+                            if (createPhaseCategory && step === 1) return;
+                            if (step <= wizardStep) setWizardStep(step);
+                          }}
                           className={cn(
                             "h-1.5 flex-1 rounded-full transition-all",
-                            step <= wizardStep ? "bg-[#c19962]" : "bg-muted"
+                            step <= wizardStep ? "bg-[#c19962]" : "bg-muted",
+                            step < wizardStep ? "cursor-pointer hover:opacity-80" : "cursor-default"
                           )}
+                          title={step <= wizardStep ? `Go to step ${step}` : undefined}
                         />
                       ))}
                     </div>
@@ -1626,63 +1634,127 @@ export default function PlanningPage() {
                     </div>
                   )}
                   
-                  {/* Step 2: Goal-specific Targets */}
-                  {wizardStep === 2 && (
-                    <div className="space-y-6 py-4">
-                      
-                      {/* NON-BODY-COMP: Show goal-specific content FIRST */}
-                      {!isBodyCompGoal && (
-                        <>
-                          {/* Custom goal name for health or other (when entering from category row) */}
-                          {(newPhaseGoal === 'health' || newPhaseGoal === 'other') && createPhaseCategory && (
+                  {/* Step 2: NON-BODY-COMP — Consolidated single-page form */}
+                  {wizardStep === 2 && !isBodyCompGoal && (
+                    <div className="space-y-5 py-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold">Phase Name</Label>
+                        <Input placeholder={suggestedPhaseName} value={newPhaseName} onChange={(e) => setNewPhaseName(e.target.value)} />
+                        <p className="text-xs text-muted-foreground">Leave blank to use: &quot;{suggestedPhaseName}&quot;</p>
+                      </div>
+                      {(newPhaseGoal === 'health' || newPhaseGoal === 'other') && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-semibold">{newPhaseGoal === 'health' ? 'Health Focus Area' : 'Custom Goal Name'}</Label>
+                          <Input placeholder={newPhaseGoal === 'health' ? 'e.g., Blood sugar management, Gut health' : 'e.g., Competition prep, Travel phase'} value={customGoalName} onChange={(e) => setCustomGoalName(e.target.value)} />
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="space-y-3">
+                        <Label className="text-sm font-semibold flex items-center gap-2"><Clock className="h-4 w-4 text-[#c19962]" /> Phase Timeline</Label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5"><Label className="text-xs text-muted-foreground">Start Date</Label><Input type="date" value={newPhaseStart} onChange={(e) => setNewPhaseStart(e.target.value)} className="h-9" /></div>
+                          <div className="space-y-1.5"><Label className="text-xs text-muted-foreground">End Date</Label><Input type="date" value={newPhaseEnd} onChange={(e) => setNewPhaseEnd(e.target.value)} className="h-9" /></div>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-sm">
+                          <span className="font-medium">Duration</span>
+                          <Badge className="bg-[#c19962]">{calculatedTimeline.weeks} weeks</Badge>
+                        </div>
+                      </div>
+                      <Separator />
+                      {newPhaseGoal === 'performance' && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-lg bg-green-100"><Zap className="h-5 w-5 text-green-700" /></div>
+                            <div><Label className="text-sm font-semibold">Performance Metrics</Label><p className="text-xs text-muted-foreground">Define your primary performance goals</p></div>
+                          </div>
+                          {customMetrics.length > 0 && (
                             <div className="space-y-2">
-                              <Label className="text-sm font-semibold">
-                                {newPhaseGoal === 'health' ? 'Health Focus Area' : 'Custom Goal Name'}
-                              </Label>
-                              <Input
-                                placeholder={newPhaseGoal === 'health' ? 'e.g., Blood sugar management, Gut health' : 'e.g., Competition prep, Travel phase'}
-                                value={customGoalName}
-                                onChange={(e) => setCustomGoalName(e.target.value)}
-                              />
+                              {customMetrics.map((metric) => (
+                                <div key={metric.id} className="flex items-center gap-3 p-3 border rounded-lg bg-green-50/50 border-green-200">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1"><span className="font-semibold text-sm">{metric.name}</span><Badge variant="outline" className="text-[10px] bg-green-100 text-green-700 border-green-300">{metric.unit}</Badge></div>
+                                    <div className="flex items-center gap-4 text-xs"><span className="text-muted-foreground">Start: <strong className="text-foreground">{metric.startValue || '—'}</strong></span><ArrowRight className="h-3 w-3 text-green-600" /><span className="text-green-700">Target: <strong>{metric.targetValue || '—'}</strong></span></div>
+                                  </div>
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500" onClick={() => handleRemoveCustomMetric(metric.id)}><XIcon className="h-4 w-4" /></Button>
+                                </div>
+                              ))}
                             </div>
                           )}
-                          
-                          {/* Nutrition Targets Toggle */}
-                          <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
-                            <div className="flex items-center gap-2">
-                              <Target className="h-4 w-4 text-muted-foreground" />
-                              <div>
-                                <Label className="text-sm font-medium">Include Nutrition Targets</Label>
-                                <p className="text-xs text-muted-foreground">
-                                  Set body composition goals and enable meal planning for this phase
-                                </p>
-                              </div>
+                          <div className="p-4 border-2 border-dashed border-green-200 rounded-lg bg-green-50/30 space-y-3">
+                            <p className="text-xs font-medium text-green-700">Add Performance Metric</p>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1"><Label className="text-xs text-muted-foreground">Metric Name</Label><Input placeholder="e.g., Squat 1RM" value={newMetricName} onChange={(e) => setNewMetricName(e.target.value)} className="h-9" /></div>
+                              <div className="space-y-1"><Label className="text-xs text-muted-foreground">Unit</Label><Input placeholder="e.g., lbs, min" value={newMetricUnit} onChange={(e) => setNewMetricUnit(e.target.value)} className="h-9" /></div>
+                              <div className="space-y-1"><Label className="text-xs text-muted-foreground">Current Value</Label><Input placeholder="Starting point" value={newMetricStart} onChange={(e) => setNewMetricStart(e.target.value)} className="h-9" /></div>
+                              <div className="space-y-1"><Label className="text-xs text-muted-foreground">Target Value</Label><Input placeholder="Goal to achieve" value={newMetricTarget} onChange={(e) => setNewMetricTarget(e.target.value)} className="h-9" /></div>
                             </div>
-                            <button
-                              type="button"
-                              role="switch"
-                              aria-checked={includeNutritionTargets}
-                              onClick={() => setIncludeNutritionTargets(!includeNutritionTargets)}
-                              className={cn(
-                                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                                includeNutritionTargets ? "bg-[#c19962]" : "bg-muted"
-                              )}
-                            >
-                              <span
-                                className={cn(
-                                  "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition-transform",
-                                  includeNutritionTargets ? "translate-x-5" : "translate-x-0"
-                                )}
-                              />
-                            </button>
+                            <Button variant="default" size="sm" onClick={handleAddCustomMetric} className="w-full h-9 bg-green-600 hover:bg-green-700" disabled={!newMetricName.trim()}><Plus className="h-4 w-4 mr-2" /> Add Metric</Button>
                           </div>
-                          
-                          <Separator />
-                        </>
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground">Quick Add:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {[{ name: 'Squat 1RM', unit: 'lbs' }, { name: 'Bench 1RM', unit: 'lbs' }, { name: 'Deadlift 1RM', unit: 'lbs' }, { name: 'Total (SBD)', unit: 'lbs' }, { name: 'VO2 Max', unit: 'ml/kg/min' }, { name: 'Mile Time', unit: 'min:sec' }, { name: 'Vertical Jump', unit: 'in' }, { name: '40 Yard Dash', unit: 'sec' }, { name: 'FTP', unit: 'watts' }, { name: 'RHR', unit: 'bpm' }, { name: 'HRV', unit: 'ms' }].map((p) => (
+                                <button key={p.name} type="button" onClick={() => { setNewMetricName(p.name); setNewMetricUnit(p.unit); }} className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors", newMetricName === p.name ? "bg-green-100 border-green-400 text-green-700" : "hover:bg-green-50 hover:border-green-300")}>{p.name}</button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       )}
-                      
-                      {/* BODY COMP SECTIONS: Show always for body comp goals, or when toggle is on for others */}
-                      {(isBodyCompGoal || includeNutritionTargets) && (
+                      {(newPhaseGoal === 'health' || newPhaseGoal === 'other') && (
+                        <div className="space-y-3">
+                          <Label className="text-sm font-semibold flex items-center gap-2">{newPhaseGoal === 'health' ? <Heart className="h-4 w-4 text-rose-600" /> : <Target className="h-4 w-4" />} {newPhaseGoal === 'health' ? 'Health Markers' : 'Custom Metrics'}</Label>
+                          {customMetrics.length > 0 && (
+                            <div className="space-y-2">
+                              {customMetrics.map((metric) => (
+                                <div key={metric.id} className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30">
+                                  <div className="flex-1 grid grid-cols-4 gap-2 text-xs">
+                                    <div><span className="text-muted-foreground">Metric:</span><p className="font-medium">{metric.name}</p></div>
+                                    <div><span className="text-muted-foreground">Start:</span><p className="font-medium">{metric.startValue || '—'} {metric.unit}</p></div>
+                                    <div><span className="text-muted-foreground">Target:</span><p className="font-medium text-[#c19962]">{metric.targetValue || '—'} {metric.unit}</p></div>
+                                    <div className="flex items-center justify-end"><Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500" onClick={() => handleRemoveCustomMetric(metric.id)}><XIcon className="h-4 w-4" /></Button></div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="p-3 border border-dashed rounded-lg space-y-2">
+                            <div className="grid grid-cols-4 gap-2">
+                              <Input placeholder="Metric name" value={newMetricName} onChange={(e) => setNewMetricName(e.target.value)} className="h-8 text-xs" />
+                              <Input placeholder="Start value" value={newMetricStart} onChange={(e) => setNewMetricStart(e.target.value)} className="h-8 text-xs" />
+                              <Input placeholder="Target" value={newMetricTarget} onChange={(e) => setNewMetricTarget(e.target.value)} className="h-8 text-xs" />
+                              <Input placeholder="Unit" value={newMetricUnit} onChange={(e) => setNewMetricUnit(e.target.value)} className="h-8 text-xs" />
+                            </div>
+                            <Button variant="outline" size="sm" onClick={handleAddCustomMetric} className="w-full h-7 text-xs"><Plus className="h-3 w-3 mr-1" /> Add Metric</Button>
+                          </div>
+                          {newPhaseGoal === 'health' && (
+                            <div className="flex flex-wrap gap-1">
+                              <span className="text-xs text-muted-foreground mr-2">Quick add:</span>
+                              {[{ name: 'A1C', unit: '%' }, { name: 'Fasting Glucose', unit: 'mg/dL' }, { name: 'LDL', unit: 'mg/dL' }, { name: 'HDL', unit: 'mg/dL' }, { name: 'Triglycerides', unit: 'mg/dL' }, { name: 'Blood Pressure', unit: 'mmHg' }, { name: 'RHR', unit: 'bpm' }, { name: 'Sleep Quality', unit: 'score' }].map((p) => (
+                                <button key={p.name} type="button" onClick={() => { setNewMetricName(p.name); setNewMetricUnit(p.unit); }} className="text-xs px-2 py-0.5 rounded-full border hover:bg-muted transition-colors">{p.name}</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <Target className="h-4 w-4 text-muted-foreground" />
+                          <div><Label className="text-sm font-medium">Include Nutrition Targets</Label><p className="text-xs text-muted-foreground">Optionally set body composition goals for this phase</p></div>
+                        </div>
+                        <button type="button" role="switch" aria-checked={includeNutritionTargets} onClick={() => setIncludeNutritionTargets(!includeNutritionTargets)}
+                          className={cn("relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors", includeNutritionTargets ? "bg-[#c19962]" : "bg-muted")}>
+                          <span className={cn("pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition-transform", includeNutritionTargets ? "translate-x-5" : "translate-x-0")} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 2: BODY COMP — Goal-specific Targets (4-step wizard) */}
+                  {wizardStep === 2 && isBodyCompGoal && (
+                    <div className="space-y-6 py-4">
+                      {/* BODY COMP SECTIONS */}
+                      {isBodyCompGoal && (
                         <>
                       {/* Compact body comp sub-selector when entering from category row */}
                       {createPhaseCategory === 'body_comp' && (
@@ -2027,286 +2099,6 @@ export default function PlanningPage() {
                         </>
                       )}
                       
-                      {/* PERFORMANCE METRICS - Shows for Performance Goals regardless of nutrition toggle */}
-                      {newPhaseGoal === 'performance' && (
-                        <>
-                          <Separator />
-                          <div className="space-y-4">
-                            <div className="flex items-center gap-2">
-                              <div className="p-2 rounded-lg bg-green-100">
-                                <Zap className="h-5 w-5 text-green-700" />
-                              </div>
-                              <div>
-                                <Label className="text-sm font-semibold">Performance Metrics</Label>
-                                <p className="text-xs text-muted-foreground">
-                                  Define your primary performance goals for this phase
-                                </p>
-                              </div>
-                            </div>
-                            
-                            {/* Existing Performance Metrics */}
-                            {customMetrics.length > 0 && (
-                              <div className="space-y-2">
-                                {customMetrics.map((metric) => (
-                                  <div key={metric.id} className="flex items-center gap-3 p-3 border rounded-lg bg-green-50/50 border-green-200">
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <span className="font-semibold text-sm">{metric.name}</span>
-                                        <Badge variant="outline" className="text-[10px] bg-green-100 text-green-700 border-green-300">
-                                          {metric.unit}
-                                        </Badge>
-                                      </div>
-                                      <div className="flex items-center gap-4 text-xs">
-                                        <span className="text-muted-foreground">
-                                          Start: <strong className="text-foreground">{metric.startValue || '—'}</strong>
-                                        </span>
-                                        <ArrowRight className="h-3 w-3 text-green-600" />
-                                        <span className="text-green-700">
-                                          Target: <strong>{metric.targetValue || '—'}</strong>
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500"
-                                      onClick={() => handleRemoveCustomMetric(metric.id)}
-                                    >
-                                      <XIcon className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            
-                            {/* Add New Performance Metric */}
-                            <div className="p-4 border-2 border-dashed border-green-200 rounded-lg bg-green-50/30 space-y-3">
-                              <p className="text-xs font-medium text-green-700">Add Performance Metric</p>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-muted-foreground">Metric Name</Label>
-                                  <Input
-                                    placeholder="e.g., Squat 1RM, Mile Time"
-                                    value={newMetricName}
-                                    onChange={(e) => setNewMetricName(e.target.value)}
-                                    className="h-9"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-muted-foreground">Unit</Label>
-                                  <Input
-                                    placeholder="e.g., lbs, min, watts"
-                                    value={newMetricUnit}
-                                    onChange={(e) => setNewMetricUnit(e.target.value)}
-                                    className="h-9"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-muted-foreground">Current Value</Label>
-                                  <Input
-                                    placeholder="Starting point"
-                                    value={newMetricStart}
-                                    onChange={(e) => setNewMetricStart(e.target.value)}
-                                    className="h-9"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-muted-foreground">Target Value</Label>
-                                  <Input
-                                    placeholder="Goal to achieve"
-                                    value={newMetricTarget}
-                                    onChange={(e) => setNewMetricTarget(e.target.value)}
-                                    className="h-9"
-                                  />
-                                </div>
-                              </div>
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={handleAddCustomMetric}
-                                className="w-full h-9 bg-green-600 hover:bg-green-700"
-                                disabled={!newMetricName.trim()}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add Performance Metric
-                              </Button>
-                            </div>
-                            
-                            {/* Preset Performance Metrics by Category */}
-                            <div className="space-y-3">
-                              <p className="text-xs font-medium text-muted-foreground">Quick Add Presets:</p>
-                              
-                              {/* Strength */}
-                              <div className="space-y-1">
-                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Strength</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {[
-                                    { name: 'Squat 1RM', unit: 'lbs' },
-                                    { name: 'Bench Press 1RM', unit: 'lbs' },
-                                    { name: 'Deadlift 1RM', unit: 'lbs' },
-                                    { name: 'Overhead Press 1RM', unit: 'lbs' },
-                                    { name: 'Pull-ups', unit: 'reps' },
-                                    { name: 'Total (SBD)', unit: 'lbs' },
-                                  ].map((preset) => (
-                                    <button
-                                      key={preset.name}
-                                      type="button"
-                                      onClick={() => {
-                                        setNewMetricName(preset.name);
-                                        setNewMetricUnit(preset.unit);
-                                      }}
-                                      className={cn(
-                                        "text-xs px-2.5 py-1 rounded-full border transition-colors",
-                                        newMetricName === preset.name
-                                          ? "bg-green-100 border-green-400 text-green-700"
-                                          : "hover:bg-green-50 hover:border-green-300"
-                                      )}
-                                    >
-                                      {preset.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              
-                              {/* Endurance */}
-                              <div className="space-y-1">
-                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Endurance</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {[
-                                    { name: 'VO2 Max', unit: 'ml/kg/min' },
-                                    { name: 'Mile Time', unit: 'min:sec' },
-                                    { name: '5K Time', unit: 'min' },
-                                    { name: '10K Time', unit: 'min' },
-                                    { name: 'Half Marathon', unit: 'h:min' },
-                                    { name: 'Marathon', unit: 'h:min' },
-                                    { name: 'FTP (Cycling)', unit: 'watts' },
-                                    { name: '2K Row', unit: 'min:sec' },
-                                  ].map((preset) => (
-                                    <button
-                                      key={preset.name}
-                                      type="button"
-                                      onClick={() => {
-                                        setNewMetricName(preset.name);
-                                        setNewMetricUnit(preset.unit);
-                                      }}
-                                      className={cn(
-                                        "text-xs px-2.5 py-1 rounded-full border transition-colors",
-                                        newMetricName === preset.name
-                                          ? "bg-green-100 border-green-400 text-green-700"
-                                          : "hover:bg-green-50 hover:border-green-300"
-                                      )}
-                                    >
-                                      {preset.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              
-                              {/* Power & Speed */}
-                              <div className="space-y-1">
-                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Power & Speed</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {[
-                                    { name: 'Vertical Jump', unit: 'inches' },
-                                    { name: 'Broad Jump', unit: 'inches' },
-                                    { name: '40 Yard Dash', unit: 'sec' },
-                                    { name: 'Sprint (100m)', unit: 'sec' },
-                                    { name: 'Power Clean 1RM', unit: 'lbs' },
-                                    { name: 'Snatch 1RM', unit: 'lbs' },
-                                    { name: 'Peak Power', unit: 'watts' },
-                                  ].map((preset) => (
-                                    <button
-                                      key={preset.name}
-                                      type="button"
-                                      onClick={() => {
-                                        setNewMetricName(preset.name);
-                                        setNewMetricUnit(preset.unit);
-                                      }}
-                                      className={cn(
-                                        "text-xs px-2.5 py-1 rounded-full border transition-colors",
-                                        newMetricName === preset.name
-                                          ? "bg-green-100 border-green-400 text-green-700"
-                                          : "hover:bg-green-50 hover:border-green-300"
-                                      )}
-                                    >
-                                      {preset.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              
-                              {/* Conditioning & Recovery */}
-                              <div className="space-y-1">
-                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Conditioning & Recovery</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {[
-                                    { name: 'RHR', unit: 'bpm' },
-                                    { name: 'HRV', unit: 'ms' },
-                                    { name: 'RMR', unit: 'kcal' },
-                                    { name: 'Work Capacity', unit: 'kJ' },
-                                    { name: 'Recovery Score', unit: 'score' },
-                                  ].map((preset) => (
-                                    <button
-                                      key={preset.name}
-                                      type="button"
-                                      onClick={() => {
-                                        setNewMetricName(preset.name);
-                                        setNewMetricUnit(preset.unit);
-                                      }}
-                                      className={cn(
-                                        "text-xs px-2.5 py-1 rounded-full border transition-colors",
-                                        newMetricName === preset.name
-                                          ? "bg-green-100 border-green-400 text-green-700"
-                                          : "hover:bg-green-50 hover:border-green-300"
-                                      )}
-                                    >
-                                      {preset.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              
-                              {/* Sport-Specific */}
-                              <div className="space-y-1">
-                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Sport-Specific</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {[
-                                    { name: 'Swim 100m', unit: 'sec' },
-                                    { name: 'Golf Handicap', unit: 'strokes' },
-                                    { name: 'Tennis Rating', unit: 'NTRP' },
-                                    { name: 'Climbing Grade', unit: 'V-scale' },
-                                    { name: 'CrossFit Total', unit: 'lbs' },
-                                  ].map((preset) => (
-                                    <button
-                                      key={preset.name}
-                                      type="button"
-                                      onClick={() => {
-                                        setNewMetricName(preset.name);
-                                        setNewMetricUnit(preset.unit);
-                                      }}
-                                      className={cn(
-                                        "text-xs px-2.5 py-1 rounded-full border transition-colors",
-                                        newMetricName === preset.name
-                                          ? "bg-green-100 border-green-400 text-green-700"
-                                          : "hover:bg-green-50 hover:border-green-300"
-                                      )}
-                                    >
-                                      {preset.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {customMetrics.length === 0 && (
-                              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
-                                <strong>Tip:</strong> Add at least one performance metric to track your progress. Body composition targets below are optional for performance-focused phases.
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )}
-                      
                       {/* Target Body Composition - Only when body comp is enabled */}
                       {(isBodyCompGoal || includeNutritionTargets) && (
                         <>
@@ -2317,7 +2109,7 @@ export default function PlanningPage() {
                         <div className="flex items-center justify-between">
                           <Label className="text-sm font-semibold flex items-center gap-2 text-[#c19962]">
                             <Target className="h-4 w-4" />
-                            {newPhaseGoal === 'performance' ? 'Body Composition (Optional)' : 'Target Body Composition'}
+                            {'Target Body Composition'}
                           </Label>
                           <Select value={targetMode} onValueChange={(v) => setTargetMode(v as typeof targetMode)}>
                             <SelectTrigger className="w-36 h-7 text-xs">
@@ -2507,125 +2299,10 @@ export default function PlanningPage() {
                         </>
                       )}
                       
-                      {/* Custom Metrics Section - For Health/Other Goals (shown after body comp) */}
-                      {(newPhaseGoal === 'health' || newPhaseGoal === 'other') && (
-                        <>
-                          <Separator />
-                          <div className="space-y-3">
-                            <Label className="text-sm font-semibold flex items-center gap-2">
-                              <Target className="h-4 w-4" />
-                              Custom Metrics
-                            </Label>
-                            <p className="text-xs text-muted-foreground">
-                              Track specific goals like blood markers, health metrics, or any custom measurements.
-                            </p>
-                            
-                            {/* Existing Custom Metrics */}
-                            {customMetrics.length > 0 && (
-                              <div className="space-y-2">
-                                {customMetrics.map((metric) => (
-                                  <div key={metric.id} className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30">
-                                    <div className="flex-1 grid grid-cols-4 gap-2 text-xs">
-                                      <div>
-                                        <span className="text-muted-foreground">Metric:</span>
-                                        <p className="font-medium">{metric.name}</p>
-                                      </div>
-                                      <div>
-                                        <span className="text-muted-foreground">Start:</span>
-                                        <p className="font-medium">{metric.startValue || '—'} {metric.unit}</p>
-                                      </div>
-                                      <div>
-                                        <span className="text-muted-foreground">Target:</span>
-                                        <p className="font-medium text-[#c19962]">{metric.targetValue || '—'} {metric.unit}</p>
-                                      </div>
-                                      <div className="flex items-center justify-end">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500"
-                                          onClick={() => handleRemoveCustomMetric(metric.id)}
-                                        >
-                                          <XIcon className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            
-                            {/* Add New Metric */}
-                            <div className="p-3 border border-dashed rounded-lg space-y-2">
-                              <div className="grid grid-cols-4 gap-2">
-                                <Input
-                                  placeholder="Metric name"
-                                  value={newMetricName}
-                                  onChange={(e) => setNewMetricName(e.target.value)}
-                                  className="h-8 text-xs"
-                                />
-                                <Input
-                                  placeholder="Start value"
-                                  value={newMetricStart}
-                                  onChange={(e) => setNewMetricStart(e.target.value)}
-                                  className="h-8 text-xs"
-                                />
-                                <Input
-                                  placeholder="Target value"
-                                  value={newMetricTarget}
-                                  onChange={(e) => setNewMetricTarget(e.target.value)}
-                                  className="h-8 text-xs"
-                                />
-                                <Input
-                                  placeholder="Unit"
-                                  value={newMetricUnit}
-                                  onChange={(e) => setNewMetricUnit(e.target.value)}
-                                  className="h-8 text-xs"
-                                />
-                              </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleAddCustomMetric}
-                                className="w-full h-7 text-xs"
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Add Metric
-                              </Button>
-                            </div>
-                            
-                            {/* Preset Suggestions for Health */}
-                            <div className="flex flex-wrap gap-1">
-                              <span className="text-xs text-muted-foreground mr-2">Quick add:</span>
-                              {[
-                                { name: 'A1C', unit: '%' },
-                                { name: 'Fasting Glucose', unit: 'mg/dL' },
-                                { name: 'LDL Cholesterol', unit: 'mg/dL' },
-                                { name: 'HDL Cholesterol', unit: 'mg/dL' },
-                                { name: 'Triglycerides', unit: 'mg/dL' },
-                                { name: 'Blood Pressure', unit: 'mmHg' },
-                                { name: 'RHR', unit: 'bpm' },
-                                { name: 'Sleep Quality', unit: 'score' },
-                              ].map((preset) => (
-                                <button
-                                  key={preset.name}
-                                  type="button"
-                                  onClick={() => {
-                                    setNewMetricName(preset.name);
-                                    setNewMetricUnit(preset.unit);
-                                  }}
-                                  className="text-xs px-2 py-0.5 rounded-full border hover:bg-muted transition-colors"
-                                >
-                                  {preset.name}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      )}
                     </div>
                   )}
                   
-                  {/* Step 3: Timeline - Tailored by Goal Type */}
+                  {/* Step 3: Timeline */}
                   {wizardStep === 3 && (
                     <div className="space-y-6 py-4">
                       
@@ -3327,7 +3004,7 @@ export default function PlanningPage() {
                     </div>
                   )}
                   
-                  {/* Step 4: Name & Review - Tailored by Goal Type */}
+                  {/* Step 4: Name & Review */}
                   {wizardStep === 4 && (
                     <div className="space-y-6 py-4">
                       <div className="space-y-2">
@@ -3654,13 +3331,15 @@ export default function PlanningPage() {
                   
                   <DialogFooter className="flex justify-between sm:justify-between">
                     <Button 
+                      type="button"
                       variant="outline" 
-                      onClick={() => {
-                        // If on step 1 or on step 2 having skipped step 1 (entered from category row), close dialog
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         if (wizardStep === 1 || (wizardStep === 2 && createPhaseCategory)) {
                           handleDialogClose(false);
                         } else {
-                          setWizardStep(wizardStep - 1);
+                          setWizardStep(Math.max(1, wizardStep - 1));
                         }
                       }}
                     >
@@ -3668,8 +3347,9 @@ export default function PlanningPage() {
                       {wizardStep === 1 || (wizardStep === 2 && createPhaseCategory) ? 'Cancel' : 'Back'}
                     </Button>
                     
-                    {wizardStep < 4 ? (
+                    {wizardStep < totalWizardSteps ? (
                       <Button 
+                        type="button"
                         onClick={() => setWizardStep(wizardStep + 1)} 
                         className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
                       >
@@ -3678,6 +3358,7 @@ export default function PlanningPage() {
                       </Button>
                     ) : (
                       <Button 
+                        type="button"
                         onClick={handleCreatePhase} 
                         className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
                       >

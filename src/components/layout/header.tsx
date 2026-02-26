@@ -141,7 +141,7 @@ export function Header() {
             />
           </Link>
           <Badge variant="outline" className="hidden sm:flex text-xs font-medium text-[#c19962] border-[#c19962]/50">
-            Planning OS
+            Nutrition OS
           </Badge>
         </div>
 
