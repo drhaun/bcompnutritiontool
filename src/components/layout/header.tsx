@@ -218,10 +218,17 @@ export function Header() {
               {isAdmin(staff) && (
                 <>
                   <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Admin</DropdownMenuLabel>
                   <DropdownMenuItem asChild>
                     <Link href="/admin" className="flex items-center gap-2 text-purple-600">
                       <Shield className="h-4 w-4" />
                       Admin Panel
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/groups" className="flex items-center gap-2 text-purple-600">
+                      <Users className="h-4 w-4" />
+                      Manage Groups & Forms
                     </Link>
                   </DropdownMenuItem>
                 </>

@@ -9,8 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
@@ -46,7 +48,10 @@ import {
   RefreshCw,
   Loader2,
   Link2,
-  Unlink
+  Unlink,
+  Tag,
+  RotateCcw,
+  FolderCog
 } from 'lucide-react';
 import { useFitomicsStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
@@ -93,6 +98,13 @@ export default function HomePage() {
   const [newClientEmail, setNewClientEmail] = useState('');
   const [newClientNotes, setNewClientNotes] = useState('');
   const [isHydrated, setIsHydrated] = useState(false);
+
+  // Groups & client-group tags
+  interface GroupInfo { id: string; name: string; slug: string; isActive: boolean }
+  interface ClientTag { client_id: string; group_id: string; is_active: boolean }
+  const [groups, setGroups] = useState<GroupInfo[]>([]);
+  const [clientTags, setClientTags] = useState<ClientTag[]>([]);
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('all');
 
   // Cronometer integration for new client dialog
   const [cronometerConnected, setCronometerConnected] = useState(false);
@@ -149,6 +161,68 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [isHydrated]);
 
+  // Fetch groups and client-group tags
+  const fetchGroups = useCallback(async () => {
+    try {
+      const res = await fetch('/api/groups?active_only=true');
+      if (res.ok) {
+        const data = await res.json();
+        setGroups(data.groups || []);
+      }
+    } catch { /* non-fatal */ }
+  }, []);
+
+  const fetchClientTags = useCallback(async () => {
+    const ids = visibleClients.map(c => c.id).join(',');
+    if (!ids) return;
+    try {
+      const res = await fetch(`/api/groups/tags?clientIds=${ids}`);
+      if (res.ok) {
+        const data = await res.json();
+        setClientTags(data.tags || []);
+      }
+    } catch { /* non-fatal */ }
+  }, [visibleClients]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    fetchGroups();
+  }, [isHydrated, fetchGroups]);
+
+  useEffect(() => {
+    if (!isHydrated || visibleClients.length === 0) return;
+    fetchClientTags();
+  }, [isHydrated, visibleClients, fetchClientTags]);
+
+  const getClientGroups = useCallback((clientId: string): GroupInfo[] => {
+    const groupIds = clientTags
+      .filter(t => t.client_id === clientId && t.is_active)
+      .map(t => t.group_id);
+    return groups.filter(g => groupIds.includes(g.id));
+  }, [clientTags, groups]);
+
+  const tagClientToGroup = useCallback(async (clientId: string, groupId: string) => {
+    try {
+      await fetch('/api/groups/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, groupId }),
+      });
+      await fetchClientTags();
+    } catch { /* non-fatal */ }
+  }, [fetchClientTags]);
+
+  const untagClientFromGroup = useCallback(async (clientId: string, groupId: string) => {
+    try {
+      await fetch('/api/groups/tags', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, groupId }),
+      });
+      await fetchClientTags();
+    } catch { /* non-fatal */ }
+  }, [fetchClientTags]);
+
   // Filtered + sorted Cronometer clients for the dialog picker
   const filteredCronometerClients = useMemo(() => {
     const q = cronometerSearchQuery.toLowerCase().trim();
@@ -173,7 +247,7 @@ export default function HomePage() {
   // Note: clients without a status are treated as 'active' for backward compatibility
   const activeClients = useMemo(() => {
     const filtered = visibleClients
-      .filter(c => !c.status || c.status === 'active') // Include clients with missing status
+      .filter(c => !c.status || c.status === 'active')
       .filter(c => {
         if (!searchQuery) return true;
         const query = searchQuery.toLowerCase();
@@ -183,11 +257,17 @@ export default function HomePage() {
           c.notes?.toLowerCase().includes(query)
         );
       })
+      .filter(c => {
+        if (selectedGroupFilter === 'all') return true;
+        if (selectedGroupFilter === 'untagged') {
+          return !clientTags.some(t => t.client_id === c.id && t.is_active);
+        }
+        return clientTags.some(t => t.client_id === c.id && t.group_id === selectedGroupFilter && t.is_active);
+      })
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     
-    console.log('[HomePage] Active clients after filtering:', filtered.length, 'from', visibleClients.length, 'total');
     return filtered;
-  }, [visibleClients, searchQuery]);
+  }, [visibleClients, searchQuery, selectedGroupFilter, clientTags]);
 
   const archivedClients = visibleClients.filter(c => c.status === 'archived');
   
@@ -249,6 +329,25 @@ export default function HomePage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  const generateIntakeLink = useCallback(async (client: ClientProfile) => {
+    try {
+      const res = await fetch(`/api/clients/${client.id}/generate-intake-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.url) {
+        await navigator.clipboard.writeText(data.url);
+        alert(`Intake form link copied to clipboard!\n\n${data.url}`);
+      } else {
+        alert(data.error || 'Failed to generate intake link.');
+      }
+    } catch {
+      alert('Error generating intake link.');
+    }
+  }, []);
+
   // Show loading state during hydration
   if (!isHydrated) {
     return (
@@ -289,7 +388,14 @@ export default function HomePage() {
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xl font-semibold">{activeClient.name}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xl font-semibold">{activeClient.name}</p>
+                        {getClientGroups(activeClient.id).map(g => (
+                          <Badge key={g.id} variant="secondary" className="text-xs">
+                            {g.name}
+                          </Badge>
+                        ))}
+                      </div>
                       <p className="text-sm text-muted-foreground">
                         {activeClient.userProfile?.gender && `${activeClient.userProfile.gender} • `}
                         {activeClient.userProfile?.age && `${activeClient.userProfile.age} years • `}
@@ -334,6 +440,21 @@ export default function HomePage() {
                         className="pl-9 w-[200px]"
                       />
                     </div>
+                    {groups.length > 0 && (
+                      <Select value={selectedGroupFilter} onValueChange={setSelectedGroupFilter}>
+                        <SelectTrigger className="w-[160px]">
+                          <Tag className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                          <SelectValue placeholder="All Groups" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Groups</SelectItem>
+                          <SelectItem value="untagged">Untagged</SelectItem>
+                          {groups.map(g => (
+                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                     <Button variant="outline" onClick={() => setIsNewClientOpen(true)}>
                       <UserPlus className="h-4 w-4 mr-2" />
                       Add Client
@@ -382,13 +503,18 @@ export default function HomePage() {
                                   {client.name.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
                                     <p className="font-medium truncate">{client.name}</p>
                                     {activeClientId === client.id && (
                                       <Badge variant="outline" className="text-xs border-[#c19962] text-[#c19962]">
                                         Active
                                       </Badge>
                                     )}
+                                    {getClientGroups(client.id).map(g => (
+                                      <Badge key={g.id} variant="secondary" className="text-[10px] px-1.5 py-0">
+                                        {g.name}
+                                      </Badge>
+                                    ))}
                                   </div>
                                   <p className="text-sm text-muted-foreground truncate">
                                     {client.email || 'No email'}
@@ -401,28 +527,72 @@ export default function HomePage() {
                                 <p className="text-xs text-muted-foreground w-20 text-right">
                                   {formatDate(client.updatedAt)}
                                 </p>
-                                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => {
-                                      const newName = prompt('Enter new client name:', `${client.name} (Copy)`);
-                                      if (newName) {
-                                        duplicateClient(client.id, newName);
-                                      }
-                                    }}
-                                  >
-                                    <Copy className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => archiveClient(client.id)}
-                                  >
-                                    <Archive className="h-4 w-4" />
-                                  </Button>
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-56">
+                                      {groups.length > 0 && (
+                                        <>
+                                          {groups.map(g => {
+                                            const isTagged = clientTags.some(t => t.client_id === client.id && t.group_id === g.id && t.is_active);
+                                            return (
+                                              <DropdownMenuItem
+                                                key={g.id}
+                                                onClick={() => isTagged ? untagClientFromGroup(client.id, g.id) : tagClientToGroup(client.id, g.id)}
+                                              >
+                                                <Tag className={cn("h-4 w-4 mr-2", isTagged ? "text-[#c19962]" : "text-muted-foreground")} />
+                                                {isTagged ? `Remove from ${g.name}` : `Add to ${g.name}`}
+                                                {isTagged && <CheckCircle2 className="h-3.5 w-3.5 ml-auto text-[#c19962]" />}
+                                              </DropdownMenuItem>
+                                            );
+                                          })}
+                                          <DropdownMenuSeparator />
+                                        </>
+                                      )}
+                                      <DropdownMenuItem onClick={() => router.push('/admin/groups')}>
+                                        <FolderCog className="h-4 w-4 mr-2" />
+                                        Manage Groups & Forms
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => generateIntakeLink(client)}>
+                                        <Link2 className="h-4 w-4 mr-2" />
+                                        Send Intake Form
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => {
+                                        const newName = prompt('Enter new client name:', `${client.name} (Copy)`);
+                                        if (newName) duplicateClient(client.id, newName);
+                                      }}>
+                                        <Copy className="h-4 w-4 mr-2" />
+                                        Duplicate Client
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-orange-600"
+                                        onClick={() => {
+                                          if (confirm(`Archive "${client.name}"? You can restore them later.`)) {
+                                            archiveClient(client.id);
+                                          }
+                                        }}
+                                      >
+                                        <Archive className="h-4 w-4 mr-2" />
+                                        Archive Client
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="text-destructive"
+                                        onClick={() => {
+                                          if (confirm(`Permanently delete "${client.name}"? This cannot be undone.`)) {
+                                            deleteClient(client.id);
+                                          }
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete Client
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               </div>
                             </div>
@@ -455,17 +625,30 @@ export default function HomePage() {
                                   <p className="text-sm text-muted-foreground">{client.email || 'No email'}</p>
                                 </div>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  if (confirm('Permanently delete this client?')) {
-                                    deleteClient(client.id);
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    updateClient(client.id, { status: 'active' } as Partial<ClientProfile>);
+                                  }}
+                                  title="Restore client"
+                                >
+                                  <RotateCcw className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (confirm(`Permanently delete "${client.name}"? This cannot be undone.`)) {
+                                      deleteClient(client.id);
+                                    }
+                                  }}
+                                  title="Permanently delete"
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -493,6 +676,14 @@ export default function HomePage() {
                   <UserPlus className="h-4 w-4 mr-2 text-[#c19962]" />
                   Create New Client
                 </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => router.push('/admin/groups')}
+                >
+                  <FolderCog className="h-4 w-4 mr-2 text-purple-500" />
+                  Manage Groups & Forms
+                </Button>
                 {activeClient && (
                   <>
                     <Button 
@@ -502,6 +693,14 @@ export default function HomePage() {
                     >
                       <Edit className="h-4 w-4 mr-2 text-blue-500" />
                       Edit {activeClient.name}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={() => generateIntakeLink(activeClient)}
+                    >
+                      <Link2 className="h-4 w-4 mr-2 text-teal-500" />
+                      Send Intake Form
                     </Button>
                     {activeClient.mealPlan && (
                       <Button 

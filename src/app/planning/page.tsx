@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
@@ -63,7 +64,9 @@ import {
   Loader2,
   ArrowDownToLine,
   ArrowUpFromLine,
-  RefreshCw
+  RefreshCw,
+  Flame,
+  Dumbbell
 } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import {
@@ -226,8 +229,10 @@ export default function PlanningPage() {
   // Previous phase context — when phases exist, the wizard can build on the latest one
   const [predecessorPhase, setPredecessorPhase] = useState<Phase | null>(null);
   
-  // Target input mode: 'bf' (body fat %), 'fm' (fat mass), 'ffm' (lean mass), 'weight', 'fmi', 'ffmi'
-  const [targetMode, setTargetMode] = useState<'bf' | 'fm' | 'ffm' | 'weight' | 'fmi' | 'ffmi'>('bf');
+  // Target input mode: 'bf' (body fat %), 'fm' (fat mass), 'ffm' (lean mass), 'weight', 'fmi', 'ffmi', 'independent' (set fat loss & muscle gain separately)
+  const [targetMode, setTargetMode] = useState<'bf' | 'fm' | 'ffm' | 'weight' | 'fmi' | 'ffmi' | 'independent'>('bf');
+  const [fatToLose, setFatToLose] = useState(0);
+  const [muscleToGain, setMuscleToGain] = useState(0);
   
   // Custom metrics for performance/health goals
   interface CustomMetric {
@@ -514,6 +519,16 @@ export default function PlanningPage() {
     const newWeight = targetFFMLbs + newFMLbs;
     setTargetWeightLbs(Math.round(newWeight * 10) / 10);
     setTargetBodyFat(Math.round((newFMLbs / newWeight) * 1000) / 10);
+  };
+
+  const updateTargetsFromIndependent = (fatLoss: number, muscleGain: number) => {
+    const newFM = Math.max(0, currentFatMassLbs - fatLoss);
+    const newFFM = currentFFMLbs + muscleGain;
+    const newWeight = newFM + newFFM;
+    setTargetFatMassLbs(Math.round(newFM * 10) / 10);
+    setTargetFFMLbs(Math.round(newFFM * 10) / 10);
+    setTargetWeightLbs(Math.round(newWeight * 10) / 10);
+    setTargetBodyFat(newWeight > 0 ? Math.round((newFM / newWeight) * 1000) / 10 : 0);
   };
   
   // Calculate target indices
@@ -1317,22 +1332,28 @@ export default function PlanningPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Weight (lbs)</Label>
-                      <Input
-                        type="number"
+                      <NumericInput
                         placeholder="Enter weight"
                         value={checkInWeight}
-                        onChange={(e) => setCheckInWeight(e.target.value ? Number(e.target.value) : '')}
-                        step="0.1"
+                        onChange={(v) => setCheckInWeight(v ?? '')}
+                        step={0.1}
+                        min={50}
+                        max={600}
+                        allowEmpty
+                        suffix="lbs"
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>Body Fat %</Label>
-                      <Input
-                        type="number"
+                      <NumericInput
                         placeholder="Optional"
                         value={checkInBodyFat}
-                        onChange={(e) => setCheckInBodyFat(e.target.value ? Number(e.target.value) : '')}
-                        step="0.1"
+                        onChange={(v) => setCheckInBodyFat(v ?? '')}
+                        step={0.1}
+                        min={2}
+                        max={60}
+                        allowEmpty
+                        suffix="%"
                       />
                     </div>
                   </div>
@@ -1823,38 +1844,45 @@ export default function PlanningPage() {
                         <div className="grid grid-cols-4 gap-2">
                           <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">Weight (lbs)</Label>
-                            <Input
-                              type="number"
+                            <NumericInput
                               value={editCurrentWeight}
-                              onChange={(e) => setEditCurrentWeight(Number(e.target.value))}
+                              onChange={(v) => setEditCurrentWeight(v ?? 0)}
+                              min={50}
+                              max={600}
+                              step={0.1}
                               className="h-8 text-sm"
                             />
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">Body Fat %</Label>
-                            <Input
-                              type="number"
+                            <NumericInput
                               value={editCurrentBodyFat}
-                              onChange={(e) => setEditCurrentBodyFat(Number(e.target.value))}
+                              onChange={(v) => setEditCurrentBodyFat(v ?? 0)}
+                              min={2}
+                              max={60}
+                              step={0.1}
                               className="h-8 text-sm"
-                              step="0.1"
                             />
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">Height (ft)</Label>
-                            <Input
-                              type="number"
+                            <NumericInput
                               value={editCurrentHeightFt}
-                              onChange={(e) => setEditCurrentHeightFt(Number(e.target.value))}
+                              onChange={(v) => setEditCurrentHeightFt(v ?? 0)}
+                              min={3}
+                              max={8}
+                              step={1}
                               className="h-8 text-sm"
                             />
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">Height (in)</Label>
-                            <Input
-                              type="number"
+                            <NumericInput
                               value={editCurrentHeightIn}
-                              onChange={(e) => setEditCurrentHeightIn(Number(e.target.value))}
+                              onChange={(v) => setEditCurrentHeightIn(v ?? 0)}
+                              min={0}
+                              max={11}
+                              step={1}
                               className="h-8 text-sm"
                             />
                           </div>
@@ -2116,6 +2144,7 @@ export default function PlanningPage() {
                               <SelectValue placeholder="Set by..." />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="independent">Fat Loss / Muscle Gain</SelectItem>
                               <SelectItem value="bf">Body Fat %</SelectItem>
                               <SelectItem value="fm">Fat Mass (lbs)</SelectItem>
                               <SelectItem value="ffm">Lean Mass (lbs)</SelectItem>
@@ -2239,6 +2268,65 @@ export default function PlanningPage() {
                               <p className="text-xs text-muted-foreground">
                                 Current: {currentFFMI.toFixed(1)} → Change: {(targetFFMI - currentFFMI).toFixed(1)} | Natural max ~25
                               </p>
+                            </div>
+                          )}
+
+                          {targetMode === 'independent' && (
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                  <Label className="flex items-center gap-1.5">
+                                    <Flame className="h-3.5 w-3.5 text-orange-500" />
+                                    Fat to Lose (lbs)
+                                  </Label>
+                                  <span className="font-medium text-orange-500">{fatToLose.toFixed(1)} lbs</span>
+                                </div>
+                                <NumericInput
+                                  value={fatToLose}
+                                  onChange={(v) => {
+                                    const val = v ?? 0;
+                                    setFatToLose(val);
+                                    updateTargetsFromIndependent(val, muscleToGain);
+                                  }}
+                                  min={0}
+                                  max={currentFatMassLbs}
+                                  step={0.5}
+                                  suffix="lbs"
+                                  className="h-9"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  Current FM: {currentFatMassLbs.toFixed(1)} lbs → Goal: {Math.max(0, currentFatMassLbs - fatToLose).toFixed(1)} lbs
+                                </p>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                  <Label className="flex items-center gap-1.5">
+                                    <Dumbbell className="h-3.5 w-3.5 text-blue-500" />
+                                    Muscle to Gain (lbs)
+                                  </Label>
+                                  <span className="font-medium text-blue-500">{muscleToGain.toFixed(1)} lbs</span>
+                                </div>
+                                <NumericInput
+                                  value={muscleToGain}
+                                  onChange={(v) => {
+                                    const val = v ?? 0;
+                                    setMuscleToGain(val);
+                                    updateTargetsFromIndependent(fatToLose, val);
+                                  }}
+                                  min={0}
+                                  max={20}
+                                  step={0.5}
+                                  suffix="lbs"
+                                  className="h-9"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  Current FFM: {currentFFMLbs.toFixed(1)} lbs → Goal: {(currentFFMLbs + muscleToGain).toFixed(1)} lbs
+                                </p>
+                              </div>
+                              <div className="p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+                                Net weight change: {(muscleToGain - fatToLose) >= 0 ? '+' : ''}{(muscleToGain - fatToLose).toFixed(1)} lbs
+                                ({currentWeightLbs.toFixed(0)} → {(currentWeightLbs - fatToLose + muscleToGain).toFixed(1)} lbs)
+                              </div>
                             </div>
                           )}
                         </div>
@@ -2369,16 +2457,15 @@ export default function PlanningPage() {
                                   )}>
                                     <p className="text-xs font-medium text-muted-foreground mb-1">Custom</p>
                                     <div className="flex items-center justify-center gap-1">
-                                      <Input
-                                        type="number"
+                                      <NumericInput
                                         value={rateOfChange}
-                                        onChange={(e) => setRateOfChange(Number(e.target.value))}
-                                        step="0.05"
-                                        min="0.1"
-                                        max="1.5"
+                                        onChange={(v) => setRateOfChange(v ?? 0.5)}
+                                        step={0.05}
+                                        min={0.1}
+                                        max={1.5}
                                         className="h-8 w-16 text-center font-bold text-sm p-1"
+                                        suffix="%"
                                       />
-                                      <span className="text-sm font-medium">%</span>
                                     </div>
                                     <p className="text-[10px] text-muted-foreground mt-1">BW/week</p>
                                   </div>
@@ -2438,16 +2525,15 @@ export default function PlanningPage() {
                                   )}>
                                     <p className="text-xs font-medium text-muted-foreground mb-1">Custom</p>
                                     <div className="flex items-center justify-center gap-1">
-                                      <Input
-                                        type="number"
+                                      <NumericInput
                                         value={rateOfChange}
-                                        onChange={(e) => setRateOfChange(Number(e.target.value))}
-                                        step="0.05"
-                                        min="0.1"
-                                        max="0.75"
+                                        onChange={(v) => setRateOfChange(v ?? 0.25)}
+                                        step={0.05}
+                                        min={0.1}
+                                        max={0.75}
                                         className="h-8 w-16 text-center font-bold text-sm p-1"
+                                        suffix="%"
                                       />
-                                      <span className="text-sm font-medium">%</span>
                                     </div>
                                     <p className="text-[10px] text-muted-foreground mt-1">BW/week</p>
                                   </div>
@@ -2507,16 +2593,15 @@ export default function PlanningPage() {
                                   )}>
                                     <p className="text-xs font-medium text-muted-foreground mb-1">Custom</p>
                                     <div className="flex items-center justify-center gap-1">
-                                      <Input
-                                        type="number"
+                                      <NumericInput
                                         value={rateOfChange}
-                                        onChange={(e) => setRateOfChange(Number(e.target.value))}
-                                        step="0.05"
-                                        min="0"
-                                        max="0.25"
+                                        onChange={(v) => setRateOfChange(v ?? 0)}
+                                        step={0.05}
+                                        min={0}
+                                        max={0.25}
                                         className="h-8 w-16 text-center font-bold text-sm p-1"
+                                        suffix="%"
                                       />
-                                      <span className="text-sm font-medium">%</span>
                                     </div>
                                     <p className="text-[10px] text-muted-foreground mt-1">BW/week</p>
                                   </div>
@@ -2620,19 +2705,18 @@ export default function PlanningPage() {
                               )}>
                                 <p className="text-xs font-medium text-muted-foreground mb-1">Custom</p>
                                 <div className="flex items-center justify-center gap-1">
-                                  <Input
-                                    type="number"
+                                  <NumericInput
                                     value={manualDurationWeeks ?? calculatedTimeline.weeks}
-                                    onChange={(e) => {
-                                      const weeks = Math.max(1, Math.min(52, Number(e.target.value) || 1));
+                                    onChange={(v) => {
+                                      const weeks = Math.max(1, Math.min(52, v ?? 1));
                                       setManualDurationWeeks(weeks);
                                       const start = new Date(newPhaseStart);
                                       const end = new Date(start);
                                       end.setDate(end.getDate() + (weeks * 7));
                                       setNewPhaseEnd(end.toISOString().split('T')[0]);
                                     }}
-                                    min="1"
-                                    max="52"
+                                    min={1}
+                                    max={52}
                                     className="h-8 w-14 text-center font-bold text-sm p-1"
                                   />
                                 </div>
@@ -2657,7 +2741,7 @@ export default function PlanningPage() {
                                       {newPhaseGoal === 'fat_loss' ? '→' : newPhaseGoal === 'muscle_gain' ? '→' : '↔'}
                                     </p>
                                     <p className="text-[10px] text-muted-foreground">
-                                      {calculatedTimeline.totalChange > 0 ? '+' : ''}{calculatedTimeline.totalChange} lbs
+                                      {(calculatedTimeline.totalChange ?? 0) > 0 ? '+' : ''}{calculatedTimeline.totalChange ?? 0} lbs
                                     </p>
                                   </div>
                                   <div>
@@ -3433,20 +3517,26 @@ export default function PlanningPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <Label className="text-xs text-muted-foreground">Target Weight (lbs)</Label>
-                          <Input
-                            type="number"
+                          <NumericInput
                             value={targetWeightLbs}
-                            onChange={(e) => setTargetWeightLbs(Number(e.target.value))}
+                            onChange={(v) => updateTargetsFromWeight(v ?? currentWeightLbs)}
+                            min={80}
+                            max={500}
+                            step={0.5}
                             className="h-10"
+                            suffix="lbs"
                           />
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-xs text-muted-foreground">Target Body Fat %</Label>
-                          <Input
-                            type="number"
+                          <NumericInput
                             value={targetBodyFat}
-                            onChange={(e) => setTargetBodyFat(Number(e.target.value))}
+                            onChange={(v) => updateTargetsFromBF(v ?? currentBodyFat)}
+                            min={3}
+                            max={50}
+                            step={0.5}
                             className="h-10"
+                            suffix="%"
                           />
                         </div>
                       </div>

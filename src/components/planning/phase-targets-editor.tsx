@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
@@ -473,7 +474,7 @@ export function PhaseTargetsEditor({
 }: PhaseTargetsEditorProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'daily'>('overview');
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Monday');
-  const [durationStr, setDurationStr] = useState('60');
+  const [durationStrs, setDurationStrs] = useState<Record<number, string>>({});
   const [showDayEditor, setShowDayEditor] = useState(false);
   const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [copySourceDay, setCopySourceDay] = useState<DayOfWeek | null>(null);
@@ -1125,11 +1126,16 @@ export function PhaseTargetsEditor({
   const selectedDayConfig = fullDayConfigs[selectedDay];
   const hasOverrides = Object.keys(dayConfigs[selectedDay] || {}).length > 0;
 
-  // Keep duration string in sync with the actual workout config
-  const currentDuration = selectedDayConfig?.workouts?.[0]?.duration;
+  // Keep duration strings in sync with actual workout configs
+  const workoutsDep = JSON.stringify(selectedDayConfig?.workouts?.map(w => w.duration));
   useEffect(() => {
-    setDurationStr(String(currentDuration ?? 60));
-  }, [selectedDay, currentDuration]);
+    const strs: Record<number, string> = {};
+    selectedDayConfig?.workouts?.forEach((w, i) => {
+      strs[i] = String(w.duration ?? 60);
+    });
+    setDurationStrs(strs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDay, workoutsDep]);
 
   if (!baseMetrics) {
     return (
@@ -1819,21 +1825,23 @@ export function PhaseTargetsEditor({
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <Label className="text-xs">Direct Protein (g/kg {basisLabel})</Label>
-                      <Input
-                        type="number"
-                        step="0.1"
+                      <NumericInput
                         value={proteinSlider}
-                        onChange={(e) => setProteinSlider(Number(e.target.value) || proteinSlider)}
+                        onChange={(v) => setProteinSlider(v ?? proteinSlider)}
+                        step={0.1}
+                        min={0.5}
+                        max={4.0}
                         className="h-8 font-mono"
                       />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Direct Fat (g/kg {basisLabel})</Label>
-                      <Input
-                        type="number"
-                        step="0.05"
+                      <NumericInput
                         value={fatSlider}
-                        onChange={(e) => setFatSlider(Number(e.target.value) || fatSlider)}
+                        onChange={(v) => setFatSlider(v ?? fatSlider)}
+                        step={0.05}
+                        min={0.3}
+                        max={2.0}
                         className="h-8 font-mono"
                       />
                     </div>
@@ -2080,9 +2088,11 @@ export function PhaseTargetsEditor({
                             <Tag className="h-3 w-3" />
                             <span>
                               {dayConfigs[selectedDay]?.dayLabel || 
-                                (selectedDayConfig.isWorkoutDay ? 
-                                  `${selectedDayConfig.workouts[0]?.type || 'Workout'} • ${selectedDayConfig.workouts[0]?.duration || 60}min` : 
-                                  'Rest Day'
+                                (selectedDayConfig.isWorkoutDay ?
+                                  selectedDayConfig.workouts.length === 1
+                                    ? `${selectedDayConfig.workouts[0]?.type || 'Workout'} • ${selectedDayConfig.workouts[0]?.duration || 60}min`
+                                    : `${selectedDayConfig.workouts.length} workouts • ${selectedDayConfig.workouts.reduce((s, w) => s + (w.duration || 0), 0)}min`
+                                  : 'Rest Day'
                                 )
                               }
                             </span>
@@ -2316,174 +2326,191 @@ export function PhaseTargetsEditor({
                       </div>
                       
                       {selectedDayConfig.isWorkoutDay && selectedDayConfig.workouts.length > 0 ? (
-                        <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 space-y-4">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-medium text-green-700">Type</Label>
-                              <Select
-                                value={selectedDayConfig.workouts[0]?.type || 'Resistance Training'}
-                                onValueChange={(v) => {
-                                  const updatedWorkouts = [...selectedDayConfig.workouts];
-                                  updatedWorkouts[0] = { ...updatedWorkouts[0], type: v as WorkoutType };
-                                  updateDayConfig(selectedDay, { workouts: updatedWorkouts });
-                                }}
-                              >
-                                <SelectTrigger className="h-9 text-sm bg-white border-green-200">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4} align="start">
-                                  {WORKOUT_TYPES.map(type => (
-                                    <SelectItem key={type} value={type} className="text-sm">{type}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-medium text-green-700">Time Slot</Label>
-                              <Select
-                                value={selectedDayConfig.workouts[0]?.timeSlot || 'evening'}
-                                onValueChange={(v) => {
-                                  const updatedWorkouts = [...selectedDayConfig.workouts];
-                                  updatedWorkouts[0] = { ...updatedWorkouts[0], timeSlot: v as WorkoutTimeSlot };
-                                  updateDayConfig(selectedDay, { workouts: updatedWorkouts });
-                                }}
-                              >
-                                <SelectTrigger className="h-9 text-sm bg-white border-green-200">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4} align="start">
-                                  {WORKOUT_TIME_SLOTS.map(slot => (
-                                    <SelectItem key={slot.value} value={slot.value} className="text-sm">{slot.label}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-medium text-green-700">Duration (min)</Label>
-                              <Input
-                                type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                value={durationStr}
-                                onChange={(e) => {
-                                  const val = e.target.value.replace(/[^0-9]/g, '');
-                                  setDurationStr(val);
-                                }}
-                                onBlur={() => {
-                                  const num = parseInt(durationStr);
-                                  const clamped = isNaN(num) || num < 5 ? 5 : num > 300 ? 300 : num;
-                                  setDurationStr(String(clamped));
-                                  const updatedWorkouts = [...selectedDayConfig.workouts];
-                                  updatedWorkouts[0] = { ...updatedWorkouts[0], duration: clamped };
-                                  updateDayConfig(selectedDay, { workouts: updatedWorkouts });
-                                }}
-                                className="h-9 text-sm bg-white border-green-200"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-medium text-green-700">Intensity</Label>
-                              <Select
-                                value={selectedDayConfig.workouts[0]?.intensity || 'Medium'}
-                                onValueChange={(v) => {
-                                  const updatedWorkouts = [...selectedDayConfig.workouts];
-                                  updatedWorkouts[0] = { ...updatedWorkouts[0], intensity: v as 'Low' | 'Medium' | 'High' };
-                                  updateDayConfig(selectedDay, { workouts: updatedWorkouts });
-                                }}
-                              >
-                                <SelectTrigger className="h-9 text-sm bg-white border-green-200">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent position="popper" sideOffset={4} align="start">
-                                  {WORKOUT_INTENSITIES.map(i => (
-                                    <SelectItem key={i} value={i} className="text-sm">{i}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          
-                          {/* Zone Selector — uses measured data from Profile if available */}
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs font-medium text-green-700">
-                                Zone Override <span className="font-normal text-green-600">(or use intensity above)</span>
-                              </Label>
-                              <Badge variant="outline" className={cn("text-[9px] h-4",
-                                userProfile.metabolicAssessment?.hasZoneData
-                                  ? "border-green-400 text-green-700 bg-green-50"
-                                  : "border-amber-300 text-amber-700 bg-amber-50"
-                              )}>
-                                {userProfile.metabolicAssessment?.hasZoneData ? 'Measured cal/min from profile' : 'Estimated — add zone data in Profile'}
-                              </Badge>
-                            </div>
-                            <div className="flex gap-1.5">
-                              {([1, 2, 3, 4, 5] as const).map(zone => {
-                                const zoneData = userProfile.metabolicAssessment?.hasZoneData && userProfile.metabolicAssessment?.zoneCaloriesPerMin
-                                  ? userProfile.metabolicAssessment.zoneCaloriesPerMin
-                                  : getDefaultZoneCalories(weightKg);
-                                const calPerMin = zoneData[`zone${zone}` as keyof typeof zoneData];
-                                const currentZone = selectedDayConfig.workouts[0]?.averageZone;
-                                const isSelected = currentZone === zone;
-                                // Also show what zone the intensity would map to (as a visual hint)
-                                const mappedZone = getTypicalZoneForWorkout(
-                                  selectedDayConfig.workouts[0]?.type || 'Resistance Training',
-                                  selectedDayConfig.workouts[0]?.intensity || 'Medium'
-                                );
-                                const isMapped = !currentZone && mappedZone === zone;
-                                
-                                return (
-                                  <button
-                                    key={zone}
-                                    type="button"
-                                    className={cn(
-                                      "flex-1 rounded-md border py-1.5 px-1 text-center transition-all",
-                                      isSelected
-                                        ? "bg-green-600 border-green-700 text-white shadow-sm"
-                                        : isMapped
-                                        ? "bg-green-100 border-green-300 text-green-800"
-                                        : "bg-white border-green-200 text-green-700 hover:bg-green-50"
-                                    )}
-                                    onClick={() => {
+                        <div className="space-y-3">
+                          {selectedDayConfig.workouts.map((workout, wIdx) => (
+                            <div key={wIdx} className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-green-700">Workout {wIdx + 1}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-destructive hover:text-destructive"
+                                  onClick={() => {
+                                    const updated = selectedDayConfig.workouts.filter((_, i) => i !== wIdx);
+                                    updateDayConfig(selectedDay, { workouts: updated });
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3 mr-1" />
+                                  <span className="text-[10px]">Remove</span>
+                                </Button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs font-medium text-green-700">Type</Label>
+                                  <Select
+                                    value={workout.type || 'Resistance Training'}
+                                    onValueChange={(v) => {
                                       const updatedWorkouts = [...selectedDayConfig.workouts];
-                                      // Toggle off if already selected (fall back to intensity-based)
-                                      const newZone = isSelected ? undefined : zone;
-                                      updatedWorkouts[0] = { ...updatedWorkouts[0], averageZone: newZone };
+                                      updatedWorkouts[wIdx] = { ...updatedWorkouts[wIdx], type: v as WorkoutType };
                                       updateDayConfig(selectedDay, { workouts: updatedWorkouts });
                                     }}
                                   >
-                                    <div className="text-xs font-bold">Z{zone}</div>
-                                    <div className={cn("text-[9px]", isSelected ? "text-green-100" : "text-green-500")}>
-                                      {calPerMin.toFixed(1)}/min
-                                    </div>
-                                  </button>
-                                );
-                              })}
+                                    <SelectTrigger className="h-9 text-sm bg-white border-green-200">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent position="popper" sideOffset={4} align="start">
+                                      {WORKOUT_TYPES.map(type => (
+                                        <SelectItem key={type} value={type} className="text-sm">{type}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs font-medium text-green-700">Time Slot</Label>
+                                  <Select
+                                    value={workout.timeSlot || 'evening'}
+                                    onValueChange={(v) => {
+                                      const updatedWorkouts = [...selectedDayConfig.workouts];
+                                      updatedWorkouts[wIdx] = { ...updatedWorkouts[wIdx], timeSlot: v as WorkoutTimeSlot };
+                                      updateDayConfig(selectedDay, { workouts: updatedWorkouts });
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-9 text-sm bg-white border-green-200">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent position="popper" sideOffset={4} align="start">
+                                      {WORKOUT_TIME_SLOTS.map(slot => (
+                                        <SelectItem key={slot.value} value={slot.value} className="text-sm">{slot.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs font-medium text-green-700">Duration (min)</Label>
+                                  <NumericInput
+                                    value={workout.duration ?? 60}
+                                    onChange={(v) => {
+                                      const updatedWorkouts = [...selectedDayConfig.workouts];
+                                      updatedWorkouts[wIdx] = { ...updatedWorkouts[wIdx], duration: v ?? 60 };
+                                      updateDayConfig(selectedDay, { workouts: updatedWorkouts });
+                                    }}
+                                    min={5}
+                                    max={300}
+                                    step={5}
+                                    className="h-9 text-sm bg-white border-green-200"
+                                    suffix="min"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs font-medium text-green-700">Intensity</Label>
+                                  <Select
+                                    value={workout.intensity || 'Medium'}
+                                    onValueChange={(v) => {
+                                      const updatedWorkouts = [...selectedDayConfig.workouts];
+                                      updatedWorkouts[wIdx] = { ...updatedWorkouts[wIdx], intensity: v as 'Low' | 'Medium' | 'High' };
+                                      updateDayConfig(selectedDay, { workouts: updatedWorkouts });
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-9 text-sm bg-white border-green-200">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent position="popper" sideOffset={4} align="start">
+                                      {WORKOUT_INTENSITIES.map(i => (
+                                        <SelectItem key={i} value={i} className="text-sm">{i}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              
+                              {/* Zone Selector */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-xs font-medium text-green-700">
+                                    Zone Override
+                                  </Label>
+                                  {wIdx === 0 && (
+                                    <Badge variant="outline" className={cn("text-[9px] h-4",
+                                      userProfile.metabolicAssessment?.hasZoneData
+                                        ? "border-green-400 text-green-700 bg-green-50"
+                                        : "border-amber-300 text-amber-700 bg-amber-50"
+                                    )}>
+                                      {userProfile.metabolicAssessment?.hasZoneData ? 'Measured cal/min' : 'Estimated'}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex gap-1.5">
+                                  {([1, 2, 3, 4, 5] as const).map(zone => {
+                                    const zoneData = userProfile.metabolicAssessment?.hasZoneData && userProfile.metabolicAssessment?.zoneCaloriesPerMin
+                                      ? userProfile.metabolicAssessment.zoneCaloriesPerMin
+                                      : getDefaultZoneCalories(weightKg);
+                                    const calPerMin = zoneData[`zone${zone}` as keyof typeof zoneData];
+                                    const currentZone = workout.averageZone;
+                                    const isSelected = currentZone === zone;
+                                    const mappedZone = getTypicalZoneForWorkout(
+                                      workout.type || 'Resistance Training',
+                                      workout.intensity || 'Medium'
+                                    );
+                                    const isMapped = !currentZone && mappedZone === zone;
+                                    
+                                    return (
+                                      <button
+                                        key={zone}
+                                        type="button"
+                                        className={cn(
+                                          "flex-1 rounded-md border py-1.5 px-1 text-center transition-all",
+                                          isSelected
+                                            ? "bg-green-600 border-green-700 text-white shadow-sm"
+                                            : isMapped
+                                            ? "bg-green-100 border-green-300 text-green-800"
+                                            : "bg-white border-green-200 text-green-700 hover:bg-green-50"
+                                        )}
+                                        onClick={() => {
+                                          const updatedWorkouts = [...selectedDayConfig.workouts];
+                                          const newZone = isSelected ? undefined : zone;
+                                          updatedWorkouts[wIdx] = { ...updatedWorkouts[wIdx], averageZone: newZone };
+                                          updateDayConfig(selectedDay, { workouts: updatedWorkouts });
+                                        }}
+                                      >
+                                        <div className="text-xs font-bold">Z{zone}</div>
+                                        <div className={cn("text-[9px]", isSelected ? "text-green-100" : "text-green-500")}>
+                                          {calPerMin.toFixed(1)}/min
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
                             </div>
-                            <p className="text-[9px] text-muted-foreground">
-                              {selectedDayConfig.workouts[0]?.averageZone 
-                                ? `Zone ${selectedDayConfig.workouts[0].averageZone} selected — using ${
-                                    (userProfile.metabolicAssessment?.hasZoneData 
-                                      ? userProfile.metabolicAssessment?.zoneCaloriesPerMin 
-                                      : getDefaultZoneCalories(weightKg)
-                                    )?.[`zone${selectedDayConfig.workouts[0].averageZone}` as 'zone1' | 'zone2' | 'zone3' | 'zone4' | 'zone5']?.toFixed(1)
-                                  } cal/min × ${selectedDayConfig.workouts[0]?.duration || 60} min`
-                                : `Using intensity → Zone ${getTypicalZoneForWorkout(
-                                    selectedDayConfig.workouts[0]?.type || 'Resistance Training',
-                                    selectedDayConfig.workouts[0]?.intensity || 'Medium'
-                                  )} estimate. Select a zone for more precision.`
-                              }
-                            </p>
-                          </div>
+                          ))}
+
+                          {/* Add another workout button */}
+                          {selectedDayConfig.workouts.length < 3 && (
+                            <button
+                              onClick={() => {
+                                const updated = [...selectedDayConfig.workouts, {
+                                  enabled: true,
+                                  type: 'Cardio' as WorkoutType,
+                                  timeSlot: 'afternoon' as WorkoutTimeSlot,
+                                  duration: 30,
+                                  intensity: 'Medium' as const,
+                                }];
+                                updateDayConfig(selectedDay, { workouts: updated });
+                              }}
+                              className="w-full p-2 rounded-lg border border-dashed border-green-300 bg-green-50/30 hover:bg-green-100 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Plus className="h-4 w-4 text-green-600" />
+                              <span className="text-xs font-medium text-green-700">Add Another Workout</span>
+                            </button>
+                          )}
 
                           <div className="pt-3 border-t border-green-200 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <Flame className="h-4 w-4 text-green-600" />
                               <span className="text-xs text-green-700">
-                                {selectedDayConfig.workouts[0]?.averageZone 
-                                  ? `Zone ${selectedDayConfig.workouts[0].averageZone}` 
-                                  : userProfile.metabolicAssessment?.hasZoneData ? 'Zone-based' : 'Estimated'} EEE:
+                                Total EEE ({selectedDayConfig.workouts.length} workout{selectedDayConfig.workouts.length > 1 ? 's' : ''}):
                               </span>
                             </div>
                             <span className="text-lg font-bold text-green-700">
@@ -2996,7 +3023,9 @@ export function PhaseTargetsEditor({
                             {config?.isWorkoutDay ? (
                               <Badge variant="default" className="bg-green-600 text-[10px]">
                                 <Dumbbell className="h-2.5 w-2.5 mr-0.5" />
-                                {config.workouts[0]?.type?.split(' ')[0]}
+                                {config.workouts.length === 1
+                                  ? config.workouts[0]?.type?.split(' ')[0]
+                                  : `${config.workouts.length}x`}
                               </Badge>
                             ) : (
                               <Badge variant="secondary" className="text-[10px]">Rest</Badge>
@@ -3165,7 +3194,11 @@ export function PhaseTargetsEditor({
                     <div className="flex-1">
                       <p className="text-sm font-medium">{day}</p>
                       <p className="text-xs text-muted-foreground">
-                        {config?.isWorkoutDay ? config.workouts[0]?.type : 'Rest'}
+                        {config?.isWorkoutDay
+                          ? config.workouts.length === 1
+                            ? config.workouts[0]?.type
+                            : `${config.workouts.length} workouts`
+                          : 'Rest'}
                       </p>
                     </div>
                   </div>

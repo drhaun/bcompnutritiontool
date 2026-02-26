@@ -779,6 +779,25 @@ export default function SetupPage() {
           setMealContexts(mondaySchedule.mealContexts);
         }
       }
+
+      // Restore per-day workouts
+      if (weeklySchedule) {
+        const restored: Record<string, DayWorkoutEntry[]> = {};
+        DAYS_OF_WEEK.forEach(day => {
+          const ds = weeklySchedule[day] || weeklySchedule[day.toLowerCase()];
+          if (ds?.workouts?.length) {
+            restored[day] = ds.workouts.map((w: Record<string, unknown>) => ({
+              type: (w.type as WorkoutType) || 'Resistance Training',
+              timeSlot: (w.timeSlot as WorkoutTimeSlot) || 'evening',
+              duration: (w.duration as number) || 60,
+              intensity: (w.intensity as 'Low' | 'Medium' | 'High') || 'Medium',
+            }));
+          } else {
+            restored[day] = [];
+          }
+        });
+        setDayWorkouts(restored);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHydrated]); // Only depend on isHydrated - run once when hydration completes
@@ -939,6 +958,14 @@ export default function SetupPage() {
   const [defaultTimeSlot, setDefaultTimeSlot] = useState<WorkoutTimeSlot>('evening');
   const [defaultDuration, setDefaultDuration] = useState(60);
   const [defaultIntensity, setDefaultIntensity] = useState<'Low' | 'Medium' | 'High'>('High');
+
+  // Per-day workouts (multiple per day)
+  interface DayWorkoutEntry { type: WorkoutType; timeSlot: WorkoutTimeSlot; duration: number; intensity: 'Low' | 'Medium' | 'High' }
+  const [dayWorkouts, setDayWorkouts] = useState<Record<string, DayWorkoutEntry[]>>(() => {
+    const init: Record<string, DayWorkoutEntry[]> = {};
+    DAYS_OF_WEEK.forEach(d => { init[d] = []; });
+    return init;
+  });
   
   // Zone-based calorie data (from Active Metabolic Rate testing)
   const [hasZoneData, setHasZoneData] = useState(false);
@@ -1687,22 +1714,28 @@ export default function SetupPage() {
       trackingCommitment,
     });
     
-    // Build and save weekly schedule with defaults
-    const defaultDaySchedule = {
-      wakeTime,
-      sleepTime: bedTime,
-      workStartTime: workType !== 'none' ? workStartTime : undefined,
-      workEndTime: workType !== 'none' ? workEndTime : undefined,
-      workouts: [],
-      mealCount: mealsPerDay,
-      snackCount: snacksPerDay,
-      mealContexts: mealContexts,
-    };
-    
-    // Create schedule for each day
-    const scheduleData: Record<string, typeof defaultDaySchedule> = {};
+    // Build and save weekly schedule with defaults + per-day workouts
+    const scheduleData: Record<string, {
+      wakeTime: string;
+      sleepTime: string;
+      workStartTime?: string;
+      workEndTime?: string;
+      workouts: DayWorkoutEntry[];
+      mealCount: number;
+      snackCount: number;
+      mealContexts: typeof mealContexts;
+    }> = {};
     DAYS_OF_WEEK.forEach(day => {
-      scheduleData[day] = { ...defaultDaySchedule };
+      scheduleData[day] = {
+        wakeTime,
+        sleepTime: bedTime,
+        workStartTime: workType !== 'none' ? workStartTime : undefined,
+        workEndTime: workType !== 'none' ? workEndTime : undefined,
+        workouts: dayWorkouts[day] || [],
+        mealCount: mealsPerDay,
+        snackCount: snacksPerDay,
+        mealContexts: mealContexts,
+      };
     });
     
     setWeeklySchedule(scheduleData);
@@ -1847,25 +1880,31 @@ export default function SetupPage() {
         cookingTimePreference: cookingTime,
       });
       
-      // Build and save weekly schedule with defaults (lifestyle data)
-      const defaultDaySchedule = {
-        wakeTime,
-        sleepTime: bedTime,
-        workStartTime: workType !== 'none' ? workStartTime : undefined,
-        workEndTime: workType !== 'none' ? workEndTime : undefined,
-        workouts: [],
-        mealCount: mealsPerDay,
-        snackCount: snacksPerDay,
-        mealContexts: mealContexts,
-      };
-      
-      // Create schedule for each day
-      const scheduleData: Record<string, typeof defaultDaySchedule> = {};
+      // Build and save weekly schedule with per-day workouts
+      const progressScheduleData: Record<string, {
+        wakeTime: string;
+        sleepTime: string;
+        workStartTime?: string;
+        workEndTime?: string;
+        workouts: DayWorkoutEntry[];
+        mealCount: number;
+        snackCount: number;
+        mealContexts: typeof mealContexts;
+      }> = {};
       DAYS_OF_WEEK.forEach(day => {
-        scheduleData[day] = { ...defaultDaySchedule };
+        progressScheduleData[day] = {
+          wakeTime,
+          sleepTime: bedTime,
+          workStartTime: workType !== 'none' ? workStartTime : undefined,
+          workEndTime: workType !== 'none' ? workEndTime : undefined,
+          workouts: dayWorkouts[day] || [],
+          mealCount: mealsPerDay,
+          snackCount: snacksPerDay,
+          mealContexts: mealContexts,
+        };
       });
       
-      setWeeklySchedule(scheduleData);
+      setWeeklySchedule(progressScheduleData);
       
       // Small delay to ensure store updates complete
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -3104,6 +3143,161 @@ export default function SetupPage() {
                             </Select>
                           </div>
                         </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Weekly Training Schedule - multiple workouts per day */}
+                    <Card className="border-0 shadow-sm">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <Calendar className="h-5 w-5 text-[#c19962]" />
+                          Weekly Training Schedule
+                        </CardTitle>
+                        <CardDescription>Add specific workouts for each day (up to 3 per day)</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {DAYS_OF_WEEK.map(day => {
+                          const workouts = dayWorkouts[day] || [];
+                          return (
+                            <div key={day} className="border rounded-lg p-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm font-semibold">{day}</Label>
+                                {workouts.length < 3 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={() => {
+                                      setDayWorkouts(prev => ({
+                                        ...prev,
+                                        [day]: [...(prev[day] || []), {
+                                          type: defaultWorkoutType,
+                                          timeSlot: defaultTimeSlot,
+                                          duration: defaultDuration,
+                                          intensity: defaultIntensity,
+                                        }],
+                                      }));
+                                    }}
+                                  >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Add Workout
+                                  </Button>
+                                )}
+                              </div>
+                              {workouts.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic">Rest day</p>
+                              ) : (
+                                workouts.map((w, idx) => (
+                                  <div key={idx} className="grid grid-cols-5 gap-2 items-end bg-muted/30 rounded p-2">
+                                    <div className="space-y-1">
+                                      <Label className="text-[10px] text-muted-foreground">Type</Label>
+                                      <Select
+                                        value={w.type}
+                                        onValueChange={(v) => {
+                                          setDayWorkouts(prev => {
+                                            const arr = [...(prev[day] || [])];
+                                            arr[idx] = { ...arr[idx], type: v as WorkoutType };
+                                            return { ...prev, [day]: arr };
+                                          });
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {WORKOUT_TYPES.map(wt => (
+                                            <SelectItem key={wt.value} value={wt.value}>{wt.label}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-[10px] text-muted-foreground">Time</Label>
+                                      <Select
+                                        value={w.timeSlot}
+                                        onValueChange={(v) => {
+                                          setDayWorkouts(prev => {
+                                            const arr = [...(prev[day] || [])];
+                                            arr[idx] = { ...arr[idx], timeSlot: v as WorkoutTimeSlot };
+                                            return { ...prev, [day]: arr };
+                                          });
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {WORKOUT_TIME_SLOTS.map(ts => (
+                                            <SelectItem key={ts.value} value={ts.value}>{ts.label}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-[10px] text-muted-foreground">Duration</Label>
+                                      <div className="flex items-center gap-1">
+                                        <Slider
+                                          value={[w.duration]}
+                                          onValueChange={([v]) => {
+                                            setDayWorkouts(prev => {
+                                              const arr = [...(prev[day] || [])];
+                                              arr[idx] = { ...arr[idx], duration: v };
+                                              return { ...prev, [day]: arr };
+                                            });
+                                          }}
+                                          min={15}
+                                          max={180}
+                                          step={15}
+                                          className="flex-1"
+                                        />
+                                        <span className="text-[10px] text-muted-foreground w-7">{w.duration}m</span>
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-[10px] text-muted-foreground">Intensity</Label>
+                                      <Select
+                                        value={w.intensity}
+                                        onValueChange={(v) => {
+                                          setDayWorkouts(prev => {
+                                            const arr = [...(prev[day] || [])];
+                                            arr[idx] = { ...arr[idx], intensity: v as 'Low' | 'Medium' | 'High' };
+                                            return { ...prev, [day]: arr };
+                                          });
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="Low">Low</SelectItem>
+                                          <SelectItem value="Medium">Medium</SelectItem>
+                                          <SelectItem value="High">High</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="flex justify-end">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive"
+                                        onClick={() => {
+                                          setDayWorkouts(prev => ({
+                                            ...prev,
+                                            [day]: (prev[day] || []).filter((_, i) => i !== idx),
+                                          }));
+                                        }}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          );
+                        })}
                       </CardContent>
                     </Card>
 
