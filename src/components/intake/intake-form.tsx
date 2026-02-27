@@ -532,7 +532,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
       });
     } catch { /* silent */ }
     setSaving(false);
-  }, [form, token]);
+  }, [form, token, customAnswers, formId]);
 
   const goNext = useCallback(async () => {
     const isLastStep = stepIdx === steps.length - 1;

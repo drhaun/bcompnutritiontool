@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -209,7 +210,7 @@ export async function PATCH(
         if (hasGoalData) {
           const existingPhases = ((fullClient?.phases as unknown[]) || []) as Array<Record<string, unknown>>;
 
-          const phaseId = `phase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const phaseId = randomUUID();
           const startDate = new Date().toISOString().split('T')[0];
           const endDate = new Date(Date.now() + 12 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
