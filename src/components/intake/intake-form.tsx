@@ -844,7 +844,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
         // Team Standard review sections
         if (activeBlockIds.has('team_personal')) {
           const fullName = [form.firstName, form.middleName, form.lastName].filter(Boolean).join(' ');
-          sections.push({ title: 'Personal', items: [fullName, form.email, form.phone, form.useDOB ? `DOB: ${form.dateOfBirth}` : `Age: ${form.age}`].filter(Boolean) });
+          sections.push({ title: 'Personal', items: [fullName, form.gender, form.email, form.phone, form.useDOB ? `DOB: ${form.dateOfBirth}` : `Age: ${form.age}`].filter(Boolean) });
         }
         if (activeBlockIds.has('team_units')) sections.push({ title: 'Units', items: [form.unitSystem === 'metric' ? 'Metric (kg, cm)' : 'Imperial (lbs, ft/in)'] });
         if (activeBlockIds.has('team_body_comp')) {
@@ -933,6 +933,14 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
           {show('middleName') && <div><FieldLabel optional>Middle Name</FieldLabel><TextInput value={form.middleName} onChange={v => set('middleName', v)} placeholder="Marie" /></div>}
           {show('email') && <div><FieldLabel>Email *</FieldLabel><TextInput value={form.email} onChange={v => set('email', v)} type="email" inputMode="email" placeholder="jane@example.com" /></div>}
           {show('phone') && <div><FieldLabel>Phone *</FieldLabel><TextInput value={form.phone} onChange={v => set('phone', v)} type="tel" inputMode="tel" placeholder="(555) 123-4567" /></div>}
+          {show('gender') && <div><FieldLabel>Gender</FieldLabel>
+            <div className="grid grid-cols-2 gap-3">
+              {(['Male', 'Female'] as const).map(g => (
+                <button key={g} type="button" onClick={() => set('gender', g)}
+                  className={cn('h-12 rounded-xl border text-sm font-medium transition-all', form.gender === g ? 'bg-[#c19962] border-[#c19962] text-[#00263d]' : 'bg-white border-gray-200 text-gray-700 hover:border-[#c19962]/50')}>{g}</button>
+              ))}
+            </div>
+          </div>}
           {show('ageDOB') && <>
             <div className="flex items-center gap-3 mb-2">
               <button type="button" onClick={() => set('useDOB', !form.useDOB)}
