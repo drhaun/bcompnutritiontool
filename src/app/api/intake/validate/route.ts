@@ -103,13 +103,29 @@ export async function POST(request: NextRequest) {
 
       // Tag client into the group if groupSlug provided
       if (body.groupSlug && newClient) {
+        // Try matching as a group slug first
+        let groupId: string | null = null;
         const { data: group } = await supabase
           .from('client_groups')
           .select('id')
           .eq('slug', body.groupSlug)
           .single();
         if (group) {
-          await supabase.from('client_group_tags').insert({ client_id: newClient.id, group_id: group.id });
+          groupId = group.id;
+        } else {
+          // Slug might be a form slug — find the form and its linked group
+          const { data: form } = await supabase
+            .from('intake_forms')
+            .select('group_id')
+            .eq('slug', body.groupSlug)
+            .limit(1)
+            .single();
+          if (form?.group_id) {
+            groupId = form.group_id;
+          }
+        }
+        if (groupId) {
+          await supabase.from('client_group_tags').insert({ client_id: newClient.id, group_id: groupId });
         }
       }
 

@@ -129,9 +129,11 @@ export default function IntakeTokenPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Something went wrong.'); setSigningUp(false); return; }
-      router.push(`/intake/${data.token}`);
+      // Preserve the formId so the token page loads the correct form
+      const formParam = groupData?.formId ? `?form=${groupData.formId}` : '';
+      router.push(`/intake/${data.token}${formParam}`);
     } catch { setError('Network error.'); setSigningUp(false); }
-  }, [signupName, signupEmail, raw, router]);
+  }, [signupName, signupEmail, raw, router, groupData]);
 
   const handleCheckout = useCallback(async () => {
     if (!clientData) return;
