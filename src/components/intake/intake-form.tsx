@@ -593,10 +593,12 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
 
   const renderBlock = (blockId: string) => {
     switch (blockId) {
-      case 'personal_info': return (
+      case 'personal_info': {
+        const hasTeamPersonal = blocks.some(b => b.id === 'team_personal');
+        return (
         <div className="space-y-5">
           {show('name') && <div><FieldLabel>Full Name</FieldLabel><TextInput value={form.name} onChange={v => set('name', v)} placeholder="Jane Smith" /></div>}
-          {show('gender') && <div><FieldLabel>Gender</FieldLabel>
+          {show('gender') && !hasTeamPersonal && <div><FieldLabel>Gender</FieldLabel>
             <div className="grid grid-cols-2 gap-3">
               {(['Male', 'Female'] as const).map(g => (
                 <button key={g} type="button" onClick={() => set('gender', g)}
@@ -625,6 +627,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
           {show('weight') && <div><FieldLabel>Weight (lbs)</FieldLabel><TextInput value={form.weightLbs} onChange={v => set('weightLbs', v)} inputMode="decimal" placeholder="170" /></div>}
         </div>
       );
+      }
 
       case 'body_composition': return (
         <div className="space-y-5">

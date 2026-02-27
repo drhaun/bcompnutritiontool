@@ -120,14 +120,44 @@ export async function PATCH(
     if (body.currentStep !== undefined) updateData.current_step = body.currentStep;
     if (body.cronometerClientId !== undefined) updateData.cronometer_client_id = body.cronometerClientId;
     if (body.cronometerClientName !== undefined) updateData.cronometer_client_name = body.cronometerClientName;
-    // Phase-based planning fields
-    if (body.phases !== undefined) updateData.phases = body.phases;
+    // Phase-based planning fields — merge to preserve server-created phases (e.g. from intake form)
+    if (body.phases !== undefined) {
+      updateData._mergePhases = true;
+      updateData.phases = body.phases;
+    }
     if (body.activePhaseId !== undefined) updateData.active_phase_id = body.activePhaseId;
     if (body.timelineEvents !== undefined) updateData.timeline_events = body.timelineEvents;
     // Favorites and resources
     if (body.favoriteRecipes !== undefined) updateData.favorite_recipes = body.favoriteRecipes;
     if (body.resources !== undefined) updateData.resources = body.resources;
     
+    // Merge phases: preserve server-created phases that the client doesn't know about
+    if (updateData._mergePhases) {
+      delete updateData._mergePhases;
+      try {
+        const { data: existing } = await supabase
+          .from('clients')
+          .select('phases, active_phase_id')
+          .eq('id', id)
+          .single();
+        if (existing?.phases && Array.isArray(existing.phases)) {
+          const incomingIds = new Set(
+            (updateData.phases as Array<{ id: string }>).map(p => p.id)
+          );
+          const serverOnly = (existing.phases as Array<{ id: string }>).filter(
+            p => p.id && !incomingIds.has(p.id)
+          );
+          if (serverOnly.length > 0) {
+            updateData.phases = [...(updateData.phases as unknown[]), ...serverOnly];
+            if (existing.active_phase_id && !updateData.active_phase_id) {
+              updateData.active_phase_id = existing.active_phase_id;
+            }
+            console.log('[Clients API] Merged', serverOnly.length, 'server-created phase(s) during save');
+          }
+        }
+      } catch { /* proceed with original phases if merge fails */ }
+    }
+
     // Build query - admins/coaches with visibility can update any client
     let query = supabase
       .from('clients')

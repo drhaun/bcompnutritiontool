@@ -193,6 +193,33 @@ export default function PlanningPage() {
   } | null>(null);
   const [intakeGoalsApplied, setIntakeGoalsApplied] = useState(false);
 
+  // Refresh phases from server to pick up any server-created phases (e.g. from form submission)
+  const { updateClient } = useFitomicsStore();
+  useEffect(() => {
+    if (!isHydrated || !activeClient?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/clients/${activeClient.id}`, { credentials: 'include' });
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          const dbPhases = (data.client?.phases || []) as Phase[];
+          const localIds = new Set(phases.map(p => p.id));
+          const newPhases = dbPhases.filter(p => p.id && !localIds.has(p.id));
+          if (newPhases.length > 0) {
+            updateClient(activeClient.id, {
+              phases: [...phases, ...newPhases],
+              activePhaseId: data.client?.active_phase_id || activePhaseId,
+            });
+            toast.info(`${newPhases.length} new phase(s) loaded from form submission`);
+          }
+        }
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated, activeClient?.id]);
+
   useEffect(() => {
     if (!isHydrated || !activeClient?.id) return;
     let cancelled = false;
