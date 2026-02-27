@@ -202,75 +202,98 @@ export async function PATCH(
         console.error('[Intake Save] form_submission insert error:', subErr);
       }
 
-      // 2) Create draft body composition phase (independent try-catch)
-      try {
-        const up = body.userProfile || {};
-        const goalType = up.goalType;
-        const hasGoalData = goalType && (goalType === 'fat_loss' || goalType === 'muscle_gain' || goalType === 'recomposition');
-        if (hasGoalData) {
-          const existingPhases = ((fullClient?.phases as unknown[]) || []) as Array<Record<string, unknown>>;
+      // 2) Create draft body composition phase — completely independent of context above
+      let phaseCreated = false;
+      let phaseError: string | null = null;
+      const up = body.userProfile || {};
+      const goalType = up.goalType as string | undefined;
+      console.log('[Phase Draft] goalType from body:', goalType, '| completed:', body.completed, '| preCheckout:', body.preCheckout);
 
-          const phaseId = randomUUID();
-          const startDate = new Date().toISOString().split('T')[0];
-          const endDate = new Date(Date.now() + 12 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-          const GOAL_LABELS: Record<string, string> = { fat_loss: 'Fat Loss', muscle_gain: 'Muscle Gain', recomposition: 'Recomp' };
-          const phaseName = `${GOAL_LABELS[goalType] || 'Body Comp'} Phase (Draft)`;
-
-          const isMetric = up.unitSystem === 'metric';
-          const toLbs = (v: number) => isMetric ? v * 2.205 : v;
-
-          const weightLbs = up.weightLbs || (isMetric && up.weightKg ? up.weightKg * 2.205 : 170);
-          const bodyFatPct = up.bodyFatPercentage || 20;
-          const targetWeightLbs = up.goalWeight ? toLbs(up.goalWeight) : weightLbs;
-          const targetBodyFat = up.goalBodyFatPercent || bodyFatPct;
-          const targetFatMassLbs = up.goalFatMass ? toLbs(up.goalFatMass) : (targetWeightLbs * (targetBodyFat / 100));
-          const targetFFMLbs = up.goalFFM ? toLbs(up.goalFFM) : (targetWeightLbs - targetFatMassLbs);
-          const rateOfChange = up.rateOfChange || 0.5;
-
-          const newPhase = {
-            id: phaseId,
-            name: phaseName,
-            goalType,
-            status: 'planned',
-            startDate,
-            endDate,
-            startingWeightLbs: weightLbs,
-            startingBodyFat: bodyFatPct,
-            targetWeightLbs,
-            targetBodyFat,
-            targetFatMassLbs,
-            targetFFMLbs,
-            rateOfChange,
-            performancePriority: 'body_comp_priority',
-            musclePreservation: 'preserve_all',
-            fatGainTolerance: 'minimize_fat_gain',
-            lifestyleCommitment: 'fully_committed',
-            trackingCommitment: 'committed_tracking',
-            scheduleOverrides: null,
-            nutritionTargets: [],
-            mealPlan: null,
-            notes: `Auto-created from intake form submission on ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
-            createdAt: now,
-            updatedAt: now,
-          };
-
-          const updatedPhases = [...existingPhases, newPhase];
-          const { error: phaseUpdateErr } = await supabase
+      if (goalType === 'fat_loss' || goalType === 'muscle_gain' || goalType === 'recomposition') {
+        try {
+          // Fetch ONLY the phases column — simple, direct query
+          const { data: phaseRow, error: phaseReadErr } = await supabase
             .from('clients')
-            .update({ phases: updatedPhases, active_phase_id: phaseId })
-            .eq('id', client.id);
+            .select('phases')
+            .eq('id', client.id)
+            .single();
 
-          if (phaseUpdateErr) {
-            console.error('[Intake Save] Phase update DB error:', phaseUpdateErr);
+          if (phaseReadErr) {
+            phaseError = `Read phases failed: ${phaseReadErr.message}`;
+            console.error('[Phase Draft]', phaseError);
           } else {
-            console.log('[Intake Save] Created draft phase:', phaseId, phaseName, '| goalType:', goalType);
+            const existingPhases = (Array.isArray(phaseRow?.phases) ? phaseRow.phases : []) as unknown[];
+            const phaseId = randomUUID();
+            const startDate = new Date().toISOString().split('T')[0];
+            const endDate = new Date(Date.now() + 12 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const GOAL_LABELS: Record<string, string> = { fat_loss: 'Fat Loss', muscle_gain: 'Muscle Gain', recomposition: 'Recomp' };
+
+            const isMetric = up.unitSystem === 'metric';
+            const toLbs = (v: number) => isMetric ? v * 2.205 : v;
+            const weightLbs = up.weightLbs || (isMetric && up.weightKg ? up.weightKg * 2.205 : 170);
+            const bodyFatPct = up.bodyFatPercentage || 20;
+            const targetWeightLbs = up.goalWeight ? toLbs(up.goalWeight as number) : weightLbs;
+            const targetBodyFat = up.goalBodyFatPercent || bodyFatPct;
+            const targetFatMassLbs = up.goalFatMass ? toLbs(up.goalFatMass as number) : ((targetWeightLbs as number) * ((targetBodyFat as number) / 100));
+            const targetFFMLbs = up.goalFFM ? toLbs(up.goalFFM as number) : ((targetWeightLbs as number) - (targetFatMassLbs as number));
+
+            const newPhase = {
+              id: phaseId,
+              name: `${GOAL_LABELS[goalType] || 'Body Comp'} Phase (Draft)`,
+              goalType,
+              status: 'planned',
+              startDate,
+              endDate,
+              startingWeightLbs: weightLbs,
+              startingBodyFat: bodyFatPct,
+              targetWeightLbs,
+              targetBodyFat,
+              targetFatMassLbs,
+              targetFFMLbs,
+              rateOfChange: up.rateOfChange || 0.5,
+              performancePriority: 'body_comp_priority',
+              musclePreservation: 'preserve_all',
+              fatGainTolerance: 'minimize_fat_gain',
+              lifestyleCommitment: 'fully_committed',
+              trackingCommitment: 'committed_tracking',
+              scheduleOverrides: null,
+              nutritionTargets: [],
+              mealPlan: null,
+              notes: `Auto-created from intake form on ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+              createdAt: now,
+              updatedAt: now,
+            };
+
+            // Write phases FIRST (jsonb, always succeeds)
+            const { error: phasesErr } = await supabase
+              .from('clients')
+              .update({ phases: [...existingPhases, newPhase] })
+              .eq('id', client.id);
+
+            if (phasesErr) {
+              phaseError = `Phases write failed: ${phasesErr.message}`;
+              console.error('[Phase Draft]', phaseError);
+            } else {
+              phaseCreated = true;
+              console.log('[Phase Draft] SUCCESS — wrote phase', phaseId, goalType);
+
+              // Set active phase separately so a uuid type mismatch can't block the phases write
+              const { error: activeErr } = await supabase
+                .from('clients')
+                .update({ active_phase_id: phaseId })
+                .eq('id', client.id);
+              if (activeErr) {
+                console.error('[Phase Draft] active_phase_id write failed (phase still saved):', activeErr.message);
+              }
+            }
           }
-        } else {
-          console.log('[Intake Save] No goal data for phase creation. goalType:', goalType);
+        } catch (err) {
+          phaseError = `Exception: ${err instanceof Error ? err.message : String(err)}`;
+          console.error('[Phase Draft] Caught exception:', phaseError);
         }
-      } catch (phaseErr) {
-        console.error('[Intake Save] Draft phase creation error:', phaseErr);
+      } else {
+        phaseError = `No valid goalType (got: ${goalType})`;
+        console.log('[Phase Draft]', phaseError);
       }
     }
 
