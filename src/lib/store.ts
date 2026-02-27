@@ -511,23 +511,28 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         
         console.log('[Store] Deleted client:', clientId, '| Tracking deleted IDs:', updatedDeletedIds.length);
         
-        // Sync to database if authenticated
-        // IMPORTANT: We intentionally do NOT clear tracking here even on verified deletion.
-        // Tracking is only cleared by retryPendingDeletions during loadClientsFromDatabase,
-        // which confirms the client is truly gone from the DB before removing the safety net.
+        // Delete from database and then refresh the client list from server
         if (state.isAuthenticated) {
-          deleteClientFromDb(clientId).then(result => {
-            if (result === 'verified') {
-              console.log('[Store] Client deletion sent to database (verified response):', clientId);
-              console.log('[Store] Tracking will be cleaned up on next sync verification');
-            } else if (result === 'unverified') {
-              console.warn('[Store] Client delete unverified, will retry on next sync:', clientId);
-            } else {
-              console.error('[Store] Failed to delete client from database, will retry on next sync:', clientId);
+          (async () => {
+            try {
+              const result = await deleteClientFromDb(clientId);
+              console.log('[Store] Client deletion result:', result, 'for:', clientId);
+
+              if (result === 'verified' || result === 'unverified') {
+                // Refresh client list from the server to get the authoritative state
+                const dbClients = await fetchClientsFromDb();
+                const currentDeletedIds = new Set<string>([
+                  ...(get()._deletedClientIds || []),
+                  ...JSON.parse(localStorage.getItem('fitomics-deleted-client-ids') || '[]'),
+                ]);
+                const filteredClients = dbClients.filter(c => !currentDeletedIds.has(c.id));
+                set({ clients: filteredClients });
+                console.log('[Store] Refreshed client list after delete:', filteredClients.length, 'clients');
+              }
+            } catch (err) {
+              console.error('[Store] Failed to sync client deletion:', err);
             }
-          }).catch(err => {
-            console.error('[Store] Failed to sync client deletion:', err);
-          });
+          })();
         }
       },
       
