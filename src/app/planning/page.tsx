@@ -1084,11 +1084,13 @@ export default function PlanningPage() {
       goalType: newPhaseGoal,
       startDate: newPhaseStart,
       endDate: newPhaseEnd,
-      targetWeightLbs,
-      targetBodyFat,
-      targetFatMassLbs,
-      targetFFMLbs,
+      targetWeightLbs: Math.round(targetWeightLbs * 10) / 10,
+      targetBodyFat: Math.round(targetBodyFat * 10) / 10,
+      targetFatMassLbs: Math.round(targetFatMassLbs * 10) / 10,
+      targetFFMLbs: Math.round(targetFFMLbs * 10) / 10,
       rateOfChange,
+      startingWeightLbs: Math.round(editCurrentWeight * 10) / 10,
+      startingBodyFat: Math.round(editCurrentBodyFat * 10) / 10,
       performancePriority,
       musclePreservation,
       fatGainTolerance,
@@ -3577,133 +3579,343 @@ export default function PlanningPage() {
                 </DialogContent>
               </Dialog>
               
-              {/* Edit Phase Dialog */}
+              {/* Edit Phase Dialog — Full editor mirroring creation wizard */}
               <Dialog open={showEditDialog} onOpenChange={(open) => {
                 if (!open) {
                   setShowEditDialog(false);
                   setEditingPhase(null);
                 }
               }}>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader className="pb-4">
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader className="pb-2">
                     <DialogTitle className="text-xl flex items-center gap-2">
                       <Edit className="h-5 w-5 text-[#c19962]" />
                       Edit Phase
                     </DialogTitle>
                     <DialogDescription className="text-sm">
-                      Update phase settings and body composition targets.
+                      Full phase editor — adjust all settings just like when creating a phase.
                     </DialogDescription>
                   </DialogHeader>
                   
-                  <div className="space-y-6 py-2">
-                    {/* Phase Name */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Phase Name</Label>
-                      <Input
-                        value={newPhaseName}
-                        onChange={(e) => setNewPhaseName(e.target.value)}
-                        placeholder="e.g., Summer Cut, Strength Block"
-                        className="h-11"
-                      />
+                  <div className="space-y-5 py-2">
+                    {/* Phase Name & Goal Type */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Phase Name</Label>
+                        <Input
+                          value={newPhaseName}
+                          onChange={(e) => setNewPhaseName(e.target.value)}
+                          placeholder="e.g., Summer Cut, Strength Block"
+                          className="h-10"
+                        />
+                      </div>
+                      {['fat_loss', 'muscle_gain', 'recomposition'].includes(editingPhase?.goalType || '') && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Goal Type</Label>
+                          <div className="flex gap-2">
+                            {([
+                              { value: 'fat_loss', label: 'Fat Loss', icon: <TrendingDown className="h-3.5 w-3.5" />, activeClass: 'border-orange-400 bg-orange-50 text-orange-700' },
+                              { value: 'muscle_gain', label: 'Muscle Gain', icon: <TrendingUp className="h-3.5 w-3.5" />, activeClass: 'border-blue-400 bg-blue-50 text-blue-700' },
+                              { value: 'recomposition', label: 'Recomp', icon: <Scale className="h-3.5 w-3.5" />, activeClass: 'border-purple-400 bg-purple-50 text-purple-700' },
+                            ] as const).map(g => (
+                              <button key={g.value} type="button" onClick={() => setNewPhaseGoal(g.value)}
+                                className={cn("flex-1 flex items-center gap-1.5 p-2.5 border rounded-lg text-xs font-medium transition-all", newPhaseGoal === g.value ? g.activeClass : "hover:border-muted-foreground/50")}
+                              >{g.icon}{g.label}</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    
+
                     {/* Timeline */}
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <Label className="text-sm font-medium">Timeline</Label>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <Label className="text-xs text-muted-foreground">Start Date</Label>
-                          <Input
-                            type="date"
-                            value={newPhaseStart}
-                            onChange={(e) => setNewPhaseStart(e.target.value)}
-                            className="h-10"
-                          />
+                          <Input type="date" value={newPhaseStart} onChange={(e) => setNewPhaseStart(e.target.value)} className="h-10" />
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <Label className="text-xs text-muted-foreground">End Date</Label>
-                          <Input
-                            type="date"
-                            value={newPhaseEnd}
-                            onChange={(e) => setNewPhaseEnd(e.target.value)}
-                            className="h-10"
-                          />
+                          <Input type="date" value={newPhaseEnd} onChange={(e) => setNewPhaseEnd(e.target.value)} className="h-10" />
                         </div>
                       </div>
                     </div>
                     
                     <Separator />
-                    
-                    {/* Body Composition Targets */}
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium">Body Composition Targets</Label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">Target Weight (lbs)</Label>
-                          <NumericInput
-                            value={targetWeightLbs}
-                            onChange={(v) => updateTargetsFromWeight(v ?? currentWeightLbs)}
-                            min={80}
-                            max={500}
-                            step={0.5}
-                            className="h-10"
-                            suffix="lbs"
-                          />
+
+                    {/* Starting Body Composition */}
+                    {['fat_loss', 'muscle_gain', 'recomposition'].includes(newPhaseGoal) && (
+                      <>
+                      <div className="space-y-3">
+                        <Label className="text-sm font-semibold flex items-center gap-2">
+                          <Scale className="h-4 w-4" />
+                          Starting Body Composition
+                        </Label>
+                        <div className="grid grid-cols-4 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Weight (lbs)</Label>
+                            <NumericInput value={editCurrentWeight} onChange={(v) => setEditCurrentWeight(v ?? 0)} min={50} max={600} step={0.1} className="h-8 text-sm" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Body Fat %</Label>
+                            <NumericInput value={editCurrentBodyFat} onChange={(v) => setEditCurrentBodyFat(v ?? 0)} min={2} max={60} step={0.1} className="h-8 text-sm" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Height (ft)</Label>
+                            <NumericInput value={editCurrentHeightFt} onChange={(v) => setEditCurrentHeightFt(v ?? 0)} min={3} max={8} step={1} className="h-8 text-sm" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Height (in)</Label>
+                            <NumericInput value={editCurrentHeightIn} onChange={(v) => setEditCurrentHeightIn(v ?? 0)} min={0} max={11} step={1} className="h-8 text-sm" />
+                          </div>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">Target Body Fat %</Label>
-                          <NumericInput
-                            value={targetBodyFat}
-                            onChange={(v) => updateTargetsFromBF(v ?? currentBodyFat)}
-                            min={3}
-                            max={50}
-                            step={0.5}
-                            className="h-10"
-                            suffix="%"
-                          />
+                        <div className="grid grid-cols-5 gap-2 p-2 bg-muted/30 rounded-lg text-xs">
+                          <div className="text-center"><div className="text-muted-foreground">Fat Mass</div><div className="font-medium">{currentFatMassLbs.toFixed(1)} lbs</div></div>
+                          <div className="text-center"><div className="text-muted-foreground">Lean Mass</div><div className="font-medium">{currentFFMLbs.toFixed(1)} lbs</div></div>
+                          <div className="text-center"><div className="text-muted-foreground">FMI</div><div className="font-medium">{currentFMI.toFixed(1)}</div></div>
+                          <div className="text-center"><div className="text-muted-foreground">FFMI</div><div className="font-medium">{currentFFMI.toFixed(1)}</div></div>
+                          <div className="text-center"><div className="text-muted-foreground">Height</div><div className="font-medium">{editCurrentHeightFt}&apos;{editCurrentHeightIn}&quot;</div></div>
                         </div>
                       </div>
-                    </div>
-                    
-                    {/* Rate of Change */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm font-medium">Weekly Rate of Change</Label>
-                        <Badge variant="outline" className="font-mono text-sm px-3 py-1">
-                          {rateOfChange.toFixed(1)}% BW/week
-                        </Badge>
+
+                      <Separator />
+
+                      {/* Phase Approach */}
+                      <TooltipProvider delayDuration={100}>
+                        <div className="space-y-4">
+                          <Label className="text-sm font-semibold">Phase Approach</Label>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Lifestyle Commitment</Label>
+                              <div className="flex gap-1">
+                                {([
+                                  { value: 'fully_committed', label: 'High' },
+                                  { value: 'moderately_committed', label: 'Moderate' },
+                                  { value: 'limited_commitment', label: 'Limited' },
+                                ] as const).map(o => (
+                                  <button key={o.value} type="button" onClick={() => setLifestyleCommitment(o.value)}
+                                    className={cn("flex-1 py-2 px-2 rounded-lg border text-center transition-all text-xs", lifestyleCommitment === o.value ? "border-[#c19962] bg-[#c19962]/10 font-medium" : "border-muted hover:border-muted-foreground/50")}
+                                  >{o.label}</button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Tracking Style</Label>
+                              <div className="flex gap-1">
+                                {([
+                                  { value: 'committed_tracking', label: 'Detailed' },
+                                  { value: 'casual_tracking', label: 'Intuitive' },
+                                ] as const).map(o => (
+                                  <button key={o.value} type="button" onClick={() => setTrackingCommitment(o.value)}
+                                    className={cn("flex-1 py-2 px-2 rounded-lg border text-center transition-all text-xs", trackingCommitment === o.value ? "border-[#c19962] bg-[#c19962]/10 font-medium" : "border-muted hover:border-muted-foreground/50")}
+                                  >{o.label}</button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {newPhaseGoal === 'fat_loss' && (
+                            <div className="space-y-2">
+                              <Label className="text-sm">Muscle Preservation Priority</Label>
+                              <RadioGroup value={musclePreservation} onValueChange={(v) => setMusclePreservation(v as MusclePreservation)} className="grid grid-cols-2 gap-2">
+                                <div className={cn("flex items-center space-x-2 p-3 border rounded-lg cursor-pointer", musclePreservation === 'preserve_all' && "border-[#c19962] bg-[#c19962]/5")}>
+                                  <RadioGroupItem value="preserve_all" id="edit_preserve_all" />
+                                  <Label htmlFor="edit_preserve_all" className="cursor-pointer text-xs"><span className="font-medium">Preserve All</span><p className="text-muted-foreground">Slower deficit, max muscle retention</p></Label>
+                                </div>
+                                <div className={cn("flex items-center space-x-2 p-3 border rounded-lg cursor-pointer", musclePreservation === 'accept_some_loss' && "border-[#c19962] bg-[#c19962]/5")}>
+                                  <RadioGroupItem value="accept_some_loss" id="edit_accept_some_loss" />
+                                  <Label htmlFor="edit_accept_some_loss" className="cursor-pointer text-xs"><span className="font-medium">Accept Some Loss</span><p className="text-muted-foreground">Faster progress, minor loss OK</p></Label>
+                                </div>
+                              </RadioGroup>
+                            </div>
+                          )}
+
+                          {newPhaseGoal === 'muscle_gain' && (
+                            <div className="space-y-2">
+                              <Label className="text-sm">Fat Gain Tolerance</Label>
+                              <RadioGroup value={fatGainTolerance} onValueChange={(v) => setFatGainTolerance(v as FatGainTolerance)} className="grid grid-cols-2 gap-2">
+                                <div className={cn("flex items-center space-x-2 p-3 border rounded-lg cursor-pointer", fatGainTolerance === 'minimize_fat_gain' && "border-[#c19962] bg-[#c19962]/5")}>
+                                  <RadioGroupItem value="minimize_fat_gain" id="edit_minimize_fat" />
+                                  <Label htmlFor="edit_minimize_fat" className="cursor-pointer text-xs"><span className="font-medium">Lean Gain</span><p className="text-muted-foreground">Slower gains, minimal fat</p></Label>
+                                </div>
+                                <div className={cn("flex items-center space-x-2 p-3 border rounded-lg cursor-pointer", fatGainTolerance === 'maximize_muscle' && "border-[#c19962] bg-[#c19962]/5")}>
+                                  <RadioGroupItem value="maximize_muscle" id="edit_maximize_muscle" />
+                                  <Label htmlFor="edit_maximize_muscle" className="cursor-pointer text-xs"><span className="font-medium">Max Muscle</span><p className="text-muted-foreground">Faster gains, accept some fat</p></Label>
+                                </div>
+                              </RadioGroup>
+                            </div>
+                          )}
+                        </div>
+                      </TooltipProvider>
+
+                      <Separator />
+
+                      {/* Target Body Composition with mode selector */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-semibold flex items-center gap-2 text-[#c19962]">
+                            <Target className="h-4 w-4" />
+                            Target Body Composition
+                          </Label>
+                          <Select value={targetMode} onValueChange={(v) => setTargetMode(v as typeof targetMode)}>
+                            <SelectTrigger className="w-36 h-7 text-xs"><SelectValue placeholder="Set by..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="independent">Fat Loss / Muscle Gain</SelectItem>
+                              <SelectItem value="bf">Body Fat %</SelectItem>
+                              <SelectItem value="fm">Fat Mass (lbs)</SelectItem>
+                              <SelectItem value="ffm">Lean Mass (lbs)</SelectItem>
+                              <SelectItem value="weight">Total Weight</SelectItem>
+                              <SelectItem value="fmi">FMI</SelectItem>
+                              <SelectItem value="ffmi">FFMI</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="p-3 border border-[#c19962]/50 rounded-lg bg-[#c19962]/5">
+                          {targetMode === 'bf' && (
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm"><Label>Target Body Fat %</Label><span className="font-medium text-[#c19962]">{targetBodyFat.toFixed(1)}%</span></div>
+                              <Slider value={[targetBodyFat]} onValueChange={([v]) => updateTargetsFromBF(v)} min={Math.max(5, currentBodyFat - 20)} max={Math.min(45, currentBodyFat + 10)} step={0.5} />
+                              <p className="text-xs text-muted-foreground">Current: {currentBodyFat.toFixed(1)}% → Change: {(targetBodyFat - currentBodyFat).toFixed(1)}%</p>
+                            </div>
+                          )}
+                          {targetMode === 'fm' && (
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm"><Label>Target Fat Mass (lbs)</Label><span className="font-medium text-[#c19962]">{targetFatMassLbs.toFixed(1)} lbs</span></div>
+                              <Slider value={[targetFatMassLbs]} onValueChange={([v]) => updateTargetsFromFM(v)} min={Math.max(5, currentFatMassLbs - 50)} max={currentFatMassLbs + 30} step={0.5} />
+                              <p className="text-xs text-muted-foreground">Current: {currentFatMassLbs.toFixed(1)} lbs → Change: {(targetFatMassLbs - currentFatMassLbs).toFixed(1)} lbs</p>
+                            </div>
+                          )}
+                          {targetMode === 'ffm' && (
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm"><Label>Target Lean Mass (lbs)</Label><span className="font-medium text-[#c19962]">{targetFFMLbs.toFixed(1)} lbs</span></div>
+                              <Slider value={[targetFFMLbs]} onValueChange={([v]) => updateTargetsFromFFM(v)} min={currentFFMLbs - 10} max={currentFFMLbs + 20} step={0.5} />
+                              <p className="text-xs text-muted-foreground">Current: {currentFFMLbs.toFixed(1)} lbs → Change: {(targetFFMLbs - currentFFMLbs).toFixed(1)} lbs</p>
+                            </div>
+                          )}
+                          {targetMode === 'weight' && (
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm"><Label>Target Weight (lbs)</Label><span className="font-medium text-[#c19962]">{targetWeightLbs.toFixed(1)} lbs</span></div>
+                              <Slider value={[targetWeightLbs]} onValueChange={([v]) => updateTargetsFromWeight(v)} min={currentWeightLbs - 50} max={currentWeightLbs + 30} step={0.5} />
+                              <p className="text-xs text-muted-foreground">Current: {currentWeightLbs.toFixed(1)} lbs → Change: {(targetWeightLbs - currentWeightLbs).toFixed(1)} lbs</p>
+                            </div>
+                          )}
+                          {targetMode === 'fmi' && (
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm"><Label>Target FMI</Label><span className="font-medium text-[#c19962]">{targetFMI.toFixed(1)}</span></div>
+                              <Slider value={[targetFMI]} onValueChange={([v]) => updateTargetsFromFMI(v)} min={Math.max(1, currentFMI - 5)} max={currentFMI + 3} step={0.1} />
+                              <p className="text-xs text-muted-foreground">Current: {currentFMI.toFixed(1)} → Healthy: 3-6 (men), 5-9 (women)</p>
+                            </div>
+                          )}
+                          {targetMode === 'ffmi' && (
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm"><Label>Target FFMI</Label><span className="font-medium text-[#c19962]">{targetFFMI.toFixed(1)}</span></div>
+                              <Slider value={[targetFFMI]} onValueChange={([v]) => updateTargetsFromFFMI(v)} min={currentFFMI - 2} max={Math.min(28, currentFFMI + 4)} step={0.1} />
+                              <p className="text-xs text-muted-foreground">Current: {currentFFMI.toFixed(1)} → Natural max ~25</p>
+                            </div>
+                          )}
+                          {targetMode === 'independent' && (
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                  <Label className="flex items-center gap-1.5"><Flame className="h-3.5 w-3.5 text-orange-500" />Fat to Lose (lbs)</Label>
+                                  <span className="font-medium text-orange-500">{fatToLose.toFixed(1)} lbs</span>
+                                </div>
+                                <NumericInput value={fatToLose} onChange={(v) => { const val = v ?? 0; setFatToLose(val); updateTargetsFromIndependent(val, muscleToGain); }} min={0} max={currentFatMassLbs} step={0.5} suffix="lbs" className="h-9" />
+                                <p className="text-xs text-muted-foreground">Current FM: {currentFatMassLbs.toFixed(1)} lbs → Goal: {Math.max(0, currentFatMassLbs - fatToLose).toFixed(1)} lbs</p>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                  <Label className="flex items-center gap-1.5"><Dumbbell className="h-3.5 w-3.5 text-blue-500" />Muscle to Gain (lbs)</Label>
+                                  <span className="font-medium text-blue-500">{muscleToGain.toFixed(1)} lbs</span>
+                                </div>
+                                <NumericInput value={muscleToGain} onChange={(v) => { const val = v ?? 0; setMuscleToGain(val); updateTargetsFromIndependent(fatToLose, val); }} min={0} max={20} step={0.5} suffix="lbs" className="h-9" />
+                                <p className="text-xs text-muted-foreground">Current FFM: {currentFFMLbs.toFixed(1)} lbs → Goal: {(currentFFMLbs + muscleToGain).toFixed(1)} lbs</p>
+                              </div>
+                              <div className="p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+                                Net weight change: {(muscleToGain - fatToLose) >= 0 ? '+' : ''}{(muscleToGain - fatToLose).toFixed(1)} lbs ({currentWeightLbs.toFixed(0)} → {(currentWeightLbs - fatToLose + muscleToGain).toFixed(1)} lbs)
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Target Summary */}
+                        <div className="grid grid-cols-6 gap-2 p-2 bg-[#c19962]/10 rounded-lg text-xs border border-[#c19962]/30">
+                          <div className="text-center"><div className="text-muted-foreground">Weight</div><div className="font-medium text-[#c19962]">{targetWeightLbs.toFixed(1)}</div></div>
+                          <div className="text-center"><div className="text-muted-foreground">BF%</div><div className="font-medium text-[#c19962]">{targetBodyFat.toFixed(1)}%</div></div>
+                          <div className="text-center"><div className="text-muted-foreground">Fat Mass</div><div className="font-medium text-[#c19962]">{targetFatMassLbs.toFixed(1)}</div></div>
+                          <div className="text-center"><div className="text-muted-foreground">Lean Mass</div><div className="font-medium text-[#c19962]">{targetFFMLbs.toFixed(1)}</div></div>
+                          <div className="text-center"><div className="text-muted-foreground">FMI</div><div className="font-medium text-[#c19962]">{targetFMI.toFixed(1)}</div></div>
+                          <div className="text-center"><div className="text-muted-foreground">FFMI</div><div className="font-medium text-[#c19962]">{targetFFMI.toFixed(1)}</div></div>
+                        </div>
                       </div>
-                      <Slider
-                        value={[rateOfChange]}
-                        onValueChange={([v]) => setRateOfChange(v)}
-                        min={0.1}
-                        max={1.5}
-                        step={0.05}
-                        className="py-2"
-                      />
-                      <div className="flex justify-between text-[10px] text-muted-foreground">
-                        <span>Conservative (0.1%)</span>
-                        <span>Moderate (0.5%)</span>
-                        <span>Aggressive (1.5%)</span>
+
+                      <Separator />
+
+                      {/* Rate of Change */}
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <Label className="text-sm font-semibold">Rate of Change</Label>
+                          <Badge variant="outline" className="text-sm px-3 py-1">{rateOfChange.toFixed(2)}% BW/week</Badge>
+                        </div>
+                        {newPhaseGoal === 'fat_loss' && (
+                          <div className="grid grid-cols-5 gap-2">
+                            {[
+                              { rate: 0.3, label: 'Conservative', color: 'green' },
+                              { rate: 0.5, label: 'Moderate', color: 'blue' },
+                              { rate: 0.75, label: 'Aggressive', color: 'orange' },
+                              { rate: 1.0, label: 'Very Aggressive', color: 'red' },
+                            ].map(p => (
+                              <button key={p.rate} type="button" onClick={() => setRateOfChange(p.rate)}
+                                className={cn("p-2 rounded-lg border-2 text-center transition-all text-xs",
+                                  rateOfChange === p.rate
+                                    ? p.color === 'green' ? "border-green-500 bg-green-50" : p.color === 'blue' ? "border-blue-500 bg-blue-50" : p.color === 'orange' ? "border-orange-500 bg-orange-50" : "border-red-500 bg-red-50"
+                                    : "hover:border-muted-foreground/50"
+                                )}
+                              ><p className="font-bold">{p.rate}%</p><p className="text-[10px]">{p.label}</p></button>
+                            ))}
+                            <div className={cn("p-2 rounded-lg border-2 text-center flex flex-col justify-center", ![0.3, 0.5, 0.75, 1.0].includes(rateOfChange) ? "border-[#c19962] bg-[#c19962]/10" : "")}>
+                              <p className="text-[10px] text-muted-foreground mb-1">Custom</p>
+                              <NumericInput value={rateOfChange} onChange={(v) => setRateOfChange(v ?? 0.5)} step={0.05} min={0.1} max={1.5} className="h-7 w-14 mx-auto text-center text-xs p-1" suffix="%" />
+                            </div>
+                          </div>
+                        )}
+                        {newPhaseGoal !== 'fat_loss' && (
+                          <>
+                            <Slider value={[rateOfChange]} onValueChange={([v]) => setRateOfChange(v)} min={0.1} max={1.5} step={0.05} className="py-2" />
+                            <div className="flex justify-between text-[10px] text-muted-foreground">
+                              <span>Conservative (0.1%)</span><span>Moderate (0.5%)</span><span>Aggressive (1.5%)</span>
+                            </div>
+                          </>
+                        )}
                       </div>
-                    </div>
+
+                      {/* Change Summary */}
+                      <div className="p-3 rounded-lg bg-muted/50 text-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                          {newPhaseGoal === 'fat_loss' ? <TrendingDown className="h-4 w-4 text-orange-500" /> : newPhaseGoal === 'muscle_gain' ? <TrendingUp className="h-4 w-4 text-blue-500" /> : <Scale className="h-4 w-4 text-green-500" />}
+                          <span className="font-medium">Phase Change Summary</span>
+                        </div>
+                        <p className="text-muted-foreground text-xs">
+                          {newPhaseGoal === 'fat_loss' ? (
+                            <>Lose <strong>{Math.abs(currentWeightLbs - targetWeightLbs).toFixed(1)} lbs</strong> ({Math.abs(currentFatMassLbs - targetFatMassLbs).toFixed(1)} lbs fat, {Math.abs(currentFFMLbs - targetFFMLbs).toFixed(1)} lbs lean)</>
+                          ) : newPhaseGoal === 'muscle_gain' ? (
+                            <>Gain <strong>{Math.abs(targetWeightLbs - currentWeightLbs).toFixed(1)} lbs</strong> ({Math.abs(targetFFMLbs - currentFFMLbs).toFixed(1)} lbs muscle, {Math.abs(targetFatMassLbs - currentFatMassLbs).toFixed(1)} lbs fat)</>
+                          ) : newPhaseGoal === 'recomposition' ? (
+                            <>Recomposition: {Math.abs(currentFatMassLbs - targetFatMassLbs).toFixed(1)} lbs fat → {Math.abs(targetFFMLbs - currentFFMLbs).toFixed(1)} lbs muscle</>
+                          ) : <>Body composition targets set for this phase</>}
+                        </p>
+                      </div>
+                      </>
+                    )}
                   </div>
                   
                   <DialogFooter className="pt-4 gap-2 sm:gap-2">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        setShowEditDialog(false);
-                        setEditingPhase(null);
-                      }}
-                      className="h-10"
-                    >
+                    <Button variant="outline" onClick={() => { setShowEditDialog(false); setEditingPhase(null); }} className="h-10">
                       Cancel
                     </Button>
-                    <Button 
-                      onClick={handleSaveEditedPhase}
-                      className="h-10 bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
-                    >
+                    <Button onClick={handleSaveEditedPhase} className="h-10 bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]">
                       <CheckCircle2 className="h-4 w-4 mr-2" />
                       Save Changes
                     </Button>
