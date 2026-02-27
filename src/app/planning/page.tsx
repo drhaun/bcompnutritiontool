@@ -441,11 +441,20 @@ export default function PlanningPage() {
         setPredecessorPhase(latestPhase);
         
         // Pre-populate "current" stats from projected end-state of predecessor
-        setEditCurrentWeight(projected.weight);
-        setEditCurrentBodyFat(projected.bodyFat);
+        setEditCurrentWeight(Math.round(projected.weight * 10) / 10);
+        setEditCurrentBodyFat(Math.round(projected.bodyFat * 10) / 10);
         
-        // Start date = predecessor's end date
-        setNewPhaseStart(latestPhase.endDate);
+        // Start date = day AFTER predecessor ends (avoids overlap conflict)
+        const dayAfter = new Date(latestPhase.endDate);
+        dayAfter.setDate(dayAfter.getDate() + 1);
+        setNewPhaseStart(dayAfter.toISOString().split('T')[0]);
+
+        // Inherit phase settings from predecessor (editable in the wizard)
+        setPerformancePriority(latestPhase.performancePriority || 'body_comp_priority');
+        setMusclePreservation(latestPhase.musclePreservation || 'preserve_all');
+        setFatGainTolerance(latestPhase.fatGainTolerance || 'minimize_fat_gain');
+        setLifestyleCommitment(latestPhase.lifestyleCommitment || 'fully_committed');
+        setTrackingCommitment(latestPhase.trackingCommitment || 'committed_tracking');
         
         // Carry forward custom metrics as starting values for non-body-comp goals
         if (projected.customMetrics?.length) {
@@ -504,10 +513,10 @@ export default function PlanningPage() {
         setTargetFFMLbs(Math.round((weight - targetFM) * 10) / 10);
         setRateOfChange(0.25);
       } else {
-        setTargetWeightLbs(weight);
-        setTargetBodyFat(bf);
-        setTargetFatMassLbs(fm);
-        setTargetFFMLbs(ffm);
+        setTargetWeightLbs(Math.round(weight * 10) / 10);
+        setTargetBodyFat(Math.round(bf * 10) / 10);
+        setTargetFatMassLbs(Math.round(fm * 10) / 10);
+        setTargetFFMLbs(Math.round(ffm * 10) / 10);
         setRateOfChange(0);
       }
     }
@@ -946,10 +955,10 @@ export default function PlanningPage() {
       startDate: newPhaseStart,
       endDate: newPhaseEnd,
       status: 'planned',
-      targetWeightLbs: hasBodyComp ? targetWeightLbs : 0,
-      targetBodyFat: hasBodyComp ? targetBodyFat : 0,
-      targetFatMassLbs: hasBodyComp ? targetFatMassLbs : 0,
-      targetFFMLbs: hasBodyComp ? targetFFMLbs : 0,
+      targetWeightLbs: hasBodyComp ? Math.round(targetWeightLbs * 10) / 10 : 0,
+      targetBodyFat: hasBodyComp ? Math.round(targetBodyFat * 10) / 10 : 0,
+      targetFatMassLbs: hasBodyComp ? Math.round(targetFatMassLbs * 10) / 10 : 0,
+      targetFFMLbs: hasBodyComp ? Math.round(targetFFMLbs * 10) / 10 : 0,
       rateOfChange: hasBodyComp ? rateOfChange : 0,
       performancePriority,
       musclePreservation,
@@ -957,8 +966,8 @@ export default function PlanningPage() {
       lifestyleCommitment,
       trackingCommitment,
       // Store starting body comp for reference
-      startingWeightLbs: hasBodyComp ? editCurrentWeight : 0,
-      startingBodyFat: hasBodyComp ? editCurrentBodyFat : 0,
+      startingWeightLbs: hasBodyComp ? Math.round(editCurrentWeight * 10) / 10 : 0,
+      startingBodyFat: hasBodyComp ? Math.round(editCurrentBodyFat * 10) / 10 : 0,
       // Store custom metrics
       customMetrics: customMetrics.length > 0 ? customMetrics : undefined,
     });
@@ -1518,19 +1527,19 @@ export default function PlanningPage() {
                               <div className="grid grid-cols-4 gap-2 mt-2 p-2 bg-background/80 rounded text-xs">
                                 <div>
                                   <div className="text-muted-foreground">Proj. Weight</div>
-                                  <div className="font-semibold">{proj.weight} lbs</div>
+                                  <div className="font-semibold">{Math.round(proj.weight * 10) / 10} lbs</div>
                                 </div>
                                 <div>
                                   <div className="text-muted-foreground">Proj. Body Fat</div>
-                                  <div className="font-semibold">{proj.bodyFat}%</div>
+                                  <div className="font-semibold">{(Math.round(proj.bodyFat * 10) / 10)}%</div>
                                 </div>
                                 <div>
                                   <div className="text-muted-foreground">Proj. Lean Mass</div>
-                                  <div className="font-semibold">{proj.ffm} lbs</div>
+                                  <div className="font-semibold">{Math.round(proj.ffm * 10) / 10} lbs</div>
                                 </div>
                                 <div>
                                   <div className="text-muted-foreground">Proj. Fat Mass</div>
-                                  <div className="font-semibold">{proj.fatMass} lbs</div>
+                                  <div className="font-semibold">{Math.round(proj.fatMass * 10) / 10} lbs</div>
                                 </div>
                                 {proj.source === 'check-in' && proj.checkInDate && (
                                   <div className="col-span-4 text-muted-foreground pt-1 border-t">

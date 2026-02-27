@@ -356,13 +356,17 @@ const PhaseTargetsPDF: React.FC<PhaseTargetsPDFProps & { logoSrc: string | null 
 }) => {
   const weightChange = targetStats.weight - currentStats.weight;
   const bfChange = targetStats.bodyFat - currentStats.bodyFat;
+  const fmChange = targetStats.fatMass - currentStats.fatMass;
+  const lmChange = targetStats.leanMass - currentStats.leanMass;
   
-  const goalTypeLabel = {
-    lose_fat: 'Fat Loss Phase',
-    gain_muscle: 'Muscle Building Phase',
-    maintain: 'Maintenance Phase',
-    recomp: 'Body Recomposition',
-  }[phase.goalType] || phase.goalType;
+  const goalTypeLabel: string = ({
+    fat_loss: 'Fat Loss',
+    muscle_gain: 'Muscle Gain',
+    recomposition: 'Body Recomposition',
+    performance: 'Performance',
+    health: 'Health Focus',
+    other: 'Custom',
+  } as Record<string, string>)[phase.goalType] || phase.goalType;
 
   return (
     <Document>
@@ -416,24 +420,48 @@ const PhaseTargetsPDF: React.FC<PhaseTargetsPDFProps & { logoSrc: string | null 
           <View style={styles.goalsContainer}>
             <View style={styles.goalBox}>
               <Text style={styles.goalValue}>{currentStats.weight.toFixed(0)}</Text>
-              <Text style={styles.goalLabel}>Current Weight (lbs)</Text>
+              <Text style={styles.goalLabel}>Starting Weight (lbs)</Text>
             </View>
             <View style={styles.goalBox}>
               <Text style={styles.goalValue}>{targetStats.weight.toFixed(0)}</Text>
-              <Text style={styles.goalLabel}>Target Weight (lbs)</Text>
+              <Text style={styles.goalLabel}>Projected Weight (lbs)</Text>
               <Text style={[styles.goalChange, { color: weightChange < 0 ? COLORS.success : weightChange > 0 ? '#3b82f6' : COLORS.muted }]}>
                 {weightChange > 0 ? '+' : ''}{weightChange.toFixed(1)} lbs
               </Text>
             </View>
             <View style={styles.goalBox}>
               <Text style={styles.goalValue}>{currentStats.bodyFat.toFixed(1)}%</Text>
-              <Text style={styles.goalLabel}>Current Body Fat</Text>
+              <Text style={styles.goalLabel}>Starting Body Fat</Text>
             </View>
             <View style={styles.goalBox}>
               <Text style={styles.goalValue}>{targetStats.bodyFat.toFixed(1)}%</Text>
-              <Text style={styles.goalLabel}>Target Body Fat</Text>
+              <Text style={styles.goalLabel}>Projected Body Fat</Text>
               <Text style={[styles.goalChange, { color: bfChange < 0 ? COLORS.success : bfChange > 0 ? COLORS.warning : COLORS.muted }]}>
                 {bfChange > 0 ? '+' : ''}{bfChange.toFixed(1)}%
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.goalsContainer, { marginTop: 6 }]}>
+            <View style={styles.goalBox}>
+              <Text style={styles.goalValue}>{currentStats.fatMass.toFixed(1)}</Text>
+              <Text style={styles.goalLabel}>Starting Fat Mass (lbs)</Text>
+            </View>
+            <View style={styles.goalBox}>
+              <Text style={styles.goalValue}>{targetStats.fatMass.toFixed(1)}</Text>
+              <Text style={styles.goalLabel}>Projected Fat Mass (lbs)</Text>
+              <Text style={[styles.goalChange, { color: fmChange < 0 ? COLORS.success : fmChange > 0 ? COLORS.warning : COLORS.muted }]}>
+                {fmChange > 0 ? '+' : ''}{fmChange.toFixed(1)} lbs
+              </Text>
+            </View>
+            <View style={styles.goalBox}>
+              <Text style={styles.goalValue}>{currentStats.leanMass.toFixed(1)}</Text>
+              <Text style={styles.goalLabel}>Starting Lean Mass (lbs)</Text>
+            </View>
+            <View style={styles.goalBox}>
+              <Text style={styles.goalValue}>{targetStats.leanMass.toFixed(1)}</Text>
+              <Text style={styles.goalLabel}>Projected Lean Mass (lbs)</Text>
+              <Text style={[styles.goalChange, { color: lmChange > 0 ? COLORS.success : lmChange < 0 ? COLORS.warning : COLORS.muted }]}>
+                {lmChange > 0 ? '+' : ''}{lmChange.toFixed(1)} lbs
               </Text>
             </View>
           </View>
