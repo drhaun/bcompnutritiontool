@@ -613,15 +613,20 @@ export default function SetupPage() {
     return () => { cancelled = true; };
   }, [isHydrated, activeClientId]);
 
-  // Helper: format source badge text
-  const dataSourceLabel = useCallback((source: Record<string, unknown> | undefined) => {
+  // Helper: format source badge info
+  const dataSourceInfo = useCallback((source: Record<string, unknown> | undefined) => {
     if (!source?._dataSource) return null;
     const ds = source._dataSource as { source?: string; updatedAt?: string };
     if (!ds.source) return null;
-    const label = ds.source === 'intake_form' ? 'Client submitted' : 'Coach updated';
+    const isClient = ds.source === 'intake_form';
+    const label = isClient ? 'Client submitted' : 'Coach updated';
     const date = ds.updatedAt ? new Date(ds.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-    return `${label}${date ? ` · ${date}` : ''}`;
+    return { label: `${label}${date ? ` · ${date}` : ''}`, isClient };
   }, []);
+  const dataSourceLabel = useCallback((source: Record<string, unknown> | undefined) => {
+    const info = dataSourceInfo(source);
+    return info?.label ?? null;
+  }, [dataSourceInfo]);
 
   // Track if we've initialized local state from store (only do this ONCE)
   const hasInitializedFromStore = useRef(false);
@@ -645,8 +650,16 @@ export default function SetupPage() {
       setHeightInStr(String(userProfile.heightIn ?? 10));
       setWeightStr(String(userProfile.weightLbs || 180));
       setBfStr(String(userProfile.bodyFatPercentage || 20));
-      setMeasuredBFPercent(userProfile.bodyFatPercentage || 20);
-      setEstimatedBFPercent(userProfile.bodyFatPercentage || 20);
+      if ((userProfile as Record<string, unknown>).bodyFatSource === 'measured') {
+        setUseMeasuredBF(true);
+        setMeasuredBFPercent(userProfile.bodyFatPercentage || 20);
+      } else if ((userProfile as Record<string, unknown>).bodyFatSource === 'estimate') {
+        setUseMeasuredBF(false);
+        setEstimatedBFPercent(userProfile.bodyFatPercentage || 20);
+      } else {
+        setMeasuredBFPercent(userProfile.bodyFatPercentage || 20);
+        setEstimatedBFPercent(userProfile.bodyFatPercentage || 20);
+      }
       setPerformancePriority(bodyCompGoals.performancePriority || 'body_comp_priority');
       setMusclePreservation(bodyCompGoals.musclePreservation || 'preserve_all');
       setFatGainTolerance(bodyCompGoals.fatGainTolerance || 'minimize_fat_gain');
@@ -2062,8 +2075,8 @@ export default function SetupPage() {
                         <User className="h-5 w-5 text-[#c19962]" />
                         Basic Information
                       </CardTitle>
-                      {dataSourceLabel(userProfile as Record<string, unknown>) && (
-                        <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
+                      {dataSourceInfo(userProfile as Record<string, unknown>) && (
+                        <Badge variant="outline" className={cn("text-xs font-medium", dataSourceInfo(userProfile as Record<string, unknown>)?.isClient ? "border-amber-300 bg-amber-50 text-amber-700" : "border-blue-300 bg-blue-50 text-blue-700")}>
                           {dataSourceLabel(userProfile as Record<string, unknown>)}
                         </Badge>
                       )}
@@ -2435,8 +2448,8 @@ export default function SetupPage() {
                         Body Composition
                       </CardTitle>
                       <div className="flex items-center gap-2">
-                        {dataSourceLabel(userProfile as Record<string, unknown>) && (
-                          <Badge variant="outline" className="text-xs font-normal text-muted-foreground">
+                        {dataSourceInfo(userProfile as Record<string, unknown>) && (
+                          <Badge variant="outline" className={cn("text-xs font-medium", dataSourceInfo(userProfile as Record<string, unknown>)?.isClient ? "border-amber-300 bg-amber-50 text-amber-700" : "border-blue-300 bg-blue-50 text-blue-700")}>
                             {dataSourceLabel(userProfile as Record<string, unknown>)}
                           </Badge>
                         )}
@@ -2636,35 +2649,46 @@ export default function SetupPage() {
                   <CardContent className="space-y-6">
                     {/* Intake submission banner for metabolic data */}
                     {!!intakeSubmission?.formData?.userProfile?.metabolicAssessment && (
-                      <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm dark:bg-amber-950/20 dark:border-amber-800">
-                        <ArrowDownToLine className="h-4 w-4 mt-0.5 text-amber-600 flex-shrink-0" />
+                      <div className="flex items-start gap-3 p-4 bg-amber-50 border-2 border-amber-300 rounded-xl text-sm dark:bg-amber-950/20 dark:border-amber-800">
+                        <ArrowDownToLine className="h-5 w-5 mt-0.5 text-amber-600 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-amber-800 dark:text-amber-200">
+                          <p className="font-semibold text-amber-800 dark:text-amber-200">
                             Client submitted metabolic data
                             {intakeSubmission.submittedAt && (
                               <span className="font-normal text-amber-600 dark:text-amber-400">
-                                {' · '}{new Date(intakeSubmission.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                {' · '}{new Date(intakeSubmission.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                               </span>
                             )}
                           </p>
-                          <p className="text-amber-700 dark:text-amber-300 mt-0.5">
+                          <div className="text-amber-700 dark:text-amber-300 mt-1 space-y-0.5">
                             {(() => {
                               const ma = intakeSubmission.formData.userProfile!.metabolicAssessment as Record<string, unknown>;
-                              if (ma?.measuredRMR) return `Measured RMR: ${String(ma.measuredRMR)} kcal/day`;
-                              if (ma?.rmrSource === 'estimated') return 'RMR: Estimated (no measured value)';
-                              return 'RMR data submitted';
-                            })() as string}
-                          </p>
+                              const lines: string[] = [];
+                              if (ma?.measuredRMR) lines.push(`Measured RMR: ${String(ma.measuredRMR)} kcal/day`);
+                              else if (ma?.useMeasuredRMR === false) lines.push('RMR: Estimated (no measured value)');
+                              if (ma?.useMeasuredBF && ma?.measuredBFPercent) lines.push(`Measured Body Fat: ${String(ma.measuredBFPercent)}%`);
+                              else if (ma?.estimatedBFPercent) lines.push(`Estimated Body Fat: ${String(ma.estimatedBFPercent)}%`);
+                              return lines.length > 0 ? lines.map((l, i) => <p key={i}>{l}</p>) : <p>Metabolic data submitted</p>;
+                            })()}
+                          </div>
                         </div>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/40 flex-shrink-0"
+                          className="border-amber-400 text-amber-800 hover:bg-amber-100 font-semibold dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/40 flex-shrink-0"
                           onClick={() => {
                             const ma = intakeSubmission.formData.userProfile!.metabolicAssessment as Record<string, unknown>;
                             if (ma?.measuredRMR) {
                               setUseMeasuredRMR(true);
                               setMeasuredRMR(Number(ma.measuredRMR));
+                            }
+                            if (ma?.useMeasuredBF !== undefined) {
+                              setUseMeasuredBF(!!ma.useMeasuredBF);
+                              if (ma.useMeasuredBF && ma.measuredBFPercent) {
+                                setMeasuredBFPercent(Number(ma.measuredBFPercent));
+                              } else if (ma.estimatedBFPercent) {
+                                setEstimatedBFPercent(Number(ma.estimatedBFPercent));
+                              }
                             }
                             toast.success('Applied metabolic data from intake form');
                           }}

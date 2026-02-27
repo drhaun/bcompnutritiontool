@@ -126,6 +126,7 @@ export async function PATCH(
     }
 
     // On completion, create an immutable form_submission snapshot (includes ALL fields, even sensitive ones)
+    // and create a draft body composition phase from goal data
     if (body.completed) {
       try {
         const { data: tagRow } = await supabase
@@ -157,7 +158,7 @@ export async function PATCH(
 
         const { data: fullClient } = await supabase
           .from('clients')
-          .select('user_profile, diet_preferences, weekly_schedule, name, email, stripe_payment_id')
+          .select('user_profile, diet_preferences, weekly_schedule, name, email, stripe_payment_id, phases')
           .eq('id', client.id)
           .single();
 
@@ -180,6 +181,73 @@ export async function PATCH(
           submitted_at: now,
           stripe_payment_id: fullClient?.stripe_payment_id || null,
         });
+
+        // Create a draft body composition phase from the submitted goal data
+        const up = body.userProfile || {};
+        const goalType = up.goalType;
+        const hasGoalData = goalType && (goalType === 'fat_loss' || goalType === 'muscle_gain' || goalType === 'recomposition');
+        if (hasGoalData) {
+          try {
+            const existingPhases = (fullClient?.phases as unknown[] || []) as Array<Record<string, unknown>>;
+
+            const phaseId = `phase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const startDate = new Date().toISOString().split('T')[0];
+            const endDate = new Date(Date.now() + 12 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+            const GOAL_LABELS: Record<string, string> = { fat_loss: 'Fat Loss', muscle_gain: 'Muscle Gain', recomposition: 'Recomp' };
+            const phaseName = `${GOAL_LABELS[goalType] || 'Body Comp'} Phase (Draft)`;
+
+            // Goal projections from computeGoalPayload use the client's unit system;
+            // Phase targets are always stored in lbs, so convert if metric.
+            const isMetric = up.unitSystem === 'metric';
+            const toLbs = (v: number) => isMetric ? v * 2.205 : v;
+
+            const weightLbs = up.weightLbs || (isMetric && up.weightKg ? up.weightKg * 2.205 : 170);
+            const bodyFatPct = up.bodyFatPercentage || 20;
+            const targetWeightLbs = up.goalWeight ? toLbs(up.goalWeight) : weightLbs;
+            const targetBodyFat = up.goalBodyFatPercent || bodyFatPct;
+            const targetFatMassLbs = up.goalFatMass ? toLbs(up.goalFatMass) : (targetWeightLbs * (targetBodyFat / 100));
+            const targetFFMLbs = up.goalFFM ? toLbs(up.goalFFM) : (targetWeightLbs - targetFatMassLbs);
+            const rateOfChange = up.rateOfChange || 0.5;
+
+            const newPhase = {
+              id: phaseId,
+              name: phaseName,
+              goalType,
+              status: 'planned',
+              startDate,
+              endDate,
+              startingWeightLbs: weightLbs,
+              startingBodyFat: bodyFatPct,
+              targetWeightLbs,
+              targetBodyFat,
+              targetFatMassLbs,
+              targetFFMLbs,
+              rateOfChange,
+              performancePriority: 'body_comp_priority',
+              musclePreservation: 'preserve_all',
+              fatGainTolerance: 'minimize_fat_gain',
+              lifestyleCommitment: 'fully_committed',
+              trackingCommitment: 'committed_tracking',
+              scheduleOverrides: null,
+              nutritionTargets: [],
+              mealPlan: null,
+              notes: `Auto-created from intake form submission on ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+              createdAt: now,
+              updatedAt: now,
+            };
+
+            const updatedPhases = [...existingPhases, newPhase];
+            await supabase
+              .from('clients')
+              .update({ phases: updatedPhases, active_phase_id: phaseId })
+              .eq('id', client.id);
+
+            console.log('[Intake Save] Created draft phase:', phaseId, phaseName);
+          } catch (phaseErr) {
+            console.error('[Intake Save] Draft phase creation error:', phaseErr);
+          }
+        }
       } catch (subErr) {
         console.error('[Intake Save] form_submission insert error:', subErr);
       }

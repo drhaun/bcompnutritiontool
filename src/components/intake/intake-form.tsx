@@ -295,7 +295,7 @@ function computeGoalPayload(f: FormState) {
 
   const rate = getRateValue(f.goalType, f.goalRate, f.recompBias);
   const wkly = (rate / 100) * curWt;
-  const total = wkly * 8;
+  const total = wkly * 12;
   const curFM = curWt * (curBf / 100);
   const curFFM = curWt - curFM;
 
@@ -305,9 +305,8 @@ function computeGoalPayload(f: FormState) {
   } else if (f.goalType === 'muscle_gain') {
     pFFM = curFFM + total * 0.6; pFM = curFM + total * 0.4;
   } else {
-    // Recomp defaults
-    pFM = Math.max(0, curFM - curWt * 0.003 * 8);
-    pFFM = curFFM + curWt * 0.001 * 8;
+    pFM = Math.max(0, curFM - curWt * 0.003 * 12);
+    pFFM = curFFM + curWt * 0.001 * 12;
   }
   const pWt = pFM + pFFM;
   const pBf = pWt > 0 ? (pFM / pWt) * 100 : 0;
@@ -343,6 +342,7 @@ function formToPayload(f: FormState) {
       unitSystem: f.unitSystem,
       heightFt, heightIn, heightCm: Math.round(teamHeightCm), weightLbs: Math.round(teamWeightLbs * 10) / 10, weightKg: Math.round(teamWeightKg * 10) / 10,
       bodyFatPercentage: parseFloat(f.bodyFatPercent) || 20,
+      bodyFatSource: f.bodyFatSource,
       goalType: f.goalType,
       goalRate: f.goalRate,
       recompBias: f.goalType === 'recomposition' ? f.recompBias : undefined,
@@ -351,7 +351,24 @@ function formToPayload(f: FormState) {
       activityLevel: f.activityLevel,
       workoutsPerWeek: f.weeklyActivity.filter(d => d.length > 0).length || f.workoutsPerWeek,
       workoutDefaults: { type: f.defaultWorkoutType, duration: f.defaultDuration, intensity: f.defaultIntensity, timeSlot: f.defaultTimeSlot },
-      metabolicAssessment: f.useMeasuredRMR ? { useMeasuredRMR: true, measuredRMR: parseInt(f.measuredRMR) || undefined } : undefined,
+      metabolicAssessment: (() => {
+        const ma: Record<string, unknown> = {};
+        if (f.useMeasuredRMR) {
+          ma.useMeasuredRMR = true;
+          ma.measuredRMR = parseInt(f.measuredRMR) || undefined;
+        }
+        const bfVal = parseFloat(f.bodyFatPercent) || 0;
+        if (bfVal > 0) {
+          const isMeasuredBF = f.bodyFatSource === 'measured';
+          ma.useMeasuredBF = isMeasuredBF;
+          if (isMeasuredBF) {
+            ma.measuredBFPercent = bfVal;
+          } else {
+            ma.estimatedBFPercent = bfVal;
+          }
+        }
+        return Object.keys(ma).length > 0 ? ma : undefined;
+      })(),
       weeklyActivity: f.weeklyActivity,
       healthGoals: f.healthGoals, performanceGoals: f.performanceGoals, additionalNotes: f.additionalNotes,
       addresses: f.addresses,
@@ -1008,9 +1025,9 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
         // Rate presets per goal type
         const ratePercent = getRateValue(form.goalType, form.goalRate, form.recompBias);
         const weeklyChangeLbs = (ratePercent / 100) * currentWt;
-        const phaseWeeks = 8;
+        const phaseWeeks = 12;
 
-        // Projection: compute 8-week targets from rate
+        // Projection: compute 12-week targets from rate
         const computeProjection = () => {
           if (!hasBodyComp) return { wt: 0, bf: 0, fm: 0, ffm: 0 };
           const gt = form.goalType;
@@ -1150,11 +1167,38 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
               </div>
             )}
 
-            {/* 8-Week Projection */}
+            {/* Current Measurements Reference */}
+            {hasBodyComp && (
+              <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">
+                  <p className="text-xs font-semibold text-gray-600">Your Current Measurements</p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 divide-x divide-gray-100">
+                  <div className="p-3 text-center">
+                    <p className="text-[10px] text-gray-400 font-medium">Weight</p>
+                    <p className="text-sm font-bold text-gray-800">{currentWt.toFixed(0)} {wUnit}</p>
+                  </div>
+                  <div className="p-3 text-center">
+                    <p className="text-[10px] text-gray-400 font-medium">Body Fat</p>
+                    <p className="text-sm font-bold text-gray-800">{currentBf.toFixed(1)}%</p>
+                  </div>
+                  <div className="p-3 text-center">
+                    <p className="text-[10px] text-red-400 font-medium">Fat Mass</p>
+                    <p className="text-sm font-bold text-red-600">{currentFM.toFixed(1)} {wUnit}</p>
+                  </div>
+                  <div className="p-3 text-center">
+                    <p className="text-[10px] text-blue-400 font-medium">Lean Mass</p>
+                    <p className="text-sm font-bold text-blue-600">{currentFFM.toFixed(1)} {wUnit}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 12-Week Projection */}
             {hasBodyComp && (
               <div className="rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-3 py-2 bg-[#00263d]/5 border-b border-gray-200">
-                  <p className="text-xs font-semibold text-[#00263d]">8-Week Projection</p>
+                  <p className="text-xs font-semibold text-[#00263d]">12-Week Projection</p>
                   <p className="text-[10px] text-gray-500">Based on your current stats and selected approach</p>
                 </div>
                 <div className="grid grid-cols-4 text-center text-[10px] font-medium text-gray-400 bg-gray-50 py-1.5 border-b border-gray-100">
@@ -1204,7 +1248,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
 
             {/* Override targets */}
             {hasBodyComp && (show('goalFM') || show('goalFFM')) && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <button type="button" onClick={() => {
                   if (form.goalFatMass || form.goalFFM) {
                     set('goalFatMass', ''); set('goalFFM', '');
@@ -1212,8 +1256,13 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
                     set('goalFatMass', proj.fm > 0 ? proj.fm.toFixed(1) : '');
                     set('goalFFM', proj.ffm > 0 ? proj.ffm.toFixed(1) : '');
                   }
-                }} className="text-xs text-[#c19962] font-medium hover:underline">
-                  {(form.goalFatMass || form.goalFFM) ? 'Reset to projected values' : 'Customize targets manually'}
+                }} className={cn(
+                  'w-full py-3 px-4 rounded-xl border-2 border-dashed text-sm font-semibold transition-all text-center',
+                  (form.goalFatMass || form.goalFFM)
+                    ? 'border-gray-300 text-gray-500 hover:border-gray-400 bg-gray-50'
+                    : 'border-[#c19962] text-[#c19962] hover:bg-[#c19962]/5 bg-[#c19962]/[0.03]'
+                )}>
+                  {(form.goalFatMass || form.goalFFM) ? 'Reset to projected values' : 'SET CUSTOM TARGETS HERE'}
                 </button>
                 {(form.goalFatMass || form.goalFFM) ? (
                   <div className="grid grid-cols-2 gap-3">
