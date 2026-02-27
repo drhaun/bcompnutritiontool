@@ -522,13 +522,13 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
     });
   }, []);
 
-  const save = useCallback(async (completed = false) => {
+  const save = useCallback(async (completed = false, preCheckout = false) => {
     setSaving(true);
     try {
       await fetch(`/api/intake/${token}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formToPayload(form), customAnswers, completed, formId }),
+        body: JSON.stringify({ ...formToPayload(form), customAnswers, completed, preCheckout, formId }),
       });
     } catch { /* silent */ }
     setSaving(false);
@@ -538,7 +538,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
     const isLastStep = stepIdx === steps.length - 1;
     if (isLastStep) {
       if (stripeEnabled && onCheckout) {
-        await save(false);
+        await save(false, true);
         onCheckout();
         return;
       }

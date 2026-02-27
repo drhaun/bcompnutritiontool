@@ -869,7 +869,9 @@ export default function PlanningPage() {
     const isBodyComp = category === 'body_comp';
     setIncludeNutritionTargets(isBodyComp);
     
-    setWizardStep(1);
+    // Body comp → Step 1 (goal selection: fat loss/muscle gain/recomp)
+    // Performance, health, other → Step 2 directly (their own unique form)
+    setWizardStep(category === 'body_comp' ? 1 : 2);
     setShowCreateDialog(true);
   };
   
@@ -3504,7 +3506,8 @@ export default function PlanningPage() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (wizardStep === 1) {
+                        const isFirstStep = wizardStep === 1 || (wizardStep === 2 && createPhaseCategory && createPhaseCategory !== 'body_comp');
+                        if (isFirstStep) {
                           handleDialogClose(false);
                         } else {
                           setWizardStep(Math.max(1, wizardStep - 1));
@@ -3512,7 +3515,7 @@ export default function PlanningPage() {
                       }}
                     >
                       <ArrowLeft className="h-4 w-4 mr-1" />
-                      {wizardStep === 1 ? 'Cancel' : 'Back'}
+                      {(wizardStep === 1 || (wizardStep === 2 && createPhaseCategory && createPhaseCategory !== 'body_comp')) ? 'Cancel' : 'Back'}
                     </Button>
                     
                     {wizardStep < totalWizardSteps ? (

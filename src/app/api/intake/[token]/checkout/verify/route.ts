@@ -40,18 +40,29 @@ export async function POST(
     }
 
     // Update client with payment info and mark intake as completed
-    const { error: updateErr } = await supabase
+    const { data: updatedClient, error: updateErr } = await supabase
       .from('clients')
       .update({
         stripe_payment_id: session.id,
         intake_status: 'completed',
         intake_completed_at: new Date().toISOString(),
       })
-      .eq('intake_token', token);
+      .eq('intake_token', token)
+      .select('id')
+      .single();
 
     if (updateErr) {
       console.error('[Checkout Verify] Update error:', updateErr);
       return NextResponse.json({ error: 'Failed to update client' }, { status: 500 });
+    }
+
+    // Finalize any pending_payment form_submissions for this client
+    if (updatedClient?.id) {
+      await supabase
+        .from('form_submissions')
+        .update({ status: 'submitted', stripe_payment_id: session.id })
+        .eq('client_id', updatedClient.id)
+        .eq('status', 'pending_payment');
     }
 
     return NextResponse.json({ success: true, paymentStatus: session.payment_status });
