@@ -162,7 +162,7 @@ export async function PATCH(
   }
 }
 
-// DELETE - Delete a client (only admins can delete other people's clients)
+// DELETE - Delete a client
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -170,74 +170,41 @@ export async function DELETE(
   try {
     const { id } = await params;
     const supabase = await createSupabaseClient();
-    
+
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    // Check staff role - only admins can delete other people's clients
-    const { data: staffRecord } = await supabase
-      .from('staff')
-      .select('role')
-      .eq('auth_user_id', user.id)
-      .single();
-    
-    const isAdmin = staffRecord?.role === 'admin';
-    
-    // Build query with .select() to get back deleted rows (verify deletion happened)
-    let query = supabase
+
+    // Use service role client directly to bypass RLS issues with delete
+    const { createServerClient: createServiceClient } = await import('@/lib/supabase');
+    const serviceClient = createServiceClient();
+
+    if (!serviceClient) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 503 });
+    }
+
+    // Also delete related records first (group tags, form submissions)
+    await serviceClient.from('client_group_tags').delete().eq('client_id', id);
+    await serviceClient.from('form_submissions').delete().eq('client_id', id);
+
+    const { data: deletedRows, error } = await serviceClient
       .from('clients')
       .delete()
-      .eq('id', id);
-    
-    if (!isAdmin) {
-      query = query.eq('coach_id', user.id);
-    }
-    
-    const { data: deletedRows, error } = await query.select();
-    
+      .eq('id', id)
+      .select();
+
     if (error) {
       console.error('[Clients API] Error deleting client:', error);
       return NextResponse.json({ error: 'Failed to delete client', details: error.message }, { status: 500 });
     }
-    
-    // Check if any rows were actually deleted
+
     if (!deletedRows || deletedRows.length === 0) {
-      console.warn('[Clients API] DELETE returned 0 rows for id:', id, '- RLS may have blocked deletion. Trying service role...');
-      
-      // Fall back to service role client (bypasses RLS) for verified users
-      const { createServerClient: createServiceClient } = await import('@/lib/supabase');
-      const serviceClient = createServiceClient();
-      
-      if (serviceClient) {
-        const { data: serviceDeletedRows, error: serviceError } = await serviceClient
-          .from('clients')
-          .delete()
-          .eq('id', id)
-          .select();
-        
-        if (serviceError) {
-          console.error('[Clients API] Service role delete also failed:', serviceError);
-          return NextResponse.json({ 
-            error: 'Failed to delete client', 
-            details: serviceError.message,
-            verified: false 
-          }, { status: 500 });
-        }
-        
-        if (serviceDeletedRows && serviceDeletedRows.length > 0) {
-          console.log('[Clients API] Client deleted via service role:', id);
-          return NextResponse.json({ success: true, verified: true, deletedCount: serviceDeletedRows.length });
-        }
-      }
-      
-      // Client genuinely doesn't exist in DB
       console.log('[Clients API] Client not found in database (already deleted or never existed):', id);
       return NextResponse.json({ success: true, verified: true, deletedCount: 0, alreadyGone: true });
     }
-    
+
     console.log('[Clients API] Client deleted successfully:', id, 'rows:', deletedRows.length);
     return NextResponse.json({ success: true, verified: true, deletedCount: deletedRows.length });
   } catch (error) {

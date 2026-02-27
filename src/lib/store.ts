@@ -485,6 +485,12 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
       
       deleteClient: (clientId) => {
         const state = get();
+
+        // Cancel any pending debounced save to prevent race conditions
+        if (saveTimeout) {
+          clearTimeout(saveTimeout);
+          saveTimeout = null;
+        }
         
         // Track deleted IDs in both localStorage (survives logout) and state (for consistency)
         const deletedIds: string[] = JSON.parse(localStorage.getItem('fitomics-deleted-client-ids') || '[]');
