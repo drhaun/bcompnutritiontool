@@ -869,8 +869,7 @@ export default function PlanningPage() {
     const isBodyComp = category === 'body_comp';
     setIncludeNutritionTargets(isBodyComp);
     
-    // Skip step 1 (goal selection) since category is already chosen
-    setWizardStep(2);
+    setWizardStep(1);
     setShowCreateDialog(true);
   };
   
@@ -1459,7 +1458,6 @@ export default function PlanningPage() {
                           type="button"
                           key={step}
                           onClick={() => {
-                            if (createPhaseCategory && step === 1) return;
                             if (step <= wizardStep) setWizardStep(step);
                           }}
                           className={cn(
@@ -1562,13 +1560,15 @@ export default function PlanningPage() {
                   {/* Step 1: Goal Selection */}
                   {wizardStep === 1 && (
                     <div className="space-y-4 py-4">
-                      <Label className="text-base font-semibold">What is the primary emphasis for this phase?</Label>
-                      <div className="grid grid-cols-2 gap-3">
+                      <Label className="text-base font-semibold">
+                        {createPhaseCategory === 'body_comp' ? 'Select your body composition goal' : 'What is the primary emphasis for this phase?'}
+                      </Label>
+                      <div className={cn("grid gap-3", createPhaseCategory === 'body_comp' ? "grid-cols-3" : "grid-cols-2")}>
                         <button
                           type="button"
                           onClick={() => setNewPhaseGoal('fat_loss')}
                           className={cn(
-                            "p-3 border rounded-xl text-left transition-all hover:border-[#c19962]",
+                            "p-4 border-2 rounded-xl text-left transition-all hover:border-[#c19962]",
                             newPhaseGoal === 'fat_loss' && "border-[#c19962] bg-[#c19962]/10 ring-2 ring-[#c19962]/20"
                           )}
                         >
@@ -1587,7 +1587,7 @@ export default function PlanningPage() {
                           type="button"
                           onClick={() => setNewPhaseGoal('muscle_gain')}
                           className={cn(
-                            "p-3 border rounded-xl text-left transition-all hover:border-[#c19962]",
+                            "p-4 border-2 rounded-xl text-left transition-all hover:border-[#c19962]",
                             newPhaseGoal === 'muscle_gain' && "border-[#c19962] bg-[#c19962]/10 ring-2 ring-[#c19962]/20"
                           )}
                         >
@@ -1606,7 +1606,7 @@ export default function PlanningPage() {
                           type="button"
                           onClick={() => setNewPhaseGoal('recomposition')}
                           className={cn(
-                            "p-3 border rounded-xl text-left transition-all hover:border-[#c19962]",
+                            "p-4 border-2 rounded-xl text-left transition-all hover:border-[#c19962]",
                             newPhaseGoal === 'recomposition' && "border-[#c19962] bg-[#c19962]/10 ring-2 ring-[#c19962]/20"
                           )}
                         >
@@ -1621,11 +1621,12 @@ export default function PlanningPage() {
                           </p>
                         </button>
                         
+                        {!createPhaseCategory && <>
                         <button
                           type="button"
                           onClick={() => setNewPhaseGoal('performance')}
                           className={cn(
-                            "p-3 border rounded-xl text-left transition-all hover:border-[#c19962]",
+                            "p-4 border-2 rounded-xl text-left transition-all hover:border-[#c19962]",
                             newPhaseGoal === 'performance' && "border-[#c19962] bg-[#c19962]/10 ring-2 ring-[#c19962]/20"
                           )}
                         >
@@ -1644,7 +1645,7 @@ export default function PlanningPage() {
                           type="button"
                           onClick={() => setNewPhaseGoal('health')}
                           className={cn(
-                            "p-3 border rounded-xl text-left transition-all hover:border-[#c19962]",
+                            "p-4 border-2 rounded-xl text-left transition-all hover:border-[#c19962]",
                             newPhaseGoal === 'health' && "border-[#c19962] bg-[#c19962]/10 ring-2 ring-[#c19962]/20"
                           )}
                         >
@@ -1663,7 +1664,7 @@ export default function PlanningPage() {
                           type="button"
                           onClick={() => setNewPhaseGoal('other')}
                           className={cn(
-                            "p-3 border rounded-xl text-left transition-all hover:border-[#c19962]",
+                            "p-4 border-2 rounded-xl text-left transition-all hover:border-[#c19962]",
                             newPhaseGoal === 'other' && "border-[#c19962] bg-[#c19962]/10 ring-2 ring-[#c19962]/20"
                           )}
                         >
@@ -1677,6 +1678,7 @@ export default function PlanningPage() {
                             Custom goal type. Define your own emphasis and approach.
                           </p>
                         </button>
+                        </>}
                       </div>
                       
                       {/* Custom goal name for health or other */}
@@ -3502,7 +3504,7 @@ export default function PlanningPage() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (wizardStep === 1 || (wizardStep === 2 && createPhaseCategory)) {
+                        if (wizardStep === 1) {
                           handleDialogClose(false);
                         } else {
                           setWizardStep(Math.max(1, wizardStep - 1));
@@ -3510,7 +3512,7 @@ export default function PlanningPage() {
                       }}
                     >
                       <ArrowLeft className="h-4 w-4 mr-1" />
-                      {wizardStep === 1 || (wizardStep === 2 && createPhaseCategory) ? 'Cancel' : 'Back'}
+                      {wizardStep === 1 ? 'Cancel' : 'Back'}
                     </Button>
                     
                     {wizardStep < totalWizardSteps ? (
