@@ -1037,6 +1037,7 @@ export default function PlanningPage() {
   // Handle opening edit dialog for a phase
   const handleOpenEditDialog = (phase: Phase) => {
     setEditingPhase(phase);
+    setPredecessorPhase(null);
     setShowEditDialog(true);
     
     // Populate wizard with phase data
@@ -1066,9 +1067,11 @@ export default function PlanningPage() {
     // Reset recomp bias for editing
     setRecompBias('maintenance');
     
-    // Set current stats from phase starting values if available
-    if (phase.startingWeightLbs) setEditCurrentWeight(phase.startingWeightLbs);
-    if (phase.startingBodyFat) setEditCurrentBodyFat(phase.startingBodyFat);
+    // Set starting body comp from this phase's stored values, falling back to profile
+    setEditCurrentWeight(phase.startingWeightLbs || profileWeightLbs);
+    setEditCurrentBodyFat(phase.startingBodyFat || profileBodyFat);
+    setEditCurrentHeightFt(profileHeightFt);
+    setEditCurrentHeightIn(profileHeightIn);
     
     // Set custom metrics
     setCustomMetrics(phase.customMetrics || []);
