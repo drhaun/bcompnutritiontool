@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Plus, Pencil, Trash2, Loader2, Copy, ExternalLink, Check, DollarSign, Tag, RefreshCw, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { ArrowLeft, Plus, Pencil, Trash2, Loader2, Copy, ExternalLink, Check, DollarSign, Tag, RefreshCw, FileText, ChevronDown, ChevronUp, Link2, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { FormConfigBuilder } from '@/components/admin/form-config-builder';
-import type { ClientGroup, FormBlockConfig, IntakeForm } from '@/types';
+import { FormConfigBuilder, ALL_BLOCK_IDS } from '@/components/admin/form-config-builder';
+import { FormLinksPanel } from '@/components/admin/form-links-panel';
+import type { ClientGroup, FormBlockConfig, IntakeForm, GroupFormLink } from '@/types';
 
 interface StripeProduct {
   id: string;
@@ -40,7 +41,8 @@ const EMPTY_GROUP: Partial<ClientGroup> = {
 
 const EMPTY_FORM: Partial<IntakeForm> = {
   name: '', slug: '', description: '', formConfig: [], welcomeTitle: '', welcomeDescription: '',
-  stripeEnabled: false, stripePriceId: '', stripePromoEnabled: false, stripePromoCode: null, stripePromoCodeId: null, paymentDescription: '', isActive: true,
+  stripeEnabled: false, stripePriceId: '', stripePromoEnabled: false, stripePromoCode: null, stripePromoCodeId: null, paymentDescription: '',
+  clientCreationMode: 'on_start', isActive: true,
 };
 
 export default function AdminGroupsPage() {
@@ -74,7 +76,11 @@ export default function AdminGroupsPage() {
   const [submissionsGroupFilter, setSubmissionsGroupFilter] = useState<string>('all');
   const [expandedSubmissionId, setExpandedSubmissionId] = useState<string | null>(null);
 
-  const [mainTab, setMainTab] = useState<'groups' | 'forms' | 'submissions'>('groups');
+  // Form links
+  const [allFormLinks, setAllFormLinks] = useState<GroupFormLink[]>([]);
+  const [formLinksGroupId, setFormLinksGroupId] = useState<string>('');
+
+  const [mainTab, setMainTab] = useState<'groups' | 'forms' | 'form_links' | 'submissions'>('groups');
 
   /* ── Data fetching ── */
 
@@ -96,7 +102,30 @@ export default function AdminGroupsPage() {
     } catch { /* */ }
   }, []);
 
-  useEffect(() => { fetchGroups(); fetchForms(); }, [fetchGroups, fetchForms]);
+  const fetchAllFormLinks = useCallback(async () => {
+    try {
+      const res = await fetch('/api/form-links');
+      if (res.ok) {
+        const data = await res.json();
+        setAllFormLinks(data.formLinks || []);
+      }
+    } catch { /* */ }
+  }, []);
+
+  useEffect(() => { fetchGroups(); fetchForms(); fetchAllFormLinks(); }, [fetchGroups, fetchForms, fetchAllFormLinks]);
+
+  const formLinksMap = useMemo(() => {
+    const map: Record<string, { links: GroupFormLink[]; asSource: GroupFormLink[]; asTarget: GroupFormLink[] }> = {};
+    for (const link of allFormLinks) {
+      if (!map[link.sourceFormId]) map[link.sourceFormId] = { links: [], asSource: [], asTarget: [] };
+      if (!map[link.targetFormId]) map[link.targetFormId] = { links: [], asSource: [], asTarget: [] };
+      map[link.sourceFormId].links.push(link);
+      map[link.sourceFormId].asSource.push(link);
+      map[link.targetFormId].links.push(link);
+      map[link.targetFormId].asTarget.push(link);
+    }
+    return map;
+  }, [allFormLinks]);
 
   /* ── Group CRUD ── */
 
@@ -373,6 +402,106 @@ export default function AdminGroupsPage() {
               onChange={fc => setEditingForm(p => ({ ...p, formConfig: fc }))}
             />
           </section>
+
+          {/* Client Profile Creation */}
+          <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Client Profile Creation</h2>
+            <p className="text-xs text-gray-400">Control when a client profile is created for people who fill out this form.</p>
+            <div className="space-y-2">
+              {([
+                { value: 'on_start' as const, label: 'On start', desc: 'Create client when they enter name and email (default)' },
+                { value: 'on_submit' as const, label: 'On submission', desc: 'Create client only when they submit the form' },
+                { value: 'none' as const, label: 'Never', desc: 'No client profile created (e.g., coach-only forms)' },
+              ] as const).map(opt => (
+                <button key={opt.value} type="button"
+                  onClick={() => setEditingForm(p => ({ ...p, clientCreationMode: opt.value }))}
+                  className={cn('w-full text-left p-3 rounded-lg border-2 transition-colors',
+                    (editingForm.clientCreationMode || 'on_start') === opt.value
+                      ? 'border-[#c19962] bg-[#c19962]/5'
+                      : 'border-gray-200 hover:border-gray-300')}>
+                  <div className="flex items-center gap-3">
+                    <div className={cn('w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0',
+                      (editingForm.clientCreationMode || 'on_start') === opt.value
+                        ? 'border-[#c19962]' : 'border-gray-300')}>
+                      {(editingForm.clientCreationMode || 'on_start') === opt.value && (
+                        <div className="w-2 h-2 rounded-full bg-[#c19962]" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">{opt.label}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Linked Fields indicator */}
+          {editingForm.id && (() => {
+            const fl = formLinksMap[editingForm.id];
+            const asTarget = fl?.asTarget || [];
+            const asSource = fl?.asSource || [];
+            if (asTarget.length === 0 && asSource.length === 0) return null;
+            return (
+              <section className="bg-white rounded-xl border border-amber-200 p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4 text-amber-600" />
+                  <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Form Links</h2>
+                </div>
+                {asTarget.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-600">This form receives data from:</p>
+                    {asTarget.map(link => (
+                      <div key={link.id} className="bg-amber-50 rounded-lg border border-amber-200 p-3 space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="font-medium text-gray-700">{link.sourceFormName || 'Source form'}</span>
+                          {link.groupName && <span className="text-xs text-gray-400">in {link.groupName}</span>}
+                          {link.sourceData ? (
+                            <span className="ml-auto flex items-center gap-1 text-[10px] font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">
+                              <Check className="h-2.5 w-2.5" /> Filled
+                            </span>
+                          ) : (
+                            <span className="ml-auto text-[10px] font-medium text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">Not filled</span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {link.fieldMappings.map(m => {
+                            const meta = ALL_BLOCK_IDS.find(b => b.id === m.sourceBlockId);
+                            return (
+                              <span key={m.id} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border',
+                                m.isLocked
+                                  ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                  : 'bg-gray-50 text-gray-600 border-gray-200')}>
+                                {m.isLocked && <Lock className="h-2.5 w-2.5" />}
+                                {meta?.label || m.sourceBlockId}
+                                {m.fields && m.fields.length > 0 && ` (${m.fields.length} field${m.fields.length > 1 ? 's' : ''})`}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {asSource.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-600">This form sends data to:</p>
+                    {asSource.map(link => (
+                      <div key={link.id} className="bg-purple-50 rounded-lg border border-purple-200 p-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="font-medium text-gray-700">{link.targetFormName || 'Target form'}</span>
+                          {link.groupName && <span className="text-xs text-gray-400">in {link.groupName}</span>}
+                          <span className="ml-auto text-[10px] text-gray-400">{link.fieldMappings.length} block{link.fieldMappings.length !== 1 ? 's' : ''} linked</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[11px] text-gray-400">Manage form links on the Form Links tab.</p>
+              </section>
+            );
+          })()}
 
           {/* Stripe / Payment */}
           <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
@@ -839,6 +968,7 @@ export default function AdminGroupsPage() {
           {[
             { key: 'groups' as const, label: 'Groups', count: groups.length },
             { key: 'forms' as const, label: 'Forms', count: forms.length },
+            { key: 'form_links' as const, label: 'Form Links', count: null },
             { key: 'submissions' as const, label: 'Submissions', count: submissions.length > 0 ? submissions.length : null },
           ].map(t => (
             <button key={t.key} onClick={() => setMainTab(t.key)}
@@ -923,13 +1053,16 @@ export default function AdminGroupsPage() {
               <div className="space-y-3">
                 {forms.map(f => {
                   const linkedGroups = groups.filter(g => g.defaultFormId === f.id);
+                  const fl = formLinksMap[f.id];
+                  const asSource = fl?.asSource || [];
+                  const asTarget = fl?.asTarget || [];
                   return (
                     <div key={f.id} className={cn('bg-white rounded-xl border overflow-hidden transition-all',
                       f.isActive ? 'border-gray-200 hover:shadow-sm' : 'border-gray-100 opacity-60')}>
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="text-base font-semibold text-gray-900">{f.name}</h3>
                               <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium uppercase',
                                 f.formConfig.length > 0 ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400')}>
@@ -937,6 +1070,16 @@ export default function AdminGroupsPage() {
                               </span>
                               {f.stripeEnabled && <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 uppercase">Stripe</span>}
                               {!f.isActive && <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 uppercase">Inactive</span>}
+                              {asSource.length > 0 && (
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                                  <Link2 className="h-2.5 w-2.5" /> Source for {asSource.length} link{asSource.length > 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {asTarget.length > 0 && (
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                  <Lock className="h-2.5 w-2.5" /> Target for {asTarget.length} link{asTarget.length > 1 ? 's' : ''}
+                                </span>
+                              )}
                             </div>
                             {f.description && <p className="text-xs text-gray-400 mt-0.5">{f.description}</p>}
                             <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -949,6 +1092,30 @@ export default function AdminGroupsPage() {
                                 </span>
                               )}
                             </div>
+                            {/* Show linked field details */}
+                            {asTarget.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {asTarget.map(link => (
+                                  <div key={link.id} className="flex items-center gap-2 text-[11px] text-gray-500">
+                                    <Link2 className="h-3 w-3 text-amber-500 flex-shrink-0" />
+                                    <span>
+                                      From <span className="font-medium text-gray-700">{link.sourceFormName || 'source'}</span>
+                                      {link.groupName && <> in <span className="font-medium text-gray-700">{link.groupName}</span></>}
+                                      {': '}
+                                      {link.fieldMappings.length > 0
+                                        ? link.fieldMappings.map(m => {
+                                          const meta = ALL_BLOCK_IDS.find(b => b.id === m.sourceBlockId);
+                                          return meta?.label || m.sourceBlockId;
+                                        }).join(', ')
+                                        : 'no fields mapped'}
+                                      {link.fieldMappings.some(m => m.isLocked) && (
+                                        <span className="ml-1 text-amber-600 font-medium">(locked)</span>
+                                      )}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             <a href={`/intake/${f.slug}`} target="_blank" rel="noopener noreferrer" title="Preview form"
@@ -976,6 +1143,15 @@ export default function AdminGroupsPage() {
               </div>
             )}
           </div>
+        ) : mainTab === 'form_links' ? (
+          /* ── Form Links Tab ── */
+          <FormLinksPanel
+            groups={groups}
+            forms={forms}
+            selectedGroupId={formLinksGroupId}
+            onSelectedGroupIdChange={setFormLinksGroupId}
+            onLinksChanged={fetchAllFormLinks}
+          />
         ) : mainTab === 'submissions' ? (
           /* ── Submissions Tab ── */
           <div className="space-y-4">

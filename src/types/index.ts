@@ -878,6 +878,8 @@ export interface ClientGroup {
   updatedAt: string;
 }
 
+export type ClientCreationMode = 'on_start' | 'on_submit' | 'none';
+
 export interface IntakeForm {
   id: string;
   name: string;
@@ -892,7 +894,35 @@ export interface IntakeForm {
   stripePromoCode?: string | null;
   stripePromoCodeId?: string | null;
   paymentDescription?: string;
+  clientCreationMode: ClientCreationMode;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// ============ FORM FIELD LINKING ============
+
+export interface FieldMapping {
+  id: string;
+  sourceBlockId: FormBlockId;
+  targetBlockId: FormBlockId;
+  fields: string[] | null; // null = entire block
+  isLocked: boolean;
+}
+
+export interface GroupFormLink {
+  id: string;
+  groupId: string;
+  sourceFormId: string;
+  targetFormId: string;
+  fieldMappings: FieldMapping[];
+  sourceData: Record<string, unknown> | null;
+  sourceFilledAt: string | null;
+  sourceFilledBy: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  sourceFormName?: string;
+  targetFormName?: string;
+  groupName?: string;
 }

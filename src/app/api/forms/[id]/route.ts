@@ -23,6 +23,7 @@ function dbToForm(row: Record<string, unknown>) {
     stripePromoCode: row.stripe_promo_code || null,
     stripePromoCodeId: row.stripe_promo_code_id || null,
     paymentDescription: row.payment_description || '',
+    clientCreationMode: row.client_creation_mode || 'on_start',
     isActive: row.is_active ?? true,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -66,6 +67,7 @@ export async function PATCH(
   if (body.stripePromoCode !== undefined) updates.stripe_promo_code = body.stripePromoCode;
   if (body.stripePromoCodeId !== undefined) updates.stripe_promo_code_id = body.stripePromoCodeId;
   if (body.paymentDescription !== undefined) updates.payment_description = body.paymentDescription;
+  if (body.clientCreationMode !== undefined) updates.client_creation_mode = body.clientCreationMode;
   if (body.isActive !== undefined) updates.is_active = body.isActive;
 
   const { data, error } = await supabase.from('intake_forms').update(updates).eq('id', id).select('*').single();

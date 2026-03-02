@@ -23,6 +23,7 @@ function dbToForm(row: Record<string, unknown>) {
     stripePromoCode: row.stripe_promo_code || null,
     stripePromoCodeId: row.stripe_promo_code_id || null,
     paymentDescription: row.payment_description || '',
+    clientCreationMode: row.client_creation_mode || 'on_start',
     isActive: row.is_active ?? true,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
       stripe_promo_code: body.stripePromoCode || null,
       stripe_promo_code_id: body.stripePromoCodeId || null,
       payment_description: body.paymentDescription || null,
+      client_creation_mode: body.clientCreationMode || 'on_start',
       is_active: body.isActive ?? true,
     })
     .select('*')

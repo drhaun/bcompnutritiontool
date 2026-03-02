@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useMemo } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, Check, Loader2, SkipForward } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Loader2, SkipForward, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FormBlockConfig, FormBlockId, CustomField } from '@/types';
 
@@ -25,6 +25,15 @@ interface IntakeFormProps {
   successTitle?: string;
   successMessage?: string;
   formId?: string;
+  prePopulatedFields?: Record<string, unknown>;
+  lockedFields?: string[];
+  saveMode?: 'server' | 'local';
+  localStorageKey?: string;
+  onLocalSubmit?: (data: {
+    userProfile: Record<string, unknown>;
+    dietPreferences: Record<string, unknown>;
+    customAnswers: Record<string, unknown>;
+  }) => Promise<void>;
 }
 
 interface FormState {
@@ -437,39 +446,41 @@ function ChipSelect({ options, selected, onToggle, columns = 3 }: { options: str
   );
 }
 
-function FieldLabel({ children, optional }: { children: React.ReactNode; optional?: boolean }) {
+function FieldLabel({ children, optional, locked }: { children: React.ReactNode; optional?: boolean; locked?: boolean }) {
   return (
     <label className="block text-sm font-medium text-gray-700 mb-1.5">
-      {children}{optional && <span className="text-gray-400 font-normal ml-1">(optional)</span>}
+      {children}{optional && <span className="text-gray-400 font-normal ml-1">(optional)</span>}{locked && <LockedTag />}
     </label>
   );
 }
 
-function TextInput({ value, onChange, placeholder, type = 'text', inputMode, className }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; type?: string; inputMode?: 'numeric' | 'decimal' | 'email' | 'tel'; className?: string;
+function TextInput({ value, onChange, placeholder, type = 'text', inputMode, className, disabled }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; type?: string; inputMode?: 'numeric' | 'decimal' | 'email' | 'tel'; className?: string; disabled?: boolean;
 }) {
   return (
-    <input type={type} inputMode={inputMode} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-      className={cn('w-full h-12 px-4 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-[#c19962] focus:border-transparent', className)} />
+    <input type={type} inputMode={inputMode} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} readOnly={disabled}
+      className={cn('w-full h-12 px-4 rounded-xl border text-base focus:outline-none focus:ring-2 focus:ring-[#c19962] focus:border-transparent',
+        disabled ? 'border-amber-200 bg-amber-50 text-gray-600 cursor-not-allowed' : 'border-gray-200', className)} />
   );
 }
 
-function SelectInput({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+function SelectInput({ value, onChange, options, disabled }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; disabled?: boolean }) {
   return (
-    <select value={value} onChange={e => onChange(e.target.value)}
-      className="w-full h-12 px-4 rounded-xl border border-gray-200 text-base bg-white focus:outline-none focus:ring-2 focus:ring-[#c19962] focus:border-transparent appearance-none">
+    <select value={value} onChange={e => onChange(e.target.value)} disabled={disabled}
+      className={cn('w-full h-12 px-4 rounded-xl border text-base bg-white focus:outline-none focus:ring-2 focus:ring-[#c19962] focus:border-transparent appearance-none',
+        disabled ? 'border-amber-200 bg-amber-50 text-gray-600 cursor-not-allowed' : 'border-gray-200')}>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   );
 }
 
-function SliderInput({ value, onChange, min, max, step = 1, labels }: {
-  value: number; onChange: (v: number) => void; min: number; max: number; step?: number; labels?: string[];
+function SliderInput({ value, onChange, min, max, step = 1, labels, disabled }: {
+  value: number; onChange: (v: number) => void; min: number; max: number; step?: number; labels?: string[]; disabled?: boolean;
 }) {
   return (
     <div className="space-y-2">
-      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))}
-        className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-[#c19962]" />
+      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} disabled={disabled}
+        className={cn('w-full h-2 bg-gray-200 rounded-full appearance-none accent-[#c19962]', disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer')} />
       {labels && <div className="flex justify-between text-xs text-gray-400">{labels.map((l, i) => <span key={i}>{l}</span>)}</div>}
     </div>
   );
@@ -484,10 +495,32 @@ function SummarySection({ title, items }: { title: string; items: string[] }) {
   );
 }
 
+function LockedBanner({ message }: { message?: string }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 mb-4">
+      <Lock className="h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
+      <span className="text-xs text-amber-700">{message || 'Set by your coach — this section is pre-filled and cannot be edited.'}</span>
+    </div>
+  );
+}
+
+function LockedTag() {
+  return (
+    <span className="inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200">
+      <Lock className="h-2.5 w-2.5 text-amber-600" />
+      <span className="text-[10px] text-amber-700 font-medium">Coach set</span>
+    </span>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 
-export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCheckout, welcomeTitle, successTitle, successMessage, formId }: IntakeFormProps) {
+export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCheckout, welcomeTitle, successTitle, successMessage, formId, prePopulatedFields, lockedFields, saveMode = 'server', localStorageKey, onLocalSubmit }: IntakeFormProps) {
   const blocks = useMemo(() => formConfig && formConfig.length > 0 ? formConfig : ALL_BLOCKS, [formConfig]);
+
+  const lockedSet = useMemo(() => new Set(lockedFields || []), [lockedFields]);
+  const isLocked = useCallback((key: string) => lockedSet.has(key), [lockedSet]);
+  const anyLocked = useCallback((...keys: string[]) => keys.some(k => lockedSet.has(k)), [lockedSet]);
 
   // Build the step list: configured blocks + review step
   const steps = useMemo(() => {
@@ -504,39 +537,96 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
     return s;
   }, [blocks]);
 
-  const [stepIdx, setStepIdx] = useState(0);
-  const [form, setForm] = useState<FormState>(() => initFormState(initialData));
-  const [customAnswers, setCustomAnswers] = useState<Record<string, string | string[] | boolean>>({});
+  const [stepIdx, setStepIdx] = useState(() => {
+    if (saveMode === 'local' && localStorageKey) {
+      try {
+        const draft = JSON.parse(localStorage.getItem(localStorageKey) || 'null');
+        if (draft?.stepIdx != null) return draft.stepIdx as number;
+      } catch { /* */ }
+    }
+    return 0;
+  });
+  const [form, setForm] = useState<FormState>(() => {
+    let state = initFormState(initialData);
+    // Restore from localStorage draft if available
+    if (saveMode === 'local' && localStorageKey) {
+      try {
+        const draft = JSON.parse(localStorage.getItem(localStorageKey) || 'null');
+        if (draft?.form) {
+          state = { ...state, ...draft.form };
+        }
+      } catch { /* */ }
+    }
+    if (prePopulatedFields) {
+      for (const [k, v] of Object.entries(prePopulatedFields)) {
+        if (v !== undefined && k in state) {
+          (state as Record<string, unknown>)[k] = v;
+        }
+      }
+    }
+    return state;
+  });
+  const [customAnswers, setCustomAnswers] = useState<Record<string, string | string[] | boolean>>(() => {
+    if (saveMode === 'local' && localStorageKey) {
+      try {
+        const draft = JSON.parse(localStorage.getItem(localStorageKey) || 'null');
+        if (draft?.customAnswers) return draft.customAnswers;
+      } catch { /* */ }
+    }
+    return {};
+  });
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const set = useCallback(<K extends keyof FormState>(field: K, value: FormState[K]) => {
+    if (lockedSet.has(field as string)) return;
     setForm(prev => ({ ...prev, [field]: value }));
-  }, []);
+  }, [lockedSet]);
 
   const toggleArray = useCallback((field: keyof FormState, value: string) => {
+    if (lockedSet.has(field as string)) return;
     setForm(prev => {
       const arr = (prev[field] as string[]) || [];
       return { ...prev, [field]: arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value] };
     });
-  }, []);
+  }, [lockedSet]);
 
   const save = useCallback(async (completed = false, preCheckout = false) => {
     setSaving(true);
     try {
-      await fetch(`/api/intake/${token}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formToPayload(form), customAnswers, completed, preCheckout, formId }),
-      });
+      if (saveMode === 'local') {
+        if (localStorageKey) {
+          localStorage.setItem(localStorageKey, JSON.stringify({ form, customAnswers, stepIdx }));
+        }
+      } else {
+        await fetch(`/api/intake/${token}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...formToPayload(form), customAnswers, completed, preCheckout, formId }),
+        });
+      }
     } catch { /* silent */ }
     setSaving(false);
-  }, [form, token, customAnswers, formId]);
+  }, [form, token, customAnswers, formId, saveMode, localStorageKey, stepIdx]);
 
   const goNext = useCallback(async () => {
     const isLastStep = stepIdx === steps.length - 1;
     if (isLastStep) {
+      if (saveMode === 'local' && onLocalSubmit) {
+        setSaving(true);
+        try {
+          const payload = formToPayload(form);
+          await onLocalSubmit({
+            userProfile: payload.userProfile,
+            dietPreferences: payload.dietPreferences,
+            customAnswers,
+          });
+          setSubmitted(true);
+        } catch { /* error handled by parent */ }
+        setSaving(false);
+        return;
+      }
       if (stripeEnabled && onCheckout) {
         await save(false, true);
         onCheckout();
@@ -549,7 +639,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
     await save(false);
     setStepIdx(s => s + 1);
     scrollRef.current?.scrollTo(0, 0);
-  }, [stepIdx, steps.length, save, stripeEnabled, onCheckout]);
+  }, [stepIdx, steps.length, save, stripeEnabled, onCheckout, saveMode, onLocalSubmit, form, customAnswers]);
 
   const goBack = useCallback(() => {
     setStepIdx(s => Math.max(0, s - 1));
@@ -1359,25 +1449,31 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
           { value: 'evening', label: 'Evening (4-7)' },
           { value: 'night', label: 'Night (7+)' },
         ];
+        const TIME_LABEL: Record<string, string> = Object.fromEntries(TIME_OPTIONS.map(t => [t.value, t.label]));
         const INTENSITY_INFO: Record<string, string> = {
           low: 'Conversational pace. Could maintain for a long time. RPE 3-4/10.',
           medium: 'Moderate effort. Breathing harder but sustainable. RPE 5-7/10.',
           high: 'Hard effort. Difficult to talk. Near max output. RPE 8-10/10.',
         };
 
+        const activityLocked = isLocked('weeklyActivity');
+
         const addBout = (dayIdx: number) => {
+          if (activityLocked) return;
           setForm(prev => {
             const wa = prev.weeklyActivity.map((d, i) => i === dayIdx ? [...d, { type: 'Resistance Training', duration: 60, intensity: 'medium' as const, timeOfDay: 'morning' }] : d);
             return { ...prev, weeklyActivity: wa };
           });
         };
         const removeBout = (dayIdx: number, boutIdx: number) => {
+          if (activityLocked) return;
           setForm(prev => {
             const wa = prev.weeklyActivity.map((d, i) => i === dayIdx ? d.filter((_, bi) => bi !== boutIdx) : d);
             return { ...prev, weeklyActivity: wa };
           });
         };
         const updateBout = (dayIdx: number, boutIdx: number, field: keyof ActivityBout, value: string | number) => {
+          if (activityLocked) return;
           setForm(prev => {
             const wa = prev.weeklyActivity.map((d, i) => i === dayIdx ? d.map((b, bi) => bi === boutIdx ? { ...b, [field]: value } : b) : d);
             return { ...prev, weeklyActivity: wa };
@@ -1386,32 +1482,38 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
 
         return (
           <div className="space-y-4">
-            <p className="text-sm text-gray-500">Add your typical weekly activity. You can add up to 3 sessions per day. This information is critical for accurately estimating your daily energy needs.</p>
+            {activityLocked ? (
+              <LockedBanner message="Your weekly activity schedule has been set by your coach and cannot be edited." />
+            ) : (
+              <p className="text-sm text-gray-500">Add your typical weekly activity. You can add up to 3 sessions per day. This information is critical for accurately estimating your daily energy needs.</p>
+            )}
 
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-1.5">
-              <p className="text-xs font-medium text-blue-700">About Duration &amp; Intensity</p>
-              <p className="text-[11px] text-blue-600"><strong>Duration</strong> = time you are <em>actively working</em> (not including warm-up, rest between sets where you&apos;re standing around, or cool-down). If your gym session is 75 min but you&apos;re actively training for ~50 min, enter 50.</p>
-              <p className="text-[11px] text-blue-600"><strong>Intensity</strong> reflects your average perceived effort across the session:</p>
-              <div className="grid grid-cols-3 gap-1.5 mt-1">
-                {(['low', 'medium', 'high'] as const).map(lvl => (
-                  <div key={lvl} className="bg-white rounded-lg p-2 border border-blue-100">
-                    <p className="text-[10px] font-bold text-gray-700 uppercase">{lvl}</p>
-                    <p className="text-[10px] text-gray-500">{INTENSITY_INFO[lvl]}</p>
-                  </div>
-                ))}
+            {!activityLocked && (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-1.5">
+                <p className="text-xs font-medium text-blue-700">About Duration &amp; Intensity</p>
+                <p className="text-[11px] text-blue-600"><strong>Duration</strong> = time you are <em>actively working</em> (not including warm-up, rest between sets where you&apos;re standing around, or cool-down). If your gym session is 75 min but you&apos;re actively training for ~50 min, enter 50.</p>
+                <p className="text-[11px] text-blue-600"><strong>Intensity</strong> reflects your average perceived effort across the session:</p>
+                <div className="grid grid-cols-3 gap-1.5 mt-1">
+                  {(['low', 'medium', 'high'] as const).map(lvl => (
+                    <div key={lvl} className="bg-white rounded-lg p-2 border border-blue-100">
+                      <p className="text-[10px] font-bold text-gray-700 uppercase">{lvl}</p>
+                      <p className="text-[10px] text-gray-500">{INTENSITY_INFO[lvl]}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {DAYS_SHORT.map((day, dayIdx) => {
               const bouts = form.weeklyActivity[dayIdx];
               return (
-                <div key={day} className="rounded-xl border border-gray-200 overflow-hidden">
-                  <div className="flex items-center justify-between px-3 py-2 bg-gray-50">
+                <div key={day} className={cn('rounded-xl border overflow-hidden', activityLocked ? 'border-amber-200 bg-amber-50/30' : 'border-gray-200')}>
+                  <div className={cn('flex items-center justify-between px-3 py-2', activityLocked ? 'bg-amber-50' : 'bg-gray-50')}>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-gray-700">{day}</span>
                       {bouts.length > 0 && <span className="text-[10px] text-gray-400">{bouts.length} session{bouts.length > 1 ? 's' : ''}</span>}
                     </div>
-                    {bouts.length < 3 && (
+                    {!activityLocked && bouts.length < 3 && (
                       <button type="button" onClick={() => addBout(dayIdx)} className="text-xs text-[#c19962] font-medium hover:text-[#a8833e]">+ Add Session</button>
                     )}
                   </div>
@@ -1421,38 +1523,51 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
                     <div className="divide-y divide-gray-100">
                       {bouts.map((bout, bIdx) => (
                         <div key={bIdx} className="px-3 py-2.5 space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <select value={bout.type} onChange={e => updateBout(dayIdx, bIdx, 'type', e.target.value)}
-                              className="flex-1 h-9 px-2 rounded-lg border border-gray-200 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#c19962]">
-                              {ACTIVITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
-                            <select value={bout.timeOfDay || 'morning'} onChange={e => updateBout(dayIdx, bIdx, 'timeOfDay', e.target.value)}
-                              className="w-32 h-9 px-2 rounded-lg border border-gray-200 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#c19962]">
-                              {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                            </select>
-                            <button type="button" onClick={() => removeBout(dayIdx, bIdx)} className="text-gray-400 hover:text-red-500 text-xs flex-shrink-0">✕</button>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <span className="text-[10px] text-gray-500 font-medium">Active Duration (min)</span>
-                              <input type="text" inputMode="numeric" value={bout.duration || ''} onChange={e => updateBout(dayIdx, bIdx, 'duration', parseInt(e.target.value) || 0)}
-                                className="w-full h-8 px-2 rounded-lg border border-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-[#c19962]"
-                                placeholder="e.g. 45" />
+                          {activityLocked ? (
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-700">
+                              <span className="font-medium">{bout.type}</span>
+                              <span className="text-gray-400">|</span>
+                              <span>{bout.duration} min</span>
+                              <span className="text-gray-400">|</span>
+                              <span className="capitalize">{bout.intensity}</span>
+                              {bout.timeOfDay && <><span className="text-gray-400">|</span><span>{TIME_LABEL[bout.timeOfDay] || bout.timeOfDay}</span></>}
                             </div>
-                            <div>
-                              <span className="text-[10px] text-gray-500 font-medium">Avg. Intensity</span>
-                              <div className="flex gap-1">
-                                {(['low', 'medium', 'high'] as const).map(lvl => (
-                                  <button key={lvl} type="button" onClick={() => updateBout(dayIdx, bIdx, 'intensity', lvl)}
-                                    title={INTENSITY_INFO[lvl]}
-                                    className={cn('flex-1 h-8 rounded-lg text-[10px] font-medium border transition-colors',
-                                      bout.intensity === lvl ? 'bg-[#c19962] border-[#c19962] text-[#00263d]' : 'bg-white border-gray-200 text-gray-500 hover:border-[#c19962]/50')}>
-                                    {lvl[0].toUpperCase() + lvl.slice(1)}
-                                  </button>
-                                ))}
+                          ) : (
+                            <>
+                              <div className="flex items-center justify-between gap-2">
+                                <select value={bout.type} onChange={e => updateBout(dayIdx, bIdx, 'type', e.target.value)}
+                                  className="flex-1 h-9 px-2 rounded-lg border border-gray-200 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#c19962]">
+                                  {ACTIVITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                                <select value={bout.timeOfDay || 'morning'} onChange={e => updateBout(dayIdx, bIdx, 'timeOfDay', e.target.value)}
+                                  className="w-32 h-9 px-2 rounded-lg border border-gray-200 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-[#c19962]">
+                                  {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                </select>
+                                <button type="button" onClick={() => removeBout(dayIdx, bIdx)} className="text-gray-400 hover:text-red-500 text-xs flex-shrink-0">✕</button>
                               </div>
-                            </div>
-                          </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <span className="text-[10px] text-gray-500 font-medium">Active Duration (min)</span>
+                                  <input type="text" inputMode="numeric" value={bout.duration || ''} onChange={e => updateBout(dayIdx, bIdx, 'duration', parseInt(e.target.value) || 0)}
+                                    className="w-full h-8 px-2 rounded-lg border border-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-[#c19962]"
+                                    placeholder="e.g. 45" />
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-gray-500 font-medium">Avg. Intensity</span>
+                                  <div className="flex gap-1">
+                                    {(['low', 'medium', 'high'] as const).map(lvl => (
+                                      <button key={lvl} type="button" onClick={() => updateBout(dayIdx, bIdx, 'intensity', lvl)}
+                                        title={INTENSITY_INFO[lvl]}
+                                        className={cn('flex-1 h-8 rounded-lg text-[10px] font-medium border transition-colors',
+                                          bout.intensity === lvl ? 'bg-[#c19962] border-[#c19962] text-[#00263d]' : 'bg-white border-gray-200 text-gray-500 hover:border-[#c19962]/50')}>
+                                        {lvl[0].toUpperCase() + lvl.slice(1)}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>

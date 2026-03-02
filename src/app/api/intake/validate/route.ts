@@ -33,14 +33,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'This intake link has expired. Please request a new one from your coach.' }, { status: 410 });
       }
 
-      // Check if client is tagged to a group and return the slug
+      // Check if client is tagged to a group and return the slug + id
       let groupSlug: string | null = null;
+      let groupId: string | null = null;
       const { data: tags } = await supabase
         .from('client_group_tags')
         .select('group_id')
         .eq('client_id', client.id)
         .limit(1);
       if (tags?.length) {
+        groupId = tags[0].group_id;
         const { data: group } = await supabase
           .from('client_groups')
           .select('slug')
@@ -58,6 +60,7 @@ export async function POST(request: NextRequest) {
         weeklySchedule: client.weekly_schedule || {},
         intakeStatus: client.intake_status,
         groupSlug,
+        groupId,
       });
     }
 
