@@ -295,11 +295,21 @@ export async function updateClientInDb(
       // If client doesn't exist (404), try to create it instead
       // BUT: first check if this client was intentionally deleted - don't resurrect it!
       if (response.status === 404) {
-        const deletedIds: Set<string> = new Set(
+        // Check localStorage
+        const lsDeletedIds: Set<string> = new Set(
           JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('fitomics-deleted-client-ids') || '[]') : '[]')
         );
+
+        // Also check Zustand store's _deletedClientIds (defense-in-depth)
+        let storeDeletedIds: string[] = [];
+        try {
+          const { useFitomicsStore } = await import('@/lib/store');
+          storeDeletedIds = useFitomicsStore.getState()?._deletedClientIds || [];
+        } catch { /* store may not be initialized yet */ }
+
+        const allDeletedIds = new Set<string>([...lsDeletedIds, ...storeDeletedIds]);
         
-        if (deletedIds.has(clientId)) {
+        if (allDeletedIds.has(clientId)) {
           console.log('[ClientSync] Client was intentionally deleted, NOT re-creating:', clientId);
           return null;
         }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
@@ -71,11 +71,19 @@ export function Header() {
     selectClient, 
     getActiveClient,
     currentStep,
-    setCurrentStep 
+    setCurrentStep,
+    _deletedClientIds,
   } = useFitomicsStore();
   
   const activeClient = getActiveClient();
-  const activeClients = clients.filter(c => c.status === 'active');
+
+  const activeClients = useMemo(() => {
+    const deletedIds = new Set<string>([
+      ...(_deletedClientIds || []),
+      ...JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('fitomics-deleted-client-ids') || '[]') : '[]'),
+    ]);
+    return clients.filter(c => c.status === 'active' && !deletedIds.has(c.id));
+  }, [clients, _deletedClientIds]);
 
   const [isSigningOut, setIsSigningOut] = useState(false);
   

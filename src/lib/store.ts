@@ -229,6 +229,8 @@ interface NutritionPlanningOSState {
   
   // Track deleted client IDs to prevent sync from resurrecting them
   _deletedClientIds: string[];
+  // Track pending archive operations that haven't been confirmed by the DB
+  _pendingArchives: { clientId: string; status: string }[];
 }
 
 const DAYS_OF_WEEK: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -278,6 +280,7 @@ const initialState = {
   
   // Track deleted client IDs so sync doesn't resurrect them
   _deletedClientIds: [] as string[],
+  _pendingArchives: [] as { clientId: string; status: string }[],
 };
 
 export const useFitomicsStore = create<NutritionPlanningOSState>()(
@@ -569,6 +572,15 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
       },
       
       archiveClient: (clientId) => {
+        // Cancel any pending debounced save to prevent race conditions
+        if (saveTimeout) {
+          clearTimeout(saveTimeout);
+          saveTimeout = null;
+        }
+
+        // Track this archive as pending until DB confirms
+        const pendingEntry = { clientId, status: 'archived' };
+
         // Update local state immediately
         set((state) => ({
           clients: state.clients.map(c =>
@@ -576,25 +588,33 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
               ? { ...c, status: 'archived' as const, updatedAt: new Date().toISOString() }
               : c
           ),
+          _pendingArchives: [
+            ...(state._pendingArchives || []).filter(a => a.clientId !== clientId),
+            pendingEntry,
+          ],
           ...(state.activeClientId === clientId ? {
             activeClientId: null,
             ...emptyClientData,
           } : {}),
         }));
         
-        console.log('[Store] Archived client:', clientId);
+        console.log('[Store] Archived client:', clientId, '(tracked as pending)');
         
-        // Sync to database if authenticated - explicitly send status
+        // Sync to database if authenticated
         const state = get();
         if (state.isAuthenticated) {
           updateClientInDb(clientId, { status: 'archived' }).then(result => {
             if (result) {
               console.log('[Store] Client archived in database:', clientId);
+              // Confirmed — remove from pending
+              set((s) => ({
+                _pendingArchives: (s._pendingArchives || []).filter(a => a.clientId !== clientId),
+              }));
             } else {
-              console.error('[Store] Failed to archive client in database:', clientId);
+              console.error('[Store] Failed to archive client in database:', clientId, '— will retry on next sync');
             }
           }).catch(err => {
-            console.error('[Store] Failed to sync client archive:', err);
+            console.error('[Store] Failed to sync client archive:', err, '— will retry on next sync');
           });
         }
       },
@@ -1571,6 +1591,32 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           }
         };
         
+        // Retry any pending archive operations that failed previously
+        const retryPendingArchives = async () => {
+          const pending = get()._pendingArchives || [];
+          if (pending.length === 0) return;
+          console.log('[Store] Retrying', pending.length, 'pending archive operations...');
+          const confirmed: string[] = [];
+          for (const entry of pending) {
+            try {
+              const result = await updateClientInDb(entry.clientId, { status: entry.status as 'archived' });
+              if (result) {
+                console.log('[Store] Pending archive confirmed for:', entry.clientId);
+                confirmed.push(entry.clientId);
+              } else {
+                console.warn('[Store] Pending archive retry failed for:', entry.clientId);
+              }
+            } catch (err) {
+              console.warn('[Store] Pending archive retry error for:', entry.clientId, err);
+            }
+          }
+          if (confirmed.length > 0) {
+            set((s) => ({
+              _pendingArchives: (s._pendingArchives || []).filter(a => !confirmed.includes(a.clientId)),
+            }));
+          }
+        };
+
         try {
           const localClients = excludeDeleted(state.clients);
           console.log('[Store] Local clients before sync:', localClients.length, localClients.map(c => c.name));
@@ -1637,6 +1683,8 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
               console.log('[Store] No clients in database (or not authenticated)');
             }
           }
+          // After sync or fetch, retry any pending archive operations
+          await retryPendingArchives();
         } catch (error) {
           console.error('[Store] Sync error:', error);
           set({ syncError: error instanceof Error ? error.message : 'Sync failed' });
@@ -1656,12 +1704,17 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           ...(state._deletedClientIds || []),
           ...JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('fitomics-deleted-client-ids') || '[]') : '[]'),
         ]);
+
+        // Filter deleted clients BEFORE sending to DB to prevent zombie re-insertion
+        const safeLocalClients = deletedIds.size > 0
+          ? state.clients.filter(c => !deletedIds.has(c.id))
+          : state.clients;
         
         try {
-          const result = await syncClientsToDb(state.clients);
+          const result = await syncClientsToDb(safeLocalClients);
           
           if (result.success) {
-            // Filter out deleted clients from sync result
+            // Also filter deleted from the result
             const safeClients = deletedIds.size > 0
               ? result.clients.filter(c => !deletedIds.has(c.id))
               : result.clients;
@@ -1705,6 +1758,8 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         lastSyncedAt: state.lastSyncedAt,
         // Track deleted IDs across page reloads so sync doesn't resurrect them
         _deletedClientIds: state._deletedClientIds,
+        // Track pending archive operations for retry on next sync
+        _pendingArchives: state._pendingArchives,
       }),
       onRehydrateStorage: () => {
         console.log('[Store] Starting rehydration from localStorage...');
@@ -1724,6 +1779,20 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
                 console.log('[Store] Pruning', state.clients.length - filtered.length, 'deleted clients from rehydrated state');
                 useFitomicsStore.setState({ clients: filtered });
               }
+            }
+            // Re-apply pending archives to rehydrated clients (defense-in-depth)
+            const pendingArchives = state._pendingArchives || [];
+            if (pendingArchives.length > 0 && state.clients?.length) {
+              const archiveMap = new Map(pendingArchives.map((a: { clientId: string; status: string }) => [a.clientId, a.status]));
+              const patched = state.clients.map((c: ClientProfile) => {
+                const pendingStatus = archiveMap.get(c.id);
+                if (pendingStatus && c.status !== pendingStatus) {
+                  return { ...c, status: pendingStatus as 'archived' };
+                }
+                return c;
+              });
+              useFitomicsStore.setState({ clients: patched });
+              console.log('[Store] Re-applied', pendingArchives.length, 'pending archive statuses on rehydration');
             }
             console.log('[Store] Restored clients:', state.clients?.length || 0, state.clients?.map((c: ClientProfile) => c.name) || []);
             console.log('[Store] Active client ID:', state.activeClientId);
