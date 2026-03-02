@@ -76,7 +76,21 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (existing?.intake_token) {
-        return NextResponse.json({ token: existing.intake_token, clientId: existing.id, resumed: true });
+        // Try to find the group slug for this client so the form page can load the right form
+        let resumeGroupSlug: string | null = body.groupSlug || null;
+        if (!resumeGroupSlug) {
+          const { data: tag } = await supabase
+            .from('client_group_tags')
+            .select('group_id')
+            .eq('client_id', existing.id)
+            .limit(1)
+            .single();
+          if (tag?.group_id) {
+            const { data: g } = await supabase.from('client_groups').select('slug').eq('id', tag.group_id).single();
+            if (g?.slug) resumeGroupSlug = g.slug;
+          }
+        }
+        return NextResponse.json({ token: existing.intake_token, clientId: existing.id, resumed: true, groupSlug: resumeGroupSlug });
       }
 
       const token = randomUUID();

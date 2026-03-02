@@ -105,13 +105,14 @@ import type {
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const SHORT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-const GOAL_COLORS: Record<GoalType, { bg: string; border: string; text: string; gradient: string }> = {
+const GOAL_COLORS_FALLBACK = { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300', gradient: 'from-gray-500/20 to-gray-600/10' };
+const GOAL_COLORS: Record<string, typeof GOAL_COLORS_FALLBACK> = {
   fat_loss: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300', gradient: 'from-orange-500/20 to-orange-600/10' },
   muscle_gain: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', gradient: 'from-blue-500/20 to-blue-600/10' },
   recomposition: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300', gradient: 'from-purple-500/20 to-purple-600/10' },
   performance: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', gradient: 'from-green-500/20 to-green-600/10' },
   health: { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-300', gradient: 'from-pink-500/20 to-pink-600/10' },
-  other: { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300', gradient: 'from-gray-500/20 to-gray-600/10' },
+  other: GOAL_COLORS_FALLBACK,
 };
 
 const GOAL_ICONS: Record<GoalType, React.ReactNode> = {
@@ -1122,7 +1123,7 @@ export function PhaseTargetsEditor({
     return weeks;
   }, [phase.startDate, phase.endDate]);
 
-  const colors = GOAL_COLORS[phase.goalType];
+  const colors = GOAL_COLORS[phase.goalType] || GOAL_COLORS_FALLBACK;
   const selectedDayConfig = fullDayConfigs[selectedDay];
   const hasOverrides = Object.keys(dayConfigs[selectedDay] || {}).length > 0;
 

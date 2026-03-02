@@ -25,7 +25,15 @@ import type { Phase, GoalType, TimelineEvent } from '@/types';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-const GOAL_COLORS: Record<GoalType, { bg: string; border: string; gradient: string; glow: string; icon: React.ReactNode }> = {
+const GOAL_COLORS_FALLBACK = {
+  bg: 'bg-slate-500',
+  border: 'border-slate-400/60',
+  gradient: 'bg-gradient-to-br from-slate-400 via-slate-500 to-gray-600',
+  glow: 'shadow-slate-500/30',
+  icon: <Target className="h-3 w-3" />,
+};
+
+const GOAL_COLORS: Record<string, typeof GOAL_COLORS_FALLBACK> = {
   fat_loss: { 
     bg: 'bg-orange-500', 
     border: 'border-orange-400/60',
@@ -61,14 +69,12 @@ const GOAL_COLORS: Record<GoalType, { bg: string; border: string; gradient: stri
     glow: 'shadow-rose-500/30',
     icon: <Heart className="h-3 w-3" />
   },
-  other: { 
-    bg: 'bg-slate-500', 
-    border: 'border-slate-400/60',
-    gradient: 'bg-gradient-to-br from-slate-400 via-slate-500 to-gray-600',
-    glow: 'shadow-slate-500/30',
-    icon: <Target className="h-3 w-3" />
-  },
+  other: GOAL_COLORS_FALLBACK,
 };
+
+function getGoalColors(goalType: string | undefined) {
+  return GOAL_COLORS[goalType || ''] || GOAL_COLORS_FALLBACK;
+}
 
 const GOAL_LABELS: Record<GoalType, string> = {
   fat_loss: 'Fat Loss',
@@ -669,7 +675,7 @@ export function PhaseCalendar({
                       </button>
                     )}
                     {categoryPhases.map(({ phase, left, width, durationWeeks, clippedStart, clippedEnd, startFormatted, endFormatted, categoryTrack }) => {
-                      const colors = GOAL_COLORS[phase.goalType];
+                      const colors = getGoalColors(phase.goalType);
                       const isHovered = hoveredPhase === phase.id;
                       const isActive = phase.id === activePhaseId;
                       const isSelected = selectedPhaseForDetail?.id === phase.id;
@@ -816,8 +822,8 @@ export function PhaseCalendar({
             <div className="flex items-start justify-between">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className={cn("p-1.5 rounded", GOAL_COLORS[selectedPhaseForDetail.goalType].gradient)}>
-                    <span className="text-white">{GOAL_COLORS[selectedPhaseForDetail.goalType].icon}</span>
+                  <div className={cn("p-1.5 rounded", getGoalColors(selectedPhaseForDetail.goalType).gradient)}>
+                    <span className="text-white">{getGoalColors(selectedPhaseForDetail.goalType).icon}</span>
                   </div>
                   <div>
                     <h4 className="font-semibold">{selectedPhaseForDetail.name}</h4>

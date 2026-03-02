@@ -206,8 +206,10 @@ export async function PATCH(
       let phaseCreated = false;
       let phaseError: string | null = null;
       const up = body.userProfile || {};
-      const goalType = up.goalType as string | undefined;
-      console.log('[Phase Draft] goalType from body:', goalType, '| completed:', body.completed, '| preCheckout:', body.preCheckout);
+      const GOAL_TYPE_NORMALIZE: Record<string, string> = { lose_fat: 'fat_loss', gain_muscle: 'muscle_gain', recomp: 'recomposition' };
+      const rawGoalType = up.goalType as string | undefined;
+      const goalType = rawGoalType ? (GOAL_TYPE_NORMALIZE[rawGoalType] || rawGoalType) : undefined;
+      console.log('[Phase Draft] goalType from body:', rawGoalType, '| normalized:', goalType, '| completed:', body.completed, '| preCheckout:', body.preCheckout);
 
       if (goalType === 'fat_loss' || goalType === 'muscle_gain' || goalType === 'recomposition') {
         try {

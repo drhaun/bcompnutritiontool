@@ -80,22 +80,27 @@ import { PhaseTargetsEditor } from '@/components/planning/phase-targets-editor';
 
 // ============ CONSTANTS ============
 
-const GOAL_COLORS: Record<GoalType, { bg: string; text: string; border: string }> = {
+const GOAL_COLORS_DEFAULT = { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300' };
+const GOAL_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   fat_loss: { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-300' },
   muscle_gain: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300' },
   recomposition: { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-300' },
   performance: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300' },
   health: { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-300' },
-  other: { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300' },
+  other: GOAL_COLORS_DEFAULT,
 };
+function getGoalColors(goalType: string | undefined) {
+  return GOAL_COLORS[goalType || ''] || GOAL_COLORS_DEFAULT;
+}
 
-const GOAL_LABELS: Record<GoalType, string> = {
+const GOAL_LABELS: Record<string, string> = {
   fat_loss: 'Fat Loss',
   muscle_gain: 'Muscle Gain',
   recomposition: 'Recomposition',
   performance: 'Performance',
   health: 'Health Focus',
   other: 'Custom',
+  maintain: 'Maintenance',
 };
 
 const GOAL_ICONS: Record<GoalType, React.ReactNode> = {
@@ -1253,8 +1258,8 @@ export default function PlanningPage() {
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2 mb-2">
-                      <div className={cn("p-1.5 rounded", GOAL_COLORS[activePhase.goalType].bg)}>
-                        {GOAL_ICONS[activePhase.goalType]}
+                      <div className={cn("p-1.5 rounded", getGoalColors(activePhase?.goalType).bg)}>
+                        {GOAL_ICONS[activePhase?.goalType] || <Target className="h-4 w-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{activePhase.name}</p>
@@ -4010,7 +4015,7 @@ export default function PlanningPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {sortedPhases.slice(0, 3).map((phase) => {
                     const isActive = phase.id === activePhaseId;
-                    const colors = GOAL_COLORS[phase.goalType];
+                    const colors = getGoalColors(phase.goalType);
                     return (
                       <button
                         key={phase.id}
@@ -4050,7 +4055,7 @@ export default function PlanningPage() {
           {activeSection === 'phases' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">All Phases</h2>
+                <h2 className="text-lg font-semibold">Phase Manager</h2>
                 <Button
                   onClick={() => setShowCreateDialog(true)}
                   className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]"
@@ -4060,6 +4065,87 @@ export default function PlanningPage() {
                   Create Phase
                 </Button>
               </div>
+
+              {/* Flat list of ALL phases for management */}
+              {sortedPhases.length === 0 ? (
+                <Card className="border-dashed border-2 border-muted">
+                  <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                    <Target className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                    <p className="text-sm font-medium text-muted-foreground">No phases yet</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1 mb-4">Create a phase to start planning nutrition targets</p>
+                    <Button size="sm" onClick={() => setShowCreateDialog(true)} className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]">
+                      <Plus className="h-4 w-4 mr-1" /> Create First Phase
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-1.5">
+                  {sortedPhases.map((phase) => {
+                    const isActive = phase.id === activePhaseId;
+                    const colors = getGoalColors(phase.goalType);
+                    const duration = getPhaseDuration(phase);
+                    const statusLabel = phase.status === 'active' ? 'Active' : phase.status === 'completed' ? 'Completed' : phase.status === 'planned' ? 'Planned' : phase.status;
+                    const statusColor = phase.status === 'active' ? 'bg-emerald-100 text-emerald-700' : phase.status === 'completed' ? 'bg-slate-100 text-slate-600' : 'bg-sky-100 text-sky-700';
+                    return (
+                      <div
+                        key={phase.id}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all group",
+                          isActive ? "border-[#c19962]/50 bg-[#c19962]/5" : "border-border/50 hover:border-border",
+                          phase.status === 'completed' && "opacity-60"
+                        )}
+                      >
+                        <div className={cn("p-1.5 rounded", colors.bg)}>
+                          {GOAL_ICONS[phase.goalType] || <Target className="h-4 w-4" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium truncate">{phase.name}</span>
+                            {isActive && <Badge className="bg-[#c19962] text-[#00263d] text-[9px] h-4">Active</Badge>}
+                            <Badge className={cn("text-[9px] h-4", statusColor)}>{statusLabel}</Badge>
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                            <span>{GOAL_LABELS[phase.goalType] || phase.goalType}</span>
+                            <span>•</span>
+                            <span>{formatDate(phase.startDate)} – {formatDate(phase.endDate)}</span>
+                            <span>•</span>
+                            <span>{duration}w</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setActivePhase(phase.id); handleOpenTargetsModal(phase); }}>
+                                <Calendar className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Nutrition Targets</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditDialog(phase)}>
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Edit Phase</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeletePhase(phase.id, phase.name)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete Phase</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Categorized view below */}
+              {sortedPhases.length > 0 && <Separator className="my-2" />}
               
               {PHASE_CATEGORY_ROWS.map(catRow => {
                 const categoryPhases = sortedPhases.filter(p => catRow.goals.includes(p.goalType));
@@ -4097,7 +4183,7 @@ export default function PlanningPage() {
                       <div className="space-y-2">
                         {categoryPhases.map((phase) => {
                           const isActive = phase.id === activePhaseId;
-                          const colors = GOAL_COLORS[phase.goalType];
+                          const colors = getGoalColors(phase.goalType);
                           const duration = getPhaseDuration(phase);
                           
                           return (
@@ -4352,8 +4438,8 @@ export default function PlanningPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
-                  <div className={cn("p-2 rounded-lg", GOAL_COLORS[activePhase.goalType].bg)}>
-                    {GOAL_ICONS[activePhase.goalType]}
+                  <div className={cn("p-2 rounded-lg", getGoalColors(activePhase?.goalType).bg)}>
+                    {GOAL_ICONS[activePhase?.goalType] || <Target className="h-4 w-4" />}
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold">{activePhase.name}</h2>

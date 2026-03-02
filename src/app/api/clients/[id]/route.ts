@@ -125,7 +125,10 @@ export async function PATCH(
       updateData._mergePhases = true;
       updateData.phases = body.phases;
     }
-    if (body.activePhaseId !== undefined) updateData.active_phase_id = body.activePhaseId;
+    if (body.activePhaseId !== undefined) {
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      updateData.active_phase_id = (body.activePhaseId && uuidRe.test(body.activePhaseId)) ? body.activePhaseId : null;
+    }
     if (body.timelineEvents !== undefined) updateData.timeline_events = body.timelineEvents;
     // Favorites and resources
     if (body.favoriteRecipes !== undefined) updateData.favorite_recipes = body.favoriteRecipes;
@@ -158,6 +161,9 @@ export async function PATCH(
       } catch { /* proceed with original phases if merge fails */ }
     }
 
+    // Log field keys being updated for debugging 500s
+    console.log('[Clients API] PATCH', id, '| fields:', Object.keys(updateData).join(', '));
+
     // Build query - admins/coaches with visibility can update any client
     let query = supabase
       .from('clients')
@@ -177,7 +183,7 @@ export async function PATCH(
         console.log('Client update: No rows returned for id:', id, 'canViewAll:', canViewAll);
         return NextResponse.json({ error: 'Client not found or not authorized' }, { status: 404 });
       }
-      console.error('Error updating client:', error);
+      console.error('[Clients API] Error updating client:', id, '| code:', error.code, '| message:', error.message, '| details:', error.details, '| hint:', error.hint);
       return NextResponse.json({ error: 'Failed to update client', details: error.message }, { status: 500 });
     }
     

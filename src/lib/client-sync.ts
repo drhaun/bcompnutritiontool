@@ -36,8 +36,15 @@ export function dbClientToStoreClient(dbClient: any): ClientProfile {
   };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 // Convert store format to API format
 export function storeClientToApiFormat(client: ClientProfile) {
+  // Sanitize: drop any non-UUID activePhaseId to prevent DB type errors
+  const activePhaseId = client.activePhaseId && UUID_RE.test(client.activePhaseId)
+    ? client.activePhaseId
+    : null;
+
   return {
     id: client.id,
     name: client.name,
@@ -59,7 +66,7 @@ export function storeClientToApiFormat(client: ClientProfile) {
     updatedAt: client.updatedAt,
     // Phase-based planning fields
     phases: client.phases || [],
-    activePhaseId: client.activePhaseId,
+    activePhaseId,
     timelineEvents: client.timelineEvents || [],
     // Favorites and resources
     favoriteRecipes: client.favoriteRecipes || [],
@@ -189,18 +196,27 @@ export async function syncClientsToDb(localClients: ClientProfile[]): Promise<{
       console.log('[ClientSync] Filtered out', allDbClients.length - dbClients.length, 'deleted clients from sync result');
     }
     
-    // Only preserve local clients that are NOT in deleted set
+    // Only preserve truly NEW local clients (created < 24 hours ago) that aren't in DB yet.
+    // Older clients missing from DB were likely deleted by another session — don't resurrect them.
     if (localClients.length > 0 && dbClients.length < localClients.length) {
-      console.warn('[ClientSync] Database returned fewer clients than local. Checking for non-deleted missing clients.');
       const dbIds = new Set(dbClients.map((c: ClientProfile) => c.id));
-      const missingLocal = localClients.filter(c => !dbIds.has(c.id) && !deletedIds.has(c.id));
+      const ONE_DAY = 24 * 60 * 60 * 1000;
+      const missingLocal = localClients.filter(c => {
+        if (dbIds.has(c.id) || deletedIds.has(c.id)) return false;
+        const age = Date.now() - new Date(c.createdAt || 0).getTime();
+        return age < ONE_DAY;
+      });
       if (missingLocal.length > 0) {
-        console.log('[ClientSync] Preserving', missingLocal.length, 'local clients not in database (non-deleted)');
+        console.log('[ClientSync] Preserving', missingLocal.length, 'recently-created local clients not yet in database');
         return {
           success: true,
           clients: [...dbClients, ...missingLocal],
           allDbClients,
         };
+      }
+      const staleDropped = localClients.filter(c => !dbIds.has(c.id) && !deletedIds.has(c.id)).length - missingLocal.length;
+      if (staleDropped > 0) {
+        console.log('[ClientSync] Dropped', staleDropped, 'stale local clients not in DB (likely deleted by another session)');
       }
     }
     

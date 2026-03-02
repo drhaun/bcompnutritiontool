@@ -46,6 +46,9 @@ const generateUUID = () => {
 const generateId = () => generateUUID();
 const generatePhaseId = () => generateUUID();
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isValidUUID = (s: unknown): s is string => typeof s === 'string' && UUID_RE.test(s);
+
 // Debounce mechanism for auto-saving
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 const SAVE_DEBOUNCE_MS = 500; // Increased from 100ms to 500ms for reliability
@@ -374,6 +377,35 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           // Migrate legacy data to phase-based structure if needed
           let phases = client.phases || [];
           let activePhaseId = client.activePhaseId || null;
+          let needsSave = false;
+
+          // One-time sanitization: fix any non-UUID phase IDs and normalize goalType
+          const GOAL_TYPE_MAP: Record<string, string> = { lose_fat: 'fat_loss', gain_muscle: 'muscle_gain', recomp: 'recomposition' };
+          const sanitized = phases.map(p => {
+            let changed = false;
+            let id = p.id;
+            let goalType = p.goalType;
+            if (id && !isValidUUID(id)) {
+              id = generateUUID();
+              changed = true;
+            }
+            if (goalType && GOAL_TYPE_MAP[goalType]) {
+              goalType = GOAL_TYPE_MAP[goalType] as GoalType;
+              changed = true;
+            }
+            return changed ? { ...p, id, goalType } : p;
+          });
+          if (sanitized.some((p, i) => p !== phases[i])) {
+            // Update activePhaseId if it was pointing to an old ID
+            const oldToNew = new Map<string, string>();
+            phases.forEach((old, i) => { if (old.id !== sanitized[i].id) oldToNew.set(old.id, sanitized[i].id); });
+            if (activePhaseId && oldToNew.has(activePhaseId)) {
+              activePhaseId = oldToNew.get(activePhaseId)!;
+            }
+            phases = sanitized;
+            needsSave = true;
+            console.log('[Store] Sanitized phase IDs/goalTypes for client', clientId);
+          }
           
           // Migration: If client has targets/meal plan but no phases, create a legacy phase
           if (
@@ -383,7 +415,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           ) {
             const now = new Date().toISOString();
             const legacyPhase: Phase = {
-              id: `phase_legacy_${Date.now()}`,
+              id: generateUUID(),
               name: 'Current Plan',
               goalType: client.bodyCompGoals.goalType as GoalType,
               status: 'active',
@@ -435,8 +467,8 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
             error: null,
           });
           
-          // If we migrated, save the updated client state
-          if (phases.length > 0 && !client.phases?.length) {
+          // If we migrated or sanitized, save the updated client state
+          if (needsSave || (phases.length > 0 && !client.phases?.length)) {
             debouncedSave(() => get().saveActiveClientState());
           }
         }
@@ -1559,11 +1591,17 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
               const allFromDb = syncResult.allDbClients || syncResult.clients;
               await retryPendingDeletions(allFromDb);
               
-              // Preserve any local clients that weren't in the sync result (and aren't deleted)
+              // Only preserve truly NEW local clients (< 24h old) not yet in DB.
+              // Older missing clients were likely deleted by another session — don't resurrect.
               const syncedIds = new Set(mergedClients.map(c => c.id));
-              const missingClients = localClients.filter(c => !syncedIds.has(c.id) && !deletedIds.has(c.id));
+              const ONE_DAY = 24 * 60 * 60 * 1000;
+              const missingClients = localClients.filter(c => {
+                if (syncedIds.has(c.id) || deletedIds.has(c.id)) return false;
+                const age = Date.now() - new Date(c.createdAt || 0).getTime();
+                return age < ONE_DAY;
+              });
               if (missingClients.length > 0) {
-                console.log('[Store] Restoring missing (non-deleted) clients:', missingClients.map(c => c.name));
+                console.log('[Store] Preserving', missingClients.length, 'recently-created local clients not yet in DB');
                 mergedClients = [...mergedClients, ...missingClients];
               }
               

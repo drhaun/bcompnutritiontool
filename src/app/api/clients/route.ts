@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
       cronometer_client_name: body.cronometerClientName || null,
       // Phase-based planning fields
       phases: body.phases || [],
-      active_phase_id: body.activePhaseId || null,
+      active_phase_id: (body.activePhaseId && isValidUUID(body.activePhaseId)) ? body.activePhaseId : null,
       timeline_events: body.timelineEvents || [],
       // Favorites and resources
       favorite_recipes: body.favoriteRecipes || [],
@@ -316,6 +316,10 @@ export async function PUT(request: NextRequest) {
       // Only set to current user if this is a brand new client
       const coachId = existing?.coachId || client.coachId || user.id;
       
+      // Sanitize active_phase_id: must be a valid UUID or null
+      const rawPhaseId = client.activePhaseId || null;
+      const safeActivePhaseId = rawPhaseId && isValidUUID(rawPhaseId) ? rawPhaseId : null;
+
       const clientData = {
         id: client.id,
         coach_id: coachId,
@@ -336,7 +340,7 @@ export async function PUT(request: NextRequest) {
         cronometer_client_name: client.cronometerClientName || null,
         // Phase-based planning fields
         phases: client.phases || [],
-        active_phase_id: client.activePhaseId || null,
+        active_phase_id: safeActivePhaseId,
         timeline_events: client.timelineEvents || [],
         // Favorites and resources
         favorite_recipes: client.favoriteRecipes || [],
@@ -346,8 +350,16 @@ export async function PUT(request: NextRequest) {
       const localDate = new Date(client.updatedAt);
       
       if (!existing) {
-        // New client - insert
-        toInsert.push(clientData);
+        // Only insert truly NEW clients — those created within the last 24 hours.
+        // Older clients missing from DB were likely deleted by another session;
+        // re-inserting them would resurrect "zombie" clients.
+        const ageMs = Date.now() - new Date(client.updatedAt || 0).getTime();
+        const ONE_DAY = 24 * 60 * 60 * 1000;
+        if (ageMs < ONE_DAY) {
+          toInsert.push(clientData);
+        } else {
+          console.log('[Clients API] Skipping re-insert of stale client not in DB:', client.id, client.name, '| age:', Math.round(ageMs / 3600000), 'hours');
+        }
       } else if (localDate > existing.updatedAt) {
         // Local is newer - update
         toUpdate.push(clientData);

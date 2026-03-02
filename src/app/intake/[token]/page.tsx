@@ -115,7 +115,7 @@ export default function IntakeTokenPage() {
       setLoading(false);
     }
     init();
-  }, [raw, isToken]);
+  }, [raw, isToken, formIdParam]);
 
   const handleSlugSignup = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
