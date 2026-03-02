@@ -1573,22 +1573,42 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
             }
           }
           
-          // Clean up tracking for:
-          // 1. Zombies that were successfully deleted
-          // 2. IDs that are confirmed gone from DB (already deleted previously)
-          const idsToClean = [...verifiedDeleted, ...confirmedGone];
+          // Keep tracking deleted IDs for safety — don't clean them up during sync.
+          // The IDs will be cleaned up only when they've been tracked for > 7 days,
+          // preventing any race condition where a stale sync re-inserts them.
+          const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+          const now = Date.now();
+          // Read timestamps from localStorage for when each ID was first tracked
+          let deletionTimestamps: Record<string, number> = {};
+          try {
+            deletionTimestamps = JSON.parse(localStorage.getItem('fitomics-deleted-client-timestamps') || '{}');
+          } catch { /* */ }
+          // Record timestamps for any newly tracked IDs
+          for (const id of deletedIds) {
+            if (!deletionTimestamps[id]) deletionTimestamps[id] = now;
+          }
+          // Only clean up IDs that are confirmed gone from DB AND older than 7 days
+          const idsToClean = confirmedGone.filter(id => {
+            const trackedAt = deletionTimestamps[id] || now;
+            return (now - trackedAt) > SEVEN_DAYS;
+          });
           if (idsToClean.length > 0) {
             try {
               const remaining = [...deletedIds].filter(id => !idsToClean.includes(id));
               localStorage.setItem('fitomics-deleted-client-ids', JSON.stringify(remaining));
-              for (const id of idsToClean) deletedIds.delete(id);
-              // Also update state
+              for (const id of idsToClean) {
+                deletedIds.delete(id);
+                delete deletionTimestamps[id];
+              }
               set((s) => ({
                 _deletedClientIds: (s._deletedClientIds || []).filter(id => !idsToClean.includes(id)),
               }));
-              console.log('[Store] Cleaned up', idsToClean.length, 'deletion tracking IDs,', remaining.length, 'still tracked');
+              console.log('[Store] Cleaned up', idsToClean.length, 'old deletion tracking IDs (>7 days),', remaining.length, 'still tracked');
             } catch { /* ignore cleanup errors */ }
           }
+          try {
+            localStorage.setItem('fitomics-deleted-client-timestamps', JSON.stringify(deletionTimestamps));
+          } catch { /* */ }
         };
         
         // Retry any pending archive operations that failed previously
@@ -1618,72 +1638,42 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         };
 
         try {
-          const localClients = excludeDeleted(state.clients);
-          console.log('[Store] Local clients before sync:', localClients.length, localClients.map(c => c.name));
+          // PULL-ONLY: fetch the authoritative client list from the database.
+          // We intentionally do NOT push local clients back to the DB here,
+          // because stale localStorage data can re-insert deleted clients.
+          // Individual client creates/updates are saved immediately via POST/PATCH.
+          console.log('[Store] Fetching authoritative client list from database...');
           if (deletedIds.size > 0) {
             console.log('[Store] Deleted client IDs to exclude:', deletedIds.size);
           }
-          
-          if (localClients.length > 0) {
-            console.log('[Store] Syncing local clients to database...');
-            const syncResult = await syncClientsToDb(localClients);
-            
-            if (syncResult.success) {
-              // Filter out deleted clients from the sync result
-              let mergedClients = excludeDeleted(syncResult.clients);
-              
-              // Retry deleting any zombie clients still in DB
-              // CRITICAL: Use allDbClients (unfiltered) so we can actually see the zombies
-              const allFromDb = syncResult.allDbClients || syncResult.clients;
-              await retryPendingDeletions(allFromDb);
-              
-              // Only preserve truly NEW local clients (< 24h old) not yet in DB.
-              // Older missing clients were likely deleted by another session — don't resurrect.
-              const syncedIds = new Set(mergedClients.map(c => c.id));
-              const ONE_DAY = 24 * 60 * 60 * 1000;
-              const missingClients = localClients.filter(c => {
-                if (syncedIds.has(c.id) || deletedIds.has(c.id)) return false;
-                const age = Date.now() - new Date(c.createdAt || 0).getTime();
-                return age < ONE_DAY;
-              });
-              if (missingClients.length > 0) {
-                console.log('[Store] Preserving', missingClients.length, 'recently-created local clients not yet in DB');
-                mergedClients = [...mergedClients, ...missingClients];
-              }
-              
-              set({
-                clients: mergedClients,
-                lastSyncedAt: new Date().toISOString(),
-              });
-              console.log('[Store] Sync complete, total clients:', mergedClients.length);
-            } else if (syncResult.error === 'Not authenticated') {
-              console.log('[Store] Not authenticated - KEEPING local clients');
-            } else {
-              console.log('[Store] Sync failed:', syncResult.error, '- KEEPING local clients');
-            }
+
+          const dbClients = await fetchClientsFromDb();
+
+          if (dbClients.length === 0 && !state.isAuthenticated) {
+            console.log('[Store] Not authenticated or no clients in database');
           } else {
-            // No local clients, try fetching from database
-            console.log('[Store] No local clients, fetching from database...');
-            const dbClients = await fetchClientsFromDb();
-            
-            // Retry deleting any zombie clients (still in DB but locally deleted)
-            // fetchClientsFromDb returns unfiltered, so retryPendingDeletions can see zombies
+            // Retry deleting any zombie clients still in DB
             await retryPendingDeletions(dbClients);
-            
-            // Filter out deleted clients
-            const filteredClients = excludeDeleted(dbClients);
-            
-            if (filteredClients.length > 0) {
-              set({
-                clients: filteredClients,
-                lastSyncedAt: new Date().toISOString(),
-              });
-              console.log('[Store] Loaded', filteredClients.length, 'clients from database');
-            } else {
-              console.log('[Store] No clients in database (or not authenticated)');
-            }
+
+            // Re-read deletedIds fresh from state + localStorage after retries
+            // (retryPendingDeletions may have cleaned up confirmed-gone IDs)
+            const freshDeletedIds = new Set<string>([
+              ...(get()._deletedClientIds || []),
+              ...JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('fitomics-deleted-client-ids') || '[]') : '[]'),
+            ]);
+
+            const filteredClients = freshDeletedIds.size > 0
+              ? dbClients.filter(c => !freshDeletedIds.has(c.id))
+              : dbClients;
+
+            set({
+              clients: filteredClients,
+              lastSyncedAt: new Date().toISOString(),
+            });
+            console.log('[Store] Loaded', filteredClients.length, 'clients from database (', dbClients.length, 'total in DB,', dbClients.length - filteredClients.length, 'excluded)');
           }
-          // After sync or fetch, retry any pending archive operations
+
+          // After fetch, retry any pending archive operations
           await retryPendingArchives();
         } catch (error) {
           console.error('[Store] Sync error:', error);
