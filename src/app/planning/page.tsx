@@ -66,7 +66,8 @@ import {
   ArrowUpFromLine,
   RefreshCw,
   Flame,
-  Dumbbell
+  Dumbbell,
+  Sparkles
 } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import {
@@ -137,6 +138,7 @@ export default function PlanningPage() {
     userProfile,
     setUserProfile,
     weeklySchedule,
+    setWeeklySchedule,
     phases,
     activePhaseId,
     createPhase,
@@ -173,6 +175,8 @@ export default function PlanningPage() {
   const [showPlanningStats, setShowPlanningStats] = useState(false);
   const [showTargetsModal, setShowTargetsModal] = useState(false);
   const [selectedPhaseForTargets, setSelectedPhaseForTargets] = useState<Phase | null>(null);
+  const [modalHasUnsaved, setModalHasUnsaved] = useState(false);
+  const modalSaveRef = useRef<(() => void) | null>(null);
   
   // Left sidebar navigation
   type SidebarSection = 'calendar' | 'phases' | 'targets' | 'events';
@@ -1035,6 +1039,23 @@ export default function PlanningPage() {
     if (phaseId === activePhaseId) {
       setNutritionTargets(targets);
     }
+
+    // Sync weeklySchedule from phase targets so the meal plan page
+    // picks up workouts, meal/snack counts, wake/sleep times, etc.
+    const scheduleUpdate: Record<string, unknown> = {};
+    for (const t of targets) {
+      const ext = t as unknown as Record<string, unknown>;
+      const existing = weeklySchedule[t.day] as unknown as Record<string, unknown> | undefined;
+      scheduleUpdate[t.day] = {
+        ...(existing || {}),
+        mealCount: ext.meals ?? existing?.mealCount ?? 3,
+        snackCount: ext.snacks ?? existing?.snackCount ?? 2,
+        wakeTime: ext.wakeTime || existing?.wakeTime || '7:00 AM',
+        sleepTime: ext.sleepTime || existing?.sleepTime || '10:00 PM',
+        workouts: ext.workouts ?? existing?.workouts ?? [],
+      };
+    }
+    setWeeklySchedule(scheduleUpdate as Partial<typeof weeklySchedule>);
     
     toast.success('Nutrition targets saved to phase');
   };
@@ -4669,9 +4690,44 @@ export default function PlanningPage() {
                         setShowTargetsModal(false);
                         handleOpenEditDialog(selectedPhaseForTargets);
                       }}
+                      saveRef={modalSaveRef}
+                      onUnsavedChange={setModalHasUnsaved}
                     />
                   </div>
                 )}
+              </div>
+              {/* Sticky footer — always-visible Save & Generate buttons */}
+              <div className="px-8 py-4 border-t bg-background/95 backdrop-blur sticky bottom-0 z-10 shrink-0 flex items-center justify-between gap-4">
+                <p className="text-sm text-muted-foreground">
+                  {modalHasUnsaved ? 'You have unsaved changes' : 'All changes saved'}
+                </p>
+                <div className="flex items-center gap-3">
+                  <Button
+                    size="sm"
+                    className={cn(
+                      "h-10 px-5 font-medium",
+                      modalHasUnsaved
+                        ? "bg-amber-500 hover:bg-amber-600 text-white"
+                        : "bg-green-600 hover:bg-green-700 text-white"
+                    )}
+                    onClick={() => modalSaveRef.current?.()}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    {modalHasUnsaved ? 'Save Targets' : 'Targets Saved'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-10 px-5 bg-[#c19962] hover:bg-[#a8843e] text-white font-medium"
+                    onClick={() => {
+                      if (modalHasUnsaved) modalSaveRef.current?.();
+                      setShowTargetsModal(false);
+                      if (selectedPhaseForTargets) handleProceedToMealPlan(selectedPhaseForTargets.id);
+                    }}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate Meal Plan
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>

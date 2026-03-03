@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -463,6 +463,10 @@ interface PhaseTargetsEditorProps {
   onSaveTargets: (targets: DayNutritionTargets[], macroSettings?: MacroSettings) => void;
   onNavigateToMealPlan: () => void;
   onEditPhase: () => void;
+  /** Ref populated with the save function so the parent modal can trigger saves */
+  saveRef?: React.MutableRefObject<(() => void) | null>;
+  /** Called when unsaved-changes state changes so parent can show/hide sticky save */
+  onUnsavedChange?: (hasUnsaved: boolean) => void;
 }
 
 export function PhaseTargetsEditor({
@@ -472,6 +476,8 @@ export function PhaseTargetsEditor({
   onSaveTargets,
   onNavigateToMealPlan,
   onEditPhase,
+  saveRef,
+  onUnsavedChange,
 }: PhaseTargetsEditorProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'daily'>('overview');
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Monday');
@@ -499,7 +505,12 @@ export function PhaseTargetsEditor({
   const [editingDayLabel, setEditingDayLabel] = useState(false);
   const [dayLabelDraft, setDayLabelDraft] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(hadStaleTargets);
-  
+
+  // Expose save function to parent via ref, and notify parent of unsaved changes
+  React.useEffect(() => {
+    onUnsavedChange?.(hasUnsavedChanges);
+  }, [hasUnsavedChanges, onUnsavedChange]);
+
   // Macro coefficient settings - slider-based
   const [proteinLevel, setProteinLevel] = useState<ProteinLevel>('moderate');
   const [fatLevel, setFatLevel] = useState<FatLevel>('moderate');
@@ -1018,6 +1029,11 @@ export function PhaseTargetsEditor({
     setHasUnsavedChanges(false);
     toast.success('Nutrition targets and meal settings saved for this phase');
   };
+
+  // Expose save function to parent modal via ref
+  React.useEffect(() => {
+    if (saveRef) saveRef.current = handleConfirmTargets;
+  });
 
   // Export phase targets PDF
   const handleExportPDF = async () => {

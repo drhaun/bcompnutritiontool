@@ -752,13 +752,16 @@ export default function MealPlanPage() {
     DAYS.forEach(day => {
       const schedule = weeklySchedule[day];
       const targets = nutritionTargets.find(t => t.day === day);
+      const ext = (targets ?? {}) as unknown as Record<string, unknown>;
       
-      // PRIORITY: Use isWorkoutDay from phase nutrition targets, fall back to weeklySchedule
-      const scheduleWorkouts = schedule?.workouts?.filter(w => w.enabled) || [];
+      // Fall back to phase nutrition targets when weeklySchedule is empty
+      const scheduleWorkouts = schedule?.workouts?.filter(w => w.enabled)
+        || ((ext.workouts as { enabled?: boolean }[]) ?? []).filter(w => w.enabled !== false)
+        || [];
       const isWorkoutDay = targets?.isWorkoutDay ?? scheduleWorkouts.length > 0;
-      const workoutType = scheduleWorkouts.length > 0 ? scheduleWorkouts[0]?.type : undefined;
-      const mealsCount = schedule?.mealCount || 3;
-      const snacksCount = schedule?.snackCount || 2;
+      const workoutType = scheduleWorkouts.length > 0 ? (scheduleWorkouts[0] as unknown as Record<string, unknown>)?.type as string | undefined : undefined;
+      const mealsCount = schedule?.mealCount || (ext.meals as number) || 3;
+      const snacksCount = schedule?.snackCount || (ext.snacks as number) || 2;
       
       // Get custom day label from saved targets
       const customDayLabel = targets?.dayLabel;
@@ -818,9 +821,11 @@ export default function MealPlanPage() {
   const daySchedule = weeklySchedule[currentDay];
   const dayTargets = nutritionTargets.find(t => t.day === currentDay);
   const dayPlan = mealPlan?.[currentDay];
+  const dayTargetsExt = (dayTargets ?? {}) as unknown as Record<string, unknown>;
   
-  const mealsCount = daySchedule?.mealCount || 3;
-  const snacksCount = daySchedule?.snackCount || 2;
+  // Fall back to phase-saved schedule data when weeklySchedule is empty
+  const mealsCount = daySchedule?.mealCount || (dayTargetsExt.meals as number) || 3;
+  const snacksCount = daySchedule?.snackCount || (dayTargetsExt.snacks as number) || 2;
   // Use saved mealSlotTargets labels when available; fall back to generic generation
   const slotLabels = useMemo(() => {
     const savedSlotTargets = (dayTargets as any)?.mealSlotTargets as
@@ -835,9 +840,11 @@ export default function MealPlanPage() {
     return getMealSlotLabels(mealsCount, snacksCount);
   }, [dayTargets, mealsCount, snacksCount]);
 
+  const dayWakeTime = daySchedule?.wakeTime || (dayTargetsExt.wakeTime as string) || '7:00 AM';
+  const daySleepTime = daySchedule?.sleepTime || (dayTargetsExt.sleepTime as string) || '10:00 PM';
   const timeSlots = useMemo(() => 
-    getTimeSlots(daySchedule?.wakeTime || '7:00 AM', daySchedule?.sleepTime || '10:00 PM', slotLabels.length),
-    [daySchedule?.wakeTime, daySchedule?.sleepTime, slotLabels.length]
+    getTimeSlots(dayWakeTime, daySleepTime, slotLabels.length),
+    [dayWakeTime, daySleepTime, slotLabels.length]
   );
   const slotTargets = useMemo(() => {
     if (!dayTargets) return [];
@@ -940,7 +947,8 @@ export default function MealPlanPage() {
     
     DAYS.forEach(day => {
       const schedule = weeklySchedule[day];
-      const daySlots = (schedule?.mealCount || 3) + (schedule?.snackCount || 2);
+      const tgt = (nutritionTargets.find(t => t.day === day) ?? {}) as unknown as Record<string, unknown>;
+      const daySlots = (schedule?.mealCount || (tgt.meals as number) || 3) + (schedule?.snackCount || (tgt.snacks as number) || 2);
       totalSlots += daySlots;
       const dayMeals = mealPlan?.[day]?.meals;
       if (dayMeals) {
@@ -1587,12 +1595,16 @@ export default function MealPlanPage() {
 
       const targetDayTargets = nutritionTargets.find(t => t.day === targetDay);
       const targetSchedule = weeklySchedule[targetDay];
-      const savedSlots = (targetDayTargets as Record<string, unknown>)?.mealSlotTargets as
+      const tgtExtC = (targetDayTargets ?? {}) as unknown as Record<string, unknown>;
+      const savedSlots = tgtExtC.mealSlotTargets as
         | { label: string; type: 'meal' | 'snack' }[]
         | undefined;
       const tMeals = savedSlots?.length
         ? savedSlots
-        : getMealSlotLabels(targetSchedule?.mealCount || 3, targetSchedule?.snackCount || 2);
+        : getMealSlotLabels(
+            targetSchedule?.mealCount || (tgtExtC.meals as number) || 3,
+            targetSchedule?.snackCount || (tgtExtC.snacks as number) || 2
+          );
 
       let targetIdx = tMeals.findIndex(s => s.label === targetSlotLabel);
       if (targetIdx === -1) {
@@ -1744,12 +1756,14 @@ export default function MealPlanPage() {
       toast.error('No nutrition targets found for this day');
       return;
     }
+
+    const tgtExt = (dayTargetsForDay as unknown as Record<string, unknown>);
     
     setIsGeneratingSingleDay(true);
     
     try {
-      const mealsCount = schedule?.mealCount || 3;
-      const snacksCount = schedule?.snackCount || 2;
+      const mealsCount = schedule?.mealCount || (tgtExt.meals as number) || 3;
+      const snacksCount = schedule?.snackCount || (tgtExt.snacks as number) || 2;
       // Prefer saved slot labels from planning step; fall back to generated
       const savedTargets = (dayTargetsForDay as any)?.mealSlotTargets as
         | { label: string; type: 'meal' | 'snack' }[]
@@ -1758,8 +1772,8 @@ export default function MealPlanPage() {
         ? savedTargets.map(st => ({ type: st.type || ('meal' as const), label: st.label || 'Meal' }))
         : getMealSlotLabels(mealsCount, snacksCount);
       const times = getTimeSlots(
-        schedule?.wakeTime || '7:00 AM',
-        schedule?.sleepTime || '10:00 PM',
+        schedule?.wakeTime || (tgtExt.wakeTime as string) || '7:00 AM',
+        schedule?.sleepTime || (tgtExt.sleepTime as string) || '10:00 PM',
         labels.length
       );
       
@@ -3484,10 +3498,11 @@ export default function MealPlanPage() {
                   {DAYS.map(day => {
                     const schedule = weeklySchedule[day];
                     const dayTargetsForDay = nutritionTargets.find(t => t.day === day);
+                    const tgtExtW = (dayTargetsForDay ?? {}) as unknown as Record<string, unknown>;
                     // Use phase nutrition targets for workout status, fallback to schedule
                     const hasWorkout = dayTargetsForDay?.isWorkoutDay ?? schedule?.workouts?.some(w => w.enabled);
                     const filled = mealPlan?.[day]?.meals?.filter(m => m !== null).length || 0;
-                    const total = (schedule?.mealCount || 3) + (schedule?.snackCount || 2);
+                    const total = (schedule?.mealCount || (tgtExtW.meals as number) || 3) + (schedule?.snackCount || (tgtExtW.snacks as number) || 2);
                     
                     return (
                       <TabsTrigger 
