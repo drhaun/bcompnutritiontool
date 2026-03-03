@@ -37,6 +37,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/auth-provider';
+import { KrogerSettings } from '@/components/admin/kroger-settings';
 import { 
   type StaffUser, 
   isAdmin, 
@@ -687,6 +688,9 @@ export default function AdminPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Kroger Integration */}
+        <KrogerSettings />
 
         {/* Users without Staff Records */}
         {usersWithoutStaff.length > 0 && (

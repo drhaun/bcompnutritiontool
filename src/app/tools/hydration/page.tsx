@@ -45,6 +45,7 @@ import {
 // ============ TYPES ============
 
 type MeasurementSystem = 'metric' | 'imperial';
+type Sex = 'male' | 'female';
 type ExerciseType = 'general' | 'running' | 'cycling' | 'swimming' | 'strength' | 'hiit' | 'team_sports' | 'endurance';
 type ExerciseIntensity = 'light' | 'moderate' | 'vigorous' | 'very_vigorous';
 type ClothingType = 'minimal' | 'light' | 'moderate' | 'heavy';
@@ -114,6 +115,7 @@ const ACCLIMATIZATION: { value: AcclimatizationStatus; label: string; multiplier
 
 function calculateSweatRate(
   weightKg: number,
+  sex: Sex,
   exerciseType: ExerciseType,
   intensity: ExerciseIntensity,
   tempC: number,
@@ -122,46 +124,37 @@ function calculateSweatRate(
   acclimatization: AcclimatizationStatus,
   altitude: number
 ): number {
-  // Base sweat rate: ~0.5-2.0 L/hr for most people
-  // Starting with 0.8 L/hr as baseline for moderate exercise
-  const baseSweatRate = 0.8;
+  // ACSM-aligned base: 0.5 L/hr for moderate exercise in thermoneutral conditions
+  const baseSweatRate = 0.5;
 
-  // Weight factor (heavier individuals sweat more)
-  const weightFactor = weightKg / 70; // Normalized to 70kg
+  // Sex factor: women produce ~30-40% less sweat (Gagnon & Kenny, 2012)
+  const sexFactor = sex === 'female' ? 0.65 : 1.0;
 
-  // Exercise type multiplier
+  // Body size via BSA approximation (DuBois formula simplified).
+  // Normalized to a 70 kg / 1.73 m² reference individual.
+  // BSA ≈ 0.007184 * height^0.725 * weight^0.425 → scales roughly as weight^0.425
+  const weightFactor = Math.pow(weightKg / 70, 0.425) / Math.pow(1, 0.425);
+
   const exerciseMultiplier = EXERCISE_TYPES.find(e => e.value === exerciseType)?.sweatMultiplier || 1.0;
-
-  // Intensity multiplier
   const intensityMultiplier = INTENSITIES.find(i => i.value === intensity)?.multiplier || 1.0;
 
-  // Temperature factor (increases significantly above 20°C)
-  let tempFactor = 1.0;
-  if (tempC > 35) tempFactor = 1.8;
-  else if (tempC > 30) tempFactor = 1.5;
-  else if (tempC > 25) tempFactor = 1.3;
-  else if (tempC > 20) tempFactor = 1.1;
-  else if (tempC < 10) tempFactor = 0.8;
+  // Continuous temperature curve (sigmoid-like, centered around 25°C)
+  // At 10°C → ~0.75, at 20°C → 1.0, at 25°C → 1.15, at 30°C → 1.40, at 35°C → 1.70, at 40°C → 1.90
+  const tempFactor = 0.75 + 1.15 / (1 + Math.exp(-0.15 * (tempC - 27)));
 
-  // Humidity factor
-  let humidityFactor = 1.0;
-  if (humidity > 80) humidityFactor = 1.3;
-  else if (humidity > 60) humidityFactor = 1.15;
-  else if (humidity < 30) humidityFactor = 0.9;
+  // Continuous humidity curve (linear with diminishing returns above 80%)
+  // At 20% → 0.90, at 50% → 1.0, at 70% → 1.12, at 90% → 1.25
+  const humidityFactor = 0.85 + 0.005 * Math.min(humidity, 80) + (humidity > 80 ? 0.0025 * (humidity - 80) : 0);
 
-  // Clothing multiplier
   const clothingMultiplier = CLOTHING_TYPES.find(c => c.value === clothing)?.multiplier || 1.0;
-
-  // Acclimatization multiplier
   const acclimatizationMultiplier = ACCLIMATIZATION.find(a => a.value === acclimatization)?.multiplier || 1.0;
 
-  // Altitude factor (increases above 1500m)
-  let altitudeFactor = 1.0;
-  if (altitude > 3000) altitudeFactor = 1.25;
-  else if (altitude > 2000) altitudeFactor = 1.15;
-  else if (altitude > 1500) altitudeFactor = 1.1;
+  // Continuous altitude curve (respiratory water loss increases with altitude)
+  // Noticeable above 1500 m, significant above 2500 m
+  const altitudeFactor = altitude > 1000 ? 1 + 0.00008 * Math.pow(altitude - 1000, 1.1) : 1.0;
 
   const sweatRate = baseSweatRate *
+    sexFactor *
     weightFactor *
     exerciseMultiplier *
     intensityMultiplier *
@@ -169,7 +162,7 @@ function calculateSweatRate(
     humidityFactor *
     clothingMultiplier *
     acclimatizationMultiplier *
-    altitudeFactor;
+    Math.min(altitudeFactor, 1.35);
 
   return Math.round(sweatRate * 100) / 100;
 }
@@ -285,10 +278,11 @@ export default function HydrationCalculatorPage() {
   const router = useRouter();
 
   // Settings
-  const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>('metric');
+  const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>('imperial');
   const [advancedMode, setAdvancedMode] = useState(false);
 
   // Basic inputs
+  const [sex, setSex] = useState<Sex>('male');
   const [weightKg, setWeightKg] = useState(70);
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [exerciseType, setExerciseType] = useState<ExerciseType>('general');
@@ -347,6 +341,7 @@ export default function HydrationCalculatorPage() {
     } else {
       sweatRate = calculateSweatRate(
         weightKg,
+        sex,
         exerciseType,
         intensity,
         tempC,
@@ -401,7 +396,7 @@ export default function HydrationCalculatorPage() {
     setHasCalculated(true);
     toast.success('Hydration needs calculated!');
   }, [
-    weightKg, durationMinutes, exerciseType, intensity, fluidConsumedL,
+    weightKg, sex, durationMinutes, exerciseType, intensity, fluidConsumedL,
     tempC, humidity, altitude, clothing, acclimatization,
     knownSweatRate, preExerciseWeight, postExerciseWeight
   ]);
@@ -520,7 +515,19 @@ export default function HydrationCalculatorPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Sex</Label>
+                    <Select value={sex} onValueChange={(v) => setSex(v as Sex)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="space-y-2">
                     <Label>Body Weight ({measurementSystem === 'metric' ? 'kg' : 'lbs'})</Label>
                     <Input
@@ -533,7 +540,7 @@ export default function HydrationCalculatorPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Exercise Duration (minutes)</Label>
+                    <Label>Duration (min)</Label>
                     <Input
                       type="number"
                       value={durationMinutes}
@@ -573,19 +580,6 @@ export default function HydrationCalculatorPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Fluids Consumed During Exercise ({measurementSystem === 'metric' ? 'L' : 'fl oz'})</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={measurementSystem === 'metric' ? fluidConsumedL : Math.round(lToOz(fluidConsumedL))}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value) || 0;
-                      setFluidConsumedL(measurementSystem === 'metric' ? val : val / 33.814);
-                    }}
-                  />
                 </div>
 
                 <Separator />
@@ -706,7 +700,7 @@ export default function HydrationCalculatorPage() {
                       <Label className="text-sm font-medium">Pre/Post Exercise Weight (Optional)</Label>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      For the most accurate sweat rate calculation - weigh yourself naked before and after exercise
+                      For the most accurate sweat rate calculation — weigh yourself naked before and after exercise
                     </p>
                   </div>
 
@@ -735,6 +729,22 @@ export default function HydrationCalculatorPage() {
                         }}
                       />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Fluids Consumed During Exercise ({measurementSystem === 'metric' ? 'L' : 'fl oz'})</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={measurementSystem === 'metric' ? fluidConsumedL : Math.round(lToOz(fluidConsumedL))}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setFluidConsumedL(measurementSystem === 'metric' ? val : val / 33.814);
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Used with pre/post weight to calculate actual sweat rate
+                    </p>
                   </div>
                 </CardContent>
               </Card>

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { aiChat, aiChatJSON, getActiveProvider } from '@/lib/ai-client';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -9,15 +9,12 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { analysis, targets, mode, nutrientGroups } = body;
     
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    if (!getActiveProvider()) {
       return NextResponse.json(
-        { message: 'OpenAI API key not configured' },
+        { message: 'AI provider not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY.' },
         { status: 500 }
       );
     }
-
-    const openai = new OpenAI({ apiKey });
 
     // Build context from analysis
     const deficiencyList = analysis.deficiencies
@@ -93,20 +90,13 @@ Be specific with real foods, real portions, and realistic recipes. This should b
 
 Format as clear, readable text with headers for each meal. Do NOT return JSON — return well-formatted plain text.`;
 
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert clinical dietitian. Provide detailed, actionable corrective meal plans with real foods and accurate nutrient estimates. Use clear formatting with meal headers, bullet points for ingredients, and macro breakdowns.'
-          },
-          { role: 'user', content: correctivePrompt }
-        ],
+      const content = await aiChat({
+        system: 'You are an expert clinical dietitian. Provide detailed, actionable corrective meal plans with real foods and accurate nutrient estimates. Use clear formatting with meal headers, bullet points for ingredients, and macro breakdowns.',
+        userMessage: correctivePrompt,
         temperature: 0.7,
-        max_tokens: 3000,
+        maxTokens: 3000,
+        tier: 'fast',
       });
-
-      const content = completion.choices[0]?.message?.content || '';
 
       return NextResponse.json({
         recommendations: content,
@@ -155,39 +145,26 @@ Then create an OPTIMIZED SAMPLE DAY meal plan that addresses the deficiencies wh
 
 Create 4-5 meals/snacks that total close to the calorie and macro targets.`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert nutritionist. Always respond with valid JSON only, no markdown code blocks.'
-        },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000,
-    });
-
-    const content = completion.choices[0]?.message?.content || '';
-    
-    // Parse JSON from response
     let result;
     try {
-      // Try to extract JSON if wrapped in markdown
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      const jsonStr = jsonMatch ? jsonMatch[1] : content;
-      result = JSON.parse(jsonStr.trim());
+      result = await aiChatJSON<{ recommendations: string; sampleDay: unknown }>({
+        system: 'You are an expert nutritionist. Always respond with valid JSON only, no markdown code blocks.',
+        userMessage: prompt,
+        temperature: 0.7,
+        maxTokens: 2000,
+        jsonMode: true,
+        tier: 'fast',
+      });
     } catch (parseError) {
-      // If JSON parsing fails, treat entire response as recommendations text
       console.error('Failed to parse JSON, using raw text');
       result = {
-        recommendations: content,
+        recommendations: 'Unable to generate structured recommendations. Please try again.',
         sampleDay: null
       };
     }
 
     return NextResponse.json({
-      recommendations: result.recommendations || content,
+      recommendations: result.recommendations || 'Unable to generate recommendations.',
       sampleDay: result.sampleDay || null
     });
     

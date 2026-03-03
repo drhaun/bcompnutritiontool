@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { aiChat, getActiveProvider } from '@/lib/ai-client';
 import type { 
   UserProfile, 
   BodyCompGoals, 
@@ -24,15 +24,12 @@ export async function POST(request: Request) {
       noteRequest: MealNoteRequest;
     } = body;
     
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    if (!getActiveProvider()) {
       return NextResponse.json(
-        { message: 'OpenAI API key not configured' },
+        { message: 'AI provider not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY.' },
         { status: 500 }
       );
     }
-    
-    const openai = new OpenAI({ apiKey });
     
     const { meal, day, clientGoal, isWorkoutDay, slotLabel } = noteRequest;
     
@@ -69,20 +66,14 @@ Focus on:
 Be concise, professional, and encouraging. Return ONLY the rationale text, no JSON.
 `;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a friendly nutrition coach writing brief meal rationales. Be concise and supportive.',
-        },
-        { role: 'user', content: prompt },
-      ],
+    const rationale = (await aiChat({
+      system: 'You are a friendly nutrition coach writing brief meal rationales. Be concise and supportive.',
+      userMessage: prompt,
       temperature: 0.5,
-      max_tokens: 200,
-    });
+      maxTokens: 200,
+      tier: 'fast',
+    })).trim();
     
-    const rationale = response.choices[0]?.message?.content?.trim();
     if (!rationale) {
       throw new Error('No content in AI response');
     }

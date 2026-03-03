@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { aiChatJSON, getActiveProvider } from '@/lib/ai-client';
 import type { 
   UserProfile, 
   BodyCompGoals, 
@@ -47,15 +47,12 @@ export async function POST(request: Request) {
       swapRequest: MealSwapRequest;
     } = body;
     
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    if (!getActiveProvider()) {
       return NextResponse.json(
-        { message: 'OpenAI API key not configured' },
+        { message: 'AI provider not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY.' },
         { status: 500 }
       );
     }
-    
-    const openai = new OpenAI({ apiKey });
     
     const dietaryContext = buildDietaryContext(dietPreferences);
     
@@ -117,26 +114,14 @@ Return a JSON object with this EXACT structure:
 Categories: "protein", "carbs", "fats", "vegetables", "seasonings", "other"
 `;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a precision nutrition expert. Generate meal alternatives with exact macro calculations.',
-        },
-        { role: 'user', content: prompt },
-      ],
-      response_format: { type: 'json_object' },
+    const result = await aiChatJSON<{ alternatives: (Meal & { briefDescription: string })[] }>({
+      system: 'You are a precision nutrition expert. Generate meal alternatives with exact macro calculations.',
+      userMessage: prompt,
       temperature: 0.5,
-      max_tokens: 3000,
+      maxTokens: 3000,
+      jsonMode: true,
+      tier: 'standard',
     });
-    
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No content in AI response');
-    }
-    
-    const result = JSON.parse(content);
     
     // Process alternatives and add metadata
     const alternatives = result.alternatives.map((alt: Meal & { briefDescription: string }) => {

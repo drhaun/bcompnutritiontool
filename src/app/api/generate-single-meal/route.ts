@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generatePreciseMeal, ACCURACY_THRESHOLDS, checkPortionWarnings } from '@/lib/precision-meal-generator';
+import { getActiveProvider } from '@/lib/ai-client';
 import type { 
   UserProfile, 
   BodyCompGoals, 
@@ -25,10 +26,9 @@ export async function POST(request: Request) {
       mealRequest: SingleMealRequest;
     } = body;
     
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    if (!getActiveProvider()) {
       return NextResponse.json(
-        { message: 'OpenAI API key not configured' },
+        { message: 'AI provider not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY.' },
         { status: 500 }
       );
     }
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     } = mealRequest;
     
     // Use precision meal generator (database-backed)
-    const meal = await generatePreciseMeal(apiKey, {
+    const meal = await generatePreciseMeal('', {
       day,
       slotLabel,
       targetMacros,

@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import type { 
   UserProfile, 
   BodyCompGoals, 
@@ -12,6 +11,7 @@ import type {
   DayOfWeek 
 } from '@/types';
 import { validateMacroAccuracy } from './nutrition-calc';
+import { aiChatJSON } from './ai-client';
 
 const DAYS_OF_WEEK: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -100,7 +100,6 @@ You NEVER create boring "plain chicken and rice" meals. Every dish should have p
  * Generate a single day's meal plan
  */
 async function generateDayMealPlan(
-  openai: OpenAI,
   day: DayOfWeek,
   dayTargets: DayNutritionTargets,
   userContext: string,
@@ -208,31 +207,14 @@ Return a JSON object with this EXACT structure:
 }
 `;
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [
-      {
-        role: 'system',
-        content: CHEF_SYSTEM_PROMPT + '\n\nReturn ONLY valid JSON. Ensure all macro calculations are accurate.',
-      },
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
-    response_format: { type: 'json_object' },
-    temperature: 0.5, // Balanced for consistency + creativity
-    presence_penalty: 0.2, // Discourage repetition
-    frequency_penalty: 0.1,
-    max_tokens: 4000,
+  const dayPlan = await aiChatJSON<DayMealPlan>({
+    system: CHEF_SYSTEM_PROMPT + '\n\nReturn ONLY valid JSON. Ensure all macro calculations are accurate.',
+    userMessage: prompt,
+    temperature: 0.5,
+    maxTokens: 4000,
+    jsonMode: true,
+    tier: 'standard',
   });
-
-  const content = response.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error('No response from AI');
-  }
-
-  const dayPlan = JSON.parse(content) as DayMealPlan;
   
   // Validate macro accuracy
   const validation = validateMacroAccuracy(
@@ -250,7 +232,7 @@ Return a JSON object with this EXACT structure:
  * Generate a complete weekly meal plan
  */
 export async function generateWeeklyMealPlan(
-  apiKey: string,
+  _apiKey: string,
   userProfile: Partial<UserProfile>,
   bodyCompGoals: Partial<BodyCompGoals>,
   dietPreferences: Partial<DietPreferences>,
@@ -259,11 +241,6 @@ export async function generateWeeklyMealPlan(
   daysToGenerate: DayOfWeek[] = DAYS_OF_WEEK,
   onProgress?: (day: DayOfWeek, progress: number) => void
 ): Promise<WeeklyMealPlan> {
-  const openai = new OpenAI({ 
-    apiKey,
-    dangerouslyAllowBrowser: true 
-  });
-  
   const userContext = buildUserProfileContext(userProfile, bodyCompGoals);
   const dietaryContext = buildDietaryContext(dietPreferences);
   
@@ -291,7 +268,6 @@ SCHEDULE FOR ${day.toUpperCase()}:
     
     // Generate the day's meal plan
     const dayPlan = await generateDayMealPlan(
-      openai,
       day,
       dayTargets,
       userContext,
@@ -318,18 +294,13 @@ SCHEDULE FOR ${day.toUpperCase()}:
  * Regenerate a single meal within a day
  */
 export async function regenerateMeal(
-  apiKey: string,
+  _apiKey: string,
   mealIndex: number,
   dayPlan: DayMealPlan,
   userProfile: Partial<UserProfile>,
   dietPreferences: Partial<DietPreferences>,
   avoidIngredients: string[] = []
 ): Promise<Meal> {
-  const openai = new OpenAI({ 
-    apiKey,
-    dangerouslyAllowBrowser: true 
-  });
-  
   const currentMeal = dayPlan.meals[mealIndex];
   const targetMacros = currentMeal.targetMacros;
   const dietaryContext = buildDietaryContext(dietPreferences);
@@ -382,29 +353,14 @@ Return ONLY a JSON object with this structure:
 }
 `;
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [
-      {
-        role: 'system',
-        content: 'You are a precise nutritionist. Return ONLY valid JSON.',
-      },
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
-    response_format: { type: 'json_object' },
+  return await aiChatJSON<Meal>({
+    system: 'You are a precise nutritionist. Return ONLY valid JSON.',
+    userMessage: prompt,
     temperature: 0.5,
-    max_tokens: 1500,
+    maxTokens: 1500,
+    jsonMode: true,
+    tier: 'standard',
   });
-
-  const content = response.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error('No response from AI');
-  }
-
-  return JSON.parse(content) as Meal;
 }
 
 /**

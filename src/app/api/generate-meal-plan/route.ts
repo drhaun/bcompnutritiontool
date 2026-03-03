@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateWeeklyMealPlan } from '@/lib/ai-meal-planning';
+import { getActiveProvider } from '@/lib/ai-client';
 import type { DayNutritionTargets, WeeklySchedule } from '@/types';
 
 export const runtime = 'nodejs';
@@ -16,10 +17,9 @@ export async function POST(request: Request) {
       daysToGenerate,
     } = body;
     
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    if (!getActiveProvider()) {
       return NextResponse.json(
-        { message: 'OPENAI_API_KEY is not configured' },
+        { message: 'AI provider not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY.' },
         { status: 500 }
       );
     }
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     }
     
     const mealPlan = await generateWeeklyMealPlan(
-      apiKey,
+      '',
       userProfile,
       bodyCompGoals,
       dietPreferences,

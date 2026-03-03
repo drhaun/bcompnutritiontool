@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { aiChat, getActiveProvider } from '@/lib/ai-client';
 
 interface Ingredient {
   name: string;
@@ -63,24 +59,17 @@ Provide SPECIFIC, actionable advice to make this meal taste amazing. Include:
 Be specific to THESE ingredients - don't give generic advice. Keep it practical for home cooking.
 Format as a numbered list with clear, concise instructions.`;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a culinary expert who helps people make their healthy meals taste delicious. Be specific, practical, and focused on maximum flavor with minimal added calories. Always consider the nutritional context.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 800,
-    });
+    if (!getActiveProvider()) {
+      return NextResponse.json({ error: 'AI provider not configured' }, { status: 500 });
+    }
 
-    const tips = response.choices[0]?.message?.content || '';
+    const tips = await aiChat({
+      system: 'You are a culinary expert who helps people make their healthy meals taste delicious. Be specific, practical, and focused on maximum flavor with minimal added calories. Always consider the nutritional context.',
+      userMessage: prompt,
+      temperature: 0.7,
+      maxTokens: 800,
+      tier: 'fast',
+    });
 
     // Parse into structured format
     const sections = {

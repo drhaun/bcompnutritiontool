@@ -8,8 +8,14 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
-# OpenAI API Key (for AI features)
+# AI Provider — set ONE (Claude preferred when both present)
+ANTHROPIC_API_KEY=
 OPENAI_API_KEY=
+
+# Kroger API (for grocery cart integration)
+KROGER_CLIENT_ID=
+KROGER_CLIENT_SECRET=
+KROGER_REDIRECT_URI=http://localhost:3000/api/kroger/auth/callback
 
 # Cronometer API (required for Cronometer integration)
 CRONOMETER_CLIENT_ID=

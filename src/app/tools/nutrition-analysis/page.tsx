@@ -1358,10 +1358,10 @@ export default function NutritionAnalysisPage() {
       const data = await response.json();
       setAiRecommendations(data.recommendations);
       setSampleDayPlan(data.sampleDay);
-      toast.success('AI recommendations generated!');
+      toast.success('Recommendations generated!');
     } catch (error) {
       console.error('AI generation error:', error);
-      toast.error('Failed to generate AI recommendations');
+      toast.error('Failed to generate recommendations');
     } finally {
       setIsGeneratingAI(false);
     }
@@ -2043,7 +2043,7 @@ export default function NutritionAnalysisPage() {
                           ) : (
                             <Sparkles className="h-4 w-4 mr-1" />
                           )}
-                          AI Insights
+                          Insights
                         </Button>
                         <Button
                           variant="outline"
@@ -2080,7 +2080,7 @@ export default function NutritionAnalysisPage() {
                     <CardHeader className="pb-3">
                       <CardTitle className="text-lg flex items-center gap-2">
                         <Sparkles className="h-5 w-5 text-purple-600" />
-                        AI-Powered Insights
+                        Personalized Insights
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -2155,7 +2155,7 @@ export default function NutritionAnalysisPage() {
                       </Button>
                     </div>
                     <CardDescription>
-                      AI-generated full day plan specifically designed to address your top deficiencies and excesses, with ingredient-level detail and explanations.
+                      Full day plan specifically designed to address your top deficiencies and excesses, with ingredient-level detail and explanations.
                     </CardDescription>
                   </CardHeader>
                   {correctivePlan && (
@@ -3027,7 +3027,7 @@ export default function NutritionAnalysisPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      <span>AI-powered recommendations</span>
+                      <span>Personalized recommendations</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="h-4 w-4 text-green-500" />

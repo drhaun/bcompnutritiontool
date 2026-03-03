@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { aiChatJSON, getActiveProvider } from '@/lib/ai-client';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -34,15 +34,12 @@ export async function POST(request: Request) {
     const body: MealRequest = await request.json();
     const { mealType, targets, preferences, context } = body;
     
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    if (!getActiveProvider()) {
       return NextResponse.json(
-        { message: 'OpenAI API key not configured' },
+        { message: 'AI provider not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY.' },
         { status: 500 }
       );
     }
-
-    const openai = new OpenAI({ apiKey });
 
     const prompt = `You are an expert nutritionist and chef. Create a detailed, delicious meal that meets specific macro targets.
 
@@ -101,32 +98,14 @@ Return JSON in this exact format:
 
 IMPORTANT: The macros MUST be accurate and within ${targets.flexibility}% of targets. Use real portion sizes.`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a professional nutritionist and chef. Always respond with valid JSON only, no markdown.'
-        },
-        { role: 'user', content: prompt }
-      ],
+    const meal = await aiChatJSON<Record<string, unknown>>({
+      system: 'You are a professional nutritionist and chef. Always respond with valid JSON only, no markdown.',
+      userMessage: prompt,
       temperature: 0.8,
-      max_tokens: 2000,
+      maxTokens: 2000,
+      jsonMode: true,
+      tier: 'fast',
     });
-
-    const content = completion.choices[0]?.message?.content || '';
-    
-    // Parse JSON from response
-    let meal;
-    try {
-      // Try to extract JSON if wrapped in markdown
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      const jsonStr = jsonMatch ? jsonMatch[1] : content;
-      meal = JSON.parse(jsonStr.trim());
-    } catch (parseError) {
-      console.error('Failed to parse meal JSON:', content);
-      throw new Error('Failed to parse meal response');
-    }
 
     // Ensure all required fields exist
     const completeMeal = {

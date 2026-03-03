@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { aiChatJSON, getActiveProvider } from '@/lib/ai-client';
 
 interface MealSlot {
   id: string;
@@ -49,15 +49,12 @@ export async function POST(request: NextRequest) {
       mealSlots,
     } = body;
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    if (!getActiveProvider()) {
       return NextResponse.json(
-        { message: 'OpenAI API key not configured' },
+        { message: 'AI provider not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY.' },
         { status: 500 }
       );
     }
-
-    const openai = new OpenAI({ apiKey });
 
     // Calculate macro distribution per meal/snack
     const mealCount = mealSlots.filter(s => s.type === 'meal').length;
@@ -114,25 +111,27 @@ Return JSON:
   "summary": "Brief overview of the day's nutrition strategy"
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: 'You are an expert nutritionist. Return only valid JSON.' },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.7,
-      max_tokens: 2000,
-    });
-
-    const content = response.choices[0]?.message?.content || '';
-    
-    // Parse JSON from response
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Failed to parse AI response');
+    interface AIDayPlanResponse {
+      meals?: {
+        slotId?: string;
+        name?: string;
+        notes?: string;
+        description?: string;
+        totalMacros?: { calories?: number; protein?: number; carbs?: number; fat?: number };
+        ingredients?: { item?: string; amount?: string }[];
+        instructions?: string[];
+      }[];
+      dailyTotals?: { calories?: number; protein?: number; carbs?: number; fat?: number };
+      summary?: string;
     }
-
-    const aiResponse = JSON.parse(jsonMatch[0]);
+    const aiResponse = await aiChatJSON<AIDayPlanResponse>({
+      system: 'You are an expert nutritionist. Return only valid JSON.',
+      userMessage: prompt,
+      temperature: 0.7,
+      maxTokens: 2000,
+      jsonMode: true,
+      tier: 'fast',
+    });
     
     // Transform to expected structure
     const dayPlan = {

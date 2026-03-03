@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { aiChat, aiChatJSON, getActiveProvider } from '@/lib/ai-client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -44,15 +44,12 @@ export async function POST(request: NextRequest) {
     const body: AdaptiveRequest = await request.json();
     const { mode, slot, currentPattern, dailyTargets, clientContext } = body;
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    if (!getActiveProvider()) {
       return NextResponse.json(
-        { message: 'OpenAI API key not configured' },
+        { message: 'AI provider not configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY.' },
         { status: 500 }
       );
     }
-
-    const openai = new OpenAI({ apiKey });
 
     // Format current eating pattern (include up to 18 foods for richer context)
     const foodsList = currentPattern.commonFoods
@@ -127,23 +124,14 @@ Return JSON:
   }
 }`;
 
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are an expert nutritionist. Return only valid JSON.' },
-          { role: 'user', content: tipsPrompt },
-        ],
+      const tipsResult = await aiChatJSON<{ tips: string[]; summary: string }>({
+        system: 'You are an expert nutritionist. Return only valid JSON.',
+        userMessage: tipsPrompt,
         temperature: 0.7,
-        max_tokens: 1000,
+        maxTokens: 1000,
+        jsonMode: true,
+        tier: 'fast',
       });
-
-      const content = response.choices[0]?.message?.content || '';
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('Failed to parse AI tips response');
-      }
-
-      const tipsResult = JSON.parse(jsonMatch[0]);
 
       return NextResponse.json({
         success: true,
@@ -200,23 +188,28 @@ Return JSON:
   }
 }`;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: 'You are an expert nutritionist. Return only valid JSON.' },
-        { role: 'user', content: improvePrompt },
-      ],
-      temperature: 0.7,
-      max_tokens: 2000,
-    });
-
-    const content = response.choices[0]?.message?.content || '';
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Failed to parse AI improve response');
+    interface ImproveResult {
+      meal?: {
+        name?: string;
+        prepTime?: string;
+        ingredients?: Record<string, unknown>[];
+        instructions?: string[];
+        totalMacros?: { calories: number; protein: number; carbs: number; fat: number };
+      };
+      adaptiveContext?: {
+        whatChanged?: string;
+        keptFoods?: string[];
+        swappedFoods?: { from: string; to: string }[];
+      };
     }
-
-    const improveResult = JSON.parse(jsonMatch[0]);
+    const improveResult = await aiChatJSON<ImproveResult>({
+      system: 'You are an expert nutritionist. Return only valid JSON.',
+      userMessage: improvePrompt,
+      temperature: 0.7,
+      maxTokens: 2000,
+      jsonMode: true,
+      tier: 'fast',
+    });
     const aiMeal = improveResult.meal || {};
 
     // Normalize ingredients to the Ingredient type

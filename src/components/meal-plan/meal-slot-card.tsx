@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Sparkles, 
   PenLine, 
@@ -34,12 +36,13 @@ import {
   Pill,
   X,
   Heart,
+  Copy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { useFitomicsStore } from '@/lib/store';
 import { toast } from 'sonner';
-import type { MealSlot, Meal, Macros, DietPreferences, MealSupplement } from '@/types';
+import type { MealSlot, Meal, Macros, DietPreferences, MealSupplement, DayOfWeek } from '@/types';
 
 // Quick adjustment suggestions with macro impact
 const QUICK_ADJUSTMENTS = {
@@ -138,6 +141,11 @@ interface MealSlotCardProps {
   onUpdateSlotTargets?: (slotIndex: number, targets: Macros) => void;
   // Rolling budget: remaining macros AFTER this slot
   rollingBudgetAfter?: Macros;
+  // Copy meal to other days/slots
+  onCopyMeal?: (slotIndex: number, targetDays: DayOfWeek[], targetSlotLabel: string) => void;
+  allDays?: DayOfWeek[];
+  currentDay?: DayOfWeek;
+  allSlotLabels?: string[];
 }
 
 export function MealSlotCard({
@@ -165,6 +173,10 @@ export function MealSlotCard({
   isGeneratingImproved,
   onUpdateSlotTargets,
   rollingBudgetAfter,
+  onCopyMeal,
+  allDays,
+  currentDay,
+  allSlotLabels,
 }: MealSlotCardProps) {
   const { addFavoriteRecipe, removeFavoriteRecipe, favoriteRecipes } = useFitomicsStore();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -174,6 +186,9 @@ export function MealSlotCard({
   const [noteValue, setNoteValue] = useState(slot.meal?.staffNote || '');
   const [editingTargets, setEditingTargets] = useState(false);
   const [localTargets, setLocalTargets] = useState<Macros>({ ...slot.targetMacros });
+  const [copyPopoverOpen, setCopyPopoverOpen] = useState(false);
+  const [copyTargetDays, setCopyTargetDays] = useState<Set<DayOfWeek>>(new Set());
+  const [copyTargetSlot, setCopyTargetSlot] = useState<string>('same');
 
   // Smart macro edit: when P/C/F change, auto-recalculate calories
   const handleSlotMacroEdit = (key: keyof Macros, raw: string) => {
@@ -601,7 +616,7 @@ export function MealSlotCard({
                   onClick={() => onGenerateMeal(slot.slotIndex)}
                 >
                   <Sparkles className="h-4 w-4 mr-1" />
-                  AI Generate
+                  Generate
                 </Button>
                 <Button 
                   variant="outline" 
@@ -1319,6 +1334,91 @@ export function MealSlotCard({
             )}
             AI Note
           </Button>
+          {onCopyMeal && allDays && currentDay && (
+            <Popover open={copyPopoverOpen} onOpenChange={(open) => {
+              setCopyPopoverOpen(open);
+              if (open) {
+                setCopyTargetDays(new Set());
+                setCopyTargetSlot('same');
+              }
+            }}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="text-xs h-7">
+                  <Copy className="h-3 w-3 mr-1" />
+                  Copy to...
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3" align="start">
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Copy to days</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {allDays.filter(d => d !== currentDay).map(day => (
+                      <label key={day} className="flex items-center gap-2 text-xs cursor-pointer">
+                        <Checkbox
+                          checked={copyTargetDays.has(day)}
+                          onCheckedChange={(checked) => {
+                            setCopyTargetDays(prev => {
+                              const next = new Set(prev);
+                              if (checked) next.add(day);
+                              else next.delete(day);
+                              return next;
+                            });
+                          }}
+                        />
+                        {day.substring(0, 3)}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-[10px] h-5 px-1.5"
+                      onClick={() => setCopyTargetDays(new Set(allDays.filter(d => d !== currentDay)))}
+                    >
+                      All
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-[10px] h-5 px-1.5"
+                      onClick={() => setCopyTargetDays(new Set())}
+                    >
+                      None
+                    </Button>
+                  </div>
+                  {allSlotLabels && allSlotLabels.length > 1 && (
+                    <>
+                      <p className="text-sm font-medium">Target slot</p>
+                      <select
+                        value={copyTargetSlot}
+                        onChange={e => setCopyTargetSlot(e.target.value)}
+                        className="w-full text-xs border rounded-md p-1.5 bg-background"
+                      >
+                        <option value="same">Same slot ({slot.label})</option>
+                        {allSlotLabels.filter(l => l !== slot.label).map(label => (
+                          <option key={label} value={label}>{label}</option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+                  <Button
+                    size="sm"
+                    className="w-full text-xs h-7 bg-[#00263d] hover:bg-[#00263d]/90"
+                    disabled={copyTargetDays.size === 0}
+                    onClick={() => {
+                      const targetLabel = copyTargetSlot === 'same' ? slot.label : copyTargetSlot;
+                      onCopyMeal(slot.slotIndex, Array.from(copyTargetDays), targetLabel);
+                      setCopyPopoverOpen(false);
+                      toast.success(`Copied to ${copyTargetDays.size} day${copyTargetDays.size > 1 ? 's' : ''}`);
+                    }}
+                  >
+                    Copy to {copyTargetDays.size} day{copyTargetDays.size !== 1 ? 's' : ''}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
           <Button 
             variant="ghost" 
             size="sm" 

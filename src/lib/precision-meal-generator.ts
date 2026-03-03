@@ -9,7 +9,6 @@
  * - Fat: ±10%
  */
 
-import OpenAI from 'openai';
 import {
   searchFoods,
   scaleFood,
@@ -27,6 +26,7 @@ import type {
   DietPreferences,
   DayOfWeek,
 } from '@/types';
+import { aiChatJSON } from './ai-client';
 
 // Accuracy thresholds - tighter than before
 export const ACCURACY_THRESHOLDS = {
@@ -83,11 +83,9 @@ interface GeneratePreciseMealOptions {
  * Generate a meal with database-accurate macros
  */
 export async function generatePreciseMeal(
-  apiKey: string,
+  _apiKey: string,
   options: GeneratePreciseMealOptions
 ): Promise<Meal> {
-  const openai = new OpenAI({ apiKey });
-
   // Step 1: Adjust targets for nutrient timing
   const adjustedTargets = adjustForNutrientTiming(
     {
@@ -101,7 +99,7 @@ export async function generatePreciseMeal(
   );
 
   // Step 2: Get AI meal concept (foods to use, not macros)
-  const concept = await getMealConcept(openai, options, adjustedTargets);
+  const concept = await getMealConcept(options, adjustedTargets);
 
   // Step 3: Look up foods in database and calculate precise portions
   const scaledFoods = await buildMealFromConcept(concept, adjustedTargets);
@@ -171,7 +169,6 @@ ${previousMeals.slice(-14).map((m, i) => `  ${i + 1}. ${m}`).join('\n') || '  No
  * - Cuisine rotation
  */
 async function getMealConcept(
-  openai: OpenAI,
   options: GeneratePreciseMealOptions,
   targetMacros: FoodNutrients
 ): Promise<MealConcept> {
@@ -411,12 +408,8 @@ IMPORTANT:
 - Match the meal type (breakfast should feel like breakfast, etc.)
 `;
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content: `You are an AWARD-WINNING MICHELIN-TRAINED CHEF who specializes in nutrition-optimized cuisine.
+  return await aiChatJSON<MealConcept>({
+    system: `You are an AWARD-WINNING MICHELIN-TRAINED CHEF who specializes in nutrition-optimized cuisine.
         
 Your meals must be DELICIOUS FIRST - hitting macros means nothing if the client won't enjoy eating it.
 
@@ -429,20 +422,12 @@ RULES:
 6. Create something you'd be PROUD to serve in your restaurant
 
 Return ONLY valid JSON. Make food people CRAVE to eat.`,
-      },
-      { role: 'user', content: prompt },
-    ],
-    response_format: { type: 'json_object' },
-    temperature: 0.7, // Reduced from 0.85 for better consistency while maintaining creativity
-    presence_penalty: 0.3, // Discourage repetition
-    frequency_penalty: 0.2, // Encourage varied vocabulary
-    max_tokens: 1000,
+    userMessage: prompt,
+    temperature: 0.7,
+    maxTokens: 1000,
+    jsonMode: true,
+    tier: 'fast',
   });
-
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error('No AI response');
-
-  return JSON.parse(content) as MealConcept;
 }
 
 /**

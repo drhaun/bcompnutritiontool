@@ -83,8 +83,11 @@ import {
   Edit2,
   Tag,
   Check,
+  Store,
+  UsersRound,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { KrogerCartDialog } from '@/components/meal-plan/kroger-cart-dialog';
 import type { DayOfWeek, DayNutritionTargets, MealSlot, Meal, Macros, DietPreferences, SupplementEntry, MealSupplement, CoachLink, FavoriteRecipe, ClientResource } from '@/types';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -285,6 +288,14 @@ export default function MealPlanPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [showGroceryList, setShowGroceryList] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showKrogerDialog, setShowKrogerDialog] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.has('kroger_connected') || params.has('kroger_error');
+    }
+    return false;
+  });
+  const [servingMultiplier, setServingMultiplier] = useState(1);
   const [exportOptions, setExportOptions] = useState({
     includeGroceryList: true,
     includeRecipes: true,
@@ -911,7 +922,11 @@ export default function MealPlanPage() {
       const schedule = weeklySchedule[day];
       const daySlots = (schedule?.mealCount || 3) + (schedule?.snackCount || 2);
       totalSlots += daySlots;
-      filledSlots += mealPlan?.[day]?.meals?.filter(m => m !== null).length || 0;
+      const dayMeals = mealPlan?.[day]?.meals;
+      if (dayMeals) {
+        const filled = dayMeals.slice(0, daySlots).filter(m => m !== null).length;
+        filledSlots += filled;
+      }
     });
     
     return { filledSlots, totalSlots, percent: totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0 };
@@ -1296,7 +1311,8 @@ export default function MealPlanPage() {
     return Array.from(ingredientMap.entries())
       .map(([key, data]) => {
         const name = key.split('|')[0];
-        const formatted = formatQuantity(data.qty, data.unit);
+        const scaled = data.qty * servingMultiplier;
+        const formatted = formatQuantity(scaled, data.unit);
         return { 
           name: name.charAt(0).toUpperCase() + name.slice(1), 
           qty: formatted.qty,
@@ -1306,7 +1322,7 @@ export default function MealPlanPage() {
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [mealPlan]);
+  }, [mealPlan, servingMultiplier]);
 
   // ============ CRONOMETER ADAPTIVE HANDLERS ============
 
@@ -1506,7 +1522,7 @@ export default function MealPlanPage() {
       
       const data = await response.json();
       updateMealRationale(currentDay, slotIndex, data.rationale);
-      toast.success('AI rationale added!');
+      toast.success('Rationale added!');
     } catch (error) {
       toast.error('Failed to generate note');
     } finally {
@@ -1527,6 +1543,32 @@ export default function MealPlanPage() {
       toast.success('Meal swapped!');
     }
   };
+
+  const handleCopyMeal = useCallback((slotIndex: number, targetDays: DayOfWeek[], targetSlotLabel: string) => {
+    const sourceMeal = mealSlots[slotIndex]?.meal;
+    if (!sourceMeal) return;
+
+    for (const targetDay of targetDays) {
+      const targetDayPlan = mealPlan?.[targetDay];
+      if (!targetDayPlan?.meals) continue;
+
+      const targetDayTargets = nutritionTargets.find(t => t.day === targetDay);
+      const targetSchedule = weeklySchedule[targetDay];
+      const savedSlots = (targetDayTargets as Record<string, unknown>)?.mealSlotTargets as
+        | { label: string; type: 'meal' | 'snack' }[]
+        | undefined;
+      const tMeals = savedSlots?.length
+        ? savedSlots
+        : getMealSlotLabels(targetSchedule?.mealCount || 3, targetSchedule?.snackCount || 2);
+
+      let targetIdx = tMeals.findIndex(s => s.label === targetSlotLabel);
+      if (targetIdx === -1) {
+        targetIdx = Math.min(slotIndex, targetDayPlan.meals.length - 1);
+      }
+
+      updateMeal(targetDay, targetIdx, { ...sourceMeal, lastModified: new Date().toISOString() });
+    }
+  }, [mealSlots, mealPlan, nutritionTargets, weeklySchedule, updateMeal]);
 
   // ============ USE FAVORITE IN SLOT ============
   const handleUseFavoriteInSlot = useCallback((fav: FavoriteRecipe, slotIndex: number) => {
@@ -3219,7 +3261,7 @@ export default function MealPlanPage() {
                           <Info className="h-4 w-4 text-amber-600" />
                           Client Diet Preferences
                           <span className="text-xs font-normal text-muted-foreground ml-auto">
-                            AI & recipes will respect these
+                            Generation & recipes will respect these
                           </span>
                         </CardTitle>
                       </CardHeader>
@@ -3385,6 +3427,10 @@ export default function MealPlanPage() {
                             isGeneratingImproved={generatingImproved[slot.slotIndex] || false}
                             onUpdateSlotTargets={handleUpdateSlotTargets}
                             rollingBudgetAfter={rollingBudgets[idx]}
+                            onCopyMeal={handleCopyMeal}
+                            allDays={DAYS}
+                            currentDay={currentDay}
+                            allSlotLabels={slotLabels.map(s => s.label)}
                           />
                         ))}
                       </div>
@@ -3605,6 +3651,10 @@ export default function MealPlanPage() {
                             isGeneratingImproved={generatingImproved[slot.slotIndex] || false}
                             onUpdateSlotTargets={handleUpdateSlotTargets}
                             rollingBudgetAfter={rollingBudgets[idx]}
+                            onCopyMeal={handleCopyMeal}
+                            allDays={DAYS}
+                            currentDay={selectedDay}
+                            allSlotLabels={slotLabels.map(s => s.label)}
                           />
                         ))}
                       </div>
@@ -3680,19 +3730,59 @@ export default function MealPlanPage() {
                               <p className="text-sm text-muted-foreground">
                                 {groceryList.length} items from {overallProgress.filledSlots} meals
                               </p>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs"
-                                onClick={() => {
-                                  const text = groceryList.map(i => `${i.qty} ${i.unit} ${i.name}`).join('\n');
-                                  navigator.clipboard.writeText(text);
-                                  toast.success('Grocery list copied to clipboard!');
-                                }}
-                              >
-                                <Copy className="h-3 w-3 mr-1" />
-                                Copy
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => setShowKrogerDialog(true)}
+                                >
+                                  <Store className="h-3 w-3 mr-1" />
+                                  Kroger
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => {
+                                    const text = groceryList.map(i => `${i.qty} ${i.unit} ${i.name}`).join('\n');
+                                    navigator.clipboard.writeText(text);
+                                    toast.success('Grocery list copied to clipboard!');
+                                  }}
+                                >
+                                  <Copy className="h-3 w-3 mr-1" />
+                                  Copy
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Serving multiplier for family cooking */}
+                            <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-2.5">
+                              <UsersRound className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium">Cooking for</p>
+                                <p className="text-[10px] text-muted-foreground">Scales all grocery quantities</p>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => setServingMultiplier(Math.max(1, servingMultiplier - 1))}
+                                  disabled={servingMultiplier <= 1}
+                                >
+                                  <span className="text-sm font-bold">−</span>
+                                </Button>
+                                <span className="text-sm font-bold w-6 text-center">{servingMultiplier}</span>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => setServingMultiplier(servingMultiplier + 1)}
+                                >
+                                  <span className="text-sm font-bold">+</span>
+                                </Button>
+                              </div>
                             </div>
                             
                             {/* Categorized grocery list */}
@@ -3949,7 +4039,7 @@ export default function MealPlanPage() {
                     </div>
                     <div className="flex items-center gap-1.5 mt-1">
                       <Badge variant="outline" className="h-4 text-[9px] px-1.5">
-                        {fav.source === 'recipe' ? 'Recipe' : fav.source === 'ai' ? 'AI Generated' : 'Manual'}
+                        {fav.source === 'recipe' ? 'Recipe' : fav.source === 'ai' ? 'Generated' : 'Manual'}
                       </Badge>
                       {fav.mealData && (
                         <Badge variant="outline" className="h-4 text-[9px] px-1.5 border-green-300 text-green-700">
@@ -4871,6 +4961,15 @@ export default function MealPlanPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Kroger Cart Dialog */}
+      <KrogerCartDialog
+        open={showKrogerDialog}
+        onOpenChange={setShowKrogerDialog}
+        groceryItems={groceryList.map(i => ({ name: i.name, qty: i.qty, unit: i.unit, category: i.category }))}
+        clientId={activeClientId || undefined}
+        clientName={userProfile.name || undefined}
+      />
     </div>
   );
 }
