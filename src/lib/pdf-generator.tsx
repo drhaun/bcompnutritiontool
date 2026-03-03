@@ -450,18 +450,24 @@ const styles = StyleSheet.create({
   groceryItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    gap: 8,
   },
   groceryItemName: {
     fontSize: 9,
     color: COLORS.darkBlue,
+    flex: 1,
   },
   groceryItemAmount: {
     fontSize: 9,
     color: COLORS.gray,
+    flexShrink: 0,
+    textAlign: 'right',
+    minWidth: 60,
   },
   
   // Footer

@@ -445,27 +445,37 @@ function scaleIngredientsToPerServing(
 }
 
 // Calculate the optimal serving size to match target macros
+// Uses a weighted least-squares approach across all macros
 function calculateOptimalServings(
   recipe: { calories: number; protein: number; carbs: number; fat: number },
   target: { calories: number; protein: number; carbs: number; fat: number },
   prioritize: 'calories' | 'protein' = 'protein'
 ): number {
-  // Primary: Match protein (most important for body comp goals)
-  // Secondary: Stay within calorie target
-  
-  if (prioritize === 'protein' && target.protein > 0 && recipe.protein > 0) {
-    const proteinServings = target.protein / recipe.protein;
-    // Don't exceed calorie target by more than 10%
-    const maxServingsByCalories = (target.calories * 1.1) / recipe.calories;
-    return Math.min(proteinServings, maxServingsByCalories);
-  }
-  
-  // Fall back to calorie matching
-  if (target.calories > 0 && recipe.calories > 0) {
-    return target.calories / recipe.calories;
-  }
-  
-  return 1;
+  if (recipe.calories <= 0) return 1;
+
+  // Compute candidate servings from each macro dimension
+  const candidates: { servings: number; weight: number }[] = [];
+
+  if (recipe.calories > 0 && target.calories > 0)
+    candidates.push({ servings: target.calories / recipe.calories, weight: 3 });
+  if (recipe.protein > 0 && target.protein > 0)
+    candidates.push({ servings: target.protein / recipe.protein, weight: prioritize === 'protein' ? 5 : 3 });
+  if (recipe.carbs > 0 && target.carbs > 0)
+    candidates.push({ servings: target.carbs / recipe.carbs, weight: 2 });
+  if (recipe.fat > 0 && target.fat > 0)
+    candidates.push({ servings: target.fat / recipe.fat, weight: 2 });
+
+  if (candidates.length === 0) return 1;
+
+  // Weighted average of serving candidates
+  const totalWeight = candidates.reduce((s, c) => s + c.weight, 0);
+  let servings = candidates.reduce((s, c) => s + c.servings * c.weight, 0) / totalWeight;
+
+  // Hard cap: never exceed calorie target by more than 10%
+  const maxByCal = (target.calories * 1.1) / recipe.calories;
+  servings = Math.min(servings, maxByCal);
+
+  return servings;
 }
 
 // Calculate match score based on how well recipe fits the context
@@ -483,7 +493,7 @@ function calculateMatchScore(
     ingredients: { item: string; amount: string }[];
   },
   context: RecipeRecommendationRequest['mealContext'],
-  scaledVariance: { caloriesPct: number; proteinPct: number },
+  scaledVariance: { caloriesPct: number; proteinPct: number; carbsPct?: number; fatPct?: number },
   dietPreferences?: RecipeRecommendationRequest['dietPreferences']
 ): { score: number; reasons: string[] } {
   let score = 100;
@@ -492,9 +502,11 @@ function calculateMatchScore(
   // Get all ingredient names for matching
   const ingredientText = recipe.ingredients.map(i => i.item.toLowerCase()).join(' ');
   
-  // Penalize for variance from targets
-  score -= scaledVariance.caloriesPct * 2; // -2 points per % variance
-  score -= scaledVariance.proteinPct * 3;  // -3 points per % protein variance
+  // Penalize for variance from ALL macros
+  score -= scaledVariance.caloriesPct * 2;   // -2 points per % calorie variance
+  score -= scaledVariance.proteinPct * 3;    // -3 points per % protein variance
+  score -= (scaledVariance.carbsPct || 0) * 1;  // -1 point per % carb variance
+  score -= (scaledVariance.fatPct || 0) * 1.5;  // -1.5 points per % fat variance
   
   // ============ DIETARY PREFERENCE MATCHING ============
   
@@ -822,7 +834,7 @@ export async function POST(request: NextRequest) {
         fiber: Math.round(recipe.fiber * servings),
       };
 
-      // Calculate variance
+      // Calculate variance — all four macros
       const variance = {
         calories: scaled.calories - targetMacros.calories,
         protein: scaled.protein - targetMacros.protein,
@@ -833,6 +845,12 @@ export async function POST(request: NextRequest) {
           : 0,
         proteinPct: targetMacros.protein > 0 
           ? Math.abs(scaled.protein - targetMacros.protein) / targetMacros.protein * 100 
+          : 0,
+        carbsPct: targetMacros.carbs > 0
+          ? Math.abs(scaled.carbs - targetMacros.carbs) / targetMacros.carbs * 100
+          : 0,
+        fatPct: targetMacros.fat > 0
+          ? Math.abs(scaled.fat - targetMacros.fat) / targetMacros.fat * 100
           : 0,
       };
 
@@ -855,7 +873,7 @@ export async function POST(request: NextRequest) {
           ingredients: recipe.ingredients || [],
         },
         mealContext,
-        { caloriesPct: variance.caloriesPct, proteinPct: variance.proteinPct },
+        { caloriesPct: variance.caloriesPct, proteinPct: variance.proteinPct, carbsPct: variance.carbsPct, fatPct: variance.fatPct },
         dietPreferences
       );
 

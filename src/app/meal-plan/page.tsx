@@ -898,19 +898,39 @@ export default function MealPlanPage() {
     });
   }, [currentDay, slotLabels, timeSlots, slotTargets, dayPlan, daySchedule, slotTargetOverrides]);
 
-  // Progress calculations
+  // Progress calculations — recompute from ingredient sums for accuracy
   const dayProgress = useMemo(() => {
     if (!dayTargets) return { filled: 0, total: slotLabels.length, calories: 0, targetCalories: 0, protein: 0, carbs: 0, fat: 0 };
     const filled = mealSlots.filter(s => s.meal !== null).length;
-    const calories = Math.round(mealSlots.reduce((sum, s) => sum + (s.meal?.totalMacros?.calories || 0), 0));
+
+    // Sum from ingredients when available for ground-truth accuracy
+    let totalCal = 0, totalP = 0, totalC = 0, totalF = 0;
+    for (const s of mealSlots) {
+      if (!s.meal) continue;
+      const ings = s.meal.ingredients;
+      if (ings && ings.length > 0) {
+        for (const ing of ings) {
+          totalCal += ing.calories || 0;
+          totalP += ing.protein || 0;
+          totalC += ing.carbs || 0;
+          totalF += ing.fat || 0;
+        }
+      } else if (s.meal.totalMacros) {
+        totalCal += s.meal.totalMacros.calories || 0;
+        totalP += s.meal.totalMacros.protein || 0;
+        totalC += s.meal.totalMacros.carbs || 0;
+        totalF += s.meal.totalMacros.fat || 0;
+      }
+    }
+
     return {
       filled,
       total: slotLabels.length,
-      calories,
+      calories: Math.round(totalCal),
       targetCalories: Math.round(dayTargets.targetCalories),
-      protein: Math.round(mealSlots.reduce((sum, s) => sum + (s.meal?.totalMacros?.protein || 0), 0)),
-      carbs: Math.round(mealSlots.reduce((sum, s) => sum + (s.meal?.totalMacros?.carbs || 0), 0)),
-      fat: Math.round(mealSlots.reduce((sum, s) => sum + (s.meal?.totalMacros?.fat || 0), 0)),
+      protein: Math.round(totalP),
+      carbs: Math.round(totalC),
+      fat: Math.round(totalF),
     };
   }, [mealSlots, dayTargets, slotLabels.length]);
 
@@ -932,24 +952,20 @@ export default function MealPlanPage() {
     return { filledSlots, totalSlots, percent: totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0 };
   }, [mealPlan, weeklySchedule]);
 
-  // Compute remaining macro budget for current day
+  // Compute remaining macro budget for current day — uses dayProgress for consistency
   const macroBudget = useMemo(() => {
     if (!dayTargets) return null;
     const targetCal = dayTargets.targetCalories || 0;
     const targetP = dayTargets.protein || 0;
     const targetC = dayTargets.carbs || 0;
     const targetF = dayTargets.fat || 0;
-    const usedCal = mealSlots.reduce((sum, s) => sum + (s.meal?.totalMacros?.calories || 0), 0);
-    const usedP = mealSlots.reduce((sum, s) => sum + (s.meal?.totalMacros?.protein || 0), 0);
-    const usedC = mealSlots.reduce((sum, s) => sum + (s.meal?.totalMacros?.carbs || 0), 0);
-    const usedF = mealSlots.reduce((sum, s) => sum + (s.meal?.totalMacros?.fat || 0), 0);
     return {
-      calories: { target: Math.round(targetCal), used: Math.round(usedCal), remaining: Math.round(targetCal - usedCal) },
-      protein: { target: Math.round(targetP), used: Math.round(usedP), remaining: Math.round(targetP - usedP) },
-      carbs: { target: Math.round(targetC), used: Math.round(usedC), remaining: Math.round(targetC - usedC) },
-      fat: { target: Math.round(targetF), used: Math.round(usedF), remaining: Math.round(targetF - usedF) },
+      calories: { target: Math.round(targetCal), used: dayProgress.calories, remaining: Math.round(targetCal) - dayProgress.calories },
+      protein: { target: Math.round(targetP), used: dayProgress.protein, remaining: Math.round(targetP) - dayProgress.protein },
+      carbs: { target: Math.round(targetC), used: dayProgress.carbs, remaining: Math.round(targetC) - dayProgress.carbs },
+      fat: { target: Math.round(targetF), used: dayProgress.fat, remaining: Math.round(targetF) - dayProgress.fat },
     };
-  }, [dayTargets, mealSlots]);
+  }, [dayTargets, dayProgress]);
 
   // Compute effective slot targets (with overrides applied) — defined early so
   // callbacks below can reference it in their dependency arrays.
@@ -1200,6 +1216,12 @@ export default function MealPlanPage() {
             
             // Parse amount - handle various formats like "100g", "2 cups", "1/2 tbsp"
             const amountStr = ingredient.amount || '1 serving';
+            
+            // Skip "to taste" / "as needed" / "pinch" items from quantity aggregation
+            if (/\b(to taste|as needed|optional|pinch|dash|garnish)\b/i.test(amountStr)) {
+              return;
+            }
+            
             const amountMatch = amountStr.match(/^([\d.\/]+)\s*(.*)$/);
             let value = 1;
             let rawUnit = 'serving';
@@ -1313,10 +1335,21 @@ export default function MealPlanPage() {
         const name = key.split('|')[0];
         const scaled = data.qty * servingMultiplier;
         const formatted = formatQuantity(scaled, data.unit);
+        // Build exact amount string (pre-rounding) for display
+        let exactStr = '';
+        if (data.unit === 'g') {
+          exactStr = `${Math.round(scaled)}g`;
+        } else if (data.unit === 'ml') {
+          exactStr = `${Math.round(scaled)}ml`;
+        } else {
+          const rounded = Math.round(scaled * 10) / 10;
+          exactStr = `${rounded} ${data.unit}`;
+        }
         return { 
           name: name.charAt(0).toUpperCase() + name.slice(1), 
           qty: formatted.qty,
           unit: formatted.unit,
+          exactAmount: exactStr,
           category: data.category,
           usedIn: data.usedIn
         };
@@ -3809,9 +3842,14 @@ export default function MealPlanPage() {
                                     {items.map((item, idx) => (
                                       <div key={idx} className="flex items-center justify-between py-1 border-b border-dashed last:border-0">
                                         <span className="text-sm">{item.name}</span>
-                                        <span className="text-xs text-muted-foreground font-mono">
-                                          {item.qty} {item.unit}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-[10px] text-muted-foreground/60 font-mono">
+                                            {item.exactAmount}
+                                          </span>
+                                          <span className="text-xs text-muted-foreground font-mono font-medium">
+                                            {item.qty} {item.unit}
+                                          </span>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>

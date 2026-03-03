@@ -102,14 +102,29 @@ export async function generatePreciseMeal(
   const concept = await getMealConcept(options, adjustedTargets);
 
   // Step 3: Look up foods in database and calculate precise portions
-  const scaledFoods = await buildMealFromConcept(concept, adjustedTargets);
+  const { scaledFoods, foodItems } = await buildMealFromConcept(concept, adjustedTargets);
 
   // Step 4: Calculate actual totals from database foods
   const totalMacros = calculateTotalMacros(scaledFoods);
 
   // Step 5: Fine-tune portions if needed to hit targets more precisely
-  const refinedFoods = refineMacros(scaledFoods, adjustedTargets, totalMacros);
-  const finalMacros = calculateTotalMacros(refinedFoods);
+  let refinedFoods = refineMacros(scaledFoods, adjustedTargets, totalMacros, foodItems);
+  let finalMacros = calculateTotalMacros(refinedFoods);
+
+  // Step 5b: Second refinement pass — if still outside thresholds after first
+  // pass, run one more correction targeting the largest remaining variance
+  const calVar = Math.abs(finalMacros.calories - adjustedTargets.calories) / adjustedTargets.calories;
+  if (calVar > ACCURACY_THRESHOLDS.calories) {
+    refinedFoods = refineMacros(refinedFoods, adjustedTargets, finalMacros, foodItems);
+    finalMacros = calculateTotalMacros(refinedFoods);
+  }
+
+  // Step 5c: Ensure totalMacros is consistent with sum of ingredients
+  // Recompute calories from macros to prevent macro-calorie drift
+  const computedCal = finalMacros.protein * 4 + finalMacros.carbs * 4 + finalMacros.fat * 9;
+  if (Math.abs(computedCal - finalMacros.calories) > 15) {
+    finalMacros.calories = Math.round(computedCal);
+  }
 
   // Step 6: Convert to meal format
   const meal = convertToMeal(concept, refinedFoods, finalMacros, options);
@@ -430,6 +445,11 @@ Return ONLY valid JSON. Make food people CRAVE to eat.`,
   });
 }
 
+interface BuildResult {
+  scaledFoods: ScaledFood[];
+  foodItems: { food: FoodItem; role: string }[];
+}
+
 /**
  * Look up foods and calculate portions to hit targets
  * Uses iterative refinement to get close to target macros
@@ -437,7 +457,7 @@ Return ONLY valid JSON. Make food people CRAVE to eat.`,
 async function buildMealFromConcept(
   concept: MealConcept,
   targetMacros: FoodNutrients
-): Promise<ScaledFood[]> {
+): Promise<BuildResult> {
   const foodItems: { food: FoodItem; role: string; targetPct: number }[] = [];
 
   // First pass: find all foods
@@ -456,7 +476,7 @@ async function buildMealFromConcept(
   }
 
   if (foodItems.length === 0) {
-    return [];
+    return { scaledFoods: [], foodItems: [] };
   }
   
   // Ensure we have a fat source if target fat is significant
@@ -663,7 +683,7 @@ async function buildMealFromConcept(
     }
   }
 
-  return scaledFoods;
+  return { scaledFoods, foodItems: naivePortions.map(p => ({ food: p.food, role: p.role })) };
 }
 
 /**
@@ -698,13 +718,13 @@ function refineMacros(
   current: FoodNutrients,
   foodItems?: { food: FoodItem; role: string }[]
 ): ScaledFood[] {
-  // Calculate variance percentages
+  if (!foodItems || foodItems.length !== foods.length) return foods;
+
   const calorieVariance = Math.abs(current.calories - target.calories) / target.calories;
-  const proteinVariance = Math.abs(current.protein - target.protein) / target.protein;
-  const carbsVariance = Math.abs(current.carbs - target.carbs) / target.carbs;
+  const proteinVariance = Math.abs(current.protein - target.protein) / (target.protein || 1);
+  const carbsVariance = Math.abs(current.carbs - target.carbs) / (target.carbs || 1);
   const fatVariance = Math.abs(current.fat - target.fat) / (target.fat || 1);
 
-  // If already within thresholds, don't adjust
   if (
     calorieVariance < ACCURACY_THRESHOLDS.calories &&
     proteinVariance < ACCURACY_THRESHOLDS.protein &&
@@ -714,43 +734,68 @@ function refineMacros(
     return foods;
   }
 
-  // If we're significantly OVER on calories, scale down proportionally
+  const refined = foods.map((f, i) => ({ food: f, item: foodItems[i] }));
+
+  const findByRole = (role: string) => refined.findIndex(r => r.item.role === role);
+  const proteinIdx = findByRole('primary_protein');
+  const carbIdx = findByRole('primary_carb');
+  const fatIdx = findByRole('fat_source');
+
+  const applyLimit = (role: string, grams: number) => {
+    const limit = PORTION_LIMITS[role] || PORTION_LIMITS.default;
+    return Math.max(limit.min, Math.min(limit.max, grams));
+  };
+
+  const rescale = (idx: number, newGrams: number) => {
+    const role = refined[idx].item.role;
+    refined[idx].food = scaleFood(refined[idx].item.food, applyLimit(role, newGrams));
+  };
+
+  const recalc = () => calculateTotalMacros(refined.map(r => r.food));
+
+  // 1) If calories are significantly OVER, scale down proportionally
   if (current.calories > target.calories * (1 + ACCURACY_THRESHOLDS.calories)) {
     const scaleFactor = target.calories / current.calories;
-    return foods.map((food, idx) => {
-      if (foodItems && foodItems[idx]) {
-        const newGrams = Math.max(PORTION_LIMITS.default.min, food.scaledAmount * scaleFactor);
-        return scaleFood(foodItems[idx].food, newGrams);
-      }
-      return food;
-    });
-  }
-
-  const refined = [...foods];
-  
-  // If protein is significantly under and we have room in calories
-  const proteinDeficit = target.protein - current.protein;
-  const calorieRoom = target.calories - current.calories;
-  
-  if (proteinDeficit > 3 && calorieRoom > 30) {
-    const proteinIdx = foods.findIndex(f => f.category === 'protein');
-    if (proteinIdx >= 0 && foodItems && foodItems[proteinIdx]) {
-      const proteinFood = foods[proteinIdx];
-      const per100g = proteinFood.nutrients.protein;
-      if (per100g > 0) {
-        // Only add enough to not exceed calorie target
-        const maxAddGrams = (calorieRoom / proteinFood.nutrients.calories) * 100;
-        const neededGrams = (proteinDeficit / per100g) * 100;
-        const addGrams = Math.min(maxAddGrams * 0.9, neededGrams); // Use 90% of available room for precision
-        let newGrams = proteinFood.scaledAmount + addGrams;
-        const limit = PORTION_LIMITS.primary_protein;
-        newGrams = Math.max(limit.min, Math.min(limit.max, newGrams));
-        refined[proteinIdx] = scaleFood(foodItems[proteinIdx].food, newGrams);
-      }
+    for (let i = 0; i < refined.length; i++) {
+      rescale(i, refined[i].food.scaledAmount * scaleFactor);
     }
   }
 
-  return refined;
+  let totals = recalc();
+
+  // 2) Fix protein — adjust the primary protein source
+  if (proteinIdx >= 0) {
+    const pDiff = target.protein - totals.protein;
+    const per100g = refined[proteinIdx].food.nutrients.protein;
+    if (Math.abs(pDiff) > 2 && per100g > 0) {
+      const gramsAdjust = (pDiff / per100g) * 100 * 0.9;
+      rescale(proteinIdx, refined[proteinIdx].food.scaledAmount + gramsAdjust);
+      totals = recalc();
+    }
+  }
+
+  // 3) Fix fat — adjust fat source
+  if (fatIdx >= 0) {
+    const fDiff = target.fat - totals.fat;
+    const per100g = refined[fatIdx].food.nutrients.fat;
+    if (Math.abs(fDiff) > 2 && per100g > 0) {
+      const gramsAdjust = (fDiff / per100g) * 100 * 0.9;
+      rescale(fatIdx, refined[fatIdx].food.scaledAmount + gramsAdjust);
+      totals = recalc();
+    }
+  }
+
+  // 4) Fix calories via carb source — absorb remaining calorie gap
+  if (carbIdx >= 0) {
+    const calDiff = target.calories - totals.calories;
+    const per100g = refined[carbIdx].food.nutrients.calories;
+    if (Math.abs(calDiff) > 15 && per100g > 0) {
+      const gramsAdjust = (calDiff / per100g) * 100;
+      rescale(carbIdx, refined[carbIdx].food.scaledAmount + gramsAdjust);
+    }
+  }
+
+  return refined.map(r => r.food);
 }
 
 /**
@@ -766,7 +811,7 @@ export function checkPortionWarnings(foods: ScaledFood[]): string[] {
     }
     
     // Check for excessive carb portions  
-    if ((food.category === 'grain' || food.category === 'carb') && 
+    if ((food.category === 'grain' || food.category === 'carbs') && 
         food.scaledAmount > PORTION_LIMITS.primary_carb.max) {
       warnings.push(PORTION_WARNINGS.carbs_high);
     }
@@ -779,7 +824,7 @@ export function checkPortionWarnings(foods: ScaledFood[]): string[] {
   }
   
   // Check vegetable content
-  const hasVegetables = foods.some(f => f.category === 'vegetable');
+  const hasVegetables = foods.some(f => f.category === 'vegetables');
   if (!hasVegetables) {
     warnings.push(PORTION_WARNINGS.vegetable_low);
   }
@@ -799,15 +844,24 @@ function convertToMeal(
   const ingredients: Ingredient[] = scaledFoods.map(food => ({
     item: food.description,
     amount: food.displayAmount,
-    calories: food.scaledNutrients.calories,
-    protein: Math.round(food.scaledNutrients.protein),
-    carbs: Math.round(food.scaledNutrients.carbs),
-    fat: Math.round(food.scaledNutrients.fat),
+    calories: Math.round(food.scaledNutrients.calories),
+    protein: Math.round(food.scaledNutrients.protein * 10) / 10,
+    carbs: Math.round(food.scaledNutrients.carbs * 10) / 10,
+    fat: Math.round(food.scaledNutrients.fat * 10) / 10,
     category: food.category === 'grain' ? 'carbs' : 
               food.category === 'dairy' ? 'protein' :
               food.category === 'fruit' ? 'carbs' :
               food.category as Ingredient['category'],
   }));
+
+  // Reconcile: ensure totalMacros matches ingredient sums exactly
+  const ingredientSum = {
+    calories: Math.round(ingredients.reduce((s, i) => s + (i.calories || 0), 0)),
+    protein: Math.round(ingredients.reduce((s, i) => s + (i.protein || 0), 0)),
+    carbs: Math.round(ingredients.reduce((s, i) => s + (i.carbs || 0), 0)),
+    fat: Math.round(ingredients.reduce((s, i) => s + (i.fat || 0), 0)),
+  };
+  totalMacros = ingredientSum;
 
   // Generate rationale based on timing
   let rationale = `This ${options.slotLabel.toLowerCase()} provides ${Math.round(totalMacros.protein)}g protein to support your ${options.goalType || 'nutrition'} goals.`;

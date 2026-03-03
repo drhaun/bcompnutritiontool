@@ -223,6 +223,21 @@ Return JSON:
       category: String(ing.category || 'other'),
     }));
 
+    // Reconcile totalMacros from ingredient sums (AI can hallucinate totals)
+    const reconciledTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    for (const ing of ingredients) {
+      reconciledTotals.calories += ing.calories;
+      reconciledTotals.protein += ing.protein;
+      reconciledTotals.carbs += ing.carbs;
+      reconciledTotals.fat += ing.fat;
+    }
+    const totalMacros = ingredients.length > 0 ? {
+      calories: Math.round(reconciledTotals.calories),
+      protein: Math.round(reconciledTotals.protein),
+      carbs: Math.round(reconciledTotals.carbs),
+      fat: Math.round(reconciledTotals.fat),
+    } : (aiMeal.totalMacros || slot.targetMacros);
+
     return NextResponse.json({
       success: true,
       mode: 'improve',
@@ -234,7 +249,7 @@ Return JSON:
         type: slot.type,
         ingredients,
         instructions: aiMeal.instructions || [],
-        totalMacros: aiMeal.totalMacros || slot.targetMacros,
+        totalMacros,
         targetMacros: slot.targetMacros,
         workoutRelation: slot.workoutRelation || 'none',
         source: 'ai' as const,

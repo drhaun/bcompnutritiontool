@@ -215,7 +215,77 @@ Return a JSON object with this EXACT structure:
     jsonMode: true,
     tier: 'standard',
   });
-  
+
+  // Reconcile: recompute each meal's totalMacros from its ingredients
+  // AI often reports totalMacros that differ from actual ingredient sums
+  for (const meal of dayPlan.meals) {
+    if (!meal?.ingredients?.length) continue;
+    const sum = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    for (const ing of meal.ingredients) {
+      sum.calories += ing.calories || 0;
+      sum.protein += ing.protein || 0;
+      sum.carbs += ing.carbs || 0;
+      sum.fat += ing.fat || 0;
+    }
+    meal.totalMacros = {
+      calories: Math.round(sum.calories),
+      protein: Math.round(sum.protein),
+      carbs: Math.round(sum.carbs),
+      fat: Math.round(sum.fat),
+    };
+  }
+
+  // Recompute daily totals from reconciled per-meal totals
+  const recomputedTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  for (const meal of dayPlan.meals) {
+    if (!meal?.totalMacros) continue;
+    recomputedTotals.calories += meal.totalMacros.calories;
+    recomputedTotals.protein += meal.totalMacros.protein;
+    recomputedTotals.carbs += meal.totalMacros.carbs;
+    recomputedTotals.fat += meal.totalMacros.fat;
+  }
+  dayPlan.dailyTotals = recomputedTotals;
+
+  // If daily totals are >5% off targets, proportionally scale ingredient macros
+  const targets = dayPlan.dailyTargets;
+  const calVar = targets.calories > 0 ? Math.abs(recomputedTotals.calories - targets.calories) / targets.calories : 0;
+  if (calVar > 0.05 && dayPlan.meals.length > 0) {
+    const calScale = targets.calories / (recomputedTotals.calories || 1);
+    const pScale = targets.protein > 0 ? targets.protein / (recomputedTotals.protein || 1) : 1;
+    const cScale = targets.carbs > 0 ? targets.carbs / (recomputedTotals.carbs || 1) : 1;
+    const fScale = targets.fat > 0 ? targets.fat / (recomputedTotals.fat || 1) : 1;
+
+    for (const meal of dayPlan.meals) {
+      if (!meal?.ingredients) continue;
+      for (const ing of meal.ingredients) {
+        ing.calories = Math.round((ing.calories || 0) * calScale);
+        ing.protein = Math.round((ing.protein || 0) * pScale);
+        ing.carbs = Math.round((ing.carbs || 0) * cScale);
+        ing.fat = Math.round((ing.fat || 0) * fScale);
+      }
+      // Recompute meal totals after scaling
+      const s = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      for (const ing of meal.ingredients) {
+        s.calories += ing.calories || 0;
+        s.protein += ing.protein || 0;
+        s.carbs += ing.carbs || 0;
+        s.fat += ing.fat || 0;
+      }
+      meal.totalMacros = s;
+    }
+
+    // Final daily totals
+    const finalTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    for (const meal of dayPlan.meals) {
+      if (!meal?.totalMacros) continue;
+      finalTotals.calories += meal.totalMacros.calories;
+      finalTotals.protein += meal.totalMacros.protein;
+      finalTotals.carbs += meal.totalMacros.carbs;
+      finalTotals.fat += meal.totalMacros.fat;
+    }
+    dayPlan.dailyTotals = finalTotals;
+  }
+
   // Validate macro accuracy
   const validation = validateMacroAccuracy(
     dayPlan.dailyTotals,
@@ -353,7 +423,7 @@ Return ONLY a JSON object with this structure:
 }
 `;
 
-  return await aiChatJSON<Meal>({
+  const meal = await aiChatJSON<Meal>({
     system: 'You are a precise nutritionist. Return ONLY valid JSON.',
     userMessage: prompt,
     temperature: 0.5,
@@ -361,6 +431,25 @@ Return ONLY a JSON object with this structure:
     jsonMode: true,
     tier: 'standard',
   });
+
+  // Reconcile totalMacros from ingredient sums
+  if (meal?.ingredients?.length) {
+    const sum = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    for (const ing of meal.ingredients) {
+      sum.calories += ing.calories || 0;
+      sum.protein += ing.protein || 0;
+      sum.carbs += ing.carbs || 0;
+      sum.fat += ing.fat || 0;
+    }
+    meal.totalMacros = {
+      calories: Math.round(sum.calories),
+      protein: Math.round(sum.protein),
+      carbs: Math.round(sum.carbs),
+      fat: Math.round(sum.fat),
+    };
+  }
+
+  return meal;
 }
 
 /**
