@@ -163,7 +163,7 @@ Return JSON:
       system: 'You are an expert nutritionist. Return only valid JSON.',
       userMessage: prompt,
       temperature: 0.7,
-      maxTokens: 2000,
+      maxTokens: 4000,
       jsonMode: true,
       tier: 'fast',
     });

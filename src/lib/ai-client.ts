@@ -81,14 +81,95 @@ export async function aiChat(options: AIChatOptions): Promise<string> {
 }
 
 /**
+ * Attempt to repair common AI JSON mistakes before parsing.
+ */
+function repairJSON(str: string): string {
+  let s = str;
+  // Remove trailing commas before } or ]
+  s = s.replace(/,\s*([}\]])/g, '$1');
+  // Remove single-line comments
+  s = s.replace(/\/\/[^\n]*/g, '');
+  // Replace single-quoted strings with double-quoted (simple heuristic)
+  s = s.replace(/(?<=[:,\[{]\s*)'([^']*?)'/g, '"$1"');
+  // Fix unescaped newlines inside string values
+  s = s.replace(/"([^"]*?)(\n)([^"]*?)"/g, (_, a, __, b) => `"${a}\\n${b}"`);
+  return s;
+}
+
+/**
+ * Try to close truncated JSON by balancing braces/brackets.
+ */
+function closeTruncatedJSON(str: string): string {
+  let braces = 0, brackets = 0;
+  let inString = false, escape = false;
+  for (const ch of str) {
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') braces++;
+    else if (ch === '}') braces--;
+    else if (ch === '[') brackets++;
+    else if (ch === ']') brackets--;
+  }
+  // If we're inside a string (odd quotes), close it
+  if (inString) str += '"';
+  // Remove a possible trailing partial key/value
+  str = str.replace(/,\s*"[^"]*"?\s*:?\s*$/, '');
+  str = str.replace(/,\s*$/, '');
+  while (brackets > 0) { str += ']'; brackets--; }
+  while (braces > 0) { str += '}'; braces--; }
+  return str;
+}
+
+/**
  * Convenience: call aiChat and parse the result as JSON.
- * Handles markdown code fences and extracts the first JSON object.
+ * Handles markdown code fences, repairs common AI JSON errors,
+ * closes truncated responses, and retries once on failure.
  */
 export async function aiChatJSON<T = unknown>(options: AIChatOptions): Promise<T> {
-  const raw = await aiChat({ ...options, jsonMode: true });
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const jsonStr = fenced ? fenced[1].trim() : raw.trim();
-  const objMatch = jsonStr.match(/\{[\s\S]*\}/);
-  if (!objMatch) throw new Error('AI response did not contain valid JSON');
-  return JSON.parse(objMatch[0]) as T;
+  const MAX_ATTEMPTS = 2;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const raw = await aiChat({ ...options, jsonMode: true });
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const jsonStr = fenced ? fenced[1].trim() : raw.trim();
+    const objMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (!objMatch) {
+      if (attempt < MAX_ATTEMPTS) continue;
+      throw new Error('AI response did not contain valid JSON');
+    }
+
+    let candidate = objMatch[0];
+
+    // Try parsing as-is first
+    try {
+      return JSON.parse(candidate) as T;
+    } catch {
+      // Try with repairs
+    }
+
+    // Attempt repair
+    candidate = repairJSON(candidate);
+    try {
+      return JSON.parse(candidate) as T;
+    } catch {
+      // Try closing truncated JSON
+    }
+
+    // Attempt closing truncated response
+    candidate = closeTruncatedJSON(candidate);
+    try {
+      return JSON.parse(candidate) as T;
+    } catch (e) {
+      if (attempt < MAX_ATTEMPTS) {
+        console.warn(`AI JSON parse failed (attempt ${attempt}), retrying...`, e instanceof Error ? e.message : e);
+        continue;
+      }
+      console.error('AI JSON parse failed after all attempts. Raw response (first 500 chars):', raw.slice(0, 500));
+      throw new Error(`AI returned malformed JSON: ${e instanceof Error ? e.message : 'parse error'}`);
+    }
+  }
+
+  throw new Error('AI JSON parse exhausted all attempts');
 }

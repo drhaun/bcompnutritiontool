@@ -487,7 +487,7 @@ RULES:
 Return ONLY valid JSON. Make food people CRAVE to eat.`,
     userMessage: prompt,
     temperature: 0.7,
-    maxTokens: 1000,
+    maxTokens: 2000,
     jsonMode: true,
     tier: 'fast',
   });
