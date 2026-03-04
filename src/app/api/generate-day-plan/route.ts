@@ -56,16 +56,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate macro distribution per meal/snack
+    // Calculate macro distribution per meal/snack — must sum to exactly 100%
     const mealCount = mealSlots.filter(s => s.type === 'meal').length;
     const snackCount = mealSlots.filter(s => s.type === 'snack').length;
-    const mealPct = mealCount > 0 ? 0.3 : 0;
-    const snackPct = snackCount > 0 ? 0.1 : 0;
+    const snackPct = snackCount > 0 ? 0.10 : 0;
+    const mealPct = mealCount > 0 ? (1.0 - snackCount * snackPct) / mealCount : 0;
+
+    // Compute explicit per-slot targets that sum to the daily total
+    const slotTargets = mealSlots.map(slot => {
+      const pct = slot.type === 'meal' ? mealPct : snackPct;
+      return {
+        calories: Math.round(targets.calories * pct),
+        protein: Math.round(targets.protein * pct),
+        carbs: Math.round(targets.carbs * pct),
+        fat: Math.round(targets.fat * pct),
+      };
+    });
 
     const prompt = `You are an expert sports nutritionist. Create a complete day's meal plan.
 
 CLIENT: ${clientName || 'Client'}
-DAILY TARGETS: ${targets.calories} cal | ${targets.protein}g protein | ${targets.carbs}g carbs | ${targets.fat}g fat
+DAILY TARGETS (MUST HIT EXACTLY): ${targets.calories} cal | ${targets.protein}g protein | ${targets.carbs}g carbs | ${targets.fat}g fat
 
 DIETARY INFO:
 - Restriction: ${dietaryRestriction || 'None'}
@@ -82,13 +93,15 @@ ${dayContext.dayType === 'workout' ? `- Workout timing: ${dayContext.workoutTimi
 - Workout type: ${dayContext.workoutType}` : ''}
 ${dayContext.specialNotes ? `- Special notes: ${dayContext.specialNotes}` : ''}
 
-MEAL SCHEDULE:
-${mealSlots.map(slot => `- ${slot.time}: ${slot.name} (${slot.type})`).join('\n')}
+MEAL SCHEDULE WITH PER-SLOT TARGETS:
+${mealSlots.map((slot, i) => `- ${slot.time}: ${slot.name} (${slot.type}) → ${slotTargets[i].calories} cal | ${slotTargets[i].protein}g P | ${slotTargets[i].carbs}g C | ${slotTargets[i].fat}g F`).join('\n')}
+
+CRITICAL: The sum of ALL meals MUST equal the daily targets above. Each meal MUST match its per-slot targets closely.
 
 Create a meal for each slot. Each meal should:
 1. Have a creative, appetizing name
-2. Include 3-5 ingredients with exact portions
-3. Match the macro targets for that meal type
+2. Include 3-5 ingredients with exact gram portions and per-ingredient macros
+3. MATCH the per-slot calorie and macro targets shown above (within ±5%)
 4. Consider workout timing for pre/post workout meals
 
 Return JSON:
@@ -134,32 +147,57 @@ Return JSON:
     });
     
     // Transform to expected structure
+    const rawMeals = mealSlots.map((slot, index) => {
+      const aiMeal = aiResponse.meals?.find((m: { slotId?: string }) => m.slotId === slot.id) 
+        || aiResponse.meals?.[index];
+      
+      return {
+        slot,
+        meal: {
+          name: aiMeal?.name || `${slot.name}`,
+          description: aiMeal?.notes || aiMeal?.description || 'A balanced meal for your goals',
+          calories: Math.round(aiMeal?.totalMacros?.calories || slotTargets[index].calories),
+          protein: Math.round(aiMeal?.totalMacros?.protein || slotTargets[index].protein),
+          carbs: Math.round(aiMeal?.totalMacros?.carbs || slotTargets[index].carbs),
+          fat: Math.round(aiMeal?.totalMacros?.fat || slotTargets[index].fat),
+          ingredients: aiMeal?.ingredients?.map((i: { item?: string; amount?: string; calories?: number; protein?: number; carbs?: number; fat?: number }) => 
+            typeof i === 'string' ? i : `${i.amount || ''} ${i.item || ''}`.trim()
+          ) || ['Protein source', 'Carb source', 'Vegetables'],
+          instructions: aiMeal?.instructions || ['Prepare ingredients', 'Cook according to preference', 'Serve and enjoy'],
+          prepTime: slot.prepMethod === 'quick' ? 5 : slot.prepMethod === 'meal_prep' ? 30 : 20,
+        },
+      };
+    });
+
+    // Post-generation reconciliation: scale all meals proportionally so the
+    // day total matches the daily targets exactly.
+    const rawSum = {
+      calories: rawMeals.reduce((s, m) => s + m.meal.calories, 0),
+      protein: rawMeals.reduce((s, m) => s + m.meal.protein, 0),
+      carbs: rawMeals.reduce((s, m) => s + m.meal.carbs, 0),
+      fat: rawMeals.reduce((s, m) => s + m.meal.fat, 0),
+    };
+
+    const calDrift = rawSum.calories > 0 ? Math.abs(rawSum.calories - targets.calories) / targets.calories : 0;
+    if (calDrift > 0.03 && rawSum.calories > 0) {
+      const cScale = targets.calories / rawSum.calories;
+      const pScale = rawSum.protein > 0 ? targets.protein / rawSum.protein : 1;
+      const carbScale = rawSum.carbs > 0 ? targets.carbs / rawSum.carbs : 1;
+      const fScale = rawSum.fat > 0 ? targets.fat / rawSum.fat : 1;
+      for (const m of rawMeals) {
+        m.meal.calories = Math.round(m.meal.calories * cScale);
+        m.meal.protein = Math.round(m.meal.protein * pScale);
+        m.meal.carbs = Math.round(m.meal.carbs * carbScale);
+        m.meal.fat = Math.round(m.meal.fat * fScale);
+      }
+    }
+
     const dayPlan = {
-      meals: mealSlots.map((slot, index) => {
-        const aiMeal = aiResponse.meals?.find((m: { slotId?: string }) => m.slotId === slot.id) 
-          || aiResponse.meals?.[index];
-        
-        return {
-          slot: slot,
-          meal: {
-            name: aiMeal?.name || `${slot.name}`,
-            description: aiMeal?.notes || aiMeal?.description || 'A balanced meal for your goals',
-            calories: Math.round(aiMeal?.totalMacros?.calories || targets.calories / mealSlots.length),
-            protein: Math.round(aiMeal?.totalMacros?.protein || targets.protein / mealSlots.length),
-            carbs: Math.round(aiMeal?.totalMacros?.carbs || targets.carbs / mealSlots.length),
-            fat: Math.round(aiMeal?.totalMacros?.fat || targets.fat / mealSlots.length),
-            ingredients: aiMeal?.ingredients?.map((i: { item?: string; amount?: string }) => 
-              typeof i === 'string' ? i : `${i.amount || ''} ${i.item || ''}`.trim()
-            ) || ['Protein source', 'Carb source', 'Vegetables'],
-            instructions: aiMeal?.instructions || ['Prepare ingredients', 'Cook according to preference', 'Serve and enjoy'],
-            prepTime: slot.prepMethod === 'quick' ? 5 : slot.prepMethod === 'meal_prep' ? 30 : 20,
-          },
-        };
-      }),
-      totalCalories: Math.round(aiResponse.dailyTotals?.calories || targets.calories),
-      totalProtein: Math.round(aiResponse.dailyTotals?.protein || targets.protein),
-      totalCarbs: Math.round(aiResponse.dailyTotals?.carbs || targets.carbs),
-      totalFat: Math.round(aiResponse.dailyTotals?.fat || targets.fat),
+      meals: rawMeals,
+      totalCalories: rawMeals.reduce((s, m) => s + m.meal.calories, 0),
+      totalProtein: rawMeals.reduce((s, m) => s + m.meal.protein, 0),
+      totalCarbs: rawMeals.reduce((s, m) => s + m.meal.carbs, 0),
+      totalFat: rawMeals.reduce((s, m) => s + m.meal.fat, 0),
       summary: aiResponse.summary || '',
     };
 

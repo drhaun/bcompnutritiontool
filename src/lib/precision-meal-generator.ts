@@ -38,12 +38,22 @@ export const ACCURACY_THRESHOLDS = {
 
 // Reasonable portion limits to prevent extraordinary amounts
 const PORTION_LIMITS: Record<string, { min: number; max: number; typical: number }> = {
-  primary_protein: { min: 100, max: 200, typical: 150 },   // Was 80-220
-  primary_carb: { min: 80, max: 250, typical: 150 },       // Was 80-350 (350g rice is absurd)
-  fat_source: { min: 8, max: 40, typical: 15 },            // Was 8-50
-  vegetable: { min: 75, max: 150, typical: 100 },          // Was 50-200
+  primary_protein: { min: 100, max: 200, typical: 150 },
+  primary_carb: { min: 80, max: 250, typical: 150 },
+  fat_source: { min: 8, max: 40, typical: 15 },
+  vegetable: { min: 75, max: 150, typical: 100 },
   flavor: { min: 3, max: 20, typical: 10 },
   default: { min: 30, max: 150, typical: 75 },
+};
+
+// Snack-specific limits — smaller minimums so snacks can hit ~150-250 kcal
+const SNACK_PORTION_LIMITS: Record<string, { min: number; max: number; typical: number }> = {
+  primary_protein: { min: 30, max: 120, typical: 60 },
+  primary_carb: { min: 20, max: 100, typical: 50 },
+  fat_source: { min: 5, max: 25, typical: 10 },
+  vegetable: { min: 30, max: 100, typical: 50 },
+  flavor: { min: 2, max: 15, typical: 5 },
+  default: { min: 15, max: 80, typical: 40 },
 };
 
 // Portion warnings for unusual amounts
@@ -79,6 +89,11 @@ interface GeneratePreciseMealOptions {
   goalType?: string;
 }
 
+/** Return the correct portion limits based on slot type */
+function getPortionLimits(isSnack: boolean): Record<string, { min: number; max: number; typical: number }> {
+  return isSnack ? SNACK_PORTION_LIMITS : PORTION_LIMITS;
+}
+
 /**
  * Generate a meal with database-accurate macros
  */
@@ -86,6 +101,9 @@ export async function generatePreciseMeal(
   _apiKey: string,
   options: GeneratePreciseMealOptions
 ): Promise<Meal> {
+  const isSnack = /snack/i.test(options.slotLabel);
+  const limits = getPortionLimits(isSnack);
+
   // Step 1: Adjust targets for nutrient timing
   const adjustedTargets = adjustForNutrientTiming(
     {
@@ -102,20 +120,20 @@ export async function generatePreciseMeal(
   const concept = await getMealConcept(options, adjustedTargets);
 
   // Step 3: Look up foods in database and calculate precise portions
-  const { scaledFoods, foodItems } = await buildMealFromConcept(concept, adjustedTargets);
+  const { scaledFoods, foodItems } = await buildMealFromConcept(concept, adjustedTargets, limits);
 
   // Step 4: Calculate actual totals from database foods
   const totalMacros = calculateTotalMacros(scaledFoods);
 
   // Step 5: Fine-tune portions if needed to hit targets more precisely
-  let refinedFoods = refineMacros(scaledFoods, adjustedTargets, totalMacros, foodItems);
+  let refinedFoods = refineMacros(scaledFoods, adjustedTargets, totalMacros, foodItems, limits);
   let finalMacros = calculateTotalMacros(refinedFoods);
 
   // Step 5b: Second refinement pass — if still outside thresholds after first
   // pass, run one more correction targeting the largest remaining variance
   const calVar = Math.abs(finalMacros.calories - adjustedTargets.calories) / adjustedTargets.calories;
   if (calVar > ACCURACY_THRESHOLDS.calories) {
-    refinedFoods = refineMacros(refinedFoods, adjustedTargets, finalMacros, foodItems);
+    refinedFoods = refineMacros(refinedFoods, adjustedTargets, finalMacros, foodItems, limits);
     finalMacros = calculateTotalMacros(refinedFoods);
   }
 
@@ -456,7 +474,8 @@ interface BuildResult {
  */
 async function buildMealFromConcept(
   concept: MealConcept,
-  targetMacros: FoodNutrients
+  targetMacros: FoodNutrients,
+  limits: Record<string, { min: number; max: number; typical: number }> = PORTION_LIMITS
 ): Promise<BuildResult> {
   const foodItems: { food: FoodItem; role: string; targetPct: number }[] = [];
 
@@ -535,8 +554,7 @@ async function buildMealFromConcept(
     const per100g = food.nutrients[primaryMacro];
     let grams = per100g > 0 ? (targetValue / per100g) * 100 : 100;
     
-    // Apply reasonable limits from constants
-    const limit = PORTION_LIMITS[role] || PORTION_LIMITS.default;
+    const limit = limits[role] || limits.default;
     grams = Math.max(limit.min, Math.min(limit.max, grams));
     
     naivePortions.push({ food, role, grams, primaryMacro });
@@ -594,8 +612,7 @@ async function buildMealFromConcept(
       
       let newGrams = currentGrams * adjustedScale;
       
-      // Apply limits from constants
-      const limit = PORTION_LIMITS[portion.role] || PORTION_LIMITS.default;
+      const limit = limits[portion.role] || limits.default;
       newGrams = Math.max(limit.min, Math.min(limit.max, newGrams));
       
       return scaleFood(portion.food, newGrams);
@@ -618,7 +635,7 @@ async function buildMealFromConcept(
         const excess = totals.protein - targetMacros.protein;
         const gramsToRemove = (excess / per100g) * 100 * 0.9; // Remove 90% of excess for tighter control
         let newGrams = scaledFoods[proteinIdx].scaledAmount - gramsToRemove;
-        const limit = PORTION_LIMITS.primary_protein;
+        const limit = limits.primary_protein;
         newGrams = Math.max(limit.min, Math.min(limit.max, newGrams));
         scaledFoods[proteinIdx] = scaleFood(proteinFood, newGrams);
         totals = calculateTotalMacros(scaledFoods);
@@ -637,7 +654,7 @@ async function buildMealFromConcept(
       if (calsper100g > 0) {
         const gramsToAdd = (calorieDeficit / calsper100g) * 100 * 0.85;
         let newGrams = scaledFoods[carbIdx].scaledAmount + gramsToAdd;
-        const limit = PORTION_LIMITS.primary_carb;
+        const limit = limits.primary_carb;
         newGrams = Math.max(limit.min, Math.min(limit.max, newGrams));
         scaledFoods[carbIdx] = scaleFood(carbFood, newGrams);
         totals = calculateTotalMacros(scaledFoods);
@@ -656,7 +673,7 @@ async function buildMealFromConcept(
         const deficit = targetMacros.fat - totals.fat;
         const gramsToAdd = (deficit / per100g) * 100 * 0.9;
         let newGrams = scaledFoods[fatIdx].scaledAmount + gramsToAdd;
-        const limit = PORTION_LIMITS.fat_source;
+        const limit = limits.fat_source;
         newGrams = Math.max(limit.min, Math.min(limit.max, newGrams));
         scaledFoods[fatIdx] = scaleFood(fatFood, newGrams);
       }
@@ -676,7 +693,7 @@ async function buildMealFromConcept(
         const diff = targetMacros.calories - totals.calories;
         const gramsAdjust = (diff / calsper100g) * 100;
         let newGrams = scaledFoods[carbIdx].scaledAmount + gramsAdjust;
-        const limit = PORTION_LIMITS.primary_carb;
+        const limit = limits.primary_carb;
         newGrams = Math.max(limit.min, Math.min(limit.max, newGrams));
         scaledFoods[carbIdx] = scaleFood(carbFood, newGrams);
       }
@@ -716,7 +733,8 @@ function refineMacros(
   foods: ScaledFood[],
   target: FoodNutrients,
   current: FoodNutrients,
-  foodItems?: { food: FoodItem; role: string }[]
+  foodItems?: { food: FoodItem; role: string }[],
+  limits: Record<string, { min: number; max: number; typical: number }> = PORTION_LIMITS
 ): ScaledFood[] {
   if (!foodItems || foodItems.length !== foods.length) return foods;
 
@@ -742,7 +760,7 @@ function refineMacros(
   const fatIdx = findByRole('fat_source');
 
   const applyLimit = (role: string, grams: number) => {
-    const limit = PORTION_LIMITS[role] || PORTION_LIMITS.default;
+    const limit = limits[role] || limits.default;
     return Math.max(limit.min, Math.min(limit.max, grams));
   };
 

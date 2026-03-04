@@ -56,6 +56,28 @@ export async function POST(request: Request) {
       goalType: bodyCompGoals.goalType,
     });
     
+    // Hard clamp: if calories overshoot by more than 5%, proportionally scale
+    // all ingredient macros down so the meal lands on target
+    const calOvershoot = meal.totalMacros.calories - targetMacros.calories;
+    if (calOvershoot > 0 && targetMacros.calories > 0) {
+      const overPct = calOvershoot / targetMacros.calories;
+      if (overPct > ACCURACY_THRESHOLDS.calories) {
+        const scale = targetMacros.calories / meal.totalMacros.calories;
+        for (const ing of meal.ingredients) {
+          ing.calories = Math.round((ing.calories || 0) * scale);
+          ing.protein = Math.round(((ing.protein || 0) * scale) * 10) / 10;
+          ing.carbs = Math.round(((ing.carbs || 0) * scale) * 10) / 10;
+          ing.fat = Math.round(((ing.fat || 0) * scale) * 10) / 10;
+        }
+        meal.totalMacros = {
+          calories: Math.round(meal.ingredients.reduce((s, i) => s + (i.calories || 0), 0)),
+          protein: Math.round(meal.ingredients.reduce((s, i) => s + (i.protein || 0), 0)),
+          carbs: Math.round(meal.ingredients.reduce((s, i) => s + (i.carbs || 0), 0)),
+          fat: Math.round(meal.ingredients.reduce((s, i) => s + (i.fat || 0), 0)),
+        };
+      }
+    }
+
     // Validate macro accuracy using tighter thresholds
     const variance = {
       calories: Math.abs(meal.totalMacros.calories - targetMacros.calories) / targetMacros.calories,

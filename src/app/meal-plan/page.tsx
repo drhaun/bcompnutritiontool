@@ -160,9 +160,11 @@ const calculateSlotTargets = (
 ): Macros[] => {
   const mealCount = slotLabels.filter(s => s.type === 'meal').length;
   const snackCount = slotLabels.filter(s => s.type === 'snack').length;
-  
-  const mealPct = mealCount > 0 ? (0.9 - snackCount * 0.1) / mealCount : 0;
-  const snackPct = 0.1;
+
+  // Snacks get 10% each; meals split the remainder equally.
+  // Total must sum to 100% so generated slots hit the daily target.
+  const snackPct = snackCount > 0 ? 0.10 : 0;
+  const mealPct = mealCount > 0 ? (1.0 - snackCount * snackPct) / mealCount : 0;
   
   return slotLabels.map(slot => {
     const pct = slot.type === 'meal' ? mealPct : snackPct;

@@ -597,26 +597,29 @@ export function adjustForNutrientTiming(
   if (timing === 'none') return targetMacros;
   
   const adjusted = { ...targetMacros };
+  const originalCalories = adjusted.calories;
   
   if (timing === 'pre-workout') {
-    // Pre-workout: Higher carbs, moderate protein, lower fat
-    // Carbs for energy, lower fat for faster digestion
-    adjusted.carbs = Math.round(adjusted.carbs * 1.2);  // +20% carbs
-    adjusted.fat = Math.round(adjusted.fat * 0.7);      // -30% fat
-    // Recalculate calories
-    adjusted.calories = Math.round(
-      adjusted.protein * 4 + adjusted.carbs * 4 + adjusted.fat * 9
-    );
+    // Pre-workout: shift toward carbs, away from fat — calorie-neutral
+    adjusted.carbs = Math.round(adjusted.carbs * 1.2);
+    adjusted.fat = Math.round(adjusted.fat * 0.7);
   } else if (timing === 'post-workout') {
-    // Post-workout: Higher protein and carbs for recovery
-    adjusted.protein = Math.round(adjusted.protein * 1.25); // +25% protein
-    adjusted.carbs = Math.round(adjusted.carbs * 1.15);     // +15% carbs
-    adjusted.fat = Math.round(adjusted.fat * 0.8);          // -20% fat
-    // Recalculate calories
-    adjusted.calories = Math.round(
-      adjusted.protein * 4 + adjusted.carbs * 4 + adjusted.fat * 9
-    );
+    // Post-workout: shift toward protein+carbs, away from fat — calorie-neutral
+    adjusted.protein = Math.round(adjusted.protein * 1.15);
+    adjusted.carbs = Math.round(adjusted.carbs * 1.1);
+    adjusted.fat = Math.round(adjusted.fat * 0.75);
   }
+
+  // Enforce calorie neutrality: scale macros proportionally so
+  // p*4 + c*4 + f*9 equals the original calorie target
+  const rawCals = adjusted.protein * 4 + adjusted.carbs * 4 + adjusted.fat * 9;
+  if (rawCals > 0 && Math.abs(rawCals - originalCalories) > 5) {
+    const scale = originalCalories / rawCals;
+    adjusted.protein = Math.round(adjusted.protein * scale);
+    adjusted.carbs = Math.round(adjusted.carbs * scale);
+    adjusted.fat = Math.round(adjusted.fat * scale);
+  }
+  adjusted.calories = originalCalories;
   
   return adjusted;
 }
