@@ -38,6 +38,7 @@ import {
   Heart,
   Copy,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { useFitomicsStore } from '@/lib/store';
@@ -146,6 +147,9 @@ interface MealSlotCardProps {
   allDays?: DayOfWeek[];
   currentDay?: DayOfWeek;
   allSlotLabels?: string[];
+  // Per-meal generation options
+  genOptions?: { maxIngredients?: number; availableFoods?: string[] };
+  onGenOptionsChange?: (slotIndex: number, opts: { maxIngredients?: number; availableFoods?: string[] }) => void;
 }
 
 export function MealSlotCard({
@@ -177,6 +181,8 @@ export function MealSlotCard({
   allDays,
   currentDay,
   allSlotLabels,
+  genOptions,
+  onGenOptionsChange,
 }: MealSlotCardProps) {
   const { addFavoriteRecipe, removeFavoriteRecipe, favoriteRecipes } = useFitomicsStore();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -189,6 +195,8 @@ export function MealSlotCard({
   const [copyPopoverOpen, setCopyPopoverOpen] = useState(false);
   const [copyTargetDays, setCopyTargetDays] = useState<Set<DayOfWeek>>(new Set());
   const [copyTargetSlot, setCopyTargetSlot] = useState<string>('same');
+  const [showGenOptions, setShowGenOptions] = useState(false);
+  const [localAvailableFoods, setLocalAvailableFoods] = useState(genOptions?.availableFoods?.join(', ') || '');
 
   // Smart macro edit: when P/C/F change, auto-recalculate calories
   const handleSlotMacroEdit = (key: keyof Macros, raw: string) => {
@@ -607,6 +615,61 @@ export function MealSlotCard({
                   <ChefHat className="h-4 w-4 mr-1" />
                   Browse Recipes
                 </Button>
+              )}
+              {onGenOptionsChange && (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowGenOptions(!showGenOptions)}
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showGenOptions ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    Generation Options
+                  </button>
+                  {showGenOptions && (
+                    <div className="space-y-2 p-2 rounded-lg bg-muted/50 border">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground">Max Ingredients</label>
+                        <Select
+                          value={genOptions?.maxIngredients?.toString() || 'none'}
+                          onValueChange={(v) => onGenOptionsChange(slot.slotIndex, {
+                            ...genOptions,
+                            maxIngredients: v === 'none' ? undefined : parseInt(v),
+                          })}
+                        >
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="No limit" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No limit</SelectItem>
+                            <SelectItem value="3">3 (very simple)</SelectItem>
+                            <SelectItem value="4">4</SelectItem>
+                            <SelectItem value="5">5</SelectItem>
+                            <SelectItem value="6">6</SelectItem>
+                            <SelectItem value="8">8</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground">Available Foods</label>
+                        <Input
+                          className="h-7 text-xs"
+                          placeholder="e.g., chicken, rice, broccoli"
+                          value={localAvailableFoods}
+                          onChange={(e) => {
+                            setLocalAvailableFoods(e.target.value);
+                            const foods = e.target.value.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+                            onGenOptionsChange(slot.slotIndex, {
+                              ...genOptions,
+                              availableFoods: foods.length > 0 ? foods : undefined,
+                            });
+                          }}
+                        />
+                        <p className="text-[9px] text-muted-foreground">Comma-separated foods to prioritize</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
               <div className="flex gap-2">
                 <Button 

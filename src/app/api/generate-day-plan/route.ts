@@ -32,6 +32,9 @@ interface DayPlanRequest {
     specialNotes: string;
   };
   mealSlots: MealSlot[];
+  groceryBudgetCap?: number;
+  groceryBudgetPeriod?: 'daily' | 'weekly';
+  budgetPreference?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -47,6 +50,9 @@ export async function POST(request: NextRequest) {
       foodsToAvoid,
       dayContext,
       mealSlots,
+      groceryBudgetCap,
+      groceryBudgetPeriod,
+      budgetPreference,
     } = body;
 
     if (!getActiveProvider()) {
@@ -84,6 +90,10 @@ DIETARY INFO:
 - Preferred proteins: ${preferredProteins.join(', ') || 'chicken, fish, eggs'}
 - Preferred carbs: ${preferredCarbs.join(', ') || 'rice, oats, potatoes'}
 - Foods to avoid: ${foodsToAvoid.join(', ') || 'None'}
+${groceryBudgetCap ? `
+GROCERY BUDGET: $${groceryBudgetCap} ${groceryBudgetPeriod || 'weekly'}${groceryBudgetPeriod === 'weekly' ? ` (~$${Math.round(groceryBudgetCap / 7)}/day)` : ` (~$${groceryBudgetCap * 7}/week)`} — ${budgetPreference || 'moderate'} style
+- Prefer cost-effective ingredients: bulk staples, seasonal produce, affordable proteins (chicken thighs, eggs, beans, canned fish)
+- Avoid premium/specialty items unless budget allows` : ''}
 
 DAY CONTEXT:
 - Day type: ${dayContext.dayType}
@@ -94,7 +104,18 @@ ${dayContext.dayType === 'workout' ? `- Workout timing: ${dayContext.workoutTimi
 ${dayContext.specialNotes ? `- Special notes: ${dayContext.specialNotes}` : ''}
 
 MEAL SCHEDULE WITH PER-SLOT TARGETS:
-${mealSlots.map((slot, i) => `- ${slot.time}: ${slot.name} (${slot.type}) → ${slotTargets[i].calories} cal | ${slotTargets[i].protein}g P | ${slotTargets[i].carbs}g C | ${slotTargets[i].fat}g F`).join('\n')}
+${mealSlots.map((slot, i) => {
+      const ctx: string[] = [];
+      if (slot.prepMethod) {
+        const labels: Record<string, string> = { cook: 'Cook from scratch', leftovers: 'Leftovers/reheated', packaged: 'Packaged/ready-to-eat', pickup: 'Pickup/takeout', delivery: 'Delivery', skip: 'Skip' };
+        ctx.push(labels[slot.prepMethod] || slot.prepMethod);
+      }
+      if (slot.location) {
+        const locs: Record<string, string> = { home: 'at home', office: 'at office', on_the_go: 'on the go', restaurant: 'restaurant', gym: 'at gym' };
+        ctx.push(locs[slot.location] || slot.location);
+      }
+      return `- ${slot.time}: ${slot.name} (${slot.type}) → ${slotTargets[i].calories} cal | ${slotTargets[i].protein}g P | ${slotTargets[i].carbs}g C | ${slotTargets[i].fat}g F${ctx.length > 0 ? ' [' + ctx.join(', ') + ']' : ''}`;
+    }).join('\n')}
 
 CRITICAL: The sum of ALL meals MUST equal the daily targets above. Each meal MUST match its per-slot targets closely.
 
@@ -103,6 +124,7 @@ Create a meal for each slot. Each meal should:
 2. Include 3-5 ingredients with exact gram portions and per-ingredient macros
 3. MATCH the per-slot calorie and macro targets shown above (within ±5%)
 4. Consider workout timing for pre/post workout meals
+5. Match the prep method context: packaged meals should be grab-and-go items, leftovers should reheat well, etc.
 
 Return JSON:
 {
@@ -164,7 +186,7 @@ Return JSON:
             typeof i === 'string' ? i : `${i.amount || ''} ${i.item || ''}`.trim()
           ) || ['Protein source', 'Carb source', 'Vegetables'],
           instructions: aiMeal?.instructions || ['Prepare ingredients', 'Cook according to preference', 'Serve and enjoy'],
-          prepTime: slot.prepMethod === 'quick' ? 5 : slot.prepMethod === 'meal_prep' ? 30 : 20,
+          prepTime: slot.prepMethod === 'cook' ? 30 : slot.prepMethod === 'leftovers' ? 5 : slot.prepMethod === 'packaged' ? 0 : slot.prepMethod === 'pickup' || slot.prepMethod === 'delivery' ? 5 : 20,
         },
       };
     });

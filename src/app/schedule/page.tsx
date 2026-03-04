@@ -95,6 +95,7 @@ const WORKOUT_TIME_SLOTS: { value: WorkoutTimeSlot; label: string; range: string
 const MEAL_PREP_METHODS: { value: MealPrepMethod; label: string; icon: React.ReactNode }[] = [
   { value: 'cook', label: 'Cook from scratch', icon: <ChefHat className="h-4 w-4" /> },
   { value: 'leftovers', label: 'Leftovers/Pre-prepped', icon: <Package className="h-4 w-4" /> },
+  { value: 'packaged', label: 'Packaged / Ready-to-eat', icon: <Package className="h-4 w-4" /> },
   { value: 'pickup', label: 'Pickup or takeout', icon: <Utensils className="h-4 w-4" /> },
   { value: 'delivery', label: 'Meal delivery', icon: <Truck className="h-4 w-4" /> },
   { value: 'skip', label: 'Skip this meal', icon: <X className="h-4 w-4" /> },
@@ -686,78 +687,6 @@ export default function SchedulePage() {
 
               {/* ============ TAB 2: WORKOUTS ============ */}
               <TabsContent value="workouts" className="space-y-6">
-                {/* Workout Defaults */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Settings className="h-5 w-5 text-[#c19962]" />
-                      Workout Defaults
-                    </CardTitle>
-                    <CardDescription>Set defaults to save time configuring each day</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="space-y-2">
-                        <Label>Workout Type</Label>
-                        <Select value={defaultWorkoutType} onValueChange={(v) => setDefaultWorkoutType(v as WorkoutType)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {WORKOUT_TYPES.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>
-                                {type.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Time Slot</Label>
-                        <Select value={defaultTimeSlot} onValueChange={(v) => setDefaultTimeSlot(v as WorkoutTimeSlot)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {WORKOUT_TIME_SLOTS.map((slot) => (
-                              <SelectItem key={slot.value} value={slot.value}>
-                                {slot.label} ({slot.range})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Duration: {defaultDuration} min</Label>
-                        <Slider
-                          min={15}
-                          max={180}
-                          step={15}
-                          value={[defaultDuration]}
-                          onValueChange={(v) => setDefaultDuration(v[0])}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Intensity</Label>
-                        <Select value={defaultIntensity} onValueChange={(v) => setDefaultIntensity(v as 'Low' | 'Medium' | 'High')}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Low">Low</SelectItem>
-                            <SelectItem value="Medium">Medium</SelectItem>
-                            <SelectItem value="High">High</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <Button variant="outline" onClick={applyDefaultsToAllDays}>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Apply Defaults to All Workout Days
-                    </Button>
-                  </CardContent>
-                </Card>
-
                 {/* Workout Options */}
                 <Card>
                   <CardHeader>

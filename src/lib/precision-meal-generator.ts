@@ -87,6 +87,11 @@ interface GeneratePreciseMealOptions {
   dietPreferences: Partial<DietPreferences>;
   previousMeals: string[];
   goalType?: string;
+  prepMethod?: string;
+  location?: string;
+  maxIngredients?: number;
+  availableFoods?: string[];
+  bulkPrepDays?: number;
 }
 
 /** Return the correct portion limits based on slot type */
@@ -323,6 +328,9 @@ ${CHEF_PERSONA}
 - Time Context: ${isEarlyMeal ? 'EARLY MORNING (breakfast-style: eggs, oatmeal, smoothies, toast)' : isMidDayMeal ? 'MIDDAY (lunch-style: salads, bowls, sandwiches, wraps)' : isEveningMeal ? 'EVENING (dinner-style: more elaborate, hearty meals)' : isAfternoonMeal ? 'LATE AFTERNOON (lighter meal or substantial snack)' : 'Regular meal'}
 - Workout Timing: ${isWorkoutDay ? (workoutRelation === 'pre-workout' ? '⚡ PRE-WORKOUT - needs quick-digesting carbs, moderate protein, lower fat' : workoutRelation === 'post-workout' ? '💪 POST-WORKOUT - recovery focused: prioritize protein + carbs for glycogen replenishment' : 'Workout day but not around training') : 'Rest day - no workout timing considerations'}
 ${isSnack ? '- This is a SNACK: lighter portion, portable-friendly, quick to prepare' : ''}
+${options.prepMethod ? `- Prep Method: ${options.prepMethod === 'packaged' ? 'PACKAGED/READY-TO-EAT — suggest grab-and-go items: protein bars, shakes, pre-made deli items, yogurt cups, cheese sticks, nuts, fruit' : options.prepMethod === 'leftovers' ? 'LEFTOVERS/PRE-PREPPED — suggest meals that reheat well and store well for multiple days' : options.prepMethod === 'pickup' ? 'PICKUP/TAKEOUT — suggest restaurant-style meals that travel well' : options.prepMethod === 'delivery' ? 'MEAL DELIVERY — suggest meals typical of delivery services' : options.prepMethod === 'cook' ? 'Cook from scratch' : options.prepMethod}` : ''}
+${options.location ? `- Eating Location: ${options.location === 'on_the_go' ? 'ON THE GO — portable, no utensils preferred' : options.location === 'office' ? 'OFFICE — easy to eat at desk, minimal mess' : options.location === 'gym' ? 'GYM — quick, portable, easy cleanup' : options.location}` : ''}
+${options.bulkPrepDays ? `- BULK PREP: This meal will be prepped once and eaten over ${options.bulkPrepDays} days — choose recipes that store and reheat well` : ''}
 
 ${varietyRules}
 ${overusedProteins.length > 0 ? `
@@ -340,7 +348,14 @@ CLIENT TASTE PREFERENCES
 - Flavor profiles: ${flavorProfiles.join(', ') || 'Balanced, savory'}
 - Spice tolerance: ${spiceLevel}
 - Favorite seasonings: ${seasonings.join(', ') || 'Garlic, herbs, citrus'}
-
+${dietPreferences.groceryBudgetCap ? `
+═══════════════════════════════════════════════════════════
+GROCERY BUDGET CONSTRAINT
+═══════════════════════════════════════════════════════════
+- Budget cap: $${dietPreferences.groceryBudgetCap} ${dietPreferences.groceryBudgetPeriod || 'weekly'}${dietPreferences.groceryBudgetPeriod === 'weekly' ? ` (~$${Math.round(dietPreferences.groceryBudgetCap / 7)} per day)` : ` (~$${dietPreferences.groceryBudgetCap * 7} per week)`}
+- Budget style: ${dietPreferences.budgetPreference || 'moderate'}
+- IMPORTANT: Prefer cost-effective ingredients (bulk staples, seasonal produce, affordable protein sources like chicken thighs, eggs, beans, canned fish). Avoid premium/expensive specialty items unless the budget is flexible.
+` : ''}
 ═══════════════════════════════════════════════════════════
 MACRO TARGETS
 ═══════════════════════════════════════════════════════════
@@ -396,6 +411,21 @@ VEGETABLES:
 FATS:
 "olive oil", "avocado raw", "almonds raw", "peanut butter", "coconut oil"
 
+${options.maxIngredients ? `
+═══════════════════════════════════════════════════════════
+⚙️ INGREDIENT CONSTRAINT
+═══════════════════════════════════════════════════════════
+Use NO MORE THAN ${options.maxIngredients} ingredients total (excluding basic seasonings like salt, pepper, garlic).
+Keep the recipe simple and focused.
+` : ''}
+${options.availableFoods && options.availableFoods.length > 0 ? `
+═══════════════════════════════════════════════════════════
+🛒 CLIENT'S AVAILABLE FOODS (PANTRY)
+═══════════════════════════════════════════════════════════
+The client has these foods on hand — PRIORITIZE using these:
+${options.availableFoods.map(f => `  • ${f}`).join('\n')}
+→ Build the meal primarily from these available ingredients when possible.
+` : ''}
 ═══════════════════════════════════════════════════════════
 YOUR TASK: Create ONE delicious ${isSnack ? 'snack' : 'meal'}
 ═══════════════════════════════════════════════════════════

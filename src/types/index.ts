@@ -457,6 +457,14 @@ export interface DietPreferences {
   includePostWorkoutMeal?: boolean;
   postWorkoutPreference?: string;
 
+  // Budget Cap
+  groceryBudgetCap?: number;
+  groceryBudgetPeriod?: 'daily' | 'weekly';
+
+  // Ingredient & Pantry Constraints
+  maxIngredientsPerMeal?: number;
+  availableFoods?: string[];
+
   // Location-Based (future)
   homeZipCode: string;
   workZipCode: string;
@@ -483,7 +491,7 @@ export type WorkoutTimeSlot =
   | 'night';        // 8:00-11:00 PM
 
 // Meal preparation methods
-export type MealPrepMethod = 'cook' | 'leftovers' | 'pickup' | 'delivery' | 'skip';
+export type MealPrepMethod = 'cook' | 'leftovers' | 'pickup' | 'delivery' | 'skip' | 'packaged';
 
 // Meal location options
 export type MealLocation = 'home' | 'office' | 'on_the_go' | 'restaurant' | 'gym';
@@ -520,7 +528,8 @@ export interface MealContext {
   location: MealLocation;
   timeRange: string;
   isRoutine: boolean;
-  clientNotes?: string; // Free-text: what the client normally does for this meal
+  clientNotes?: string;
+  bulkPrepDays?: number; // Prep once, eat for N days (e.g. 3 = Mon-Wed)
 }
 
 // Peri-workout nutrition preferences
@@ -702,6 +711,10 @@ export interface SingleMealRequest {
   timeSlot: string;          // Time of day
   workoutRelation: 'pre-workout' | 'post-workout' | 'none';
   isWorkoutDay: boolean;
+  prepMethod?: MealPrepMethod;
+  location?: MealLocation;
+  maxIngredients?: number;
+  availableFoods?: string[];
 }
 
 // Request for generating meal rationale/note

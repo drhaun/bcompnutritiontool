@@ -73,6 +73,7 @@ import {
   Trash2,
   MessageSquare,
   StickyNote,
+  ShoppingCart,
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -229,6 +230,7 @@ const WORKOUT_TIME_SLOTS: { value: WorkoutTimeSlot; label: string }[] = [
 const MEAL_PREP_METHODS: { value: MealPrepMethod; label: string }[] = [
   { value: 'cook', label: 'Cook from scratch' },
   { value: 'leftovers', label: 'Leftovers/Pre-prepped' },
+  { value: 'packaged', label: 'Packaged / Ready-to-eat' },
   { value: 'pickup', label: 'Pickup or takeout' },
   { value: 'delivery', label: 'Meal delivery' },
   { value: 'skip', label: 'Skip this meal' },
@@ -787,6 +789,12 @@ export default function SetupPage() {
       if (dietPreferences.foodsToEmphasize?.length) {
         setFoodsToEmphasize(dietPreferences.foodsToEmphasize.join('\n'));
       }
+      if (dietPreferences.maxIngredientsPerMeal) {
+        setMaxIngredientsPerMeal(dietPreferences.maxIngredientsPerMeal);
+      }
+      if (dietPreferences.availableFoods?.length) {
+        setAvailableFoods(dietPreferences.availableFoods.join('\n'));
+      }
       if (dietPreferences.spiceLevel !== undefined) {
         setSpiceLevel(dietPreferences.spiceLevel);
       }
@@ -801,6 +809,12 @@ export default function SetupPage() {
       }
       if (dietPreferences.budgetPreference) {
         setBudgetPreference(dietPreferences.budgetPreference as 'budget' | 'moderate' | 'flexible');
+      }
+      if (dietPreferences.groceryBudgetCap != null) {
+        setGroceryBudgetCap(dietPreferences.groceryBudgetCap);
+      }
+      if (dietPreferences.groceryBudgetPeriod) {
+        setGroceryBudgetPeriod(dietPreferences.groceryBudgetPeriod);
       }
       if (dietPreferences.cookingTimePreference) {
         setCookingTime(dietPreferences.cookingTimePreference as typeof cookingTime);
@@ -1038,7 +1052,7 @@ export default function SetupPage() {
   const [defaultIntensity, setDefaultIntensity] = useState<'Low' | 'Medium' | 'High'>('High');
 
   // Per-day workouts (multiple per day)
-  interface DayWorkoutEntry { type: WorkoutType; timeSlot: WorkoutTimeSlot; duration: number; intensity: 'Low' | 'Medium' | 'High' }
+  interface DayWorkoutEntry { type: WorkoutType; timeSlot: WorkoutTimeSlot; duration: number; intensity: 'Low' | 'Medium' | 'High'; zone?: 1 | 2 | 3 | 4 | 5 }
   const [dayWorkouts, setDayWorkouts] = useState<Record<string, DayWorkoutEntry[]>>(() => {
     const init: Record<string, DayWorkoutEntry[]> = {};
     DAYS_OF_WEEK.forEach(d => { init[d] = []; });
@@ -1092,6 +1106,8 @@ export default function SetupPage() {
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
   const [foodsToAvoid, setFoodsToAvoid] = useState('');
   const [foodsToEmphasize, setFoodsToEmphasize] = useState('');
+  const [maxIngredientsPerMeal, setMaxIngredientsPerMeal] = useState<number | undefined>(undefined);
+  const [availableFoods, setAvailableFoods] = useState('');
   const [customProteins, setCustomProteins] = useState('');
   const [customCarbs, setCustomCarbs] = useState('');
   const [customFats, setCustomFats] = useState('');
@@ -1118,6 +1134,8 @@ export default function SetupPage() {
   const [varietyLevel, setVarietyLevel] = useState(3);
   const [selectedMicronutrients, setSelectedMicronutrients] = useState<string[]>([]);
   const [budgetPreference, setBudgetPreference] = useState<'budget' | 'moderate' | 'flexible'>('moderate');
+  const [groceryBudgetCap, setGroceryBudgetCap] = useState<number | undefined>(undefined);
+  const [groceryBudgetPeriod, setGroceryBudgetPeriod] = useState<'daily' | 'weekly'>('weekly');
   const [cookingTime, setCookingTime] = useState<'quick' | 'short' | 'medium' | 'any'>('medium');
   
   // Helper to calculate sleep hours
@@ -1811,7 +1829,14 @@ export default function SetupPage() {
         sleepTime: bedTime,
         workStartTime: workType !== 'none' ? workStartTime : undefined,
         workEndTime: workType !== 'none' ? workEndTime : undefined,
-        workouts: dayWorkouts[day] || [],
+        workouts: (dayWorkouts[day] || []).map(w => ({
+          enabled: true,
+          type: w.type,
+          timeSlot: w.timeSlot,
+          duration: w.duration,
+          intensity: w.intensity,
+          ...(w.zone ? { averageZone: w.zone } : {}),
+        })),
         mealCount: mealsPerDay,
         snackCount: snacksPerDay,
         mealContexts: mealContexts,
@@ -1844,11 +1869,15 @@ export default function SetupPage() {
       cuisinePreferences: selectedCuisines,
       foodsToAvoid: foodsToAvoid.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
       foodsToEmphasize: foodsToEmphasize.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
+      maxIngredientsPerMeal,
+      availableFoods: availableFoods.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
       spiceLevel,
       flavorProfiles: selectedFlavors,
       varietyLevel,
       micronutrientFocus: selectedMicronutrients,
       budgetPreference,
+      groceryBudgetCap,
+      groceryBudgetPeriod,
       cookingTimePreference: cookingTime,
       _dataSource: coachSource,
     });
@@ -1955,11 +1984,15 @@ export default function SetupPage() {
         cuisinePreferences: selectedCuisines,
         foodsToAvoid: foodsToAvoid.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
         foodsToEmphasize: foodsToEmphasize.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
+        maxIngredientsPerMeal,
+        availableFoods: availableFoods.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
         spiceLevel,
         flavorProfiles: selectedFlavors,
         varietyLevel,
         micronutrientFocus: selectedMicronutrients,
         budgetPreference,
+        groceryBudgetCap,
+        groceryBudgetPeriod,
         cookingTimePreference: cookingTime,
         _dataSource: progressCoachSource,
       });
@@ -1981,7 +2014,14 @@ export default function SetupPage() {
           sleepTime: bedTime,
           workStartTime: workType !== 'none' ? workStartTime : undefined,
           workEndTime: workType !== 'none' ? workEndTime : undefined,
-          workouts: dayWorkouts[day] || [],
+          workouts: (dayWorkouts[day] || []).map(w => ({
+            enabled: true,
+            type: w.type,
+            timeSlot: w.timeSlot,
+            duration: w.duration,
+            intensity: w.intensity,
+            ...(w.zone ? { averageZone: w.zone } : {}),
+          })),
           mealCount: mealsPerDay,
           snackCount: snacksPerDay,
           mealContexts: mealContexts,
@@ -3338,7 +3378,7 @@ export default function SetupPage() {
                                 <p className="text-xs text-muted-foreground italic">Rest day</p>
                               ) : (
                                 workouts.map((w, idx) => (
-                                  <div key={idx} className="grid grid-cols-5 gap-2 items-end bg-muted/30 rounded p-2">
+                                  <div key={idx} className="grid grid-cols-6 gap-2 items-end bg-muted/30 rounded p-2">
                                     <div className="space-y-1">
                                       <Label className="text-[10px] text-muted-foreground">Type</Label>
                                       <Select
@@ -3422,6 +3462,31 @@ export default function SetupPage() {
                                           <SelectItem value="Low">Low</SelectItem>
                                           <SelectItem value="Medium">Medium</SelectItem>
                                           <SelectItem value="High">High</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-[10px] text-muted-foreground">Zone</Label>
+                                      <Select
+                                        value={w.zone?.toString() || 'none'}
+                                        onValueChange={(v) => {
+                                          setDayWorkouts(prev => {
+                                            const arr = [...(prev[day] || [])];
+                                            arr[idx] = { ...arr[idx], zone: v === 'none' ? undefined : parseInt(v) as 1|2|3|4|5 };
+                                            return { ...prev, [day]: arr };
+                                          });
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs">
+                                          <SelectValue placeholder="—" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="none">—</SelectItem>
+                                          <SelectItem value="1">Z1</SelectItem>
+                                          <SelectItem value="2">Z2</SelectItem>
+                                          <SelectItem value="3">Z3</SelectItem>
+                                          <SelectItem value="4">Z4</SelectItem>
+                                          <SelectItem value="5">Z5</SelectItem>
                                         </SelectContent>
                                       </Select>
                                     </div>
@@ -4165,75 +4230,6 @@ export default function SetupPage() {
                       </CardContent>
                     </Card>
 
-                    {/* Meal Prep Defaults */}
-                    <Card className="border-0 shadow-sm">
-                      <CardHeader className="pb-4">
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                          <ChefHat className="h-5 w-5 text-[#c19962]" />
-                          Meal Preparation Defaults
-                        </CardTitle>
-                        <CardDescription>
-                          Applies to all meals by default. Individual meals can be customized in the Daily Meal Structure section above.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">Meal Prep Method</Label>
-                            <Select value={defaultMealPrepMethod} onValueChange={(v) => setDefaultMealPrepMethod(v as MealPrepMethod)}>
-                              <SelectTrigger className="h-9">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent position="popper" sideOffset={4} align="start">
-                                {MEAL_PREP_METHODS.map(pm => (
-                                  <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">Meal Location</Label>
-                            <Select value={defaultMealLocation} onValueChange={(v) => setDefaultMealLocation(v as MealLocation)}>
-                              <SelectTrigger className="h-9">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent position="popper" sideOffset={4} align="start">
-                                {MEAL_LOCATIONS.map(loc => (
-                                  <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">Snack Prep</Label>
-                            <Select value={defaultSnackPrepMethod} onValueChange={(v) => setDefaultSnackPrepMethod(v as MealPrepMethod)}>
-                              <SelectTrigger className="h-9">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent position="popper" sideOffset={4} align="start">
-                                {MEAL_PREP_METHODS.map(pm => (
-                                  <SelectItem key={pm.value} value={pm.value}>{pm.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">Snack Location</Label>
-                            <Select value={defaultSnackLocation} onValueChange={(v) => setDefaultSnackLocation(v as MealLocation)}>
-                              <SelectTrigger className="h-9">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent position="popper" sideOffset={4} align="start">
-                                {MEAL_LOCATIONS.map(loc => (
-                                  <SelectItem key={loc.value} value={loc.value}>{loc.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
                     {/* Supplements */}
                     <Card>
                       <CardHeader>
@@ -4765,6 +4761,49 @@ export default function SetupPage() {
                           />
                           <p className="text-xs text-muted-foreground">Personal dislikes beyond allergies/restrictions — these will be excluded from suggestions</p>
                         </div>
+
+                        <Separator />
+
+                        {/* Max Ingredients Per Meal */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium flex items-center gap-2">
+                            <Settings2 className="h-4 w-4 text-[#c19962]" />
+                            Max Ingredients Per Meal
+                          </Label>
+                          <Select value={maxIngredientsPerMeal?.toString() || 'none'} onValueChange={(v) => setMaxIngredientsPerMeal(v === 'none' ? undefined : parseInt(v))}>
+                            <SelectTrigger className="h-9 text-sm">
+                              <SelectValue placeholder="No limit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No limit</SelectItem>
+                              <SelectItem value="3">3 ingredients (very simple)</SelectItem>
+                              <SelectItem value="4">4 ingredients</SelectItem>
+                              <SelectItem value="5">5 ingredients</SelectItem>
+                              <SelectItem value="6">6 ingredients</SelectItem>
+                              <SelectItem value="8">8 ingredients</SelectItem>
+                              <SelectItem value="10">10+ ingredients</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">Limit recipe complexity — applies as the default for all generated meals</p>
+                        </div>
+
+                        <Separator />
+
+                        {/* Available Foods (Pantry) */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium flex items-center gap-2">
+                            <ShoppingCart className="h-4 w-4 text-green-600" />
+                            Available Foods (Pantry)
+                          </Label>
+                          <Textarea
+                            placeholder="e.g., chicken breast, rice, broccoli, olive oil, eggs (one per line or comma-separated)"
+                            value={availableFoods}
+                            onChange={(e) => setAvailableFoods(e.target.value)}
+                            rows={3}
+                            className="text-sm"
+                          />
+                          <p className="text-xs text-muted-foreground">Foods the client currently has on hand — generated meals will prioritize using these ingredients</p>
+                        </div>
                       </CardContent>
                     </Card>
                   </TabsContent>
@@ -4867,6 +4906,47 @@ export default function SetupPage() {
                               </Label>
                             </div>
                           </RadioGroup>
+                        </div>
+
+                        <Separator />
+
+                        <div className="space-y-3">
+                          <Label>Grocery Budget Cap (optional)</Label>
+                          <p className="text-xs text-muted-foreground">Set a spending limit to guide ingredient selection toward cost-effective options.</p>
+                          <div className="flex items-center gap-3">
+                            <div className="relative flex-1 max-w-[160px]">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={5}
+                                placeholder="—"
+                                className="pl-7 h-9"
+                                value={groceryBudgetCap ?? ''}
+                                onChange={(e) => setGroceryBudgetCap(e.target.value ? Number(e.target.value) : undefined)}
+                              />
+                            </div>
+                            <Select value={groceryBudgetPeriod} onValueChange={(v) => setGroceryBudgetPeriod(v as 'daily' | 'weekly')}>
+                              <SelectTrigger className="h-9 w-[120px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="daily">per day</SelectItem>
+                                <SelectItem value="weekly">per week</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {groceryBudgetCap != null && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-9 text-xs text-muted-foreground"
+                                onClick={() => setGroceryBudgetCap(undefined)}
+                              >
+                                Clear
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

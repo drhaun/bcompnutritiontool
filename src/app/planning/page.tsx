@@ -149,6 +149,7 @@ export default function PlanningPage() {
     getActiveClient,
     timelineEvents,
     addTimelineEvent,
+    updateTimelineEvent,
     deleteTimelineEvent,
     getActivePhase,
     setNutritionTargets,
@@ -277,6 +278,7 @@ export default function PlanningPage() {
   
   // Timeline events dialog state (events stored in zustand)
   const [showEventDialog, setShowEventDialog] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [newEventName, setNewEventName] = useState('');
   const [newEventDate, setNewEventDate] = useState('');
   const [newEventType, setNewEventType] = useState<TimelineEventType>('milestone');
@@ -694,25 +696,54 @@ export default function PlanningPage() {
     return `Q${quarter} ${year} ${goalNames[newPhaseGoal]}`;
   }, [newPhaseGoal, newPhaseStart, customGoalName, predecessorPhase, phases]);
   
-  // Add timeline event
-  const handleAddEvent = () => {
+  // Add or update timeline event
+  const handleSaveEvent = () => {
     if (!newEventName.trim() || !newEventDate) {
       toast.error('Please enter event name and date');
       return;
     }
     
-    addTimelineEvent({
-      name: newEventName.trim(),
-      date: newEventDate,
-      type: newEventType,
-      notes: newEventNotes,
-    });
+    if (editingEventId) {
+      updateTimelineEvent(editingEventId, {
+        name: newEventName.trim(),
+        date: newEventDate,
+        type: newEventType,
+        notes: newEventNotes,
+      });
+      toast.success('Event updated');
+    } else {
+      addTimelineEvent({
+        name: newEventName.trim(),
+        date: newEventDate,
+        type: newEventType,
+        notes: newEventNotes,
+      });
+      toast.success('Event added to timeline');
+    }
     
     setShowEventDialog(false);
+    setEditingEventId(null);
     setNewEventName('');
     setNewEventDate('');
     setNewEventNotes('');
-    toast.success('Event added to timeline');
+  };
+
+  const openAddEventDialog = () => {
+    setEditingEventId(null);
+    setNewEventName('');
+    setNewEventDate('');
+    setNewEventType('milestone');
+    setNewEventNotes('');
+    setShowEventDialog(true);
+  };
+
+  const handleEditEvent = (event: TimelineEvent) => {
+    setEditingEventId(event.id);
+    setNewEventName(event.name);
+    setNewEventDate(event.date);
+    setNewEventType(event.type);
+    setNewEventNotes(event.notes || '');
+    setShowEventDialog(true);
   };
   
   // Delete timeline event
@@ -1257,7 +1288,7 @@ export default function PlanningPage() {
                     Create Phase
                   </Button>
                   <Button
-                    onClick={() => setShowEventDialog(true)}
+                    onClick={openAddEventDialog}
                     variant="outline"
                     className="w-full justify-start"
                     size="sm"
@@ -1350,12 +1381,15 @@ export default function PlanningPage() {
             <div className="flex-1 min-w-0">
             
             {/* Event Dialog */}
-            <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
+            <Dialog open={showEventDialog} onOpenChange={(open) => {
+              setShowEventDialog(open);
+              if (!open) { setEditingEventId(null); setNewEventName(''); setNewEventDate(''); setNewEventNotes(''); }
+            }}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Add Timeline Event</DialogTitle>
+                  <DialogTitle>{editingEventId ? 'Edit Timeline Event' : 'Add Timeline Event'}</DialogTitle>
                   <DialogDescription>
-                    Add important dates like lab tests, competitions, travel, or milestones.
+                    {editingEventId ? 'Update the event details below.' : 'Add important dates like lab tests, competitions, travel, or milestones.'}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -1408,8 +1442,8 @@ export default function PlanningPage() {
                   <Button variant="outline" onClick={() => setShowEventDialog(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleAddEvent} className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]">
-                    Add Event
+                  <Button onClick={handleSaveEvent} className="bg-[#c19962] hover:bg-[#e4ac61] text-[#00263d]">
+                    {editingEventId ? 'Save Changes' : 'Add Event'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -3969,7 +4003,7 @@ export default function PlanningPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setShowEventDialog(true)}
+                        onClick={openAddEventDialog}
                       >
                         <Flag className="h-4 w-4 mr-1" />
                         Add Event
@@ -4535,7 +4569,7 @@ export default function PlanningPage() {
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Timeline Events</h2>
                 <Button
-                  onClick={() => setShowEventDialog(true)}
+                  onClick={openAddEventDialog}
                   variant="outline"
                   size="sm"
                 >
@@ -4553,7 +4587,7 @@ export default function PlanningPage() {
                       Add important dates like competitions, lab tests, or milestones.
                     </p>
                     <Button 
-                      onClick={() => setShowEventDialog(true)}
+                      onClick={openAddEventDialog}
                       variant="outline"
                     >
                       <Plus className="mr-2 h-4 w-4" />
@@ -4581,14 +4615,24 @@ export default function PlanningPage() {
                                   </div>
                                 </div>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
-                                onClick={() => handleDeleteEvent(event.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                  onClick={() => handleEditEvent(event)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive"
+                                  onClick={() => handleDeleteEvent(event.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>

@@ -96,6 +96,7 @@ import type {
   WorkoutConfig,
   WorkoutType,
   WorkoutTimeSlot,
+  TrainingZone,
   MacroBasis,
   MacroSettings,
   MicronutrientTargets,
@@ -754,7 +755,7 @@ export function PhaseTargetsEditor({
       afternoon: 'afternoon', evening: 'evening', night: 'night',
     };
     const rawActivity = userProfile.weeklyActivity as
-      | { type?: string; duration?: number; intensity?: string; timeOfDay?: string }[][]
+      | { type?: string; duration?: number; intensity?: string; timeOfDay?: string; zone?: 1 | 2 | 3 | 4 | 5 }[][]
       | undefined;
 
     DAYS.forEach(day => {
@@ -777,6 +778,7 @@ export function PhaseTargetsEditor({
           timeSlot: TIME_SLOT_MAP[b.timeOfDay || 'morning'] || 'morning' as WorkoutTimeSlot,
           duration: b.duration || 60,
           intensity: INTENSITY_MAP[b.intensity || 'medium'] || 'Medium',
+          ...(b.zone ? { averageZone: b.zone as TrainingZone } : {}),
         }));
 
       // Priority: user overrides > weeklySchedule > weeklyActivity from profile
@@ -2886,6 +2888,7 @@ export function PhaseTargetsEditor({
                                       <SelectItem value="leftovers" className="text-xs">Leftovers</SelectItem>
                                       <SelectItem value="pickup" className="text-xs">Pickup</SelectItem>
                                       <SelectItem value="delivery" className="text-xs">Delivery</SelectItem>
+                                      <SelectItem value="packaged" className="text-xs">Packaged / Ready-to-eat</SelectItem>
                                       <SelectItem value="skip" className="text-xs">Skip</SelectItem>
                                     </SelectContent>
                                   </Select>
@@ -2934,6 +2937,31 @@ export function PhaseTargetsEditor({
                                   </Select>
                                 </div>
                               </div>
+                              {(ctx.prepMethod === 'cook' || ctx.prepMethod === 'leftovers') && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Bulk prep for</Label>
+                                  <Select
+                                    value={ctx.bulkPrepDays?.toString() || 'none'}
+                                    onValueChange={(v) => {
+                                      const updated = [...selectedDayConfig.mealContexts];
+                                      updated[idx] = { ...updated[idx], bulkPrepDays: v === 'none' ? undefined : parseInt(v) };
+                                      updateDayConfig(selectedDay, { mealContexts: updated });
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-6 text-[10px] w-28">
+                                      <SelectValue placeholder="None" />
+                                    </SelectTrigger>
+                                    <SelectContent align="start">
+                                      <SelectItem value="none" className="text-xs">Cook fresh</SelectItem>
+                                      <SelectItem value="2" className="text-xs">2 days</SelectItem>
+                                      <SelectItem value="3" className="text-xs">3 days</SelectItem>
+                                      <SelectItem value="4" className="text-xs">4 days</SelectItem>
+                                      <SelectItem value="5" className="text-xs">5 days</SelectItem>
+                                      <SelectItem value="7" className="text-xs">Full week</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

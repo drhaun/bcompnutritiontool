@@ -276,6 +276,7 @@ export default function MealPlanPage() {
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Monday');
   const [generatingSlots, setGeneratingSlots] = useState<Record<number, boolean>>({});
   const [generatingNotes, setGeneratingNotes] = useState<Record<number, boolean>>({});
+  const [slotGenOptions, setSlotGenOptions] = useState<Record<number, { maxIngredients?: number; availableFoods?: string[] }>>({});
   const [editingSlot, setEditingSlot] = useState<number | null>(null);
   const [swappingSlot, setSwappingSlot] = useState<number | null>(null);
   const [browsingRecipesSlot, setBrowsingRecipesSlot] = useState<number | null>(null);
@@ -1494,6 +1495,9 @@ export default function MealPlanPage() {
     
     try {
       const slot = mealSlots[slotIndex];
+      const schedule = weeklySchedule[currentDay];
+      const mealCtx = schedule?.mealContexts?.[slotIndex];
+      const perSlotOpts = slotGenOptions[slotIndex];
       
       const response = await fetch('/api/generate-single-meal', {
         method: 'POST',
@@ -1511,6 +1515,10 @@ export default function MealPlanPage() {
             timeSlot: slot.timeSlot,
             workoutRelation: slot.workoutRelation,
             isWorkoutDay: dayTargets.isWorkoutDay,
+            prepMethod: mealCtx?.prepMethod,
+            location: mealCtx?.location,
+            maxIngredients: perSlotOpts?.maxIngredients,
+            availableFoods: perSlotOpts?.availableFoods,
           },
         }),
       });
@@ -1817,6 +1825,9 @@ export default function MealPlanPage() {
             location: schedule?.mealContexts?.[idx]?.location || 'home',
             prepMethod: schedule?.mealContexts?.[idx]?.prepMethod || 'cook',
           })),
+          groceryBudgetCap: dietPreferences?.groceryBudgetCap,
+          groceryBudgetPeriod: dietPreferences?.groceryBudgetPeriod,
+          budgetPreference: dietPreferences?.budgetPreference,
         }),
       });
       
@@ -3480,6 +3491,8 @@ export default function MealPlanPage() {
                             allDays={DAYS}
                             currentDay={currentDay}
                             allSlotLabels={slotLabels.map(s => s.label)}
+                            genOptions={slotGenOptions[idx]}
+                            onGenOptionsChange={(i, opts) => setSlotGenOptions(prev => ({ ...prev, [i]: opts }))}
                           />
                         ))}
                       </div>
@@ -3705,6 +3718,8 @@ export default function MealPlanPage() {
                             allDays={DAYS}
                             currentDay={selectedDay}
                             allSlotLabels={slotLabels.map(s => s.label)}
+                            genOptions={slotGenOptions[idx]}
+                            onGenOptionsChange={(i, opts) => setSlotGenOptions(prev => ({ ...prev, [i]: opts }))}
                           />
                         ))}
                       </div>

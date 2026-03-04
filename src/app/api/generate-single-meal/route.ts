@@ -40,8 +40,17 @@ export async function POST(request: Request) {
       previousMeals, 
       timeSlot, 
       workoutRelation,
-      isWorkoutDay 
+      isWorkoutDay,
+      prepMethod,
+      location,
+      maxIngredients,
+      availableFoods,
     } = mealRequest;
+    
+    const effectiveMaxIngredients = maxIngredients ?? dietPreferences.maxIngredientsPerMeal;
+    const effectiveAvailableFoods = (availableFoods && availableFoods.length > 0)
+      ? availableFoods
+      : dietPreferences.availableFoods;
     
     // Use precision meal generator (database-backed)
     const meal = await generatePreciseMeal('', {
@@ -54,6 +63,10 @@ export async function POST(request: Request) {
       dietPreferences,
       previousMeals,
       goalType: bodyCompGoals.goalType,
+      prepMethod,
+      location,
+      maxIngredients: effectiveMaxIngredients,
+      availableFoods: effectiveAvailableFoods,
     });
     
     // Hard clamp: if calories overshoot by more than 5%, proportionally scale

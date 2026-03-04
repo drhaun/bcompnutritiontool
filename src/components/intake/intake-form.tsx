@@ -113,6 +113,7 @@ interface ActivityBout {
   duration: number;
   intensity: 'low' | 'medium' | 'high';
   timeOfDay?: string;
+  zone?: 1 | 2 | 3 | 4 | 5;
 }
 
 // ── Block ID to default label mapping ──────────────────────────────────────
@@ -417,6 +418,7 @@ function formToPayload(f: FormState) {
           timeSlot: TIME_SLOT_MAP[b.timeOfDay || 'morning'] || 'morning',
           duration: b.duration || 60,
           intensity: INTENSITY_MAP[b.intensity] || 'Medium',
+          ...(b.zone ? { averageZone: b.zone } : {}),
         }));
         s[dayName] = {
           wakeTime: f.wakeTime, sleepTime: f.bedTime,
@@ -776,29 +778,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
               <SliderInput value={form.workoutsPerWeek} onChange={v => set('workoutsPerWeek', v)} min={0} max={7} labels={['0','1','2','3','4','5','6','7']} />
             </div>
           </div>}
-          {show('workoutType') && <div><FieldLabel>Primary Workout Type</FieldLabel>
-            <div className="grid grid-cols-2 gap-2">
-              {WORKOUT_TYPES.map(t => (
-                <button key={t} type="button" onClick={() => set('defaultWorkoutType', t)}
-                  className={cn('px-3 py-2.5 rounded-xl border text-sm font-medium transition-all', form.defaultWorkoutType === t ? 'bg-[#c19962] border-[#c19962] text-[#00263d]' : 'bg-white border-gray-200 text-gray-700 hover:border-[#c19962]/50')}>{t}</button>
-              ))}
-            </div>
-          </div>}
-          {show('duration') && <div><FieldLabel>Average Duration (minutes)</FieldLabel>
-            <div className="flex items-center gap-4">
-              <span className="text-2xl font-bold text-[#c19962] w-12 text-center">{form.defaultDuration}</span>
-              <SliderInput value={form.defaultDuration} onChange={v => set('defaultDuration', v)} min={15} max={180} step={15} labels={['15','60','120','180']} />
-            </div>
-          </div>}
-          {show('intensity') && <div><FieldLabel>Typical Intensity</FieldLabel>
-            <div className="grid grid-cols-3 gap-3">
-              {INTENSITIES.map(i => (
-                <button key={i} type="button" onClick={() => set('defaultIntensity', i)}
-                  className={cn('h-12 rounded-xl border text-sm font-medium transition-all', form.defaultIntensity === i ? 'bg-[#c19962] border-[#c19962] text-[#00263d]' : 'bg-white border-gray-200 text-gray-700 hover:border-[#c19962]/50')}>{i}</button>
-              ))}
-            </div>
-          </div>}
-          {show('timeSlot') && <div><FieldLabel>Preferred Time</FieldLabel><SelectInput value={form.defaultTimeSlot} onChange={v => set('defaultTimeSlot', v)} options={TIME_SLOTS} /></div>}
+          <p className="text-xs text-muted-foreground">Configure specific workouts per day in the Weekly Training Schedule below.</p>
         </div>
       );
 
@@ -910,7 +890,10 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
 
         if (activeBlockIds.has('personal_info')) sections.push({ title: 'Personal', items: [`${up.name}, ${up.gender}, age ${up.age}`, `${up.heightFt}'${up.heightIn}" / ${up.weightLbs} lbs`, `Body fat: ~${up.bodyFatPercentage}%`] });
         if (activeBlockIds.has('lifestyle')) sections.push({ title: 'Lifestyle', items: [`Wake ${form.wakeTime}, Sleep ${form.bedTime}`, `Activity: ${form.activityLevel}`, ...(form.workType !== 'none' ? [`Work: ${form.workType} (${form.workStartTime} – ${form.workEndTime})`] : [])] });
-        if (activeBlockIds.has('training')) sections.push({ title: 'Training', items: [`${form.workoutsPerWeek}x/week, ${form.defaultWorkoutType}`, `${form.defaultDuration} min, ${form.defaultIntensity} intensity`] });
+        if (activeBlockIds.has('training')) {
+          const actDays = form.weeklyActivity.filter(d => d.length > 0).length;
+          sections.push({ title: 'Training', items: [`${form.workoutsPerWeek}x/week`, actDays > 0 ? `${actDays} days configured in activity grid` : 'No activity grid configured'] });
+        }
         if (activeBlockIds.has('meals')) sections.push({ title: 'Meals', items: [`${form.mealsPerDay} meals + ${form.snacksPerDay} snacks`, form.fastingProtocol !== 'none' ? `Fasting: ${form.fastingProtocol.replace('_', ':')}` : 'No fasting'] });
         if (activeBlockIds.has('supplements') && form.supplements.length > 0) sections.push({ title: 'Supplements', items: [form.supplements.join(', ')] });
         if (activeBlockIds.has('diet_preferences')) {
@@ -987,7 +970,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
         }
         if (activeBlockIds.has('team_activity')) {
           const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-          const actItems = form.weeklyActivity.map((bouts, i) => bouts.length > 0 ? `${DAYS_SHORT[i]}: ${bouts.map(b => `${b.type} (${b.duration}m, ${b.intensity}${b.timeOfDay ? ', ' + b.timeOfDay : ''})`).join(', ')}` : null).filter(Boolean) as string[];
+          const actItems = form.weeklyActivity.map((bouts, i) => bouts.length > 0 ? `${DAYS_SHORT[i]}: ${bouts.map(b => `${b.type} (${b.duration}m, ${b.intensity}${b.zone ? ', Z' + b.zone : ''}${b.timeOfDay ? ', ' + b.timeOfDay : ''})`).join(', ')}` : null).filter(Boolean) as string[];
           if (actItems.length > 0) sections.push({ title: 'Weekly Activity', items: actItems });
           else sections.push({ title: 'Weekly Activity', items: ['No activity scheduled'] });
         }
@@ -1472,7 +1455,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
             return { ...prev, weeklyActivity: wa };
           });
         };
-        const updateBout = (dayIdx: number, boutIdx: number, field: keyof ActivityBout, value: string | number) => {
+        const updateBout = (dayIdx: number, boutIdx: number, field: keyof ActivityBout, value: string | number | undefined) => {
           if (activityLocked) return;
           setForm(prev => {
             const wa = prev.weeklyActivity.map((d, i) => i === dayIdx ? d.map((b, bi) => bi === boutIdx ? { ...b, [field]: value } : b) : d);
@@ -1530,6 +1513,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
                               <span>{bout.duration} min</span>
                               <span className="text-gray-400">|</span>
                               <span className="capitalize">{bout.intensity}</span>
+                              {bout.zone && <><span className="text-gray-400">|</span><span>Z{bout.zone}</span></>}
                               {bout.timeOfDay && <><span className="text-gray-400">|</span><span>{TIME_LABEL[bout.timeOfDay] || bout.timeOfDay}</span></>}
                             </div>
                           ) : (
@@ -1561,6 +1545,19 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
                                         className={cn('flex-1 h-8 rounded-lg text-[10px] font-medium border transition-colors',
                                           bout.intensity === lvl ? 'bg-[#c19962] border-[#c19962] text-[#00263d]' : 'bg-white border-gray-200 text-gray-500 hover:border-[#c19962]/50')}>
                                         {lvl[0].toUpperCase() + lvl.slice(1)}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-gray-500 font-medium">Training Zone (optional)</span>
+                                  <div className="flex gap-1">
+                                    {([1, 2, 3, 4, 5] as const).map(z => (
+                                      <button key={z} type="button"
+                                        onClick={() => updateBout(dayIdx, bIdx, 'zone', bout.zone === z ? undefined : z)}
+                                        className={cn('flex-1 h-8 rounded-lg text-[10px] font-medium border transition-colors',
+                                          bout.zone === z ? 'bg-[#c19962] border-[#c19962] text-[#00263d]' : 'bg-white border-gray-200 text-gray-500 hover:border-[#c19962]/50')}>
+                                        Z{z}
                                       </button>
                                     ))}
                                   </div>
