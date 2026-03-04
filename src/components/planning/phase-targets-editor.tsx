@@ -741,6 +741,22 @@ export function PhaseTargetsEditor({
 
     const configs: Partial<Record<DayOfWeek, DayConfig>> = {};
     
+    // Map day names to weeklyActivity indices (0=Sun, 1=Mon, ..., 6=Sat)
+    const ACTIVITY_DAY_IDX: Record<DayOfWeek, number> = {
+      Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3,
+      Thursday: 4, Friday: 5, Saturday: 6,
+    };
+    const INTENSITY_MAP: Record<string, 'Low' | 'Medium' | 'High'> = {
+      low: 'Low', medium: 'Medium', high: 'High',
+    };
+    const TIME_SLOT_MAP: Record<string, WorkoutTimeSlot> = {
+      early_am: 'early_morning', morning: 'morning', midday: 'midday',
+      afternoon: 'afternoon', evening: 'evening', night: 'night',
+    };
+    const rawActivity = userProfile.weeklyActivity as
+      | { type?: string; duration?: number; intensity?: string; timeOfDay?: string }[][]
+      | undefined;
+
     DAYS.forEach(day => {
       const profileSchedule = (weeklySchedule[day] || {}) as Partial<DaySchedule>;
       const overrides = dayConfigs[day] || {};
@@ -749,11 +765,26 @@ export function PhaseTargetsEditor({
       const wakeTime = overrides.wakeTime ?? profileSchedule.wakeTime ?? '7:00 AM';
       const sleepTime = overrides.sleepTime ?? profileSchedule.sleepTime ?? '10:00 PM';
       const enabledWorkouts = profileSchedule.workouts?.filter((w: WorkoutConfig) => w.enabled) ?? [];
-      // Prefer override workouts, but fall back to profile when override is empty
-      // (stale phase data saved before workouts were configured)
+
+      // Convert profile weeklyActivity bouts to WorkoutConfig format
+      const dayIdx = ACTIVITY_DAY_IDX[day];
+      const activityBouts = rawActivity?.[dayIdx] ?? [];
+      const activityWorkouts: WorkoutConfig[] = activityBouts
+        .filter(b => b && b.type)
+        .map(b => ({
+          enabled: true,
+          type: (b.type as WorkoutType) || 'Resistance Training',
+          timeSlot: TIME_SLOT_MAP[b.timeOfDay || 'morning'] || 'morning' as WorkoutTimeSlot,
+          duration: b.duration || 60,
+          intensity: INTENSITY_MAP[b.intensity || 'medium'] || 'Medium',
+        }));
+
+      // Priority: user overrides > weeklySchedule > weeklyActivity from profile
       const workouts = (overrides.workouts && overrides.workouts.length > 0)
         ? overrides.workouts
-        : enabledWorkouts;
+        : enabledWorkouts.length > 0
+          ? enabledWorkouts
+          : activityWorkouts;
       const mealCount = overrides.mealCount ?? profileSchedule.mealCount ?? 3;
       const snackCount = overrides.snackCount ?? profileSchedule.snackCount ?? 2;
       const mealContexts = overrides.mealContexts ?? profileSchedule.mealContexts ?? [];
