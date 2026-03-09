@@ -17,6 +17,7 @@ export async function POST(
     const { token } = await params;
     const body = await request.json();
     const sessionId = body.sessionId as string;
+    const submissionId = body.submissionId as string | undefined;
 
     if (!sessionId || !process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: 'Missing data' }, { status: 400 });
@@ -32,6 +33,36 @@ export async function POST(
 
     if (session.payment_status !== 'paid') {
       return NextResponse.json({ error: 'Payment not completed' }, { status: 402 });
+    }
+
+    const submissionMetadataId = session.metadata?.submission_id;
+    const isSubmissionCheckout = session.metadata?.checkout_context === 'submission' || !!submissionId || !!submissionMetadataId;
+
+    if (isSubmissionCheckout) {
+      const resolvedSubmissionId = submissionId || submissionMetadataId;
+      if (!resolvedSubmissionId) {
+        return NextResponse.json({ error: 'Submission metadata missing' }, { status: 400 });
+      }
+
+      const sessionSlug = session.metadata?.intake_slug;
+      if (sessionSlug && sessionSlug !== token) {
+        return NextResponse.json({ error: 'Checkout path mismatch' }, { status: 403 });
+      }
+
+      const { error: updateSubmissionError } = await supabase
+        .from('form_submissions')
+        .update({
+          status: 'submitted',
+          stripe_payment_id: session.id,
+        })
+        .eq('id', resolvedSubmissionId);
+
+      if (updateSubmissionError) {
+        console.error('[Checkout Verify] Submission update error:', updateSubmissionError);
+        return NextResponse.json({ error: 'Failed to update submission' }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true, paymentStatus: session.payment_status });
     }
 
     // Verify the session matches this token

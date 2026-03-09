@@ -130,15 +130,23 @@ export async function POST(request: NextRequest) {
         if (group) {
           groupId = group.id;
         } else {
-          // Slug might be a form slug — find the form and its linked group
+          // Slug might be a standalone form slug — if so, try to find a group that uses it
           const { data: form } = await supabase
             .from('intake_forms')
-            .select('group_id')
+            .select('id')
             .eq('slug', body.groupSlug)
             .limit(1)
             .single();
-          if (form?.group_id) {
-            groupId = form.group_id;
+          if (form?.id) {
+            const { data: linkedGroup } = await supabase
+              .from('client_groups')
+              .select('id')
+              .eq('default_form_id', form.id)
+              .limit(1)
+              .maybeSingle();
+            if (linkedGroup?.id) {
+              groupId = linkedGroup.id;
+            }
           }
         }
         if (groupId) {

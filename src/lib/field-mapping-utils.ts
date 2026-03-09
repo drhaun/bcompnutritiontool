@@ -1,9 +1,9 @@
-import { ALL_BLOCK_IDS } from '@/components/admin/form-config-builder';
+import { ALL_BLOCK_IDS } from '@/lib/form-library';
 import type { FieldMapping, FormBlockId } from '@/types';
 
 // Maps a field key to the paths within form_data where its values live.
 // form_data = { userProfile: {...}, dietPreferences: {...}, weeklySchedule: {...}, name, email }
-const FIELD_PAYLOAD_PATHS: Record<string, Record<string, string[]>> = {
+export const FIELD_PAYLOAD_PATHS: Record<string, Record<string, string[]>> = {
   personal_info: {
     name: ['userProfile.name'],
     gender: ['userProfile.gender'],
@@ -97,7 +97,7 @@ const FIELD_PAYLOAD_PATHS: Record<string, Record<string, string[]>> = {
   },
 };
 
-function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+export function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
   const parts = path.split('.');
   let current: unknown = obj;
   for (const part of parts) {
@@ -105,6 +105,10 @@ function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
     current = (current as Record<string, unknown>)[part];
   }
   return current;
+}
+
+export function getBlockPayloadPaths(blockId: FormBlockId, fieldKey: string): string[] {
+  return FIELD_PAYLOAD_PATHS[blockId]?.[fieldKey] || [];
 }
 
 /**

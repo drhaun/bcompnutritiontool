@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Check, Loader2, SkipForward, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { FormBlockConfig, FormBlockId, CustomField } from '@/types';
+import type { FormBlockConfig, FormBlockId, CustomField, FormPricingConfig, ResolvedFormPricing } from '@/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -25,6 +25,9 @@ interface IntakeFormProps {
   successTitle?: string;
   successMessage?: string;
   formId?: string;
+  pricingConfig?: FormPricingConfig | null;
+  previewMode?: boolean;
+  initialCustomAnswers?: Record<string, string | string[] | boolean>;
   prePopulatedFields?: Record<string, unknown>;
   lockedFields?: string[];
   saveMode?: 'server' | 'local';
@@ -32,8 +35,9 @@ interface IntakeFormProps {
   onLocalSubmit?: (data: {
     userProfile: Record<string, unknown>;
     dietPreferences: Record<string, unknown>;
+    weeklySchedule: Record<string, unknown>;
     customAnswers: Record<string, unknown>;
-  }) => Promise<void>;
+  }) => Promise<boolean | void>;
 }
 
 interface FormState {
@@ -288,8 +292,16 @@ function computeGoalPayload(f: FormState) {
   const isMetric = f.unitSystem === 'metric';
   const curWt = isMetric ? (parseFloat(f.weightKg) || 0) : (parseFloat(f.weightLbs) || 0);
   const curBf = parseFloat(f.bodyFatPercent) || 0;
+  const userWt = parseFloat(f.goalWeight) || 0;
+  const userBf = parseFloat(f.goalBodyFatPercent) || 0;
   const userFM = parseFloat(f.goalFatMass) || 0;
   const userFFM = parseFloat(f.goalFFM) || 0;
+
+  if (userWt > 0 && userBf > 0) {
+    const fm = userFM > 0 ? userFM : userWt * (userBf / 100);
+    const ffm = userFFM > 0 ? userFFM : Math.max(0, userWt - fm);
+    return { goalWeight: userWt, goalBodyFatPercent: userBf, goalFatMass: fm, goalFFM: ffm };
+  }
 
   if (userFM > 0 || userFFM > 0) {
     const fm = userFM > 0 ? userFM : curWt * (curBf / 100);
@@ -517,7 +529,7 @@ function LockedTag() {
 
 // ── Main Component ─────────────────────────────────────────────────────────
 
-export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCheckout, welcomeTitle, successTitle, successMessage, formId, prePopulatedFields, lockedFields, saveMode = 'server', localStorageKey, onLocalSubmit }: IntakeFormProps) {
+export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCheckout, welcomeTitle, successTitle, successMessage, formId, pricingConfig, previewMode = false, initialCustomAnswers, prePopulatedFields, lockedFields, saveMode = 'server', localStorageKey, onLocalSubmit }: IntakeFormProps) {
   const blocks = useMemo(() => formConfig && formConfig.length > 0 ? formConfig : ALL_BLOCKS, [formConfig]);
 
   const lockedSet = useMemo(() => new Set(lockedFields || []), [lockedFields]);
@@ -569,6 +581,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
     return state;
   });
   const [customAnswers, setCustomAnswers] = useState<Record<string, string | string[] | boolean>>(() => {
+    if (initialCustomAnswers) return initialCustomAnswers;
     if (saveMode === 'local' && localStorageKey) {
       try {
         const draft = JSON.parse(localStorage.getItem(localStorageKey) || 'null');
@@ -579,6 +592,11 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
   });
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [pricingPreview, setPricingPreview] = useState<{ loading: boolean; pricing: ResolvedFormPricing | null; error: string | null }>({
+    loading: false,
+    pricing: null,
+    error: null,
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const set = useCallback(<K extends keyof FormState>(field: K, value: FormState[K]) => {
@@ -595,6 +613,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
   }, [lockedSet]);
 
   const save = useCallback(async (completed = false, preCheckout = false) => {
+    if (previewMode) return;
     setSaving(true);
     try {
       if (saveMode === 'local') {
@@ -610,7 +629,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
       }
     } catch { /* silent */ }
     setSaving(false);
-  }, [form, token, customAnswers, formId, saveMode, localStorageKey, stepIdx]);
+  }, [form, token, customAnswers, formId, saveMode, localStorageKey, stepIdx, previewMode]);
 
   const goNext = useCallback(async () => {
     const isLastStep = stepIdx === steps.length - 1;
@@ -619,12 +638,15 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
         setSaving(true);
         try {
           const payload = formToPayload(form);
-          await onLocalSubmit({
+          const submissionCompleted = await onLocalSubmit({
             userProfile: payload.userProfile,
             dietPreferences: payload.dietPreferences,
+            weeklySchedule: payload.weeklySchedule,
             customAnswers,
           });
-          setSubmitted(true);
+          if (submissionCompleted !== false) {
+            setSubmitted(true);
+          }
         } catch { /* error handled by parent */ }
         setSaving(false);
         return;
@@ -647,6 +669,38 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
     setStepIdx(s => Math.max(0, s - 1));
     scrollRef.current?.scrollTo(0, 0);
   }, []);
+
+  useEffect(() => {
+    const isReviewStep = stepIdx === steps.length - 1;
+    if (!isReviewStep || !stripeEnabled || !formId || !pricingConfig) return;
+
+    let cancelled = false;
+    setPricingPreview(prev => ({ ...prev, loading: true, error: null }));
+
+    fetch(`/api/forms/${formId}/pricing-preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customAnswers }),
+    })
+      .then(async res => {
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setPricingPreview({ loading: false, pricing: null, error: data.error || 'Unable to calculate pricing.' });
+          return;
+        }
+        setPricingPreview({ loading: false, pricing: data.pricing || null, error: null });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPricingPreview({ loading: false, pricing: null, error: 'Unable to calculate pricing.' });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [stepIdx, steps.length, stripeEnabled, formId, pricingConfig, customAnswers]);
 
   if (submitted) {
     return (
@@ -677,6 +731,12 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
   const currentStep = steps[stepIdx];
   const isLastStep = stepIdx === steps.length - 1;
   const isOptional = !currentStep.required && !isLastStep;
+  const checkoutBlocked = isLastStep
+    && stripeEnabled
+    && !!pricingConfig
+    && !pricingPreview.loading
+    && !!pricingPreview.pricing
+    && !pricingPreview.pricing.requiresCheckout;
 
   // ── Block Renderers ────────────────────────────────────────────────────
 
@@ -994,6 +1054,30 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
           <div className="space-y-4">
             <p className="text-sm text-gray-500">Review your entries below, then {stripeEnabled ? 'proceed to payment' : 'submit'}.</p>
             {sections.map(s => <SummarySection key={s.title} title={s.title} items={s.items} />)}
+            {stripeEnabled && pricingConfig && (
+              <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 space-y-2">
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Payment Summary</p>
+                {pricingPreview.loading ? (
+                  <p className="text-sm text-blue-700 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Calculating price...</p>
+                ) : pricingPreview.error ? (
+                  <p className="text-sm text-red-600">{pricingPreview.error}</p>
+                ) : pricingPreview.pricing ? (
+                  <>
+                    {pricingPreview.pricing.summaryLines.length > 0 && pricingPreview.pricing.summaryLines.map(line => (
+                      <p key={line} className="text-sm text-blue-900">{line}</p>
+                    ))}
+                    {pricingPreview.pricing.totalAmountCents != null && pricingPreview.pricing.currency && (
+                      <p className="text-base font-semibold text-[#00263d]">
+                        Total: {new Intl.NumberFormat('en-US', { style: 'currency', currency: pricingPreview.pricing.currency.toUpperCase() }).format(pricingPreview.pricing.totalAmountCents / 100)}
+                      </p>
+                    )}
+                    {pricingPreview.pricing.message && <p className="text-sm text-blue-700">{pricingPreview.pricing.message}</p>}
+                  </>
+                ) : (
+                  <p className="text-sm text-blue-700">Payment will be calculated at checkout.</p>
+                )}
+              </div>
+            )}
           </div>
         );
       }
@@ -1149,13 +1233,34 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
 
         const proj = computeProjection();
 
-        // When rate changes, auto-update the goal fields from projections (unless user overrode)
+        const userOverrideWt = parseFloat(form.goalWeight) || 0;
+        const userOverrideBf = parseFloat(form.goalBodyFatPercent) || 0;
         const userOverrideFM = parseFloat(form.goalFatMass) || 0;
         const userOverrideFFM = parseFloat(form.goalFFM) || 0;
-        const effectiveFM = userOverrideFM > 0 ? userOverrideFM : proj.fm;
-        const effectiveFFM = userOverrideFFM > 0 ? userOverrideFFM : proj.ffm;
-        const effectiveWt = effectiveFM + effectiveFFM;
-        const effectiveBf = effectiveWt > 0 ? (effectiveFM / effectiveWt) * 100 : 0;
+        const hasDirectTargetOverride = userOverrideWt > 0 && userOverrideBf > 0;
+        const hasBodyCompOverride = userOverrideFM > 0 && userOverrideFFM > 0;
+        const hasAnyCustomTargets = userOverrideWt > 0 || userOverrideBf > 0 || userOverrideFM > 0 || userOverrideFFM > 0;
+
+        const effectiveWt = hasDirectTargetOverride
+          ? userOverrideWt
+          : hasBodyCompOverride
+            ? (userOverrideFM + userOverrideFFM)
+            : proj.wt;
+        const effectiveBf = hasDirectTargetOverride
+          ? userOverrideBf
+          : hasBodyCompOverride
+            ? ((userOverrideFM / Math.max(1, effectiveWt)) * 100)
+            : proj.bf;
+        const effectiveFM = hasDirectTargetOverride
+          ? (userOverrideWt * (userOverrideBf / 100))
+          : hasBodyCompOverride
+            ? userOverrideFM
+            : proj.fm;
+        const effectiveFFM = hasDirectTargetOverride
+          ? Math.max(0, userOverrideWt - effectiveFM)
+          : hasBodyCompOverride
+            ? userOverrideFFM
+            : proj.ffm;
 
         // Change deltas
         const fatChange = currentFM - effectiveFM;
@@ -1197,12 +1302,58 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
           purple: { active: 'border-purple-500 bg-purple-50', text: 'text-purple-700' },
         };
 
+        const clearCustomTargets = () => {
+          set('goalWeight', '');
+          set('goalBodyFatPercent', '');
+          set('goalFatMass', '');
+          set('goalFFM', '');
+        };
+
+        const seedProjectedTargets = () => {
+          set('goalWeight', proj.wt > 0 ? proj.wt.toFixed(1) : '');
+          set('goalBodyFatPercent', proj.bf > 0 ? proj.bf.toFixed(1) : '');
+          set('goalFatMass', proj.fm > 0 ? proj.fm.toFixed(1) : '');
+          set('goalFFM', proj.ffm > 0 ? proj.ffm.toFixed(1) : '');
+        };
+
+        const syncFromWeightAndBodyFat = (weightRaw: string, bodyFatRaw: string) => {
+          set('goalWeight', weightRaw);
+          set('goalBodyFatPercent', bodyFatRaw);
+          const weightVal = parseFloat(weightRaw) || 0;
+          const bodyFatVal = parseFloat(bodyFatRaw) || 0;
+          if (weightVal > 0 && bodyFatVal > 0) {
+            const fatMassVal = weightVal * (bodyFatVal / 100);
+            const ffmVal = Math.max(0, weightVal - fatMassVal);
+            set('goalFatMass', fatMassVal.toFixed(1));
+            set('goalFFM', ffmVal.toFixed(1));
+          } else {
+            set('goalFatMass', '');
+            set('goalFFM', '');
+          }
+        };
+
+        const syncFromBodyComp = (fatMassRaw: string, ffmRaw: string) => {
+          set('goalFatMass', fatMassRaw);
+          set('goalFFM', ffmRaw);
+          const fatMassVal = parseFloat(fatMassRaw) || 0;
+          const ffmVal = parseFloat(ffmRaw) || 0;
+          if (fatMassVal > 0 && ffmVal > 0) {
+            const totalWeightVal = fatMassVal + ffmVal;
+            const bodyFatVal = totalWeightVal > 0 ? (fatMassVal / totalWeightVal) * 100 : 0;
+            set('goalWeight', totalWeightVal.toFixed(1));
+            set('goalBodyFatPercent', bodyFatVal.toFixed(1));
+          } else {
+            set('goalWeight', '');
+            set('goalBodyFatPercent', '');
+          }
+        };
+
         return (
           <div className="space-y-5">
             {show('goalType') && <div><FieldLabel>Goal</FieldLabel>
               <div className="grid grid-cols-3 gap-2">
                 {([{ v: 'fat_loss', l: 'Fat Loss' }, { v: 'muscle_gain', l: 'Muscle Gain' }, { v: 'recomposition', l: 'Recomp' }] as const).map(o => (
-                  <button key={o.v} type="button" onClick={() => { set('goalType', o.v); set('goalRate', 'moderate'); set('goalFatMass', ''); set('goalFFM', ''); }}
+                  <button key={o.v} type="button" onClick={() => { set('goalType', o.v); set('goalRate', 'moderate'); clearCustomTargets(); }}
                     className={cn('py-3 rounded-xl border text-sm font-medium transition-all', form.goalType === o.v ? 'bg-[#c19962] border-[#c19962] text-[#00263d]' : 'bg-white border-gray-200 text-gray-700 hover:border-[#c19962]/50')}>{o.l}</button>
                 ))}
               </div>
@@ -1218,7 +1369,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
                     const colors = rateColorClasses[opt.color];
                     return (
                       <button key={opt.key} type="button"
-                        onClick={() => { set('goalRate', opt.key as 'conservative' | 'moderate' | 'aggressive'); set('goalFatMass', ''); set('goalFFM', ''); }}
+                        onClick={() => { set('goalRate', opt.key as 'conservative' | 'moderate' | 'aggressive'); clearCustomTargets(); }}
                         className={cn('p-3 rounded-xl border-2 text-center transition-all relative',
                           isActive ? colors.active : 'border-gray-200 bg-white hover:border-gray-300')}>
                         {opt.recommended && <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap">Recommended</span>}
@@ -1238,7 +1389,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
                     const colors = rateColorClasses[opt.color];
                     return (
                       <button key={opt.key} type="button"
-                        onClick={() => { set('recompBias', opt.key as 'maintenance' | 'deficit' | 'surplus'); set('goalFatMass', ''); set('goalFFM', ''); }}
+                        onClick={() => { set('recompBias', opt.key as 'maintenance' | 'deficit' | 'surplus'); clearCustomTargets(); }}
                         className={cn('p-3 rounded-xl border-2 text-center transition-all relative',
                           isActive ? colors.active : 'border-gray-200 bg-white hover:border-gray-300')}>
                         {opt.recommended && <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] bg-green-600 text-white px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap">Recommended</span>}
@@ -1331,48 +1482,52 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
             )}
 
             {/* Override targets */}
-            {hasBodyComp && (show('goalFM') || show('goalFFM')) && (
+            {hasBodyComp && (show('goalWeight') || show('goalBF') || show('goalFM') || show('goalFFM')) && (
               <div className="space-y-3">
                 <button type="button" onClick={() => {
-                  if (form.goalFatMass || form.goalFFM) {
-                    set('goalFatMass', ''); set('goalFFM', '');
+                  if (hasAnyCustomTargets) {
+                    clearCustomTargets();
                   } else {
-                    set('goalFatMass', proj.fm > 0 ? proj.fm.toFixed(1) : '');
-                    set('goalFFM', proj.ffm > 0 ? proj.ffm.toFixed(1) : '');
+                    seedProjectedTargets();
                   }
                 }} className={cn(
                   'w-full py-3 px-4 rounded-xl border-2 border-dashed text-sm font-semibold transition-all text-center',
-                  (form.goalFatMass || form.goalFFM)
+                  hasAnyCustomTargets
                     ? 'border-gray-300 text-gray-500 hover:border-gray-400 bg-gray-50'
                     : 'border-[#c19962] text-[#c19962] hover:bg-[#c19962]/5 bg-[#c19962]/[0.03]'
                 )}>
-                  {(form.goalFatMass || form.goalFFM) ? 'Reset to projected values' : 'SET CUSTOM TARGETS HERE'}
+                  {hasAnyCustomTargets ? 'Use projected targets instead' : 'Enter my own targets instead'}
                 </button>
-                {(form.goalFatMass || form.goalFFM) ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <FieldLabel>Target Fat Mass ({wUnit})</FieldLabel>
-                      <TextInput value={form.goalFatMass} onChange={v => {
-                        set('goalFatMass', v);
-                        const fmVal = parseFloat(v) || 0;
-                        if (fmVal > 0 && parseFloat(form.goalFFM) > 0) {
-                          const newWt = fmVal + parseFloat(form.goalFFM);
-                          set('goalWeight', newWt.toFixed(1));
-                          set('goalBodyFatPercent', ((fmVal / newWt) * 100).toFixed(1));
-                        }
-                      }} inputMode="decimal" />
-                    </div>
-                    <div>
-                      <FieldLabel>Target Lean Mass ({wUnit})</FieldLabel>
-                      <TextInput value={form.goalFFM} onChange={v => {
-                        set('goalFFM', v);
-                        const ffmVal = parseFloat(v) || 0;
-                        if (ffmVal > 0 && parseFloat(form.goalFatMass) > 0) {
-                          const newWt = parseFloat(form.goalFatMass) + ffmVal;
-                          set('goalWeight', newWt.toFixed(1));
-                          set('goalBodyFatPercent', ((parseFloat(form.goalFatMass) / newWt) * 100).toFixed(1));
-                        }
-                      }} inputMode="decimal" />
+                {hasAnyCustomTargets ? (
+                  <div className="space-y-3">
+                    <p className="text-xs text-gray-500">
+                      You can override the projected 12-week target by entering either target weight/body fat or target fat mass/fat-free mass. Both entry modes stay synced automatically.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {show('goalWeight') && (
+                        <div>
+                          <FieldLabel>Target Weight ({wUnit})</FieldLabel>
+                          <TextInput value={form.goalWeight} onChange={v => syncFromWeightAndBodyFat(v, form.goalBodyFatPercent)} inputMode="decimal" />
+                        </div>
+                      )}
+                      {show('goalBF') && (
+                        <div>
+                          <FieldLabel>Target Body Fat (%)</FieldLabel>
+                          <TextInput value={form.goalBodyFatPercent} onChange={v => syncFromWeightAndBodyFat(form.goalWeight, v)} inputMode="decimal" />
+                        </div>
+                      )}
+                      {show('goalFM') && (
+                        <div>
+                          <FieldLabel>Target Fat Mass ({wUnit})</FieldLabel>
+                          <TextInput value={form.goalFatMass} onChange={v => syncFromBodyComp(v, form.goalFFM)} inputMode="decimal" />
+                        </div>
+                      )}
+                      {show('goalFFM') && (
+                        <div>
+                          <FieldLabel>Target Fat-Free Mass ({wUnit})</FieldLabel>
+                          <TextInput value={form.goalFFM} onChange={v => syncFromBodyComp(form.goalFatMass, v)} inputMode="decimal" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : null}
@@ -1703,7 +1858,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
             <span className="text-xs font-medium text-white/70 hidden sm:inline">{welcomeTitle || 'Nutrition Intake'}</span>
           </div>
           <div className="text-xs text-white/50">
-            {saving ? <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Saving...</span> : 'Auto-saved'}
+            {previewMode ? 'Preview mode' : saving ? <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Saving...</span> : 'Auto-saved'}
           </div>
         </div>
         <div className="max-w-lg mx-auto mt-2">
@@ -1745,7 +1900,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
               Skip <SkipForward className="h-3.5 w-3.5" />
             </button>
           )}
-          <button type="button" onClick={goNext} disabled={saving}
+          <button type="button" onClick={goNext} disabled={saving || checkoutBlocked}
             className={cn('h-12 px-6 rounded-xl font-semibold text-sm flex items-center gap-2 transition-colors disabled:opacity-50',
               isLastStep ? (stripeEnabled ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white') : 'bg-[#c19962] hover:bg-[#a8833e] text-[#00263d]'
             )}>

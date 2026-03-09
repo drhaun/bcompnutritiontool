@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { applyResolvedFormConfig, dbToFormFieldAssignment } from '@/lib/form-resolution';
+import { normalizeFormConfig } from '@/lib/form-fields';
+import { syncUnifiedFieldLibrary } from '@/lib/unified-field-library';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -14,7 +17,7 @@ function dbToForm(row: Record<string, unknown>) {
     name: row.name,
     slug: row.slug,
     description: row.description || '',
-    formConfig: row.form_config || [],
+    formConfig: normalizeFormConfig((row.form_config || []) as []),
     welcomeTitle: row.welcome_title || '',
     welcomeDescription: row.welcome_description || '',
     stripeEnabled: row.stripe_enabled || false,
@@ -23,6 +26,7 @@ function dbToForm(row: Record<string, unknown>) {
     stripePromoCode: row.stripe_promo_code || null,
     stripePromoCodeId: row.stripe_promo_code_id || null,
     paymentDescription: row.payment_description || '',
+    pricingConfig: row.pricing_config || null,
     clientCreationMode: row.client_creation_mode || 'on_start',
     isActive: row.is_active ?? true,
     createdAt: row.created_at,
@@ -33,6 +37,7 @@ function dbToForm(row: Record<string, unknown>) {
 export async function GET(request: NextRequest) {
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
+  await syncUnifiedFieldLibrary(supabase as never);
 
   const slug = request.nextUrl.searchParams.get('slug');
   const activeOnly = request.nextUrl.searchParams.get('active_only') === 'true';
@@ -44,8 +49,28 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const forms = (data || []).map(dbToForm);
+  const formIds = forms.map(form => form.id);
 
-  return NextResponse.json({ forms: (data || []).map(dbToForm) });
+  let assignmentsByFormId: Record<string, ReturnType<typeof dbToFormFieldAssignment>[]> = {};
+  if (formIds.length > 0) {
+    const { data: assignmentRows } = await supabase
+      .from('form_field_assignments')
+      .select('*, field:custom_fields(*)')
+      .in('form_id', formIds)
+      .order('sort_order', { ascending: true });
+
+    assignmentsByFormId = Object.create(null) as Record<string, ReturnType<typeof dbToFormFieldAssignment>[]>;
+    for (const row of assignmentRows || []) {
+      const assignment = dbToFormFieldAssignment(row as Record<string, unknown>);
+      if (!assignmentsByFormId[assignment.formId]) assignmentsByFormId[assignment.formId] = [];
+      assignmentsByFormId[assignment.formId].push(assignment);
+    }
+  }
+
+  return NextResponse.json({
+    forms: forms.map(form => applyResolvedFormConfig(form, assignmentsByFormId[form.id] || [])),
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -64,7 +89,7 @@ export async function POST(request: NextRequest) {
       name: body.name.trim(),
       slug,
       description: body.description || null,
-      form_config: body.formConfig || [],
+      form_config: normalizeFormConfig(body.formConfig || []),
       welcome_title: body.welcomeTitle || null,
       welcome_description: body.welcomeDescription || null,
       stripe_enabled: body.stripeEnabled || false,
@@ -73,6 +98,7 @@ export async function POST(request: NextRequest) {
       stripe_promo_code: body.stripePromoCode || null,
       stripe_promo_code_id: body.stripePromoCodeId || null,
       payment_description: body.paymentDescription || null,
+      pricing_config: body.pricingConfig || null,
       client_creation_mode: body.clientCreationMode || 'on_start',
       is_active: body.isActive ?? true,
     })
@@ -84,5 +110,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ form: dbToForm(data) }, { status: 201 });
+  return NextResponse.json({ form: applyResolvedFormConfig(dbToForm(data), []) }, { status: 201 });
 }

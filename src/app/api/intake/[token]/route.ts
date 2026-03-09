@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
+import { getConfiguredPlayerCount, normalizePricingConfig } from '@/lib/form-pricing';
+import { fetchResolvedFormConfig } from '@/lib/form-resolution';
+import { buildBodyCompGoalsFromIntake, buildDraftNutritionTargetsFromIntake } from '@/lib/intake-derived';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -71,6 +74,11 @@ export async function PATCH(
     const now = new Date().toISOString();
     const updates: Record<string, unknown> = { updated_at: now };
     const sourceTag = { _dataSource: { source: 'intake_form', updatedAt: now } };
+    const safeBodyCompGoals = buildBodyCompGoalsFromIntake((body.userProfile || {}) as Record<string, unknown>);
+    const draftTargets = buildDraftNutritionTargetsFromIntake(
+      (body.userProfile || {}) as Record<string, unknown>,
+      (body.weeklySchedule || {}) as Record<string, unknown>,
+    );
 
     // Auto-populate most fields via deep merge, but strip sensitive keys from userProfile
     if (body.userProfile !== undefined) {
@@ -101,6 +109,13 @@ export async function PATCH(
         ...sourceTag,
       };
     }
+    if (body.userProfile !== undefined) {
+      updates.body_comp_goals = {
+        ...safeBodyCompGoals,
+        ...sourceTag,
+      };
+      updates.nutrition_targets = draftTargets;
+    }
     if (body.name !== undefined) updates.name = body.name;
     if (body.email !== undefined) updates.email = body.email;
 
@@ -115,7 +130,7 @@ export async function PATCH(
       updates.intake_status = 'completed';
       updates.intake_completed_at = now;
     } else if (body.preCheckout) {
-      updates.intake_status = 'payment_pending';
+      updates.intake_status = 'in_progress';
     } else if (client.intake_status === 'pending') {
       updates.intake_status = 'in_progress';
     }
@@ -140,6 +155,7 @@ export async function PATCH(
       let groupSlug: string | null = null;
       let formConfig: unknown[] = [];
       let formId: string | null = body.formId || null;
+      let pricingSnapshot: Record<string, unknown> | null = null;
 
       try {
         const { data: tag } = await supabase
@@ -165,6 +181,24 @@ export async function PATCH(
           }
         }
 
+        if (formId) {
+          const { data: selectedForm, error: selectedFormError } = await supabase
+            .from('intake_forms')
+            .select('form_config, pricing_config, stripe_price_id')
+            .eq('id', formId)
+            .maybeSingle();
+          if (selectedForm?.form_config) {
+            formConfig = (await fetchResolvedFormConfig(supabase as never, formId)) as unknown[];
+            const pricingConfig = normalizePricingConfig(selectedForm.pricing_config, selectedForm.stripe_price_id);
+            pricingSnapshot = pricingConfig ? {
+              mode: pricingConfig.mode,
+              playerCount: getConfiguredPlayerCount(pricingConfig, body.customAnswers || {}),
+            } : null;
+          } else if (selectedFormError) {
+            console.error('[Intake Save] Form config lookup error:', selectedFormError);
+          }
+        }
+
         const { data: fc } = await supabase
           .from('clients')
           .select('user_profile, diet_preferences, weekly_schedule, name, email, stripe_payment_id, phases')
@@ -176,6 +210,15 @@ export async function PATCH(
       }
 
       // 1) Create form_submission snapshot (independent try-catch)
+      const submissionFormData = {
+        userProfile: body.userProfile || {},
+        dietPreferences: body.dietPreferences || {},
+        weeklySchedule: body.weeklySchedule || {},
+        name: fullClient?.name,
+        email: fullClient?.email,
+        customAnswers: body.customAnswers || {},
+      };
+
       try {
         const submissionStatus = body.preCheckout ? 'pending_payment' : 'submitted';
         await supabase.from('form_submissions').insert({
@@ -185,17 +228,13 @@ export async function PATCH(
           group_name: groupName,
           group_slug: groupSlug,
           form_config: formConfig,
-          form_data: {
-            userProfile: body.userProfile || {},
-            dietPreferences: body.dietPreferences || {},
-            weeklySchedule: body.weeklySchedule || {},
-            name: fullClient?.name,
-            email: fullClient?.email,
-            customAnswers: body.customAnswers || {},
-          },
+          form_data: submissionFormData,
+          reviewed_form_data: submissionFormData,
+          pricing_snapshot: pricingSnapshot,
           status: submissionStatus,
           submitted_at: now,
           stripe_payment_id: (fullClient?.stripe_payment_id as string) || null,
+          updated_at: now,
         });
         console.log('[Intake Save] Form submission created, status:', submissionStatus);
       } catch (subErr) {
@@ -229,15 +268,14 @@ export async function PATCH(
             const startDate = new Date().toISOString().split('T')[0];
             const endDate = new Date(Date.now() + 12 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
             const GOAL_LABELS: Record<string, string> = { fat_loss: 'Fat Loss', muscle_gain: 'Muscle Gain', recomposition: 'Recomp' };
-
-            const isMetric = up.unitSystem === 'metric';
-            const toLbs = (v: number) => isMetric ? v * 2.205 : v;
-            const weightLbs = up.weightLbs || (isMetric && up.weightKg ? up.weightKg * 2.205 : 170);
-            const bodyFatPct = up.bodyFatPercentage || 20;
-            const targetWeightLbs = up.goalWeight ? toLbs(up.goalWeight as number) : weightLbs;
-            const targetBodyFat = up.goalBodyFatPercent || bodyFatPct;
-            const targetFatMassLbs = up.goalFatMass ? toLbs(up.goalFatMass as number) : ((targetWeightLbs as number) * ((targetBodyFat as number) / 100));
-            const targetFFMLbs = up.goalFFM ? toLbs(up.goalFFM as number) : ((targetWeightLbs as number) - (targetFatMassLbs as number));
+            const bodyCompGoals = buildBodyCompGoalsFromIntake(up);
+            const weightLbs = (typeof up.weightLbs === 'number' ? up.weightLbs : Number(up.weightLbs)) || 170;
+            const bodyFatPct = (typeof up.bodyFatPercentage === 'number' ? up.bodyFatPercentage : Number(up.bodyFatPercentage)) || 20;
+            const targetWeightLbs = bodyCompGoals.targetWeightLbs || weightLbs;
+            const targetBodyFat = bodyCompGoals.targetBodyFat || bodyFatPct;
+            const targetFatMassLbs = bodyCompGoals.targetFatMassLbs || (targetWeightLbs * (targetBodyFat / 100));
+            const targetFFMLbs = bodyCompGoals.targetFFMLbs || (targetWeightLbs - targetFatMassLbs);
+            const phaseTargets = buildDraftNutritionTargetsFromIntake(up, (body.weeklySchedule || {}) as Record<string, unknown>);
 
             const newPhase = {
               id: phaseId,
@@ -252,14 +290,14 @@ export async function PATCH(
               targetBodyFat,
               targetFatMassLbs,
               targetFFMLbs,
-              rateOfChange: up.rateOfChange || 0.5,
+              rateOfChange: (typeof up.rateOfChange === 'number' ? up.rateOfChange : Number(up.rateOfChange)) || 0.5,
               performancePriority: 'body_comp_priority',
               musclePreservation: 'preserve_all',
               fatGainTolerance: 'minimize_fat_gain',
               lifestyleCommitment: 'fully_committed',
               trackingCommitment: 'committed_tracking',
               scheduleOverrides: null,
-              nutritionTargets: [],
+              nutritionTargets: phaseTargets,
               mealPlan: null,
               notes: `Auto-created from intake form on ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
               createdAt: now,

@@ -4,9 +4,16 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ArrowLeft, Plus, Pencil, Trash2, Loader2, Copy, ExternalLink, Check, DollarSign, Tag, RefreshCw, FileText, ChevronDown, ChevronUp, Link2, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { FormConfigBuilder, ALL_BLOCK_IDS } from '@/components/admin/form-config-builder';
+import { FormConfigBuilder } from '@/components/admin/form-config-builder';
+import { FormFieldAssignmentsEditor } from '@/components/admin/form-field-assignments-editor';
+import { FieldLibraryPanel } from '@/components/admin/field-library-panel';
 import { FormLinksPanel } from '@/components/admin/form-links-panel';
-import type { ClientGroup, FormBlockConfig, IntakeForm, GroupFormLink } from '@/types';
+import { SubmissionReviewEditor } from '@/components/admin/submission-review-editor';
+import { ALL_BLOCK_IDS } from '@/lib/form-library';
+import { getFormCustomFields, getNumberCustomFields } from '@/lib/form-pricing';
+import { hydrateFormAssignments, mergeFormConfigWithAssignments, normalizeFormConfig } from '@/lib/form-fields';
+import { buildAssignmentPayload } from '@/lib/unified-field-library';
+import type { ClientGroup, FormBlockConfig, IntakeForm, GroupFormLink, FormPricingConfig, FormPricingMode, TieredPricingRule, ReusableCustomField } from '@/types';
 
 interface StripeProduct {
   id: string;
@@ -23,11 +30,19 @@ interface FormSubmission {
   group_id: string | null;
   group_name: string | null;
   group_slug: string | null;
+  form_id?: string | null;
+  form_config: FormBlockConfig[];
   form_data: Record<string, unknown>;
-  status: 'submitted' | 'reviewed' | 'archived';
+  reviewed_form_data?: Record<string, unknown> | null;
+  pricing_snapshot?: Record<string, unknown> | null;
+  review_status?: 'pending' | 'reviewed' | 'published';
+  status: 'submitted' | 'reviewed' | 'archived' | 'pending_payment';
   submitted_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
+  published_at?: string | null;
+  published_by?: string | null;
+  published_link_id?: string | null;
   notes: string | null;
   stripe_payment_id: string | null;
   clientName: string;
@@ -42,20 +57,31 @@ const EMPTY_GROUP: Partial<ClientGroup> = {
 const EMPTY_FORM: Partial<IntakeForm> = {
   name: '', slug: '', description: '', formConfig: [], welcomeTitle: '', welcomeDescription: '',
   stripeEnabled: false, stripePriceId: '', stripePromoEnabled: false, stripePromoCode: null, stripePromoCodeId: null, paymentDescription: '',
+  pricingConfig: null,
   clientCreationMode: 'on_start', isActive: true,
 };
+
+const PRICING_MODE_OPTIONS: Array<{ value: FormPricingMode; label: string; desc: string }> = [
+  { value: 'fixed', label: 'Fixed', desc: 'One flat checkout price for the form.' },
+  { value: 'per_player', label: 'Per Player', desc: 'Charge the same amount for each player entered.' },
+  { value: 'base_plus_per_player', label: 'Base + Per Player', desc: 'Charge a base setup fee plus a per-player fee.' },
+  { value: 'tiered', label: 'Tiered', desc: 'Choose one flat price based on player count range.' },
+  { value: 'manual_quote', label: 'Manual Quote', desc: 'Collect count now and quote or invoice later.' },
+];
 
 export default function AdminGroupsPage() {
   const [groups, setGroups] = useState<ClientGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Partial<ClientGroup> | null>(null);
   const [saving, setSaving] = useState(false);
-  const [copiedSlug, setCopiedSlug] = useState('');
+  const [copiedLink, setCopiedLink] = useState('');
 
   // Standalone forms
   const [forms, setForms] = useState<IntakeForm[]>([]);
   const [editingForm, setEditingForm] = useState<Partial<IntakeForm> | null>(null);
   const [savingForm, setSavingForm] = useState(false);
+  const [fields, setFields] = useState<ReusableCustomField[]>([]);
+  const [fieldsLoading, setFieldsLoading] = useState(false);
 
   // Stripe (used by form editor)
   const [stripeProducts, setStripeProducts] = useState<StripeProduct[]>([]);
@@ -75,12 +101,15 @@ export default function AdminGroupsPage() {
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [submissionsGroupFilter, setSubmissionsGroupFilter] = useState<string>('all');
   const [expandedSubmissionId, setExpandedSubmissionId] = useState<string | null>(null);
+  const [submissionDrafts, setSubmissionDrafts] = useState<Record<string, { reviewedFormData: Record<string, unknown>; notes: string }>>({});
+  const [savingSubmissionId, setSavingSubmissionId] = useState<string | null>(null);
+  const [publishingSubmissionId, setPublishingSubmissionId] = useState<string | null>(null);
 
   // Form links
   const [allFormLinks, setAllFormLinks] = useState<GroupFormLink[]>([]);
   const [formLinksGroupId, setFormLinksGroupId] = useState<string>('');
 
-  const [mainTab, setMainTab] = useState<'groups' | 'forms' | 'form_links' | 'submissions'>('groups');
+  const [mainTab, setMainTab] = useState<'groups' | 'forms' | 'field_library' | 'form_links' | 'submissions'>('groups');
 
   /* ── Data fetching ── */
 
@@ -102,6 +131,22 @@ export default function AdminGroupsPage() {
     } catch { /* */ }
   }, []);
 
+  const fetchFields = useCallback(async () => {
+    setFieldsLoading(true);
+    try {
+      const res = await fetch('/api/fields?include_inactive=true');
+      const data = await res.json();
+      setFields(data.fields || []);
+    } catch { /* */ }
+    setFieldsLoading(false);
+  }, []);
+
+  const backfillLegacyFields = useCallback(async () => {
+    await fetch('/api/fields/backfill', { method: 'POST' });
+    await fetchForms();
+    await fetchFields();
+  }, [fetchFields, fetchForms]);
+
   const fetchAllFormLinks = useCallback(async () => {
     try {
       const res = await fetch('/api/form-links');
@@ -112,7 +157,7 @@ export default function AdminGroupsPage() {
     } catch { /* */ }
   }, []);
 
-  useEffect(() => { fetchGroups(); fetchForms(); fetchAllFormLinks(); }, [fetchGroups, fetchForms, fetchAllFormLinks]);
+  useEffect(() => { fetchGroups(); fetchForms(); fetchFields(); fetchAllFormLinks(); }, [fetchGroups, fetchForms, fetchFields, fetchAllFormLinks]);
 
   const formLinksMap = useMemo(() => {
     const map: Record<string, { links: GroupFormLink[]; asSource: GroupFormLink[]; asTarget: GroupFormLink[] }> = {};
@@ -156,12 +201,62 @@ export default function AdminGroupsPage() {
     fetchGroups();
   }, [fetchGroups]);
 
-  const copyUrl = useCallback((slug: string) => {
+  const copyUrl = useCallback((path: string) => {
     const origin = window.location.hostname === 'localhost' ? window.location.origin : 'https://nutrition.fitomics.com';
-    const url = `${origin}/intake/${slug}`;
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const url = `${origin}${normalizedPath}`;
     navigator.clipboard.writeText(url);
-    setCopiedSlug(slug);
-    setTimeout(() => setCopiedSlug(''), 2000);
+    setCopiedLink(path);
+    setTimeout(() => setCopiedLink(''), 2000);
+  }, []);
+
+  const buildCompatibleFormPath = useCallback((form: IntakeForm, group?: ClientGroup | null) => {
+    if (!group) return `/intake/${form.slug}`;
+    return group.defaultFormId === form.id
+      ? `/intake/${group.slug}`
+      : `/intake/${group.slug}?form=${form.id}`;
+  }, []);
+
+  const buildPreviewPath = useCallback((path: string) => (
+    path.includes('?') ? `${path}&preview=1` : `${path}?preview=1`
+  ), []);
+
+  const editingFormBaseConfig = useMemo(() => normalizeFormConfig((editingForm?.formConfig || []) as FormBlockConfig[]), [editingForm?.formConfig]);
+  const editingFormAssignments = useMemo(() => hydrateFormAssignments(
+    editingFormBaseConfig,
+    (editingForm?.fieldAssignments || []).filter(assignment =>
+      editingFormBaseConfig.some(block => block.instanceId === assignment.blockInstanceId)
+    )
+  ), [editingForm?.fieldAssignments, editingFormBaseConfig]);
+  const editingFormResolvedConfig = useMemo(() => mergeFormConfigWithAssignments(editingFormBaseConfig, editingFormAssignments), [editingFormAssignments, editingFormBaseConfig]);
+  const selectedPricingMode = (editingForm?.pricingConfig?.mode || (editingForm?.stripeEnabled ? 'fixed' : 'manual_quote')) as FormPricingMode;
+  const numberCustomFields = useMemo(() => {
+    return getNumberCustomFields(getFormCustomFields(editingFormResolvedConfig));
+  }, [editingFormResolvedConfig]);
+  const priceOptions = useMemo(() => (
+    stripeProducts
+      .filter(product => !!product.defaultPriceId)
+      .map(product => ({
+        value: product.defaultPriceId as string,
+        label: `${product.name}${product.defaultPriceAmount != null ? ` (${(product.defaultPriceAmount / 100).toLocaleString('en-US', { style: 'currency', currency: (product.defaultPriceCurrency || 'usd').toUpperCase() })})` : ''}`,
+      }))
+  ), [stripeProducts]);
+
+  const setEditingPricingConfig = useCallback((pricingConfig: FormPricingConfig | null) => {
+    setEditingForm(prev => prev ? { ...prev, pricingConfig } : prev);
+  }, []);
+
+  const updateTierRule = useCallback((tierId: string, patch: Partial<TieredPricingRule>) => {
+    setEditingForm(prev => {
+      if (!prev?.pricingConfig || prev.pricingConfig.mode !== 'tiered') return prev;
+      return {
+        ...prev,
+        pricingConfig: {
+          ...prev.pricingConfig,
+          tiers: prev.pricingConfig.tiers.map(tier => tier.id === tierId ? { ...tier, ...patch } : tier),
+        },
+      };
+    });
   }, []);
 
   /* ── Form CRUD ── */
@@ -174,22 +269,50 @@ export default function AdminGroupsPage() {
       const url = isNew ? '/api/forms' : `/api/forms/${editingForm.id}`;
       const method = isNew ? 'POST' : 'PATCH';
       const slug = editingForm.slug || editingForm.name!.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const pricingConfig = editingForm.stripeEnabled
+        ? (editingForm.pricingConfig || { mode: 'fixed', fixedPriceId: editingForm.stripePriceId || '' })
+        : null;
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...editingForm, slug }),
+        body: JSON.stringify({ ...editingForm, formConfig: editingFormBaseConfig, slug, pricingConfig }),
       });
       if (res.ok) {
+        const data = await res.json();
+        const savedFormId = data.form?.id;
+        if (savedFormId) {
+          await fetch(`/api/forms/${savedFormId}/fields`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              replaceAll: true,
+              assignments: buildAssignmentPayload(editingFormAssignments),
+            }),
+          });
+        }
         setEditingForm(null);
         fetchForms();
+        fetchFields();
       }
     } catch { /* */ }
     setSavingForm(false);
-  }, [editingForm, fetchForms]);
+  }, [editingForm, editingFormAssignments, editingFormBaseConfig, fetchFields, fetchForms]);
 
   const handleDeleteForm = useCallback(async (id: string) => {
-    if (!confirm('Delete this form? Existing submissions will be preserved.')) return;
+    if (!confirm('Delete this form permanently? Existing submissions will be preserved, linked form mappings will be removed, and any group default reference will be cleared.')) return;
     await fetch(`/api/forms/${id}`, { method: 'DELETE' });
+    fetchForms();
+    fetchFields();
+    fetchGroups();
+    fetchAllFormLinks();
+  }, [fetchAllFormLinks, fetchFields, fetchForms, fetchGroups]);
+
+  const handleToggleFormActive = useCallback(async (form: IntakeForm) => {
+    await fetch(`/api/forms/${form.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isActive: !form.isActive }),
+    });
     fetchForms();
   }, [fetchForms]);
 
@@ -216,6 +339,64 @@ export default function AdminGroupsPage() {
     });
     fetchSubmissions(submissionsGroupFilter);
   }, [submissionsGroupFilter, fetchSubmissions]);
+
+  const getSubmissionDraft = useCallback((submission: FormSubmission) => (
+    submissionDrafts[submission.id] || {
+      reviewedFormData: submission.reviewed_form_data || submission.form_data,
+      notes: submission.notes || '',
+    }
+  ), [submissionDrafts]);
+
+  const saveSubmissionReview = useCallback(async (submission: FormSubmission) => {
+    const draft = getSubmissionDraft(submission);
+    setSavingSubmissionId(submission.id);
+    try {
+      const res = await fetch('/api/submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: submission.id,
+          reviewedFormData: draft.reviewedFormData,
+          notes: draft.notes,
+          reviewStatus: 'reviewed',
+          status: submission.status === 'pending_payment' ? 'pending_payment' : 'reviewed',
+          reviewedBy: 'admin',
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to save review');
+      await fetchSubmissions(submissionsGroupFilter);
+    } finally {
+      setSavingSubmissionId(null);
+    }
+  }, [fetchSubmissions, getSubmissionDraft, submissionsGroupFilter]);
+
+  const publishSubmission = useCallback(async (submission: FormSubmission) => {
+    const draft = getSubmissionDraft(submission);
+    setPublishingSubmissionId(submission.id);
+    try {
+      const reviewRes = await fetch('/api/submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: submission.id,
+          reviewedFormData: draft.reviewedFormData,
+          notes: draft.notes,
+          reviewStatus: 'reviewed',
+          reviewedBy: 'admin',
+        }),
+      });
+      if (!reviewRes.ok) throw new Error('Failed to save review');
+      const publishRes = await fetch(`/api/submissions/${submission.id}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publishedBy: 'admin' }),
+      });
+      if (!publishRes.ok) throw new Error('Failed to publish submission');
+      await fetchSubmissions(submissionsGroupFilter);
+    } finally {
+      setPublishingSubmissionId(null);
+    }
+  }, [fetchSubmissions, getSubmissionDraft, submissionsGroupFilter]);
 
   useEffect(() => {
     fetchSubmissions(submissionsGroupFilter);
@@ -396,10 +577,41 @@ export default function AdminGroupsPage() {
           {/* Form steps */}
           <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Form Steps</h2>
-            <p className="text-xs text-gray-400">Choose which steps appear in this form and their order. A &quot;Review &amp; Submit&quot; step is always added at the end.</p>
+            <p className="text-xs text-gray-400">Choose which steps appear in this form and their order. This builder now handles structure and built-in block overrides only. A &quot;Review &amp; Submit&quot; step is always added at the end.</p>
             <FormConfigBuilder
-              value={(editingForm.formConfig || []) as FormBlockConfig[]}
-              onChange={fc => setEditingForm(p => ({ ...p, formConfig: fc }))}
+              value={editingFormBaseConfig}
+              onChange={fc => setEditingForm(p => {
+                if (!p) return p;
+                const normalized = normalizeFormConfig(fc);
+                const validInstanceIds = new Set(normalized.map(block => block.instanceId));
+                return {
+                  ...p,
+                  formConfig: normalized,
+                  fieldAssignments: (p.fieldAssignments || []).filter(assignment => validInstanceIds.has(assignment.blockInstanceId)),
+                };
+              })}
+            />
+          </section>
+
+          <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Assigned Reusable Fields</h2>
+                <p className="text-xs text-gray-400 mt-1">Create or edit reusable custom fields in the Field Library, then assign them to steps here.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setEditingForm(null); setMainTab('field_library'); }}
+                className="h-9 px-3 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Open Field Library
+              </button>
+            </div>
+            <FormFieldAssignmentsEditor
+              formConfig={editingFormBaseConfig}
+              availableFields={fields}
+              value={editingFormAssignments}
+              onChange={assignments => setEditingForm(p => p ? ({ ...p, fieldAssignments: assignments }) : p)}
             />
           </section>
 
@@ -509,7 +721,13 @@ export default function AdminGroupsPage() {
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => {
                 const enabling = !editingForm.stripeEnabled;
-                setEditingForm(p => ({ ...p, stripeEnabled: enabling }));
+                setEditingForm(p => p ? ({
+                  ...p,
+                  stripeEnabled: enabling,
+                  pricingConfig: enabling
+                    ? (p.pricingConfig || { mode: 'fixed', fixedPriceId: p.stripePriceId || '' })
+                    : p.pricingConfig,
+                }) : p);
                 if (enabling && stripeProducts.length === 0) fetchStripeData();
               }}
                 className={cn('relative w-10 h-6 rounded-full transition-colors', editingForm.stripeEnabled ? 'bg-[#c19962]' : 'bg-gray-300')}>
@@ -532,12 +750,197 @@ export default function AdminGroupsPage() {
                   </div>
                 )}
 
-                {/* Product & Price */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-[#00263d] text-white text-[10px] font-bold flex items-center justify-center">1</span>
-                      Product &amp; Price
+                      Pricing Model
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    {PRICING_MODE_OPTIONS.map(option => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          const firstNumberFieldId = numberCustomFields[0]?.id || '';
+                          const nextConfig: FormPricingConfig | null =
+                            option.value === 'fixed' ? { mode: 'fixed', fixedPriceId: editingForm.stripePriceId || '' } :
+                            option.value === 'per_player' ? { mode: 'per_player', playerCountFieldId: firstNumberFieldId, perPlayerPriceId: '' } :
+                            option.value === 'base_plus_per_player' ? { mode: 'base_plus_per_player', playerCountFieldId: firstNumberFieldId, basePriceId: '', perPlayerPriceId: '' } :
+                            option.value === 'tiered' ? { mode: 'tiered', playerCountFieldId: firstNumberFieldId, tiers: [{ id: `tier-${Date.now()}`, minPlayers: 1, maxPlayers: null, flatPriceId: '', label: 'Default tier' }] } :
+                            { mode: 'manual_quote', playerCountFieldId: firstNumberFieldId, message: 'We will review your submission and send a quote.' };
+                          setEditingPricingConfig(nextConfig);
+                        }}
+                        className={cn('w-full text-left p-3 rounded-lg border transition-colors',
+                          selectedPricingMode === option.value ? 'border-[#c19962] bg-[#c19962]/5' : 'border-gray-200 hover:border-[#c19962]/50')}
+                      >
+                        <p className="text-sm font-medium text-gray-900">{option.label}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{option.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  {selectedPricingMode !== 'fixed' && (
+                    <div className="space-y-3 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                      <div>
+                        <label className="text-xs font-medium text-gray-700 mb-1 block">Player Count Question</label>
+                        <select
+                          value={(editingForm.pricingConfig && 'playerCountFieldId' in editingForm.pricingConfig ? editingForm.pricingConfig.playerCountFieldId || '' : '')}
+                          onChange={e => {
+                            if (!editingForm.pricingConfig || !('playerCountFieldId' in editingForm.pricingConfig)) return;
+                            setEditingPricingConfig({ ...editingForm.pricingConfig, playerCountFieldId: e.target.value });
+                          }}
+                          className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c19962]"
+                        >
+                          <option value="">Select a number field...</option>
+                          {numberCustomFields.map(field => (
+                            <option key={field.id} value={field.id}>{field.label}</option>
+                          ))}
+                        </select>
+                        {numberCustomFields.length === 0 && (
+                          <p className="text-[11px] text-amber-600 mt-1">Add a custom number question to this form so pricing can use the entered player count.</p>
+                        )}
+                      </div>
+
+                      {editingForm.pricingConfig?.mode === 'per_player' && (
+                        <div>
+                          <label className="text-xs font-medium text-gray-700 mb-1 block">Per-Player Price ID</label>
+                          <input
+                            value={editingForm.pricingConfig.perPlayerPriceId}
+                            onChange={e => setEditingPricingConfig({ ...editingForm.pricingConfig!, perPlayerPriceId: e.target.value })}
+                            className="w-full h-9 px-3 rounded-lg border border-gray-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#c19962]"
+                            placeholder="price_..."
+                          />
+                        </div>
+                      )}
+
+                      {editingForm.pricingConfig?.mode === 'base_plus_per_player' && (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="text-xs font-medium text-gray-700 mb-1 block">Base Price ID</label>
+                            <input
+                              value={editingForm.pricingConfig.basePriceId}
+                              onChange={e => setEditingPricingConfig({ ...editingForm.pricingConfig!, basePriceId: e.target.value })}
+                              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#c19962]"
+                              placeholder="price_..."
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-gray-700 mb-1 block">Per-Player Price ID</label>
+                            <input
+                              value={editingForm.pricingConfig.perPlayerPriceId}
+                              onChange={e => setEditingPricingConfig({ ...editingForm.pricingConfig!, perPlayerPriceId: e.target.value })}
+                              className="w-full h-9 px-3 rounded-lg border border-gray-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#c19962]"
+                              placeholder="price_..."
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {editingForm.pricingConfig?.mode === 'tiered' && (
+                        <div className="space-y-3">
+                          {editingForm.pricingConfig.tiers.map(tier => (
+                            <div key={tier.id} className="grid gap-2 sm:grid-cols-4 items-end rounded-lg border border-gray-200 bg-white p-3">
+                              <div>
+                                <label className="text-[11px] text-gray-500 mb-1 block">Label</label>
+                                <input
+                                  value={tier.label || ''}
+                                  onChange={e => updateTierRule(tier.id, { label: e.target.value })}
+                                  className="w-full h-8 px-2 rounded border border-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-[#c19962]"
+                                  placeholder="1-10 Players"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[11px] text-gray-500 mb-1 block">Min</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={tier.minPlayers}
+                                  onChange={e => updateTierRule(tier.id, { minPlayers: parseInt(e.target.value || '1', 10) || 1 })}
+                                  className="w-full h-8 px-2 rounded border border-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-[#c19962]"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[11px] text-gray-500 mb-1 block">Max</label>
+                                <input
+                                  type="number"
+                                  min={tier.minPlayers}
+                                  value={tier.maxPlayers ?? ''}
+                                  onChange={e => updateTierRule(tier.id, { maxPlayers: e.target.value ? parseInt(e.target.value, 10) : null })}
+                                  className="w-full h-8 px-2 rounded border border-gray-200 text-xs focus:outline-none focus:ring-1 focus:ring-[#c19962]"
+                                  placeholder="No max"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[11px] text-gray-500 mb-1 block">Flat Price ID</label>
+                                <input
+                                  value={tier.flatPriceId}
+                                  onChange={e => updateTierRule(tier.id, { flatPriceId: e.target.value })}
+                                  className="w-full h-8 px-2 rounded border border-gray-200 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#c19962]"
+                                  placeholder="price_..."
+                                />
+                              </div>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (editingForm.pricingConfig?.mode !== 'tiered') return;
+                              setEditingPricingConfig({
+                                ...editingForm.pricingConfig,
+                                tiers: [...editingForm.pricingConfig.tiers, { id: `tier-${Date.now()}-${editingForm.pricingConfig.tiers.length}`, minPlayers: 1, maxPlayers: null, flatPriceId: '', label: '' }],
+                              });
+                            }}
+                            className="text-xs text-[#c19962] hover:text-[#a8833e] font-medium"
+                          >
+                            + Add Tier
+                          </button>
+                        </div>
+                      )}
+
+                      {editingForm.pricingConfig?.mode === 'manual_quote' && (
+                        <div>
+                          <label className="text-xs font-medium text-gray-700 mb-1 block">Message</label>
+                          <textarea
+                            value={editingForm.pricingConfig.message || ''}
+                            onChange={e => setEditingPricingConfig({ ...editingForm.pricingConfig!, message: e.target.value })}
+                            rows={2}
+                            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#c19962]"
+                            placeholder="We will review your submission and send a quote."
+                          />
+                        </div>
+                      )}
+
+                      {priceOptions.length > 0 && selectedPricingMode !== 'manual_quote' && (
+                        <div>
+                          <label className="text-xs font-medium text-gray-700 mb-1 block">Reference Existing Stripe Price</label>
+                          <select
+                            onChange={e => {
+                              const value = e.target.value;
+                              if (!value || !editingForm.pricingConfig) return;
+                              if (editingForm.pricingConfig.mode === 'per_player') setEditingPricingConfig({ ...editingForm.pricingConfig, perPlayerPriceId: value });
+                              if (editingForm.pricingConfig.mode === 'base_plus_per_player') setEditingPricingConfig({ ...editingForm.pricingConfig, perPlayerPriceId: editingForm.pricingConfig.perPlayerPriceId || value, basePriceId: editingForm.pricingConfig.basePriceId || value });
+                              if (editingForm.pricingConfig.mode === 'tiered') updateTierRule(editingForm.pricingConfig.tiers[0]?.id || '', { flatPriceId: value });
+                            }}
+                            className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c19962]"
+                            defaultValue=""
+                          >
+                            <option value="">Choose a saved default price...</option>
+                            {priceOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Product & Price */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#00263d] text-white text-[10px] font-bold flex items-center justify-center">2</span>
+                      Stripe Product &amp; Fixed Price
                     </p>
                     <button type="button" onClick={fetchStripeData} disabled={stripeLoading}
                       className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
@@ -572,7 +975,37 @@ export default function AdminGroupsPage() {
                     <div className="space-y-1.5 max-h-52 overflow-y-auto">
                       {filteredProducts.map(p => (
                         <button key={p.id} type="button"
-                          onClick={() => { if (p.defaultPriceId) { setEditingForm(prev => ({ ...prev, stripePriceId: p.defaultPriceId! })); setProductSearch(''); } }}
+                          onClick={() => {
+                            if (p.defaultPriceId) {
+                              setEditingForm(prev => prev ? ({
+                                ...prev,
+                                stripePriceId: p.defaultPriceId!,
+                                pricingConfig: !prev.pricingConfig
+                                  ? { mode: 'fixed', fixedPriceId: p.defaultPriceId! }
+                                  : prev.pricingConfig.mode === 'fixed'
+                                    ? { ...prev.pricingConfig, fixedPriceId: p.defaultPriceId! }
+                                    : prev.pricingConfig.mode === 'per_player'
+                                      ? { ...prev.pricingConfig, perPlayerPriceId: prev.pricingConfig.perPlayerPriceId || p.defaultPriceId! }
+                                      : prev.pricingConfig.mode === 'base_plus_per_player'
+                                        ? {
+                                            ...prev.pricingConfig,
+                                            basePriceId: prev.pricingConfig.basePriceId || p.defaultPriceId!,
+                                            perPlayerPriceId: prev.pricingConfig.perPlayerPriceId || p.defaultPriceId!,
+                                          }
+                                        : prev.pricingConfig.mode === 'tiered'
+                                          ? {
+                                              ...prev.pricingConfig,
+                                              tiers: prev.pricingConfig.tiers.map((tier, index) => (
+                                                index === 0 && !tier.flatPriceId
+                                                  ? { ...tier, flatPriceId: p.defaultPriceId! }
+                                                  : tier
+                                              )),
+                                            }
+                                          : prev.pricingConfig,
+                              }) : prev);
+                              setProductSearch('');
+                            }
+                          }}
                           className={cn('w-full text-left p-3 rounded-lg border transition-colors',
                             editingForm.stripePriceId === p.defaultPriceId
                               ? 'border-[#c19962] bg-[#c19962]/5'
@@ -606,7 +1039,13 @@ export default function AdminGroupsPage() {
                   {!selectedProduct && (
                     <div>
                       <label className="text-xs text-gray-500 mb-1 block">Or paste a Price ID directly</label>
-                      <input value={editingForm.stripePriceId || ''} onChange={e => setEditingForm(p => ({ ...p, stripePriceId: e.target.value }))}
+                      <input value={editingForm.stripePriceId || ''} onChange={e => setEditingForm(p => p ? ({
+                        ...p,
+                        stripePriceId: e.target.value,
+                        pricingConfig: selectedPricingMode === 'fixed'
+                          ? { mode: 'fixed', fixedPriceId: e.target.value }
+                          : p.pricingConfig,
+                      }) : p)}
                         className="w-full h-9 px-3 rounded-lg border border-gray-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#c19962]" placeholder="price_..." />
                     </div>
                   )}
@@ -968,6 +1407,7 @@ export default function AdminGroupsPage() {
           {[
             { key: 'groups' as const, label: 'Groups', count: groups.length },
             { key: 'forms' as const, label: 'Forms', count: forms.length },
+            { key: 'field_library' as const, label: 'Field Library', count: fields.length },
             { key: 'form_links' as const, label: 'Form Links', count: null },
             { key: 'submissions' as const, label: 'Submissions', count: submissions.length > 0 ? submissions.length : null },
           ].map(t => (
@@ -1015,9 +1455,9 @@ export default function AdminGroupsPage() {
                     </div>
                     <div className="flex items-center gap-1.5">
                       {linkedForm && (
-                        <button onClick={() => copyUrl(linkedForm.slug)} title="Copy intake URL"
+                        <button onClick={() => copyUrl(`/intake/${g.slug}`)} title="Copy group intake URL"
                           className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-                          {copiedSlug === linkedForm.slug ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                          {copiedLink === `/intake/${g.slug}` ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                         </button>
                       )}
                       <button onClick={() => setEditing({ ...g })} title="Edit group settings"
@@ -1038,7 +1478,7 @@ export default function AdminGroupsPage() {
         ) : mainTab === 'forms' ? (
           /* ── Forms Tab ── */
           <div className="space-y-4">
-            <p className="text-sm text-gray-500">Standalone intake forms. Each form can be edited independently and linked to one or more groups.</p>
+            <p className="text-sm text-gray-500">Forms can be reused across groups. When a form participates in a group workflow or field link, share the group-specific link so mappings and pre-filled fields work correctly.</p>
             {forms.length === 0 ? (
               <div className="text-center py-16 text-gray-400">
                 <FileText className="h-8 w-8 mx-auto mb-2 text-gray-300" />
@@ -1056,6 +1496,15 @@ export default function AdminGroupsPage() {
                   const fl = formLinksMap[f.id];
                   const asSource = fl?.asSource || [];
                   const asTarget = fl?.asTarget || [];
+                  const compatibleGroups = Array.from(new Set([
+                    ...linkedGroups.map(g => g.id),
+                    ...asSource.map(link => link.groupId),
+                    ...asTarget.map(link => link.groupId),
+                  ]))
+                    .map(groupId => groups.find(g => g.id === groupId))
+                    .filter((group): group is ClientGroup => !!group);
+                  const primaryGroup = compatibleGroups[0] || null;
+                  const primarySharePath = buildCompatibleFormPath(f, primaryGroup);
                   return (
                     <div key={f.id} className={cn('bg-white rounded-xl border overflow-hidden transition-all',
                       f.isActive ? 'border-gray-200 hover:shadow-sm' : 'border-gray-100 opacity-60')}>
@@ -1084,7 +1533,7 @@ export default function AdminGroupsPage() {
                             {f.description && <p className="text-xs text-gray-400 mt-0.5">{f.description}</p>}
                             <div className="flex items-center gap-2 mt-2 flex-wrap">
                               <span className="text-[11px] font-mono text-gray-400 bg-gray-50 px-2 py-0.5 rounded">
-                                /intake/{f.slug}
+                                {primarySharePath}
                               </span>
                               {linkedGroups.length > 0 && (
                                 <span className="text-[11px] text-gray-500">
@@ -1092,6 +1541,28 @@ export default function AdminGroupsPage() {
                                 </span>
                               )}
                             </div>
+                            {compatibleGroups.length > 0 && (
+                              <div className="mt-2 space-y-1.5">
+                                <p className="text-[11px] text-gray-500">
+                                  Share a group-specific link for linked-field compatibility:
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {compatibleGroups.map(group => {
+                                    const sharePath = buildCompatibleFormPath(f, group);
+                                    return (
+                                      <button
+                                        key={`${f.id}-${group.id}`}
+                                        onClick={() => copyUrl(sharePath)}
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] border border-gray-200 bg-gray-50 text-gray-600 hover:border-[#c19962] hover:text-[#00263d]"
+                                      >
+                                        {copiedLink === sharePath ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+                                        {group.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                             {/* Show linked field details */}
                             {asTarget.length > 0 && (
                               <div className="mt-2 space-y-1">
@@ -1118,13 +1589,25 @@ export default function AdminGroupsPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <a href={`/intake/${f.slug}`} target="_blank" rel="noopener noreferrer" title="Preview form"
+                            <button
+                              onClick={() => handleToggleFormActive(f)}
+                              title={f.isActive ? 'Set form inactive' : 'Set form active'}
+                              className={cn(
+                                'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border',
+                                f.isActive
+                                  ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                  : 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
+                              )}
+                            >
+                              {f.isActive ? 'Set Inactive' : 'Set Active'}
+                            </button>
+                            <a href={buildPreviewPath(primarySharePath)} target="_blank" rel="noopener noreferrer" title="Preview form"
                               className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
                               <ExternalLink className="h-4 w-4" />
                             </a>
-                            <button onClick={() => copyUrl(f.slug)} title="Copy form URL"
+                            <button onClick={() => copyUrl(primarySharePath)} title="Copy shareable form URL"
                               className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-                              {copiedSlug === f.slug ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                              {copiedLink === primarySharePath ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                             </button>
                             <button onClick={() => setEditingForm({ ...f })}
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-[#00263d] text-white hover:bg-[#003a5c] transition-colors">
@@ -1143,6 +1626,8 @@ export default function AdminGroupsPage() {
               </div>
             )}
           </div>
+        ) : mainTab === 'field_library' ? (
+          <FieldLibraryPanel fields={fields} forms={forms} loading={fieldsLoading} onRefresh={fetchFields} onRefreshForms={fetchForms} onBackfillLegacy={backfillLegacyFields} />
         ) : mainTab === 'form_links' ? (
           /* ── Form Links Tab ── */
           <FormLinksPanel
@@ -1178,12 +1663,20 @@ export default function AdminGroupsPage() {
                   const isExpanded = expandedSubmissionId === sub.id;
                   const isPaid = !!sub.stripe_payment_id;
                   const statusColors: Record<string, string> = {
+                    pending_payment: 'bg-blue-100 text-blue-800',
                     submitted: 'bg-yellow-100 text-yellow-800',
                     reviewed: 'bg-green-100 text-green-800',
                     archived: 'bg-gray-100 text-gray-600',
                   };
+                  const reviewStatusColors: Record<string, string> = {
+                    pending: 'bg-orange-100 text-orange-800',
+                    reviewed: 'bg-indigo-100 text-indigo-800',
+                    published: 'bg-green-100 text-green-800',
+                  };
                   const fd = sub.form_data;
                   const up = ((fd as Record<string, unknown>).userProfile || {}) as Record<string, unknown>;
+                  const draft = getSubmissionDraft(sub);
+                  const sourceLinks = allFormLinks.filter(link => link.groupId === sub.group_id && link.sourceFormId === sub.form_id);
                   const str = (v: unknown): string => String(v ?? '');
 
                   return (
@@ -1206,6 +1699,9 @@ export default function AdminGroupsPage() {
                             </span>
                           )}
                           <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', statusColors[sub.status] || 'bg-gray-100 text-gray-500')}>{sub.status}</span>
+                          <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', reviewStatusColors[sub.review_status || 'pending'] || 'bg-gray-100 text-gray-500')}>
+                            Review: {sub.review_status || 'pending'}
+                          </span>
                           <span className="text-xs text-gray-400">{new Date(sub.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                           {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
                         </div>
@@ -1215,7 +1711,7 @@ export default function AdminGroupsPage() {
                         <div className="border-t border-gray-100 p-4 space-y-4 bg-gray-50/30">
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-400">Status:</span>
-                            {(['submitted', 'reviewed', 'archived'] as const).map(st => (
+                            {(['pending_payment', 'submitted', 'reviewed', 'archived'] as const).map(st => (
                               <button key={st} onClick={() => updateSubmissionStatus(sub.id, st)}
                                 className={cn('px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors capitalize',
                                   sub.status === st ? 'bg-[#00263d] text-white border-[#00263d]' : 'bg-white text-gray-500 border-gray-200 hover:border-[#c19962]')}>
@@ -1234,6 +1730,8 @@ export default function AdminGroupsPage() {
                                 <div className="flex justify-between"><span className="text-gray-400">Submitted</span><span className="text-gray-700">{new Date(sub.submitted_at).toLocaleString()}</span></div>
                                 <div className="flex justify-between"><span className="text-gray-400">Group</span><span className="text-gray-700">{sub.group_name || '—'}</span></div>
                                 <div className="flex justify-between"><span className="text-gray-400">Payment</span><span className={isPaid ? 'text-green-600 font-medium' : 'text-gray-400'}>{isPaid ? `Paid (${sub.stripe_payment_id || ''})` : 'No payment required'}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-400">Review status</span><span className="text-gray-700 capitalize">{sub.review_status || 'pending'}</span></div>
+                                {sub.published_at ? <div className="flex justify-between"><span className="text-gray-400">Published</span><span className="text-gray-700">{new Date(sub.published_at).toLocaleString()}</span></div> : null}
                               </div>
                             </div>
                             <div className="space-y-2">
@@ -1251,62 +1749,80 @@ export default function AdminGroupsPage() {
                             </div>
                           </div>
 
-                          {(up.weeklyActivity || (fd as Record<string, unknown>).weeklySchedule) ? (
+                          {sub.pricing_snapshot ? (
                             <div className="space-y-2">
-                              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Weekly Activity</h4>
+                              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pricing Snapshot</h4>
                               <div className="bg-white rounded-lg border border-gray-200 p-3 text-xs">
-                                {(() => {
-                                  const wa = (up.weeklyActivity || (fd as Record<string, unknown>).weeklySchedule) as unknown[][];
-                                  if (!Array.isArray(wa)) return <p className="text-gray-400">No activity data</p>;
-                                  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                                  return (
-                                    <div className="space-y-1">
-                                      {wa.map((dayBouts, i) => {
-                                        const bouts = dayBouts as { type?: string; duration?: number; intensity?: string; timeOfDay?: string }[];
-                                        if (!Array.isArray(bouts) || bouts.length === 0) return <div key={i} className="flex gap-2"><span className="text-gray-400 w-8">{DAYS[i]}</span><span className="text-gray-300">Rest</span></div>;
-                                        return (
-                                          <div key={i} className="flex gap-2">
-                                            <span className="text-gray-400 w-8 flex-shrink-0">{DAYS[i]}</span>
-                                            <span className="text-gray-700">{bouts.map(b => `${b.type || '?'} (${b.duration || 0}m, ${b.intensity || '?'}${b.timeOfDay ? ', ' + b.timeOfDay : ''})`).join('; ')}</span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  );
-                                })()}
+                                <pre className="overflow-auto max-h-40 text-[10px] text-gray-600">{JSON.stringify(sub.pricing_snapshot, null, 2)}</pre>
                               </div>
                             </div>
                           ) : null}
 
-                          {(() => {
-                            const fdr = fd as Record<string, unknown>;
-                            const dp = fdr.dietPreferences as Record<string, unknown> | undefined;
-                            const ca = fdr.customAnswers as Record<string, unknown> | undefined;
-                            return (
-                              <>
-                                {dp && Object.keys(dp).length > 0 ? (
-                                  <div className="space-y-2">
-                                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Diet Preferences</h4>
-                                    <div className="bg-white rounded-lg border border-gray-200 p-3 text-xs">
-                                      {Object.entries(dp).map(([k, v]) => (
-                                        <div key={k} className="flex justify-between py-0.5"><span className="text-gray-400 capitalize">{k.replace(/([A-Z])/g, ' $1')}</span><span className="text-gray-700 max-w-[60%] text-right">{String(v ?? '')}</span></div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ) : null}
-                                {ca && Object.keys(ca).length > 0 ? (
-                                  <div className="space-y-2">
-                                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Additional Responses</h4>
-                                    <div className="bg-white rounded-lg border border-gray-200 p-3 text-xs">
-                                      {Object.entries(ca).map(([k, v]) => (
-                                        <div key={k} className="flex justify-between py-0.5"><span className="text-gray-400">{k}</span><span className="text-gray-700 max-w-[60%] text-right">{Array.isArray(v) ? (v as string[]).join(', ') : String(v ?? '')}</span></div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ) : null}
-                              </>
-                            );
-                          })()}
+                          {sourceLinks.length > 0 ? (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Reviewed Source Data</h4>
+                                  <p className="text-[11px] text-gray-400 mt-1">Edit the reviewed values below, save them, then publish to linked player forms when ready.</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => saveSubmissionReview(sub)}
+                                    disabled={savingSubmissionId === sub.id}
+                                    className="h-8 px-3 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                                  >
+                                    {savingSubmissionId === sub.id ? 'Saving...' : 'Save Review'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => publishSubmission(sub)}
+                                    disabled={publishingSubmissionId === sub.id}
+                                    className="h-8 px-3 rounded-lg bg-[#c19962] text-[#00263d] text-xs font-semibold hover:bg-[#a8833e] disabled:opacity-50"
+                                  >
+                                    {publishingSubmissionId === sub.id ? 'Publishing...' : 'Publish To Linked Forms'}
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-3">
+                                <div>
+                                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Reviewer Notes</label>
+                                  <textarea
+                                    value={draft.notes}
+                                    onChange={e => setSubmissionDrafts(prev => ({
+                                      ...prev,
+                                      [sub.id]: {
+                                        reviewedFormData: draft.reviewedFormData,
+                                        notes: e.target.value,
+                                      },
+                                    }))}
+                                    rows={2}
+                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#c19962]"
+                                    placeholder="Internal notes about the review or publish decision"
+                                  />
+                                </div>
+                                <SubmissionReviewEditor
+                                  formConfig={sub.form_config || []}
+                                  value={draft.reviewedFormData}
+                                  onChange={next => setSubmissionDrafts(prev => ({
+                                    ...prev,
+                                    [sub.id]: {
+                                      reviewedFormData: next,
+                                      notes: prev[sub.id]?.notes ?? sub.notes ?? '',
+                                    },
+                                  }))}
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Reviewed Data</h4>
+                              <div className="bg-white rounded-lg border border-gray-200 p-3 text-xs text-gray-500">
+                                This submission is not currently a linked source form, so there is nothing to publish to target forms.
+                              </div>
+                            </div>
+                          )}
 
                           <details className="text-xs">
                             <summary className="cursor-pointer text-gray-400 hover:text-gray-600">View raw data</summary>

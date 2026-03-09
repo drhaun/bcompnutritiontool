@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
+import Stripe from 'stripe';
+import { getConfiguredPlayerCount, normalizePricingConfig, resolveFormPricing } from '@/lib/form-pricing';
+import { fetchResolvedFormConfig } from '@/lib/form-resolution';
+import { buildBodyCompGoalsFromIntake, buildDraftNutritionTargetsFromIntake } from '@/lib/intake-derived';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -36,6 +40,14 @@ function stripSensitiveKeys(obj: Record<string, unknown>): Record<string, unknow
   return result;
 }
 
+function buildLocalSuccessPath(slug: string, submissionId: string) {
+  return `/intake/${slug}/success?session_id={CHECKOUT_SESSION_ID}&submission_id=${submissionId}`;
+}
+
+function buildLocalCancelPath(slug: string, formId?: string | null) {
+  return formId ? `/intake/${slug}?form=${formId}` : `/intake/${slug}`;
+}
+
 /**
  * Final submission endpoint for forms with client_creation_mode = 'on_submit' or 'none'.
  * - on_submit: creates client + group tag + form_submission + draft phase
@@ -56,6 +68,7 @@ export async function POST(request: NextRequest) {
     const sourceTag = { _dataSource: { source: 'intake_form', updatedAt: now } };
     const userProfile = body.userProfile || {};
     const dietPreferences = body.dietPreferences || {};
+    const weeklySchedule = body.weeklySchedule || {};
     const customAnswers = body.customAnswers || {};
     const name: string = body.name || '';
     const email: string = body.email || '';
@@ -67,7 +80,11 @@ export async function POST(request: NextRequest) {
     let groupName: string | null = null;
     let resolvedGroupSlug: string | null = null;
     let formConfig: unknown[] = [];
-    let stripeEnabled = false;
+    let formStripeEnabled = false;
+    let formStripePromoEnabled = false;
+    let resolvedFormSlug: string | null = null;
+    let resolvedPricingConfig: ReturnType<typeof normalizePricingConfig> = null;
+    let pricingSnapshot: Record<string, unknown> | null = null;
 
     if (groupSlug) {
       const { data: group } = await supabase
@@ -80,47 +97,48 @@ export async function POST(request: NextRequest) {
         groupName = group.name as string;
         resolvedGroupSlug = group.slug as string;
         formConfig = (group.form_config as unknown[]) || [];
-        stripeEnabled = !!(group.stripe_enabled);
-      } else {
-        const { data: form } = await supabase
-          .from('intake_forms')
-          .select('group_id')
-          .eq('slug', groupSlug)
-          .limit(1)
-          .single();
-        if (form?.group_id) {
-          const { data: g2 } = await supabase
-            .from('client_groups')
-            .select('id, name, slug, form_config, stripe_enabled')
-            .eq('id', form.group_id)
-            .single();
-          if (g2) {
-            groupId = g2.id as string;
-            groupName = g2.name as string;
-            resolvedGroupSlug = g2.slug as string;
-            formConfig = (g2.form_config as unknown[]) || [];
-            stripeEnabled = !!(g2.stripe_enabled);
-          }
-        }
+      }
+    }
+
+    if (formId) {
+      const { data: selectedForm, error: selectedFormError } = await supabase
+        .from('intake_forms')
+        .select('form_config, slug, stripe_enabled, stripe_promo_enabled, pricing_config, stripe_price_id')
+        .eq('id', formId)
+        .maybeSingle();
+      if (selectedForm?.form_config) {
+        formConfig = (await fetchResolvedFormConfig(supabase as never, formId)) as unknown[];
+        resolvedFormSlug = (selectedForm.slug as string | null) || null;
+        formStripeEnabled = !!selectedForm.stripe_enabled;
+        formStripePromoEnabled = !!selectedForm.stripe_promo_enabled;
+        resolvedPricingConfig = normalizePricingConfig(selectedForm.pricing_config, selectedForm.stripe_price_id);
+        pricingSnapshot = resolvedPricingConfig ? {
+          mode: resolvedPricingConfig.mode,
+          playerCount: getConfiguredPlayerCount(resolvedPricingConfig, customAnswers),
+        } : null;
+      } else if (selectedFormError) {
+        console.error('[Intake Submit] Form config lookup error:', selectedFormError);
       }
     }
 
     let clientId: string | null = null;
     let intakeToken: string | null = null;
-    const needsPayment = stripeEnabled && mode === 'on_submit';
-    const clientStatus = needsPayment ? 'payment_pending' : 'completed';
+    const needsPayment = formStripeEnabled;
+    // Keep client intake_status compatible with the current DB constraint.
+    // pending payment is tracked on form_submissions.status instead.
+    const clientStatus = needsPayment ? 'in_progress' : 'completed';
 
     if (mode === 'on_submit') {
       if (!name || !email) {
         return NextResponse.json({ error: 'Name and email required for on_submit mode' }, { status: 400 });
       }
 
-      // Check for existing client with this email that's pending/in_progress/payment_pending
+      // Check for existing client with this email that's still mid-intake
       const { data: existing } = await supabase
         .from('clients')
         .select('id, intake_token')
         .eq('email', email.trim().toLowerCase())
-        .in('intake_status', ['pending', 'in_progress', 'payment_pending'])
+        .in('intake_status', ['pending', 'in_progress'])
         .limit(1)
         .single();
 
@@ -130,10 +148,12 @@ export async function POST(request: NextRequest) {
         const safeProfile = stripSensitiveKeys(userProfile);
         const { data: currentClient } = await supabase
           .from('clients')
-          .select('user_profile, diet_preferences, weekly_schedule')
+          .select('user_profile, diet_preferences, weekly_schedule, body_comp_goals')
           .eq('id', clientId)
           .single();
 
+        const safeBodyCompGoals = buildBodyCompGoalsFromIntake(userProfile);
+        const draftTargets = buildDraftNutritionTargetsFromIntake(userProfile, weeklySchedule);
         await supabase.from('clients').update({
           name,
           email: email.trim().toLowerCase(),
@@ -146,12 +166,23 @@ export async function POST(request: NextRequest) {
             ...deepMerge((currentClient?.diet_preferences as Record<string, unknown>) || {}, dietPreferences),
             ...sourceTag,
           },
+          weekly_schedule: {
+            ...deepMerge((currentClient?.weekly_schedule as Record<string, unknown>) || {}, weeklySchedule),
+            ...sourceTag,
+          },
+          body_comp_goals: {
+            ...deepMerge((currentClient?.body_comp_goals as Record<string, unknown>) || {}, safeBodyCompGoals),
+            ...sourceTag,
+          },
+          nutrition_targets: draftTargets,
           intake_status: clientStatus,
           ...(clientStatus === 'completed' ? { intake_completed_at: now } : {}),
           updated_at: now,
         }).eq('id', clientId);
       } else {
         const safeProfile = stripSensitiveKeys(userProfile);
+        const safeBodyCompGoals = buildBodyCompGoalsFromIntake(userProfile);
+        const draftTargets = buildDraftNutritionTargetsFromIntake(userProfile, weeklySchedule);
         const token = randomUUID();
         intakeToken = token;
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -173,6 +204,9 @@ export async function POST(request: NextRequest) {
               ...(Object.keys(customAnswers).length > 0 ? { customAnswers } : {}),
             },
             diet_preferences: { ...dietPreferences, ...sourceTag },
+            weekly_schedule: { ...weeklySchedule, ...sourceTag },
+            body_comp_goals: { ...safeBodyCompGoals, ...sourceTag },
+            nutrition_targets: draftTargets,
           })
           .select('id')
           .single();
@@ -202,38 +236,115 @@ export async function POST(request: NextRequest) {
 
     // Create form_submission
     const submissionStatus = needsPayment ? 'pending_payment' : 'submitted';
+    const submissionFormData = {
+      userProfile,
+      dietPreferences,
+      weeklySchedule,
+      name,
+      email,
+      customAnswers,
+    };
+
+    let submissionId: string | null = null;
     try {
-      await supabase.from('form_submissions').insert({
+      const { data: insertedSubmission, error: submissionInsertError } = await supabase.from('form_submissions').insert({
         client_id: clientId,
         group_id: groupId,
         form_id: formId,
         group_name: groupName,
         group_slug: resolvedGroupSlug,
         form_config: formConfig,
-        form_data: {
-          userProfile,
-          dietPreferences,
-          weeklySchedule: {},
-          name,
-          email,
-          customAnswers,
-        },
+        form_data: submissionFormData,
+        reviewed_form_data: submissionFormData,
+        pricing_snapshot: pricingSnapshot,
         status: submissionStatus,
         submitted_at: now,
-      });
+        updated_at: now,
+      }).select('id').single();
+      if (submissionInsertError) throw submissionInsertError;
+      submissionId = insertedSubmission?.id || null;
       console.log('[Intake Submit] Form submission created, mode:', mode, 'status:', submissionStatus);
     } catch (subErr) {
       console.error('[Intake Submit] form_submission insert error:', subErr);
     }
 
+    if (needsPayment && mode === 'none' && submissionId) {
+      if (!process.env.STRIPE_SECRET_KEY) {
+        return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 });
+      }
+      if (!resolvedPricingConfig) {
+        return NextResponse.json({ error: 'Payment configuration is incomplete for this form' }, { status: 400 });
+      }
+
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+      const priceIds = [
+        ...(resolvedPricingConfig.mode === 'fixed' ? [resolvedPricingConfig.fixedPriceId] : []),
+        ...(resolvedPricingConfig.mode === 'per_player' ? [resolvedPricingConfig.perPlayerPriceId] : []),
+        ...(resolvedPricingConfig.mode === 'base_plus_per_player' ? [resolvedPricingConfig.basePriceId, resolvedPricingConfig.perPlayerPriceId] : []),
+        ...(resolvedPricingConfig.mode === 'tiered' ? resolvedPricingConfig.tiers.map(tier => tier.flatPriceId) : []),
+      ].filter((priceId): priceId is string => typeof priceId === 'string' && priceId.trim().length > 0);
+
+      const prices = await Promise.all(Array.from(new Set(priceIds)).map(async priceId => {
+        const price = await stripe.prices.retrieve(priceId);
+        return [priceId, { unitAmount: price.unit_amount, currency: price.currency }] as const;
+      }));
+      const pricing = resolveFormPricing(resolvedPricingConfig, customAnswers, Object.fromEntries(prices));
+
+      if (!pricing.requiresCheckout || pricing.lineItems.length === 0) {
+        return NextResponse.json({ error: pricing.message || 'This form does not have a payable pricing configuration' }, { status: 400 });
+      }
+
+      await supabase
+        .from('form_submissions')
+        .update({
+          pricing_snapshot: pricing,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', submissionId);
+
+      const origin = request.headers.get('origin') || request.nextUrl.origin;
+      const returnSlug = resolvedGroupSlug || resolvedFormSlug || groupSlug || formId;
+      if (!returnSlug) {
+        return NextResponse.json({ error: 'Unable to determine return path for checkout' }, { status: 500 });
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: pricing.lineItems.map(item => ({ price: item.priceId, quantity: item.quantity })),
+        success_url: `${origin}${buildLocalSuccessPath(returnSlug, submissionId)}`,
+        cancel_url: `${origin}${buildLocalCancelPath(returnSlug, formId)}`,
+        customer_email: email.trim().toLowerCase() || undefined,
+        allow_promotion_codes: formStripePromoEnabled || undefined,
+        metadata: {
+          checkout_context: 'submission',
+          submission_id: submissionId,
+          intake_slug: returnSlug,
+          form_id: formId || '',
+          group_id: groupId || '',
+          pricing_mode: pricing.mode,
+          player_count: pricing.playerCount != null ? String(pricing.playerCount) : '',
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        clientId,
+        token: intakeToken,
+        stripeRequired: true,
+        checkoutUrl: session.url,
+        submissionId,
+      });
+    }
+
     // Create draft body comp phase (only for on_submit with a client, skip if Stripe payment pending)
     if (mode === 'on_submit' && clientId && !needsPayment) {
-      const up = userProfile;
-      const GOAL_TYPE_NORMALIZE: Record<string, string> = { lose_fat: 'fat_loss', gain_muscle: 'muscle_gain', recomp: 'recomposition' };
-      const rawGoalType = up.goalType as string | undefined;
-      const goalType = rawGoalType ? (GOAL_TYPE_NORMALIZE[rawGoalType] || rawGoalType) : undefined;
+      const up = userProfile as Record<string, unknown>;
+      const rawGoalType = up.goalType;
+      const goalType = rawGoalType === 'fat_loss' || rawGoalType === 'muscle_gain' || rawGoalType === 'recomposition'
+        ? rawGoalType
+        : undefined;
 
-      if (goalType === 'fat_loss' || goalType === 'muscle_gain' || goalType === 'recomposition') {
+      if (goalType) {
         try {
           const { data: phaseRow, error: phaseReadErr } = await supabase
             .from('clients')
@@ -248,14 +359,14 @@ export async function POST(request: NextRequest) {
             const endDate = new Date(Date.now() + 12 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
             const GOAL_LABELS: Record<string, string> = { fat_loss: 'Fat Loss', muscle_gain: 'Muscle Gain', recomposition: 'Recomp' };
 
-            const isMetric = up.unitSystem === 'metric';
-            const toLbs = (v: number) => isMetric ? v * 2.205 : v;
-            const weightLbs = up.weightLbs || (isMetric && up.weightKg ? (up.weightKg as number) * 2.205 : 170);
-            const bodyFatPct = up.bodyFatPercentage || 20;
-            const targetWeightLbs = up.goalWeight ? toLbs(up.goalWeight as number) : weightLbs;
-            const targetBodyFat = up.goalBodyFatPercent || bodyFatPct;
-            const targetFatMassLbs = up.goalFatMass ? toLbs(up.goalFatMass as number) : ((targetWeightLbs as number) * ((targetBodyFat as number) / 100));
-            const targetFFMLbs = up.goalFFM ? toLbs(up.goalFFM as number) : ((targetWeightLbs as number) - (targetFatMassLbs as number));
+            const bodyCompGoals = buildBodyCompGoalsFromIntake(up);
+            const weightLbs = (typeof up.weightLbs === 'number' ? up.weightLbs : Number(up.weightLbs)) || 170;
+            const bodyFatPct = (typeof up.bodyFatPercentage === 'number' ? up.bodyFatPercentage : Number(up.bodyFatPercentage)) || 20;
+            const targetWeightLbs = bodyCompGoals.targetWeightLbs || weightLbs;
+            const targetBodyFat = bodyCompGoals.targetBodyFat || bodyFatPct;
+            const targetFatMassLbs = bodyCompGoals.targetFatMassLbs || (targetWeightLbs * (targetBodyFat / 100));
+            const targetFFMLbs = bodyCompGoals.targetFFMLbs || (targetWeightLbs - targetFatMassLbs);
+            const draftTargets = buildDraftNutritionTargetsFromIntake(up, weeklySchedule);
 
             const newPhase = {
               id: phaseId,
@@ -270,14 +381,14 @@ export async function POST(request: NextRequest) {
               targetBodyFat,
               targetFatMassLbs,
               targetFFMLbs,
-              rateOfChange: up.rateOfChange || 0.5,
+              rateOfChange: (typeof up.rateOfChange === 'number' ? up.rateOfChange : Number(up.rateOfChange)) || 0.5,
               performancePriority: 'body_comp_priority',
               musclePreservation: 'preserve_all',
               fatGainTolerance: 'minimize_fat_gain',
               lifestyleCommitment: 'fully_committed',
               trackingCommitment: 'committed_tracking',
               scheduleOverrides: null,
-              nutritionTargets: [],
+              nutritionTargets: draftTargets,
               mealPlan: null,
               notes: `Auto-created from intake form on ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
               createdAt: now,
@@ -302,7 +413,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, clientId, token: intakeToken, stripeRequired: needsPayment });
+    return NextResponse.json({ success: true, clientId, token: intakeToken, stripeRequired: needsPayment, submissionId });
   } catch (err) {
     console.error('[Intake Submit] Error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

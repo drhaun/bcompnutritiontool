@@ -10,20 +10,19 @@ export default function PaymentSuccessPage() {
   const searchParams = useSearchParams();
   const token = params.token as string;
   const sessionId = searchParams.get('session_id');
-  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
+  const submissionId = searchParams.get('submission_id');
+  const hasVerificationParams = !!sessionId && !!token;
+  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>(hasVerificationParams ? 'verifying' : 'error');
 
   useEffect(() => {
-    if (!sessionId || !token) {
-      setStatus('error');
-      return;
-    }
+    if (!hasVerificationParams) return;
 
     async function verify() {
       try {
         const res = await fetch(`/api/intake/${token}/checkout/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId }),
+          body: JSON.stringify({ sessionId, submissionId }),
         });
         if (res.ok) {
           setStatus('success');
@@ -36,7 +35,7 @@ export default function PaymentSuccessPage() {
     }
 
     verify();
-  }, [token, sessionId]);
+  }, [token, sessionId, submissionId, hasVerificationParams]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#00263d] to-[#001a2b] flex items-center justify-center p-4">

@@ -1,136 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { GripVertical, Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, ChevronRight, Settings2, Type, MessageSquare, HelpCircle, ListPlus, X } from 'lucide-react';
+import { GripVertical, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Settings2, Type, MessageSquare, HelpCircle, ListPlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ALL_BLOCK_IDS, getBlockMeta } from '@/lib/form-library';
 import type { FormBlockConfig, FormBlockId, CustomField, CustomFieldType } from '@/types';
-
-// ── Block metadata with available fields per block ──────────────────────────
-
-export interface BlockFieldMeta {
-  key: string;
-  label: string;
-  dataKeys: string[];
-}
-
-export interface BlockMeta {
-  id: FormBlockId;
-  label: string;
-  description: string;
-  fields: BlockFieldMeta[];
-}
-
-export const ALL_BLOCK_IDS: BlockMeta[] = [
-  { id: 'personal_info', label: 'Personal Info', description: 'Name, gender, age/DOB, height, weight',
-    fields: [
-      { key: 'name', label: 'Full Name', dataKeys: ['name'] },
-      { key: 'gender', label: 'Gender', dataKeys: ['gender'] },
-      { key: 'age', label: 'Age / Date of Birth', dataKeys: ['age', 'dateOfBirth', 'useDOB'] },
-      { key: 'height', label: 'Height', dataKeys: ['heightFt', 'heightIn'] },
-      { key: 'weight', label: 'Weight', dataKeys: ['weightLbs'] },
-    ] },
-  { id: 'body_composition', label: 'Body Composition', description: 'Body fat source, body fat %',
-    fields: [
-      { key: 'bodyFatSource', label: 'Body Fat Source (estimate/measured)', dataKeys: ['bodyFatSource'] },
-      { key: 'bodyFatPercent', label: 'Body Fat Percentage', dataKeys: ['bodyFatPercent'] },
-    ] },
-  { id: 'lifestyle', label: 'Lifestyle', description: 'Wake/sleep, work type/schedule, activity level',
-    fields: [
-      { key: 'wakeTime', label: 'Wake Time', dataKeys: ['wakeTime'] },
-      { key: 'bedTime', label: 'Bed Time', dataKeys: ['bedTime'] },
-      { key: 'workType', label: 'Work Type / Schedule', dataKeys: ['workType', 'workStartTime', 'workEndTime'] },
-      { key: 'activityLevel', label: 'Daily Activity Level', dataKeys: ['activityLevel'] },
-    ] },
-  { id: 'training', label: 'Training', description: 'Workouts/week, type, duration, intensity, time',
-    fields: [
-      { key: 'workoutsPerWeek', label: 'Workouts Per Week', dataKeys: ['workoutsPerWeek'] },
-      { key: 'workoutType', label: 'Default Workout Type', dataKeys: ['defaultWorkoutType'] },
-      { key: 'duration', label: 'Default Duration', dataKeys: ['defaultDuration'] },
-      { key: 'intensity', label: 'Default Intensity', dataKeys: ['defaultIntensity'] },
-      { key: 'timeSlot', label: 'Default Time Slot', dataKeys: ['defaultTimeSlot'] },
-    ] },
-  { id: 'meals', label: 'Meal Structure', description: 'Meals/day, snacks, fasting, peri-workout prefs',
-    fields: [
-      { key: 'mealsPerDay', label: 'Meals Per Day', dataKeys: ['mealsPerDay'] },
-      { key: 'snacksPerDay', label: 'Snacks Per Day', dataKeys: ['snacksPerDay'] },
-      { key: 'fasting', label: 'Fasting Protocol / Feeding Window', dataKeys: ['fastingProtocol', 'feedingWindowStart', 'feedingWindowEnd'] },
-      { key: 'energyDistribution', label: 'Energy Distribution', dataKeys: ['energyDistribution'] },
-      { key: 'periWorkout', label: 'Pre/Post Workout Nutrition', dataKeys: ['includePreWorkoutSnack', 'preWorkoutPreference', 'includePostWorkoutMeal', 'postWorkoutPreference'] },
-    ] },
-  { id: 'supplements', label: 'Supplements', description: 'Supplement list',
-    fields: [
-      { key: 'supplements', label: 'Supplement Checklist', dataKeys: ['supplements'] },
-      { key: 'customSupplement', label: 'Custom Supplement Entry', dataKeys: ['customSupplement'] },
-    ] },
-  { id: 'diet_preferences', label: 'Diet Preferences', description: 'Restrictions, allergies, protein/carb/fat prefs',
-    fields: [
-      { key: 'restrictions', label: 'Dietary Restrictions', dataKeys: ['dietaryRestrictions'] },
-      { key: 'allergies', label: 'Allergies', dataKeys: ['allergies'] },
-      { key: 'proteinPrefs', label: 'Preferred Proteins', dataKeys: ['preferredProteins'] },
-      { key: 'carbPrefs', label: 'Preferred Carbs', dataKeys: ['preferredCarbs'] },
-      { key: 'fatPrefs', label: 'Preferred Fats', dataKeys: ['preferredFats'] },
-    ] },
-  { id: 'cuisine_foods', label: 'Cuisine & Foods', description: 'Cuisine styles, foods to emphasize/avoid',
-    fields: [
-      { key: 'cuisines', label: 'Cuisine Preferences', dataKeys: ['cuisinePreferences'] },
-      { key: 'foodsToEmphasize', label: 'Foods to Emphasize', dataKeys: ['foodsToEmphasize'] },
-      { key: 'foodsToAvoid', label: 'Foods to Avoid', dataKeys: ['foodsToAvoid'] },
-    ] },
-  { id: 'practical_flavor', label: 'Practical & Flavor', description: 'Variety, cooking time, budget, spice, flavors',
-    fields: [
-      { key: 'variety', label: 'Variety Level', dataKeys: ['varietyLevel'] },
-      { key: 'cookingTime', label: 'Cooking Time', dataKeys: ['cookingTime'] },
-      { key: 'budget', label: 'Budget', dataKeys: ['budgetPreference'] },
-      { key: 'spice', label: 'Spice Tolerance', dataKeys: ['spiceLevel'] },
-      { key: 'flavors', label: 'Flavor Profiles', dataKeys: ['flavorProfiles'] },
-    ] },
-  { id: 'goals_notes', label: 'Goals & Notes', description: 'Health goals, performance goals, notes',
-    fields: [
-      { key: 'healthGoals', label: 'Health Goals', dataKeys: ['healthGoals'] },
-      { key: 'performanceGoals', label: 'Performance Goals', dataKeys: ['performanceGoals'] },
-      { key: 'notes', label: 'Additional Notes', dataKeys: ['additionalNotes'] },
-    ] },
-  { id: 'team_personal', label: 'Team: Personal', description: 'First/Middle/Last name, email, phone, age/DOB',
-    fields: [
-      { key: 'firstName', label: 'First Name', dataKeys: ['firstName'] },
-      { key: 'middleName', label: 'Middle Name', dataKeys: ['middleName'] },
-      { key: 'lastName', label: 'Last Name', dataKeys: ['lastName'] },
-      { key: 'email', label: 'Email', dataKeys: ['email'] },
-      { key: 'phone', label: 'Phone', dataKeys: ['phone'] },
-      { key: 'ageDOB', label: 'Age / Date of Birth', dataKeys: ['age', 'dateOfBirth', 'useDOB'] },
-    ] },
-  { id: 'team_units', label: 'Team: Units', description: 'Imperial or metric unit preference',
-    fields: [
-      { key: 'unitSystem', label: 'Unit System Toggle', dataKeys: ['unitSystem'] },
-    ] },
-  { id: 'team_body_comp', label: 'Team: Body Comp', description: 'Height, weight, BF%, derived FM/FFM',
-    fields: [
-      { key: 'height', label: 'Height', dataKeys: ['heightFt', 'heightIn', 'heightCm'] },
-      { key: 'weight', label: 'Weight', dataKeys: ['weightLbs', 'weightKg'] },
-      { key: 'bodyFat', label: 'Body Fat %', dataKeys: ['bodyFatPercent'] },
-      { key: 'fatMass', label: 'Fat Mass (derived)', dataKeys: [] },
-      { key: 'fatFreeMass', label: 'Fat-Free Mass (derived)', dataKeys: [] },
-    ] },
-  { id: 'team_goals', label: 'Team: Goals', description: 'Goal type, target weight, target BF% with constraints',
-    fields: [
-      { key: 'goalType', label: 'Goal Type', dataKeys: ['goalType', 'goalRate', 'recompBias'] },
-      { key: 'goalWeight', label: 'Goal Weight', dataKeys: ['goalWeight'] },
-      { key: 'goalBF', label: 'Goal Body Fat %', dataKeys: ['goalBodyFatPercent'] },
-      { key: 'goalFM', label: 'Goal Fat Mass', dataKeys: ['goalFatMass'] },
-      { key: 'goalFFM', label: 'Goal Fat-Free Mass', dataKeys: ['goalFFM'] },
-    ] },
-  { id: 'team_rmr', label: 'Team: RMR', description: 'Resting metabolic rate (estimated or measured)',
-    fields: [
-      { key: 'rmrToggle', label: 'Estimated vs. Measured Toggle', dataKeys: ['useMeasuredRMR'] },
-      { key: 'measuredRMR', label: 'Measured RMR Input', dataKeys: ['measuredRMR'] },
-    ] },
-  { id: 'team_activity', label: 'Team: Activity Grid', description: 'Sun-Sat weekly activity with up to 3 bouts/day',
-    fields: [
-      { key: 'activityGrid', label: 'Weekly Activity Grid', dataKeys: ['weeklyActivity'] },
-    ] },
-  { id: 'custom_questions', label: 'Custom Questions', description: 'Add your own questions (text, select, number, etc.)',
-    fields: [] },
-];
 
 const FIELD_TYPE_OPTIONS: { value: CustomFieldType; label: string; desc: string }[] = [
   { value: 'text', label: 'Short Text', desc: 'Single-line text input' },
@@ -141,10 +15,6 @@ const FIELD_TYPE_OPTIONS: { value: CustomFieldType; label: string; desc: string 
   { value: 'toggle', label: 'Yes / No', desc: 'Toggle switch' },
   { value: 'date', label: 'Date', desc: 'Date picker' },
 ];
-
-export function getBlockMeta(id: FormBlockId) {
-  return ALL_BLOCK_IDS.find(b => b.id === id);
-}
 
 // ── Custom Field Editor ─────────────────────────────────────────────────────
 
@@ -286,18 +156,6 @@ export function FormConfigBuilder({ value, onChange }: FormConfigBuilderProps) {
     onChange(next);
   }, [value, onChange]);
 
-  const toggleField = useCallback((idx: number, fieldKey: string) => {
-    const next = [...value];
-    const hidden = new Set(next[idx].hiddenFields || []);
-    if (hidden.has(fieldKey)) {
-      hidden.delete(fieldKey);
-    } else {
-      hidden.add(fieldKey);
-    }
-    next[idx] = { ...next[idx], hiddenFields: hidden.size > 0 ? Array.from(hidden) : undefined };
-    onChange(next);
-  }, [value, onChange]);
-
   const addBlock = useCallback((id: FormBlockId) => {
     const newBlock: FormBlockConfig = { id, required: false };
     if (id === 'custom_questions') {
@@ -358,11 +216,8 @@ export function FormConfigBuilder({ value, onChange }: FormConfigBuilderProps) {
           const hasCustomLabel = !!block.label && block.label !== meta?.label;
           const hasDescription = !!block.description;
           const hasHelpText = !!block.helpText;
-          const hiddenCount = (block.hiddenFields || []).length;
-          const totalFields = meta?.fields.length || 0;
-          const visibleFields = totalFields - hiddenCount;
           const customFieldCount = (block.customFields || []).length;
-          const hasCustomizations = hasCustomLabel || hasDescription || hasHelpText || hiddenCount > 0 || customFieldCount > 0;
+          const hasCustomizations = hasCustomLabel || hasDescription || hasHelpText || customFieldCount > 0;
 
           return (
             <div key={`${block.id}-${idx}`} className={cn('bg-white rounded-lg border shadow-sm transition-all',
@@ -450,66 +305,34 @@ export function FormConfigBuilder({ value, onChange }: FormConfigBuilderProps) {
                       placeholder="Optional tip or instruction shown below the fields..." />
                   </div>
 
-                  {/* Field visibility toggles (predefined blocks only) */}
                   {meta && meta.fields.length > 0 && (
-                    <div>
-                      <label className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1.5">
-                        <Eye className="h-3 w-3" /> Built-in Fields
-                        <span className="text-gray-400 font-normal ml-1">{visibleFields}/{totalFields} shown</span>
-                      </label>
-                      <div className="space-y-1">
-                        {meta.fields.map(f => {
-                          const isHidden = (block.hiddenFields || []).includes(f.key);
-                          return (
-                            <button key={f.key} type="button" onClick={() => toggleField(idx, f.key)}
-                              className={cn('w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-colors text-sm',
-                                isHidden
-                                  ? 'border-gray-200 bg-gray-100 text-gray-400 line-through'
-                                  : 'border-gray-200 bg-white text-gray-700 hover:border-[#c19962]')}>
-                              {isHidden
-                                ? <EyeOff className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                                : <Eye className="h-3.5 w-3.5 text-[#c19962] flex-shrink-0" />}
-                              {f.label}
-                            </button>
-                          );
-                        })}
-                      </div>
+                    <div className="rounded-lg border border-dashed border-gray-300 bg-white px-3 py-3">
+                      <p className="text-[11px] text-gray-500">
+                        Built-in field visibility, ordering, and overrides are managed from the form&apos;s
+                        <span className="font-medium text-gray-700"> Form Field Assignments </span>
+                        section and the
+                        <span className="font-medium text-gray-700"> Field Library</span>.
+                      </p>
                     </div>
                   )}
 
-                  {/* Custom Questions Editor */}
+                  {/* Reusable fields notice */}
                   <div>
                     <label className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1.5">
                       <ListPlus className="h-3 w-3" />
-                      {isCustomBlock ? 'Questions' : 'Additional Questions'}
+                      {isCustomBlock ? 'Reusable Questions' : 'Assigned Reusable Questions'}
                       <span className="text-gray-400 font-normal ml-1">
                         {customFieldCount} question{customFieldCount !== 1 ? 's' : ''}
                       </span>
                     </label>
-
-                    {!isCustomBlock && customFieldCount === 0 && (
-                      <p className="text-[10px] text-gray-400 mb-2">
-                        You can add custom questions that will appear after the built-in fields in this step.
+                    <div className="rounded-lg border border-dashed border-gray-300 bg-white px-3 py-3">
+                      <p className="text-[11px] text-gray-500">
+                        Reusable custom fields are now managed separately from the block builder. Assign them from the form editor&apos;s
+                        <span className="font-medium text-gray-700"> Assigned Reusable Fields </span>
+                        section or create them in the
+                        <span className="font-medium text-gray-700"> Field Library</span>.
                       </p>
-                    )}
-
-                    {customFieldCount > 0 && (
-                      <div className="space-y-2 mb-3">
-                        {(block.customFields || []).map((field, fi) => (
-                          <CustomFieldEditor
-                            key={field.id}
-                            field={field}
-                            onChange={(patch) => updateCustomField(idx, fi, patch)}
-                            onRemove={() => removeCustomField(idx, fi)}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    <button type="button" onClick={() => addCustomField(idx)}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border-2 border-dashed border-gray-300 hover:border-[#c19962] hover:bg-[#c19962]/5 transition-colors text-sm text-gray-500 hover:text-[#c19962]">
-                      <Plus className="h-3.5 w-3.5" /> Add Question
-                    </button>
+                    </div>
                   </div>
 
                   {/* Summary */}
@@ -521,7 +344,6 @@ export function FormConfigBuilder({ value, onChange }: FormConfigBuilderProps) {
                           hasCustomLabel && 'Custom title',
                           hasDescription && 'Description',
                           hasHelpText && 'Help text',
-                          hiddenCount > 0 && `${hiddenCount} field${hiddenCount !== 1 ? 's' : ''} hidden`,
                           customFieldCount > 0 && `${customFieldCount} custom question${customFieldCount !== 1 ? 's' : ''}`,
                         ].filter(Boolean).join(' · ')}
                       </p>

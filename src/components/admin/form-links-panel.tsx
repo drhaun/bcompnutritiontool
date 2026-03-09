@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Trash2, Loader2, ChevronDown, ChevronUp, Link2, Lock, Unlock, Check, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ALL_BLOCK_IDS, type BlockMeta } from '@/components/admin/form-config-builder';
+import { ALL_BLOCK_IDS, type BlockMeta } from '@/lib/form-library';
 import type { ClientGroup, IntakeForm, GroupFormLink, FieldMapping, FormBlockConfig, FormBlockId } from '@/types';
 
 interface FormLinksPanelProps {
@@ -166,8 +166,8 @@ export function FormLinksPanel({ groups, forms, selectedGroupId, onSelectedGroup
   return (
     <div className="space-y-6">
       <p className="text-sm text-gray-500">
-        Link a coach (source) form to a player (target) form within a group. When the coach fills out the source form,
-        mapped fields will auto-populate on every player&apos;s form in that group.
+        Link a coach (source) form to a player (target) form within a group. When someone completes the source form
+        using that group&apos;s shared link, the mapped fields will auto-populate on the target form for that group.
       </p>
 
       {/* Error banner */}
@@ -507,7 +507,7 @@ function FormLinkCard({ link, forms, expanded, onToggleExpand, onDelete, onSaveM
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-gray-500">
-                  Fill out the source form to provide data that will auto-populate the player form.
+                  Complete the source form through its shared link to populate this automatically, or use the button below to seed test data manually.
                 </p>
                 <button onClick={onStartFill}
                   className="h-9 px-4 rounded-lg bg-[#00263d] hover:bg-[#001a2b] text-white text-sm font-semibold flex items-center gap-2">

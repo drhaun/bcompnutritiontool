@@ -602,16 +602,9 @@ export function PhaseTargetsEditor({
           mealSlotTargets: savedTarget.mealSlotTargets,
           // Restore custom day label
           dayLabel: savedTarget.dayLabel || target.dayLabel,
-          // Restore workouts - either from saved workouts array or create one if it was a workout day
-          workouts: savedTarget.workouts?.length > 0 
-            ? savedTarget.workouts 
-            : (target.isWorkoutDay ? [{
-                enabled: true,
-                type: 'Resistance Training' as WorkoutType,
-                timeSlot: 'evening' as WorkoutTimeSlot,
-                duration: 60,
-                intensity: 'Medium' as const,
-              }] : []),
+          // Only restore explicit workout overrides.
+          // Otherwise, let the editor hydrate from the client's saved schedule/activity data.
+          ...(savedTarget.workouts?.length > 0 ? { workouts: savedTarget.workouts } : {}),
         };
       });
     }

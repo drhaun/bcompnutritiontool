@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { IntakeForm } from '@/components/intake/intake-form';
 import { extractPrePopulatedFields, getLockedFormStateKeys } from '@/lib/field-mapping-utils';
-import type { FormBlockConfig, FieldMapping, ClientCreationMode } from '@/types';
+import type { FormBlockConfig, FieldMapping, ClientCreationMode, FormPricingConfig } from '@/types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -30,7 +31,10 @@ interface ResolvedForm {
   welcomeDescription?: string;
   slug: string;
   formId?: string;
+  pricingConfig?: FormPricingConfig | null;
   clientCreationMode?: ClientCreationMode;
+  groupId?: string;
+  groupSlug?: string;
 }
 
 interface FormLinkData {
@@ -45,6 +49,7 @@ export default function IntakeTokenPage() {
   const raw = params.token as string;
   const isToken = UUID_RE.test(raw);
   const formIdParam = searchParams.get('form');
+  const isPreview = searchParams.get('preview') === '1';
 
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [groupData, setGroupData] = useState<ResolvedForm | null>(null);
@@ -61,26 +66,89 @@ export default function IntakeTokenPage() {
   // Local mode: for on_submit / none — form renders without a client record
   const [localMode, setLocalMode] = useState(false);
   const [localSubmitted, setLocalSubmitted] = useState(false);
+  const [showCheckoutPreview, setShowCheckoutPreview] = useState(false);
 
   const creationMode = groupData?.clientCreationMode || 'on_start';
 
+  const buildPreviewCustomAnswers = useCallback((config: FormBlockConfig[] | undefined) => {
+    const answers: Record<string, string | string[] | boolean> = {};
+    const allFields = (config || []).flatMap(block => block.customFields || []);
+    for (const field of allFields) {
+      if (field.type === 'number') answers[field.id] = '25';
+      else if (field.type === 'text' || field.type === 'textarea') answers[field.id] = `Sample ${field.label.toLowerCase()}`;
+      else if (field.type === 'select') answers[field.id] = field.options?.[0] || '';
+      else if (field.type === 'multiselect') answers[field.id] = field.options?.slice(0, 2) || [];
+      else if (field.type === 'toggle') answers[field.id] = true;
+      else if (field.type === 'date') answers[field.id] = new Date().toISOString().split('T')[0];
+    }
+    return answers;
+  }, []);
+
   useEffect(() => {
-    async function resolveFormFromGroup(groupSlug: string): Promise<(ResolvedForm & { groupId?: string }) | null> {
+    async function resolveFormFromGroup(groupSlug: string, preferredFormId?: string | null): Promise<ResolvedForm | null> {
       const gRes = await fetch(`/api/groups?slug=${groupSlug}`);
       const gData = await gRes.json();
       const g = gData.groups?.[0];
       if (!g) return null;
+
+      if (preferredFormId) {
+        const fRes = await fetch(`/api/forms/${preferredFormId}`);
+        if (fRes.ok) {
+          const fData = await fRes.json();
+          const f = fData.form;
+          if (f) {
+            return {
+              formConfig: f.resolvedFormConfig || f.formConfig,
+              stripeEnabled: f.stripeEnabled,
+              stripePriceId: f.stripePriceId,
+              stripePromoEnabled: f.stripePromoEnabled,
+              welcomeTitle: f.welcomeTitle,
+              welcomeDescription: f.welcomeDescription,
+              slug: f.slug,
+              formId: f.id,
+              pricingConfig: f.pricingConfig,
+              groupId: g.id,
+              groupSlug: g.slug,
+              clientCreationMode: f.clientCreationMode,
+            };
+          }
+        }
+      }
 
       if (g.defaultFormId) {
         const fRes = await fetch(`/api/forms/${g.defaultFormId}`);
         if (fRes.ok) {
           const fData = await fRes.json();
           const f = fData.form;
-          if (f) return { formConfig: f.formConfig, stripeEnabled: f.stripeEnabled, stripePriceId: f.stripePriceId, stripePromoEnabled: f.stripePromoEnabled, welcomeTitle: f.welcomeTitle, welcomeDescription: f.welcomeDescription, slug: f.slug, formId: f.id, groupId: g.id, clientCreationMode: f.clientCreationMode };
+          if (f) return {
+            formConfig: f.resolvedFormConfig || f.formConfig,
+            stripeEnabled: f.stripeEnabled,
+            stripePriceId: f.stripePriceId,
+            stripePromoEnabled: f.stripePromoEnabled,
+            welcomeTitle: f.welcomeTitle,
+            welcomeDescription: f.welcomeDescription,
+            slug: f.slug,
+            formId: f.id,
+            pricingConfig: f.pricingConfig,
+            groupId: g.id,
+            groupSlug: g.slug,
+            clientCreationMode: f.clientCreationMode,
+          };
         }
       }
 
-      return { formConfig: g.formConfig, stripeEnabled: g.stripeEnabled, stripePriceId: g.stripePriceId, stripePromoEnabled: g.stripePromoEnabled, welcomeTitle: g.welcomeTitle, welcomeDescription: g.welcomeDescription, slug: g.slug, groupId: g.id };
+      return {
+        formConfig: g.formConfig,
+        stripeEnabled: g.stripeEnabled,
+        stripePriceId: g.stripePriceId,
+        stripePromoEnabled: g.stripePromoEnabled,
+        welcomeTitle: g.welcomeTitle,
+        welcomeDescription: g.welcomeDescription,
+        slug: g.slug,
+        pricingConfig: null,
+        groupId: g.id,
+        groupSlug: g.slug,
+      };
     }
 
     async function resolveFormLink(groupId: string, targetFormId: string) {
@@ -99,6 +167,52 @@ export default function IntakeTokenPage() {
     }
 
     async function init() {
+      if (isPreview && !isToken) {
+        try {
+          if (formIdParam) {
+            const groupScopedForm = await resolveFormFromGroup(raw, formIdParam);
+            if (groupScopedForm) {
+              setGroupData(groupScopedForm);
+              setSlugMode(true);
+              setLocalMode(true);
+              setLoading(false);
+              return;
+            }
+          }
+
+          const form = await resolveFormFromGroup(raw, formIdParam);
+          if (form) {
+            setGroupData(form);
+            setSlugMode(true);
+            setLocalMode(true);
+            setLoading(false);
+            return;
+          }
+
+          const standaloneRes = await fetch(`/api/forms?slug=${raw}&active_only=true`);
+          const standaloneData = await standaloneRes.json();
+          if (standaloneData.forms?.length) {
+            const f = standaloneData.forms[0];
+            setGroupData({
+              formConfig: f.resolvedFormConfig || f.formConfig,
+              stripeEnabled: f.stripeEnabled,
+              stripePriceId: f.stripePriceId,
+              stripePromoEnabled: f.stripePromoEnabled,
+              welcomeTitle: f.welcomeTitle,
+              welcomeDescription: f.welcomeDescription,
+              slug: f.slug,
+              formId: f.id,
+              pricingConfig: f.pricingConfig,
+              clientCreationMode: f.clientCreationMode,
+            });
+            setSlugMode(true);
+            setLocalMode(true);
+            setLoading(false);
+            return;
+          }
+        } catch { setError('Preview could not be loaded.'); }
+      }
+
       if (isToken) {
         // Token mode — client already exists, always server saves
         try {
@@ -120,12 +234,12 @@ export default function IntakeTokenPage() {
               const fData = await fRes.json();
               const f = fData.form;
               if (f) {
-                setGroupData({ formConfig: f.formConfig, stripeEnabled: f.stripeEnabled, stripePriceId: f.stripePriceId, stripePromoEnabled: f.stripePromoEnabled, welcomeTitle: f.welcomeTitle, welcomeDescription: f.welcomeDescription, slug: f.slug, formId: f.id, clientCreationMode: f.clientCreationMode });
+                setGroupData({ formConfig: f.resolvedFormConfig || f.formConfig, stripeEnabled: f.stripeEnabled, stripePriceId: f.stripePriceId, stripePromoEnabled: f.stripePromoEnabled, welcomeTitle: f.welcomeTitle, welcomeDescription: f.welcomeDescription, slug: f.slug, formId: f.id, pricingConfig: f.pricingConfig, clientCreationMode: f.clientCreationMode });
                 resolvedFormId = f.id;
               }
             }
           } else if (data.groupSlug) {
-            const form = await resolveFormFromGroup(data.groupSlug);
+            const form = await resolveFormFromGroup(data.groupSlug, formIdParam);
             if (form) {
               setGroupData(form);
               resolvedFormId = form.formId;
@@ -140,16 +254,43 @@ export default function IntakeTokenPage() {
       } else {
         // Slug mode — try standalone form first, then group
         try {
+          if (formIdParam) {
+            const groupScopedForm = await resolveFormFromGroup(raw, formIdParam);
+            if (groupScopedForm) {
+              setGroupData(groupScopedForm);
+              if (groupScopedForm.groupId && groupScopedForm.formId) {
+                await resolveFormLink(groupScopedForm.groupId, groupScopedForm.formId);
+              }
+              setSlugMode(true);
+              setLoading(false);
+              return;
+            }
+          }
+
           const fRes = await fetch(`/api/forms?slug=${raw}&active_only=true`);
           const fData = await fRes.json();
-          if (fData.forms?.length) {
+          if (fData.forms?.length && !formIdParam) {
             const f = fData.forms[0];
-            setGroupData({ formConfig: f.formConfig, stripeEnabled: f.stripeEnabled, stripePriceId: f.stripePriceId, stripePromoEnabled: f.stripePromoEnabled, welcomeTitle: f.welcomeTitle, welcomeDescription: f.welcomeDescription, slug: f.slug, formId: f.id, clientCreationMode: f.clientCreationMode });
+            setGroupData({
+              formConfig: f.resolvedFormConfig || f.formConfig,
+              stripeEnabled: f.stripeEnabled,
+              stripePriceId: f.stripePriceId,
+              stripePromoEnabled: f.stripePromoEnabled,
+              welcomeTitle: f.welcomeTitle,
+              welcomeDescription: f.welcomeDescription,
+              slug: f.slug,
+              formId: f.id,
+              pricingConfig: f.pricingConfig,
+              clientCreationMode: f.clientCreationMode,
+            });
             setSlugMode(true);
           } else {
-            const form = await resolveFormFromGroup(raw);
+            const form = await resolveFormFromGroup(raw, formIdParam);
             if (!form) { setError('This form is not available.'); return; }
             setGroupData(form);
+            if (form.groupId && form.formId) {
+              await resolveFormLink(form.groupId, form.formId);
+            }
             setSlugMode(true);
           }
         } catch { setError('Network error. Please check your connection.'); }
@@ -157,7 +298,7 @@ export default function IntakeTokenPage() {
       setLoading(false);
     }
     init();
-  }, [raw, isToken, formIdParam]);
+  }, [raw, isToken, formIdParam, isPreview]);
 
   // on_start: original flow — create client, redirect to token
   const handleSlugSignup = useCallback(async (e: React.FormEvent) => {
@@ -168,7 +309,7 @@ export default function IntakeTokenPage() {
       const res = await fetch('/api/intake/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: signupName.trim(), email: signupEmail.trim(), groupSlug: raw }),
+        body: JSON.stringify({ name: signupName.trim(), email: signupEmail.trim(), groupSlug: groupData?.groupSlug || raw }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Something went wrong.'); setSigningUp(false); return; }
@@ -188,8 +329,10 @@ export default function IntakeTokenPage() {
   const handleLocalSubmit = useCallback(async (formData: {
     userProfile: Record<string, unknown>;
     dietPreferences: Record<string, unknown>;
+    weeklySchedule: Record<string, unknown>;
     customAnswers: Record<string, unknown>;
   }) => {
+    setError(null);
     const res = await fetch('/api/intake/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -199,13 +342,15 @@ export default function IntakeTokenPage() {
         email: signupEmail.trim().toLowerCase(),
         userProfile: formData.userProfile,
         dietPreferences: formData.dietPreferences,
+        weeklySchedule: formData.weeklySchedule,
         customAnswers: formData.customAnswers,
         formId: groupData?.formId || null,
-        groupSlug: raw,
+        groupSlug: groupData?.groupSlug || raw,
       }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
+      setError(data.error || 'Submission failed');
       throw new Error(data.error || 'Submission failed');
     }
     const result = await res.json();
@@ -214,6 +359,11 @@ export default function IntakeTokenPage() {
     const lsKey = `intake-draft-${raw}-${signupEmail.trim().toLowerCase()}`;
     try { localStorage.removeItem(lsKey); } catch { /* */ }
 
+    if (result.checkoutUrl) {
+      window.location.href = result.checkoutUrl;
+      return false;
+    }
+
     // If Stripe payment required, redirect to checkout
     if (result.stripeRequired && result.token) {
       try {
@@ -221,12 +371,16 @@ export default function IntakeTokenPage() {
         const checkoutData = await checkoutRes.json();
         if (checkoutData.url) {
           window.location.href = checkoutData.url;
-          return;
+          return false;
         }
-      } catch { /* fall through to submitted state */ }
+      } catch {
+        setError('Unable to start checkout. Please try again.');
+        throw new Error('Unable to start checkout');
+      }
     }
 
     setLocalSubmitted(true);
+    return true;
   }, [creationMode, signupName, signupEmail, groupData, raw]);
 
   const handleCheckout = useCallback(async () => {
@@ -263,7 +417,7 @@ export default function IntakeTokenPage() {
             <AlertCircle className="h-12 w-12 text-red-400 mx-auto" />
             <h1 className="text-xl font-bold text-[#00263d]">Link Issue</h1>
             <p className="text-gray-600 text-sm">{error}</p>
-            <a href="/intake" className="inline-block mt-4 px-6 py-3 rounded-xl bg-[#c19962] text-[#00263d] font-semibold hover:bg-[#a8833e] transition-colors">Start a New Form</a>
+            <Link href="/intake" className="inline-block mt-4 px-6 py-3 rounded-xl bg-[#c19962] text-[#00263d] font-semibold hover:bg-[#a8833e] transition-colors">Start a New Form</Link>
           </div>
         </div>
       </div>
@@ -300,26 +454,60 @@ export default function IntakeTokenPage() {
   if (localMode && groupData) {
     const lsKey = `intake-draft-${raw}-${signupEmail.trim().toLowerCase()}`;
     return (
-      <IntakeForm
-        token={`local-${raw}`}
-        initialData={{
-          clientId: '',
-          name: signupName.trim(),
-          email: signupEmail.trim(),
-          userProfile: {},
-          dietPreferences: {},
-          weeklySchedule: {},
-        }}
-        formConfig={groupData.formConfig}
-        stripeEnabled={false}
-        welcomeTitle={groupData.welcomeTitle}
-        formId={groupData.formId}
-        prePopulatedFields={formLinkData?.prePopulatedFields}
-        lockedFields={formLinkData?.lockedFields}
-        saveMode="local"
-        localStorageKey={lsKey}
-        onLocalSubmit={handleLocalSubmit}
-      />
+      <>
+        <IntakeForm
+          token={`local-${raw}`}
+          initialData={{
+            clientId: '',
+            name: isPreview ? 'Preview Coach' : signupName.trim(),
+            email: isPreview ? 'preview@fitomics.com' : signupEmail.trim(),
+            userProfile: isPreview ? { firstName: 'Preview', lastName: 'Coach', gender: 'Male' } : {},
+            dietPreferences: {},
+            weeklySchedule: {},
+          }}
+          formConfig={groupData.formConfig}
+          stripeEnabled={isPreview ? !!groupData.pricingConfig : !!groupData.stripeEnabled}
+          onCheckout={isPreview ? () => setShowCheckoutPreview(true) : undefined}
+          welcomeTitle={groupData.welcomeTitle}
+          formId={groupData.formId}
+          pricingConfig={groupData.pricingConfig}
+          previewMode={isPreview}
+          initialCustomAnswers={isPreview ? buildPreviewCustomAnswers(groupData.formConfig) : undefined}
+          prePopulatedFields={formLinkData?.prePopulatedFields}
+          lockedFields={formLinkData?.lockedFields}
+          saveMode="local"
+          localStorageKey={isPreview ? undefined : lsKey}
+          onLocalSubmit={isPreview ? undefined : handleLocalSubmit}
+        />
+        {isPreview && showCheckoutPreview && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900">Checkout Preview</h2>
+                <p className="text-sm text-gray-500 mt-1">Current live flow: the form review step shows pricing, then redirects to Stripe Checkout.</p>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="rounded-xl border border-gray-200 p-4 space-y-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">What happens</p>
+                  <p className="text-sm text-gray-700">1. Coach reviews entered values.</p>
+                  <p className="text-sm text-gray-700">2. Pricing summary is shown on the final form step.</p>
+                  <p className="text-sm text-gray-700">3. Clicking <span className="font-medium">Proceed to Payment</span> creates a Stripe Checkout session.</p>
+                  <p className="text-sm text-gray-700">4. The coach is redirected to hosted Stripe Checkout.</p>
+                </div>
+                <div className="rounded-xl bg-blue-50 border border-blue-100 p-4">
+                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Current Status</p>
+                  <p className="text-sm text-blue-900 mt-1">Inline embedded checkout is not implemented in this flow yet. This preview reflects the current hosted Stripe redirect behavior.</p>
+                </div>
+              </div>
+              <div className="px-5 py-4 border-t border-gray-100 flex justify-end">
+                <button onClick={() => setShowCheckoutPreview(false)} className="h-10 px-4 rounded-lg bg-[#00263d] text-white text-sm font-medium hover:bg-[#003a5c]">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -392,6 +580,7 @@ export default function IntakeTokenPage() {
       onCheckout={handleCheckout}
       welcomeTitle={groupData?.welcomeTitle}
       formId={groupData?.formId}
+      pricingConfig={groupData?.pricingConfig}
       successTitle={groupData?.slug === 'team-standard' ? 'Congrats!' : undefined}
       successMessage={groupData?.slug === 'team-standard'
         ? 'Your entry has been submitted. Your personalized nutrition targets are under construction by the Fitomics Nutrition Team. Please allow up to 72 hours for careful review and calculation.'

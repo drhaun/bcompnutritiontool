@@ -849,6 +849,7 @@ export type FormBlockId =
   | 'custom_questions';
 
 export type CustomFieldType = 'text' | 'textarea' | 'number' | 'select' | 'multiselect' | 'toggle' | 'date';
+export type FormFieldKind = 'built_in' | 'custom';
 
 export interface CustomField {
   id: string;
@@ -858,16 +859,129 @@ export interface CustomField {
   placeholder?: string;
   helpText?: string;
   options?: string[]; // for select/multiselect
+  fieldKind?: FormFieldKind;
+  builtInKey?: string;
+  supportedBlockIds?: FormBlockId[];
+  dataKeys?: string[];
+}
+
+export interface ReusableCustomField extends CustomField {
+  name: string;
+  isActive: boolean;
+  fieldKind: FormFieldKind;
+  builtInKey?: string;
+  supportedBlockIds?: FormBlockId[];
+  dataKeys?: string[];
+  createdAt: string;
+  updatedAt: string;
+  usageCount?: number;
+}
+
+export interface FormFieldAssignment {
+  id: string;
+  formId: string;
+  blockId: FormBlockId;
+  blockInstanceId: string;
+  fieldId: string;
+  sortOrder: number;
+  isVisible: boolean;
+  requiredOverride?: boolean | null;
+  labelOverride?: string | null;
+  helpTextOverride?: string | null;
+  placeholderOverride?: string | null;
+  field?: ReusableCustomField;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResolvedFormField extends CustomField {
+  fieldId: string;
+  fieldKind: FormFieldKind;
+  builtInKey?: string;
+  blockId: FormBlockId;
+  blockInstanceId: string;
+  sortOrder: number;
+  isVisible: boolean;
+  assignmentId?: string;
+  supportedBlockIds?: FormBlockId[];
+  dataKeys?: string[];
 }
 
 export interface FormBlockConfig {
   id: FormBlockId;
+  instanceId?: string;
   required: boolean;
   label?: string;
   description?: string;
   helpText?: string;
   hiddenFields?: string[];
   customFields?: CustomField[];
+  resolvedFields?: ResolvedFormField[];
+}
+
+export type FormPricingMode = 'fixed' | 'per_player' | 'base_plus_per_player' | 'tiered' | 'manual_quote';
+
+export interface FixedPricingConfig {
+  mode: 'fixed';
+  fixedPriceId: string;
+}
+
+export interface PerPlayerPricingConfig {
+  mode: 'per_player';
+  playerCountFieldId: string;
+  perPlayerPriceId: string;
+}
+
+export interface BasePlusPerPlayerPricingConfig {
+  mode: 'base_plus_per_player';
+  playerCountFieldId: string;
+  basePriceId: string;
+  perPlayerPriceId: string;
+}
+
+export interface TieredPricingRule {
+  id: string;
+  minPlayers: number;
+  maxPlayers?: number | null;
+  flatPriceId: string;
+  label?: string;
+}
+
+export interface TieredPricingConfig {
+  mode: 'tiered';
+  playerCountFieldId: string;
+  tiers: TieredPricingRule[];
+}
+
+export interface ManualQuotePricingConfig {
+  mode: 'manual_quote';
+  playerCountFieldId?: string;
+  message?: string;
+}
+
+export type FormPricingConfig =
+  | FixedPricingConfig
+  | PerPlayerPricingConfig
+  | BasePlusPerPlayerPricingConfig
+  | TieredPricingConfig
+  | ManualQuotePricingConfig;
+
+export interface ResolvedPricingLineItem {
+  priceId: string;
+  quantity: number;
+  label: string;
+}
+
+export interface ResolvedFormPricing {
+  mode: FormPricingMode;
+  requiresCheckout: boolean;
+  playerCount: number | null;
+  lineItems: ResolvedPricingLineItem[];
+  totalAmountCents: number | null;
+  currency: string | null;
+  summaryLines: string[];
+  message?: string;
+  selectedTierId?: string;
 }
 
 export interface ClientGroup {
@@ -899,6 +1013,8 @@ export interface IntakeForm {
   slug: string;
   description?: string;
   formConfig: FormBlockConfig[];
+  resolvedFormConfig?: FormBlockConfig[];
+  fieldAssignments?: FormFieldAssignment[];
   welcomeTitle?: string;
   welcomeDescription?: string;
   stripeEnabled: boolean;
@@ -907,6 +1023,7 @@ export interface IntakeForm {
   stripePromoCode?: string | null;
   stripePromoCodeId?: string | null;
   paymentDescription?: string;
+  pricingConfig?: FormPricingConfig | null;
   clientCreationMode: ClientCreationMode;
   isActive: boolean;
   createdAt: string;
