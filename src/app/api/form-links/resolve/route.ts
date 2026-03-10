@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { extractPrePopulatedFields, getLockedFormStateKeys } from '@/lib/field-mapping-utils';
+import type { FieldMapping } from '@/types';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -11,9 +13,8 @@ function getServiceClient() {
 /**
  * GET /api/form-links/resolve?groupId=...&targetFormId=...
  *
- * Returns active form link data for a target form within a group,
- * including the source_data (coach's filled data) and field_mappings.
- * Used by the intake form to pre-populate and lock fields.
+ * Returns the minimum mapped payload needed to pre-populate and lock
+ * a linked target form without exposing the full stored source submission.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -27,6 +28,23 @@ export async function GET(request: NextRequest) {
     const supabase = getServiceClient();
     if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
+    const [{ data: group }, { data: targetForm }] = await Promise.all([
+      supabase
+        .from('client_groups')
+        .select('id, is_active')
+        .eq('id', groupId)
+        .maybeSingle(),
+      supabase
+        .from('intake_forms')
+        .select('id, is_active')
+        .eq('id', targetFormId)
+        .maybeSingle(),
+    ]);
+
+    if (!group || group.is_active === false || !targetForm || targetForm.is_active === false) {
+      return NextResponse.json({ formLink: null }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
     const { data, error } = await supabase
       .from('group_form_links')
       .select('*')
@@ -38,23 +56,40 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('[FormLinks Resolve] Error:', error);
-      return NextResponse.json({ formLink: null });
+      return NextResponse.json({ formLink: null }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     if (!data || !data.source_data) {
-      return NextResponse.json({ formLink: null });
+      return NextResponse.json({ formLink: null }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
-    return NextResponse.json({
-      formLink: {
-        id: data.id,
-        fieldMappings: data.field_mappings || [],
-        sourceData: data.source_data,
-        sourceFilledAt: data.source_filled_at,
+    const fieldMappings = Array.isArray(data.field_mappings)
+      ? (data.field_mappings as FieldMapping[])
+      : [];
+
+    if (fieldMappings.length === 0) {
+      return NextResponse.json({ formLink: null }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    const prePopulatedFields = extractPrePopulatedFields(
+      data.source_data as Record<string, unknown>,
+      fieldMappings,
+    );
+    const lockedFields = Array.from(getLockedFormStateKeys(fieldMappings));
+
+    return NextResponse.json(
+      {
+        formLink: {
+          id: data.id,
+          prePopulatedFields,
+          lockedFields,
+          sourceFilledAt: data.source_filled_at,
+        },
       },
-    });
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (err) {
     console.error('[FormLinks Resolve] Error:', err);
-    return NextResponse.json({ formLink: null });
+    return NextResponse.json({ formLink: null }, { headers: { 'Cache-Control': 'no-store' } });
   }
 }

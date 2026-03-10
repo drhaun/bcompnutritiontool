@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDiarySummary, getDataSummary, getNutritionTargets, CronometerDiarySummary } from '@/lib/cronometer';
 import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronometer-token';
+import { requireStaffSession } from '@/lib/api-auth';
 
 // Chunk size for diary requests (days). Cronometer's diary_summary with food=true
 // returns full nutrient profiles, meal groups, and food lists per day. For ranges
@@ -16,34 +17,34 @@ const CHUNK_SIZE_DAYS = 14;
  * - end: End date (YYYY-MM-DD)
  */
 export async function GET(request: NextRequest) {
-  // Resolve token from cookie → DB → env
-  const tokenResult = await resolveCronometerToken(request);
-  
-  if (!tokenResult.accessToken) {
-    return NextResponse.json(
-      { error: 'Not connected to Cronometer' },
-      { status: 401 }
-    );
-  }
-
-  const accessToken = tokenResult.accessToken;
-  
-  const searchParams = request.nextUrl.searchParams;
-  const clientIdParam = searchParams.get('client_id');
-  const clientId = clientIdParam && clientIdParam !== 'self' ? clientIdParam : undefined;
-  const start = searchParams.get('start');
-  const end = searchParams.get('end');
-  
-  console.log('[Cronometer Import] Request params:', { clientId, start, end });
-  
-  if (!start || !end) {
-    return NextResponse.json(
-      { error: 'Start and end dates are required' },
-      { status: 400 }
-    );
-  }
-  
   try {
+    await requireStaffSession();
+    const tokenResult = await resolveCronometerToken(request);
+    
+    if (!tokenResult.accessToken) {
+      return NextResponse.json(
+        { error: 'Not connected to Cronometer' },
+        { status: 401 }
+      );
+    }
+
+    const accessToken = tokenResult.accessToken;
+    
+    const searchParams = request.nextUrl.searchParams;
+    const clientIdParam = searchParams.get('client_id');
+    const clientId = clientIdParam && clientIdParam !== 'self' ? clientIdParam : undefined;
+    const start = searchParams.get('start');
+    const end = searchParams.get('end');
+    
+    console.log('[Cronometer Import] Request params:', { clientId, start, end });
+    
+    if (!start || !end) {
+      return NextResponse.json(
+        { error: 'Start and end dates are required' },
+        { status: 400 }
+      );
+    }
+
     // STEP 1: First get data_summary to find which days have actual entries
     let daysWithData: string[] = [];
     try {
@@ -145,6 +146,9 @@ export async function GET(request: NextRequest) {
     response = backfillCronometerCookies(response, tokenResult);
     return response;
   } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('Cronometer import error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to import data' },

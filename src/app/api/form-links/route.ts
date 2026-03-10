@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireStaffSession } from '@/lib/api-auth';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -29,6 +30,7 @@ function dbToFormLink(row: Record<string, unknown>) {
 
 export async function GET() {
   try {
+    await requireStaffSession();
     const supabase = getServiceClient();
     if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
@@ -71,6 +73,9 @@ export async function GET() {
 
     return NextResponse.json({ formLinks: links });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[FormLinks API] Error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { requireAdminSession } from '@/lib/api-auth';
 
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -10,6 +11,7 @@ function getStripe(): Stripe | null {
 // GET: List products, prices, and/or promo codes
 export async function GET(request: NextRequest) {
   try {
+    await requireAdminSession();
     const stripe = getStripe();
     if (!stripe) return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 });
 
@@ -66,18 +68,17 @@ export async function GET(request: NextRequest) {
 
     if (type === 'promo_codes') {
       const promos = await stripe.promotionCodes.list({ active: true, limit: 50 });
-      const items = promos.data.map((p: Record<string, unknown>) => {
-        const promotion = p.promotion as Record<string, unknown> | undefined;
-        const coupon = (promotion?.coupon || p.coupon) as Record<string, unknown> | string | undefined;
-        const couponObj = typeof coupon === 'object' && coupon ? coupon : null;
+      const items = promos.data.map(p => {
+        const couponRef = (p as Stripe.PromotionCode & { coupon?: string | Stripe.Coupon | null }).coupon;
+        const coupon = typeof couponRef === 'string' ? null : couponRef;
         return {
           id: p.id,
           code: p.code,
           active: p.active,
-          couponId: couponObj ? couponObj.id : (typeof coupon === 'string' ? coupon : null),
-          couponName: couponObj?.name ?? null,
-          percentOff: couponObj?.percent_off ?? null,
-          amountOff: couponObj?.amount_off ?? null,
+          couponId: typeof couponRef === 'string' ? couponRef : coupon?.id ?? null,
+          couponName: coupon?.name ?? null,
+          percentOff: coupon?.percent_off ?? null,
+          amountOff: coupon?.amount_off ?? null,
           timesRedeemed: p.times_redeemed,
           maxRedemptions: p.max_redemptions,
           expiresAt: p.expires_at,
@@ -88,6 +89,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (err instanceof Error && err.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     console.error('[Stripe API] GET error:', err);
     return NextResponse.json({ error: 'Failed to fetch Stripe data' }, { status: 500 });
   }
@@ -96,6 +103,7 @@ export async function GET(request: NextRequest) {
 // POST: Create product, price, coupon, or promo code
 export async function POST(request: NextRequest) {
   try {
+    await requireAdminSession();
     const stripe = getStripe();
     if (!stripe) return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 });
 
@@ -164,19 +172,25 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'create_promo_code') {
-      const params: Record<string, unknown> = {
+      const params: Stripe.PromotionCodeCreateParams = {
         promotion: { type: 'coupon', coupon: body.couponId },
-        code: body.code,
+        code: body.code || undefined,
       };
       if (body.maxRedemptions) params.max_redemptions = body.maxRedemptions;
       if (body.expiresAt) params.expires_at = Math.floor(new Date(body.expiresAt).getTime() / 1000);
 
-      const promo = await stripe.promotionCodes.create(params as Stripe.PromotionCodeCreateParams);
+      const promo = await stripe.promotionCodes.create(params);
       return NextResponse.json({ promoCode: { id: promo.id, code: promo.code } }, { status: 201 });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (err: unknown) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (err instanceof Error && err.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     console.error('[Stripe API] POST error:', err);
     const message = err instanceof Error ? err.message : 'Failed to create';
     return NextResponse.json({ error: message }, { status: 500 });

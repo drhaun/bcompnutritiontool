@@ -507,7 +507,7 @@ const PhaseTargetsPDF: React.FC<PhaseTargetsPDFProps & { logoSrc: string | null 
               <Text style={[styles.tableHeaderCell, { width: '17%', textAlign: 'center' }]}>Fat</Text>
             </View>
             {dayTargets.map((day, index) => (
-              <View key={day.day} style={[styles.tableRow, index % 2 === 1 && styles.tableRowAlt]} wrap={false}>
+              <View key={day.day} style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : {}]} wrap={false}>
                 <Text style={[styles.tableCell, { width: '18%', fontWeight: 600 }]}>{day.day}</Text>
                 <View style={{ width: '14%' }}>
                   {day.isWorkout ? (

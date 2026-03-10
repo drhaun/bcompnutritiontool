@@ -1,30 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createServerClient as createSupabaseSSR } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { requireStaffSession } from '@/lib/api-auth';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
-}
-
-async function authenticate() {
-  try {
-    const cookieStore = await cookies();
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    if (supabaseUrl && supabaseAnonKey) {
-      const authClient = createSupabaseSSR(supabaseUrl, supabaseAnonKey, {
-        cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} },
-      });
-      const { data: { user } } = await authClient.auth.getUser();
-      if (user) return user;
-    }
-  } catch { /* */ }
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) return { id: 'service' } as { id: string };
-  return null;
 }
 
 /**
@@ -38,8 +20,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await authenticate();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const staffSession = await requireStaffSession();
 
     const { id: groupId } = await params;
     const supabase = getServiceClient();
@@ -58,7 +39,7 @@ export async function POST(
       .update({
         source_data: formData,
         source_filled_at: now,
-        source_filled_by: user.id,
+        source_filled_by: staffSession.user.id,
         updated_at: now,
       })
       .eq('id', formLinkId)
@@ -76,6 +57,9 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[FillSource API] Error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

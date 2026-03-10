@@ -352,6 +352,13 @@ export async function updateClientInDb(
     const data = await response.json();
     return dbClientToStoreClient(data.client);
   } catch (error) {
+    if (
+      error instanceof DOMException && error.name === 'AbortError'
+      || error instanceof Error && /aborted/i.test(error.message)
+    ) {
+      console.log('[ClientSync] Update request was aborted during navigation:', clientId);
+      return null;
+    }
     console.error('[ClientSync] Error updating client:', error);
     return null;
   }

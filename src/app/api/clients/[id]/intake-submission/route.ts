@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireClientRouteAccess } from '@/lib/client-route-auth';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -14,6 +15,7 @@ export async function GET(
 ) {
   try {
     const { id: clientId } = await params;
+    await requireClientRouteAccess(clientId);
     const supabase = getServiceClient();
     if (!supabase) {
       return NextResponse.json({ submission: null });
@@ -43,6 +45,9 @@ export async function GET(
       },
     });
   } catch (err) {
+    if (err instanceof Error && (err.message === 'UNAUTHORIZED' || err.message === 'NOT_FOUND')) {
+      return NextResponse.json({ submission: null });
+    }
     console.error('[Intake Submission] Error:', err);
     return NextResponse.json({ submission: null });
   }

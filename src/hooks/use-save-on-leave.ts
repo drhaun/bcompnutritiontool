@@ -19,14 +19,20 @@ export function useSaveOnLeave() {
       flushPendingSavesSync();
     };
 
+    const handlePageHide = () => {
+      // Covers tab close / hard navigation more reliably than component cleanup.
+      flushPendingSavesSync();
+    };
+
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Flush on SPA navigation (component unmount)
-      if (activeClientId) {
-        flushPendingSavesSync();
-      }
+      window.removeEventListener('pagehide', handlePageHide);
+      // Avoid flushing on component unmount during SPA navigation.
+      // App Router transitions can abort in-flight PATCH requests and surface
+      // noisy AbortErrors even though the local store state is still preserved.
     };
   }, [activeClientId]);
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isCronometerConfigured } from '@/lib/cronometer';
 import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronometer-token';
+import { requireStaffSession } from '@/lib/api-auth';
 
 /**
  * Check Cronometer connection status
@@ -11,21 +12,27 @@ import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronome
  * 3. Environment variable (for local development convenience)
  */
 export async function GET(request: NextRequest) {
-  const isConfigured = isCronometerConfigured();
-  
-  // Use the shared token resolver (DB → cookie → env)
-  const tokenResult = await resolveCronometerToken(request);
-  
-  let response = NextResponse.json({
-    configured: isConfigured,
-    connected: !!(tokenResult.accessToken && tokenResult.userId),
-    userId: tokenResult.userId || null,
-    tokenSource: tokenResult.source, // Helpful for debugging
-  });
+  try {
+    await requireStaffSession();
+    const isConfigured = isCronometerConfigured();
+    
+    // Use the shared token resolver (DB → cookie → env)
+    const tokenResult = await resolveCronometerToken(request);
+    
+    let response = NextResponse.json({
+      configured: isConfigured,
+      connected: !!(tokenResult.accessToken && tokenResult.userId),
+      userId: tokenResult.userId || null,
+      tokenSource: tokenResult.source,
+    });
 
-  // If the token came from the database, backfill/update the cookie
-  // so subsequent requests on this device are fast and use the latest token
-  response = backfillCronometerCookies(response, tokenResult);
-  
-  return response;
+    response = backfillCronometerCookies(response, tokenResult);
+    
+    return response;
+  } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    return NextResponse.json({ error: 'Failed to resolve Cronometer status' }, { status: 500 });
+  }
 }

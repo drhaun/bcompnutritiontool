@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { dbToFormFieldAssignment } from '@/lib/form-resolution';
 import { syncUnifiedFieldLibrary } from '@/lib/unified-field-library';
+import { requireStaffSession } from '@/lib/api-auth';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -14,6 +15,12 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requireStaffSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
@@ -34,6 +41,12 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requireStaffSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
@@ -80,6 +93,12 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requireStaffSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
@@ -157,6 +176,12 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requireStaffSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });

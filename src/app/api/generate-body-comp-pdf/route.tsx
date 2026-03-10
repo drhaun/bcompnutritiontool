@@ -659,7 +659,7 @@ const BodyCompPDF: React.FC<BodyCompPDFProps & { logoSrc: string | null }> = ({
               <Text style={[styles.tableHeaderCell, { width: '22%', textAlign: 'center' }]}>Lean Mass</Text>
             </View>
             {projections.slice(0, 8).map((proj, index) => (
-              <View key={proj.week} style={[styles.tableRow, index % 2 === 1 && styles.tableRowAlt]}>
+              <View key={proj.week} style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : {}]}>
                 <Text style={[styles.tableCell, { width: '12%', fontWeight: 600 }]}>
                   {proj.week === 0 ? 'Start' : `Week ${proj.week}`}
                 </Text>

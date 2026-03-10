@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceToken, krogerGet } from '@/lib/kroger-client';
+import { requireStaffSession } from '@/lib/api-auth';
 
 interface KrogerProduct {
   productId: string;
@@ -216,6 +217,7 @@ function sizeFitBonus(item: GroceryItem, product: KrogerProduct): number {
 
 export async function POST(request: NextRequest) {
   try {
+    await requireStaffSession();
     const body = await request.json();
     const items: GroceryItem[] = body.items;
     const locationId: string | undefined = body.locationId;
@@ -319,6 +321,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ results });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[Kroger Search]', err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Product search failed' },

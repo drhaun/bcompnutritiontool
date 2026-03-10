@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { requireClientRouteAccess } from '@/lib/client-route-auth';
 
 // Helper to create Supabase client for API routes
 async function createSupabaseClient() {
@@ -205,13 +206,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createSupabaseClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    await requireClientRouteAccess(id);
 
     // Use service role client directly to bypass RLS issues with delete
     const { createServerClient: createServiceClient } = await import('@/lib/supabase');
@@ -244,6 +239,12 @@ export async function DELETE(
     console.log('[Clients API] Client deleted successfully:', id, 'rows:', deletedRows.length);
     return NextResponse.json({ success: true, verified: true, deletedCount: deletedRows.length });
   } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === 'NOT_FOUND') {
+      return NextResponse.json({ error: 'Client not found or not authorized' }, { status: 404 });
+    }
     console.error('Client DELETE error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

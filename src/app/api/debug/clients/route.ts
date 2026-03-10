@@ -5,21 +5,23 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAdminSession } from '@/lib/api-auth';
 
 export async function GET(request: NextRequest) {
-  // Use service role to bypass RLS
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
-  
   try {
+    await requireAdminSession();
+    // Use service role to bypass RLS
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
     // Get ALL clients without filtering
     const { data: allClients, error: allError } = await supabase
       .from('clients')
@@ -60,6 +62,12 @@ export async function GET(request: NextRequest) {
       users: users?.users?.map(u => ({ id: u.id, email: u.email })) || [],
     });
   } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     console.error('Debug error:', error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }

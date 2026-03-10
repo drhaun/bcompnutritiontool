@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireStaffSession } from '@/lib/api-auth';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -13,12 +14,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const staffSession = await requireStaffSession();
     const { id } = await params;
     const supabase = getServiceClient();
     if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
     const body = await request.json().catch(() => ({}));
-    const publishedBy = body.publishedBy || 'admin';
+    const publishedBy = body.publishedBy || staffSession.user.id;
 
     const { data: submission, error } = await supabase
       .from('form_submissions')
@@ -75,6 +77,9 @@ export async function POST(
 
     return NextResponse.json({ success: true, publishedLinkIds: (links || []).map(link => link.id) });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[Submission Publish] Error:', err);
     return NextResponse.json({ error: 'Failed to publish submission' }, { status: 500 });
   }

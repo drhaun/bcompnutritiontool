@@ -8,6 +8,7 @@ import {
   CronometerDiarySummary 
 } from '@/lib/cronometer';
 import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronometer-token';
+import { requireStaffSession } from '@/lib/api-auth';
 
 /**
  * Fetch comprehensive Cronometer data for dashboard visualization
@@ -18,32 +19,32 @@ import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronome
  * - end: End date (YYYY-MM-DD)
  */
 export async function GET(request: NextRequest) {
-  // Resolve token from cookie → DB → env
-  const tokenResult = await resolveCronometerToken(request);
-  
-  if (!tokenResult.accessToken) {
-    return NextResponse.json(
-      { error: 'Not connected to Cronometer' },
-      { status: 401 }
-    );
-  }
-
-  const accessToken = tokenResult.accessToken;
-  
-  const searchParams = request.nextUrl.searchParams;
-  const clientIdParam = searchParams.get('client_id');
-  const clientId = clientIdParam && clientIdParam !== 'self' ? clientIdParam : undefined;
-  const start = searchParams.get('start');
-  const end = searchParams.get('end');
-  
-  if (!start || !end) {
-    return NextResponse.json(
-      { error: 'Start and end dates are required' },
-      { status: 400 }
-    );
-  }
-  
   try {
+    await requireStaffSession();
+    const tokenResult = await resolveCronometerToken(request);
+    
+    if (!tokenResult.accessToken) {
+      return NextResponse.json(
+        { error: 'Not connected to Cronometer' },
+        { status: 401 }
+      );
+    }
+
+    const accessToken = tokenResult.accessToken;
+    
+    const searchParams = request.nextUrl.searchParams;
+    const clientIdParam = searchParams.get('client_id');
+    const clientId = clientIdParam && clientIdParam !== 'self' ? clientIdParam : undefined;
+    const start = searchParams.get('start');
+    const end = searchParams.get('end');
+    
+    if (!start || !end) {
+      return NextResponse.json(
+        { error: 'Start and end dates are required' },
+        { status: 400 }
+      );
+    }
+
     // Fetch non-diary data in parallel (these are lightweight)
     const [dataSummary, fastingData, targets, biometricSummary] = await Promise.all([
       getDataSummary({ accessToken, clientId }, start, end).catch(() => ({ days: [], signup: '' })),
@@ -331,6 +332,9 @@ export async function GET(request: NextRequest) {
     response = backfillCronometerCookies(response, tokenResult);
     return response;
   } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('Cronometer dashboard error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch dashboard data' },

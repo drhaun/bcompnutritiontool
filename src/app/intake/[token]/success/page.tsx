@@ -41,7 +41,7 @@ export default function PaymentSuccessPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#00263d] to-[#001a2b] flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center">
         <div className="relative w-48 h-14 mx-auto mb-8">
-          <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill className="object-contain" priority />
+          <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill sizes="192px" className="object-contain" priority />
         </div>
         <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-8 space-y-4">
           {status === 'verifying' && (

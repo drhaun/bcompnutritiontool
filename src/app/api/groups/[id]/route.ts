@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createServerClient as createSupabaseSSR } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { requireStaffSession } from '@/lib/api-auth';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -33,29 +32,12 @@ function dbToGroup(row: Record<string, unknown>) {
   };
 }
 
-async function authenticate() {
-  try {
-    const cookieStore = await cookies();
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    if (supabaseUrl && supabaseAnonKey) {
-      const authClient = createSupabaseSSR(supabaseUrl, supabaseAnonKey, {
-        cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} },
-      });
-      const { data: { user } } = await authClient.auth.getUser();
-      if (user) return user;
-    }
-  } catch { /* */ }
-  // Allow through if service key is configured (staff API)
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) return { id: 'service' } as { id: string };
-  return null;
-}
-
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireStaffSession();
     const { id } = await params;
     const supabase = getServiceClient();
     if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
@@ -65,6 +47,9 @@ export async function GET(
 
     return NextResponse.json({ group: dbToGroup(data) });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[Groups API] GET error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -75,8 +60,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await authenticate();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    await requireStaffSession();
 
     const { id } = await params;
     const supabase = getServiceClient();
@@ -113,6 +97,9 @@ export async function PATCH(
 
     return NextResponse.json({ group: dbToGroup(data) });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[Groups API] PATCH error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -123,8 +110,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await authenticate();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    await requireStaffSession();
 
     const { id } = await params;
     const supabase = getServiceClient();
@@ -138,6 +124,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[Groups API] DELETE error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

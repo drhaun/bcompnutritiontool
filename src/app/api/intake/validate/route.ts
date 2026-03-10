@@ -45,10 +45,10 @@ export async function POST(request: NextRequest) {
         groupId = tags[0].group_id;
         const { data: group } = await supabase
           .from('client_groups')
-          .select('slug')
+          .select('slug, is_active')
           .eq('id', tags[0].group_id)
           .single();
-        if (group) groupSlug = group.slug;
+        if (group && group.is_active !== false) groupSlug = group.slug;
       }
 
       return NextResponse.json({
@@ -124,26 +124,35 @@ export async function POST(request: NextRequest) {
         let groupId: string | null = null;
         const { data: group } = await supabase
           .from('client_groups')
-          .select('id')
+          .select('id, is_active')
           .eq('slug', body.groupSlug)
           .single();
+        if (group?.is_active === false) {
+          return NextResponse.json({ error: 'This group is no longer accepting submissions.' }, { status: 404 });
+        }
         if (group) {
           groupId = group.id;
         } else {
           // Slug might be a standalone form slug — if so, try to find a group that uses it
           const { data: form } = await supabase
             .from('intake_forms')
-            .select('id')
+            .select('id, is_active')
             .eq('slug', body.groupSlug)
             .limit(1)
             .single();
+          if (form?.is_active === false) {
+            return NextResponse.json({ error: 'This form is no longer available.' }, { status: 404 });
+          }
           if (form?.id) {
             const { data: linkedGroup } = await supabase
               .from('client_groups')
-              .select('id')
+              .select('id, is_active')
               .eq('default_form_id', form.id)
               .limit(1)
               .maybeSingle();
+            if (linkedGroup?.is_active === false) {
+              return NextResponse.json({ error: 'This group is no longer accepting submissions.' }, { status: 404 });
+            }
             if (linkedGroup?.id) {
               groupId = linkedGroup.id;
             }

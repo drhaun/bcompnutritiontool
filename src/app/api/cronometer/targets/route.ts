@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNutritionTargets } from '@/lib/cronometer';
 import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronometer-token';
+import { requireStaffSession } from '@/lib/api-auth';
 
 /**
  * Fetch nutrition targets from Cronometer for a specific client
@@ -10,22 +11,22 @@ import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronome
  * - day: Specific day (optional, defaults to today)
  */
 export async function GET(request: NextRequest) {
-  // Resolve token from cookie → DB → env
-  const tokenResult = await resolveCronometerToken(request);
-  
-  if (!tokenResult.accessToken) {
-    return NextResponse.json(
-      { error: 'Not connected to Cronometer' },
-      { status: 401 }
-    );
-  }
-  
-  const searchParams = request.nextUrl.searchParams;
-  const clientIdParam = searchParams.get('client_id');
-  const clientId = clientIdParam && clientIdParam !== 'self' ? clientIdParam : undefined;
-  const day = searchParams.get('day') || undefined;
-  
   try {
+    await requireStaffSession();
+    const tokenResult = await resolveCronometerToken(request);
+    
+    if (!tokenResult.accessToken) {
+      return NextResponse.json(
+        { error: 'Not connected to Cronometer' },
+        { status: 401 }
+      );
+    }
+    
+    const searchParams = request.nextUrl.searchParams;
+    const clientIdParam = searchParams.get('client_id');
+    const clientId = clientIdParam && clientIdParam !== 'self' ? clientIdParam : undefined;
+    const day = searchParams.get('day') || undefined;
+
     const rawTargets = await getNutritionTargets({ accessToken: tokenResult.accessToken, clientId }, day);
     
     // Extract macro targets from the raw response
@@ -53,6 +54,9 @@ export async function GET(request: NextRequest) {
     response = backfillCronometerCookies(response, tokenResult);
     return response;
   } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('Cronometer targets error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch targets' },
@@ -68,16 +72,16 @@ export async function GET(request: NextRequest) {
  * This handler attempts an undocumented write approach and gracefully handles failure.
  */
 export async function POST(request: NextRequest) {
-  const tokenResult = await resolveCronometerToken(request);
-  
-  if (!tokenResult.accessToken) {
-    return NextResponse.json(
-      { error: 'Not connected to Cronometer' },
-      { status: 401 }
-    );
-  }
-  
   try {
+    await requireStaffSession();
+    const tokenResult = await resolveCronometerToken(request);
+    
+    if (!tokenResult.accessToken) {
+      return NextResponse.json(
+        { error: 'Not connected to Cronometer' },
+        { status: 401 }
+      );
+    }
     const body = await request.json();
     const { client_id, calories, protein, carbs, fat } = body;
     
@@ -128,6 +132,9 @@ export async function POST(request: NextRequest) {
     }, { status: 200 }); // Return 200 so frontend handles it as a known limitation
     
   } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('Cronometer push targets error:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to push targets. Please update them manually in the Cronometer app.' },

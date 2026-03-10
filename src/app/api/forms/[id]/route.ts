@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { applyResolvedFormConfig, dbToFormFieldAssignment } from '@/lib/form-resolution';
 import { normalizeFormConfig } from '@/lib/form-fields';
 import { syncUnifiedFieldLibrary } from '@/lib/unified-field-library';
+import { getOptionalStaffSession, requireStaffSession } from '@/lib/api-auth';
+import type { ClientCreationMode, FormPricingConfig, IntakeForm } from '@/types';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -11,26 +13,26 @@ function getServiceClient() {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
-function dbToForm(row: Record<string, unknown>) {
+function dbToForm(row: Record<string, unknown>): IntakeForm {
   return {
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    description: row.description || '',
+    id: String(row.id || ''),
+    name: String(row.name || ''),
+    slug: String(row.slug || ''),
+    description: String(row.description || ''),
     formConfig: normalizeFormConfig((row.form_config || []) as []),
-    welcomeTitle: row.welcome_title || '',
-    welcomeDescription: row.welcome_description || '',
-    stripeEnabled: row.stripe_enabled || false,
-    stripePriceId: row.stripe_price_id || '',
-    stripePromoEnabled: row.stripe_promo_enabled || false,
-    stripePromoCode: row.stripe_promo_code || null,
-    stripePromoCodeId: row.stripe_promo_code_id || null,
-    paymentDescription: row.payment_description || '',
-    pricingConfig: row.pricing_config || null,
-    clientCreationMode: row.client_creation_mode || 'on_start',
-    isActive: row.is_active ?? true,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    welcomeTitle: String(row.welcome_title || ''),
+    welcomeDescription: String(row.welcome_description || ''),
+    stripeEnabled: !!row.stripe_enabled,
+    stripePriceId: row.stripe_price_id ? String(row.stripe_price_id) : '',
+    stripePromoEnabled: !!row.stripe_promo_enabled,
+    stripePromoCode: row.stripe_promo_code ? String(row.stripe_promo_code) : null,
+    stripePromoCodeId: row.stripe_promo_code_id ? String(row.stripe_promo_code_id) : null,
+    paymentDescription: String(row.payment_description || ''),
+    pricingConfig: (row.pricing_config as FormPricingConfig | null) || null,
+    clientCreationMode: (row.client_creation_mode as ClientCreationMode) || 'on_start',
+    isActive: typeof row.is_active === 'boolean' ? row.is_active : true,
+    createdAt: String(row.created_at || ''),
+    updatedAt: String(row.updated_at || ''),
   };
 }
 
@@ -42,9 +44,13 @@ export async function GET(
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
   await syncUnifiedFieldLibrary(supabase as never);
+  const staffSession = await getOptionalStaffSession();
 
   const { data, error } = await supabase.from('intake_forms').select('*').eq('id', id).single();
   if (error || !data) return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+  if (!staffSession && !(data.is_active ?? true)) {
+    return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+  }
   const { data: assignmentRows } = await supabase
     .from('form_field_assignments')
     .select('*, field:custom_fields(*)')
@@ -60,6 +66,12 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requireStaffSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
@@ -104,6 +116,12 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requireStaffSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });

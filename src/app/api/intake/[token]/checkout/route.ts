@@ -59,12 +59,15 @@ export async function POST(
 
     const { data: form, error: formErr } = await supabase
       .from('intake_forms')
-      .select('name, stripe_enabled, stripe_promo_enabled, payment_description, pricing_config, stripe_price_id')
+      .select('name, stripe_enabled, stripe_promo_enabled, payment_description, pricing_config, stripe_price_id, is_active')
       .eq('id', submission.form_id)
       .single();
 
     if (formErr || !form) {
       return NextResponse.json({ error: 'Form configuration not found' }, { status: 404 });
+    }
+    if (form.is_active === false) {
+      return NextResponse.json({ error: 'This form is no longer available for payment' }, { status: 404 });
     }
 
     const pricingConfig = normalizePricingConfig(form.pricing_config, form.stripe_price_id);

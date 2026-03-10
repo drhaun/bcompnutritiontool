@@ -89,9 +89,12 @@ export async function POST(request: NextRequest) {
     if (groupSlug) {
       const { data: group } = await supabase
         .from('client_groups')
-        .select('id, name, slug, form_config, default_form_id, stripe_enabled')
+        .select('id, name, slug, form_config, default_form_id, stripe_enabled, is_active')
         .eq('slug', groupSlug)
         .single();
+      if (group?.is_active === false) {
+        return NextResponse.json({ error: 'This group is no longer accepting submissions.' }, { status: 404 });
+      }
       if (group) {
         groupId = group.id as string;
         groupName = group.name as string;
@@ -103,9 +106,12 @@ export async function POST(request: NextRequest) {
     if (formId) {
       const { data: selectedForm, error: selectedFormError } = await supabase
         .from('intake_forms')
-        .select('form_config, slug, stripe_enabled, stripe_promo_enabled, pricing_config, stripe_price_id')
+        .select('form_config, slug, stripe_enabled, stripe_promo_enabled, pricing_config, stripe_price_id, is_active')
         .eq('id', formId)
         .maybeSingle();
+      if (selectedForm?.is_active === false) {
+        return NextResponse.json({ error: 'This form is no longer available.' }, { status: 404 });
+      }
       if (selectedForm?.form_config) {
         formConfig = (await fetchResolvedFormConfig(supabase as never, formId)) as unknown[];
         resolvedFormSlug = (selectedForm.slug as string | null) || null;

@@ -29,6 +29,10 @@ interface MealRequest {
   };
 }
 
+function asNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
 export async function POST(request: Request) {
   try {
     const body: MealRequest = await request.json();
@@ -111,11 +115,11 @@ IMPORTANT: The macros MUST be accurate and within ${targets.flexibility}% of tar
     const completeMeal = {
       name: meal.name || `${preferences.cuisine} ${mealType} Bowl`,
       description: meal.description || 'A balanced, nutritious meal.',
-      calories: Math.round(meal.calories || targets.calories),
-      protein: Math.round(meal.protein || targets.protein),
-      carbs: Math.round(meal.carbs || targets.carbs),
-      fat: Math.round(meal.fat || targets.fat),
-      fiber: Math.round(meal.fiber || 5),
+      calories: Math.round(asNumber(meal.calories, targets.calories)),
+      protein: Math.round(asNumber(meal.protein, targets.protein)),
+      carbs: Math.round(asNumber(meal.carbs, targets.carbs)),
+      fat: Math.round(asNumber(meal.fat, targets.fat)),
+      fiber: Math.round(asNumber(meal.fiber, 5)),
       ingredients: meal.ingredients || [],
       instructions: meal.instructions || [],
       prepTime: meal.prepTime || 15,

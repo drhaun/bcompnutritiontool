@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { dbToReusableField } from '@/lib/form-resolution';
 import { makeFieldName } from '@/lib/form-fields';
 import { syncUnifiedFieldLibrary } from '@/lib/unified-field-library';
+import { requireStaffSession } from '@/lib/api-auth';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,6 +13,12 @@ function getServiceClient() {
 }
 
 export async function GET(request: NextRequest) {
+  try {
+    await requireStaffSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
   await syncUnifiedFieldLibrary(supabase as never);
@@ -39,6 +46,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  try {
+    await requireStaffSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 

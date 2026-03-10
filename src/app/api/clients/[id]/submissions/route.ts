@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireClientRouteAccess } from '@/lib/client-route-auth';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -33,6 +34,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    await requireClientRouteAccess(id);
     const supabase = getServiceClient();
     if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
@@ -49,6 +51,12 @@ export async function GET(
 
     return NextResponse.json({ submissions: (data || []).map(dbToSubmission) });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (err instanceof Error && err.message === 'NOT_FOUND') {
+      return NextResponse.json({ error: 'Client not found or not authorized' }, { status: 404 });
+    }
     console.error('[Submissions] Error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -61,11 +69,12 @@ export async function PATCH(
 ) {
   try {
     const { id: clientId } = await params;
+    const { user } = await requireClientRouteAccess(clientId);
     const supabase = getServiceClient();
     if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
     const body = await request.json();
-    const { submissionId, status, notes, reviewedBy } = body;
+    const { submissionId, status, notes } = body;
     if (!submissionId) return NextResponse.json({ error: 'submissionId required' }, { status: 400 });
 
     const updates: Record<string, unknown> = {};
@@ -73,7 +82,7 @@ export async function PATCH(
     if (notes !== undefined) updates.notes = notes;
     if (status === 'reviewed') {
       updates.reviewed_at = new Date().toISOString();
-      if (reviewedBy) updates.reviewed_by = reviewedBy;
+      updates.reviewed_by = user.id;
     }
 
     const { data, error } = await supabase
@@ -91,6 +100,12 @@ export async function PATCH(
 
     return NextResponse.json({ submission: dbToSubmission(data) });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (err instanceof Error && err.message === 'NOT_FOUND') {
+      return NextResponse.json({ error: 'Client not found or not authorized' }, { status: 404 });
+    }
     console.error('[Submissions] Error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

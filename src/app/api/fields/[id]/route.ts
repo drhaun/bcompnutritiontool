@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { dbToReusableField } from '@/lib/form-resolution';
+import { requireStaffSession } from '@/lib/api-auth';
 import { makeFieldName } from '@/lib/form-fields';
 
 function getServiceClient() {
@@ -14,6 +15,12 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requireStaffSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
@@ -28,6 +35,12 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requireStaffSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
@@ -66,6 +79,12 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requireStaffSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });

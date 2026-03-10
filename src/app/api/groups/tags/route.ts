@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireStaffSession } from '@/lib/api-auth';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -10,6 +11,7 @@ function getServiceClient() {
 
 export async function GET(request: NextRequest) {
   try {
+    await requireStaffSession();
     const supabase = getServiceClient();
     if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
@@ -39,6 +41,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ tags: data || [] });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[Groups Tags] Error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -48,6 +53,7 @@ export async function GET(request: NextRequest) {
 // Preserves history: reactivates an old row if one exists, otherwise inserts new
 export async function POST(request: NextRequest) {
   try {
+    await requireStaffSession();
     const supabase = getServiceClient();
     if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
@@ -78,6 +84,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[Groups Tags] POST error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -87,6 +96,7 @@ export async function POST(request: NextRequest) {
 // Soft-delete: marks is_active = false and sets left_at, preserving historical record
 export async function DELETE(request: NextRequest) {
   try {
+    await requireStaffSession();
     const supabase = getServiceClient();
     if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
@@ -108,6 +118,9 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[Groups Tags] DELETE error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

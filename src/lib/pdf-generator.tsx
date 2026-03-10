@@ -1092,7 +1092,7 @@ export const MealPlanPDF = ({
             const targets = nutritionTargets.find(t => t.day === day);
             const hasWorkout = daySchedule?.workouts?.some(w => w.enabled);
             return (
-              <View key={day} style={[styles.tableRow, idx % 2 === 1 && styles.tableRowAlt]}>
+              <View key={day} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
                 <Text style={[styles.tableCell, { flex: 1.2, fontWeight: 'bold' }]}>{day.substring(0, 3)}</Text>
                 <Text style={styles.tableCell}>{daySchedule?.wakeTime || '-'}</Text>
                 <Text style={styles.tableCell}>{daySchedule?.sleepTime || '-'}</Text>
@@ -1212,7 +1212,7 @@ export const MealPlanPDF = ({
             const targets = nutritionTargets.find(t => t.day === day);
             const diff = targets ? Math.round(targets.targetCalories - targets.tdee) : 0;
             return (
-              <View key={day} style={[styles.tableRow, idx % 2 === 1 && styles.tableRowAlt]}>
+              <View key={day} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
                 <Text style={[styles.tableCell, { flex: 1.2, fontWeight: 'bold' }]}>
                   {day.substring(0, 3)} {targets?.isWorkoutDay ? '*' : ''}
                 </Text>
@@ -1266,7 +1266,7 @@ export const MealPlanPDF = ({
             const isGood = variancePct <= 5;
             
             return (
-              <View key={day} style={[styles.tableRow, idx % 2 === 1 && styles.tableRowAlt]}>
+              <View key={day} style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowAlt : {}]}>
                 <Text style={[styles.tableCell, { flex: 1.2, fontWeight: 'bold' }]}>{day.substring(0, 3)}</Text>
                 <Text style={styles.tableCell}>{targets?.targetCalories || '-'}</Text>
                 <Text style={styles.tableCell}>{Math.round(actualCal)}</Text>

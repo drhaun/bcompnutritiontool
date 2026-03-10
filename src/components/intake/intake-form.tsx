@@ -574,7 +574,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
     if (prePopulatedFields) {
       for (const [k, v] of Object.entries(prePopulatedFields)) {
         if (v !== undefined && k in state) {
-          (state as Record<string, unknown>)[k] = v;
+          (state as unknown as Record<string, unknown>)[k] = v;
         }
       }
     }
@@ -707,7 +707,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
       <div className="min-h-screen bg-gradient-to-br from-[#00263d] to-[#001a2b] flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center">
           <div className="relative w-48 h-14 mx-auto mb-8">
-            <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill className="object-contain" priority />
+            <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill sizes="192px" className="object-contain" priority />
           </div>
           <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-8 space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mx-auto">
@@ -1853,7 +1853,7 @@ export function IntakeForm({ token, initialData, formConfig, stripeEnabled, onCh
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative w-24 h-8 flex-shrink-0">
-              <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill className="object-contain object-left" priority />
+              <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill sizes="96px" className="object-contain object-left" priority />
             </div>
             <span className="text-xs font-medium text-white/70 hidden sm:inline">{welcomeTitle || 'Nutrition Intake'}</span>
           </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceToken, krogerGet } from '@/lib/kroger-client';
+import { requireStaffSession } from '@/lib/api-auth';
 
 interface KrogerLocation {
   locationId: string;
@@ -12,6 +13,7 @@ interface KrogerLocation {
 
 export async function GET(request: NextRequest) {
   try {
+    await requireStaffSession();
     const zip = request.nextUrl.searchParams.get('zip');
     if (!zip || !/^\d{5}$/.test(zip)) {
       return NextResponse.json({ error: 'Valid 5-digit zip code required' }, { status: 400 });
@@ -32,6 +34,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ stores });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[Kroger Locations]', err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Failed to search stores' },

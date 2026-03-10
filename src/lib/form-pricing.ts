@@ -12,6 +12,28 @@ function parseNumericAnswer(value: unknown): number | null {
   return null;
 }
 
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function asNullableString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function asTierRules(value: unknown): TieredPricingRule[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((tier, index) => {
+    const row = (tier || {}) as Record<string, unknown>;
+    return {
+      id: asString(row.id) || `tier-${index}`,
+      minPlayers: typeof row.minPlayers === 'number' ? row.minPlayers : 1,
+      maxPlayers: typeof row.maxPlayers === 'number' ? row.maxPlayers : null,
+      flatPriceId: asString(row.flatPriceId),
+      label: asNullableString(row.label) || undefined,
+    };
+  });
+}
+
 export function getConfiguredPlayerCount(config: FormPricingConfig | null, customAnswers: Record<string, unknown>): number | null {
   if (!config || !('playerCountFieldId' in config) || !config.playerCountFieldId) return null;
   return parseNumericAnswer(customAnswers[config.playerCountFieldId]);
@@ -19,36 +41,81 @@ export function getConfiguredPlayerCount(config: FormPricingConfig | null, custo
 
 export function normalizePricingConfig(raw: unknown, legacyStripePriceId?: string | null): FormPricingConfig | null {
   if (raw && typeof raw === 'object' && 'mode' in (raw as Record<string, unknown>)) {
-    const config = { ...(raw as Record<string, unknown>) } as FormPricingConfig;
-    if (!legacyStripePriceId) return config;
-    switch (config.mode) {
+    const config = { ...(raw as Record<string, unknown>) };
+    const mode = config.mode;
+    if (typeof mode !== 'string') return null;
+
+    let parsedConfig: FormPricingConfig | null = null;
+    switch (mode) {
+      case 'fixed':
+        parsedConfig = {
+          mode,
+          fixedPriceId: asString(config.fixedPriceId),
+        };
+        break;
+      case 'per_player':
+        parsedConfig = {
+          mode,
+          playerCountFieldId: asString(config.playerCountFieldId),
+          perPlayerPriceId: asString(config.perPlayerPriceId),
+        };
+        break;
+      case 'base_plus_per_player':
+        parsedConfig = {
+          mode,
+          playerCountFieldId: asString(config.playerCountFieldId),
+          basePriceId: asString(config.basePriceId),
+          perPlayerPriceId: asString(config.perPlayerPriceId),
+        };
+        break;
+      case 'tiered':
+        parsedConfig = {
+          mode,
+          playerCountFieldId: asString(config.playerCountFieldId),
+          tiers: asTierRules(config.tiers),
+        };
+        break;
+      case 'manual_quote':
+        parsedConfig = {
+          mode,
+          playerCountFieldId: asString(config.playerCountFieldId) || undefined,
+          message: asNullableString(config.message) || undefined,
+        };
+        break;
+      default:
+        return null;
+    }
+
+    const configWithMode = parsedConfig;
+    if (!legacyStripePriceId) return configWithMode;
+    switch (configWithMode.mode) {
       case 'fixed':
         return {
-          ...config,
-          fixedPriceId: config.fixedPriceId || legacyStripePriceId,
+          ...configWithMode,
+          fixedPriceId: configWithMode.fixedPriceId || legacyStripePriceId,
         };
       case 'per_player':
         return {
-          ...config,
-          perPlayerPriceId: config.perPlayerPriceId || legacyStripePriceId,
+          ...configWithMode,
+          perPlayerPriceId: configWithMode.perPlayerPriceId || legacyStripePriceId,
         };
       case 'base_plus_per_player':
         return {
-          ...config,
-          basePriceId: config.basePriceId || legacyStripePriceId,
-          perPlayerPriceId: config.perPlayerPriceId || legacyStripePriceId,
+          ...configWithMode,
+          basePriceId: configWithMode.basePriceId || legacyStripePriceId,
+          perPlayerPriceId: configWithMode.perPlayerPriceId || legacyStripePriceId,
         };
       case 'tiered':
         return {
-          ...config,
-          tiers: config.tiers.map(tier => ({
+          ...configWithMode,
+          tiers: configWithMode.tiers.map(tier => ({
             ...tier,
             flatPriceId: tier.flatPriceId || legacyStripePriceId,
           })),
         };
       case 'manual_quote':
       default:
-        return config;
+        return configWithMode;
     }
   }
   if (legacyStripePriceId) {

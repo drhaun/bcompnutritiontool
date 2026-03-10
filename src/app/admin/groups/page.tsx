@@ -246,6 +246,119 @@ export default function AdminGroupsPage() {
     setEditingForm(prev => prev ? { ...prev, pricingConfig } : prev);
   }, []);
 
+  const updatePlayerCountFieldId = useCallback((playerCountFieldId: string) => {
+    setEditingForm(prev => {
+      if (!prev?.pricingConfig || !('playerCountFieldId' in prev.pricingConfig)) return prev;
+      return {
+        ...prev,
+        pricingConfig: {
+          ...prev.pricingConfig,
+          playerCountFieldId,
+        },
+      };
+    });
+  }, []);
+
+  const updatePerPlayerPriceId = useCallback((perPlayerPriceId: string) => {
+    setEditingForm(prev => {
+      if (!prev?.pricingConfig) return prev;
+      if (prev.pricingConfig.mode === 'per_player') {
+        return {
+          ...prev,
+          pricingConfig: {
+            ...prev.pricingConfig,
+            perPlayerPriceId,
+          },
+        };
+      }
+      if (prev.pricingConfig.mode === 'base_plus_per_player') {
+        return {
+          ...prev,
+          pricingConfig: {
+            ...prev.pricingConfig,
+            perPlayerPriceId,
+          },
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  const updateBasePriceId = useCallback((basePriceId: string) => {
+    setEditingForm(prev => {
+      if (!prev?.pricingConfig || prev.pricingConfig.mode !== 'base_plus_per_player') return prev;
+      return {
+        ...prev,
+        pricingConfig: {
+          ...prev.pricingConfig,
+          basePriceId,
+        },
+      };
+    });
+  }, []);
+
+  const updateManualQuoteMessage = useCallback((message: string) => {
+    setEditingForm(prev => {
+      if (!prev?.pricingConfig || prev.pricingConfig.mode !== 'manual_quote') return prev;
+      return {
+        ...prev,
+        pricingConfig: {
+          ...prev.pricingConfig,
+          message,
+        },
+      };
+    });
+  }, []);
+
+  const appendTierRule = useCallback(() => {
+    setEditingForm(prev => {
+      if (!prev?.pricingConfig || prev.pricingConfig.mode !== 'tiered') return prev;
+      return {
+        ...prev,
+        pricingConfig: {
+          ...prev.pricingConfig,
+          tiers: [
+            ...prev.pricingConfig.tiers,
+            {
+              id: `tier-${Date.now()}-${prev.pricingConfig.tiers.length}`,
+              minPlayers: 1,
+              maxPlayers: null,
+              flatPriceId: '',
+              label: '',
+            },
+          ],
+        },
+      };
+    });
+  }, []);
+
+  const applyReferencePrice = useCallback((value: string) => {
+    if (!value) return;
+    setEditingForm(prev => {
+      if (!prev?.pricingConfig) return prev;
+      if (prev.pricingConfig.mode === 'per_player') {
+        return {
+          ...prev,
+          pricingConfig: {
+            ...prev.pricingConfig,
+            perPlayerPriceId: value,
+          },
+        };
+      }
+      if (prev.pricingConfig.mode === 'base_plus_per_player') {
+        return {
+          ...prev,
+          pricingConfig: {
+            ...prev.pricingConfig,
+            perPlayerPriceId: prev.pricingConfig.perPlayerPriceId || value,
+            basePriceId: prev.pricingConfig.basePriceId || value,
+          },
+        };
+      }
+      return prev;
+    });
+  }, []);
+
   const updateTierRule = useCallback((tierId: string, patch: Partial<TieredPricingRule>) => {
     setEditingForm(prev => {
       if (!prev?.pricingConfig || prev.pricingConfig.mode !== 'tiered') return prev;
@@ -787,10 +900,7 @@ export default function AdminGroupsPage() {
                         <label className="text-xs font-medium text-gray-700 mb-1 block">Player Count Question</label>
                         <select
                           value={(editingForm.pricingConfig && 'playerCountFieldId' in editingForm.pricingConfig ? editingForm.pricingConfig.playerCountFieldId || '' : '')}
-                          onChange={e => {
-                            if (!editingForm.pricingConfig || !('playerCountFieldId' in editingForm.pricingConfig)) return;
-                            setEditingPricingConfig({ ...editingForm.pricingConfig, playerCountFieldId: e.target.value });
-                          }}
+                          onChange={e => updatePlayerCountFieldId(e.target.value)}
                           className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c19962]"
                         >
                           <option value="">Select a number field...</option>
@@ -808,7 +918,7 @@ export default function AdminGroupsPage() {
                           <label className="text-xs font-medium text-gray-700 mb-1 block">Per-Player Price ID</label>
                           <input
                             value={editingForm.pricingConfig.perPlayerPriceId}
-                            onChange={e => setEditingPricingConfig({ ...editingForm.pricingConfig!, perPlayerPriceId: e.target.value })}
+                            onChange={e => updatePerPlayerPriceId(e.target.value)}
                             className="w-full h-9 px-3 rounded-lg border border-gray-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#c19962]"
                             placeholder="price_..."
                           />
@@ -821,7 +931,7 @@ export default function AdminGroupsPage() {
                             <label className="text-xs font-medium text-gray-700 mb-1 block">Base Price ID</label>
                             <input
                               value={editingForm.pricingConfig.basePriceId}
-                              onChange={e => setEditingPricingConfig({ ...editingForm.pricingConfig!, basePriceId: e.target.value })}
+                              onChange={e => updateBasePriceId(e.target.value)}
                               className="w-full h-9 px-3 rounded-lg border border-gray-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#c19962]"
                               placeholder="price_..."
                             />
@@ -830,7 +940,7 @@ export default function AdminGroupsPage() {
                             <label className="text-xs font-medium text-gray-700 mb-1 block">Per-Player Price ID</label>
                             <input
                               value={editingForm.pricingConfig.perPlayerPriceId}
-                              onChange={e => setEditingPricingConfig({ ...editingForm.pricingConfig!, perPlayerPriceId: e.target.value })}
+                              onChange={e => updatePerPlayerPriceId(e.target.value)}
                               className="w-full h-9 px-3 rounded-lg border border-gray-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#c19962]"
                               placeholder="price_..."
                             />
@@ -885,13 +995,7 @@ export default function AdminGroupsPage() {
                           ))}
                           <button
                             type="button"
-                            onClick={() => {
-                              if (editingForm.pricingConfig?.mode !== 'tiered') return;
-                              setEditingPricingConfig({
-                                ...editingForm.pricingConfig,
-                                tiers: [...editingForm.pricingConfig.tiers, { id: `tier-${Date.now()}-${editingForm.pricingConfig.tiers.length}`, minPlayers: 1, maxPlayers: null, flatPriceId: '', label: '' }],
-                              });
-                            }}
+                            onClick={appendTierRule}
                             className="text-xs text-[#c19962] hover:text-[#a8833e] font-medium"
                           >
                             + Add Tier
@@ -904,7 +1008,7 @@ export default function AdminGroupsPage() {
                           <label className="text-xs font-medium text-gray-700 mb-1 block">Message</label>
                           <textarea
                             value={editingForm.pricingConfig.message || ''}
-                            onChange={e => setEditingPricingConfig({ ...editingForm.pricingConfig!, message: e.target.value })}
+                            onChange={e => updateManualQuoteMessage(e.target.value)}
                             rows={2}
                             className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#c19962]"
                             placeholder="We will review your submission and send a quote."
@@ -918,10 +1022,11 @@ export default function AdminGroupsPage() {
                           <select
                             onChange={e => {
                               const value = e.target.value;
-                              if (!value || !editingForm.pricingConfig) return;
-                              if (editingForm.pricingConfig.mode === 'per_player') setEditingPricingConfig({ ...editingForm.pricingConfig, perPlayerPriceId: value });
-                              if (editingForm.pricingConfig.mode === 'base_plus_per_player') setEditingPricingConfig({ ...editingForm.pricingConfig, perPlayerPriceId: editingForm.pricingConfig.perPlayerPriceId || value, basePriceId: editingForm.pricingConfig.basePriceId || value });
-                              if (editingForm.pricingConfig.mode === 'tiered') updateTierRule(editingForm.pricingConfig.tiers[0]?.id || '', { flatPriceId: value });
+                              if (editingForm.pricingConfig?.mode === 'tiered') {
+                                updateTierRule(editingForm.pricingConfig.tiers[0]?.id || '', { flatPriceId: value });
+                                return;
+                              }
+                              applyReferencePrice(value);
                             }}
                             className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c19962]"
                             defaultValue=""

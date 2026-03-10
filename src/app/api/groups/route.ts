@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createServerClient as createSupabaseSSR } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { getOptionalStaffSession, requireStaffSession } from '@/lib/api-auth';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -38,11 +37,13 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = getServiceClient();
     if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
+    const staffSession = await getOptionalStaffSession();
 
     const activeOnly = request.nextUrl.searchParams.get('active_only') === 'true';
     const slug = request.nextUrl.searchParams.get('slug');
 
     let query = supabase.from('client_groups').select('*');
+    if (!staffSession) query = query.eq('is_active', true);
     if (activeOnly) query = query.eq('is_active', true);
     if (slug) query = query.eq('slug', slug);
     query = query.order('name');
@@ -63,22 +64,7 @@ export async function GET(request: NextRequest) {
 // POST: Create a new group (authenticated staff only)
 export async function POST(request: NextRequest) {
   try {
-    // Auth check (optional in dev — staff-only in production)
-    try {
-      const cookieStore = await cookies();
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      if (supabaseUrl && supabaseAnonKey) {
-        const authClient = createSupabaseSSR(supabaseUrl, supabaseAnonKey, {
-          cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} },
-        });
-        const { data: { user } } = await authClient.auth.getUser();
-        // Allow through if no user but we have service key (staff API)
-        if (!user && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-      }
-    } catch { /* allow through in dev */ }
+    await requireStaffSession();
 
     const supabase = getServiceClient();
     if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
@@ -112,6 +98,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ group: dbToGroup(data) }, { status: 201 });
   } catch (err) {
+    if (err instanceof Error && err.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[Groups API] Error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

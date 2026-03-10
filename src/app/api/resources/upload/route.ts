@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireClientRouteAccess } from '@/lib/client-route-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,8 @@ export async function POST(request: NextRequest) {
     if (!clientId) {
       return NextResponse.json({ error: 'No clientId provided' }, { status: 400 });
     }
+
+    await requireClientRouteAccess(clientId);
 
     // Validate file size (max 50MB)
     if (file.size > 50 * 1024 * 1024) {
@@ -101,6 +104,12 @@ export async function POST(request: NextRequest) {
       mimeType: file.type,
     });
   } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === 'NOT_FOUND') {
+      return NextResponse.json({ error: 'Client not found or not authorized' }, { status: 404 });
+    }
     console.error('[Resources] Upload error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

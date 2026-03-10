@@ -1,6 +1,6 @@
 import { getBuiltInFieldRegistry } from '@/lib/form-library';
 import { makeFieldName, normalizeFormConfig } from '@/lib/form-fields';
-import type { CustomField, FormBlockConfig, FormFieldAssignment, ReusableCustomField } from '@/types';
+import type { CustomField, FormBlockConfig, FormBlockId, FormFieldAssignment, ReusableCustomField } from '@/types';
 
 type SupabaseLike = {
   from: (table: string) => {
@@ -48,7 +48,7 @@ function legacyCustomFieldToLibraryField(field: CustomField, blockId: string): R
     options: field.options || [],
     isActive: true,
     fieldKind: 'custom',
-    supportedBlockIds: [blockId as ReusableCustomField['supportedBlockIds'][number]],
+    supportedBlockIds: [blockId as FormBlockId],
     dataKeys: field.dataKeys,
     createdAt: '',
     updatedAt: '',

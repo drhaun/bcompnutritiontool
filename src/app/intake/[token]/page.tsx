@@ -6,8 +6,7 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { IntakeForm } from '@/components/intake/intake-form';
-import { extractPrePopulatedFields, getLockedFormStateKeys } from '@/lib/field-mapping-utils';
-import type { FormBlockConfig, FieldMapping, ClientCreationMode, FormPricingConfig } from '@/types';
+import type { FormBlockConfig, ClientCreationMode, FormPricingConfig } from '@/types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -156,11 +155,11 @@ export default function IntakeTokenPage() {
         const res = await fetch(`/api/form-links/resolve?groupId=${groupId}&targetFormId=${targetFormId}`);
         if (!res.ok) return;
         const data = await res.json();
-        if (data.formLink?.sourceData && data.formLink?.fieldMappings?.length > 0) {
-          const mappings = data.formLink.fieldMappings as FieldMapping[];
-          const sourceData = data.formLink.sourceData as Record<string, unknown>;
-          const prePopulatedFields = extractPrePopulatedFields(sourceData, mappings);
-          const lockedFields = Array.from(getLockedFormStateKeys(mappings));
+        if (data.formLink?.prePopulatedFields) {
+          const prePopulatedFields = data.formLink.prePopulatedFields as Record<string, unknown>;
+          const lockedFields = Array.isArray(data.formLink.lockedFields)
+            ? data.formLink.lockedFields as string[]
+            : [];
           setFormLinkData({ prePopulatedFields, lockedFields });
         }
       } catch { /* silent — form links are non-critical */ }
@@ -332,7 +331,7 @@ export default function IntakeTokenPage() {
     weeklySchedule: Record<string, unknown>;
     customAnswers: Record<string, unknown>;
   }) => {
-    setError(null);
+    setError('');
     const res = await fetch('/api/intake/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -397,7 +396,7 @@ export default function IntakeTokenPage() {
       <div className="min-h-screen bg-gradient-to-br from-[#00263d] to-[#001a2b] flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="relative w-40 h-12 mx-auto">
-            <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill className="object-contain" priority />
+            <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill sizes="192px" className="object-contain" priority />
           </div>
           <Loader2 className="h-6 w-6 animate-spin text-[#c19962] mx-auto" />
           <p className="text-sm text-white/50">Loading your form...</p>
@@ -411,7 +410,7 @@ export default function IntakeTokenPage() {
       <div className="min-h-screen bg-gradient-to-br from-[#00263d] to-[#001a2b] flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center">
           <div className="relative w-40 h-12 mx-auto mb-8">
-            <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill className="object-contain" priority />
+            <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill sizes="192px" className="object-contain" priority />
           </div>
           <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-8 space-y-4">
             <AlertCircle className="h-12 w-12 text-red-400 mx-auto" />
@@ -430,7 +429,7 @@ export default function IntakeTokenPage() {
       <div className="min-h-screen bg-gradient-to-br from-[#00263d] to-[#001a2b] flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center">
           <div className="relative w-40 h-12 mx-auto mb-8">
-            <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill className="object-contain" priority />
+            <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill sizes="192px" className="object-contain" priority />
           </div>
           <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-8 space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mx-auto">
@@ -519,7 +518,7 @@ export default function IntakeTokenPage() {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <div className="relative w-48 h-14 mx-auto mb-6">
-              <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill className="object-contain" priority />
+              <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill sizes="192px" className="object-contain" priority />
             </div>
             <h1 className="text-2xl font-bold text-white">{groupData?.welcomeTitle || 'Intake Form'}</h1>
             {groupData?.welcomeDescription && <p className="text-white/60 mt-2 text-sm leading-relaxed">{groupData.welcomeDescription}</p>}
@@ -556,7 +555,7 @@ export default function IntakeTokenPage() {
       <div className="min-h-screen bg-gradient-to-br from-[#00263d] to-[#001a2b] flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center">
           <div className="relative w-40 h-12 mx-auto mb-8">
-            <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill className="object-contain" priority />
+            <Image src="/images/fitomicshorizontalgold.png" alt="Fitomics" fill sizes="192px" className="object-contain" priority />
           </div>
           <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-8 space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mx-auto">

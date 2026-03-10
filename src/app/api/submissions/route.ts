@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireStaffSession } from '@/lib/api-auth';
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -9,6 +10,12 @@ function getServiceClient() {
 }
 
 export async function GET(request: NextRequest) {
+  try {
+    await requireStaffSession();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
@@ -50,11 +57,19 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  let reviewerId: string | null = null;
+  try {
+    const staffSession = await requireStaffSession();
+    reviewerId = staffSession.user.id;
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ error: 'DB not configured' }, { status: 503 });
 
   const body = await request.json();
-  const { id, status, reviewStatus, notes, reviewedBy, reviewedFormData } = body;
+  const { id, status, reviewStatus, notes, reviewedFormData } = body;
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -64,7 +79,7 @@ export async function PATCH(request: NextRequest) {
   if (reviewedFormData !== undefined) updates.reviewed_form_data = reviewedFormData;
   if (status === 'reviewed' || reviewStatus === 'reviewed') {
     updates.reviewed_at = new Date().toISOString();
-    updates.reviewed_by = reviewedBy || 'admin';
+    updates.reviewed_by = reviewerId || 'admin';
   }
 
   const { error } = await supabase.from('form_submissions').update(updates).eq('id', id);

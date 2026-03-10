@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBiometricSummary, getDiarySummary, getDataSummary } from '@/lib/cronometer';
 import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronometer-token';
+import { requireStaffSession } from '@/lib/api-auth';
 
 /**
  * Lightweight endpoint that returns only the latest biometric readings
@@ -13,31 +14,32 @@ import { resolveCronometerToken, backfillCronometerCookies } from '@/lib/cronome
  *   - client_id: Cronometer client ID (required unless fetching own data)
  */
 export async function GET(request: NextRequest) {
-  const tokenResult = await resolveCronometerToken(request);
-
-  if (!tokenResult.accessToken) {
-    return NextResponse.json(
-      { error: 'Not connected to Cronometer' },
-      { status: 401 }
-    );
-  }
-
-  const { accessToken } = tokenResult;
-  const { searchParams } = new URL(request.url);
-  const clientId = searchParams.get('client_id') || undefined;
-
-  // Date range: look back up to 2 years so we always find the most recent
-  // weight/body fat entry even if the client hasn't logged in a while.
-  // The biometric_summary and data_summary calls are lightweight.
-  const end = new Date();
-  const start = new Date();
-  start.setFullYear(start.getFullYear() - 2);
-
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  const startStr = fmt(start);
-  const endStr = fmt(end);
-
   try {
+    await requireStaffSession();
+    const tokenResult = await resolveCronometerToken(request);
+
+    if (!tokenResult.accessToken) {
+      return NextResponse.json(
+        { error: 'Not connected to Cronometer' },
+        { status: 401 }
+      );
+    }
+
+    const { accessToken } = tokenResult;
+    const { searchParams } = new URL(request.url);
+    const clientId = searchParams.get('client_id') || undefined;
+
+    // Date range: look back up to 2 years so we always find the most recent
+    // weight/body fat entry even if the client hasn't logged in a while.
+    // The biometric_summary and data_summary calls are lightweight.
+    const end = new Date();
+    const start = new Date();
+    start.setFullYear(start.getFullYear() - 2);
+
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const startStr = fmt(start);
+    const endStr = fmt(end);
+
     // Fetch biometric summary + recent active days in parallel
     const [bioResult, dataSummary] = await Promise.all([
       getBiometricSummary({ accessToken, clientId }, startStr, endStr).catch(() => ({
@@ -146,6 +148,9 @@ export async function GET(request: NextRequest) {
     response = backfillCronometerCookies(response, tokenResult);
     return response;
   } catch (error) {
+    if (error instanceof Error && error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('[client-biometrics] Error:', error);
     return NextResponse.json(
       {
