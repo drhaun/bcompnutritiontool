@@ -436,26 +436,39 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Grocery list
+  // Grocery list — single-column flowing layout for multi-page support
   grocerySection: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  groceryCategory: {
-    fontSize: 11,
+  groceryCategoryHeader: {
+    fontSize: 10,
     fontWeight: 'bold',
     color: COLORS.white,
     backgroundColor: COLORS.darkBlue,
-    padding: 6,
-    marginBottom: 2,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    marginBottom: 0,
+    letterSpacing: 0.5,
   },
   groceryItem: {
-    flexDirection: 'row',
+    flexDirection: 'row' as const,
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderBottomWidth: 0.5,
     borderBottomColor: COLORS.border,
+    gap: 8,
+  },
+  groceryItemAlt: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.border,
+    backgroundColor: '#f8f9fa',
     gap: 8,
   },
   groceryItemName: {
@@ -465,10 +478,16 @@ const styles = StyleSheet.create({
   },
   groceryItemAmount: {
     fontSize: 9,
-    color: COLORS.gray,
+    fontWeight: 'bold',
+    color: COLORS.darkBlue,
     flexShrink: 0,
-    textAlign: 'right',
-    minWidth: 60,
+    textAlign: 'right' as const,
+    minWidth: 70,
+  },
+  groceryItemMeals: {
+    fontSize: 7,
+    color: COLORS.gray,
+    marginTop: 1,
   },
   
   // Footer
@@ -1343,76 +1362,68 @@ export const MealPlanPDF = ({
         );
       })}
 
-      {/* ====== GROCERY LIST PAGE ====== */}
-      {showGrocery && <Page size="A4" style={styles.page}>
+      {/* ====== GROCERY LIST (flows across pages automatically) ====== */}
+      {showGrocery && <Page size="A4" style={styles.page} wrap>
         <Header title="Grocery List" logoUrl={logoUrl} />
         <Text style={styles.sectionTitle}>CONSOLIDATED GROCERY LIST</Text>
-        
+
         <Text style={styles.bodyText}>
-          This list consolidates all ingredients needed for the full week. Quantities are combined 
-          and rounded up to practical shopping amounts.
+          All ingredients for the week, combined and rounded up to practical shopping amounts.
+          Check off items as you shop.
         </Text>
-        
-        <View style={styles.twoColumn}>
-          <View style={styles.column}>
-            {Object.entries(groceryList).slice(0, Math.ceil(Object.keys(groceryList).length / 2)).map(([category, items]) => {
-              if (!items || items.length === 0) return null;
-              
-              const categoryLabels: Record<string, string> = {
-                protein: 'PROTEINS',
-                carbs: 'CARBOHYDRATES',
-                fats: 'FATS & OILS',
-                vegetables: 'VEGETABLES',
-                fruits: 'FRUITS',
-                dairy: 'DAIRY',
-                seasonings: 'SEASONINGS',
-                other: 'OTHER',
-              };
-              
-              return (
-                <View key={category} style={styles.grocerySection}>
-                  <Text style={styles.groceryCategory}>{categoryLabels[category] || category.toUpperCase()}</Text>
-                  {items.map((item, idx) => (
-                    <View key={idx} style={styles.groceryItem}>
-                      <Text style={styles.groceryItemName}>[ ] {item.name}</Text>
-                      <Text style={styles.groceryItemAmount}>{item.totalAmount}</Text>
+
+        {(() => {
+          const categoryLabels: Record<string, string> = {
+            produce: 'PRODUCE',
+            meat_seafood: 'MEAT & SEAFOOD',
+            dairy_eggs: 'DAIRY & EGGS',
+            grains_bread: 'GRAINS & BREAD',
+            fats_oils: 'FATS & OILS',
+            pantry: 'PANTRY STAPLES',
+            seasonings: 'SPICES & SEASONINGS',
+          };
+          // Render order matches a typical grocery-store walk
+          const categoryOrder = ['produce', 'meat_seafood', 'dairy_eggs', 'grains_bread', 'fats_oils', 'pantry', 'seasonings'];
+          let totalItems = 0;
+          Object.values(groceryList).forEach(items => { totalItems += (items?.length || 0); });
+
+          return (
+            <>
+              <Text style={{ fontSize: 8, color: COLORS.gray, marginBottom: 8 }}>
+                {totalItems} items across {categoryOrder.filter(c => groceryList[c]?.length > 0).length} categories
+              </Text>
+
+              {categoryOrder.map((category) => {
+                const items = groceryList[category];
+                if (!items || items.length === 0) return null;
+
+                return (
+                  <View key={category} style={styles.grocerySection}>
+                    {/* minPresenceAhead keeps the header with at least a few items */}
+                    <View minPresenceAhead={30}>
+                      <Text style={styles.groceryCategoryHeader}>
+                        {categoryLabels[category] || category.toUpperCase()}  ({items.length})
+                      </Text>
                     </View>
-                  ))}
-                </View>
-              );
-            })}
-          </View>
-          
-          <View style={styles.column}>
-            {Object.entries(groceryList).slice(Math.ceil(Object.keys(groceryList).length / 2)).map(([category, items]) => {
-              if (!items || items.length === 0) return null;
-              
-              const categoryLabels: Record<string, string> = {
-                protein: 'PROTEINS',
-                carbs: 'CARBOHYDRATES',
-                fats: 'FATS & OILS',
-                vegetables: 'VEGETABLES',
-                fruits: 'FRUITS',
-                dairy: 'DAIRY',
-                seasonings: 'SEASONINGS',
-                other: 'OTHER',
-              };
-              
-              return (
-                <View key={category} style={styles.grocerySection}>
-                  <Text style={styles.groceryCategory}>{categoryLabels[category] || category.toUpperCase()}</Text>
-                  {items.map((item, idx) => (
-                    <View key={idx} style={styles.groceryItem}>
-                      <Text style={styles.groceryItemName}>[ ] {item.name}</Text>
-                      <Text style={styles.groceryItemAmount}>{item.totalAmount}</Text>
-                    </View>
-                  ))}
-                </View>
-              );
-            })}
-          </View>
-        </View>
-        
+                    {items.map((item, idx) => (
+                      <View
+                        key={idx}
+                        style={idx % 2 === 1 ? styles.groceryItemAlt : styles.groceryItem}
+                        wrap={false}
+                      >
+                        <Text style={styles.groceryItemName}>
+                          {'☐  '}{item.name}
+                        </Text>
+                        <Text style={styles.groceryItemAmount}>{item.totalAmount}</Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+            </>
+          );
+        })()}
+
         <Footer />
       </Page>}
 
