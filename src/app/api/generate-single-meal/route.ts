@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generatePreciseMeal, ACCURACY_THRESHOLDS, checkPortionWarnings } from '@/lib/precision-meal-generator';
 import { getActiveProvider } from '@/lib/ai-client';
+import { sanitizeMealFields, reconcileMealMacros } from '@/lib/meal-sanitizer';
 import type { 
   UserProfile, 
   BodyCompGoals, 
@@ -45,6 +46,8 @@ export async function POST(request: Request) {
       location,
       maxIngredients,
       availableFoods,
+      cronometerPattern,
+      micronutrientGuidance,
     } = mealRequest;
     
     const effectiveMaxIngredients = maxIngredients ?? dietPreferences.maxIngredientsPerMeal;
@@ -67,6 +70,8 @@ export async function POST(request: Request) {
       location,
       maxIngredients: effectiveMaxIngredients,
       availableFoods: effectiveAvailableFoods,
+      cronometerPattern,
+      micronutrientGuidance,
     });
     
     // Hard clamp: if calories overshoot by more than 5%, proportionally scale
@@ -91,12 +96,16 @@ export async function POST(request: Request) {
       }
     }
 
+    // Sanitize AI text fields and reconcile macros from ingredients
+    let sanitizedMeal = sanitizeMealFields(meal);
+    sanitizedMeal = reconcileMealMacros(sanitizedMeal);
+
     // Validate macro accuracy using tighter thresholds
     const variance = {
-      calories: Math.abs(meal.totalMacros.calories - targetMacros.calories) / targetMacros.calories,
-      protein: Math.abs(meal.totalMacros.protein - targetMacros.protein) / targetMacros.protein,
-      carbs: targetMacros.carbs > 0 ? Math.abs(meal.totalMacros.carbs - targetMacros.carbs) / targetMacros.carbs : 0,
-      fat: targetMacros.fat > 0 ? Math.abs(meal.totalMacros.fat - targetMacros.fat) / targetMacros.fat : 0,
+      calories: Math.abs(sanitizedMeal.totalMacros.calories - targetMacros.calories) / targetMacros.calories,
+      protein: Math.abs(sanitizedMeal.totalMacros.protein - targetMacros.protein) / targetMacros.protein,
+      carbs: targetMacros.carbs > 0 ? Math.abs(sanitizedMeal.totalMacros.carbs - targetMacros.carbs) / targetMacros.carbs : 0,
+      fat: targetMacros.fat > 0 ? Math.abs(sanitizedMeal.totalMacros.fat - targetMacros.fat) / targetMacros.fat : 0,
     };
     
     // Check against tighter accuracy thresholds
@@ -108,15 +117,13 @@ export async function POST(request: Request) {
     
     // Get portion warnings if any
     const warnings: string[] = [];
-    // Note: checkPortionWarnings would need the scaled foods, but we have the meal
-    // For now, check basic thresholds from the meal itself
-    if (meal.totalMacros.fat < 5) {
+    if (sanitizedMeal.totalMacros.fat < 5) {
       warnings.push('Low fat content may affect satiety');
     }
     
     return NextResponse.json({ 
       success: true, 
-      meal,
+      meal: sanitizedMeal,
       accuracy: {
         withinTarget: isAccurate,
         thresholds: {

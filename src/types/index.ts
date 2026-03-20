@@ -715,6 +715,11 @@ export interface SingleMealRequest {
   location?: MealLocation;
   maxIngredients?: number;
   availableFoods?: string[];
+  cronometerPattern?: {
+    commonFoods: { name: string; serving: string; frequency: number }[];
+    avgMacros: { calories: number; protein: number; carbs: number; fat: number };
+  };
+  micronutrientGuidance?: string;
 }
 
 // Request for generating meal rationale/note

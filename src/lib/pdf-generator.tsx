@@ -17,6 +17,7 @@ import type {
   DayOfWeek,
   WeeklySchedule,
 } from '@/types';
+import { containsAIReasoning } from './meal-sanitizer';
 
 // Fitomics Brand Colors
 const COLORS = {
@@ -609,8 +610,8 @@ const MealCard = ({ meal, mealNumber, showRecipes = true, showRationale = true }
         </View>
       )}
       
-      {/* Meal Context / Rationale - only when toggled on */}
-      {showRationale && meal.aiRationale && !meal.aiRationale.includes('provides') && !meal.aiRationale.includes('supports your') && (
+      {/* Meal Context / Rationale - only when toggled on, skip AI reasoning text */}
+      {showRationale && meal.aiRationale && !meal.aiRationale.includes('provides') && !meal.aiRationale.includes('supports your') && !containsAIReasoning(meal.aiRationale) && (
         <View style={styles.mealRationale}>
           <Text style={styles.rationaleText}>{meal.aiRationale}</Text>
         </View>
@@ -640,8 +641,8 @@ const MealCard = ({ meal, mealNumber, showRecipes = true, showRationale = true }
         </View>
       )}
       
-      {/* Staff/Coach Note (if not implementation tips) */}
-      {meal.staffNote && !meal.staffNote.includes('needed:') && (
+      {/* Staff/Coach Note (if not implementation tips), skip AI reasoning */}
+      {meal.staffNote && !meal.staffNote.includes('needed:') && !containsAIReasoning(meal.staffNote) && (
         <View style={{
           backgroundColor: '#dbeafe',
           padding: 8,

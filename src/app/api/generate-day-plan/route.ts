@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { aiChatJSON, getActiveProvider } from '@/lib/ai-client';
+import { containsAIReasoning } from '@/lib/meal-sanitizer';
 
 interface MealSlot {
   id: string;
@@ -168,16 +169,19 @@ Return JSON:
       tier: 'fast',
     });
     
-    // Transform to expected structure
+    // Transform to expected structure, stripping AI reasoning from text fields
     const rawMeals = mealSlots.map((slot, index) => {
       const aiMeal = aiResponse.meals?.find((m: { slotId?: string }) => m.slotId === slot.id) 
         || aiResponse.meals?.[index];
       
+      const rawName = aiMeal?.name || `${slot.name}`;
+      const rawDescription = aiMeal?.notes || aiMeal?.description || 'A balanced meal for your goals';
+      
       return {
         slot,
         meal: {
-          name: aiMeal?.name || `${slot.name}`,
-          description: aiMeal?.notes || aiMeal?.description || 'A balanced meal for your goals',
+          name: containsAIReasoning(rawName) ? slot.name : rawName,
+          description: containsAIReasoning(rawDescription) ? '' : rawDescription,
           calories: Math.round(aiMeal?.totalMacros?.calories || slotTargets[index].calories),
           protein: Math.round(aiMeal?.totalMacros?.protein || slotTargets[index].protein),
           carbs: Math.round(aiMeal?.totalMacros?.carbs || slotTargets[index].carbs),
@@ -185,7 +189,8 @@ Return JSON:
           ingredients: aiMeal?.ingredients?.map((i: { item?: string; amount?: string; calories?: number; protein?: number; carbs?: number; fat?: number }) => 
             typeof i === 'string' ? i : `${i.amount || ''} ${i.item || ''}`.trim()
           ) || ['Protein source', 'Carb source', 'Vegetables'],
-          instructions: aiMeal?.instructions || ['Prepare ingredients', 'Cook according to preference', 'Serve and enjoy'],
+          instructions: (aiMeal?.instructions || ['Prepare ingredients', 'Cook according to preference', 'Serve and enjoy'])
+            .filter(inst => !containsAIReasoning(inst)),
           prepTime: slot.prepMethod === 'cook' ? 30 : slot.prepMethod === 'leftovers' ? 5 : slot.prepMethod === 'packaged' ? 0 : slot.prepMethod === 'pickup' || slot.prepMethod === 'delivery' ? 5 : 20,
         },
       };
@@ -220,7 +225,7 @@ Return JSON:
       totalProtein: rawMeals.reduce((s, m) => s + m.meal.protein, 0),
       totalCarbs: rawMeals.reduce((s, m) => s + m.meal.carbs, 0),
       totalFat: rawMeals.reduce((s, m) => s + m.meal.fat, 0),
-      summary: aiResponse.summary || '',
+      summary: (aiResponse.summary && !containsAIReasoning(aiResponse.summary)) ? aiResponse.summary : '',
     };
 
     return NextResponse.json({ dayPlan });

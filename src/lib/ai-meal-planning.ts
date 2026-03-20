@@ -12,6 +12,7 @@ import type {
 } from '@/types';
 import { validateMacroAccuracy } from './nutrition-calc';
 import { aiChatJSON } from './ai-client';
+import { sanitizeMealFields, reconcileMealMacros, sanitizeDayPlan } from './meal-sanitizer';
 
 const DAYS_OF_WEEK: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -97,6 +98,45 @@ KEY PRINCIPLES:
 You NEVER create boring "plain chicken and rice" meals. Every dish should have personality and flavor.`;
 
 /**
+ * Pre-calculate per-slot macro targets for a day.
+ * Meals get the bulk of macros; snacks get smaller shares.
+ * The sum of all slot targets equals the daily targets exactly.
+ */
+function calculatePerSlotTargets(
+  dailyTargets: DayNutritionTargets,
+  mealCount = 3,
+  snackCount = 2
+): { type: 'meal' | 'snack'; targets: Macros }[] {
+  const snackPct = snackCount > 0 ? 0.10 : 0; // each snack gets ~10%
+  const mealPct = mealCount > 0 ? (1.0 - snackCount * snackPct) / mealCount : 0;
+
+  const slots: { type: 'meal' | 'snack'; targets: Macros }[] = [];
+  for (let i = 0; i < mealCount; i++) {
+    slots.push({
+      type: 'meal',
+      targets: {
+        calories: Math.round(dailyTargets.targetCalories * mealPct),
+        protein: Math.round(dailyTargets.protein * mealPct),
+        carbs: Math.round(dailyTargets.carbs * mealPct),
+        fat: Math.round(dailyTargets.fat * mealPct),
+      },
+    });
+  }
+  for (let i = 0; i < snackCount; i++) {
+    slots.push({
+      type: 'snack',
+      targets: {
+        calories: Math.round(dailyTargets.targetCalories * snackPct),
+        protein: Math.round(dailyTargets.protein * snackPct),
+        carbs: Math.round(dailyTargets.carbs * snackPct),
+        fat: Math.round(dailyTargets.fat * snackPct),
+      },
+    });
+  }
+  return slots;
+}
+
+/**
  * Generate a single day's meal plan
  */
 async function generateDayMealPlan(
@@ -105,9 +145,12 @@ async function generateDayMealPlan(
   userContext: string,
   dietaryContext: string,
   scheduleContext: string,
-  previousMeals: string[] = []
+  previousMeals: string[] = [],
+  dietPreferences?: Partial<DietPreferences>
 ): Promise<DayMealPlan> {
-  // Extract used proteins for variety tracking
+  // Pre-calculate per-slot targets so the AI knows exact budgets
+  const slotTargets = calculatePerSlotTargets(dayTargets);
+
   const usedProteins: string[] = [];
   previousMeals.forEach(m => {
     const lower = m.toLowerCase();
@@ -120,6 +163,12 @@ async function generateDayMealPlan(
   });
   const uniqueProteins = [...new Set(usedProteins)];
   const overusedProteins = uniqueProteins.filter(p => usedProteins.filter(x => x === p).length >= 2);
+
+  // Build the per-slot target section for the prompt
+  const slotTargetLines = slotTargets.map((slot, i) => {
+    const label = slot.type === 'meal' ? `Meal ${i + 1}` : `Snack ${i - 2}`;
+    return `  ${label} (${slot.type}): ${slot.targets.calories} cal | ${slot.targets.protein}g P | ${slot.targets.carbs}g C | ${slot.targets.fat}g F`;
+  }).join('\n');
 
   const prompt = `
 You are creating a ${day} meal plan as an award-winning chef-nutritionist.
@@ -136,6 +185,19 @@ DAILY NUTRITION TARGETS (MUST HIT WITHIN ±5%)
 - Carbs: ${dayTargets.carbs}g
 - Fat: ${dayTargets.fat}g
 
+═══════════════════════════════════════════════════════════
+⚠️ PER-MEAL / PER-SNACK MACRO BUDGETS (MUST FOLLOW)
+═══════════════════════════════════════════════════════════
+Each meal and snack has its OWN calorie & macro budget.
+Each MUST be within ±10% of these targets:
+
+${slotTargetLines}
+
+SNACKS ARE SMALLER MEALS. A snack targeting ~${slotTargets.find(s => s.type === 'snack')?.targets.calories || 200} cal
+should have 2-3 simple ingredients — NOT a full meal scaled down.
+Good snack examples: Greek yogurt + berries, apple + almond butter,
+turkey roll-ups, protein shake, cottage cheese + fruit.
+
 ${scheduleContext}
 
 ═══════════════════════════════════════════════════════════
@@ -145,12 +207,12 @@ ${previousMeals.length > 0 ? `MEALS TO AVOID REPEATING: ${previousMeals.slice(-1
 ${overusedProteins.length > 0 ? `⚠️ OVERUSED PROTEINS - USE DIFFERENT: ${overusedProteins.join(', ')}` : ''}
 
 CRITICAL REQUIREMENTS:
-1. Create 3 meals and 2 snacks - each should be DELICIOUS and UNIQUE
-2. Every meal needs proper seasoning - specify herbs, spices, aromatics
+1. Create exactly 3 meals and 2 snacks
+2. Each meal/snack MUST match its per-slot calorie budget above (±10%)
 3. Each meal/snack must have EXACT portion sizes in grams
-4. Include macros per ingredient (calories, protein, carbs, fat)
-5. Total daily macros MUST be within ±5% of targets
-6. Make these meals something the client will LOOK FORWARD to eating
+4. Include accurate macros per ingredient (calories, protein, carbs, fat)
+5. Ingredient macros must SUM to the meal's totalMacros
+6. Ingredient amounts must be realistic, grocery-store-friendly portions
 7. Avoid repetitive "chicken and rice" meals - add creativity and flavor
 
 Return a JSON object with this EXACT structure:
@@ -208,7 +270,7 @@ Return a JSON object with this EXACT structure:
 `;
 
   const dayPlan = await aiChatJSON<DayMealPlan>({
-    system: CHEF_SYSTEM_PROMPT + '\n\nReturn ONLY valid JSON. Ensure all macro calculations are accurate.',
+    system: CHEF_SYSTEM_PROMPT + '\n\nReturn ONLY valid JSON. No commentary. Ensure all macro calculations are accurate and each meal matches its per-slot budget.',
     userMessage: prompt,
     temperature: 0.5,
     maxTokens: 4000,
@@ -216,8 +278,16 @@ Return a JSON object with this EXACT structure:
     tier: 'standard',
   });
 
+  // Ensure each meal has a targetMacros from our pre-calculated slots
+  for (let i = 0; i < dayPlan.meals.length && i < slotTargets.length; i++) {
+    if (!dayPlan.meals[i]) continue;
+    dayPlan.meals[i].targetMacros = slotTargets[i].targets;
+    if (!dayPlan.meals[i].type) {
+      dayPlan.meals[i].type = slotTargets[i].type;
+    }
+  }
+
   // Reconcile: recompute each meal's totalMacros from its ingredients
-  // AI often reports totalMacros that differ from actual ingredient sums
   for (const meal of dayPlan.meals) {
     if (!meal?.ingredients?.length) continue;
     const sum = { calories: 0, protein: 0, carbs: 0, fat: 0 };
@@ -235,67 +305,54 @@ Return a JSON object with this EXACT structure:
     };
   }
 
-  // Recompute daily totals from reconciled per-meal totals
-  const recomputedTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  for (const meal of dayPlan.meals) {
-    if (!meal?.totalMacros) continue;
-    recomputedTotals.calories += meal.totalMacros.calories;
-    recomputedTotals.protein += meal.totalMacros.protein;
-    recomputedTotals.carbs += meal.totalMacros.carbs;
-    recomputedTotals.fat += meal.totalMacros.fat;
-  }
-  dayPlan.dailyTotals = recomputedTotals;
+  // Sanitize text and identify meals that are wildly off target
+  const { plan: sanitized, badMealIndices } = sanitizeDayPlan(dayPlan);
 
-  // If daily totals are >5% off targets, proportionally scale ingredient macros
-  const targets = dayPlan.dailyTargets;
-  const calVar = targets.calories > 0 ? Math.abs(recomputedTotals.calories - targets.calories) / targets.calories : 0;
-  if (calVar > 0.05 && dayPlan.meals.length > 0) {
-    const calScale = targets.calories / (recomputedTotals.calories || 1);
-    const pScale = targets.protein > 0 ? targets.protein / (recomputedTotals.protein || 1) : 1;
-    const cScale = targets.carbs > 0 ? targets.carbs / (recomputedTotals.carbs || 1) : 1;
-    const fScale = targets.fat > 0 ? targets.fat / (recomputedTotals.fat || 1) : 1;
+  // Regenerate any meals that are >20% off their per-slot calorie target.
+  // Uses a focused AI call with tight ±3% tolerance to produce a properly
+  // sized meal with realistic ingredients — NOT a scaled-down version.
+  if (badMealIndices.length > 0) {
+    for (const idx of badMealIndices) {
+      const badMeal = sanitized.meals[idx];
+      if (!badMeal) continue;
 
-    for (const meal of dayPlan.meals) {
-      if (!meal?.ingredients) continue;
-      for (const ing of meal.ingredients) {
-        ing.calories = Math.round((ing.calories || 0) * calScale);
-        ing.protein = Math.round((ing.protein || 0) * pScale);
-        ing.carbs = Math.round((ing.carbs || 0) * cScale);
-        ing.fat = Math.round((ing.fat || 0) * fScale);
+      try {
+        const replacement = await regenerateMeal(
+          '',
+          idx,
+          sanitized,
+          {}, // userProfile not needed for regeneration prompt
+          dietPreferences || {},
+          []
+        );
+        sanitized.meals[idx] = replacement;
+      } catch (e) {
+        console.warn(`Failed to regenerate meal ${idx} for ${day}, keeping original:`, e);
       }
-      // Recompute meal totals after scaling
-      const s = { calories: 0, protein: 0, carbs: 0, fat: 0 };
-      for (const ing of meal.ingredients) {
-        s.calories += ing.calories || 0;
-        s.protein += ing.protein || 0;
-        s.carbs += ing.carbs || 0;
-        s.fat += ing.fat || 0;
-      }
-      meal.totalMacros = s;
     }
 
-    // Final daily totals
-    const finalTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
-    for (const meal of dayPlan.meals) {
+    // Recompute daily totals after regeneration
+    const newTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    for (const meal of sanitized.meals) {
       if (!meal?.totalMacros) continue;
-      finalTotals.calories += meal.totalMacros.calories;
-      finalTotals.protein += meal.totalMacros.protein;
-      finalTotals.carbs += meal.totalMacros.carbs;
-      finalTotals.fat += meal.totalMacros.fat;
+      newTotals.calories += meal.totalMacros.calories;
+      newTotals.protein += meal.totalMacros.protein;
+      newTotals.carbs += meal.totalMacros.carbs;
+      newTotals.fat += meal.totalMacros.fat;
     }
-    dayPlan.dailyTotals = finalTotals;
+    sanitized.dailyTotals = newTotals;
   }
 
-  // Validate macro accuracy
+  // Validate overall daily macro accuracy
   const validation = validateMacroAccuracy(
-    dayPlan.dailyTotals,
-    dayPlan.dailyTargets,
+    sanitized.dailyTotals,
+    sanitized.dailyTargets,
     0.05
   );
   
-  dayPlan.accuracyValidated = validation.isValid;
+  sanitized.accuracyValidated = validation.isValid;
   
-  return dayPlan;
+  return sanitized;
 }
 
 /**
@@ -343,7 +400,8 @@ SCHEDULE FOR ${day.toUpperCase()}:
       userContext,
       dietaryContext,
       scheduleContext,
-      allMealNames.slice(-10) // Last 10 meal names for variety
+      allMealNames.slice(-10), // Last 10 meal names for variety
+      dietPreferences
     );
     
     weeklyPlan[day] = dayPlan;
@@ -449,7 +507,10 @@ Return ONLY a JSON object with this structure:
     };
   }
 
-  return meal;
+  // Sanitize AI text and reconcile macros from ingredients
+  let cleaned = sanitizeMealFields(meal);
+  cleaned = reconcileMealMacros(cleaned);
+  return cleaned;
 }
 
 /**

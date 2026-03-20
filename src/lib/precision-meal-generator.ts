@@ -92,6 +92,11 @@ interface GeneratePreciseMealOptions {
   maxIngredients?: number;
   availableFoods?: string[];
   bulkPrepDays?: number;
+  cronometerPattern?: {
+    commonFoods: { name: string; serving: string; frequency: number }[];
+    avgMacros: { calories: number; protein: number; carbs: number; fat: number };
+  };
+  micronutrientGuidance?: string;
 }
 
 /** Return the correct portion limits based on slot type */
@@ -425,6 +430,26 @@ ${options.availableFoods && options.availableFoods.length > 0 ? `
 The client has these foods on hand — PRIORITIZE using these:
 ${options.availableFoods.map(f => `  • ${f}`).join('\n')}
 → Build the meal primarily from these available ingredients when possible.
+` : ''}
+${options.cronometerPattern ? `
+═══════════════════════════════════════════════════════════
+📊 CLIENT'S ACTUAL EATING PATTERNS (from Cronometer tracking)
+═══════════════════════════════════════════════════════════
+This client's food diary shows they typically eat these foods at this time:
+${options.cronometerPattern.commonFoods.slice(0, 12).map(f => `  • ${f.name} (${f.serving}) — ${f.frequency}x in past month`).join('\n')}
+
+Their average intake for this meal: ~${options.cronometerPattern.avgMacros.calories} cal | ${options.cronometerPattern.avgMacros.protein}g P
+
+→ INCORPORATE foods the client already enjoys when possible — this increases adherence.
+→ Use their familiar foods as a STARTING POINT, then elevate with better seasoning, preparation, and macro-optimized portions.
+→ Don't force unfamiliar foods if the client's favorites can hit the targets.
+` : ''}${options.micronutrientGuidance ? `
+═══════════════════════════════════════════════════════════
+🧬 MICRONUTRIENT PRIORITIES
+═══════════════════════════════════════════════════════════
+${options.micronutrientGuidance}
+→ When choosing between similar ingredients, PREFER the option that supports these micronutrient goals.
+→ This should influence ingredient SELECTION, not portion sizes (macros still drive portions).
 ` : ''}
 ═══════════════════════════════════════════════════════════
 YOUR TASK: Create ONE delicious ${isSnack ? 'snack' : 'meal'}

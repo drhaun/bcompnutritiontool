@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aiChatJSON, getActiveProvider } from '@/lib/ai-client';
+import { containsAIReasoning } from '@/lib/meal-sanitizer';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -111,20 +112,25 @@ IMPORTANT: The macros MUST be accurate and within ${targets.flexibility}% of tar
       tier: 'fast',
     });
 
-    // Ensure all required fields exist
+    // Ensure all required fields exist, strip AI reasoning text
+    const rawName = String(meal.name || `${preferences.cuisine} ${mealType} Bowl`);
+    const rawDescription = String(meal.description || 'A balanced, nutritious meal.');
+    const rawInstructions = (Array.isArray(meal.instructions) ? meal.instructions : []) as string[];
+    const rawTips = (Array.isArray(meal.tips) ? meal.tips : []) as string[];
+
     const completeMeal = {
-      name: meal.name || `${preferences.cuisine} ${mealType} Bowl`,
-      description: meal.description || 'A balanced, nutritious meal.',
+      name: containsAIReasoning(rawName) ? `${preferences.cuisine} ${mealType} Bowl` : rawName,
+      description: containsAIReasoning(rawDescription) ? '' : rawDescription,
       calories: Math.round(asNumber(meal.calories, targets.calories)),
       protein: Math.round(asNumber(meal.protein, targets.protein)),
       carbs: Math.round(asNumber(meal.carbs, targets.carbs)),
       fat: Math.round(asNumber(meal.fat, targets.fat)),
       fiber: Math.round(asNumber(meal.fiber, 5)),
       ingredients: meal.ingredients || [],
-      instructions: meal.instructions || [],
+      instructions: rawInstructions.filter(inst => !containsAIReasoning(inst)),
       prepTime: meal.prepTime || 15,
       cookTime: meal.cookTime || 20,
-      tips: meal.tips || [],
+      tips: rawTips.filter(tip => !containsAIReasoning(tip)),
       substitutions: meal.substitutions || [],
       nutritionHighlights: meal.nutritionHighlights || [],
     };

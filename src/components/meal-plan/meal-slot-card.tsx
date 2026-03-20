@@ -43,6 +43,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { useFitomicsStore } from '@/lib/store';
 import { toast } from 'sonner';
+import { containsAIReasoning } from '@/lib/meal-sanitizer';
 import type { MealSlot, Meal, Macros, DietPreferences, MealSupplement, DayOfWeek } from '@/types';
 
 // Quick adjustment suggestions with macro impact
@@ -1161,8 +1162,8 @@ export function MealSlotCard({
         
         {/* AI Rationale removed - was showing auto-generated disclaimer text */}
         
-        {/* Staff Note */}
-        {filledMeal.staffNote && !showNoteInput && (
+        {/* Staff Note — hide if it contains AI reasoning text */}
+        {filledMeal.staffNote && !showNoteInput && !containsAIReasoning(filledMeal.staffNote) && (
           <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2 mb-3">
             <p className="font-medium text-blue-800 mb-1">Coach Note:</p>
             <p className="text-blue-700">{filledMeal.staffNote}</p>

@@ -747,6 +747,50 @@ export default function MealPlanPage() {
     return undefined;
   }, [cronometerMode, mealPatterns]);
 
+  // Build micronutrient guidance string from phase targets + diet preferences
+  const micronutrientGuidance = useMemo((): string | undefined => {
+    const lines: string[] = [];
+
+    // Priority focus areas from diet preferences
+    const focus = dietPreferences.micronutrientFocus;
+    if (focus && focus.length > 0) {
+      lines.push(`Client's priority micronutrient focus areas: ${focus.join(', ')}`);
+    }
+
+    // Phase-specific micronutrient targets (highlight key ones)
+    const mt = activePhase?.micronutrientTargets;
+    if (mt) {
+      const highlights: string[] = [];
+      if (mt.iron && mt.iron.value > 0)
+        highlights.push(`Iron: ${mt.iron.value}${mt.iron.unit}/day — choose iron-rich proteins (red meat, lentils, spinach, liver)`);
+      if (mt.omega3 && mt.omega3.value > 0)
+        highlights.push(`Omega-3: ${mt.omega3.value}${mt.omega3.unit}/day — prefer salmon, sardines, chia seeds, walnuts`);
+      if (mt.vitaminD && mt.vitaminD.value > 0)
+        highlights.push(`Vitamin D: ${mt.vitaminD.value}${mt.vitaminD.unit}/day — fatty fish, egg yolks, fortified foods`);
+      if (mt.calcium && mt.calcium.value > 0)
+        highlights.push(`Calcium: ${mt.calcium.value}${mt.calcium.unit}/day — dairy, fortified alternatives, leafy greens`);
+      if (mt.magnesium && mt.magnesium.value > 0)
+        highlights.push(`Magnesium: ${mt.magnesium.value}${mt.magnesium.unit}/day — nuts, seeds, dark chocolate, leafy greens`);
+      if (mt.zinc && mt.zinc.value > 0)
+        highlights.push(`Zinc: ${mt.zinc.value}${mt.zinc.unit}/day — oysters, beef, pumpkin seeds, chickpeas`);
+      if (mt.potassium && mt.potassium.value > 0)
+        highlights.push(`Potassium: ${mt.potassium.value}${mt.potassium.unit}/day — bananas, potatoes, avocado, beans`);
+      if (mt.fiber && mt.fiber.value > 0)
+        highlights.push(`Fiber: ${mt.fiber.value}${mt.fiber.unit}/day — vegetables, whole grains, legumes, berries`);
+      if (mt.vitaminC && mt.vitaminC.value > 0)
+        highlights.push(`Vitamin C: ${mt.vitaminC.value}${mt.vitaminC.unit}/day — bell peppers, citrus, broccoli, strawberries`);
+      if (mt.vitaminB12 && mt.vitaminB12.value > 0)
+        highlights.push(`B12: ${mt.vitaminB12.value}${mt.vitaminB12.unit}/day — animal proteins, eggs, fortified foods`);
+
+      if (highlights.length > 0) {
+        lines.push('Key micronutrient targets for this client:');
+        highlights.forEach(h => lines.push(`  • ${h}`));
+      }
+    }
+
+    return lines.length > 0 ? lines.join('\n') : undefined;
+  }, [dietPreferences.micronutrientFocus, activePhase?.micronutrientTargets]);
+
   // ============ COMPUTE DAY TYPES ============
   
   const dayTypes = useMemo((): DayType[] => {
@@ -1499,6 +1543,9 @@ export default function MealPlanPage() {
       const mealCtx = schedule?.mealContexts?.[slotIndex];
       const perSlotOpts = slotGenOptions[slotIndex];
       
+      // When Cronometer mode is ON, include eating pattern context
+      const pattern = cronometerMode ? getPatternForSlot(slot.label, slot.type) : undefined;
+      
       const response = await fetch('/api/generate-single-meal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1519,6 +1566,11 @@ export default function MealPlanPage() {
             location: mealCtx?.location,
             maxIngredients: perSlotOpts?.maxIngredients,
             availableFoods: perSlotOpts?.availableFoods,
+            cronometerPattern: pattern ? {
+              commonFoods: pattern.commonFoods,
+              avgMacros: pattern.avgMacros,
+            } : undefined,
+            micronutrientGuidance,
           },
         }),
       });
