@@ -1856,11 +1856,7 @@ export default function MealPlanPage() {
             carbs: dayTargetsForDay.carbs,
             fat: dayTargetsForDay.fat,
           },
-          dietaryRestriction: dietPreferences?.dietaryRestrictions?.join(', ') || 'none',
-          allergies: dietPreferences?.allergies || [],
-          preferredProteins: dietPreferences?.preferredProteins || [],
-          preferredCarbs: dietPreferences?.preferredCarbs || [],
-          foodsToAvoid: dietPreferences?.foodsToAvoid || [],
+          dietPreferences,
           dayContext: {
             dayType: isWorkoutDay ? 'workout' : 'rest',
             workoutTiming: workout?.timeSlot || 'none',
@@ -1877,9 +1873,6 @@ export default function MealPlanPage() {
             location: schedule?.mealContexts?.[idx]?.location || 'home',
             prepMethod: schedule?.mealContexts?.[idx]?.prepMethod || 'cook',
           })),
-          groceryBudgetCap: dietPreferences?.groceryBudgetCap,
-          groceryBudgetPeriod: dietPreferences?.groceryBudgetPeriod,
-          budgetPreference: dietPreferences?.budgetPreference,
         }),
       });
       

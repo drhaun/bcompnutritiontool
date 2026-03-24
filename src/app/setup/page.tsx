@@ -74,6 +74,7 @@ import {
   MessageSquare,
   StickyNote,
   ShoppingCart,
+  Star,
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -795,6 +796,9 @@ export default function SetupPage() {
       if (dietPreferences.availableFoods?.length) {
         setAvailableFoods(dietPreferences.availableFoods.join('\n'));
       }
+      if (dietPreferences.ingredientRatings) {
+        setIngredientRatings(dietPreferences.ingredientRatings);
+      }
       if (dietPreferences.spiceLevel !== undefined) {
         setSpiceLevel(dietPreferences.spiceLevel);
       }
@@ -1111,6 +1115,11 @@ export default function SetupPage() {
   const [customProteins, setCustomProteins] = useState('');
   const [customCarbs, setCustomCarbs] = useState('');
   const [customFats, setCustomFats] = useState('');
+  const [ingredientRatings, setIngredientRatings] = useState<Record<string, number>>(
+    dietPreferences.ingredientRatings || {}
+  );
+  const [openRatingPanels, setOpenRatingPanels] = useState<Record<string, boolean>>({});
+  const toggleRatingPanel = (key: string) => setOpenRatingPanels(prev => ({ ...prev, [key]: !prev[key] }));
   
   // Time-restricted eating
   const [fastingProtocol, setFastingProtocol] = useState<string>('none');
@@ -1869,6 +1878,7 @@ export default function SetupPage() {
       cuisinePreferences: selectedCuisines,
       foodsToAvoid: foodsToAvoid.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
       foodsToEmphasize: foodsToEmphasize.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
+      ingredientRatings,
       maxIngredientsPerMeal,
       availableFoods: availableFoods.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
       spiceLevel,
@@ -1984,6 +1994,7 @@ export default function SetupPage() {
         cuisinePreferences: selectedCuisines,
         foodsToAvoid: foodsToAvoid.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
         foodsToEmphasize: foodsToEmphasize.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
+        ingredientRatings,
         maxIngredientsPerMeal,
         availableFoods: availableFoods.split(/[,\n]/).map(s => s.trim()).filter(Boolean),
         spiceLevel,
@@ -4553,6 +4564,72 @@ export default function SetupPage() {
                             className="text-sm"
                           />
                         </div>
+
+                        {/* Rate Your Favorites — Proteins */}
+                        {selectedProteins.length > 0 && (
+                          <div className="border rounded-lg overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => toggleRatingPanel('proteins')}
+                              className={cn(
+                                'w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors',
+                                selectedProteins.some(i => (ingredientRatings[i] || 1) > 1)
+                                  ? 'bg-gradient-to-r from-pink-50 to-orange-50 text-orange-800 hover:from-pink-100 hover:to-orange-100'
+                                  : 'bg-muted/50 text-foreground hover:bg-muted'
+                              )}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <Star className="h-3.5 w-3.5" />
+                                <span>Rate Your Favorites</span>
+                                {selectedProteins.some(i => (ingredientRatings[i] || 1) > 1) && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-white/70">
+                                    {selectedProteins.filter(i => (ingredientRatings[i] || 1) > 1).length} rated
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-muted-foreground">
+                                {openRatingPanels['proteins'] ? 'Hide' : 'Show'} — optional
+                              </span>
+                            </button>
+                            {openRatingPanels['proteins'] && (
+                              <div className="divide-y">
+                                <div className="px-3 py-1.5 bg-muted/30 flex gap-3 text-[10px] text-muted-foreground">
+                                  <span><span className="font-medium">Like</span> — sometimes</span>
+                                  <span><Heart className="h-2.5 w-2.5 inline text-pink-500 fill-pink-500" /> <span className="font-medium">Love</span> — 2-3x/wk</span>
+                                  <span><Flame className="h-2.5 w-2.5 inline text-orange-500" /> <span className="font-medium">Staple</span> — 4-5x/wk</span>
+                                </div>
+                                <div className="max-h-[200px] overflow-y-auto">
+                                  {[...selectedProteins, ...customProteins.split(/[,\n]/).map(s => s.trim()).filter(Boolean)].map(item => (
+                                    <div key={item} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted/30 text-xs">
+                                      <span className="font-medium truncate mr-2">{item}</span>
+                                      <div className="flex gap-1 shrink-0">
+                                        {[
+                                          { v: 1, label: 'Like', bg: 'bg-primary text-primary-foreground' },
+                                          { v: 2, label: 'Love', bg: 'bg-pink-500 text-white' },
+                                          { v: 3, label: 'Staple', bg: 'bg-orange-500 text-white' },
+                                        ].map(r => (
+                                          <button
+                                            key={r.v}
+                                            type="button"
+                                            onClick={() => setIngredientRatings(prev => ({ ...prev, [item]: r.v }))}
+                                            className={cn(
+                                              'px-2 py-0.5 rounded text-[10px] font-medium transition-all',
+                                              (ingredientRatings[item] || 1) === r.v ? r.bg : 'bg-muted/50 text-muted-foreground hover:bg-muted',
+                                            )}
+                                          >
+                                            {r.v === 2 && <Heart className="h-2.5 w-2.5 inline mr-0.5 fill-current" />}
+                                            {r.v === 3 && <Flame className="h-2.5 w-2.5 inline mr-0.5" />}
+                                            {r.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
 
@@ -4614,6 +4691,72 @@ export default function SetupPage() {
                             className="text-sm"
                           />
                         </div>
+
+                        {/* Rate Your Favorites — Carbs */}
+                        {selectedCarbs.length > 0 && (
+                          <div className="border rounded-lg overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => toggleRatingPanel('carbs')}
+                              className={cn(
+                                'w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors',
+                                selectedCarbs.some(i => (ingredientRatings[i] || 1) > 1)
+                                  ? 'bg-gradient-to-r from-pink-50 to-orange-50 text-orange-800 hover:from-pink-100 hover:to-orange-100'
+                                  : 'bg-muted/50 text-foreground hover:bg-muted'
+                              )}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <Star className="h-3.5 w-3.5" />
+                                <span>Rate Your Favorites</span>
+                                {selectedCarbs.some(i => (ingredientRatings[i] || 1) > 1) && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-white/70">
+                                    {selectedCarbs.filter(i => (ingredientRatings[i] || 1) > 1).length} rated
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-muted-foreground">
+                                {openRatingPanels['carbs'] ? 'Hide' : 'Show'} — optional
+                              </span>
+                            </button>
+                            {openRatingPanels['carbs'] && (
+                              <div className="divide-y">
+                                <div className="px-3 py-1.5 bg-muted/30 flex gap-3 text-[10px] text-muted-foreground">
+                                  <span><span className="font-medium">Like</span> — sometimes</span>
+                                  <span><Heart className="h-2.5 w-2.5 inline text-pink-500 fill-pink-500" /> <span className="font-medium">Love</span> — 2-3x/wk</span>
+                                  <span><Flame className="h-2.5 w-2.5 inline text-orange-500" /> <span className="font-medium">Staple</span> — 4-5x/wk</span>
+                                </div>
+                                <div className="max-h-[200px] overflow-y-auto">
+                                  {[...selectedCarbs, ...customCarbs.split(/[,\n]/).map(s => s.trim()).filter(Boolean)].map(item => (
+                                    <div key={item} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted/30 text-xs">
+                                      <span className="font-medium truncate mr-2">{item}</span>
+                                      <div className="flex gap-1 shrink-0">
+                                        {[
+                                          { v: 1, label: 'Like', bg: 'bg-primary text-primary-foreground' },
+                                          { v: 2, label: 'Love', bg: 'bg-pink-500 text-white' },
+                                          { v: 3, label: 'Staple', bg: 'bg-orange-500 text-white' },
+                                        ].map(r => (
+                                          <button
+                                            key={r.v}
+                                            type="button"
+                                            onClick={() => setIngredientRatings(prev => ({ ...prev, [item]: r.v }))}
+                                            className={cn(
+                                              'px-2 py-0.5 rounded text-[10px] font-medium transition-all',
+                                              (ingredientRatings[item] || 1) === r.v ? r.bg : 'bg-muted/50 text-muted-foreground hover:bg-muted',
+                                            )}
+                                          >
+                                            {r.v === 2 && <Heart className="h-2.5 w-2.5 inline mr-0.5 fill-current" />}
+                                            {r.v === 3 && <Flame className="h-2.5 w-2.5 inline mr-0.5" />}
+                                            {r.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
 
@@ -4675,6 +4818,72 @@ export default function SetupPage() {
                             className="text-sm"
                           />
                         </div>
+
+                        {/* Rate Your Favorites — Fats */}
+                        {selectedFats.length > 0 && (
+                          <div className="border rounded-lg overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => toggleRatingPanel('fats')}
+                              className={cn(
+                                'w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors',
+                                selectedFats.some(i => (ingredientRatings[i] || 1) > 1)
+                                  ? 'bg-gradient-to-r from-pink-50 to-orange-50 text-orange-800 hover:from-pink-100 hover:to-orange-100'
+                                  : 'bg-muted/50 text-foreground hover:bg-muted'
+                              )}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <Star className="h-3.5 w-3.5" />
+                                <span>Rate Your Favorites</span>
+                                {selectedFats.some(i => (ingredientRatings[i] || 1) > 1) && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-white/70">
+                                    {selectedFats.filter(i => (ingredientRatings[i] || 1) > 1).length} rated
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-muted-foreground">
+                                {openRatingPanels['fats'] ? 'Hide' : 'Show'} — optional
+                              </span>
+                            </button>
+                            {openRatingPanels['fats'] && (
+                              <div className="divide-y">
+                                <div className="px-3 py-1.5 bg-muted/30 flex gap-3 text-[10px] text-muted-foreground">
+                                  <span><span className="font-medium">Like</span> — sometimes</span>
+                                  <span><Heart className="h-2.5 w-2.5 inline text-pink-500 fill-pink-500" /> <span className="font-medium">Love</span> — 2-3x/wk</span>
+                                  <span><Flame className="h-2.5 w-2.5 inline text-orange-500" /> <span className="font-medium">Staple</span> — 4-5x/wk</span>
+                                </div>
+                                <div className="max-h-[200px] overflow-y-auto">
+                                  {[...selectedFats, ...customFats.split(/[,\n]/).map(s => s.trim()).filter(Boolean)].map(item => (
+                                    <div key={item} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted/30 text-xs">
+                                      <span className="font-medium truncate mr-2">{item}</span>
+                                      <div className="flex gap-1 shrink-0">
+                                        {[
+                                          { v: 1, label: 'Like', bg: 'bg-primary text-primary-foreground' },
+                                          { v: 2, label: 'Love', bg: 'bg-pink-500 text-white' },
+                                          { v: 3, label: 'Staple', bg: 'bg-orange-500 text-white' },
+                                        ].map(r => (
+                                          <button
+                                            key={r.v}
+                                            type="button"
+                                            onClick={() => setIngredientRatings(prev => ({ ...prev, [item]: r.v }))}
+                                            className={cn(
+                                              'px-2 py-0.5 rounded text-[10px] font-medium transition-all',
+                                              (ingredientRatings[item] || 1) === r.v ? r.bg : 'bg-muted/50 text-muted-foreground hover:bg-muted',
+                                            )}
+                                          >
+                                            {r.v === 2 && <Heart className="h-2.5 w-2.5 inline mr-0.5 fill-current" />}
+                                            {r.v === 3 && <Flame className="h-2.5 w-2.5 inline mr-0.5" />}
+                                            {r.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { aiChatJSON, getActiveProvider } from '@/lib/ai-client';
 import { containsAIReasoning } from '@/lib/meal-sanitizer';
+import type { DietPreferences } from '@/types';
 
 interface MealSlot {
   id: string;
@@ -19,11 +20,7 @@ interface DayPlanRequest {
     carbs: number;
     fat: number;
   };
-  dietaryRestriction: string;
-  allergies: string[];
-  preferredProteins: string[];
-  preferredCarbs: string[];
-  foodsToAvoid: string[];
+  dietPreferences?: Partial<DietPreferences>;
   dayContext: {
     dayType: string;
     workoutTiming: string;
@@ -33,9 +30,41 @@ interface DayPlanRequest {
     specialNotes: string;
   };
   mealSlots: MealSlot[];
-  groceryBudgetCap?: number;
-  groceryBudgetPeriod?: 'daily' | 'weekly';
-  budgetPreference?: string;
+}
+
+function buildTieredPreferences(dp: Partial<DietPreferences>): string {
+  const ratings = dp.ingredientRatings || {};
+  const split = (items: string[]) => ({
+    staple: items.filter(i => (ratings[i] || 1) === 3),
+    love: items.filter(i => (ratings[i] || 1) === 2),
+    like: items.filter(i => (ratings[i] || 1) <= 1),
+  });
+
+  const tier = (label: string, items: string[], fallback: string) => {
+    if (items.length === 0) return `- Preferred ${label}: ${fallback}`;
+    const t = split(items);
+    const parts: string[] = [];
+    if (t.staple.length) parts.push(`STAPLE (use most): ${t.staple.join(', ')}`);
+    if (t.love.length) parts.push(`LOVE: ${t.love.join(', ')}`);
+    if (t.like.length) parts.push(`Like: ${t.like.join(', ')}`);
+    return `- Preferred ${label}: ${parts.join(' | ')}`;
+  };
+
+  const allAvoided = dp.foodsToAvoid || [];
+
+  return `DIETARY INFO:
+- Restriction: ${dp.dietaryRestrictions?.join(', ') || 'None'}
+- Allergies (NEVER USE): ${dp.allergies?.join(', ') || 'None'}
+- Foods to avoid: ${allAvoided.join(', ') || 'None'}
+${tier('proteins', dp.preferredProteins || [], 'chicken, fish, eggs')}
+${tier('carbs', dp.preferredCarbs || [], 'rice, oats, potatoes')}
+${tier('fats', dp.preferredFats || [], 'olive oil, avocado, nuts')}
+${tier('vegetables', dp.preferredVegetables || [], 'broccoli, spinach, peppers')}
+${dp.cuisinePreferences?.length ? `- Cuisine preferences: ${dp.cuisinePreferences.join(', ')}` : ''}
+${dp.groceryBudgetCap ? `\nGROCERY BUDGET: $${dp.groceryBudgetCap} ${dp.groceryBudgetPeriod || 'weekly'} — ${dp.budgetPreference || 'moderate'} style
+- Prefer cost-effective ingredients when possible` : ''}
+
+→ Prioritize STAPLE items first, then LOVE, then Like when choosing ingredients.`;
 }
 
 export async function POST(request: NextRequest) {
@@ -44,16 +73,9 @@ export async function POST(request: NextRequest) {
     const {
       clientName,
       targets,
-      dietaryRestriction,
-      allergies,
-      preferredProteins,
-      preferredCarbs,
-      foodsToAvoid,
+      dietPreferences: dp,
       dayContext,
       mealSlots,
-      groceryBudgetCap,
-      groceryBudgetPeriod,
-      budgetPreference,
     } = body;
 
     if (!getActiveProvider()) {
@@ -80,21 +102,14 @@ export async function POST(request: NextRequest) {
       };
     });
 
+    const dietaryInfo = dp ? buildTieredPreferences(dp) : `DIETARY INFO:\n- No specific preferences`;
+
     const prompt = `You are an expert sports nutritionist. Create a complete day's meal plan.
 
 CLIENT: ${clientName || 'Client'}
 DAILY TARGETS (MUST HIT EXACTLY): ${targets.calories} cal | ${targets.protein}g protein | ${targets.carbs}g carbs | ${targets.fat}g fat
 
-DIETARY INFO:
-- Restriction: ${dietaryRestriction || 'None'}
-- Allergies (NEVER USE): ${allergies.join(', ') || 'None'}
-- Preferred proteins: ${preferredProteins.join(', ') || 'chicken, fish, eggs'}
-- Preferred carbs: ${preferredCarbs.join(', ') || 'rice, oats, potatoes'}
-- Foods to avoid: ${foodsToAvoid.join(', ') || 'None'}
-${groceryBudgetCap ? `
-GROCERY BUDGET: $${groceryBudgetCap} ${groceryBudgetPeriod || 'weekly'}${groceryBudgetPeriod === 'weekly' ? ` (~$${Math.round(groceryBudgetCap / 7)}/day)` : ` (~$${groceryBudgetCap * 7}/week)`} — ${budgetPreference || 'moderate'} style
-- Prefer cost-effective ingredients: bulk staples, seasonal produce, affordable proteins (chicken thighs, eggs, beans, canned fish)
-- Avoid premium/specialty items unless budget allows` : ''}
+${dietaryInfo}
 
 DAY CONTEXT:
 - Day type: ${dayContext.dayType}

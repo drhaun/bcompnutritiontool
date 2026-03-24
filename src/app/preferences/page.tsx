@@ -197,6 +197,8 @@ export default function PreferencesPage() {
   const [ingredientRatings, setIngredientRatings] = useState<Record<string, number>>(
     dietPreferences.ingredientRatings || {}
   );
+  const [openRatingPanels, setOpenRatingPanels] = useState<Record<string, boolean>>({});
+  const toggleRatingPanel = (key: string) => setOpenRatingPanels(prev => ({ ...prev, [key]: !prev[key] }));
   
   // Supplements
   const [supplements, setSupplements] = useState<SupplementPreference[]>(
@@ -320,11 +322,11 @@ export default function PreferencesPage() {
 
   // ============ COMPONENTS ============
 
-  const getRatingLabel = (rating: number) => {
-    if (rating === 3) return 'Staple';
-    if (rating === 2) return 'Love';
-    return 'Like';
-  };
+  const RATING_CONFIG = [
+    { value: 1, label: 'Like', icon: null, bg: 'bg-muted', activeBg: 'bg-primary text-primary-foreground', desc: 'Include sometimes' },
+    { value: 2, label: 'Love', icon: Heart, bg: 'bg-muted', activeBg: 'bg-pink-500 text-white', desc: 'Use often (2-3x/week)' },
+    { value: 3, label: 'Staple', icon: Flame, bg: 'bg-muted', activeBg: 'bg-orange-500 text-white', desc: 'Must-have (4-5x/week)' },
+  ] as const;
 
   const SelectionGridWithCustom = ({ 
     items, 
@@ -339,6 +341,8 @@ export default function PreferencesPage() {
     categoryName = "items",
     ratings,
     onRatingChange,
+    panelOpen = false,
+    onTogglePanel,
   }: { 
     items: string[]; 
     selected: string[]; 
@@ -352,6 +356,8 @@ export default function PreferencesPage() {
     categoryName?: string;
     ratings?: Record<string, number>;
     onRatingChange?: (item: string, rating: number) => void;
+    panelOpen?: boolean;
+    onTogglePanel?: () => void;
   }) => {
     const [customInput, setCustomInput] = useState('');
     
@@ -376,27 +382,10 @@ export default function PreferencesPage() {
         handleAddCustom();
       }
     };
-
-    const handleChipClick = (item: string) => {
-      if (!selected.includes(item)) {
-        onToggle(item);
-      } else if (onRatingChange && ratings) {
-        const current = ratings[item] || 1;
-        const next = current >= 3 ? 1 : current + 1;
-        onRatingChange(item, next);
-      }
-    };
-
-    const handleChipDeselect = (e: React.MouseEvent, item: string) => {
-      e.stopPropagation();
-      onToggle(item);
-      if (onRatingChange) {
-        onRatingChange(item, 0);
-      }
-    };
     
     const predefinedItems = items;
     const customItems = selected.filter(item => !predefinedItems.includes(item));
+    const hasAnyRating = ratings && selected.some(i => (ratings[i] || 1) > 1);
     
     return (
       <div className="space-y-3">
@@ -410,16 +399,8 @@ export default function PreferencesPage() {
             </Button>
           </div>
         )}
-        
-        {ratings && onRatingChange && selected.length > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Tap selected items to set preference: <span className="font-medium">Like</span> →{' '}
-            <span className="font-medium text-pink-500">Love</span> →{' '}
-            <span className="font-medium text-orange-500">Staple</span>
-          </p>
-        )}
 
-        {/* Predefined options grid */}
+        {/* Predefined options grid — simple select/deselect */}
         <div className={cn(
           'grid gap-2',
           columns === 2 && 'grid-cols-2',
@@ -434,24 +415,15 @@ export default function PreferencesPage() {
             return (
               <div
                 key={item}
-                onClick={() => handleChipClick(item)}
+                onClick={() => onToggle(item)}
                 className={cn(
-                  'relative flex items-center justify-center p-2 rounded-lg border cursor-pointer transition-all text-center select-none',
+                  'flex items-center justify-center p-2 rounded-lg border cursor-pointer transition-all text-center select-none',
                   !isSelected && 'bg-background hover:bg-muted border-border',
-                  isSelected && rating === 1 && 'bg-primary text-primary-foreground border-primary',
+                  isSelected && rating <= 1 && 'bg-primary text-primary-foreground border-primary',
                   isSelected && rating === 2 && 'bg-pink-500 text-white border-pink-600',
                   isSelected && rating === 3 && 'bg-orange-500 text-white border-orange-600 ring-2 ring-orange-300',
                 )}
               >
-                {isSelected && (
-                  <button
-                    onClick={(e) => handleChipDeselect(e, item)}
-                    className="absolute -top-1.5 -right-1.5 bg-background border border-border rounded-full p-0.5 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive transition-colors z-10"
-                    aria-label={`Remove ${item}`}
-                  >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                )}
                 <div className="flex items-center gap-1.5">
                   {isSelected && rating === 2 && <Heart className="h-3 w-3 fill-current" />}
                   {isSelected && rating === 3 && <Flame className="h-3 w-3" />}
@@ -467,36 +439,17 @@ export default function PreferencesPage() {
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground font-medium">Custom {categoryName}:</p>
             <div className="flex flex-wrap gap-2">
-              {customItems.map((item) => {
-                const rating = ratings?.[item] || 1;
-                return (
-                  <Badge 
-                    key={item} 
-                    variant="secondary"
-                    className={cn(
-                      'cursor-pointer transition-colors',
-                      rating === 2 && 'bg-pink-100 text-pink-700 hover:bg-pink-200',
-                      rating === 3 && 'bg-orange-100 text-orange-700 hover:bg-orange-200',
-                      rating === 1 && 'hover:bg-destructive hover:text-destructive-foreground',
-                    )}
-                    onClick={() => {
-                      if (onRatingChange && ratings) {
-                        const current = ratings[item] || 1;
-                        const next = current >= 3 ? 1 : current + 1;
-                        onRatingChange(item, next);
-                      }
-                    }}
-                  >
-                    {rating === 2 && <Heart className="h-3 w-3 mr-1 fill-current" />}
-                    {rating === 3 && <Flame className="h-3 w-3 mr-1" />}
-                    {item}
-                    <X 
-                      className="h-3 w-3 ml-1 hover:text-destructive" 
-                      onClick={(e) => { e.stopPropagation(); onToggle(item); }}
-                    />
-                  </Badge>
-                );
-              })}
+              {customItems.map((item) => (
+                <Badge 
+                  key={item} 
+                  variant="secondary" 
+                  className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                  onClick={() => onToggle(item)}
+                >
+                  {item}
+                  <X className="h-3 w-3 ml-1" />
+                </Badge>
+              ))}
             </div>
           </div>
         )}
@@ -524,19 +477,85 @@ export default function PreferencesPage() {
           </div>
         )}
         
-        <div className="flex items-center justify-between">
-          <div className="flex gap-3 text-[10px] text-muted-foreground">
-            {ratings && selected.some(i => (ratings[i] || 1) === 2) && (
-              <span className="flex items-center gap-0.5"><Heart className="h-2.5 w-2.5 text-pink-500 fill-pink-500" /> Love</span>
-            )}
-            {ratings && selected.some(i => (ratings[i] || 1) === 3) && (
-              <span className="flex items-center gap-0.5"><Flame className="h-2.5 w-2.5 text-orange-500" /> Staple</span>
+        <p className="text-xs text-muted-foreground text-right">
+          {selected.length} selected ({predefinedItems.filter(i => selected.includes(i)).length} preset + {customItems.length} custom)
+        </p>
+
+        {/* ===== RATE YOUR FAVORITES — explicit, prominent section ===== */}
+        {ratings && onRatingChange && selected.length > 0 && (
+          <div className="border rounded-lg overflow-hidden mt-2">
+            <button
+              type="button"
+              onClick={onTogglePanel}
+              className={cn(
+                'w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium transition-colors',
+                hasAnyRating
+                  ? 'bg-gradient-to-r from-pink-50 to-orange-50 text-orange-800 hover:from-pink-100 hover:to-orange-100'
+                  : 'bg-muted/50 text-foreground hover:bg-muted'
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <Star className="h-4 w-4" />
+                <span>Rate Your Favorites</span>
+                {hasAnyRating && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-white/70">
+                    {selected.filter(i => (ratings[i] || 1) > 1).length} rated
+                  </Badge>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {panelOpen ? 'Hide' : 'Show'} — optional, helps prioritize meal plans
+              </span>
+            </button>
+            
+            {panelOpen && (
+              <div className="divide-y">
+                {/* Legend */}
+                <div className="px-4 py-2 bg-muted/30 flex gap-4 text-[11px] text-muted-foreground">
+                  {RATING_CONFIG.map(r => (
+                    <span key={r.value} className="flex items-center gap-1">
+                      {r.icon && <r.icon className={cn('h-3 w-3', r.value === 2 && 'text-pink-500 fill-pink-500', r.value === 3 && 'text-orange-500')} />}
+                      <span className="font-medium">{r.label}</span>
+                      <span className="hidden sm:inline">— {r.desc}</span>
+                    </span>
+                  ))}
+                </div>
+                
+                {/* Items with rating controls */}
+                <div className="max-h-[300px] overflow-y-auto">
+                  {selected.map((item) => {
+                    const currentRating = ratings[item] || 1;
+                    return (
+                      <div key={item} className="flex items-center justify-between px-4 py-2 hover:bg-muted/30 transition-colors">
+                        <span className="text-sm font-medium truncate mr-3">{item}</span>
+                        <div className="flex gap-1 shrink-0">
+                          {RATING_CONFIG.map(r => {
+                            const isActive = currentRating === r.value;
+                            const Icon = r.icon;
+                            return (
+                              <button
+                                key={r.value}
+                                type="button"
+                                onClick={() => onRatingChange(item, r.value)}
+                                className={cn(
+                                  'px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1',
+                                  isActive ? r.activeBg : 'bg-muted/50 text-muted-foreground hover:bg-muted',
+                                )}
+                              >
+                                {Icon && <Icon className={cn('h-3 w-3', isActive && 'fill-current')} />}
+                                {r.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
-            {selected.length} selected ({predefinedItems.filter(i => selected.includes(i)).length} preset + {customItems.length} custom)
-          </p>
-        </div>
+        )}
       </div>
     );
   };
@@ -728,6 +747,8 @@ export default function PreferencesPage() {
                       categoryName="proteins"
                       ratings={ingredientRatings}
                       onRatingChange={(item, rating) => setIngredientRatings(prev => ({ ...prev, [item]: rating }))}
+                      panelOpen={openRatingPanels['proteins'] || false}
+                      onTogglePanel={() => toggleRatingPanel('proteins')}
                     />
                   </CardContent>
                 </Card>
@@ -750,6 +771,8 @@ export default function PreferencesPage() {
                       categoryName="carbohydrates"
                       ratings={ingredientRatings}
                       onRatingChange={(item, rating) => setIngredientRatings(prev => ({ ...prev, [item]: rating }))}
+                      panelOpen={openRatingPanels['carbs'] || false}
+                      onTogglePanel={() => toggleRatingPanel('carbs')}
                     />
                   </CardContent>
                 </Card>
@@ -772,6 +795,8 @@ export default function PreferencesPage() {
                       categoryName="fats"
                       ratings={ingredientRatings}
                       onRatingChange={(item, rating) => setIngredientRatings(prev => ({ ...prev, [item]: rating }))}
+                      panelOpen={openRatingPanels['fats'] || false}
+                      onTogglePanel={() => toggleRatingPanel('fats')}
                     />
                   </CardContent>
                 </Card>
@@ -794,6 +819,8 @@ export default function PreferencesPage() {
                       categoryName="vegetables"
                       ratings={ingredientRatings}
                       onRatingChange={(item, rating) => setIngredientRatings(prev => ({ ...prev, [item]: rating }))}
+                      panelOpen={openRatingPanels['vegetables'] || false}
+                      onTogglePanel={() => toggleRatingPanel('vegetables')}
                     />
                   </CardContent>
                 </Card>
@@ -816,6 +843,8 @@ export default function PreferencesPage() {
                       categoryName="cuisines"
                       ratings={ingredientRatings}
                       onRatingChange={(item, rating) => setIngredientRatings(prev => ({ ...prev, [item]: rating }))}
+                      panelOpen={openRatingPanels['cuisines'] || false}
+                      onTogglePanel={() => toggleRatingPanel('cuisines')}
                     />
                   </CardContent>
                 </Card>
