@@ -228,12 +228,22 @@ async function getMealConcept(
   const spiceLevel = dietPreferences.spiceLevel || 'medium';
   const seasonings = dietPreferences.preferredSeasonings || [];
   
+  const ratings = dietPreferences.ingredientRatings || {};
+  const splitByRating = (items: string[]) => ({
+    staple: items.filter(i => (ratings[i] || 1) === 3),
+    love: items.filter(i => (ratings[i] || 1) === 2),
+    like: items.filter(i => (ratings[i] || 1) <= 1),
+  });
   const preferred = {
     proteins: dietPreferences.preferredProteins || [],
     carbs: dietPreferences.preferredCarbs || [],
     fats: dietPreferences.preferredFats || [],
     vegetables: dietPreferences.preferredVegetables || [],
   };
+  const proteinTiers = splitByRating(preferred.proteins);
+  const carbTiers = splitByRating(preferred.carbs);
+  const fatTiers = splitByRating(preferred.fats);
+  const vegTiers = splitByRating(preferred.vegetables);
   
   // Get supplements the client is currently taking
   const supplements = dietPreferences.supplements || [];
@@ -387,9 +397,21 @@ If ANY ingredient matches, DO NOT include it - find an alternative!
 ${foodsToEmphasize.length > 0 ? `🌟 CLIENT WANTS THESE FOODS: ${foodsToEmphasize.join(', ')}
 → Try to incorporate at least ONE of these emphasized foods in this meal when appropriate!` : 'No specific foods to emphasize'}
 
-- Preferred proteins: ${preferred.proteins.join(', ') || 'chicken, fish, eggs, beef, turkey'}
-- Preferred carbs: ${preferred.carbs.join(', ') || 'rice, potatoes, oats, quinoa'}
-- Preferred vegetables: ${preferred.vegetables.join(', ') || 'broccoli, spinach, peppers, asparagus'}
+CLIENT INGREDIENT PREFERENCES (ordered by priority):
+${proteinTiers.staple.length > 0 ? `🔥 STAPLE proteins (client LOVES — use these 4-5x/week): ${proteinTiers.staple.join(', ')}` : ''}
+${proteinTiers.love.length > 0 ? `❤️ LOVE proteins (use 2-3x/week): ${proteinTiers.love.join(', ')}` : ''}
+${proteinTiers.like.length > 0 || preferred.proteins.length === 0 ? `👍 Like proteins: ${proteinTiers.like.join(', ') || 'chicken, fish, eggs, beef, turkey'}` : ''}
+${carbTiers.staple.length > 0 ? `🔥 STAPLE carbs: ${carbTiers.staple.join(', ')}` : ''}
+${carbTiers.love.length > 0 ? `❤️ LOVE carbs: ${carbTiers.love.join(', ')}` : ''}
+${carbTiers.like.length > 0 || preferred.carbs.length === 0 ? `👍 Like carbs: ${carbTiers.like.join(', ') || 'rice, potatoes, oats, quinoa'}` : ''}
+${vegTiers.staple.length > 0 ? `🔥 STAPLE vegetables: ${vegTiers.staple.join(', ')}` : ''}
+${vegTiers.love.length > 0 ? `❤️ LOVE vegetables: ${vegTiers.love.join(', ')}` : ''}
+${vegTiers.like.length > 0 || preferred.vegetables.length === 0 ? `👍 Like vegetables: ${vegTiers.like.join(', ') || 'broccoli, spinach, peppers, asparagus'}` : ''}
+${fatTiers.staple.length > 0 ? `🔥 STAPLE fats: ${fatTiers.staple.join(', ')}` : ''}
+${fatTiers.love.length > 0 ? `❤️ LOVE fats: ${fatTiers.love.join(', ')}` : ''}
+
+→ ALWAYS choose STAPLE items first, then LOVE, then Like when selecting ingredients.
+→ If the client has a STAPLE protein, build the meal around it unless variety rules prevent it.
 
 ═══════════════════════════════════════════════════════════
 CLIENT'S SUPPLEMENT ROUTINE
@@ -477,7 +499,7 @@ ${hasCreatine ? '→ Good time to take creatine with carbs' : ''}
 
 Return JSON:
 {
-  "name": "Creative, Appetizing Name (e.g., 'Thai Basil Chicken Stir-Fry', 'Mediterranean Salmon Bowl', 'Spicy Southwest Scramble')",
+  "name": "Creative name that NAMES the primary protein/star ingredient (e.g., 'Thai Basil Chicken Stir-Fry', 'Herb-Crusted Salmon Bowl', 'Spicy Southwest Beef Scramble')",
   "description": "One sentence describing the flavors and appeal",
   "foods": [
     { "searchTerm": "exact database search term", "role": "primary_protein", "targetPct": 40-50 },
@@ -490,6 +512,7 @@ Return JSON:
 }
 
 IMPORTANT:
+- The meal name MUST mention the primary protein or star ingredient - never use vague names like "Protein Bowl" or "Grain Plate"
 - Create something UNIQUE and DELICIOUS - not generic "chicken rice broccoli"
 - Include seasonings/spices in the instructions (garlic, ginger, cumin, paprika, herbs, etc.)
 - Make it sound appetizing - this is restaurant quality!

@@ -83,6 +83,7 @@ export async function saveAllData(payload: {
       cooking_for: payload.dietPreferences.cookingFor || null,
       leftovers_preference: payload.dietPreferences.leftoversPreference || null,
       variety_level: payload.dietPreferences.varietyLevel || null,
+      ingredient_ratings: payload.dietPreferences.ingredientRatings || {},
     }, { onConflict: 'user_id' });
   }
 
@@ -170,6 +171,7 @@ export async function loadAllData() {
         cookingFor: prefs.data.cooking_for || undefined,
         leftoversPreference: prefs.data.leftovers_preference || undefined,
         varietyLevel: prefs.data.variety_level || undefined,
+        ingredientRatings: prefs.data.ingredient_ratings || {},
       }
     : null;
 

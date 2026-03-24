@@ -56,19 +56,41 @@ BODY COMPOSITION GOALS:
 function buildDietaryContext(dietPreferences: Partial<DietPreferences>): string {
   const restrictions = dietPreferences.dietaryRestrictions || [];
   const allergies = dietPreferences.allergies || [];
-  
+  const allAvoided = [...new Set([...(dietPreferences.foodsToAvoid || []), ...(dietPreferences.dislikedFoods || [])])];
+
+  const ratings = dietPreferences.ingredientRatings || {};
+  const splitByRating = (items: string[]) => ({
+    staple: items.filter(i => (ratings[i] || 1) === 3),
+    love: items.filter(i => (ratings[i] || 1) === 2),
+    like: items.filter(i => (ratings[i] || 1) <= 1),
+  });
+
+  const proteins = splitByRating(dietPreferences.preferredProteins || []);
+  const carbs = splitByRating(dietPreferences.preferredCarbs || []);
+  const fats = splitByRating(dietPreferences.preferredFats || []);
+  const vegetables = splitByRating(dietPreferences.preferredVegetables || []);
+  const cuisines = splitByRating(dietPreferences.cuisinePreferences || []);
+
+  const tierLine = (label: string, tiers: { staple: string[]; love: string[]; like: string[] }) => {
+    const parts: string[] = [];
+    if (tiers.staple.length) parts.push(`STAPLE (use most often): ${tiers.staple.join(', ')}`);
+    if (tiers.love.length) parts.push(`LOVE: ${tiers.love.join(', ')}`);
+    if (tiers.like.length) parts.push(`Like: ${tiers.like.join(', ')}`);
+    return parts.length > 0 ? `- ${label}: ${parts.join(' | ')}` : '';
+  };
+
   return `
 DIETARY RESTRICTIONS & SAFETY:
 - Restrictions: ${restrictions.length > 0 ? restrictions.join(', ') : 'None'}
 - ALLERGIES (STRICTLY AVOID): ${allergies.length > 0 ? allergies.join(', ') : 'None'}
-- Disliked Foods: ${(dietPreferences.dislikedFoods || []).slice(0, 8).join(', ')}
+- Foods to Avoid: ${allAvoided.length > 0 ? allAvoided.slice(0, 12).join(', ') : 'None'}
 
-FOOD PREFERENCES:
-- Proteins: ${(dietPreferences.preferredProteins || []).slice(0, 8).join(', ')}
-- Carbs: ${(dietPreferences.preferredCarbs || []).slice(0, 8).join(', ')}
-- Fats: ${(dietPreferences.preferredFats || []).slice(0, 8).join(', ')}
-- Vegetables: ${(dietPreferences.preferredVegetables || []).slice(0, 8).join(', ')}
-- Cuisines: ${(dietPreferences.cuisinePreferences || []).slice(0, 5).join(', ')}
+FOOD PREFERENCES (prioritize STAPLE items, then LOVE, then Like):
+${tierLine('Proteins', proteins)}
+${tierLine('Carbs', carbs)}
+${tierLine('Fats', fats)}
+${tierLine('Vegetables', vegetables)}
+${tierLine('Cuisines', cuisines)}
 
 FLAVOR PREFERENCES:
 - Spice Level: ${dietPreferences.spiceLevel || 'Medium'}
@@ -220,7 +242,7 @@ Return a JSON object with this EXACT structure:
   "day": "${day}",
   "meals": [
     {
-      "name": "Meal name",
+      "name": "Creative name that mentions the primary protein/star ingredient",
       "time": "7:00 AM",
       "context": "Pre-workout breakfast",
       "prepTime": "15 minutes",
@@ -448,7 +470,7 @@ MUST AVOID these ingredients: ${avoidIngredients.join(', ')}
 
 Return ONLY a JSON object with this structure:
 {
-  "name": "New meal name",
+  "name": "Creative name that mentions the primary protein/star ingredient",
   "time": "${currentMeal.time}",
   "context": "${currentMeal.context}",
   "prepTime": "Time needed",

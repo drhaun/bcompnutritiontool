@@ -416,6 +416,7 @@ export interface DietPreferences {
   cuisinePreferences: string[];
   foodsToAvoid: string[];
   foodsToEmphasize: string[]; // Foods to prioritize in meal plans
+  ingredientRatings?: Record<string, number>; // 1=Like, 2=Love, 3=Staple
   
   // Supplements
   supplements: SupplementPreference[];

@@ -34,7 +34,9 @@ import {
   Leaf,
   MapPin,
   Plus,
-  StickyNote
+  StickyNote,
+  Heart,
+  Star,
 } from 'lucide-react';
 import type { DayOfWeek, DaySchedule, InterestLevel, SupplementStatus, SupplementPreference } from '@/types';
 
@@ -192,6 +194,9 @@ export default function PreferencesPage() {
   const [foodsToEmphasize, setFoodsToEmphasize] = useState<string>(
     (dietPreferences.foodsToEmphasize || []).join('\n')
   );
+  const [ingredientRatings, setIngredientRatings] = useState<Record<string, number>>(
+    dietPreferences.ingredientRatings || {}
+  );
   
   // Supplements
   const [supplements, setSupplements] = useState<SupplementPreference[]>(
@@ -303,6 +308,7 @@ export default function PreferencesPage() {
       workZipCode: workZip,
       favoriteRestaurants: favoriteRestaurants.split('\n').map(s => s.trim()).filter(Boolean),
       favoriteGroceryStores: favoriteStores.split('\n').map(s => s.trim()).filter(Boolean),
+      ingredientRatings,
     });
     
     // Calculate nutrition targets based on previously saved schedule
@@ -313,6 +319,12 @@ export default function PreferencesPage() {
   };
 
   // ============ COMPONENTS ============
+
+  const getRatingLabel = (rating: number) => {
+    if (rating === 3) return 'Staple';
+    if (rating === 2) return 'Love';
+    return 'Like';
+  };
 
   const SelectionGridWithCustom = ({ 
     items, 
@@ -325,6 +337,8 @@ export default function PreferencesPage() {
     onClearAll,
     placeholder = "Add custom items (comma-separated)",
     categoryName = "items",
+    ratings,
+    onRatingChange,
   }: { 
     items: string[]; 
     selected: string[]; 
@@ -336,6 +350,8 @@ export default function PreferencesPage() {
     onClearAll?: () => void;
     placeholder?: string;
     categoryName?: string;
+    ratings?: Record<string, number>;
+    onRatingChange?: (item: string, rating: number) => void;
   }) => {
     const [customInput, setCustomInput] = useState('');
     
@@ -360,8 +376,25 @@ export default function PreferencesPage() {
         handleAddCustom();
       }
     };
+
+    const handleChipClick = (item: string) => {
+      if (!selected.includes(item)) {
+        onToggle(item);
+      } else if (onRatingChange && ratings) {
+        const current = ratings[item] || 1;
+        const next = current >= 3 ? 1 : current + 1;
+        onRatingChange(item, next);
+      }
+    };
+
+    const handleChipDeselect = (e: React.MouseEvent, item: string) => {
+      e.stopPropagation();
+      onToggle(item);
+      if (onRatingChange) {
+        onRatingChange(item, 0);
+      }
+    };
     
-    // Separate predefined items from custom items
     const predefinedItems = items;
     const customItems = selected.filter(item => !predefinedItems.includes(item));
     
@@ -378,6 +411,14 @@ export default function PreferencesPage() {
           </div>
         )}
         
+        {ratings && onRatingChange && selected.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Tap selected items to set preference: <span className="font-medium">Like</span> →{' '}
+            <span className="font-medium text-pink-500">Love</span> →{' '}
+            <span className="font-medium text-orange-500">Staple</span>
+          </p>
+        )}
+
         {/* Predefined options grid */}
         <div className={cn(
           'grid gap-2',
@@ -386,20 +427,39 @@ export default function PreferencesPage() {
           columns === 4 && 'grid-cols-2 md:grid-cols-4',
           columns === 5 && 'grid-cols-2 md:grid-cols-5',
         )}>
-          {predefinedItems.map((item) => (
-            <div
-              key={item}
-              onClick={() => onToggle(item)}
-              className={cn(
-                'flex items-center justify-center p-2 rounded-lg border cursor-pointer transition-all text-center',
-                selected.includes(item) 
-                  ? 'bg-primary text-primary-foreground border-primary' 
-                  : 'bg-background hover:bg-muted border-border'
-              )}
-            >
-              <span className="text-sm">{item}</span>
-            </div>
-          ))}
+          {predefinedItems.map((item) => {
+            const isSelected = selected.includes(item);
+            const rating = ratings?.[item] || 1;
+            
+            return (
+              <div
+                key={item}
+                onClick={() => handleChipClick(item)}
+                className={cn(
+                  'relative flex items-center justify-center p-2 rounded-lg border cursor-pointer transition-all text-center select-none',
+                  !isSelected && 'bg-background hover:bg-muted border-border',
+                  isSelected && rating === 1 && 'bg-primary text-primary-foreground border-primary',
+                  isSelected && rating === 2 && 'bg-pink-500 text-white border-pink-600',
+                  isSelected && rating === 3 && 'bg-orange-500 text-white border-orange-600 ring-2 ring-orange-300',
+                )}
+              >
+                {isSelected && (
+                  <button
+                    onClick={(e) => handleChipDeselect(e, item)}
+                    className="absolute -top-1.5 -right-1.5 bg-background border border-border rounded-full p-0.5 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive transition-colors z-10"
+                    aria-label={`Remove ${item}`}
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                )}
+                <div className="flex items-center gap-1.5">
+                  {isSelected && rating === 2 && <Heart className="h-3 w-3 fill-current" />}
+                  {isSelected && rating === 3 && <Flame className="h-3 w-3" />}
+                  <span className="text-sm">{item}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
         
         {/* Custom items display */}
@@ -407,17 +467,36 @@ export default function PreferencesPage() {
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground font-medium">Custom {categoryName}:</p>
             <div className="flex flex-wrap gap-2">
-              {customItems.map((item) => (
-                <Badge 
-                  key={item} 
-                  variant="secondary" 
-                  className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
-                  onClick={() => onToggle(item)}
-                >
-                  {item}
-                  <X className="h-3 w-3 ml-1" />
-                </Badge>
-              ))}
+              {customItems.map((item) => {
+                const rating = ratings?.[item] || 1;
+                return (
+                  <Badge 
+                    key={item} 
+                    variant="secondary"
+                    className={cn(
+                      'cursor-pointer transition-colors',
+                      rating === 2 && 'bg-pink-100 text-pink-700 hover:bg-pink-200',
+                      rating === 3 && 'bg-orange-100 text-orange-700 hover:bg-orange-200',
+                      rating === 1 && 'hover:bg-destructive hover:text-destructive-foreground',
+                    )}
+                    onClick={() => {
+                      if (onRatingChange && ratings) {
+                        const current = ratings[item] || 1;
+                        const next = current >= 3 ? 1 : current + 1;
+                        onRatingChange(item, next);
+                      }
+                    }}
+                  >
+                    {rating === 2 && <Heart className="h-3 w-3 mr-1 fill-current" />}
+                    {rating === 3 && <Flame className="h-3 w-3 mr-1" />}
+                    {item}
+                    <X 
+                      className="h-3 w-3 ml-1 hover:text-destructive" 
+                      onClick={(e) => { e.stopPropagation(); onToggle(item); }}
+                    />
+                  </Badge>
+                );
+              })}
             </div>
           </div>
         )}
@@ -445,9 +524,19 @@ export default function PreferencesPage() {
           </div>
         )}
         
-        <p className="text-xs text-muted-foreground text-right">
-          {selected.length} selected ({predefinedItems.filter(i => selected.includes(i)).length} preset + {customItems.length} custom)
-        </p>
+        <div className="flex items-center justify-between">
+          <div className="flex gap-3 text-[10px] text-muted-foreground">
+            {ratings && selected.some(i => (ratings[i] || 1) === 2) && (
+              <span className="flex items-center gap-0.5"><Heart className="h-2.5 w-2.5 text-pink-500 fill-pink-500" /> Love</span>
+            )}
+            {ratings && selected.some(i => (ratings[i] || 1) === 3) && (
+              <span className="flex items-center gap-0.5"><Flame className="h-2.5 w-2.5 text-orange-500" /> Staple</span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {selected.length} selected ({predefinedItems.filter(i => selected.includes(i)).length} preset + {customItems.length} custom)
+          </p>
+        </div>
       </div>
     );
   };
@@ -637,6 +726,8 @@ export default function PreferencesPage() {
                       onClearAll={() => clearAll(setSelectedProteins)}
                       placeholder="Add custom proteins (comma-separated)"
                       categoryName="proteins"
+                      ratings={ingredientRatings}
+                      onRatingChange={(item, rating) => setIngredientRatings(prev => ({ ...prev, [item]: rating }))}
                     />
                   </CardContent>
                 </Card>
@@ -657,6 +748,8 @@ export default function PreferencesPage() {
                       onClearAll={() => clearAll(setSelectedCarbs)}
                       placeholder="Add custom carbs (comma-separated)"
                       categoryName="carbohydrates"
+                      ratings={ingredientRatings}
+                      onRatingChange={(item, rating) => setIngredientRatings(prev => ({ ...prev, [item]: rating }))}
                     />
                   </CardContent>
                 </Card>
@@ -677,6 +770,8 @@ export default function PreferencesPage() {
                       onClearAll={() => clearAll(setSelectedFats)}
                       placeholder="Add custom fats (comma-separated)"
                       categoryName="fats"
+                      ratings={ingredientRatings}
+                      onRatingChange={(item, rating) => setIngredientRatings(prev => ({ ...prev, [item]: rating }))}
                     />
                   </CardContent>
                 </Card>
@@ -697,6 +792,8 @@ export default function PreferencesPage() {
                       onClearAll={() => clearAll(setSelectedVegetables)}
                       placeholder="Add custom vegetables (comma-separated)"
                       categoryName="vegetables"
+                      ratings={ingredientRatings}
+                      onRatingChange={(item, rating) => setIngredientRatings(prev => ({ ...prev, [item]: rating }))}
                     />
                   </CardContent>
                 </Card>
@@ -717,6 +814,8 @@ export default function PreferencesPage() {
                       onClearAll={() => clearAll(setSelectedCuisines)}
                       placeholder="Add custom cuisines (comma-separated)"
                       categoryName="cuisines"
+                      ratings={ingredientRatings}
+                      onRatingChange={(item, rating) => setIngredientRatings(prev => ({ ...prev, [item]: rating }))}
                     />
                   </CardContent>
                 </Card>
