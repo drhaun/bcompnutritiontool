@@ -1118,7 +1118,11 @@ export default function SetupPage() {
   const [ingredientRatings, setIngredientRatings] = useState<Record<string, number>>(
     dietPreferences.ingredientRatings || {}
   );
-  const [openRatingPanels, setOpenRatingPanels] = useState<Record<string, boolean>>({});
+  const [openRatingPanels, setOpenRatingPanels] = useState<Record<string, boolean>>({
+    proteins: true,
+    carbs: true,
+    fats: true,
+  });
   const toggleRatingPanel = (key: string) => setOpenRatingPanels(prev => ({ ...prev, [key]: !prev[key] }));
   
   // Time-restricted eating
@@ -4567,20 +4571,15 @@ export default function SetupPage() {
 
                         {/* Rate Your Favorites — Proteins */}
                         {selectedProteins.length > 0 && (
-                          <div className="border rounded-lg overflow-hidden">
+                          <div className="border-2 border-[#c19962]/30 rounded-lg overflow-hidden shadow-sm">
                             <button
                               type="button"
                               onClick={() => toggleRatingPanel('proteins')}
-                              className={cn(
-                                'w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors',
-                                selectedProteins.some(i => (ingredientRatings[i] || 1) > 1)
-                                  ? 'bg-gradient-to-r from-pink-50 to-orange-50 text-orange-800 hover:from-pink-100 hover:to-orange-100'
-                                  : 'bg-muted/50 text-foreground hover:bg-muted'
-                              )}
+                              className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-semibold transition-colors bg-gradient-to-r from-amber-50 to-orange-50 text-[#00263d] hover:from-amber-100 hover:to-orange-100"
                             >
                               <div className="flex items-center gap-1.5">
-                                <Star className="h-3.5 w-3.5" />
-                                <span>Rate Your Favorites</span>
+                                <Star className="h-4 w-4 text-[#c19962] fill-[#c19962]" />
+                                <span className="text-sm">Rate Your Favorites</span>
                                 {selectedProteins.some(i => (ingredientRatings[i] || 1) > 1) && (
                                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-white/70">
                                     {selectedProteins.filter(i => (ingredientRatings[i] || 1) > 1).length} rated
@@ -4694,20 +4693,15 @@ export default function SetupPage() {
 
                         {/* Rate Your Favorites — Carbs */}
                         {selectedCarbs.length > 0 && (
-                          <div className="border rounded-lg overflow-hidden">
+                          <div className="border-2 border-[#c19962]/30 rounded-lg overflow-hidden shadow-sm">
                             <button
                               type="button"
                               onClick={() => toggleRatingPanel('carbs')}
-                              className={cn(
-                                'w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors',
-                                selectedCarbs.some(i => (ingredientRatings[i] || 1) > 1)
-                                  ? 'bg-gradient-to-r from-pink-50 to-orange-50 text-orange-800 hover:from-pink-100 hover:to-orange-100'
-                                  : 'bg-muted/50 text-foreground hover:bg-muted'
-                              )}
+                              className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-semibold transition-colors bg-gradient-to-r from-amber-50 to-orange-50 text-[#00263d] hover:from-amber-100 hover:to-orange-100"
                             >
                               <div className="flex items-center gap-1.5">
-                                <Star className="h-3.5 w-3.5" />
-                                <span>Rate Your Favorites</span>
+                                <Star className="h-4 w-4 text-[#c19962] fill-[#c19962]" />
+                                <span className="text-sm">Rate Your Favorites</span>
                                 {selectedCarbs.some(i => (ingredientRatings[i] || 1) > 1) && (
                                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-white/70">
                                     {selectedCarbs.filter(i => (ingredientRatings[i] || 1) > 1).length} rated
@@ -4821,20 +4815,15 @@ export default function SetupPage() {
 
                         {/* Rate Your Favorites — Fats */}
                         {selectedFats.length > 0 && (
-                          <div className="border rounded-lg overflow-hidden">
+                          <div className="border-2 border-[#c19962]/30 rounded-lg overflow-hidden shadow-sm">
                             <button
                               type="button"
                               onClick={() => toggleRatingPanel('fats')}
-                              className={cn(
-                                'w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors',
-                                selectedFats.some(i => (ingredientRatings[i] || 1) > 1)
-                                  ? 'bg-gradient-to-r from-pink-50 to-orange-50 text-orange-800 hover:from-pink-100 hover:to-orange-100'
-                                  : 'bg-muted/50 text-foreground hover:bg-muted'
-                              )}
+                              className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-semibold transition-colors bg-gradient-to-r from-amber-50 to-orange-50 text-[#00263d] hover:from-amber-100 hover:to-orange-100"
                             >
                               <div className="flex items-center gap-1.5">
-                                <Star className="h-3.5 w-3.5" />
-                                <span>Rate Your Favorites</span>
+                                <Star className="h-4 w-4 text-[#c19962] fill-[#c19962]" />
+                                <span className="text-sm">Rate Your Favorites</span>
                                 {selectedFats.some(i => (ingredientRatings[i] || 1) > 1) && (
                                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-white/70">
                                     {selectedFats.filter(i => (ingredientRatings[i] || 1) > 1).length} rated
