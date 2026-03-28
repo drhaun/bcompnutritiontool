@@ -581,19 +581,22 @@ const Tag = ({ text }: { text: string }) => (
 
 const MealCard = ({ meal, mealNumber, showRecipes = true, showRationale = true }: { meal: Meal; mealNumber: number; context?: string; showRecipes?: boolean; showRationale?: boolean }) => {
   return (
-    <View style={styles.mealCard} wrap={false}>
-      <View style={styles.mealHeader}>
-        <Text style={styles.mealName}>
-          {meal.type === 'meal' ? `Meal ${mealNumber}` : `Snack ${mealNumber}`}: {meal.name}
-        </Text>
-        {meal.prepTime && <Text style={styles.mealTime}>~{meal.prepTime} prep</Text>}
-      </View>
-      
-      <View style={styles.mealMacros}>
-        <MacroBox label="Calories" value={meal.totalMacros.calories} unit="" />
-        <MacroBox label="Protein" value={meal.totalMacros.protein} unit="g" />
-        <MacroBox label="Carbs" value={meal.totalMacros.carbs} unit="g" />
-        <MacroBox label="Fat" value={meal.totalMacros.fat} unit="g" />
+    <View style={styles.mealCard}>
+      {/* Header + macros stay together */}
+      <View wrap={false}>
+        <View style={styles.mealHeader}>
+          <Text style={styles.mealName}>
+            {meal.type === 'meal' ? `Meal ${mealNumber}` : `Snack ${mealNumber}`}: {meal.name}
+          </Text>
+          {meal.prepTime && <Text style={styles.mealTime}>~{meal.prepTime} prep</Text>}
+        </View>
+        
+        <View style={styles.mealMacros}>
+          <MacroBox label="Calories" value={meal.totalMacros.calories} unit="" />
+          <MacroBox label="Protein" value={meal.totalMacros.protein} unit="g" />
+          <MacroBox label="Carbs" value={meal.totalMacros.carbs} unit="g" />
+          <MacroBox label="Fat" value={meal.totalMacros.fat} unit="g" />
+        </View>
       </View>
       
       {/* Target comparison - shows if meal is on target */}
@@ -682,10 +685,10 @@ const MealCard = ({ meal, mealNumber, showRecipes = true, showRationale = true }
       {/* Ingredients Section */}
       {showRecipes && (
         <View style={styles.ingredientsList}>
-          <Text style={styles.ingredientsTitle}>INGREDIENTS:</Text>
+          <Text style={styles.ingredientsTitle} minPresenceAhead={30}>INGREDIENTS:</Text>
           {meal.ingredients && meal.ingredients.length > 0 ? (
             meal.ingredients.map((ing, idx) => (
-              <View key={idx} style={styles.ingredientItem}>
+              <View key={idx} style={styles.ingredientItem} wrap={false}>
                 <Text style={styles.ingredientBullet}>•</Text>
                 <Text style={styles.ingredientText}>
                   {ing.amount ? `${ing.amount} ` : ''}{ing.item || 'Ingredient'}
@@ -703,10 +706,10 @@ const MealCard = ({ meal, mealNumber, showRecipes = true, showRationale = true }
       {/* Instructions Section */}
       {showRecipes && (
         <View style={styles.instructionsList}>
-          <Text style={styles.instructionsTitle}>INSTRUCTIONS:</Text>
+          <Text style={styles.instructionsTitle} minPresenceAhead={30}>INSTRUCTIONS:</Text>
           {meal.instructions && meal.instructions.length > 0 ? (
             meal.instructions.map((inst, idx) => (
-              <View key={idx} style={styles.instructionItem}>
+              <View key={idx} style={styles.instructionItem} wrap={false}>
                 <Text style={styles.instructionNumber}>{idx + 1}.</Text>
                 <Text style={styles.instructionText}>{inst}</Text>
               </View>
