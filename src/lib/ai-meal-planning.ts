@@ -307,6 +307,10 @@ Return a JSON object with this EXACT structure:
     if (!dayPlan.meals[i].type) {
       dayPlan.meals[i].type = slotTargets[i].type;
     }
+    // Ensure ingredients is always an array (AI may omit it)
+    if (!Array.isArray(dayPlan.meals[i].ingredients)) {
+      dayPlan.meals[i].ingredients = [];
+    }
   }
 
   // Reconcile: recompute each meal's totalMacros from its ingredients
@@ -325,6 +329,27 @@ Return a JSON object with this EXACT structure:
       carbs: Math.round(sum.carbs),
       fat: Math.round(sum.fat),
     };
+  }
+
+  // Regenerate any meals that have empty ingredients (AI sometimes omits them)
+  for (let i = 0; i < dayPlan.meals.length; i++) {
+    const meal = dayPlan.meals[i];
+    if (!meal || (meal.ingredients && meal.ingredients.length > 0)) continue;
+    try {
+      const replacement = await regenerateMeal(
+        '',
+        i,
+        dayPlan,
+        {},
+        dietPreferences || {},
+        []
+      );
+      if (replacement.ingredients && replacement.ingredients.length > 0) {
+        dayPlan.meals[i] = { ...replacement, targetMacros: meal.targetMacros, type: meal.type };
+      }
+    } catch (e) {
+      console.warn(`Failed to regenerate empty-ingredient meal ${i} for ${day}:`, e);
+    }
   }
 
   // Sanitize text and identify meals that are wildly off target

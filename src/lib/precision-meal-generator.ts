@@ -130,7 +130,14 @@ export async function generatePreciseMeal(
   const concept = await getMealConcept(options, adjustedTargets);
 
   // Step 3: Look up foods in database and calculate precise portions
-  const { scaledFoods, foodItems } = await buildMealFromConcept(concept, adjustedTargets, limits);
+  let { scaledFoods, foodItems } = await buildMealFromConcept(concept, adjustedTargets, limits);
+
+  // Step 3b: If no database foods matched, fall back to AI-generated ingredients
+  // so the meal always has a populated ingredient list
+  if (scaledFoods.length === 0) {
+    const fallbackMeal = await generateFallbackMealWithIngredients(concept, adjustedTargets, options);
+    return fallbackMeal;
+  }
 
   // Step 4: Calculate actual totals from database foods
   const totalMacros = calculateTotalMacros(scaledFoods);
@@ -158,6 +165,82 @@ export async function generatePreciseMeal(
   const meal = convertToMeal(concept, refinedFoods, finalMacros, options);
 
   return meal;
+}
+
+/**
+ * Fallback: when database lookup returns no foods, ask the AI to generate
+ * a complete meal with inline ingredient macros so we never return an
+ * empty ingredient list.
+ */
+async function generateFallbackMealWithIngredients(
+  concept: MealConcept,
+  targetMacros: FoodNutrients,
+  options: GeneratePreciseMealOptions
+): Promise<Meal> {
+  const isSnack = /snack/i.test(options.slotLabel);
+  const prompt = `
+Create a complete ${isSnack ? 'snack' : 'meal'} based on: "${concept.name}" (${concept.description}).
+
+EXACT MACRO TARGETS (±5%):
+- Calories: ${Math.round(targetMacros.calories)}
+- Protein: ${targetMacros.protein}g
+- Carbs: ${targetMacros.carbs}g
+- Fat: ${targetMacros.fat}g
+
+Return ONLY a JSON object:
+{
+  "name": "${concept.name}",
+  "ingredients": [
+    { "item": "Ingredient name", "amount": "150g", "calories": 180, "protein": 25, "carbs": 0, "fat": 8, "category": "protein" }
+  ],
+  "instructions": ${JSON.stringify(concept.instructions)},
+  "totalMacros": { "calories": ${Math.round(targetMacros.calories)}, "protein": ${targetMacros.protein}, "carbs": ${targetMacros.carbs}, "fat": ${targetMacros.fat} }
+}
+
+Each ingredient MUST have item, amount, calories, protein, carbs, fat, and category (protein|carbs|fats|vegetables|seasonings|other).
+Ingredient macros must SUM to the totalMacros.`;
+
+  const result = await aiChatJSON<{
+    name: string;
+    ingredients: Ingredient[];
+    instructions: string[];
+    totalMacros: FoodNutrients;
+  }>({
+    system: 'You are a precise nutritionist. Return ONLY valid JSON with accurate macro calculations.',
+    userMessage: prompt,
+    temperature: 0.4,
+    maxTokens: 2000,
+    jsonMode: true,
+    tier: 'fast',
+  });
+
+  const ingredients = (result.ingredients || []).filter(
+    (ing: Ingredient) => ing && ing.item && typeof ing.item === 'string'
+  );
+
+  const ingredientSum = {
+    calories: Math.round(ingredients.reduce((s: number, i: Ingredient) => s + (i.calories || 0), 0)),
+    protein: Math.round(ingredients.reduce((s: number, i: Ingredient) => s + (i.protein || 0), 0)),
+    carbs: Math.round(ingredients.reduce((s: number, i: Ingredient) => s + (i.carbs || 0), 0)),
+    fat: Math.round(ingredients.reduce((s: number, i: Ingredient) => s + (i.fat || 0), 0)),
+  };
+
+  return {
+    name: result.name || concept.name,
+    time: options.timeSlot,
+    context: `${options.slotLabel} - ${concept.description}`,
+    prepTime: concept.prepTime,
+    type: isSnack ? 'snack' : 'meal',
+    ingredients,
+    instructions: result.instructions || concept.instructions,
+    totalMacros: ingredientSum,
+    targetMacros: options.targetMacros,
+    workoutRelation: options.workoutRelation,
+    aiRationale: `This ${options.slotLabel.toLowerCase()} provides ${ingredientSum.protein}g protein.`,
+    source: 'ai',
+    lastModified: new Date().toISOString(),
+    isLocked: false,
+  };
 }
 
 // Chef persona for AI prompts - emphasizes flavor and culinary expertise

@@ -53,10 +53,11 @@ const COMMON_ALLERGIES = [
 ];
 
 const PROTEINS = [
-  'Chicken Breast', 'Chicken Thighs', 'Turkey', 'Ground Turkey', 'Beef (Lean)', 
-  'Ground Beef', 'Pork Tenderloin', 'Pork Chops', 'Bacon', 'Salmon', 
-  'Tuna', 'Tilapia', 'Shrimp', 'Cod', 'Eggs', 'Egg Whites',
-  'Tofu', 'Tempeh', 'Greek Yogurt', 'Cottage Cheese', 'Whey Protein'
+  'Chicken Breast', 'Chicken Thighs', 'Ground Chicken', 'Turkey', 'Ground Turkey', 
+  'Beef (Lean)', 'Ground Beef', 'Steak', 'Bison', 'Pork Tenderloin', 'Pork Chops', 
+  'Bacon', 'Salmon', 'Tuna', 'Tilapia', 'Shrimp', 'Cod', 'Eggs', 'Egg Whites',
+  'Tofu', 'Tempeh', 'Greek Yogurt', 'Cottage Cheese', 'Whey Protein',
+  'Lamb', 'Turkey Sausage', 'Sardines', 'Plant Protein Powder'
 ];
 
 const CARBS = [

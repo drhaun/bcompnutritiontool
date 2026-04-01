@@ -299,6 +299,8 @@ export default function MealPlanPage() {
     return false;
   });
   const [servingMultiplier, setServingMultiplier] = useState(1);
+  const [mealServingMultipliers, setMealServingMultipliers] = useState<Record<string, number>>({});
+  const [showMealServings, setShowMealServings] = useState(false);
   const [exportOptions, setExportOptions] = useState({
     includeGroceryList: true,
     includeRecipes: true,
@@ -1261,8 +1263,11 @@ export default function MealPlanPage() {
     
     if (mealPlan) {
       DAYS.forEach(day => {
-        mealPlan[day]?.meals?.forEach(meal => {
+        mealPlan[day]?.meals?.forEach((meal, mealIdx) => {
           if (!meal?.ingredients) return;
+          
+          const mealKey = `${day}-${mealIdx}`;
+          const mealMultiplier = mealServingMultipliers[mealKey] ?? 1;
           
           meal.ingredients.forEach(ingredient => {
             if (!ingredient?.item) return;
@@ -1291,6 +1296,9 @@ export default function MealPlanPage() {
               }
               rawUnit = amountMatch[2]?.trim() || 'serving';
             }
+            
+            // Apply per-meal multiplier to the parsed value
+            value *= mealMultiplier;
             
             const unit = normalizeUnit(rawUnit);
             const converted = convertToBaseUnit(value, unit);
@@ -1410,7 +1418,7 @@ export default function MealPlanPage() {
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [mealPlan, servingMultiplier]);
+  }, [mealPlan, servingMultiplier, mealServingMultipliers]);
 
   // ============ CRONOMETER ADAPTIVE HANDLERS ============
 
@@ -1652,9 +1660,6 @@ export default function MealPlanPage() {
     if (!sourceMeal) return;
 
     for (const targetDay of targetDays) {
-      const targetDayPlan = mealPlan?.[targetDay];
-      if (!targetDayPlan?.meals) continue;
-
       const targetDayTargets = nutritionTargets.find(t => t.day === targetDay);
       const targetSchedule = weeklySchedule[targetDay];
       const tgtExtC = (targetDayTargets ?? {}) as unknown as Record<string, unknown>;
@@ -1670,7 +1675,10 @@ export default function MealPlanPage() {
 
       let targetIdx = tMeals.findIndex(s => s.label === targetSlotLabel);
       if (targetIdx === -1) {
-        targetIdx = Math.min(slotIndex, targetDayPlan.meals.length - 1);
+        const existingMeals = mealPlan?.[targetDay]?.meals;
+        targetIdx = existingMeals
+          ? Math.min(slotIndex, existingMeals.length - 1)
+          : slotIndex;
       }
 
       updateMeal(targetDay, targetIdx, { ...sourceMeal, lastModified: new Date().toISOString() });
@@ -3894,6 +3902,85 @@ export default function MealPlanPage() {
                                 </Button>
                               </div>
                             </div>
+
+                            {/* Per-meal serving multipliers */}
+                            <div className="border rounded-lg overflow-hidden">
+                              <button
+                                className="w-full flex items-center justify-between p-2.5 text-left hover:bg-muted/30 transition-colors"
+                                onClick={() => setShowMealServings(!showMealServings)}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Utensils className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <div>
+                                    <p className="text-xs font-medium">Per-Meal Servings</p>
+                                    <p className="text-[10px] text-muted-foreground">Scale individual meals</p>
+                                  </div>
+                                </div>
+                                <span className={`text-xs text-muted-foreground transition-transform ${showMealServings ? 'rotate-180' : ''}`}>▼</span>
+                              </button>
+                              {showMealServings && (
+                                <div className="border-t px-2.5 py-2 space-y-1.5 max-h-[240px] overflow-y-auto">
+                                  {DAYS.map(day => {
+                                    const dp = mealPlan?.[day];
+                                    if (!dp?.meals) return null;
+                                    const filledMeals = dp.meals
+                                      .map((meal, idx) => ({ meal, idx }))
+                                      .filter(m => m.meal !== null);
+                                    if (filledMeals.length === 0) return null;
+                                    return (
+                                      <div key={day}>
+                                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-0.5">{day.substring(0, 3)}</p>
+                                        {filledMeals.map(({ meal, idx }) => {
+                                          const mealKey = `${day}-${idx}`;
+                                          const mult = mealServingMultipliers[mealKey] ?? 1;
+                                          return (
+                                            <div key={mealKey} className="flex items-center justify-between py-0.5">
+                                              <span className="text-[11px] truncate flex-1 mr-2">{meal!.name || `Meal ${idx + 1}`}</span>
+                                              <div className="flex items-center gap-1 shrink-0">
+                                                <Button
+                                                  variant="outline"
+                                                  size="icon"
+                                                  className="h-5 w-5"
+                                                  disabled={mult <= 1}
+                                                  onClick={() => setMealServingMultipliers(prev => {
+                                                    const next = { ...prev };
+                                                    const newVal = Math.max(1, mult - 1);
+                                                    if (newVal === 1) delete next[mealKey];
+                                                    else next[mealKey] = newVal;
+                                                    return next;
+                                                  })}
+                                                >
+                                                  <span className="text-[10px] font-bold">−</span>
+                                                </Button>
+                                                <span className={`text-[11px] font-bold w-4 text-center ${mult > 1 ? 'text-[#c19962]' : ''}`}>{mult}</span>
+                                                <Button
+                                                  variant="outline"
+                                                  size="icon"
+                                                  className="h-5 w-5"
+                                                  onClick={() => setMealServingMultipliers(prev => ({ ...prev, [mealKey]: mult + 1 }))}
+                                                >
+                                                  <span className="text-[10px] font-bold">+</span>
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    );
+                                  })}
+                                  {Object.keys(mealServingMultipliers).length > 0 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="w-full h-6 text-[10px] text-muted-foreground mt-1"
+                                      onClick={() => setMealServingMultipliers({})}
+                                    >
+                                      Reset all to 1
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                             
                             {/* Categorized grocery list */}
                             {['protein', 'carbs', 'vegetables', 'fats', 'seasonings', 'other'].map(category => {
@@ -4554,6 +4641,44 @@ export default function MealPlanPage() {
             </div>
           </div>
           
+          {/* Warning for meals without ingredients */}
+          {(() => {
+            const exportDays: DayOfWeek[] = exportOptions.exportType === 'full' ? DAYS
+              : exportOptions.exportType === 'single' ? [exportOptions.selectedDay]
+              : exportOptions.selectedDays;
+            const mealsWithoutIngredients: { day: string; name: string }[] = [];
+            exportDays.forEach(day => {
+              mealPlan?.[day]?.meals?.forEach(meal => {
+                if (meal && (!meal.ingredients || meal.ingredients.length === 0)) {
+                  mealsWithoutIngredients.push({ day, name: meal.name || 'Unnamed meal' });
+                }
+              });
+            });
+            if (mealsWithoutIngredients.length === 0) return null;
+            return (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
+                <p className="text-xs font-medium text-amber-800 flex items-center gap-1.5">
+                  <Info className="h-3.5 w-3.5 shrink-0" />
+                  {mealsWithoutIngredients.length} meal{mealsWithoutIngredients.length > 1 ? 's' : ''} missing ingredients
+                </p>
+                <p className="text-[10px] text-amber-700 mt-1">
+                  These meals will show &quot;See app for detailed ingredient list&quot; in the PDF:
+                </p>
+                <ul className="text-[10px] text-amber-700 mt-1 space-y-0.5 ml-4 list-disc">
+                  {mealsWithoutIngredients.slice(0, 5).map((m, i) => (
+                    <li key={i}>{m.day} &ndash; {m.name}</li>
+                  ))}
+                  {mealsWithoutIngredients.length > 5 && (
+                    <li>+{mealsWithoutIngredients.length - 5} more</li>
+                  )}
+                </ul>
+                <p className="text-[10px] text-amber-700 mt-1.5">
+                  Tip: Regenerate these meals or add ingredients manually before exporting.
+                </p>
+              </div>
+            );
+          })()}
+
           <DialogFooter className="gap-2 mt-2">
             <Button variant="outline" onClick={() => setShowExportDialog(false)}>Cancel</Button>
             <Button

@@ -271,11 +271,13 @@ const COMMON_ALLERGIES = [
 
 const PROTEINS = [
   // Poultry
-  'Chicken Breast', 'Chicken Thighs', 'Turkey Breast', 'Ground Turkey',
+  'Chicken Breast', 'Chicken Thighs', 'Ground Chicken', 'Turkey Breast', 'Ground Turkey', 'Turkey Sausage',
   // Seafood
   'Salmon', 'Tuna', 'Shrimp', 'Cod', 'Tilapia', 'Sardines', 'Mackerel',
   // Red Meat
-  'Beef (Lean)', 'Ground Beef (90/10)', 'Bison', 'Lamb', 'Pork Tenderloin',
+  'Beef (Lean)', 'Ground Beef (90/10)', 'Steak', 'Bison', 'Lamb', 'Venison',
+  // Pork
+  'Pork Tenderloin', 'Pork Chops', 'Bacon',
   // Eggs & Dairy
   'Eggs', 'Egg Whites', 'Greek Yogurt', 'Cottage Cheese', 'Skyr',
   // Plant-Based
