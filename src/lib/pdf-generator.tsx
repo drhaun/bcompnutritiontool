@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Font,
   Image,
+  Link,
 } from '@react-pdf/renderer';
 import type {
   UserProfile,
@@ -804,6 +805,7 @@ interface MealPlanPDFProps {
   nutritionTargets: DayNutritionTargets[];
   mealPlan: WeeklyMealPlan;
   groceryList: Record<string, { name: string; totalAmount: string }[]>;
+  instacartUrl?: string;
   resources?: PDFResource[];
   logoUrl?: string; // Optional high-resolution logo URL
   options?: PDFOptions;
@@ -817,6 +819,7 @@ export const MealPlanPDF = ({
   nutritionTargets,
   mealPlan,
   groceryList,
+  instacartUrl,
   resources = [],
   logoUrl,
   options = {},
@@ -1374,6 +1377,37 @@ export const MealPlanPDF = ({
           All ingredients for the week, combined and rounded up to practical shopping amounts.
           Check off items as you shop.
         </Text>
+
+        {instacartUrl && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#e8f5e9',
+            borderRadius: 6,
+            padding: 10,
+            marginBottom: 10,
+            gap: 8,
+          }} wrap={false}>
+            <View style={{
+              width: 24,
+              height: 24,
+              borderRadius: 12,
+              backgroundColor: '#43a047',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: 'bold' }}>🛒</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#2e7d32', marginBottom: 2 }}>
+                Shop this list on Instacart
+              </Text>
+              <Link src={instacartUrl} style={{ fontSize: 8, color: '#1b5e20', textDecoration: 'underline' }}>
+                Tap here to open your grocery list on Instacart with all items pre-loaded.
+              </Link>
+            </View>
+          </View>
+        )}
 
         {(() => {
           const categoryLabels: Record<string, string> = {
