@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { exchangeCode, saveAdminKrogerTokens } from '@/lib/kroger-client';
+import { exchangeCode, saveClientKrogerTokens } from '@/lib/kroger-client';
 
 /**
- * GET — Kroger OAuth callback for admin master account.
- * Exchanges the authorization code for tokens and saves them to the staff record.
+ * GET — Kroger OAuth callback for per-client account connection.
+ * Exchanges the code for tokens and saves them to the client record.
  */
 export async function GET(request: NextRequest) {
-  const returnTo = request.cookies.get('kroger_admin_return_to')?.value || '/admin';
+  const returnTo = request.cookies.get('kroger_client_return_to')?.value || '/meal-plan';
   const errorUrl = (reason: string) =>
     new URL(`${returnTo}${returnTo.includes('?') ? '&' : '?'}kroger_error=${reason}`, request.url);
   const successUrl = () =>
-    new URL(`${returnTo}${returnTo.includes('?') ? '&' : '?'}kroger_connected=1`, request.url);
+    new URL(`${returnTo}${returnTo.includes('?') ? '&' : '?'}kroger_connected=1&kroger_mode=client`, request.url);
 
   function clearOAuthCookies(response: NextResponse) {
     for (const name of [
-      'kroger_admin_state',
-      'kroger_admin_verifier',
-      'kroger_admin_staff_id',
-      'kroger_admin_return_to',
+      'kroger_client_state',
+      'kroger_client_verifier',
+      'kroger_client_id',
+      'kroger_client_return_to',
     ]) {
       response.headers.append('Set-Cookie', `${name}=; Path=/; Max-Age=0`);
     }
@@ -32,16 +32,16 @@ export async function GET(request: NextRequest) {
       return clearOAuthCookies(NextResponse.redirect(errorUrl('no_code')));
     }
 
-    const savedState = request.cookies.get('kroger_admin_state')?.value;
+    const savedState = request.cookies.get('kroger_client_state')?.value;
     if (!savedState || returnedState !== savedState) {
       return clearOAuthCookies(NextResponse.redirect(errorUrl('state_mismatch')));
     }
 
-    const codeVerifier = request.cookies.get('kroger_admin_verifier')?.value;
-    const staffId = request.cookies.get('kroger_admin_staff_id')?.value;
+    const codeVerifier = request.cookies.get('kroger_client_verifier')?.value;
+    const clientId = request.cookies.get('kroger_client_id')?.value;
 
-    if (!staffId) {
-      return clearOAuthCookies(NextResponse.redirect(errorUrl('no_staff')));
+    if (!clientId) {
+      return clearOAuthCookies(NextResponse.redirect(errorUrl('no_client')));
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
@@ -49,9 +49,9 @@ export async function GET(request: NextRequest) {
       return clearOAuthCookies(NextResponse.redirect(errorUrl('server_misconfigured')));
     }
 
-    const adminRedirectUri = `${baseUrl}/api/kroger/admin/callback`;
-    const tokens = await exchangeCode(code, codeVerifier, adminRedirectUri);
-    const saved = await saveAdminKrogerTokens(staffId, tokens);
+    const clientRedirectUri = `${baseUrl}/api/kroger/client/callback`;
+    const tokens = await exchangeCode(code, codeVerifier, clientRedirectUri);
+    const saved = await saveClientKrogerTokens(clientId, tokens);
 
     if (!saved) {
       return clearOAuthCookies(NextResponse.redirect(errorUrl('save_failed')));
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     return clearOAuthCookies(NextResponse.redirect(successUrl()));
   } catch (err) {
-    console.error('[Kroger Admin Callback]', err);
+    console.error('[Kroger Client Callback]', err);
     return clearOAuthCookies(NextResponse.redirect(errorUrl('auth_failed')));
   }
 }

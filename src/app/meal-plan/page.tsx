@@ -85,9 +85,13 @@ import {
   Check,
   Store,
   UsersRound,
+  Carrot,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { KrogerCartDialog } from '@/components/meal-plan/kroger-cart-dialog';
+import { consolidateGroceryList, cleanIngredientName } from '@/lib/grocery-utils';
+import type { RawIngredient } from '@/lib/grocery-utils';
+import { mapDietaryToHealthFilters } from '@/lib/instacart-client';
 import type { DayOfWeek, DayNutritionTargets, MealSlot, Meal, Macros, DietPreferences, SupplementEntry, MealSupplement, CoachLink, FavoriteRecipe, ClientResource } from '@/types';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -301,6 +305,11 @@ export default function MealPlanPage() {
   const [servingMultiplier, setServingMultiplier] = useState(1);
   const [mealServingMultipliers, setMealServingMultipliers] = useState<Record<string, number>>({});
   const [showMealServings, setShowMealServings] = useState(false);
+  const [instacartConfigured, setInstacartConfigured] = useState(false);
+  const [instacartLoading, setInstacartLoading] = useState(false);
+  const instacartCacheRef = useRef<{ hash: string; url: string } | null>(null);
+  const [instacartRetailers, setInstacartRetailers] = useState<Array<{ retailer_key: string; name: string; retailer_logo_url: string }>>([]);
+  const [selectedRetailerKey, setSelectedRetailerKey] = useState<string>('');
   const [exportOptions, setExportOptions] = useState({
     includeGroceryList: true,
     includeRecipes: true,
@@ -628,7 +637,20 @@ export default function MealPlanPage() {
   
   useEffect(() => {
     setIsHydrated(true);
-  }, []);
+    fetch('/api/instacart/status')
+      .then(r => r.json())
+      .then(d => {
+        const configured = d.configured === true;
+        setInstacartConfigured(configured);
+        if (configured && dietPreferences?.homeZipCode) {
+          fetch(`/api/instacart/retailers?postal_code=${encodeURIComponent(dietPreferences.homeZipCode)}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.retailers?.length) setInstacartRetailers(d.retailers); })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }, [dietPreferences?.homeZipCode]);
 
   // ============ CRONOMETER DATA FETCHING ============
 
@@ -1203,221 +1225,32 @@ export default function MealPlanPage() {
     return names;
   }, [mealPlan]);
 
-  // Consolidated grocery list with smart quantity parsing
+  // Consolidated grocery list — extracts embedded gram amounts from AI names,
+  // normalises USDA scientific names, and merges matching ingredients.
   const groceryList = useMemo(() => {
-    // Normalize units for proper combining
-    const normalizeUnit = (unit: string): string => {
-      const u = unit.toLowerCase().trim();
-      // Weight units -> g
-      if (u === 'g' || u === 'gram' || u === 'grams') return 'g';
-      if (u === 'kg' || u === 'kilogram' || u === 'kilograms') return 'kg';
-      if (u === 'oz' || u === 'ounce' || u === 'ounces') return 'oz';
-      if (u === 'lb' || u === 'lbs' || u === 'pound' || u === 'pounds') return 'lb';
-      // Volume units
-      if (u === 'ml' || u === 'milliliter' || u === 'milliliters') return 'ml';
-      if (u === 'l' || u === 'liter' || u === 'liters') return 'L';
-      if (u === 'cup' || u === 'cups') return 'cup';
-      if (u === 'tbsp' || u === 'tablespoon' || u === 'tablespoons') return 'tbsp';
-      if (u === 'tsp' || u === 'teaspoon' || u === 'teaspoons') return 'tsp';
-      // Count units
-      if (u === '' || u === 'serving' || u === 'servings') return 'serving';
-      if (u === 'piece' || u === 'pieces' || u === 'pcs') return 'piece';
-      if (u === 'scoop' || u === 'scoops') return 'scoop';
-      if (u === 'slice' || u === 'slices') return 'slice';
-      return u;
-    };
-    
-    // Check if two units are compatible for combining
-    const unitsCompatible = (u1: string, u2: string): boolean => {
-      if (u1 === u2) return true;
-      // Weight units can combine with each other
-      const weightUnits = ['g', 'kg', 'oz', 'lb'];
-      if (weightUnits.includes(u1) && weightUnits.includes(u2)) return true;
-      // Volume units can combine
-      const volumeUnits = ['ml', 'L', 'cup', 'tbsp', 'tsp'];
-      if (volumeUnits.includes(u1) && volumeUnits.includes(u2)) return true;
-      return false;
-    };
-    
-    // Convert to base unit for combining
-    const convertToBaseUnit = (qty: number, unit: string): { qty: number; unit: string } => {
-      // Convert everything to grams for weight
-      if (unit === 'kg') return { qty: qty * 1000, unit: 'g' };
-      if (unit === 'oz') return { qty: qty * 28.35, unit: 'g' };
-      if (unit === 'lb') return { qty: qty * 453.6, unit: 'g' };
-      // Convert to ml for volume
-      if (unit === 'L') return { qty: qty * 1000, unit: 'ml' };
-      if (unit === 'cup') return { qty: qty * 240, unit: 'ml' };
-      if (unit === 'tbsp') return { qty: qty * 15, unit: 'ml' };
-      if (unit === 'tsp') return { qty: qty * 5, unit: 'ml' };
-      return { qty, unit };
-    };
-    
-    // Use a key that includes the unit type to avoid bad combinations
-    const ingredientMap: Map<string, { 
-      qty: number; 
-      unit: string; 
-      category: string;
-      usedIn: number;
-    }> = new Map();
-    
+    const rawIngredients: RawIngredient[] = [];
+
     if (mealPlan) {
       DAYS.forEach(day => {
         mealPlan[day]?.meals?.forEach((meal, mealIdx) => {
           if (!meal?.ingredients) return;
-          
           const mealKey = `${day}-${mealIdx}`;
           const mealMultiplier = mealServingMultipliers[mealKey] ?? 1;
-          
+
           meal.ingredients.forEach(ingredient => {
             if (!ingredient?.item) return;
-            
-            const name = ingredient.item.toLowerCase().trim();
-            
-            // Parse amount - handle various formats like "100g", "2 cups", "1/2 tbsp"
-            const amountStr = ingredient.amount || '1 serving';
-            
-            // Skip "to taste" / "as needed" / "pinch" items from quantity aggregation
-            if (/\b(to taste|as needed|optional|pinch|dash|garnish)\b/i.test(amountStr)) {
-              return;
-            }
-            
-            const amountMatch = amountStr.match(/^([\d.\/]+)\s*(.*)$/);
-            let value = 1;
-            let rawUnit = 'serving';
-            
-            if (amountMatch) {
-              // Handle fractions like 1/2
-              if (amountMatch[1].includes('/')) {
-                const parts = amountMatch[1].split('/');
-                value = parseFloat(parts[0]) / parseFloat(parts[1]);
-              } else {
-                value = parseFloat(amountMatch[1]) || 1;
-              }
-              rawUnit = amountMatch[2]?.trim() || 'serving';
-            }
-            
-            // Apply per-meal multiplier to the parsed value
-            value *= mealMultiplier;
-            
-            const unit = normalizeUnit(rawUnit);
-            const converted = convertToBaseUnit(value, unit);
-            
-            // Create a key that includes the base unit to prevent bad combinations
-            const unitCategory = ['g', 'kg', 'oz', 'lb'].includes(unit) ? 'weight' 
-              : ['ml', 'L', 'cup', 'tbsp', 'tsp'].includes(unit) ? 'volume' 
-              : 'count';
-            const mapKey = `${name}|${unitCategory}`;
-            
-            const existing = ingredientMap.get(mapKey);
-            
-            if (existing && unitsCompatible(existing.unit, converted.unit)) {
-              // Same base unit - add quantities
-              existing.qty += converted.qty;
-              existing.usedIn += 1;
-            } else if (existing) {
-              // Different unit types - store separately
-              const altKey = `${mapKey}|alt`;
-              const altExisting = ingredientMap.get(altKey);
-              if (altExisting) {
-                altExisting.qty += converted.qty;
-                altExisting.usedIn += 1;
-              } else {
-                ingredientMap.set(altKey, { 
-                  qty: converted.qty, 
-                  unit: converted.unit,
-                  category: ingredient.category || 'other',
-                  usedIn: 1
-                });
-              }
-            } else {
-              ingredientMap.set(mapKey, { 
-                qty: converted.qty, 
-                unit: converted.unit,
-                category: ingredient.category || 'other',
-                usedIn: 1
-              });
-            }
+            rawIngredients.push({
+              item: ingredient.item,
+              amount: ingredient.amount || '1 serving',
+              category: ingredient.category || 'other',
+              mealMultiplier,
+            });
           });
         });
       });
     }
-    
-    // Format quantities for grocery-store-friendly purchase amounts
-    const formatQuantity = (qty: number, unit: string): { qty: number; unit: string; displayStr?: string } => {
-      // Convert grams to purchasable amounts
-      if (unit === 'g') {
-        if (qty >= 1000) {
-          // Round to nearest 0.5 kg for easy purchasing
-          const kg = Math.ceil(qty / 500) * 0.5;
-          return { qty: kg, unit: 'kg' };
-        }
-        // Convert to oz for amounts under 1kg (more grocery-friendly in US)
-        const oz = qty / 28.35;
-        if (oz >= 16) {
-          const lbs = Math.ceil(oz / 16 * 2) / 2; // Round up to nearest 0.5 lb
-          return { qty: lbs, unit: 'lb' };
-        }
-        if (oz >= 1) {
-          return { qty: Math.ceil(oz), unit: 'oz' };
-        }
-        return { qty: Math.round(qty), unit: 'g' };
-      }
-      
-      // Convert ml to purchasable amounts
-      if (unit === 'ml') {
-        if (qty >= 1000) {
-          return { qty: Math.ceil(qty / 1000 * 2) / 2, unit: 'L' };
-        }
-        // Convert to cups for moderate amounts
-        const cups = qty / 240;
-        if (cups >= 0.5) {
-          if (cups >= 3.5) return { qty: Math.ceil(cups / 4) * 4, unit: 'cups' };
-          return { qty: Math.ceil(cups * 2) / 2, unit: cups >= 1.5 ? 'cups' : 'cup' };
-        }
-        // Small amounts stay as tbsp
-        const tbsp = qty / 15;
-        if (tbsp >= 1) return { qty: Math.ceil(tbsp), unit: 'tbsp' };
-        return { qty: Math.ceil(qty / 5), unit: 'tsp' };
-      }
-      
-      // Count units — round up to whole numbers for purchasing
-      if (['serving', 'piece', 'slice', 'scoop'].includes(unit)) {
-        return { qty: Math.ceil(qty), unit };
-      }
-      
-      // Round appropriately
-      if (qty >= 100) return { qty: Math.round(qty), unit };
-      if (qty >= 10) return { qty: Math.round(qty * 10) / 10, unit };
-      if (qty >= 1) return { qty: Math.round(qty * 4) / 4, unit }; // Round to nearest 1/4
-      return { qty: Math.round(qty * 100) / 100, unit };
-    };
-    
-    return Array.from(ingredientMap.entries())
-      .map(([key, data]) => {
-        const name = key.split('|')[0];
-        const scaled = data.qty * servingMultiplier;
-        const formatted = formatQuantity(scaled, data.unit);
-        // Build exact amount string (pre-rounding) for display
-        let exactStr = '';
-        if (data.unit === 'g') {
-          exactStr = `${Math.round(scaled)}g`;
-        } else if (data.unit === 'ml') {
-          exactStr = `${Math.round(scaled)}ml`;
-        } else {
-          const rounded = Math.round(scaled * 10) / 10;
-          exactStr = `${rounded} ${data.unit}`;
-        }
-        return { 
-          name: name.charAt(0).toUpperCase() + name.slice(1), 
-          qty: formatted.qty,
-          unit: formatted.unit,
-          exactAmount: exactStr,
-          category: data.category,
-          usedIn: data.usedIn
-        };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return consolidateGroceryList(rawIngredients, servingMultiplier);
   }, [mealPlan, servingMultiplier, mealServingMultipliers]);
 
   // ============ CRONOMETER ADAPTIVE HANDLERS ============
@@ -3848,7 +3681,115 @@ export default function MealPlanPage() {
                               <p className="text-sm text-muted-foreground">
                                 {groceryList.length} items from {overallProgress.filledSlots} meals
                               </p>
-                              <div className="flex gap-1">
+                              <div className="flex gap-1 flex-wrap">
+                                {instacartConfigured && (
+                                  <>
+                                    {instacartRetailers.length > 0 && (
+                                      <select
+                                        className="h-7 text-xs rounded-md border border-green-200 bg-white px-1.5 text-green-800 focus:outline-none focus:ring-1 focus:ring-green-400"
+                                        value={selectedRetailerKey}
+                                        onChange={(e) => {
+                                          setSelectedRetailerKey(e.target.value);
+                                          instacartCacheRef.current = null;
+                                        }}
+                                      >
+                                        <option value="">Any store</option>
+                                        {instacartRetailers.map(r => (
+                                          <option key={r.retailer_key} value={r.retailer_key}>
+                                            {r.name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    )}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs border-green-300 hover:bg-green-50 hover:text-green-800"
+                                      disabled={instacartLoading}
+                                      onClick={async () => {
+                                        setInstacartLoading(true);
+                                        try {
+                                          const items = groceryList.map(i => ({
+                                            name: i.name,
+                                            qty: i.qty,
+                                            unit: i.unit,
+                                          }));
+                                          const clientName = userProfile.name || 'Client';
+
+                                          const cacheHash = JSON.stringify({ items, retailerKey: selectedRetailerKey });
+                                          if (instacartCacheRef.current?.hash === cacheHash) {
+                                            window.open(instacartCacheRef.current.url, '_blank');
+                                            toast.success('Shopping list opened on Instacart!');
+                                            return;
+                                          }
+
+                                          const instructions: string[] = [];
+                                          if (mealPlan) {
+                                            instructions.push('This grocery list covers the meals below. Select a store to see matched products and check out.');
+                                            DAYS.forEach(day => {
+                                              const dayPlan = mealPlan[day];
+                                              if (!dayPlan?.meals?.some(m => m !== null)) return;
+                                              const mealSummaries: string[] = [];
+                                              dayPlan.meals.forEach((meal, idx) => {
+                                                if (!meal) return;
+                                                const label = slotLabels[idx]?.label || `Meal ${idx + 1}`;
+                                                const ingredientNames = (meal.ingredients || [])
+                                                  .map((ing: { item?: string }) => cleanIngredientName(ing.item || ''))
+                                                  .filter(n => n && n !== 'Item');
+                                                const list = ingredientNames.length > 0
+                                                  ? `: ${ingredientNames.join(', ')}`
+                                                  : '';
+                                                mealSummaries.push(`${label} — ${meal.name}${list}`);
+                                              });
+                                              if (mealSummaries.length > 0) {
+                                                instructions.push(`${day}: ${mealSummaries.join(' | ')}`);
+                                              }
+                                            });
+                                          }
+
+                                          const healthFilters = mapDietaryToHealthFilters(
+                                            dietPreferences?.dietaryRestrictions,
+                                          );
+                                          const linkbackUrl = typeof window !== 'undefined'
+                                            ? window.location.href
+                                            : undefined;
+
+                                          const res = await fetch('/api/instacart/shopping-list', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                              items,
+                                              title: `${clientName} - Meal Plan Grocery List`,
+                                              instructions: instructions.length > 1 ? instructions : undefined,
+                                              linkbackUrl,
+                                              healthFilters: healthFilters.length > 0 ? healthFilters : undefined,
+                                              retailerKey: selectedRetailerKey || undefined,
+                                            }),
+                                          });
+                                          if (!res.ok) {
+                                            const err = await res.json();
+                                            throw new Error(err.error || 'Failed to create list');
+                                          }
+                                          const data = await res.json();
+                                          instacartCacheRef.current = { hash: cacheHash, url: data.url };
+                                          window.open(data.url, '_blank');
+                                          toast.success('Shopping list sent to Instacart!');
+                                        } catch (err) {
+                                          toast.error(err instanceof Error ? err.message : 'Instacart error');
+                                        } finally {
+                                          setInstacartLoading(false);
+                                        }
+                                      }}
+                                    >
+                                      {instacartLoading ? (
+                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                      ) : (
+                                        <Carrot className="h-3 w-3 mr-1" />
+                                      )}
+                                      Instacart
+                                    </Button>
+                                  </>
+                                )}
                                 <Button
                                   variant="outline"
                                   size="sm"

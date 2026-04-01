@@ -81,9 +81,8 @@ export async function getAuthorizationUrl(
 ): Promise<string> {
   const creds = getCredentials();
   if (!creds) throw new Error('Kroger credentials not configured');
-  const redirectUri = overrideRedirectUri
-    || process.env.KROGER_REDIRECT_URI
-    || 'http://localhost:3000/api/kroger/auth/callback';
+  if (!overrideRedirectUri) throw new Error('redirectUri is required for Kroger OAuth');
+  const redirectUri = overrideRedirectUri;
   const scope = process.env.KROGER_SCOPES || 'product.compact cart.basic:write';
 
   const paramObj: Record<string, string> = {
@@ -110,9 +109,8 @@ export async function exchangeCode(code: string, codeVerifier?: string, override
 }> {
   const creds = getCredentials();
   if (!creds) throw new Error('Kroger credentials not configured');
-  const redirectUri = overrideRedirectUri
-    || process.env.KROGER_REDIRECT_URI
-    || 'http://localhost:3000/api/kroger/auth/callback';
+  if (!overrideRedirectUri) throw new Error('redirectUri is required for Kroger OAuth');
+  const redirectUri = overrideRedirectUri;
 
   const bodyParams: Record<string, string> = {
     grant_type: 'authorization_code',
@@ -145,6 +143,15 @@ export async function exchangeCode(code: string, codeVerifier?: string, override
   };
 }
 
+class KrogerRefreshError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'KrogerRefreshError';
+    this.status = status;
+  }
+}
+
 export async function refreshCustomerToken(refreshToken: string): Promise<{
   accessToken: string;
   refreshToken: string;
@@ -167,7 +174,7 @@ export async function refreshCustomerToken(refreshToken: string): Promise<{
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Kroger refresh error ${res.status}: ${text}`);
+    throw new KrogerRefreshError(res.status, `Kroger refresh error ${res.status}: ${text}`);
   }
 
   const data = await res.json();
@@ -209,81 +216,6 @@ export async function krogerPut(path: string, token: string, body: unknown): Pro
   return res.json();
 }
 
-// ── Cookie helpers (for customer tokens) ─────────────────────────────────
-
-const COOKIE_NAME_ACCESS = 'kroger_access_token';
-const COOKIE_NAME_REFRESH = 'kroger_refresh_token';
-const COOKIE_NAME_EXPIRES = 'kroger_token_expires';
-
-export function buildTokenCookies(accessToken: string, refreshToken: string, expiresIn: number): string[] {
-  const secure = process.env.NODE_ENV === 'production';
-  const sameSite = 'Lax';
-  const path = '/';
-  const expiresAt = Date.now() + expiresIn * 1000;
-
-  return [
-    `${COOKIE_NAME_ACCESS}=${accessToken}; Path=${path}; HttpOnly; SameSite=${sameSite}${secure ? '; Secure' : ''}; Max-Age=${expiresIn}`,
-    `${COOKIE_NAME_REFRESH}=${refreshToken}; Path=${path}; HttpOnly; SameSite=${sameSite}${secure ? '; Secure' : ''}; Max-Age=${30 * 24 * 3600}`,
-    `${COOKIE_NAME_EXPIRES}=${expiresAt}; Path=${path}; SameSite=${sameSite}${secure ? '; Secure' : ''}; Max-Age=${expiresIn}`,
-  ];
-}
-
-export function clearTokenCookies(): string[] {
-  return [
-    `${COOKIE_NAME_ACCESS}=; Path=/; Max-Age=0`,
-    `${COOKIE_NAME_REFRESH}=; Path=/; Max-Age=0`,
-    `${COOKIE_NAME_EXPIRES}=; Path=/; Max-Age=0`,
-  ];
-}
-
-export function parseTokensFromCookies(cookieHeader: string | null): {
-  accessToken: string | null;
-  refreshToken: string | null;
-  expiresAt: number;
-} {
-  if (!cookieHeader) return { accessToken: null, refreshToken: null, expiresAt: 0 };
-  const cookies = Object.fromEntries(
-    cookieHeader.split(';').map(c => {
-      const [k, ...v] = c.trim().split('=');
-      return [k, v.join('=')];
-    })
-  );
-  return {
-    accessToken: cookies[COOKIE_NAME_ACCESS] || null,
-    refreshToken: cookies[COOKIE_NAME_REFRESH] || null,
-    expiresAt: parseInt(cookies[COOKIE_NAME_EXPIRES] || '0', 10),
-  };
-}
-
-/**
- * Get a valid customer access token from cookies, refreshing if needed.
- * Returns null if no tokens are present.
- */
-export async function getCustomerToken(cookieHeader: string | null): Promise<{
-  accessToken: string;
-  newCookies?: string[];
-} | null> {
-  const { accessToken, refreshToken, expiresAt } = parseTokensFromCookies(cookieHeader);
-
-  if (accessToken && Date.now() < expiresAt - 30_000) {
-    return { accessToken };
-  }
-
-  if (refreshToken) {
-    try {
-      const refreshed = await refreshCustomerToken(refreshToken);
-      return {
-        accessToken: refreshed.accessToken,
-        newCookies: buildTokenCookies(refreshed.accessToken, refreshed.refreshToken, refreshed.expiresIn),
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
-}
-
 // ── Admin master account helpers (tokens stored in DB) ───────────────────
 
 /**
@@ -316,7 +248,7 @@ export async function saveAdminKrogerTokens(
 
 /**
  * Get a valid Kroger access token for the admin (staff) master account.
- * Automatically refreshes if expired.
+ * Automatically refreshes if expired, with retry on transient failures.
  */
 export async function getAdminKrogerToken(staffId: string): Promise<string | null> {
   const db = createServerClient();
@@ -338,22 +270,39 @@ export async function getAdminKrogerToken(staffId: string): Promise<string | nul
     return staff.kroger_access_token;
   }
 
-  // Token expired — refresh it
-  try {
-    const refreshed = await refreshCustomerToken(staff.kroger_refresh_token);
-    await saveAdminKrogerTokens(staffId, refreshed);
-    return refreshed.accessToken;
-  } catch (err) {
-    console.error('[Kroger] Failed to refresh admin token:', err);
-    // Clear invalid tokens
-    await db.from('staff').update({
-      kroger_access_token: null,
-      kroger_refresh_token: null,
-      kroger_token_expires_at: null,
-      kroger_connected_at: null,
-    }).eq('id', staffId);
-    return null;
+  // Token expired — attempt refresh with one retry for transient failures
+  const MAX_ATTEMPTS = 2;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const refreshed = await refreshCustomerToken(staff.kroger_refresh_token);
+      await saveAdminKrogerTokens(staffId, refreshed);
+      return refreshed.accessToken;
+    } catch (err) {
+      const isAuthError =
+        err instanceof KrogerRefreshError && (err.status === 400 || err.status === 401);
+
+      if (isAuthError) {
+        console.error('[Kroger] Refresh token revoked/invalid, clearing tokens:', err);
+        await db.from('staff').update({
+          kroger_access_token: null,
+          kroger_refresh_token: null,
+          kroger_token_expires_at: null,
+          kroger_connected_at: null,
+        }).eq('id', staffId);
+        return null;
+      }
+
+      if (attempt < MAX_ATTEMPTS) {
+        console.warn(`[Kroger] Transient refresh failure (attempt ${attempt}), retrying...`, err);
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
+
+      console.error('[Kroger] Refresh failed after retries (keeping tokens for next attempt):', err);
+      return null;
+    }
   }
+  return null;
 }
 
 /**
@@ -391,6 +340,132 @@ export async function disconnectAdminKroger(staffId: string): Promise<boolean> {
 
   return !error;
 }
+
+// ── Per-client Kroger token helpers (tokens stored in DB on clients table) ──
+
+/**
+ * Save Kroger tokens for a client in the database.
+ */
+export async function saveClientKrogerTokens(
+  clientId: string,
+  tokens: { accessToken: string; refreshToken: string; expiresIn: number },
+): Promise<boolean> {
+  const db = createServerClient();
+  if (!db) return false;
+
+  const expiresAt = new Date(Date.now() + tokens.expiresIn * 1000);
+  const { error } = await db
+    .from('clients')
+    .update({
+      kroger_access_token: tokens.accessToken,
+      kroger_refresh_token: tokens.refreshToken,
+      kroger_token_expires_at: expiresAt.toISOString(),
+      kroger_connected_at: new Date().toISOString(),
+    })
+    .eq('id', clientId);
+
+  if (error) {
+    console.error('[Kroger] Failed to save client tokens:', error);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Get a valid Kroger access token for a client's own account.
+ * Automatically refreshes if expired, with retry on transient failures.
+ */
+export async function getClientKrogerToken(clientId: string): Promise<string | null> {
+  const db = createServerClient();
+  if (!db) return null;
+
+  const { data: client, error } = await db
+    .from('clients')
+    .select('kroger_access_token, kroger_refresh_token, kroger_token_expires_at')
+    .eq('id', clientId)
+    .single();
+
+  if (error || !client?.kroger_refresh_token) return null;
+
+  const expiresAt = client.kroger_token_expires_at
+    ? new Date(client.kroger_token_expires_at).getTime()
+    : 0;
+
+  if (client.kroger_access_token && Date.now() < expiresAt - 60_000) {
+    return client.kroger_access_token;
+  }
+
+  const MAX_ATTEMPTS = 2;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const refreshed = await refreshCustomerToken(client.kroger_refresh_token);
+      await saveClientKrogerTokens(clientId, refreshed);
+      return refreshed.accessToken;
+    } catch (err) {
+      const isAuthError =
+        err instanceof KrogerRefreshError && (err.status === 400 || err.status === 401);
+
+      if (isAuthError) {
+        console.error('[Kroger] Client refresh token revoked/invalid, clearing:', err);
+        await db.from('clients').update({
+          kroger_access_token: null,
+          kroger_refresh_token: null,
+          kroger_token_expires_at: null,
+          kroger_connected_at: null,
+        }).eq('id', clientId);
+        return null;
+      }
+
+      if (attempt < MAX_ATTEMPTS) {
+        console.warn(`[Kroger] Client transient refresh failure (attempt ${attempt}), retrying...`, err);
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
+
+      console.error('[Kroger] Client refresh failed after retries (keeping tokens):', err);
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Check if a client has their own Kroger account connected.
+ */
+export async function isClientKrogerConnected(clientId: string): Promise<boolean> {
+  const db = createServerClient();
+  if (!db) return false;
+
+  const { data } = await db
+    .from('clients')
+    .select('kroger_refresh_token')
+    .eq('id', clientId)
+    .single();
+
+  return !!data?.kroger_refresh_token;
+}
+
+/**
+ * Disconnect Kroger from a client account.
+ */
+export async function disconnectClientKroger(clientId: string): Promise<boolean> {
+  const db = createServerClient();
+  if (!db) return false;
+
+  const { error } = await db
+    .from('clients')
+    .update({
+      kroger_access_token: null,
+      kroger_refresh_token: null,
+      kroger_token_expires_at: null,
+      kroger_connected_at: null,
+    })
+    .eq('id', clientId);
+
+  return !error;
+}
+
+// ── Shared staff helpers ─────────────────────────────────────────────────
 
 /**
  * Get the staff record for the currently authenticated user.

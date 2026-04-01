@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
-import { getStaffFromAuthUser, getAdminKrogerToken, krogerPut } from '@/lib/kroger-client';
+import { getStaffFromAuthUser, getAdminKrogerToken, getClientKrogerToken, krogerPut } from '@/lib/kroger-client';
 
 const MAX_QTY = 3;
 
@@ -188,9 +188,17 @@ export async function PATCH(
 
     switch (action) {
       case 'add_to_cart': {
-        const krogerToken = await getAdminKrogerToken(staff.id);
+        const tokenSource: 'admin' | 'client' = body.tokenSource || 'admin';
+        let krogerToken: string | null = null;
+
+        if (tokenSource === 'client' && order.client_id) {
+          krogerToken = await getClientKrogerToken(order.client_id);
+        }
         if (!krogerToken) {
-          return NextResponse.json({ error: 'Kroger not connected. Please connect your Kroger account first.' }, { status: 401 });
+          krogerToken = await getAdminKrogerToken(staff.id);
+        }
+        if (!krogerToken) {
+          return NextResponse.json({ error: 'Kroger not connected. Please connect a Kroger account first.' }, { status: 401 });
         }
 
         const matched = (order.kroger_matched_items as Array<{

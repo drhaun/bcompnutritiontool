@@ -4,14 +4,14 @@ import { createServerClient } from '@/lib/supabase';
 import { getAuthorizationUrl, generateCodeVerifier, generateCodeChallenge } from '@/lib/kroger-client';
 
 /**
- * GET — Start admin Kroger OAuth flow.
- * Stores state + PKCE verifier in cookies and returns the authorization URL.
+ * GET — Start Kroger OAuth flow for a specific client.
+ * Requires ?client_id=<uuid> and staff Bearer auth.
+ * Tokens will be saved to the client's record, not the staff's.
  */
 export async function GET(request: NextRequest) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
     if (!baseUrl) {
-      console.error('[Kroger Admin Connect] NEXT_PUBLIC_BASE_URL is not set');
       return NextResponse.json(
         { error: 'Server misconfigured — NEXT_PUBLIC_BASE_URL is required for OAuth' },
         { status: 500 },
@@ -35,26 +35,40 @@ export async function GET(request: NextRequest) {
       .single();
     if (!staff) return NextResponse.json({ error: 'Not a staff member' }, { status: 403 });
 
+    const clientId = request.nextUrl.searchParams.get('client_id');
+    if (!clientId) {
+      return NextResponse.json({ error: 'client_id is required' }, { status: 400 });
+    }
+
+    const { data: client } = await db
+      .from('clients')
+      .select('id')
+      .eq('id', clientId)
+      .single();
+    if (!client) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+    }
+
     const state = randomUUID();
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-    const adminRedirectUri = `${baseUrl}/api/kroger/admin/callback`;
-    const url = await getAuthorizationUrl(state, codeChallenge, adminRedirectUri);
+    const clientRedirectUri = `${baseUrl}/api/kroger/client/callback`;
+    const url = await getAuthorizationUrl(state, codeChallenge, clientRedirectUri);
+
+    const referer = request.headers.get('referer');
+    const returnTo = referer ? new URL(referer).pathname : '/meal-plan';
 
     const response = NextResponse.json({ url, state });
     const secure = process.env.NODE_ENV === 'production';
     const cookieOpts = `Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}; Max-Age=600`;
-    const referer = request.headers.get('referer');
-    const returnTo = referer ? new URL(referer).pathname : '/admin';
-
-    response.headers.append('Set-Cookie', `kroger_admin_state=${state}; ${cookieOpts}`);
-    response.headers.append('Set-Cookie', `kroger_admin_verifier=${codeVerifier}; ${cookieOpts}`);
-    response.headers.append('Set-Cookie', `kroger_admin_staff_id=${staff.id}; ${cookieOpts}`);
-    response.headers.append('Set-Cookie', `kroger_admin_return_to=${returnTo}; ${cookieOpts}`);
+    response.headers.append('Set-Cookie', `kroger_client_state=${state}; ${cookieOpts}`);
+    response.headers.append('Set-Cookie', `kroger_client_verifier=${codeVerifier}; ${cookieOpts}`);
+    response.headers.append('Set-Cookie', `kroger_client_id=${clientId}; ${cookieOpts}`);
+    response.headers.append('Set-Cookie', `kroger_client_return_to=${returnTo}; ${cookieOpts}`);
     return response;
   } catch (err) {
-    console.error('[Kroger Admin Connect]', err);
-    return NextResponse.json({ error: 'Failed to start Kroger connection' }, { status: 500 });
+    console.error('[Kroger Client Connect]', err);
+    return NextResponse.json({ error: 'Failed to start Kroger connection for client' }, { status: 500 });
   }
 }

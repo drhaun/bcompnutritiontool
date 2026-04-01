@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
-import { isAdminKrogerConnected, getStaffMarkupSettings } from '@/lib/kroger-client';
+import { isAdminKrogerConnected, isClientKrogerConnected, getStaffMarkupSettings } from '@/lib/kroger-client';
 
 /**
- * GET — Check if the current admin has Kroger connected + return markup settings.
+ * GET — Check Kroger connection status for both admin (staff) and client accounts.
+ * Accepts optional ?client_id= to also check if that client has their own Kroger connected.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -24,11 +25,18 @@ export async function GET(request: NextRequest) {
       .single();
     if (!staff) return NextResponse.json({ connected: false });
 
-    const connected = await isAdminKrogerConnected(staff.id);
+    const adminConnected = await isAdminKrogerConnected(staff.id);
     const markup = await getStaffMarkupSettings(staff.id);
 
+    const clientId = request.nextUrl.searchParams.get('client_id');
+    let clientConnected = false;
+    if (clientId) {
+      clientConnected = await isClientKrogerConnected(clientId);
+    }
+
     return NextResponse.json({
-      connected,
+      connected: adminConnected,
+      clientConnected,
       staffId: staff.id,
       markup: markup || { markupType: 'percentage', markupValue: 15 },
     });

@@ -45,7 +45,7 @@ interface MatchedProduct {
   confidence: number;
 }
 
-type Step = 'loading' | 'connect' | 'store' | 'review' | 'adding' | 'placed' | 'cost' | 'invoiced';
+type Step = 'loading' | 'connect' | 'choose-account' | 'store' | 'review' | 'adding' | 'placed' | 'cost' | 'invoiced';
 
 interface Props {
   open: boolean;
@@ -65,6 +65,9 @@ export function KrogerCartDialog({ open, onOpenChange, groceryItems, clientId, c
   const [step, setStep] = useState<Step>('loading');
   const [checkingAuth, setCheckingAuth] = useState(true);
   const initDoneRef = useRef(false);
+  const [adminConnected, setAdminConnected] = useState(false);
+  const [clientConnected, setClientConnected] = useState(false);
+  const [useClientAccount, setUseClientAccount] = useState(false);
 
   const [zip, setZip] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('kroger_zip') || '';
@@ -119,15 +122,26 @@ export function KrogerCartDialog({ open, onOpenChange, groceryItems, clientId, c
 
     (async () => {
       try {
-        const res = await fetch('/api/kroger/admin/status', { headers: getAuthHeaders() });
+        const clientParam = clientId ? `?client_id=${clientId}` : '';
+        const res = await fetch(`/api/kroger/admin/status${clientParam}`, { headers: getAuthHeaders() });
         const data = await res.json();
-        const isConnected = data.connected === true;
-        if (isConnected) {
-          if (selectedStore) {
-            setStep('review');
-            setMatchedProducts([]);
+        const staffOk = data.connected === true;
+        const clientOk = data.clientConnected === true;
+        setAdminConnected(staffOk);
+        setClientConnected(clientOk);
+
+        const anyConnected = staffOk || clientOk;
+        if (anyConnected) {
+          if (staffOk && clientOk) {
+            setStep('choose-account');
           } else {
-            setStep('store');
+            setUseClientAccount(clientOk && !staffOk);
+            if (selectedStore) {
+              setStep('review');
+              setMatchedProducts([]);
+            } else {
+              setStep('store');
+            }
           }
         } else {
           setStep('connect');
@@ -138,7 +152,7 @@ export function KrogerCartDialog({ open, onOpenChange, groceryItems, clientId, c
         setCheckingAuth(false);
       }
     })();
-  }, [open, getAuthHeaders, selectedStore]);
+  }, [open, getAuthHeaders, selectedStore, clientId]);
 
   // Auto-search when we land on the review step with no results
   useEffect(() => {
@@ -148,10 +162,13 @@ export function KrogerCartDialog({ open, onOpenChange, groceryItems, clientId, c
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  const handleConnect = async () => {
+  const handleConnect = async (mode: 'admin' | 'client' = 'admin') => {
     setError('');
     try {
-      const res = await fetch('/api/kroger/admin/connect', { headers: getAuthHeaders() });
+      const endpoint = mode === 'client' && clientId
+        ? `/api/kroger/client/connect?client_id=${clientId}`
+        : '/api/kroger/admin/connect';
+      const res = await fetch(endpoint, { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       window.location.href = data.url;
@@ -254,7 +271,11 @@ export function KrogerCartDialog({ open, onOpenChange, groceryItems, clientId, c
       const cartRes = await fetch(`/api/grocery-orders/${createData.order.id}`, {
         method: 'PATCH',
         headers,
-        body: JSON.stringify({ action: 'add_to_cart', qtyOverrides }),
+        body: JSON.stringify({
+          action: 'add_to_cart',
+          qtyOverrides,
+          tokenSource: useClientAccount ? 'client' : 'admin',
+        }),
       });
       const cartData = await cartRes.json();
       if (!cartRes.ok) throw new Error(cartData.error);
@@ -399,6 +420,7 @@ export function KrogerCartDialog({ open, onOpenChange, groceryItems, clientId, c
             <Store className="h-5 w-5 text-blue-600" />
             {step === 'loading' && 'Kroger Cart'}
             {step === 'connect' && 'Connect Kroger'}
+            {step === 'choose-account' && 'Choose Kroger Account'}
             {step === 'store' && 'Select Store'}
             {step === 'review' && `Order for ${clientName || 'Client'}`}
             {step === 'adding' && 'Adding to Cart...'}
@@ -424,6 +446,47 @@ export function KrogerCartDialog({ open, onOpenChange, groceryItems, clientId, c
             </div>
           )}
 
+          {/* Choose Account (both staff and client connected) */}
+          {step === 'choose-account' && (
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground text-center">
+                Which Kroger account should items be added to?
+              </p>
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start h-auto py-3"
+                  onClick={() => {
+                    setUseClientAccount(false);
+                    if (selectedStore) { setStep('review'); setMatchedProducts([]); }
+                    else setStep('store');
+                  }}
+                >
+                  <Store className="h-5 w-5 mr-3 text-blue-600 shrink-0" />
+                  <div className="text-left">
+                    <p className="font-medium">Your account (staff)</p>
+                    <p className="text-xs text-muted-foreground">Order on behalf of {clientName || 'the client'} using your Kroger</p>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start h-auto py-3"
+                  onClick={() => {
+                    setUseClientAccount(true);
+                    if (selectedStore) { setStep('review'); setMatchedProducts([]); }
+                    else setStep('store');
+                  }}
+                >
+                  <ShoppingCart className="h-5 w-5 mr-3 text-green-600 shrink-0" />
+                  <div className="text-left">
+                    <p className="font-medium">{clientName || 'Client'}&apos;s account</p>
+                    <p className="text-xs text-muted-foreground">Add items to {clientName || 'their'}&apos;s own Kroger cart</p>
+                  </div>
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Connect */}
           {step === 'connect' && (
             <div className="space-y-4 py-4">
@@ -431,13 +494,22 @@ export function KrogerCartDialog({ open, onOpenChange, groceryItems, clientId, c
                 <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto">
                   <ShoppingCart className="h-8 w-8 text-blue-600" />
                 </div>
-                <p className="font-medium">Connect your Kroger account</p>
+                <p className="font-medium">Connect a Kroger account</p>
                 <p className="text-sm text-muted-foreground">
-                  Go to <strong>Admin &rarr; Kroger Integration</strong> to connect first, or connect now.
+                  Connect your staff Kroger to order on behalf of clients{clientId ? `, or connect ${clientName || 'the client'}'s account directly` : ''}.
                 </p>
-                <Button onClick={handleConnect} className="bg-blue-600 hover:bg-blue-700">
-                  <LogIn className="h-4 w-4 mr-2" /> Connect Kroger
+                <Button onClick={() => handleConnect('admin')} className="bg-blue-600 hover:bg-blue-700">
+                  <LogIn className="h-4 w-4 mr-2" /> Connect Your Kroger
                 </Button>
+                {clientId && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleConnect('client')}
+                    className="mt-2"
+                  >
+                    <LogIn className="h-4 w-4 mr-2" /> Connect {clientName || 'Client'}&apos;s Kroger
+                  </Button>
+                )}
               </div>
             </div>
           )}
