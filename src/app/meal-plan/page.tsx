@@ -101,6 +101,9 @@ import type { DayOfWeek, DayNutritionTargets, MealSlot, Meal, Macros, DietPrefer
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+// Practitioner-facing catalog (for staff use within the app)
+const fullscriptPractitionerUrl = 'https://us.fullscript.com/catalog';
+// Keep dispensary URL for client-facing contexts
 const fullscriptDispensaryUrl =
   process.env.NEXT_PUBLIC_FULLSCRIPT_DISPENSARY_URL || 'https://us.fullscript.com/welcome/fitomics';
 
@@ -2320,16 +2323,14 @@ export default function MealPlanPage() {
                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowAddSupplement(false); setNewSupp({ name: '', dosage: '', timing: ['as_needed'], notes: '' }); }}>
                     Cancel
                   </Button>
-                  {fullscriptDispensaryUrl && (
-                    <button
-                      type="button"
-                      onClick={() => window.open(fullscriptDispensaryUrl, '_blank')}
-                      className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 ml-auto"
-                    >
-                      <ShoppingBag className="h-3 w-3" />
-                      Browse on Fullscript
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => window.open(fullscriptPractitionerUrl, '_blank')}
+                    className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 ml-auto"
+                  >
+                    <ShoppingBag className="h-3 w-3" />
+                    Browse Catalog
+                  </button>
                 </div>
               </div>
             )}
@@ -2374,16 +2375,15 @@ export default function MealPlanPage() {
                             </Tooltip>
                           </TooltipProvider>
                         )}
-                        {/* Fullscript search link */}
-                        {fullscriptDispensaryUrl && (
-                          <button
-                            type="button"
-                            onClick={() => window.open(`${fullscriptDispensaryUrl}?search=${encodeURIComponent(s.name)}`, '_blank')}
-                            className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-0.5 text-emerald-600 hover:text-emerald-700"
-                            title={`Find ${s.name} on Fullscript`}
-                          >
-                            <ShoppingBag className="h-3 w-3" />
-                          </button>
+                        {/* Fullscript catalog search link */}
+                        <button
+                          type="button"
+                          onClick={() => window.open(`${fullscriptPractitionerUrl}?search=${encodeURIComponent(s.name)}`, '_blank')}
+                          className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-0.5 text-emerald-600 hover:text-emerald-700"
+                          title={`Find ${s.name} in practitioner catalog`}
+                        >
+                          <ShoppingBag className="h-3 w-3" />
+                        </button>
                         )}
                         {/* Edit button */}
                         <button
@@ -2443,17 +2443,17 @@ export default function MealPlanPage() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <ShoppingBag className="h-4 w-4 text-emerald-600" />
-                  <span className="text-sm font-medium text-emerald-900">Shop on Fullscript</span>
+                  <span className="text-sm font-medium text-emerald-900">Fullscript Catalog</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-7 text-xs text-emerald-700 hover:bg-emerald-100"
-                    onClick={() => window.open(fullscriptDispensaryUrl, '_blank')}
+                    onClick={() => window.open(fullscriptPractitionerUrl, '_blank')}
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
-                    Dispensary
+                    Catalog
                   </Button>
                   <Link href="/tools/fullscript">
                     <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-700 hover:bg-emerald-100">
@@ -2467,7 +2467,7 @@ export default function MealPlanPage() {
                   <button
                     key={s.name}
                     type="button"
-                    onClick={() => window.open(`${fullscriptDispensaryUrl}?search=${encodeURIComponent(s.name)}`, '_blank')}
+                    onClick={() => window.open(`${fullscriptPractitionerUrl}?search=${encodeURIComponent(s.name)}`, '_blank')}
                     className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-emerald-200 rounded-md text-[11px] text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
                   >
                     <Search className="h-2.5 w-2.5" />

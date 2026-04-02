@@ -84,7 +84,7 @@ export default function FullscriptPage() {
           onClick={() => window.open(getFullscriptUrl(), '_blank')}
         >
           <ExternalLink className="h-4 w-4 mr-2" />
-          Open Full Dispensary
+          Open Practitioner Catalog
         </Button>
       </div>
 

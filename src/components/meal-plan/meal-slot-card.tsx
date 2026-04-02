@@ -834,17 +834,15 @@ export function MealSlotCard({
                     <X className="h-3 w-3" />
                   </Button>
                   </div>
-                  {/* Fullscript link */}
-                  {fullscriptDispensaryUrl && (
-                    <button
-                      type="button"
-                      onClick={() => window.open(fullscriptDispensaryUrl, '_blank')}
-                      className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 mt-0.5"
-                    >
-                      <ShoppingBag className="h-3 w-3" />
-                      Browse supplements on Fullscript
-                    </button>
-                  )}
+                  {/* Fullscript practitioner catalog link */}
+                  <button
+                    type="button"
+                    onClick={() => window.open('https://us.fullscript.com/catalog', '_blank')}
+                    className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 mt-0.5"
+                  >
+                    <ShoppingBag className="h-3 w-3" />
+                    Browse practitioner catalog
+                  </button>
                 </div>
               )}
             </div>
@@ -1355,17 +1353,15 @@ export function MealSlotCard({
                 <X className="h-3 w-3" />
               </Button>
             </div>
-            {/* Fullscript link */}
-            {fullscriptDispensaryUrl && (
-              <button
-                type="button"
-                onClick={() => window.open(fullscriptDispensaryUrl, '_blank')}
-                className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700"
-              >
-                <ShoppingBag className="h-3 w-3" />
-                Browse supplements on Fullscript
-              </button>
-            )}
+            {/* Fullscript practitioner catalog link */}
+            <button
+              type="button"
+              onClick={() => window.open('https://us.fullscript.com/catalog', '_blank')}
+              className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700"
+            >
+              <ShoppingBag className="h-3 w-3" />
+              Browse practitioner catalog
+            </button>
           </div>
         )}
         

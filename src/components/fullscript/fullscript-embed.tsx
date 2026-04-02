@@ -7,9 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { Pill, ExternalLink, Loader2, ShoppingBag, AlertCircle, Search } from 'lucide-react';
 import type { SupplementEntry } from '@/types';
 
+// Client-facing storefront (for sharing with patients)
 const DISPENSARY_URL =
   process.env.NEXT_PUBLIC_FULLSCRIPT_DISPENSARY_URL ||
   'https://us.fullscript.com/welcome/fitomics';
+
+// Practitioner-facing URLs (for staff/admin use)
+const PRACTITIONER_BASE = 'https://us.fullscript.com';
+const PRACTITIONER_CATALOG = `${PRACTITIONER_BASE}/catalog`;
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_FULLSCRIPT_PUBLIC_KEY || '';
 const FS_ENV = (process.env.NEXT_PUBLIC_FULLSCRIPT_ENV || 'us-snd') as
@@ -18,7 +23,11 @@ const FS_ENV = (process.env.NEXT_PUBLIC_FULLSCRIPT_ENV || 'us-snd') as
   | 'us-snd'
   | 'ca-snd';
 
-function buildSearchUrl(supplementName: string) {
+function buildPractitionerSearchUrl(supplementName: string) {
+  return `${PRACTITIONER_CATALOG}?search=${encodeURIComponent(supplementName)}`;
+}
+
+function buildClientSearchUrl(supplementName: string) {
   const base = DISPENSARY_URL.replace(/\/$/, '');
   return `${base}?search=${encodeURIComponent(supplementName)}`;
 }
@@ -149,37 +158,61 @@ export function FullscriptEmbed({
         </div>
       )}
 
-      {/* Fallback UI — rich dispensary links + supplement shopping */}
+      {/* Fallback UI — practitioner dashboard + supplement management */}
       {embedState === 'fallback' && (
         <>
+          {/* Practitioner Dashboard Link */}
           <Card className="border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50">
-            <CardContent className="py-4">
+            <CardContent className="py-4 space-y-3">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-lg bg-emerald-600 flex items-center justify-center">
                     <ShoppingBag className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-emerald-900">Fullscript Dispensary</h3>
+                    <h3 className="font-semibold text-emerald-900">Practitioner Dashboard</h3>
                     <p className="text-xs text-emerald-700">
-                      Browse professional-grade supplements with practitioner discounts
+                      Manage treatment plans, browse catalog, and recommend supplements
                     </p>
                   </div>
                 </div>
-                <Button
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={() => window.open(DISPENSARY_URL, '_blank')}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open Dispensary
-                </Button>
+                <div className="flex gap-2 flex-shrink-0">
+                  <Button
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => window.open(PRACTITIONER_CATALOG, '_blank')}
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    Catalog
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    onClick={() => window.open(PRACTITIONER_BASE, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </Button>
+                </div>
               </div>
               {error && (
-                <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700">
+                <div className="flex items-center gap-1.5 text-xs text-amber-700">
                   <AlertCircle className="h-3 w-3" />
                   {error}
                 </div>
               )}
+              <div className="flex items-center gap-2 pt-1 border-t border-emerald-200/60">
+                <span className="text-[10px] text-emerald-600 font-medium">Client storefront link:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(DISPENSARY_URL);
+                  }}
+                  className="text-[10px] text-emerald-700 underline hover:text-emerald-900 cursor-pointer"
+                >
+                  {DISPENSARY_URL}
+                </button>
+                <span className="text-[10px] text-emerald-500">(click to copy)</span>
+              </div>
             </CardContent>
           </Card>
 
@@ -188,7 +221,7 @@ export function FullscriptEmbed({
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Pill className="h-4 w-4 text-emerald-600" />
-                  Shop Client Supplements
+                  Client Supplements
                   <Badge variant="outline" className="text-[10px] ml-1">
                     {supplements.length} items
                   </Badge>
@@ -210,15 +243,18 @@ export function FullscriptEmbed({
                           )}
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100 flex-shrink-0"
-                        onClick={() => window.open(buildSearchUrl(supp.name), '_blank')}
-                      >
-                        <Search className="h-3.5 w-3.5 mr-1" />
-                        Find
-                      </Button>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100"
+                          onClick={() => window.open(buildPractitionerSearchUrl(supp.name), '_blank')}
+                          title="Search in practitioner catalog"
+                        >
+                          <Search className="h-3.5 w-3.5 mr-1" />
+                          Find
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -231,14 +267,14 @@ export function FullscriptEmbed({
   );
 }
 
-/** Standalone supplement link button for use in meal slot cards or anywhere */
+/** Standalone supplement link button for practitioner catalog search */
 export function FullscriptSupplementLink({ name }: { name: string }) {
   return (
     <button
       type="button"
-      onClick={() => window.open(buildSearchUrl(name), '_blank')}
+      onClick={() => window.open(buildPractitionerSearchUrl(name), '_blank')}
       className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 rounded text-[10px] text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer"
-      title={`Find ${name} on Fullscript`}
+      title={`Find ${name} in practitioner catalog`}
     >
       <ShoppingBag className="h-2.5 w-2.5" />
       Fullscript
@@ -246,10 +282,18 @@ export function FullscriptSupplementLink({ name }: { name: string }) {
   );
 }
 
-/** Returns the Fullscript dispensary URL, optionally with a search query */
+/** Returns the practitioner catalog URL, optionally with a search query (for admin/staff use) */
 export function getFullscriptUrl(searchQuery?: string) {
   if (searchQuery) {
-    return buildSearchUrl(searchQuery);
+    return buildPractitionerSearchUrl(searchQuery);
+  }
+  return PRACTITIONER_CATALOG;
+}
+
+/** Returns the client-facing dispensary URL (for PDFs, sharing with patients) */
+export function getFullscriptClientUrl(searchQuery?: string) {
+  if (searchQuery) {
+    return buildClientSearchUrl(searchQuery);
   }
   return DISPENSARY_URL;
 }
