@@ -2384,15 +2384,11 @@ export default function MealPlanPage() {
                         >
                           <ShoppingBag className="h-3 w-3" />
                         </button>
-                        )}
                         {/* Edit button */}
                         <button
                           type="button"
                           onClick={() => { setEditingSupplementIdx(s._idx); setShowAddSupplement(false); }}
-                          className={cn(
-                            'transition-opacity inline-flex items-center text-muted-foreground hover:text-foreground',
-                            fullscriptDispensaryUrl ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100 ml-auto',
-                          )}
+                          className="transition-opacity inline-flex items-center text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100"
                           title="Edit supplement"
                         >
                           <Pencil className="h-3 w-3" />
