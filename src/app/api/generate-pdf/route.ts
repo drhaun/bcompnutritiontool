@@ -118,6 +118,17 @@ export async function POST(request: Request) {
       }
     }
 
+    // Extract client supplements for the PDF supplement schedule page
+    const supplements = (userProfile?.supplements || []).map((s: { name: string; dosage?: string; timing?: string[]; notes?: string }) => ({
+      name: s.name,
+      dosage: s.dosage,
+      timing: s.timing || [],
+      notes: s.notes,
+    }));
+
+    const fullscriptUrl =
+      process.env.NEXT_PUBLIC_FULLSCRIPT_DISPENSARY_URL || 'https://us.fullscript.com/welcome/fitomics';
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfBuffer = await renderToBuffer(
       React.createElement(MealPlanPDF, {
@@ -129,6 +140,8 @@ export async function POST(request: Request) {
         mealPlan,
         groceryList,
         instacartUrl,
+        supplements: supplements.length > 0 ? supplements : undefined,
+        fullscriptUrl: supplements.length > 0 ? fullscriptUrl : undefined,
         resources: resources || [],
         logoUrl,
         options: options || {},

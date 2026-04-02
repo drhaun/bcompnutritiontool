@@ -85,7 +85,11 @@ DIETARY RESTRICTIONS & SAFETY:
 - ALLERGIES (STRICTLY AVOID): ${allergies.length > 0 ? allergies.join(', ') : 'None'}
 - Foods to Avoid: ${allAvoided.length > 0 ? allAvoided.slice(0, 12).join(', ') : 'None'}
 
-FOOD PREFERENCES (prioritize STAPLE items, then LOVE, then Like):
+FOOD PREFERENCES — CRITICAL RULES:
+• STAPLE items MUST appear in the majority of meals. These are the client's go-to foods.
+• LOVE items should appear frequently — rotate them in alongside staples.
+• Like items can fill remaining spots for variety.
+• NEVER ignore STAPLE/LOVE preferences by defaulting to generic ingredients.
 ${tierLine('Proteins', proteins)}
 ${tierLine('Carbs', carbs)}
 ${tierLine('Fats', fats)}

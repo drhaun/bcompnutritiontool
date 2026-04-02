@@ -64,7 +64,9 @@ ${dp.cuisinePreferences?.length ? `- Cuisine preferences: ${dp.cuisinePreference
 ${dp.groceryBudgetCap ? `\nGROCERY BUDGET: $${dp.groceryBudgetCap} ${dp.groceryBudgetPeriod || 'weekly'} — ${dp.budgetPreference || 'moderate'} style
 - Prefer cost-effective ingredients when possible` : ''}
 
-→ Prioritize STAPLE items first, then LOVE, then Like when choosing ingredients.`;
+CRITICAL: STAPLE items MUST appear in the majority of meals — these are the client's go-to, non-negotiable foods.
+LOVE items should appear frequently across the day. Like items fill remaining spots for variety.
+NEVER ignore STAPLE/LOVE preferences by falling back to generic ingredients like plain chicken breast if the client rated something else as a staple.`;
 }
 
 export async function POST(request: NextRequest) {

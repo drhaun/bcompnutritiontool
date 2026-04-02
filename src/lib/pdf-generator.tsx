@@ -797,6 +797,13 @@ interface PDFResource {
 }
 
 // Main PDF Document Component
+interface PDFSupplementEntry {
+  name: string;
+  dosage?: string;
+  timing: string[];
+  notes?: string;
+}
+
 interface MealPlanPDFProps {
   userProfile: Partial<UserProfile>;
   bodyCompGoals: Partial<BodyCompGoals>;
@@ -806,8 +813,10 @@ interface MealPlanPDFProps {
   mealPlan: WeeklyMealPlan;
   groceryList: Record<string, { name: string; totalAmount: string }[]>;
   instacartUrl?: string;
+  supplements?: PDFSupplementEntry[];
+  fullscriptUrl?: string;
   resources?: PDFResource[];
-  logoUrl?: string; // Optional high-resolution logo URL
+  logoUrl?: string;
   options?: PDFOptions;
 }
 
@@ -820,6 +829,8 @@ export const MealPlanPDF = ({
   mealPlan,
   groceryList,
   instacartUrl,
+  supplements = [],
+  fullscriptUrl,
   resources = [],
   logoUrl,
   options = {},
@@ -1457,6 +1468,128 @@ export const MealPlanPDF = ({
                   </View>
                 );
               })}
+            </>
+          );
+        })()}
+
+        <Footer />
+      </Page>}
+
+      {/* ====== SUPPLEMENT SCHEDULE ====== */}
+      {supplements.length > 0 && <Page size="A4" style={styles.page} wrap>
+        <Header title="Supplement Schedule" logoUrl={logoUrl} />
+        <Text style={styles.sectionTitle}>SUPPLEMENT SCHEDULE</Text>
+
+        <Text style={styles.bodyText}>
+          Your personalized supplement protocol, organized by timing throughout the day.
+          Always follow your practitioner&apos;s guidance on dosage and timing.
+        </Text>
+
+        {fullscriptUrl && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#e8f5e9',
+            borderRadius: 6,
+            padding: 10,
+            marginBottom: 10,
+            gap: 8,
+          }} wrap={false}>
+            <View style={{
+              width: 24, height: 24, borderRadius: 12, backgroundColor: '#2e7d32',
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: 'bold' }}>💊</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#2e7d32', marginBottom: 2 }}>
+                Order Supplements on Fullscript
+              </Text>
+              <Link src={fullscriptUrl} style={{ fontSize: 8, color: '#1b5e20', textDecoration: 'underline' }}>
+                Tap here to browse and order professional-grade supplements with your practitioner discount.
+              </Link>
+            </View>
+          </View>
+        )}
+
+        {(() => {
+          const TIMING_LABELS: Record<string, { label: string; emoji: string }> = {
+            morning: { label: 'Morning', emoji: '☀️' },
+            pre_workout: { label: 'Pre-Workout', emoji: '⚡' },
+            intra_workout: { label: 'Intra-Workout', emoji: '🏋️' },
+            post_workout: { label: 'Post-Workout', emoji: '🎯' },
+            with_meals: { label: 'With Meals', emoji: '🍽️' },
+            before_bed: { label: 'Before Bed', emoji: '🌙' },
+            as_needed: { label: 'As Needed', emoji: '💊' },
+          };
+          const TIMING_ORDER = ['morning', 'pre_workout', 'intra_workout', 'post_workout', 'with_meals', 'before_bed', 'as_needed'];
+
+          const grouped: Record<string, PDFSupplementEntry[]> = {};
+          for (const supp of supplements) {
+            for (const t of supp.timing) {
+              if (!grouped[t]) grouped[t] = [];
+              grouped[t].push(supp);
+            }
+          }
+
+          return (
+            <>
+              {TIMING_ORDER.filter(t => grouped[t]?.length).map((timing) => {
+                const config = TIMING_LABELS[timing] || { label: timing, emoji: '💊' };
+                const items = grouped[timing];
+
+                return (
+                  <View key={timing} style={{ marginBottom: 10 }} wrap={false}>
+                    <View style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 6,
+                      paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#e0e0e0',
+                      marginBottom: 6,
+                    }}>
+                      <Text style={{ fontSize: 10 }}>{config.emoji}</Text>
+                      <Text style={{ fontSize: 10, fontWeight: 'bold', color: COLORS.navy, textTransform: 'uppercase' }}>
+                        {config.label}
+                      </Text>
+                      <Text style={{ fontSize: 8, color: COLORS.gray }}>
+                        ({items.length} supplement{items.length > 1 ? 's' : ''})
+                      </Text>
+                    </View>
+
+                    {items.map((supp, idx) => (
+                      <View key={idx} style={{
+                        flexDirection: 'row', alignItems: 'center',
+                        padding: 6, paddingLeft: 16,
+                        backgroundColor: idx % 2 === 1 ? '#f8fffe' : '#ffffff',
+                        borderBottomWidth: 0.5, borderBottomColor: '#f0f0f0',
+                      }}>
+                        <Text style={{ fontSize: 8, color: COLORS.gray, marginRight: 6 }}>☐</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 9, fontWeight: 'bold', color: COLORS.navy }}>
+                            {supp.name}
+                          </Text>
+                          {supp.dosage && (
+                            <Text style={{ fontSize: 8, color: COLORS.gray, marginTop: 1 }}>
+                              Dosage: {supp.dosage}
+                            </Text>
+                          )}
+                          {supp.notes && (
+                            <Text style={{ fontSize: 7, color: COLORS.gray, marginTop: 1, fontStyle: 'italic' }}>
+                              {supp.notes}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+
+              {/* Summary count */}
+              <View style={{ marginTop: 8, padding: 8, backgroundColor: '#f5f5f5', borderRadius: 4 }}>
+                <Text style={{ fontSize: 8, color: COLORS.gray, textAlign: 'center' }}>
+                  Total: {supplements.length} supplement{supplements.length > 1 ? 's' : ''} across{' '}
+                  {TIMING_ORDER.filter(t => grouped[t]?.length).length} timing window{TIMING_ORDER.filter(t => grouped[t]?.length).length > 1 ? 's' : ''}
+                </Text>
+              </View>
             </>
           );
         })()}

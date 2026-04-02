@@ -10,6 +10,9 @@
 import { createServerClient } from '@/lib/supabase';
 
 const KROGER_BASE = process.env.KROGER_API_BASE || 'https://api.kroger.com/v1';
+// All endpoints (OAuth + data APIs) must use the same environment where the app
+// is registered. The cert environment (api-ce.kroger.com) serves both the
+// user-facing login page and the data APIs.
 const KROGER_AUTH = `${KROGER_BASE}/connect/oauth2`;
 
 function getCredentials() {

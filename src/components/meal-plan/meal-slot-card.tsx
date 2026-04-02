@@ -37,6 +37,8 @@ import {
   X,
   Heart,
   Copy,
+  ShoppingBag,
+  Search,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
@@ -44,7 +46,7 @@ import { Input } from '@/components/ui/input';
 import { useFitomicsStore } from '@/lib/store';
 import { toast } from 'sonner';
 import { containsAIReasoning } from '@/lib/meal-sanitizer';
-import type { MealSlot, Meal, Macros, DietPreferences, MealSupplement, DayOfWeek } from '@/types';
+import type { MealSlot, Meal, Macros, DietPreferences, MealSupplement, DayOfWeek, SupplementEntry } from '@/types';
 
 // Quick adjustment suggestions with macro impact
 const QUICK_ADJUSTMENTS = {
@@ -125,6 +127,9 @@ interface MealSlotCardProps {
   onUseFavorite?: (slotIndex: number) => void;
   hasFavorites?: boolean;
   onUpdateSupplements?: (slotIndex: number, supplements: MealSupplement[]) => void;
+  /** Client's profile supplements — shown as quick-pick options in the supplement picker */
+  clientSupplements?: SupplementEntry[];
+  fullscriptDispensaryUrl?: string;
   isGenerating: boolean;
   isGeneratingNote: boolean;
   // Cronometer adaptive mode
@@ -167,6 +172,8 @@ export function MealSlotCard({
   onUseFavorite,
   hasFavorites,
   onUpdateSupplements,
+  clientSupplements = [],
+  fullscriptDispensaryUrl,
   isGenerating,
   isGeneratingNote,
   // Cronometer adaptive
@@ -738,19 +745,73 @@ export function MealSlotCard({
                 </div>
               )}
 
-              {/* Supplement input form for empty slot */}
+              {/* Supplement picker for empty slot */}
               {showSuppInput && (
-                <div className="flex gap-1.5 items-end">
-                  <div className="flex-1 space-y-1">
+                <div className="space-y-2 w-full">
+                  {/* Quick picks from client profile */}
+                  {clientSupplements.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-medium text-muted-foreground">From client profile:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {clientSupplements
+                          .filter(cs => !(slot.meal?.supplements || []).some(ms => ms.name === cs.name))
+                          .map((cs) => (
+                          <button
+                            key={cs.name}
+                            type="button"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 border border-purple-200 rounded-md text-[11px] text-purple-700 hover:bg-purple-100 transition-colors"
+                            onClick={() => {
+                              const existing = slot.meal?.supplements || [];
+                              onUpdateSupplements?.(slot.slotIndex, [
+                                ...existing,
+                                { name: cs.name, dosage: cs.dosage || undefined, notes: cs.notes || undefined },
+                              ]);
+                            }}
+                          >
+                            <Plus className="h-2.5 w-2.5" />
+                            {cs.name}
+                            {cs.dosage && <span className="text-purple-400">({cs.dosage})</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Custom entry */}
+                  <div className="flex gap-1.5 items-end">
+                    <div className="flex-1 space-y-1">
+                      <Input
+                        value={newSuppName}
+                        onChange={(e) => setNewSuppName(e.target.value)}
+                        placeholder="Custom supplement name..."
+                        className="h-7 text-xs"
+                        autoFocus={clientSupplements.length === 0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newSuppName.trim()) {
+                            e.preventDefault();
+                            const existing = slot.meal?.supplements || [];
+                            onUpdateSupplements?.(slot.slotIndex, [
+                              ...existing,
+                              { name: newSuppName.trim(), dosage: newSuppDosage.trim() || undefined },
+                            ]);
+                            setNewSuppName('');
+                            setNewSuppDosage('');
+                            setShowSuppInput(false);
+                          }
+                        }}
+                      />
+                    </div>
                     <Input
-                      value={newSuppName}
-                      onChange={(e) => setNewSuppName(e.target.value)}
-                      placeholder="Supplement name..."
-                      className="h-7 text-xs"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && newSuppName.trim()) {
-                          e.preventDefault();
+                      value={newSuppDosage}
+                      onChange={(e) => setNewSuppDosage(e.target.value)}
+                      placeholder="Dosage"
+                      className="h-7 text-xs w-20"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2"
+                      onClick={() => {
+                        if (newSuppName.trim()) {
                           const existing = slot.meal?.supplements || [];
                           onUpdateSupplements?.(slot.slotIndex, [
                             ...existing,
@@ -758,44 +819,32 @@ export function MealSlotCard({
                           ]);
                           setNewSuppName('');
                           setNewSuppDosage('');
-                          setShowSuppInput(false);
                         }
+                        setShowSuppInput(false);
                       }}
-                    />
-                  </div>
-                  <Input
-                    value={newSuppDosage}
-                    onChange={(e) => setNewSuppDosage(e.target.value)}
-                    placeholder="Dosage"
-                    className="h-7 text-xs w-20"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2"
-                    onClick={() => {
-                      if (newSuppName.trim()) {
-                        const existing = slot.meal?.supplements || [];
-                        onUpdateSupplements?.(slot.slotIndex, [
-                          ...existing,
-                          { name: newSuppName.trim(), dosage: newSuppDosage.trim() || undefined },
-                        ]);
-                        setNewSuppName('');
-                        setNewSuppDosage('');
-                      }
-                      setShowSuppInput(false);
-                    }}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-1.5"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-1.5"
                     onClick={() => { setShowSuppInput(false); setNewSuppName(''); setNewSuppDosage(''); }}
                   >
                     <X className="h-3 w-3" />
                   </Button>
+                  </div>
+                  {/* Fullscript link */}
+                  {fullscriptDispensaryUrl && (
+                    <button
+                      type="button"
+                      onClick={() => window.open(fullscriptDispensaryUrl, '_blank')}
+                      className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 mt-0.5"
+                    >
+                      <ShoppingBag className="h-3 w-3" />
+                      Browse supplements on Fullscript
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1217,19 +1266,73 @@ export function MealSlotCard({
           </div>
         )}
 
-        {/* Add Supplement Input */}
+        {/* Add Supplement Picker */}
         {showSuppInput && (
-          <div className="mb-3 flex gap-1.5 items-end">
-            <div className="flex-1 space-y-1">
+          <div className="mb-3 space-y-2">
+            {/* Quick picks from client profile */}
+            {clientSupplements.length > 0 && (
+              <div className="space-y-1">
+                <span className="text-[10px] font-medium text-muted-foreground">From client profile:</span>
+                <div className="flex flex-wrap gap-1">
+                  {clientSupplements
+                    .filter(cs => !(filledMeal.supplements || []).some(ms => ms.name === cs.name))
+                    .map((cs) => (
+                    <button
+                      key={cs.name}
+                      type="button"
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 border border-purple-200 rounded-md text-[11px] text-purple-700 hover:bg-purple-100 transition-colors"
+                      onClick={() => {
+                        const existing = filledMeal.supplements || [];
+                        onUpdateSupplements?.(slot.slotIndex, [
+                          ...existing,
+                          { name: cs.name, dosage: cs.dosage || undefined, notes: cs.notes || undefined },
+                        ]);
+                      }}
+                    >
+                      <Plus className="h-2.5 w-2.5" />
+                      {cs.name}
+                      {cs.dosage && <span className="text-purple-400">({cs.dosage})</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Custom entry */}
+            <div className="flex gap-1.5 items-end">
+              <div className="flex-1 space-y-1">
+                <Input
+                  value={newSuppName}
+                  onChange={(e) => setNewSuppName(e.target.value)}
+                  placeholder="Custom supplement name..."
+                  className="h-7 text-xs"
+                  autoFocus={clientSupplements.length === 0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newSuppName.trim()) {
+                      e.preventDefault();
+                      const existing = filledMeal.supplements || [];
+                      onUpdateSupplements?.(slot.slotIndex, [
+                        ...existing,
+                        { name: newSuppName.trim(), dosage: newSuppDosage.trim() || undefined },
+                      ]);
+                      setNewSuppName('');
+                      setNewSuppDosage('');
+                      setShowSuppInput(false);
+                    }
+                  }}
+                />
+              </div>
               <Input
-                value={newSuppName}
-                onChange={(e) => setNewSuppName(e.target.value)}
-                placeholder="Supplement name..."
-                className="h-7 text-xs"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newSuppName.trim()) {
-                    e.preventDefault();
+                value={newSuppDosage}
+                onChange={(e) => setNewSuppDosage(e.target.value)}
+                placeholder="Dosage"
+                className="h-7 text-xs w-20"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2"
+                onClick={() => {
+                  if (newSuppName.trim()) {
                     const existing = filledMeal.supplements || [];
                     onUpdateSupplements?.(slot.slotIndex, [
                       ...existing,
@@ -1237,44 +1340,32 @@ export function MealSlotCard({
                     ]);
                     setNewSuppName('');
                     setNewSuppDosage('');
-                    setShowSuppInput(false);
                   }
+                  setShowSuppInput(false);
                 }}
-              />
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-1.5"
+                onClick={() => { setShowSuppInput(false); setNewSuppName(''); setNewSuppDosage(''); }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
             </div>
-            <Input
-              value={newSuppDosage}
-              onChange={(e) => setNewSuppDosage(e.target.value)}
-              placeholder="Dosage"
-              className="h-7 text-xs w-20"
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2"
-              onClick={() => {
-                if (newSuppName.trim()) {
-                  const existing = filledMeal.supplements || [];
-                  onUpdateSupplements?.(slot.slotIndex, [
-                    ...existing,
-                    { name: newSuppName.trim(), dosage: newSuppDosage.trim() || undefined },
-                  ]);
-                  setNewSuppName('');
-                  setNewSuppDosage('');
-                }
-                setShowSuppInput(false);
-              }}
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 px-1.5"
-              onClick={() => { setShowSuppInput(false); setNewSuppName(''); setNewSuppDosage(''); }}
-            >
-              <X className="h-3 w-3" />
-            </Button>
+            {/* Fullscript link */}
+            {fullscriptDispensaryUrl && (
+              <button
+                type="button"
+                onClick={() => window.open(fullscriptDispensaryUrl, '_blank')}
+                className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700"
+              >
+                <ShoppingBag className="h-3 w-3" />
+                Browse supplements on Fullscript
+              </button>
+            )}
           </div>
         )}
         

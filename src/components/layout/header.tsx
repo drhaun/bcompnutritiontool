@@ -56,6 +56,7 @@ const toolLinks = [
   { href: '/tools/meal-planner', label: 'Meal Planner' },
   { href: '/tools/day-planner', label: 'Day Planner' },
   { href: '/tools/hydration', label: 'Hydration Calculator' },
+  { href: '/tools/fullscript', label: 'Fullscript Dispensary' },
 ];
 
 export function Header() {

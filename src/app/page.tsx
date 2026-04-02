@@ -22,7 +22,8 @@ import {
   FileText, 
   Sparkles, 
   Droplets, 
-  Calendar, 
+  Calendar,
+  ShoppingBag,
   ChefHat, 
   Beaker,
   Plus,
@@ -852,6 +853,13 @@ export default function HomePage() {
                   <Button variant="ghost" className="w-full justify-start hover:bg-blue-50">
                     <Droplets className="h-4 w-4 mr-2 text-blue-600" />
                     Hydration Calculator
+                    <ArrowRight className="h-4 w-4 ml-auto opacity-50" />
+                  </Button>
+                </Link>
+                <Link href="/tools/fullscript" className="block">
+                  <Button variant="ghost" className="w-full justify-start hover:bg-emerald-50">
+                    <ShoppingBag className="h-4 w-4 mr-2 text-emerald-600" />
+                    Fullscript Dispensary
                     <ArrowRight className="h-4 w-4 ml-auto opacity-50" />
                   </Button>
                 </Link>

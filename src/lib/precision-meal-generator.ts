@@ -493,8 +493,10 @@ ${vegTiers.like.length > 0 || preferred.vegetables.length === 0 ? `👍 Like veg
 ${fatTiers.staple.length > 0 ? `🔥 STAPLE fats: ${fatTiers.staple.join(', ')}` : ''}
 ${fatTiers.love.length > 0 ? `❤️ LOVE fats: ${fatTiers.love.join(', ')}` : ''}
 
-→ ALWAYS choose STAPLE items first, then LOVE, then Like when selecting ingredients.
-→ If the client has a STAPLE protein, build the meal around it unless variety rules prevent it.
+→ MANDATORY: STAPLE items are the client's non-negotiable favorites — they MUST appear in the majority of generated meals.
+→ If the client has a STAPLE protein (e.g. Chicken Thighs), use it as the primary protein in this meal unless it was already used in the previous 2 consecutive meals.
+→ LOVE items should appear frequently. Like items provide variety to fill gaps.
+→ NEVER default to generic ingredients (plain chicken breast, white rice) when the client has explicitly rated other foods as STAPLE or LOVE.
 
 ═══════════════════════════════════════════════════════════
 CLIENT'S SUPPLEMENT ROUTINE

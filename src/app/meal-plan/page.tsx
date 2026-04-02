@@ -86,15 +86,23 @@ import {
   Store,
   UsersRound,
   Carrot,
+  ShoppingBag,
+  Search,
+  ExternalLink,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { KrogerCartDialog } from '@/components/meal-plan/kroger-cart-dialog';
 import { consolidateGroceryList, cleanIngredientName } from '@/lib/grocery-utils';
 import type { RawIngredient } from '@/lib/grocery-utils';
 import { mapDietaryToHealthFilters } from '@/lib/instacart-client';
-import type { DayOfWeek, DayNutritionTargets, MealSlot, Meal, Macros, DietPreferences, SupplementEntry, MealSupplement, CoachLink, FavoriteRecipe, ClientResource } from '@/types';
+import type { DayOfWeek, DayNutritionTargets, MealSlot, Meal, Macros, DietPreferences, SupplementEntry, SupplementTiming, MealSupplement, CoachLink, FavoriteRecipe, ClientResource } from '@/types';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const fullscriptDispensaryUrl =
+  process.env.NEXT_PUBLIC_FULLSCRIPT_DISPENSARY_URL || 'https://us.fullscript.com/welcome/fitomics';
 
 // ============ DEFAULT DISPENSARY & AFFILIATE LINKS ============
 const DEFAULT_COACH_LINKS: CoachLink[] = [
@@ -223,6 +231,101 @@ interface MealPattern {
   daysSampled: number;
 }
 
+function SupplementEditRow({
+  supplement,
+  timingOptions,
+  fullscriptUrl,
+  onSave,
+  onCancel,
+  onDelete,
+}: {
+  supplement: SupplementEntry;
+  timingOptions: { value: SupplementTiming; label: string; icon: typeof Sun }[];
+  fullscriptUrl?: string;
+  onSave: (updated: SupplementEntry) => void;
+  onCancel: () => void;
+  onDelete: () => void;
+}) {
+  const [draft, setDraft] = useState<SupplementEntry>({ ...supplement });
+
+  const toggleTiming = (t: SupplementTiming) => {
+    setDraft(prev => ({
+      ...prev,
+      timing: prev.timing.includes(t)
+        ? prev.timing.filter(x => x !== t)
+        : [...prev.timing, t],
+    }));
+  };
+
+  return (
+    <div className="p-2.5 rounded-lg bg-purple-50/60 border border-purple-200/50 space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <Input
+          value={draft.name}
+          onChange={(e) => setDraft(p => ({ ...p, name: e.target.value }))}
+          placeholder="Name"
+          className="h-7 text-xs"
+          autoFocus
+        />
+        <Input
+          value={draft.dosage || ''}
+          onChange={(e) => setDraft(p => ({ ...p, dosage: e.target.value }))}
+          placeholder="Dosage"
+          className="h-7 text-xs"
+        />
+      </div>
+      <div>
+        <span className="text-[10px] font-medium text-muted-foreground mb-1 block">Timing:</span>
+        <div className="flex flex-wrap gap-1">
+          {timingOptions.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => toggleTiming(opt.value)}
+              className={cn(
+                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border transition-colors',
+                draft.timing.includes(opt.value)
+                  ? 'bg-purple-100 border-purple-300 text-purple-700'
+                  : 'bg-white border-gray-200 text-gray-500 hover:border-purple-200',
+              )}
+            >
+              <opt.icon className="h-2.5 w-2.5" />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <Input
+        value={draft.notes || ''}
+        onChange={(e) => setDraft(p => ({ ...p, notes: e.target.value }))}
+        placeholder="Notes (brand, purpose, etc.)"
+        className="h-7 text-xs"
+      />
+      <div className="flex items-center gap-1.5">
+        <Button size="sm" className="h-6 text-[10px] px-2" onClick={() => onSave(draft)} disabled={!draft.name.trim()}>
+          <Check className="h-3 w-3 mr-0.5" /> Save
+        </Button>
+        <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={onDelete}>
+          <Trash2 className="h-3 w-3 mr-0.5" /> Remove
+        </Button>
+        {fullscriptUrl && (
+          <button
+            type="button"
+            onClick={() => window.open(`${fullscriptUrl}?search=${encodeURIComponent(draft.name)}`, '_blank')}
+            className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 ml-auto"
+          >
+            <ShoppingBag className="h-3 w-3" />
+            Find on Fullscript
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function MealPlanPage() {
   const router = useRouter();
   const {
@@ -259,6 +362,8 @@ export default function MealPlanPage() {
     clientResources,
     addClientResource,
     removeClientResource,
+    // Profile (for supplement editing)
+    setUserProfile,
   } = useFitomicsStore();
   
   // Ensure pending saves are flushed when navigating away or closing the page
@@ -448,6 +553,13 @@ export default function MealPlanPage() {
   // Main content area resource form (separate from sidebar)
   const [mainResourceAddType, setMainResourceAddType] = useState<'link' | null>(null);
   const [mainResourceForm, setMainResourceForm] = useState({ title: '', url: '', description: '' });
+
+  // Supplement schedule editing
+  const [editingSupplementIdx, setEditingSupplementIdx] = useState<number | null>(null);
+  const [showAddSupplement, setShowAddSupplement] = useState(false);
+  const [newSupp, setNewSupp] = useState<{ name: string; dosage: string; timing: SupplementTiming[]; notes: string }>({
+    name: '', dosage: '', timing: ['as_needed'], notes: '',
+  });
   const mainResourceFileRef = useRef<HTMLInputElement>(null);
 
   const handleAddResourceLink = useCallback(() => {
@@ -2047,42 +2159,83 @@ export default function MealPlanPage() {
     </Card>
   );
 
+  const TIMING_OPTIONS: { value: SupplementTiming; label: string; icon: typeof Sun }[] = [
+    { value: 'morning', label: 'Morning', icon: Sun },
+    { value: 'pre_workout', label: 'Pre-Workout', icon: Zap },
+    { value: 'intra_workout', label: 'Intra-Workout', icon: Dumbbell },
+    { value: 'post_workout', label: 'Post-Workout', icon: Target },
+    { value: 'with_meals', label: 'With Meals', icon: Utensils },
+    { value: 'before_bed', label: 'Before Bed', icon: Moon },
+    { value: 'as_needed', label: 'As Needed', icon: Pill },
+  ];
+
+  const handleSaveSupplement = (idx: number, updated: SupplementEntry) => {
+    const supps = [...clientSupplements];
+    supps[idx] = updated;
+    setUserProfile({ supplements: supps });
+    setEditingSupplementIdx(null);
+    toast.success(`Updated ${updated.name}`);
+  };
+
+  const handleDeleteSupplement = (idx: number) => {
+    const supps = clientSupplements.filter((_, i) => i !== idx);
+    setUserProfile({ supplements: supps });
+    setEditingSupplementIdx(null);
+    toast.success('Supplement removed');
+  };
+
+  const handleAddSupplement = () => {
+    if (!newSupp.name.trim()) return;
+    const entry: SupplementEntry = {
+      name: newSupp.name.trim(),
+      dosage: newSupp.dosage.trim() || undefined,
+      timing: newSupp.timing,
+      notes: newSupp.notes.trim() || undefined,
+    };
+    setUserProfile({ supplements: [...clientSupplements, entry] });
+    setNewSupp({ name: '', dosage: '', timing: ['as_needed'], notes: '' });
+    setShowAddSupplement(false);
+    toast.success(`Added ${entry.name}`);
+  };
+
+  const toggleNewSuppTiming = (t: SupplementTiming) => {
+    setNewSupp(prev => ({
+      ...prev,
+      timing: prev.timing.includes(t)
+        ? prev.timing.filter(x => x !== t)
+        : [...prev.timing, t],
+    }));
+  };
+
   const renderSupplementsCard = (day: DayOfWeek) => {
-    // Get supplements relevant to this day's context
     const daySchedule = weeklySchedule[day];
     const isWorkoutDay = nutritionTargets.find(t => t.day === day)?.isWorkoutDay ?? daySchedule?.workouts?.some(w => w.enabled);
 
-    // Filter client supplements by timing relevance
-    const morningSupps = clientSupplements.filter(s => s.timing.includes('morning'));
-    const preWorkoutSupps = clientSupplements.filter(s => s.timing.includes('pre_workout'));
-    const intraWorkoutSupps = clientSupplements.filter(s => s.timing.includes('intra_workout'));
-    const postWorkoutSupps = clientSupplements.filter(s => s.timing.includes('post_workout'));
-    const withMealsSupps = clientSupplements.filter(s => s.timing.includes('with_meals'));
-    const beforeBedSupps = clientSupplements.filter(s => s.timing.includes('before_bed'));
-    const asNeededSupps = clientSupplements.filter(s => s.timing.includes('as_needed'));
-
     const timingGroups = [
-      { label: 'Morning', icon: Sun, supps: morningSupps, show: true },
-      { label: 'Pre-Workout', icon: Zap, supps: preWorkoutSupps, show: !!isWorkoutDay },
-      { label: 'Intra-Workout', icon: Dumbbell, supps: intraWorkoutSupps, show: !!isWorkoutDay },
-      { label: 'Post-Workout', icon: Target, supps: postWorkoutSupps, show: !!isWorkoutDay },
-      { label: 'With Meals', icon: Utensils, supps: withMealsSupps, show: true },
-      { label: 'Before Bed', icon: Moon, supps: beforeBedSupps, show: true },
-      { label: 'As Needed', icon: Pill, supps: asNeededSupps, show: true },
-    ].filter(g => g.show && g.supps.length > 0);
+      { key: 'morning' as SupplementTiming, label: 'Morning', icon: Sun, show: true },
+      { key: 'pre_workout' as SupplementTiming, label: 'Pre-Workout', icon: Zap, show: !!isWorkoutDay },
+      { key: 'intra_workout' as SupplementTiming, label: 'Intra-Workout', icon: Dumbbell, show: !!isWorkoutDay },
+      { key: 'post_workout' as SupplementTiming, label: 'Post-Workout', icon: Target, show: !!isWorkoutDay },
+      { key: 'with_meals' as SupplementTiming, label: 'With Meals', icon: Utensils, show: true },
+      { key: 'before_bed' as SupplementTiming, label: 'Before Bed', icon: Moon, show: true },
+      { key: 'as_needed' as SupplementTiming, label: 'As Needed', icon: Pill, show: true },
+    ].filter(g => g.show)
+     .map(g => ({ ...g, supps: clientSupplements.map((s, idx) => ({ ...s, _idx: idx })).filter(s => s.timing.includes(g.key)) }))
+     .filter(g => g.supps.length > 0);
 
     return (
       <div className="space-y-4 mt-6">
-        {/* Client Supplements */}
-        {clientSupplements.length > 0 && (
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Pill className="h-4 w-4 text-[#c19962]" />
                 Supplement Schedule
-                <Badge variant="outline" className="text-[10px] ml-1">
-                  {clientSupplements.length} active
-                </Badge>
+                {clientSupplements.length > 0 && (
+                  <Badge variant="outline" className="text-[10px] ml-1">
+                    {clientSupplements.length} active
+                  </Badge>
+                )}
                 {(() => {
                   const dayTarget = nutritionTargets.find(t => t.day === day);
                   const customLabel = dayTarget?.dayLabel;
@@ -2103,19 +2256,107 @@ export default function MealPlanPage() {
                   return null;
                 })()}
               </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {timingGroups.map(({ label, icon: Icon, supps }) => (
-                <div key={label} className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground">{label}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs border-dashed"
+                onClick={() => { setShowAddSupplement(true); setEditingSupplementIdx(null); }}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add Supplement
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Add supplement form */}
+            {showAddSupplement && (
+              <div className="p-3 rounded-lg bg-purple-50/60 border border-purple-200/50 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    value={newSupp.name}
+                    onChange={(e) => setNewSupp(p => ({ ...p, name: e.target.value }))}
+                    placeholder="Supplement name"
+                    className="h-8 text-xs"
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddSupplement(); }}
+                  />
+                  <Input
+                    value={newSupp.dosage}
+                    onChange={(e) => setNewSupp(p => ({ ...p, dosage: e.target.value }))}
+                    placeholder="Dosage (e.g. 5g, 2 capsules)"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div>
+                  <span className="text-[10px] font-medium text-muted-foreground mb-1 block">Timing:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {TIMING_OPTIONS.map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => toggleNewSuppTiming(opt.value)}
+                        className={cn(
+                          'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border transition-colors',
+                          newSupp.timing.includes(opt.value)
+                            ? 'bg-purple-100 border-purple-300 text-purple-700'
+                            : 'bg-white border-gray-200 text-gray-500 hover:border-purple-200',
+                        )}
+                      >
+                        <opt.icon className="h-2.5 w-2.5" />
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
-                  <div className="flex flex-wrap gap-1.5 ml-5">
-                    {supps.map((s) => (
+                </div>
+                <Input
+                  value={newSupp.notes}
+                  onChange={(e) => setNewSupp(p => ({ ...p, notes: e.target.value }))}
+                  placeholder="Notes (brand, purpose, etc.)"
+                  className="h-8 text-xs"
+                />
+                <div className="flex gap-1.5">
+                  <Button size="sm" className="h-7 text-xs" onClick={handleAddSupplement} disabled={!newSupp.name.trim()}>
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setShowAddSupplement(false); setNewSupp({ name: '', dosage: '', timing: ['as_needed'], notes: '' }); }}>
+                    Cancel
+                  </Button>
+                  {fullscriptDispensaryUrl && (
+                    <button
+                      type="button"
+                      onClick={() => window.open(fullscriptDispensaryUrl, '_blank')}
+                      className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 ml-auto"
+                    >
+                      <ShoppingBag className="h-3 w-3" />
+                      Browse on Fullscript
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Supplement list grouped by timing */}
+            {timingGroups.map(({ key, label, icon: Icon, supps }) => (
+              <div key={key} className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                </div>
+                <div className="flex flex-col gap-1.5 ml-5">
+                  {supps.map((s) => (
+                    editingSupplementIdx === s._idx ? (
+                      <SupplementEditRow
+                        key={s.name}
+                        supplement={s}
+                        timingOptions={TIMING_OPTIONS}
+                        fullscriptUrl={fullscriptDispensaryUrl}
+                        onSave={(updated) => handleSaveSupplement(s._idx, updated)}
+                        onCancel={() => setEditingSupplementIdx(null)}
+                        onDelete={() => handleDeleteSupplement(s._idx)}
+                      />
+                    ) : (
                       <div
                         key={s.name}
-                        className="flex items-center gap-1 px-2 py-1 bg-muted/60 rounded-md text-xs"
+                        className="group flex items-center gap-1 px-2 py-1 bg-muted/60 rounded-md text-xs hover:bg-muted/80 transition-colors"
                       >
                         <span className="font-medium">{s.name}</span>
                         {s.dosage && (
@@ -2133,21 +2374,117 @@ export default function MealPlanPage() {
                             </Tooltip>
                           </TooltipProvider>
                         )}
+                        {/* Fullscript search link */}
+                        {fullscriptDispensaryUrl && (
+                          <button
+                            type="button"
+                            onClick={() => window.open(`${fullscriptDispensaryUrl}?search=${encodeURIComponent(s.name)}`, '_blank')}
+                            className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-0.5 text-emerald-600 hover:text-emerald-700"
+                            title={`Find ${s.name} on Fullscript`}
+                          >
+                            <ShoppingBag className="h-3 w-3" />
+                          </button>
+                        )}
+                        {/* Edit button */}
+                        <button
+                          type="button"
+                          onClick={() => { setEditingSupplementIdx(s._idx); setShowAddSupplement(false); }}
+                          className={cn(
+                            'transition-opacity inline-flex items-center text-muted-foreground hover:text-foreground',
+                            fullscriptDispensaryUrl ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100 ml-auto',
+                          )}
+                          title="Edit supplement"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
                       </div>
-                    ))}
-                  </div>
+                    )
+                  ))}
                 </div>
-              ))}
+              </div>
+            ))}
 
-              {clientSupplements.length > 0 && timingGroups.length === 0 && (
-                <p className="text-xs text-muted-foreground italic">
-                  Supplements are configured but none have timing set for the current view. Edit supplement timing in the client profile.
-                </p>
-              )}
+            {clientSupplements.length > 0 && timingGroups.length === 0 && (
+              <p className="text-xs text-muted-foreground italic">
+                Supplements are configured but none have timing set for the current view.
+                <button
+                  type="button"
+                  className="text-purple-600 hover:text-purple-700 ml-1 underline"
+                  onClick={() => {
+                    if (clientSupplements.length > 0) setEditingSupplementIdx(0);
+                  }}
+                >
+                  Edit timing
+                </button>
+              </p>
+            )}
+
+            {clientSupplements.length === 0 && !showAddSupplement && (
+              <div className="text-center py-4">
+                <Pill className="h-6 w-6 text-muted-foreground/40 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground mb-2">No supplements configured</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setShowAddSupplement(true)}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add First Supplement
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Fullscript Quick Shop */}
+        {clientSupplements.length > 0 && fullscriptDispensaryUrl && (
+          <Card className="border-emerald-200/50 bg-gradient-to-br from-emerald-50/30 to-transparent">
+            <CardContent className="py-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="h-4 w-4 text-emerald-600" />
+                  <span className="text-sm font-medium text-emerald-900">Shop on Fullscript</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-emerald-700 hover:bg-emerald-100"
+                    onClick={() => window.open(fullscriptDispensaryUrl, '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Dispensary
+                  </Button>
+                  <Link href="/tools/fullscript">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-700 hover:bg-emerald-100">
+                      Full Page
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {clientSupplements.slice(0, 8).map((s) => (
+                  <button
+                    key={s.name}
+                    type="button"
+                    onClick={() => window.open(`${fullscriptDispensaryUrl}?search=${encodeURIComponent(s.name)}`, '_blank')}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-emerald-200 rounded-md text-[11px] text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                  >
+                    <Search className="h-2.5 w-2.5" />
+                    {s.name}
+                  </button>
+                ))}
+                {clientSupplements.length > 8 && (
+                  <Link href="/tools/fullscript">
+                    <span className="inline-flex items-center px-2 py-1 bg-emerald-100 border border-emerald-200 rounded-md text-[11px] text-emerald-700 cursor-pointer">
+                      +{clientSupplements.length - 8} more
+                    </span>
+                  </Link>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
-
       </div>
     );
   };
@@ -3247,30 +3584,58 @@ export default function MealPlanPage() {
                           </div>
                         )}
                         
-                        {/* Preferred Foods Row */}
-                        {((dietPreferences?.preferredProteins?.length || 0) > 0 || 
-                          (dietPreferences?.preferredCarbs?.length || 0) > 0 ||
-                          (dietPreferences?.preferredVegetables?.length || 0) > 0) && (
-                          <div className="flex flex-wrap gap-1.5 items-center">
-                            <span className="text-xs font-medium text-blue-700">💙 Prefers:</span>
-                            {dietPreferences?.preferredProteins?.slice(0, 3).map(p => (
-                              <Badge key={p} variant="outline" className="text-xs border-blue-300 text-blue-700">{p}</Badge>
-                            ))}
-                            {dietPreferences?.preferredCarbs?.slice(0, 2).map(c => (
-                              <Badge key={c} variant="outline" className="text-xs border-blue-300 text-blue-700">{c}</Badge>
-                            ))}
-                            {dietPreferences?.preferredVegetables?.slice(0, 2).map(v => (
-                              <Badge key={v} variant="outline" className="text-xs border-blue-300 text-blue-700">{v}</Badge>
-                            ))}
-                          </div>
-                        )}
+                        {/* Preferred Foods — tiered by like/love/staple */}
+                        {(() => {
+                          const ratings = dietPreferences?.ingredientRatings || {};
+                          const allItems = [...new Set([
+                            ...(dietPreferences?.preferredProteins || []),
+                            ...(dietPreferences?.preferredCarbs || []),
+                            ...(dietPreferences?.preferredFats || []),
+                            ...(dietPreferences?.preferredVegetables || []),
+                          ])];
+                          if (allItems.length === 0) return null;
+                          const staples = allItems.filter(i => ratings[i] === 3);
+                          const loved = allItems.filter(i => ratings[i] === 2);
+                          const liked = allItems.filter(i => !ratings[i] || ratings[i] === 1);
+                          return (
+                            <div className="space-y-1">
+                              {staples.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 items-center">
+                                  <span className="text-xs font-semibold text-amber-700">⭐ Staple:</span>
+                                  {staples.map((s, i) => (
+                                    <Badge key={`staple-${i}`} className="bg-amber-100 text-amber-800 text-xs border border-amber-300">{s}</Badge>
+                                  ))}
+                                </div>
+                              )}
+                              {loved.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 items-center">
+                                  <span className="text-xs font-medium text-pink-700">❤️ Love:</span>
+                                  {loved.map((l, i) => (
+                                    <Badge key={`love-${i}`} className="bg-pink-50 text-pink-700 text-xs border border-pink-200">{l}</Badge>
+                                  ))}
+                                </div>
+                              )}
+                              {liked.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 items-center">
+                                  <span className="text-xs font-medium text-blue-700">💙 Like:</span>
+                                  {liked.slice(0, 6).map((l, i) => (
+                                    <Badge key={`like-${i}`} variant="outline" className="text-xs border-blue-300 text-blue-700">{l}</Badge>
+                                  ))}
+                                  {liked.length > 6 && (
+                                    <span className="text-[10px] text-muted-foreground">+{liked.length - 6} more</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                         
                         {/* No preferences set */}
                         {!(dietPreferences?.allergies?.length || dietPreferences?.customAllergies?.length ||
                            dietPreferences?.dietaryRestrictions?.length ||
                            dietPreferences?.foodsToAvoid?.length || dietPreferences?.foodsToEmphasize?.length ||
                            dietPreferences?.preferredProteins?.length || dietPreferences?.preferredCarbs?.length ||
-                           dietPreferences?.preferredVegetables?.length) && (
+                           dietPreferences?.preferredFats?.length || dietPreferences?.preferredVegetables?.length) && (
                           <p className="text-xs text-muted-foreground">
                             No dietary preferences set. <Button variant="link" className="h-auto p-0 text-xs" onClick={() => router.push('/preferences')}>Add preferences →</Button>
                           </p>
@@ -3356,6 +3721,8 @@ export default function MealPlanPage() {
                             onUseFavorite={(i) => setFavoritePickerSlot(i)}
                             hasFavorites={favoriteRecipes.length > 0}
                             onUpdateSupplements={(i, supps) => handleUpdateMealSupplements(currentDay, i, supps)}
+                            clientSupplements={clientSupplements}
+                            fullscriptDispensaryUrl={fullscriptDispensaryUrl}
                             onDeleteMeal={(i) => {
                               deleteMeal(currentDay, i);
                               toast.success('Meal removed');
@@ -3583,6 +3950,8 @@ export default function MealPlanPage() {
                             onUseFavorite={(i) => setFavoritePickerSlot(i)}
                             hasFavorites={favoriteRecipes.length > 0}
                             onUpdateSupplements={(i, supps) => handleUpdateMealSupplements(selectedDay, i, supps)}
+                            clientSupplements={clientSupplements}
+                            fullscriptDispensaryUrl={fullscriptDispensaryUrl}
                             onDeleteMeal={(i) => {
                               deleteMeal(selectedDay, i);
                               toast.success('Meal removed');
@@ -3664,7 +4033,7 @@ export default function MealPlanPage() {
                 </CardHeader>
                 
                 <ScrollArea className="flex-1">
-                  <CardContent className="py-4">
+                  <CardContent className="py-4 px-3">
                     {showGroceryList ? (
                       // Grocery List
                       <div className="space-y-4">
@@ -3845,7 +4214,7 @@ export default function MealPlanPage() {
                             </div>
 
                             {/* Per-meal serving multipliers */}
-                            <div className="border rounded-lg overflow-hidden">
+                            <div className="border rounded-lg">
                               <button
                                 className="w-full flex items-center justify-between p-2.5 text-left hover:bg-muted/30 transition-colors"
                                 onClick={() => setShowMealServings(!showMealServings)}
@@ -3875,33 +4244,33 @@ export default function MealPlanPage() {
                                           const mealKey = `${day}-${idx}`;
                                           const mult = mealServingMultipliers[mealKey] ?? 1;
                                           return (
-                                            <div key={mealKey} className="flex items-center justify-between py-0.5">
-                                              <span className="text-[11px] truncate flex-1 mr-2">{meal!.name || `Meal ${idx + 1}`}</span>
-                                              <div className="flex items-center gap-1 shrink-0">
-                                                <Button
-                                                  variant="outline"
-                                                  size="icon"
-                                                  className="h-5 w-5"
+                                            <div key={mealKey} className="grid grid-cols-[1fr_auto] items-center gap-1 py-0.5">
+                                              <span className="text-[11px] truncate">{meal!.name || `Meal ${idx + 1}`}</span>
+                                              <div className="flex items-center">
+                                                <button
+                                                  type="button"
                                                   disabled={mult <= 1}
-                                                  onClick={() => setMealServingMultipliers(prev => {
-                                                    const next = { ...prev };
-                                                    const newVal = Math.max(1, mult - 1);
-                                                    if (newVal === 1) delete next[mealKey];
-                                                    else next[mealKey] = newVal;
-                                                    return next;
-                                                  })}
-                                                >
-                                                  <span className="text-[10px] font-bold">−</span>
-                                                </Button>
+                                                  className="h-5 w-5 inline-flex items-center justify-center rounded border bg-background text-[10px] font-bold hover:bg-accent disabled:opacity-40 disabled:pointer-events-none"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setMealServingMultipliers(prev => {
+                                                      const next = { ...prev };
+                                                      const newVal = Math.max(1, mult - 1);
+                                                      if (newVal === 1) delete next[mealKey];
+                                                      else next[mealKey] = newVal;
+                                                      return next;
+                                                    });
+                                                  }}
+                                                >−</button>
                                                 <span className={`text-[11px] font-bold w-4 text-center ${mult > 1 ? 'text-[#c19962]' : ''}`}>{mult}</span>
-                                                <Button
-                                                  variant="outline"
-                                                  size="icon"
-                                                  className="h-5 w-5"
-                                                  onClick={() => setMealServingMultipliers(prev => ({ ...prev, [mealKey]: mult + 1 }))}
-                                                >
-                                                  <span className="text-[10px] font-bold">+</span>
-                                                </Button>
+                                                <button
+                                                  type="button"
+                                                  className="h-5 w-5 inline-flex items-center justify-center rounded border bg-background text-[10px] font-bold hover:bg-accent"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setMealServingMultipliers(prev => ({ ...prev, [mealKey]: mult + 1 }));
+                                                  }}
+                                                >+</button>
                                               </div>
                                             </div>
                                           );

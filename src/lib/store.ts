@@ -283,6 +283,25 @@ const initialState = {
   _pendingArchives: [] as { clientId: string; status: string }[],
 };
 
+/**
+ * Writes an updated meal plan to both the top-level store AND the active phase
+ * (if one exists). The meal-plan page reads `activePhase?.mealPlan ?? storeMealPlan`,
+ * so both must stay in sync for generate, copy, delete, and clear operations.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function setMealPlanWithPhaseSync(get: () => NutritionPlanningOSState, set: any, updatedPlan: WeeklyMealPlan | null) {
+  const state = get();
+  const updates: Record<string, unknown> = { mealPlan: updatedPlan };
+  if (state.activePhaseId) {
+    updates.phases = state.phases.map(p =>
+      p.id === state.activePhaseId
+        ? { ...p, mealPlan: updatedPlan, updatedAt: new Date().toISOString() }
+        : p
+    );
+  }
+  set(updates);
+}
+
 export const useFitomicsStore = create<NutritionPlanningOSState>()(
   persist(
     (set, get) => ({
@@ -1128,7 +1147,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
       },
       
       setMealPlan: (plan) => {
-        set({ mealPlan: plan });
+        setMealPlanWithPhaseSync(get, set, plan);
         
         // Also save to plan history if there's an active client
         const state = get();
@@ -1152,7 +1171,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
       },
       
       // ============ MEAL BUILDER ACTIONS ============
-      
+
       updateMeal: (day, slotIndex, meal) => {
         const state = get();
         
@@ -1212,7 +1231,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           },
         };
         
-        set({ mealPlan: updatedPlan });
+        setMealPlanWithPhaseSync(get, set, updatedPlan);
         get().saveActiveClientState();
       },
       
@@ -1228,14 +1247,9 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           lastModified: new Date().toISOString(),
         };
         
-        set({
-          mealPlan: {
-            ...currentPlan,
-            [day]: {
-              ...currentPlan[day],
-              meals: updatedMeals,
-            },
-          },
+        setMealPlanWithPhaseSync(get, set, {
+          ...currentPlan,
+          [day]: { ...currentPlan[day], meals: updatedMeals },
         });
         get().saveActiveClientState();
       },
@@ -1252,14 +1266,9 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           lastModified: new Date().toISOString(),
         };
         
-        set({
-          mealPlan: {
-            ...currentPlan,
-            [day]: {
-              ...currentPlan[day],
-              meals: updatedMeals,
-            },
-          },
+        setMealPlanWithPhaseSync(get, set, {
+          ...currentPlan,
+          [day]: { ...currentPlan[day], meals: updatedMeals },
         });
         get().saveActiveClientState();
       },
@@ -1275,14 +1284,9 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           isLocked: locked,
         };
         
-        set({
-          mealPlan: {
-            ...currentPlan,
-            [day]: {
-              ...currentPlan[day],
-              meals: updatedMeals,
-            },
-          },
+        setMealPlanWithPhaseSync(get, set, {
+          ...currentPlan,
+          [day]: { ...currentPlan[day], meals: updatedMeals },
         });
         get().saveActiveClientState();
       },
@@ -1293,10 +1297,8 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         if (!currentPlan?.[day]) return;
         
         const updatedMeals = [...currentPlan[day].meals];
-        // Replace with an empty placeholder to maintain slot positions
         updatedMeals[slotIndex] = null as unknown as Meal;
         
-        // Recalculate daily totals
         const rawTotals = updatedMeals.reduce(
           (acc, m) => ({
             calories: acc.calories + (m?.totalMacros?.calories || 0),
@@ -1313,15 +1315,9 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           fat: Math.round(rawTotals.fat),
         };
         
-        set({
-          mealPlan: {
-            ...currentPlan,
-            [day]: {
-              ...currentPlan[day],
-              meals: updatedMeals,
-              dailyTotals,
-            },
-          },
+        setMealPlanWithPhaseSync(get, set, {
+          ...currentPlan,
+          [day]: { ...currentPlan[day], meals: updatedMeals, dailyTotals },
         });
         get().saveActiveClientState();
       },
@@ -1330,7 +1326,6 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         const state = get();
         const currentPlan = state.mealPlan || {};
         
-        // Create empty meal slots (null represents empty slot)
         const totalSlots = mealsCount + snacksCount;
         const emptyMeals: (Meal | null)[] = Array(totalSlots).fill(null);
         
@@ -1348,12 +1343,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           mealStructureRationale: '',
         };
         
-        set({
-          mealPlan: {
-            ...currentPlan,
-            [day]: dayPlan,
-          },
-        });
+        setMealPlanWithPhaseSync(get, set, { ...currentPlan, [day]: dayPlan });
         get().saveActiveClientState();
       },
       
@@ -1362,18 +1352,15 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         const currentPlan = state.mealPlan;
         if (!currentPlan?.[day]) return;
         
-        // Save snapshot before clearing
         get().saveMealPlanSnapshot();
         
         const slotCount = currentPlan[day].meals.length;
-        set({
-          mealPlan: {
-            ...currentPlan,
-            [day]: {
-              ...currentPlan[day],
-              meals: Array(slotCount).fill(null) as Meal[],
-              dailyTotals: { calories: 0, protein: 0, carbs: 0, fat: 0 },
-            },
+        setMealPlanWithPhaseSync(get, set, {
+          ...currentPlan,
+          [day]: {
+            ...currentPlan[day],
+            meals: Array(slotCount).fill(null) as Meal[],
+            dailyTotals: { calories: 0, protein: 0, carbs: 0, fat: 0 },
           },
         });
         get().saveActiveClientState();
@@ -1399,7 +1386,7 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
           }
         });
         
-        set({ mealPlan: clearedPlan });
+        setMealPlanWithPhaseSync(get, set, clearedPlan);
         get().saveActiveClientState();
       },
       
@@ -1444,12 +1431,10 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         if (!state.canUndo()) return;
         
         const newIndex = state.mealPlanHistoryIndex - 1;
-        const previousPlan = state.mealPlanHistory[newIndex];
+        const previousPlan = JSON.parse(JSON.stringify(state.mealPlanHistory[newIndex]));
         
-        set({
-          mealPlan: JSON.parse(JSON.stringify(previousPlan)),
-          mealPlanHistoryIndex: newIndex,
-        });
+        setMealPlanWithPhaseSync(get, set, previousPlan);
+        set({ mealPlanHistoryIndex: newIndex });
         get().saveActiveClientState();
       },
       
@@ -1458,12 +1443,10 @@ export const useFitomicsStore = create<NutritionPlanningOSState>()(
         if (!state.canRedo()) return;
         
         const newIndex = state.mealPlanHistoryIndex + 1;
-        const nextPlan = state.mealPlanHistory[newIndex];
+        const nextPlan = JSON.parse(JSON.stringify(state.mealPlanHistory[newIndex]));
         
-        set({
-          mealPlan: JSON.parse(JSON.stringify(nextPlan)),
-          mealPlanHistoryIndex: newIndex,
-        });
+        setMealPlanWithPhaseSync(get, set, nextPlan);
+        set({ mealPlanHistoryIndex: newIndex });
         get().saveActiveClientState();
       },
       
