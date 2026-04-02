@@ -40,7 +40,8 @@ import {
   Trash2,
   Copy,
   Check,
-  Loader2
+  Loader2,
+  ShoppingCart
 } from 'lucide-react';
 
 // ============ TYPES ============
@@ -161,6 +162,8 @@ export default function DayPlannerPage() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedPlan, setGeneratedPlan] = useState<DayPlan | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [instacartLoading, setInstacartLoading] = useState(false);
+  const [instacartUrl, setInstacartUrl] = useState<string | null>(null);
 
   // Helpers
   const addMealSlot = () => {
@@ -406,6 +409,10 @@ export default function DayPlannerPage() {
       text += `\n`;
     });
 
+    if (instacartUrl) {
+      text += `🛒 Shop ingredients on Instacart:\n${instacartUrl}\n\n`;
+    }
+
     navigator.clipboard.writeText(text);
     toast.success('Plan copied to clipboard!');
   };
@@ -448,6 +455,39 @@ export default function DayPlannerPage() {
       toast.error('Failed to download PDF');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const sendToInstacart = async () => {
+    if (!generatedPlan) return;
+    if (instacartUrl) { window.open(instacartUrl, '_blank'); return; }
+    setInstacartLoading(true);
+    try {
+      const items = generatedPlan.meals.flatMap(({ meal }) =>
+        meal.ingredients.map(ing => {
+          const m = ing.match(/^([\d./]+)\s*(\w+)\s+(.+)/);
+          return m
+            ? { name: m[3], qty: parseFloat(m[1]) || 1, unit: m[2] }
+            : { name: ing, qty: 1, unit: 'each' };
+        })
+      );
+      const res = await fetch('/api/instacart/shopping-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items,
+          title: `${clientName || 'Day'} Plan - Grocery List`,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to create Instacart list');
+      const { url } = await res.json();
+      setInstacartUrl(url);
+      window.open(url, '_blank');
+      toast.success('Instacart shopping list created!');
+    } catch {
+      toast.error('Failed to send to Instacart');
+    } finally {
+      setInstacartLoading(false);
     }
   };
 
@@ -1101,7 +1141,21 @@ export default function DayPlannerPage() {
                           )}
                           PDF
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleGenerate()}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-green-300 text-green-700 hover:bg-green-50"
+                          disabled={instacartLoading}
+                          onClick={sendToInstacart}
+                        >
+                          {instacartLoading ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <ShoppingCart className="h-4 w-4 mr-1" />
+                          )}
+                          {instacartUrl ? 'Open List' : 'Instacart'}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => { setGeneratedPlan(null); setInstacartUrl(null); handleGenerate(); }}>
                           <RefreshCw className="h-4 w-4 mr-1" />
                           Regenerate
                         </Button>

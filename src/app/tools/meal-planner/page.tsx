@@ -157,6 +157,8 @@ export default function MealPlannerPage() {
   const [generatedMeal, setGeneratedMeal] = useState<GeneratedMeal | null>(null);
   const [alternatives, setAlternatives] = useState<GeneratedMeal[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [instacartLoading, setInstacartLoading] = useState(false);
+  const [instacartUrl, setInstacartUrl] = useState<string | null>(null);
 
   // Calculate actual macro calories
   const actualCalories = useMemo(() => {
@@ -350,6 +352,10 @@ export default function MealPlannerPage() {
       });
     }
 
+    if (instacartUrl) {
+      text += `\n🛒 Shop ingredients on Instacart:\n${instacartUrl}\n`;
+    }
+
     navigator.clipboard.writeText(text);
     toast.success('Meal copied to clipboard!');
   };
@@ -401,6 +407,36 @@ export default function MealPlannerPage() {
       toast.error('Failed to download PDF');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const sendToInstacart = async () => {
+    if (!generatedMeal) return;
+    if (instacartUrl) { window.open(instacartUrl, '_blank'); return; }
+    setInstacartLoading(true);
+    try {
+      const items = generatedMeal.ingredients.map(ing => ({
+        name: ing.item,
+        qty: parseFloat(ing.amount) || 1,
+        unit: ing.amount.replace(/^[\d./]+\s*/, '').trim() || 'each',
+      }));
+      const res = await fetch('/api/instacart/shopping-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items,
+          title: `${generatedMeal.name} - Ingredients`,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to create Instacart list');
+      const { url } = await res.json();
+      setInstacartUrl(url);
+      window.open(url, '_blank');
+      toast.success('Instacart shopping list created!');
+    } catch {
+      toast.error('Failed to send to Instacart');
+    } finally {
+      setInstacartLoading(false);
     }
   };
 
@@ -887,7 +923,21 @@ export default function MealPlannerPage() {
                           )}
                           PDF
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleGenerate()}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-green-300 text-green-700 hover:bg-green-50"
+                          disabled={instacartLoading}
+                          onClick={sendToInstacart}
+                        >
+                          {instacartLoading ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <ShoppingCart className="h-4 w-4 mr-1" />
+                          )}
+                          {instacartUrl ? 'Open List' : 'Instacart'}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => { setInstacartUrl(null); handleGenerate(); }}>
                           <RefreshCw className="h-4 w-4 mr-1" />
                           New
                         </Button>
