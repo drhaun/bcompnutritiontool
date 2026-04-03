@@ -93,10 +93,11 @@ import {
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { KrogerCartDialog } from '@/components/meal-plan/kroger-cart-dialog';
-import { consolidateGroceryList, cleanIngredientName } from '@/lib/grocery-utils';
+// Kroger & Instacart integrations paused until production access is validated
+// import { KrogerCartDialog } from '@/components/meal-plan/kroger-cart-dialog';
+import { consolidateGroceryList } from '@/lib/grocery-utils';
 import type { RawIngredient } from '@/lib/grocery-utils';
-import { mapDietaryToHealthFilters } from '@/lib/instacart-client';
+// import { mapDietaryToHealthFilters } from '@/lib/instacart-client';
 import type { DayOfWeek, DayNutritionTargets, MealSlot, Meal, Macros, DietPreferences, SupplementEntry, SupplementTiming, MealSupplement, CoachLink, FavoriteRecipe, ClientResource } from '@/types';
 
 const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -404,21 +405,18 @@ export default function MealPlanPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [showGroceryList, setShowGroceryList] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [showKrogerDialog, setShowKrogerDialog] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      return params.has('kroger_connected') || params.has('kroger_error');
-    }
-    return false;
-  });
+  // Kroger dialog — disabled until integration is validated
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [showKrogerDialog, setShowKrogerDialog] = useState(false);
   const [servingMultiplier, setServingMultiplier] = useState(1);
   const [mealServingMultipliers, setMealServingMultipliers] = useState<Record<string, number>>({});
   const [showMealServings, setShowMealServings] = useState(false);
-  const [instacartConfigured, setInstacartConfigured] = useState(false);
-  const [instacartLoading, setInstacartLoading] = useState(false);
-  const instacartCacheRef = useRef<{ hash: string; url: string } | null>(null);
-  const [instacartRetailers, setInstacartRetailers] = useState<Array<{ retailer_key: string; name: string; retailer_logo_url: string }>>([]);
-  const [selectedRetailerKey, setSelectedRetailerKey] = useState<string>('');
+  // Instacart state — disabled until production access
+  // const [instacartConfigured, setInstacartConfigured] = useState(false);
+  // const [instacartLoading, setInstacartLoading] = useState(false);
+  // const instacartCacheRef = useRef<{ hash: string; url: string } | null>(null);
+  // const [instacartRetailers, setInstacartRetailers] = useState<Array<{ retailer_key: string; name: string; retailer_logo_url: string }>>([]);
+  // const [selectedRetailerKey, setSelectedRetailerKey] = useState<string>('');
   const [exportOptions, setExportOptions] = useState({
     includeGroceryList: true,
     includeRecipes: true,
@@ -753,20 +751,8 @@ export default function MealPlanPage() {
   
   useEffect(() => {
     setIsHydrated(true);
-    fetch('/api/instacart/status')
-      .then(r => r.json())
-      .then(d => {
-        const configured = d.configured === true;
-        setInstacartConfigured(configured);
-        if (configured && dietPreferences?.homeZipCode) {
-          fetch(`/api/instacart/retailers?postal_code=${encodeURIComponent(dietPreferences.homeZipCode)}`)
-            .then(r => r.ok ? r.json() : null)
-            .then(d => { if (d?.retailers?.length) setInstacartRetailers(d.retailers); })
-            .catch(() => {});
-        }
-      })
-      .catch(() => {});
-  }, [dietPreferences?.homeZipCode]);
+    // Instacart status check disabled until production access
+  }, []);
 
   // ============ CRONOMETER DATA FETCHING ============
 
@@ -4056,123 +4042,38 @@ export default function MealPlanPage() {
                                 {groceryList.length} items from {overallProgress.filledSlots} meals
                               </p>
                               <div className="flex gap-1 flex-wrap">
-                                {instacartConfigured && (
-                                  <>
-                                    {instacartRetailers.length > 0 && (
-                                      <select
-                                        className="h-7 text-xs rounded-md border border-green-200 bg-white px-1.5 text-green-800 focus:outline-none focus:ring-1 focus:ring-green-400"
-                                        value={selectedRetailerKey}
-                                        onChange={(e) => {
-                                          setSelectedRetailerKey(e.target.value);
-                                          instacartCacheRef.current = null;
-                                        }}
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs opacity-50 cursor-not-allowed"
+                                        disabled
                                       >
-                                        <option value="">Any store</option>
-                                        {instacartRetailers.map(r => (
-                                          <option key={r.retailer_key} value={r.retailer_key}>
-                                            {r.name}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    )}
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 text-xs border-green-300 hover:bg-green-50 hover:text-green-800"
-                                      disabled={instacartLoading}
-                                      onClick={async () => {
-                                        setInstacartLoading(true);
-                                        try {
-                                          const items = groceryList.map(i => ({
-                                            name: i.name,
-                                            qty: i.qty,
-                                            unit: i.unit,
-                                          }));
-                                          const clientName = userProfile.name || 'Client';
-
-                                          const cacheHash = JSON.stringify({ items, retailerKey: selectedRetailerKey });
-                                          if (instacartCacheRef.current?.hash === cacheHash) {
-                                            window.open(instacartCacheRef.current.url, '_blank');
-                                            toast.success('Shopping list opened on Instacart!');
-                                            return;
-                                          }
-
-                                          const instructions: string[] = [];
-                                          if (mealPlan) {
-                                            instructions.push('This grocery list covers the meals below. Select a store to see matched products and check out.');
-                                            DAYS.forEach(day => {
-                                              const dayPlan = mealPlan[day];
-                                              if (!dayPlan?.meals?.some(m => m !== null)) return;
-                                              const mealSummaries: string[] = [];
-                                              dayPlan.meals.forEach((meal, idx) => {
-                                                if (!meal) return;
-                                                const label = slotLabels[idx]?.label || `Meal ${idx + 1}`;
-                                                const ingredientNames = (meal.ingredients || [])
-                                                  .map((ing: { item?: string }) => cleanIngredientName(ing.item || ''))
-                                                  .filter(n => n && n !== 'Item');
-                                                const list = ingredientNames.length > 0
-                                                  ? `: ${ingredientNames.join(', ')}`
-                                                  : '';
-                                                mealSummaries.push(`${label} — ${meal.name}${list}`);
-                                              });
-                                              if (mealSummaries.length > 0) {
-                                                instructions.push(`${day}: ${mealSummaries.join(' | ')}`);
-                                              }
-                                            });
-                                          }
-
-                                          const healthFilters = mapDietaryToHealthFilters(
-                                            dietPreferences?.dietaryRestrictions,
-                                          );
-                                          const linkbackUrl = typeof window !== 'undefined'
-                                            ? window.location.href
-                                            : undefined;
-
-                                          const res = await fetch('/api/instacart/shopping-list', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                              items,
-                                              title: `${clientName} - Meal Plan Grocery List`,
-                                              instructions: instructions.length > 1 ? instructions : undefined,
-                                              linkbackUrl,
-                                              healthFilters: healthFilters.length > 0 ? healthFilters : undefined,
-                                              retailerKey: selectedRetailerKey || undefined,
-                                            }),
-                                          });
-                                          if (!res.ok) {
-                                            const err = await res.json();
-                                            throw new Error(err.error || 'Failed to create list');
-                                          }
-                                          const data = await res.json();
-                                          instacartCacheRef.current = { hash: cacheHash, url: data.url };
-                                          window.open(data.url, '_blank');
-                                          toast.success('Shopping list sent to Instacart!');
-                                        } catch (err) {
-                                          toast.error(err instanceof Error ? err.message : 'Instacart error');
-                                        } finally {
-                                          setInstacartLoading(false);
-                                        }
-                                      }}
-                                    >
-                                      {instacartLoading ? (
-                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                      ) : (
                                         <Carrot className="h-3 w-3 mr-1" />
-                                      )}
-                                      Instacart
-                                    </Button>
-                                  </>
-                                )}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
-                                  onClick={() => setShowKrogerDialog(true)}
-                                >
-                                  <Store className="h-3 w-3 mr-1" />
-                                  Kroger
-                                </Button>
+                                        Instacart
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p>Coming soon — production access pending</p></TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs opacity-50 cursor-not-allowed"
+                                        disabled
+                                      >
+                                        <Store className="h-3 w-3 mr-1" />
+                                        Kroger
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p>Coming soon — integration being validated</p></TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -5517,7 +5418,7 @@ export default function MealPlanPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Kroger Cart Dialog */}
+      {/* Kroger Cart Dialog — disabled until integration is validated
       <KrogerCartDialog
         open={showKrogerDialog}
         onOpenChange={setShowKrogerDialog}
@@ -5525,6 +5426,7 @@ export default function MealPlanPage() {
         clientId={activeClientId || undefined}
         clientName={userProfile.name || undefined}
       />
+      */}
     </div>
   );
 }

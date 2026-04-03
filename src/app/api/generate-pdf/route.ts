@@ -5,10 +5,8 @@ import MealPlanPDF from '@/lib/pdf-generator';
 import { consolidateGroceryList } from '@/lib/grocery-utils';
 import type { RawIngredient } from '@/lib/grocery-utils';
 import type { WeeklyMealPlan, Meal } from '@/types';
-import {
-  isInstacartConfigured,
-  createInstacartShoppingList,
-} from '@/lib/instacart-client';
+// Instacart integration paused until production API access is granted
+// import { isInstacartConfigured, createInstacartShoppingList } from '@/lib/instacart-client';
 
 export const runtime = 'nodejs';
 
@@ -68,7 +66,6 @@ export async function POST(request: Request) {
 
     // Build grocery list using the same consolidation as the UI
     let groceryList: Record<string, { name: string; totalAmount: string }[]> = {};
-    let instacartUrl: string | undefined;
 
     if (options?.includeGroceryList !== false) {
       const rawIngredients: RawIngredient[] = [];
@@ -103,19 +100,6 @@ export async function POST(request: Request) {
         });
       }
       groceryList = grouped;
-
-      // Generate Instacart link if configured
-      if (isInstacartConfigured()) {
-        try {
-          const clientName = userProfile?.name || 'Client';
-          instacartUrl = await createInstacartShoppingList({
-            items: flatItems.map(i => ({ name: i.name, qty: i.qty, unit: i.unit })),
-            title: `${clientName} - Meal Plan Grocery List`,
-          });
-        } catch (err) {
-          console.warn('[PDF] Could not generate Instacart link:', err);
-        }
-      }
     }
 
     // Extract client supplements for the PDF supplement schedule page
@@ -139,7 +123,6 @@ export async function POST(request: Request) {
         nutritionTargets,
         mealPlan,
         groceryList,
-        instacartUrl,
         supplements: supplements.length > 0 ? supplements : undefined,
         fullscriptUrl: supplements.length > 0 ? fullscriptUrl : undefined,
         resources: resources || [],

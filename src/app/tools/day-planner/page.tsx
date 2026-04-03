@@ -1144,16 +1144,12 @@ export default function DayPlannerPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="border-green-300 text-green-700 hover:bg-green-50"
-                          disabled={instacartLoading}
-                          onClick={sendToInstacart}
+                          className="border-green-300 text-green-700 opacity-50 cursor-not-allowed"
+                          disabled
+                          title="Coming soon — production access pending"
                         >
-                          {instacartLoading ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : (
-                            <ShoppingCart className="h-4 w-4 mr-1" />
-                          )}
-                          {instacartUrl ? 'Open List' : 'Instacart'}
+                          <ShoppingCart className="h-4 w-4 mr-1" />
+                          Instacart
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => { setGeneratedPlan(null); setInstacartUrl(null); handleGenerate(); }}>
                           <RefreshCw className="h-4 w-4 mr-1" />
