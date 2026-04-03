@@ -299,7 +299,7 @@ Return a JSON object with this EXACT structure:
     system: CHEF_SYSTEM_PROMPT + '\n\nReturn ONLY valid JSON. No commentary. Ensure all macro calculations are accurate and each meal matches its per-slot budget.',
     userMessage: prompt,
     temperature: 0.5,
-    maxTokens: 4000,
+    maxTokens: 8000,
     jsonMode: true,
     tier: 'standard',
   });
@@ -538,7 +538,7 @@ Return ONLY a JSON object with this structure:
     system: 'You are a precise nutritionist. Return ONLY valid JSON.',
     userMessage: prompt,
     temperature: 0.5,
-    maxTokens: 1500,
+    maxTokens: 2500,
     jsonMode: true,
     tier: 'standard',
   });
