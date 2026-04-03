@@ -93,8 +93,7 @@ import {
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-// Kroger & Instacart integrations paused until production access is validated
-// import { KrogerCartDialog } from '@/components/meal-plan/kroger-cart-dialog';
+import { KrogerCartDialog } from '@/components/meal-plan/kroger-cart-dialog';
 import { consolidateGroceryList } from '@/lib/grocery-utils';
 import type { RawIngredient } from '@/lib/grocery-utils';
 // import { mapDietaryToHealthFilters } from '@/lib/instacart-client';
@@ -405,9 +404,13 @@ export default function MealPlanPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [showGroceryList, setShowGroceryList] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  // Kroger dialog — disabled until integration is validated
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [showKrogerDialog, setShowKrogerDialog] = useState(false);
+  const [showKrogerDialog, setShowKrogerDialog] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.has('kroger_connected') || params.has('kroger_error');
+    }
+    return false;
+  });
   const [servingMultiplier, setServingMultiplier] = useState(1);
   const [mealServingMultipliers, setMealServingMultipliers] = useState<Record<string, number>>({});
   const [showMealServings, setShowMealServings] = useState(false);
@@ -419,6 +422,7 @@ export default function MealPlanPage() {
   // const [selectedRetailerKey, setSelectedRetailerKey] = useState<string>('');
   const [exportOptions, setExportOptions] = useState({
     includeGroceryList: true,
+    includeInstacartLink: false,
     includeRecipes: true,
     includeCoverPage: true,
     includeClientProfile: true,
@@ -1941,6 +1945,7 @@ export default function MealPlanPage() {
           })) : [],
           options: {
             includeGroceryList: exportOptions.includeGroceryList,
+            includeInstacartLink: exportOptions.includeInstacartLink,
             includeRecipes: exportOptions.includeRecipes,
             includeCoverPage: exportOptions.includeCoverPage,
             includeClientProfile: exportOptions.includeClientProfile,
@@ -4058,22 +4063,15 @@ export default function MealPlanPage() {
                                     <TooltipContent><p>Coming soon — production access pending</p></TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 text-xs opacity-50 cursor-not-allowed"
-                                        disabled
-                                      >
-                                        <Store className="h-3 w-3 mr-1" />
-                                        Kroger
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent><p>Coming soon — integration being validated</p></TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => setShowKrogerDialog(true)}
+                                >
+                                  <Store className="h-3 w-3 mr-1" />
+                                  Kroger
+                                </Button>
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -4659,6 +4657,7 @@ export default function MealPlanPage() {
                   { key: 'includeRecipes' as const, label: 'Recipes', icon: Book },
                   { key: 'includeMealContext' as const, label: 'Meal Context', icon: Info },
                   { key: 'includeGroceryList' as const, label: 'Grocery List', icon: ListChecks },
+                  ...(exportOptions.includeGroceryList ? [{ key: 'includeInstacartLink' as const, label: 'Instacart Link', icon: Carrot }] : []),
                   { key: 'includeResources' as const, label: `Resources${clientResources.length > 0 ? ` (${clientResources.length})` : ''}`, icon: FileText },
                 ].map(({ key, label, icon: Icon }) => (
                   <div key={key}
@@ -5418,7 +5417,7 @@ export default function MealPlanPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Kroger Cart Dialog — disabled until integration is validated
+      {/* Kroger Cart Dialog */}
       <KrogerCartDialog
         open={showKrogerDialog}
         onOpenChange={setShowKrogerDialog}
@@ -5426,7 +5425,6 @@ export default function MealPlanPage() {
         clientId={activeClientId || undefined}
         clientName={userProfile.name || undefined}
       />
-      */}
     </div>
   );
 }
