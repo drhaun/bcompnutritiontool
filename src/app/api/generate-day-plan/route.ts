@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { aiChatJSON, getActiveProvider } from '@/lib/ai-client';
-import { containsAIReasoning } from '@/lib/meal-sanitizer';
+import { containsAIReasoning, isPlaceholderMeal } from '@/lib/meal-sanitizer';
 import type { DietPreferences } from '@/types';
 
 interface MealSlot {
@@ -192,8 +192,15 @@ Return JSON:
         || aiResponse.meals?.[index];
       
       const rawName = aiMeal?.name || `${slot.name}`;
-      const rawDescription = aiMeal?.notes || aiMeal?.description || 'A balanced meal for your goals';
+      const rawDescription = aiMeal?.notes || aiMeal?.description || '';
       
+      const rawIngredients = aiMeal?.ingredients?.map((i: { item?: string; amount?: string; calories?: number; protein?: number; carbs?: number; fat?: number }) => 
+        typeof i === 'string' ? i : `${i.amount || ''} ${i.item || ''}`.trim()
+      );
+
+      // Only use AI ingredients if they look like real food items, not placeholders
+      const hasRealIngredients = rawIngredients && rawIngredients.length > 0 && !isPlaceholderMeal({ ingredients: rawIngredients.map(s => ({ item: s })) });
+
       return {
         slot,
         meal: {
@@ -203,12 +210,12 @@ Return JSON:
           protein: Math.round(aiMeal?.totalMacros?.protein || slotTargets[index].protein),
           carbs: Math.round(aiMeal?.totalMacros?.carbs || slotTargets[index].carbs),
           fat: Math.round(aiMeal?.totalMacros?.fat || slotTargets[index].fat),
-          ingredients: aiMeal?.ingredients?.map((i: { item?: string; amount?: string; calories?: number; protein?: number; carbs?: number; fat?: number }) => 
-            typeof i === 'string' ? i : `${i.amount || ''} ${i.item || ''}`.trim()
-          ) || ['Protein source', 'Carb source', 'Vegetables'],
-          instructions: (aiMeal?.instructions || ['Prepare ingredients', 'Cook according to preference', 'Serve and enjoy'])
-            .filter(inst => !containsAIReasoning(inst)),
+          ingredients: hasRealIngredients ? rawIngredients! : [],
+          instructions: hasRealIngredients
+            ? (aiMeal?.instructions || []).filter((inst: string) => !containsAIReasoning(inst))
+            : [],
           prepTime: slot.prepMethod === 'cook' ? 30 : slot.prepMethod === 'leftovers' ? 5 : slot.prepMethod === 'packaged' ? 0 : slot.prepMethod === 'pickup' || slot.prepMethod === 'delivery' ? 5 : 20,
+          incomplete: !hasRealIngredients,
         },
       };
     });

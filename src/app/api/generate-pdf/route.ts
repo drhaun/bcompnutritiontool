@@ -5,6 +5,7 @@ import MealPlanPDF from '@/lib/pdf-generator';
 import { consolidateGroceryList } from '@/lib/grocery-utils';
 import type { RawIngredient } from '@/lib/grocery-utils';
 import type { WeeklyMealPlan, Meal } from '@/types';
+import { isPlaceholderMeal } from '@/lib/meal-sanitizer';
 import {
   isInstacartConfigured,
   createInstacartShoppingList,
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
       for (const [, dayPlan] of Object.entries(mealPlan as WeeklyMealPlan)) {
         if (!dayPlan?.meals) continue;
         for (const meal of dayPlan.meals as Meal[]) {
-          if (!meal?.ingredients) continue;
+          if (!meal?.ingredients || isPlaceholderMeal(meal)) continue;
           for (const ing of meal.ingredients) {
             if (!ing?.item) continue;
             rawIngredients.push({

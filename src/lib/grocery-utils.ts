@@ -502,6 +502,12 @@ export interface GroceryItem {
   usedIn: number;
 }
 
+const PLACEHOLDER_NAMES = new Set([
+  'protein source', 'carb source', 'carbohydrate source', 'fat source',
+  'vegetables', 'vegetable', 'ingredient', 'ingredient 1', 'ingredient 2',
+  'ingredient 3', 'food item', 'item',
+]);
+
 export function consolidateGroceryList(
   ingredients: RawIngredient[],
   servingMultiplier: number,
@@ -509,6 +515,7 @@ export function consolidateGroceryList(
   const ingredientMap = new Map<string, IngredientBucket>();
 
   for (const raw of ingredients) {
+    if (PLACEHOLDER_NAMES.has(raw.item.toLowerCase().trim())) continue;
     const parsed = parseGroceryIngredient(raw.item, raw.amount);
     if (!parsed) continue;
 

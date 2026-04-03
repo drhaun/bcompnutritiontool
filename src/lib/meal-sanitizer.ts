@@ -37,7 +37,51 @@ const AI_REASONING_PATTERNS = [
   /\bcorrecting?\b.*\bmacros?\b/i,
   /\bhere'?s? (my|the|a) (revised|updated|corrected|fixed|new)\b/i,
   /\b(revising|updating|correcting|fixing)\b/i,
+  /\brevised\b/i,
+  /\bcorrection needed\b/i,
+  /\brecalculat/i,
+  /\bsee (corrected|revised|updated) version\b/i,
+  /\brecalculating (below|above|all|to|precisely)\b/i,
 ];
+
+// Placeholder ingredient names that indicate the AI failed to generate real content
+const PLACEHOLDER_INGREDIENTS = new Set([
+  'protein source',
+  'carb source',
+  'carbohydrate source',
+  'fat source',
+  'vegetables',
+  'vegetable',
+  'ingredient 1',
+  'ingredient 2',
+  'ingredient 3',
+  'ingredient',
+]);
+
+/**
+ * Check if an ingredient looks like a placeholder rather than a real food item.
+ */
+export function isPlaceholderIngredient(name: string): boolean {
+  if (!name) return true;
+  return PLACEHOLDER_INGREDIENTS.has(name.toLowerCase().trim());
+}
+
+/**
+ * Check if a meal has placeholder/fallback content instead of real recipes.
+ * Used to detect meals where the AI failed to generate real ingredients.
+ */
+export function isPlaceholderMeal(meal: { ingredients?: { item?: string }[] | string[]; instructions?: string[] }): boolean {
+  if (!meal) return true;
+  const ings = meal.ingredients;
+  if (!ings || ings.length === 0) return true;
+
+  const placeholderCount = ings.filter(i => {
+    const name = typeof i === 'string' ? i : (i?.item || '');
+    return isPlaceholderIngredient(name);
+  }).length;
+
+  return placeholderCount >= ings.length * 0.5;
+}
 
 /**
  * Check if a string contains AI reasoning/thinking text

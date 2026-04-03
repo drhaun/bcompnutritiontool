@@ -12,7 +12,7 @@ import type {
 } from '@/types';
 import { validateMacroAccuracy } from './nutrition-calc';
 import { aiChatJSON } from './ai-client';
-import { sanitizeMealFields, reconcileMealMacros, sanitizeDayPlan } from './meal-sanitizer';
+import { sanitizeMealFields, reconcileMealMacros, sanitizeDayPlan, isPlaceholderMeal } from './meal-sanitizer';
 
 const DAYS_OF_WEEK: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -335,10 +335,12 @@ Return a JSON object with this EXACT structure:
     };
   }
 
-  // Regenerate any meals that have empty ingredients (AI sometimes omits them)
+  // Regenerate any meals that have empty or placeholder ingredients
   for (let i = 0; i < dayPlan.meals.length; i++) {
     const meal = dayPlan.meals[i];
-    if (!meal || (meal.ingredients && meal.ingredients.length > 0)) continue;
+    if (!meal) continue;
+    const needsRegen = !meal.ingredients || meal.ingredients.length === 0 || isPlaceholderMeal(meal);
+    if (!needsRegen) continue;
     try {
       const replacement = await regenerateMeal(
         '',
@@ -348,11 +350,11 @@ Return a JSON object with this EXACT structure:
         dietPreferences || {},
         []
       );
-      if (replacement.ingredients && replacement.ingredients.length > 0) {
+      if (replacement.ingredients && replacement.ingredients.length > 0 && !isPlaceholderMeal(replacement)) {
         dayPlan.meals[i] = { ...replacement, targetMacros: meal.targetMacros, type: meal.type };
       }
     } catch (e) {
-      console.warn(`Failed to regenerate empty-ingredient meal ${i} for ${day}:`, e);
+      console.warn(`Failed to regenerate placeholder/empty meal ${i} for ${day}:`, e);
     }
   }
 

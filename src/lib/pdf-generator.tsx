@@ -18,7 +18,7 @@ import type {
   DayOfWeek,
   WeeklySchedule,
 } from '@/types';
-import { containsAIReasoning } from './meal-sanitizer';
+import { containsAIReasoning, isPlaceholderIngredient, isPlaceholderMeal } from './meal-sanitizer';
 
 // Fitomics Brand Colors
 const COLORS = {
@@ -684,44 +684,52 @@ const MealCard = ({ meal, mealNumber, showRecipes = true, showRationale = true }
       )}
       
       {/* Ingredients Section */}
-      {showRecipes && (
-        <View style={styles.ingredientsList}>
-          <Text style={styles.ingredientsTitle} minPresenceAhead={30}>INGREDIENTS:</Text>
-          {meal.ingredients && meal.ingredients.length > 0 ? (
-            meal.ingredients.map((ing, idx) => (
-              <View key={idx} style={styles.ingredientItem} wrap={false}>
-                <Text style={styles.ingredientBullet}>•</Text>
-                <Text style={styles.ingredientText}>
-                  {ing.amount ? `${ing.amount} ` : ''}{ing.item || 'Ingredient'}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={{ fontSize: 8, color: COLORS.gray, fontStyle: 'italic' }}>
-              See app for detailed ingredient list
-            </Text>
-          )}
-        </View>
-      )}
+      {showRecipes && (() => {
+        const mealIsPlaceholder = isPlaceholderMeal(meal);
+        const realIngredients = (meal.ingredients || []).filter(ing => !isPlaceholderIngredient(ing.item || ''));
+        return (
+          <View style={styles.ingredientsList}>
+            <Text style={styles.ingredientsTitle} minPresenceAhead={30}>INGREDIENTS:</Text>
+            {!mealIsPlaceholder && realIngredients.length > 0 ? (
+              realIngredients.map((ing, idx) => (
+                <View key={idx} style={styles.ingredientItem} wrap={false}>
+                  <Text style={styles.ingredientBullet}>•</Text>
+                  <Text style={styles.ingredientText}>
+                    {ing.amount ? `${ing.amount} ` : ''}{ing.item || 'Ingredient'}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={{ fontSize: 8, color: COLORS.gray, fontStyle: 'italic' }}>
+                Recipe pending — regenerate this meal in the app for full details
+              </Text>
+            )}
+          </View>
+        );
+      })()}
       
       {/* Instructions Section */}
-      {showRecipes && (
-        <View style={styles.instructionsList}>
-          <Text style={styles.instructionsTitle} minPresenceAhead={30}>INSTRUCTIONS:</Text>
-          {meal.instructions && meal.instructions.length > 0 ? (
-            meal.instructions.map((inst, idx) => (
-              <View key={idx} style={styles.instructionItem} wrap={false}>
-                <Text style={styles.instructionNumber}>{idx + 1}.</Text>
-                <Text style={styles.instructionText}>{inst}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={{ fontSize: 8, color: COLORS.gray, fontStyle: 'italic' }}>
-              Prepare according to recipe - see app for detailed instructions
-            </Text>
-          )}
-        </View>
-      )}
+      {showRecipes && (() => {
+        const mealIsPlaceholder = isPlaceholderMeal(meal);
+        const hasRealInstructions = !mealIsPlaceholder && meal.instructions && meal.instructions.length > 0;
+        return (
+          <View style={styles.instructionsList}>
+            <Text style={styles.instructionsTitle} minPresenceAhead={30}>INSTRUCTIONS:</Text>
+            {hasRealInstructions ? (
+              meal.instructions.map((inst, idx) => (
+                <View key={idx} style={styles.instructionItem} wrap={false}>
+                  <Text style={styles.instructionNumber}>{idx + 1}.</Text>
+                  <Text style={styles.instructionText}>{inst}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={{ fontSize: 8, color: COLORS.gray, fontStyle: 'italic' }}>
+                {mealIsPlaceholder ? 'Recipe pending — regenerate this meal in the app' : 'Prepare according to recipe - see app for detailed instructions'}
+              </Text>
+            )}
+          </View>
+        );
+      })()}
     </View>
   );
 };
