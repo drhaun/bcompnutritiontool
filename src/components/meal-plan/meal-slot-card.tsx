@@ -48,6 +48,22 @@ import { toast } from 'sonner';
 import { containsAIReasoning } from '@/lib/meal-sanitizer';
 import type { MealSlot, Meal, Macros, DietPreferences, MealSupplement, DayOfWeek, SupplementEntry } from '@/types';
 
+const PREP_LABELS: Record<string, string> = {
+  cook: 'Cook',
+  leftovers: 'Leftovers',
+  packaged: 'Ready-to-eat',
+  pickup: 'Takeout',
+  delivery: 'Delivery',
+  skip: 'Skipped',
+};
+const LOCATION_LABELS: Record<string, string> = {
+  home: 'Home',
+  office: 'Office',
+  on_the_go: 'On the Go',
+  restaurant: 'Restaurant',
+  gym: 'Gym',
+};
+
 // Quick adjustment suggestions with macro impact
 const QUICK_ADJUSTMENTS = {
   protein: {
@@ -156,6 +172,9 @@ interface MealSlotCardProps {
   // Per-meal generation options
   genOptions?: { maxIngredients?: number; availableFoods?: string[] };
   onGenOptionsChange?: (slotIndex: number, opts: { maxIngredients?: number; availableFoods?: string[] }) => void;
+  // Override skip state for this slot
+  skipOverridden?: boolean;
+  onToggleSkipOverride?: (slotIndex: number) => void;
 }
 
 export function MealSlotCard({
@@ -191,6 +210,8 @@ export function MealSlotCard({
   allSlotLabels,
   genOptions,
   onGenOptionsChange,
+  skipOverridden,
+  onToggleSkipOverride,
 }: MealSlotCardProps) {
   const { addFavoriteRecipe, removeFavoriteRecipe, favoriteRecipes } = useFitomicsStore();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -205,6 +226,11 @@ export function MealSlotCard({
   const [copyTargetSlot, setCopyTargetSlot] = useState<string>('same');
   const [showGenOptions, setShowGenOptions] = useState(false);
   const [localAvailableFoods, setLocalAvailableFoods] = useState(genOptions?.availableFoods?.join(', ') || '');
+
+  const isProfileSkipped = slot.mealContext?.prepMethod === 'skip';
+  const isEffectivelySkipped = isProfileSkipped && !skipOverridden;
+  const prepLabel = slot.mealContext?.prepMethod && slot.mealContext.prepMethod !== 'skip' ? PREP_LABELS[slot.mealContext.prepMethod] : null;
+  const locationLabel = slot.mealContext?.location ? LOCATION_LABELS[slot.mealContext.location] : null;
 
   // Smart macro edit: when P/C/F change, auto-recalculate calories
   const handleSlotMacroEdit = (key: keyof Macros, raw: string) => {
@@ -409,6 +435,37 @@ export function MealSlotCard({
 
   // ============ EMPTY STATE ============
   if (!hasMeal) {
+    if (isEffectivelySkipped) {
+      return (
+        <Card className="border-dashed border-2 border-muted opacity-60 bg-muted/20">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground line-through">
+                {slot.type === 'meal' ? <Utensils className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                {slot.label}
+              </CardTitle>
+              <Badge variant="secondary" className="text-[10px] font-normal">Skipped</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 pb-3">
+            <p className="text-xs text-muted-foreground mb-2">
+              {slot.mealContext?.clientNotes || 'Client typically skips this meal.'}
+            </p>
+            {onToggleSkipOverride && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => onToggleSkipOverride(slot.slotIndex)}
+              >
+                Override — plan this meal
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      );
+    }
+
     return (
       <Card className={cn(
         'border-dashed border-2 transition-all',
@@ -416,10 +473,19 @@ export function MealSlotCard({
       )}>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              {slot.type === 'meal' ? <Utensils className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
-              {slot.label}
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                {slot.type === 'meal' ? <Utensils className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                {slot.label}
+              </CardTitle>
+              {prepLabel && <Badge variant="outline" className="text-[10px] font-normal">{prepLabel}</Badge>}
+              {locationLabel && <Badge variant="outline" className="text-[10px] font-normal">{locationLabel}</Badge>}
+              {isProfileSkipped && skipOverridden && (
+                <Badge variant="outline" className="text-[10px] font-normal text-amber-600 border-amber-300 cursor-pointer" onClick={() => onToggleSkipOverride?.(slot.slotIndex)}>
+                  Skip restored ✕
+                </Badge>
+              )}
+            </div>
             <span className="text-xs text-muted-foreground">{slot.timeSlot}</span>
           </div>
         </CardHeader>
@@ -863,7 +929,7 @@ export function MealSlotCard({
     )}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <CardTitle className="text-sm font-medium">{slot.label}</CardTitle>
             {slot.isLocked && (
               <Badge variant="secondary" className="text-xs">
@@ -871,6 +937,8 @@ export function MealSlotCard({
                 Locked
               </Badge>
             )}
+            {prepLabel && <Badge variant="outline" className="text-[10px] font-normal">{prepLabel}</Badge>}
+            {locationLabel && <Badge variant="outline" className="text-[10px] font-normal">{locationLabel}</Badge>}
           </div>
           <div className="flex items-center gap-1">
             <Button 

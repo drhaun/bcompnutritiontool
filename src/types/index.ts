@@ -700,6 +700,11 @@ export interface MealSlot {
   isLocked: boolean;         // Prevent regeneration
   timeSlot: string;          // Suggested time for this meal
   workoutRelation: 'pre-workout' | 'post-workout' | 'none';
+  mealContext?: {             // Context from profile setup
+    prepMethod?: string;     // cook, leftovers, packaged, pickup, delivery, skip
+    location?: string;       // home, office, on_the_go, restaurant, gym
+    clientNotes?: string;
+  };
 }
 
 // Request for generating a single meal

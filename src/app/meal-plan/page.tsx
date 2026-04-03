@@ -389,6 +389,7 @@ export default function MealPlanPage() {
   const [generatingSlots, setGeneratingSlots] = useState<Record<number, boolean>>({});
   const [generatingNotes, setGeneratingNotes] = useState<Record<number, boolean>>({});
   const [slotGenOptions, setSlotGenOptions] = useState<Record<number, { maxIngredients?: number; availableFoods?: string[] }>>({});
+  const [skipOverrides, setSkipOverrides] = useState<Record<string, boolean>>({});
   const [editingSlot, setEditingSlot] = useState<number | null>(null);
   const [swappingSlot, setSwappingSlot] = useState<number | null>(null);
   const [browsingRecipesSlot, setBrowsingRecipesSlot] = useState<number | null>(null);
@@ -1071,6 +1072,7 @@ export default function MealPlanPage() {
     
     return slotLabels.map((slot, idx) => {
       const existingMeal = dayPlan?.meals?.[idx] || null;
+      const ctx = daySchedule?.mealContexts?.[idx];
       
       let workoutRelation: 'pre-workout' | 'post-workout' | 'none' = 'none';
       if (idx === preWorkoutIdx) workoutRelation = 'pre-workout';
@@ -1087,6 +1089,7 @@ export default function MealPlanPage() {
         isLocked: existingMeal?.isLocked || false,
         timeSlot: timeSlots[idx],
         workoutRelation,
+        mealContext: ctx ? { prepMethod: ctx.prepMethod, location: ctx.location, clientNotes: ctx.clientNotes } : undefined,
       };
     });
   }, [currentDay, slotLabels, timeSlots, slotTargets, dayPlan, daySchedule, slotTargetOverrides]);
@@ -1699,6 +1702,8 @@ export default function MealPlanPage() {
       for (let idx = 0; idx < mealSlots.length; idx++) {
         if (cancelGenerationRef.current) break;
         if (mealSlots[idx].meal?.isLocked) continue;
+        const ctx = mealSlots[idx].mealContext;
+        if (ctx?.prepMethod === 'skip' && !skipOverrides[`${currentDay}-${idx}`]) continue;
         
         await handleGenerateMeal(idx);
       }
@@ -3742,6 +3747,8 @@ export default function MealPlanPage() {
                             allSlotLabels={slotLabels.map(s => s.label)}
                             genOptions={slotGenOptions[idx]}
                             onGenOptionsChange={(i, opts) => setSlotGenOptions(prev => ({ ...prev, [i]: opts }))}
+                            skipOverridden={skipOverrides[`${currentDay}-${idx}`] || false}
+                            onToggleSkipOverride={(i) => setSkipOverrides(prev => ({ ...prev, [`${currentDay}-${i}`]: !prev[`${currentDay}-${i}`] }))}
                           />
                         ))}
                       </div>
@@ -3971,6 +3978,8 @@ export default function MealPlanPage() {
                             allSlotLabels={slotLabels.map(s => s.label)}
                             genOptions={slotGenOptions[idx]}
                             onGenOptionsChange={(i, opts) => setSlotGenOptions(prev => ({ ...prev, [i]: opts }))}
+                            skipOverridden={skipOverrides[`${selectedDay}-${idx}`] || false}
+                            onToggleSkipOverride={(i) => setSkipOverrides(prev => ({ ...prev, [`${selectedDay}-${i}`]: !prev[`${selectedDay}-${i}`] }))}
                           />
                         ))}
                       </div>

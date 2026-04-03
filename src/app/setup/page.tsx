@@ -348,7 +348,7 @@ const FASTING_PROTOCOLS = [
 const COMMON_SUPPLEMENTS: { category: string; items: string[] }[] = [
   { category: 'Protein & Amino Acids', items: ['Whey Protein', 'Casein Protein', 'Plant Protein', 'EAA (Essential Amino Acids)', 'BCAA', 'Collagen Peptides'] },
   { category: 'Performance', items: ['Creatine Monohydrate', 'Beta-Alanine', 'Caffeine', 'Citrulline Malate', 'Pre-Workout Blend', 'Carb Powder (Cluster Dextrin/Cyclic Dextrin)'] },
-  { category: 'Health & Recovery', items: ['Fish Oil / Omega-3', 'Vitamin D3', 'Magnesium', 'Zinc', 'Multivitamin', 'Probiotic', 'Ashwagandha', 'Turmeric / Curcumin'] },
+  { category: 'Health & Recovery', items: ['Fish Oil / Omega-3', 'Vitamin D3', 'Calcium', 'Magnesium', 'Zinc', 'Multivitamin', 'Probiotic', 'Ashwagandha', 'Turmeric / Curcumin'] },
   { category: 'Electrolytes & Hydration', items: ['Electrolyte Mix', 'Sodium / Salt Tabs', 'Potassium'] },
   { category: 'Digestive', items: ['Digestive Enzymes', 'Fiber Supplement', 'Glutamine'] },
   { category: 'Sleep & Stress', items: ['Melatonin', 'Magnesium Glycinate', 'Theanine', 'GABA'] },
@@ -395,8 +395,8 @@ const MEAL_TEMPLATES = [
   {
     id: 'intermittent',
     name: 'Intermittent Fasting',
-    description: '16:8 protocol, 2-3 meals in eating window',
-    settings: { meals: 2, snacks: 1, distribution: 'steady', preWorkout: false, postWorkout: true, fasting: '16_8' }
+    description: '16:8 protocol, skip breakfast, lunch + dinner in eating window',
+    settings: { meals: 3, snacks: 1, distribution: 'steady', preWorkout: false, postWorkout: true, fasting: '16_8' }
   },
   {
     id: 'bodybuilder',
@@ -1296,18 +1296,22 @@ export default function SetupPage() {
   useEffect(() => {
     const contexts: MealContext[] = [];
     
-    // Add meals
+    // Add meals — labels adjust based on fasting protocol
+    const feedingStartHour = parseInt(feedingWindowStart.split(':')[0], 10);
+    const isFasting = fastingProtocol !== 'none';
+
+    const standardLabels = ['Breakfast', 'Lunch', 'Dinner', 'Meal 4', 'Meal 5', 'Meal 6'];
+    const standardTimes = ['Morning (7-10 AM)', 'Midday (12-2 PM)', 'Evening (5-8 PM)', 'Night (8-10 PM)', 'Late Morning (10 AM-12 PM)', 'Afternoon (2-5 PM)'];
+
     for (let i = 0; i < mealsPerDay; i++) {
-      const mealLabels = ['Breakfast', 'Lunch', 'Dinner', 'Meal 4', 'Meal 5', 'Meal 6'];
-      const timeRanges = ['Morning (7-10 AM)', 'Midday (12-2 PM)', 'Evening (5-8 PM)', 'Night (8-10 PM)', 'Late Morning (10 AM-12 PM)', 'Afternoon (2-5 PM)'];
       contexts.push({
         id: `meal-${i + 1}`,
-        label: mealLabels[i] || `Meal ${i + 1}`,
+        label: standardLabels[i] || `Meal ${i + 1}`,
         type: 'meal',
-        prepMethod: defaultMealPrepMethod,
+        prepMethod: (isFasting && i === 0 && feedingStartHour >= 11) ? 'skip' as MealPrepMethod : defaultMealPrepMethod,
         prepTime: '15-30 min',
         location: defaultMealLocation,
-        timeRange: timeRanges[i] || 'Midday (12-2 PM)',
+        timeRange: standardTimes[i] || 'Midday (12-2 PM)',
         isPrimary: i < 3,
       });
     }
@@ -1328,7 +1332,7 @@ export default function SetupPage() {
     }
     
     setMealContexts(contexts);
-  }, [mealsPerDay, snacksPerDay, defaultMealPrepMethod, defaultMealLocation, defaultSnackPrepMethod, defaultSnackLocation]);
+  }, [mealsPerDay, snacksPerDay, defaultMealPrepMethod, defaultMealLocation, defaultSnackPrepMethod, defaultSnackLocation, fastingProtocol, feedingWindowStart]);
 
   // Update individual meal context
   const updateMealContext = (id: string, field: keyof MealContext, value: string | boolean) => {
@@ -3800,6 +3804,12 @@ export default function SetupPage() {
                                 if (template.settings.fasting === '16_8') {
                                   setFeedingWindowStart('12:00');
                                   setFeedingWindowEnd('20:00');
+                                  // Auto-skip breakfast for IF — will be applied after mealContexts rebuild
+                                  setTimeout(() => {
+                                    setMealContexts(prev => prev.map(ctx =>
+                                      ctx.id === 'meal-1' ? { ...ctx, prepMethod: 'skip' as MealPrepMethod, clientNotes: 'Skips breakfast (intermittent fasting)' } : ctx
+                                    ));
+                                  }, 0);
                                 }
                               }}
                               className="p-3 text-left border rounded-lg hover:border-[#c19962] hover:bg-[#c19962]/5 transition-all"
@@ -3881,22 +3891,27 @@ export default function SetupPage() {
                           </p>
                           
                           <Accordion type="multiple" className="w-full">
-                            {mealContexts.map((meal) => (
-                              <AccordionItem key={meal.id} value={meal.id} className="border rounded-lg mb-2 px-3">
+                            {mealContexts.map((meal) => {
+                              const isSkipped = meal.prepMethod === 'skip';
+                              return (
+                              <AccordionItem key={meal.id} value={meal.id} className={cn("border rounded-lg mb-2 px-3", isSkipped && "opacity-60 bg-muted/30")}>
                                 <AccordionTrigger className="hover:no-underline py-3">
                                   <div className="flex items-center gap-3 text-left">
                                     <div className={cn(
                                       "p-1.5 rounded",
-                                      meal.type === 'meal' ? "bg-[#c19962]/20" : "bg-muted"
+                                      isSkipped ? "bg-muted" : meal.type === 'meal' ? "bg-[#c19962]/20" : "bg-muted"
                                     )}>
                                       {meal.type === 'meal' ? (
-                                        <Utensils className="h-3.5 w-3.5 text-[#c19962]" />
+                                        <Utensils className={cn("h-3.5 w-3.5", isSkipped ? "text-muted-foreground" : "text-[#c19962]")} />
                                       ) : (
                                         <Coffee className="h-3.5 w-3.5 text-muted-foreground" />
                                       )}
                                     </div>
                                     <div>
-                                      <span className="font-medium text-sm">{meal.label}</span>
+                                      <span className={cn("font-medium text-sm", isSkipped && "line-through text-muted-foreground")}>
+                                        {meal.label}
+                                        {isSkipped && <span className="ml-2 no-underline text-xs font-normal text-muted-foreground">(skipped)</span>}
+                                      </span>
                                       <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
                                         <span>{MEAL_PREP_METHODS.find(m => m.value === meal.prepMethod)?.label}</span>
                                         <span>•</span>
@@ -4002,7 +4017,8 @@ export default function SetupPage() {
                                   </div>
                                 </AccordionContent>
                               </AccordionItem>
-                            ))}
+                              );
+                            })}
                           </Accordion>
                         </div>
                       </CardContent>
