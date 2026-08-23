@@ -11,6 +11,8 @@ import { NextResponse } from 'next/server';
  *      - Configure OAuth scopes: Clinic:read, Clinic:write, Patients:write, Patients:treatment_plan_history
  *      - Set the redirect URI for the OAuth callback
  *   2. Add FULLSCRIPT_CLIENT_ID and FULLSCRIPT_CLIENT_SECRET to .env.local
+ *      (Vercel stores these as FULLSCRIPT_PRODUCTION_CLIENT_ID / FULLSCRIPT_PRODUCTION_CLIENT_SECRET;
+ *      both names are accepted)
  *   3. Implement the OAuth connect/callback flow to obtain and store the practitioner's access_token
  *   4. Use the stored access_token here to call the session_grants endpoint
  *
@@ -27,8 +29,10 @@ import { NextResponse } from 'next/server';
  * The secret_token returned is single-use and must be consumed within 120 seconds.
  */
 export async function POST() {
-  const clientId = process.env.FULLSCRIPT_CLIENT_ID;
-  const clientSecret = process.env.FULLSCRIPT_CLIENT_SECRET;
+  const clientId =
+    process.env.FULLSCRIPT_CLIENT_ID || process.env.FULLSCRIPT_PRODUCTION_CLIENT_ID;
+  const clientSecret =
+    process.env.FULLSCRIPT_CLIENT_SECRET || process.env.FULLSCRIPT_PRODUCTION_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
     return NextResponse.json(

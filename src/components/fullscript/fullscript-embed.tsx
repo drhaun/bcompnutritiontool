@@ -16,7 +16,12 @@ const DISPENSARY_URL =
 const PRACTITIONER_BASE = 'https://us.fullscript.com';
 const PRACTITIONER_CATALOG = `${PRACTITIONER_BASE}/catalog`;
 
-const PUBLIC_KEY = process.env.NEXT_PUBLIC_FULLSCRIPT_PUBLIC_KEY || '';
+// Vercel stores the key as NEXT_PUBLIC_PRODUCTION_FULLSCRIPT_PUBLIC_KEY; accept either name.
+// Both must stay as literal process.env.NEXT_PUBLIC_* references so Next.js inlines them.
+const PUBLIC_KEY =
+  process.env.NEXT_PUBLIC_FULLSCRIPT_PUBLIC_KEY ||
+  process.env.NEXT_PUBLIC_PRODUCTION_FULLSCRIPT_PUBLIC_KEY ||
+  '';
 const FS_ENV = (process.env.NEXT_PUBLIC_FULLSCRIPT_ENV || 'us-snd') as
   | 'us'
   | 'ca'
